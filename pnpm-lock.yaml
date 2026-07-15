@@ -7,6 +7,16 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:packages/audit
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:packages/database
     devDependencies:
       '@aws-sdk/client-s3':
         specifier: 3.1087.0
@@ -68,6 +78,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@evaluation/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -170,7 +183,17 @@ importers:
 
   packages/ai-routing: {}
 
-  packages/audit: {}
+  packages/audit:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/auth:
     dependencies:

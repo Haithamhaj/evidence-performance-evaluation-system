@@ -1,6 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { syncOidcUser, validateAccessToken } from "@evaluation/auth";
 import { AppError } from "@evaluation/contracts";
 
 interface AuthenticatedRequest {
@@ -31,8 +30,8 @@ export class AuthGuard {
   constructor(
     validationConfig: import("@evaluation/auth").AccessTokenValidationConfig,
     database: import("@evaluation/auth").UserSyncClient,
-    tokenValidator: TokenValidator = validateAccessToken,
-    userSynchronizer: UserSynchronizer = syncOidcUser,
+    tokenValidator: TokenValidator,
+    userSynchronizer: UserSynchronizer,
   ) {
     this.validationConfig = validationConfig;
     this.database = database;

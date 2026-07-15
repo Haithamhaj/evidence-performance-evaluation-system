@@ -149,6 +149,18 @@ describe("authorization decision contract", () => {
     ).toEqual({ allowed: false, reasonCode: "ROLE_REQUIRED" });
   });
 
+  it("allows only the scoped System Administrator to query audit events", () => {
+    const resource = { kind: "system", systemId: "evaluation-system" } as const;
+    expect(decide(administrator, "audit.query", resource, baseContext)).toEqual({ allowed: true });
+    expect(decide(employee, "audit.query", resource, baseContext)).toEqual({
+      allowed: false,
+      reasonCode: "ROLE_REQUIRED",
+    });
+    expect(
+      decide(administrator, "audit.query", { ...resource, systemId: "other-system" }, baseContext),
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
+  });
+
   it("allows an acting owner only during the matching responsibility window", () => {
     expect(
       decide(

@@ -7,10 +7,22 @@ const oidcPrincipal: import("./index.js").ValidatedOidcPrincipal = {
   email: "employee@pilot.local",
   issuer: "http://localhost:8081/realms/evaluation",
 };
+const systemScopeId = "82b5867a-8d1f-4df4-bf05-74586d952ab1";
+
+function auditWriter() {
+  return {
+    append: vi.fn().mockResolvedValue({
+      id: "e6f6ae79-4021-4a1e-b906-ef3e6a185e66",
+      createdAt: "2026-07-16T00:00:00.000Z",
+    }),
+  };
+}
 
 function clientForUser(user: { id: string; email: string; displayName: string; active: boolean }) {
   const update = vi.fn().mockResolvedValue(user);
   const transaction = {
+    auditEvent: { create: vi.fn() },
+    authorizationScope: { findUnique: vi.fn().mockResolvedValue({ id: systemScopeId }) },
     oidcIdentity: {
       findUnique: vi.fn().mockResolvedValue({ user }),
       create: vi.fn(),
@@ -37,7 +49,8 @@ describe("OIDC user synchronization", () => {
       active: true,
     });
 
-    await expect(syncOidcUser(client, oidcPrincipal, "Pilot Employee")).resolves.toEqual({
+    const writer = auditWriter();
+    await expect(syncOidcUser(client, oidcPrincipal, writer, "Pilot Employee")).resolves.toEqual({
       userId: "9a11bb8f-79f5-4a72-a98f-2e763e97699b",
       oidcSubject: "oidc-user-1",
       email: "employee@pilot.local",
@@ -48,6 +61,14 @@ describe("OIDC user synchronization", () => {
       where: { id: "9a11bb8f-79f5-4a72-a98f-2e763e97699b" },
       data: { displayName: "Pilot Employee", email: "employee@pilot.local" },
     });
+    expect(writer.append).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        eventType: "identity.synchronized",
+        scopeId: systemScopeId,
+        targetId: "9a11bb8f-79f5-4a72-a98f-2e763e97699b",
+      }),
+    );
   });
 
   it("never reactivates and denies an inactive internal user", async () => {
@@ -58,7 +79,9 @@ describe("OIDC user synchronization", () => {
       active: false,
     });
 
-    await expect(syncOidcUser(client, oidcPrincipal, "Pilot Employee")).rejects.toMatchObject({
+    await expect(
+      syncOidcUser(client, oidcPrincipal, auditWriter(), "Pilot Employee"),
+    ).rejects.toMatchObject({
       code: "AUTH_USER_INACTIVE",
       messageKey: "errors.auth.userInactive",
       status: 403,
@@ -81,6 +104,8 @@ describe("OIDC user synchronization", () => {
       releaseCreates = resolve;
     });
     const transaction = {
+      auditEvent: { create: vi.fn() },
+      authorizationScope: { findUnique: vi.fn().mockResolvedValue({ id: systemScopeId }) },
       oidcIdentity: {
         findUnique: vi.fn(async () =>
           identityExists && persistedUser !== null ? { user: persistedUser } : null,
@@ -108,8 +133,8 @@ describe("OIDC user synchronization", () => {
     };
 
     const results = await Promise.all([
-      syncOidcUser(client, oidcPrincipal, "Pilot Employee"),
-      syncOidcUser(client, oidcPrincipal, "Pilot Employee"),
+      syncOidcUser(client, oidcPrincipal, auditWriter(), "Pilot Employee"),
+      syncOidcUser(client, oidcPrincipal, auditWriter(), "Pilot Employee"),
     ]);
 
     expect(results[0]).toEqual(results[1]);
@@ -123,7 +148,7 @@ describe("OIDC user synchronization", () => {
       $transaction: vi.fn().mockRejectedValue(conflict),
     };
 
-    await expect(syncOidcUser(client, oidcPrincipal)).rejects.toBe(conflict);
+    await expect(syncOidcUser(client, oidcPrincipal, auditWriter())).rejects.toBe(conflict);
     expect(client.$transaction).toHaveBeenCalledTimes(3);
   });
 
@@ -133,7 +158,7 @@ describe("OIDC user synchronization", () => {
       $transaction: vi.fn().mockRejectedValue(failure),
     };
 
-    await expect(syncOidcUser(client, oidcPrincipal)).rejects.toBe(failure);
+    await expect(syncOidcUser(client, oidcPrincipal, auditWriter())).rejects.toBe(failure);
     expect(client.$transaction).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { AuditModule } from "./audit/audit.module.js";
 import { PermissionsModule } from "./permissions/permissions.module.js";
 import { CorrelationMiddleware } from "./platform/correlation.middleware.js";
 import {
@@ -15,7 +16,7 @@ export class AppModule {
 }
 
 Module({
-  imports: [PermissionsModule],
+  imports: [AuditModule, PermissionsModule],
   controllers: [HealthController],
   providers: [{ provide: READINESS_PROBES, useFactory: createEnvironmentReadinessProbes }],
 })(AppModule);

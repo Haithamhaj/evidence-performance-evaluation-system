@@ -5,6 +5,7 @@ import {
   syncOidcUser,
   validateAccessToken,
 } from "@evaluation/auth";
+import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
 
 import { ManagedAuthDatabaseClient } from "./auth-database.js";
@@ -48,7 +49,13 @@ Module({
         ),
     },
     { provide: AUTH_TOKEN_VALIDATOR, useValue: validateAccessToken },
-    { provide: AUTH_USER_SYNCHRONIZER, useValue: syncOidcUser },
+    {
+      provide: AUTH_USER_SYNCHRONIZER,
+      useValue: (
+        client: import("@evaluation/auth").UserSyncClient,
+        principal: import("@evaluation/auth").ValidatedOidcPrincipal,
+      ) => syncOidcUser(client, principal, databaseAuditWriter),
+    },
     AuthGuard,
   ],
   exports: [AuthGuard],

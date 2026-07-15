@@ -108,3 +108,27 @@ model RoleAssignment {
   @@index([userId])
   @@index([scopeType, scopeId])
 }
+
+model AuditEvent {
+  id                 String   @id @default(uuid()) @db.Uuid
+  eventType          String
+  actorKind          String
+  actorId            String
+  effectiveSubjectId String   @db.Uuid
+  scopeType          String
+  scopeId            String   @db.Uuid
+  targetType         String
+  targetId           String   @db.Uuid
+  reason             String?
+  safeDiff           Json?
+  correlationId      String   @db.Uuid
+  source             String
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([eventType, createdAt, id])
+  @@index([actorKind, actorId, createdAt, id])
+  @@index([scopeType, scopeId, createdAt, id])
+  @@index([targetType, targetId, createdAt, id])
+  @@index([correlationId])
+  @@index([createdAt, id])
+}

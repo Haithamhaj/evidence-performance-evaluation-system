@@ -25,6 +25,7 @@ export type PolicyInput = Readonly<{
 }>;
 
 export type PolicyAction =
+  | "audit.query"
   | "managerFeedback.response.read"
   | "department.manage"
   | "system.configure"

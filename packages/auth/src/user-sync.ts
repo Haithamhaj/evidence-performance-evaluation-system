@@ -8,6 +8,12 @@ interface InternalUser {
 }
 
 interface UserSyncTransaction {
+  readonly auditEvent: {
+    create(args: unknown): Promise<{ createdAt: Date; id: string }>;
+  };
+  readonly authorizationScope: {
+    findUnique(args: unknown): Promise<{ id: string } | null>;
+  };
   readonly oidcIdentity: {
     findUnique(args: unknown): Promise<{ user: InternalUser } | null>;
     create(args: unknown): Promise<unknown>;
@@ -36,6 +42,7 @@ function isRetryableSyncConflict(error: unknown): boolean {
 async function synchronizeOnce(
   client: UserSyncClient,
   principal: import("./principal.js").ValidatedOidcPrincipal,
+  auditWriter: import("@evaluation/contracts").AuditWriter<UserSyncTransaction>,
   displayName: string,
 ): Promise<import("./principal.js").AuthenticatedPrincipal> {
   return client.$transaction(async (transaction) => {
@@ -81,6 +88,23 @@ async function synchronizeOnce(
 
     if (!user.active) inactiveUser();
 
+    const systemScope = await transaction.authorizationScope.findUnique({
+      where: { key: "system" },
+    });
+    if (systemScope === null) throw new Error("Canonical system authorization scope is missing");
+    await auditWriter.append(transaction, {
+      eventType: "identity.synchronized",
+      actor: { kind: "human", id: user.id },
+      effectiveSubjectId: user.id,
+      scopeType: "system",
+      scopeId: systemScope.id,
+      targetType: "user",
+      targetId: user.id,
+      correlationId: crypto.randomUUID(),
+      source: "api",
+      safeDiff: { fields: ["displayName", "email"] },
+    });
+
     return {
       userId: user.id,
       oidcSubject: principal.oidcSubject,
@@ -94,12 +118,13 @@ async function synchronizeOnce(
 export async function syncOidcUser(
   client: UserSyncClient,
   principal: import("./principal.js").ValidatedOidcPrincipal,
+  auditWriter: import("@evaluation/contracts").AuditWriter<UserSyncTransaction>,
   displayName: string = principal.email,
 ): Promise<import("./principal.js").AuthenticatedPrincipal> {
   const maximumAttempts = 3;
   for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
     try {
-      return await synchronizeOnce(client, principal, displayName);
+      return await synchronizeOnce(client, principal, auditWriter, displayName);
     } catch (error) {
       if (!isRetryableSyncConflict(error) || attempt === maximumAttempts) throw error;
     }

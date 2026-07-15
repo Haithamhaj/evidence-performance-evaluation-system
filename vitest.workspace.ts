@@ -11,6 +11,7 @@ export default [
   defineProject({
     test: {
       name: "integration",
+      fileParallelism: false,
       include: [
         "tests/integration/**/*.test.ts",
         "apps/**/*.integration.test.ts",

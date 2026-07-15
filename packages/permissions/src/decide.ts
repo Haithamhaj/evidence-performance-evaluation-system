@@ -115,6 +115,7 @@ function decideKnownAction(
       return hasScopedRole(subject, "manager", "department", resource.departmentId)
         ? allow
         : deny("SCOPE_MISMATCH");
+    case "audit.query":
     case "system.configure":
       if (!hasRole(subject, "system_administrator")) return deny("ROLE_REQUIRED");
       if (resource.kind !== "system") return deny("RESOURCE_STATE");

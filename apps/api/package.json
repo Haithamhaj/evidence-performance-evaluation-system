@@ -11,6 +11,7 @@
     "test": "vitest run --root ../.. apps/api/src"
   },
   "dependencies": {
+    "@evaluation/audit": "workspace:*",
     "@evaluation/auth": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",

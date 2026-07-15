@@ -7,6 +7,11 @@
     "node": "24.18.0",
     "pnpm": "11.13.0"
   },
+  "dependencies": {
+    "@evaluation/audit": "workspace:*",
+    "@evaluation/contracts": "workspace:*",
+    "@evaluation/database": "workspace:*"
+  },
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",

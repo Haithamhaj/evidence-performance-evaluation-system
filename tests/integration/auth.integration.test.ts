@@ -16,6 +16,7 @@ import {
   sealAuthCookie,
   startOidcLogin,
 } from "../../apps/web/src/auth/oidc.js";
+import { seedPilotWithAudit } from "../../scripts/seed-pilot.js";
 
 const issuer = process.env.OIDC_ISSUER ?? "http://127.0.0.1:8081/realms/evaluation";
 const keycloakBaseUrl = new URL(issuer).origin;
@@ -208,6 +209,10 @@ async function stopApi(): Promise<void> {
 }
 
 beforeAll(async () => {
+  await seedPilotWithAudit(database, {
+    managerSubject: "pilot-manager",
+    adminSubject: "system-admin",
+  });
   const tokenResponse = await adminToken();
   expect(tokenResponse.status).toBe(200);
   adminAccessToken = String(
