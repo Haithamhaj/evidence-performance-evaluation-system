@@ -14,110 +14,214 @@ const migrationsPath = path.join(databasePackage, "prisma/migrations");
 const requireFromDatabase = createRequire(path.join(databasePackage, "package.json"));
 const { Client } = requireFromDatabase("pg");
 
-const testDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
-const superuserPassword = requiredEnvironment("POSTGRES_SUPERUSER_PASSWORD");
-const testTarget = parsePostgresUrl(testDatabaseUrl, "TEST_DATABASE_URL");
-const owner = decodeURIComponent(testTarget.username);
-
-if (owner.length === 0) {
-  fail("Migration verification requires a database owner in TEST_DATABASE_URL");
+const mainModulePath = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
+if (mainModulePath === fileURLToPath(import.meta.url)) {
+  await main();
 }
 
-const suffix = randomBytes(6).toString("hex");
-const disposableNames = [
-  `evaluation_verify_empty_${suffix}`,
-  `evaluation_verify_previous_${suffix}`,
-  `evaluation_verify_rebuild_${suffix}`,
-];
-const [emptyDatabase, previousDatabase, rebuildDatabase] = disposableNames;
-const adminTarget = new URL(testTarget);
-adminTarget.username = process.env.POSTGRES_SUPERUSER_USERNAME ?? "postgres";
-adminTarget.password = superuserPassword;
-adminTarget.pathname = "/postgres";
-adminTarget.search = "";
+async function main() {
+  const testDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
+  const superuserPassword = requiredEnvironment("POSTGRES_SUPERUSER_PASSWORD");
+  const testTarget = parsePostgresUrl(testDatabaseUrl, "TEST_DATABASE_URL");
+  const owner = decodeURIComponent(testTarget.username);
 
-const admin = new Client({ connectionString: adminTarget.toString() });
-let connected = false;
-let previousMigrationsPath;
-
-try {
-  const migrationDirectories = (await readdir(migrationsPath, { withFileTypes: true }))
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
-
-  if (migrationDirectories.length === 0) {
-    fail("Migration verification requires at least one migration");
+  if (owner.length === 0) {
+    fail("Migration verification requires a database owner in TEST_DATABASE_URL");
   }
 
-  await admin.connect();
-  connected = true;
-  for (const databaseName of disposableNames) {
-    await admin.query(
-      `CREATE DATABASE ${quoteIdentifier(databaseName)} OWNER ${quoteIdentifier(owner)}`,
-    );
-  }
+  const suffix = randomBytes(6).toString("hex");
+  const disposableNames = [
+    `evaluation_verify_empty_${suffix}`,
+    `evaluation_verify_previous_${suffix}`,
+    `evaluation_verify_rebuild_${suffix}`,
+  ];
+  const [emptyDatabase, previousDatabase, rebuildDatabase] = disposableNames;
+  const adminTarget = new URL(testTarget);
+  adminTarget.username = process.env.POSTGRES_SUPERUSER_USERNAME ?? "postgres";
+  adminTarget.password = superuserPassword;
+  adminTarget.pathname = "/postgres";
+  adminTarget.search = "";
 
-  const emptyTarget = databaseUrlFor(emptyDatabase);
-  const previousTarget = databaseUrlFor(previousDatabase);
-  const rebuildTarget = databaseUrlFor(rebuildDatabase);
+  const admin = new Client({ connectionString: adminTarget.toString() });
+  let connected = false;
+  let previousMigrationsPath;
 
-  await deployMigrations(emptyTarget);
-  await assertNoDrift(emptyTarget);
-  await runIntegrationTest(emptyTarget);
+  await executeVerificationWithCleanup(
+    async () => {
+      const migrationDirectories = (await readdir(migrationsPath, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort();
 
-  const previousMigrationDirectories = migrationDirectories.slice(0, -1);
-  if (previousMigrationDirectories.length === 0) {
-    if ((await readSchema(previousTarget)) !== serializedEmptySchema()) {
-      fail("The previous snapshot for the first migration must be empty");
-    }
-    console.log("Previous snapshot verified as empty: 0001 is the first migration.");
-  } else {
-    previousMigrationsPath = await buildPreviousMigrations(previousMigrationDirectories);
-    await deployMigrations(previousTarget, previousMigrationsPath);
-    console.log(
-      `Previous snapshot applied through ${previousMigrationDirectories.at(-1) ?? "unknown"}.`,
-    );
-  }
-  await deployMigrations(previousTarget);
-  await assertNoDrift(previousTarget);
+      if (migrationDirectories.length === 0) {
+        fail("Migration verification requires at least one migration");
+      }
 
-  await deployMigrations(rebuildTarget);
-  await assertNoDrift(rebuildTarget);
-
-  const [emptySchemaState, previousSchema, rebuildSchema] = await Promise.all([
-    readSchema(emptyTarget),
-    readSchema(previousTarget),
-    readSchema(rebuildTarget),
-  ]);
-  if (emptySchemaState !== previousSchema || emptySchemaState !== rebuildSchema) {
-    fail("Migration rebuilds did not produce equivalent PostgreSQL schemas");
-  }
-
-  console.log("MIGRATIONS VERIFIED: empty database, previous snapshot, drift, rebuild equivalence");
-} finally {
-  if (!connected) {
-    try {
       await admin.connect();
       connected = true;
-    } catch {
-      // The original connection failure is more useful than a cleanup connection failure.
+      for (const databaseName of disposableNames) {
+        await admin.query(
+          `CREATE DATABASE ${quoteIdentifier(databaseName)} OWNER ${quoteIdentifier(owner)}`,
+        );
+      }
+
+      const databaseUrlFor = (databaseName) => {
+        const target = new URL(testTarget);
+        target.pathname = `/${databaseName}`;
+        target.searchParams.delete("schema");
+        return target.toString();
+      };
+      const emptyTarget = databaseUrlFor(emptyDatabase);
+      const previousTarget = databaseUrlFor(previousDatabase);
+      const rebuildTarget = databaseUrlFor(rebuildDatabase);
+
+      await deployMigrations(emptyTarget);
+      await assertNoDrift(emptyTarget);
+      await runIntegrationTest(emptyTarget);
+
+      const previousMigrationDirectories = migrationDirectories.slice(0, -1);
+      if (previousMigrationDirectories.length === 0) {
+        if ((await readSchema(previousTarget)) !== serializedEmptySchema()) {
+          fail("The previous snapshot for the first migration must be empty");
+        }
+        console.log("Previous snapshot verified as empty: 0001 is the first migration.");
+      } else {
+        previousMigrationsPath = await buildPreviousMigrations(previousMigrationDirectories);
+        await deployMigrations(previousTarget, previousMigrationsPath);
+        console.log(
+          `Previous snapshot applied through ${previousMigrationDirectories.at(-1) ?? "unknown"}.`,
+        );
+      }
+      await deployMigrations(previousTarget);
+      await assertNoDrift(previousTarget);
+
+      await deployMigrations(rebuildTarget);
+      await assertNoDrift(rebuildTarget);
+
+      const [emptySchemaState, previousSchema, rebuildSchema] = await Promise.all([
+        readSchema(emptyTarget),
+        readSchema(previousTarget),
+        readSchema(rebuildTarget),
+      ]);
+      if (emptySchemaState !== previousSchema || emptySchemaState !== rebuildSchema) {
+        fail("Migration rebuilds did not produce equivalent PostgreSQL schemas");
+      }
+
+      console.log(
+        "MIGRATIONS VERIFIED: empty database, previous snapshot, drift, rebuild equivalence",
+      );
+    },
+    () =>
+      cleanupMigrationResources({
+        admin,
+        connected,
+        disposableNames,
+        previousMigrationsPath,
+        removeDirectory: rm,
+      }),
+    (cleanupFailure) => console.error(cleanupFailure.message),
+  );
+}
+
+export async function executeVerificationWithCleanup(
+  verification,
+  cleanup,
+  reportCleanupFailure = () => undefined,
+) {
+  let verificationFailure;
+  try {
+    await verification();
+  } catch (error) {
+    verificationFailure =
+      error instanceof Error ? error : new Error("Migration verification failed", { cause: error });
+  }
+
+  let cleanupFailures;
+  try {
+    cleanupFailures = await cleanup();
+  } catch (error) {
+    cleanupFailures = [asError(error, "Migration verification cleanup failed unexpectedly")];
+  }
+
+  for (const cleanupFailure of cleanupFailures) {
+    reportCleanupFailure(cleanupFailure);
+  }
+
+  if (verificationFailure) {
+    if (cleanupFailures.length > 0) {
+      Object.defineProperty(verificationFailure, "cleanupFailures", {
+        configurable: true,
+        enumerable: true,
+        value: cleanupFailures,
+      });
+    }
+    throw verificationFailure;
+  }
+
+  if (cleanupFailures.length > 0) {
+    throw new AggregateError(cleanupFailures, "Migration verification cleanup failed");
+  }
+}
+
+export async function cleanupMigrationResources({
+  admin,
+  connected,
+  disposableNames,
+  previousMigrationsPath,
+  removeDirectory,
+}) {
+  const failures = [];
+  let databaseCleanupAvailable = connected;
+
+  try {
+    if (!databaseCleanupAvailable) {
+      try {
+        await admin.connect();
+        databaseCleanupAvailable = true;
+      } catch (error) {
+        failures.push(asError(error, "Migration cleanup could not connect to PostgreSQL"));
+      }
+    }
+
+    if (databaseCleanupAvailable) {
+      for (const databaseName of disposableNames) {
+        try {
+          await admin.query(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()",
+            [databaseName],
+          );
+        } catch (error) {
+          failures.push(
+            asError(error, `Migration cleanup could not terminate database ${databaseName}`),
+          );
+        }
+
+        try {
+          await admin.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
+        } catch (error) {
+          failures.push(
+            asError(error, `Migration cleanup could not drop database ${databaseName}`),
+          );
+        }
+      }
+    }
+  } finally {
+    try {
+      await admin.end();
+    } catch (error) {
+      failures.push(asError(error, "Migration cleanup could not close the admin connection"));
+    } finally {
+      if (previousMigrationsPath) {
+        try {
+          await removeDirectory(previousMigrationsPath, { force: true, recursive: true });
+        } catch (error) {
+          failures.push(asError(error, "Migration cleanup could not remove temporary migrations"));
+        }
+      }
     }
   }
 
-  if (connected) {
-    for (const databaseName of disposableNames) {
-      await admin.query(
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()",
-        [databaseName],
-      );
-      await admin.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
-    }
-    await admin.end();
-  }
-  if (previousMigrationsPath) {
-    await rm(previousMigrationsPath, { force: true, recursive: true });
-  }
+  return failures;
 }
 
 function requiredEnvironment(name) {
@@ -139,13 +243,6 @@ function parsePostgresUrl(value, label) {
     fail(`Migration verification requires a PostgreSQL ${label}`);
   }
   return url;
-}
-
-function databaseUrlFor(databaseName) {
-  const target = new URL(testTarget);
-  target.pathname = `/${databaseName}`;
-  target.searchParams.delete("schema");
-  return target.toString();
 }
 
 function quoteIdentifier(identifier) {
@@ -261,4 +358,8 @@ function serializedEmptySchema() {
 
 function fail(message) {
   throw new Error(message);
+}
+
+function asError(error, context) {
+  return new Error(context, { cause: error });
 }
