@@ -65,4 +65,75 @@ describe("OIDC user synchronization", () => {
     });
     expect(update).not.toHaveBeenCalled();
   });
+
+  it("converges concurrent first-login synchronization on one identity", async () => {
+    const user = {
+      id: "9a11bb8f-79f5-4a72-a98f-2e763e97699b",
+      email: oidcPrincipal.email,
+      displayName: "Pilot Employee",
+      active: true,
+    };
+    let persistedUser: typeof user | null = null;
+    let identityExists = false;
+    let createAttempts = 0;
+    let releaseCreates: (() => void) | undefined;
+    const bothCreating = new Promise<void>((resolve) => {
+      releaseCreates = resolve;
+    });
+    const transaction = {
+      oidcIdentity: {
+        findUnique: vi.fn(async () =>
+          identityExists && persistedUser !== null ? { user: persistedUser } : null,
+        ),
+        create: vi.fn(),
+      },
+      user: {
+        findUnique: vi.fn(async () => persistedUser),
+        update: vi.fn(async () => persistedUser ?? user),
+        create: vi.fn(async () => {
+          createAttempts += 1;
+          if (createAttempts === 2) releaseCreates?.();
+          await bothCreating;
+          if (persistedUser !== null) {
+            throw Object.assign(new Error("unique conflict"), { code: "P2002" });
+          }
+          persistedUser = user;
+          identityExists = true;
+          return user;
+        }),
+      },
+    };
+    const client: import("./index.js").UserSyncClient = {
+      $transaction: vi.fn(async (operation) => operation(transaction)),
+    };
+
+    const results = await Promise.all([
+      syncOidcUser(client, oidcPrincipal, "Pilot Employee"),
+      syncOidcUser(client, oidcPrincipal, "Pilot Employee"),
+    ]);
+
+    expect(results[0]).toEqual(results[1]);
+    expect(transaction.user.create).toHaveBeenCalledTimes(2);
+    expect(client.$transaction).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(["P2002", "P2034"])("bounds retries for %s conflicts", async (code) => {
+    const conflict = Object.assign(new Error("retryable conflict"), { code });
+    const client: import("./index.js").UserSyncClient = {
+      $transaction: vi.fn().mockRejectedValue(conflict),
+    };
+
+    await expect(syncOidcUser(client, oidcPrincipal)).rejects.toBe(conflict);
+    expect(client.$transaction).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry unrelated database failures", async () => {
+    const failure = Object.assign(new Error("database unavailable"), { code: "P1001" });
+    const client: import("./index.js").UserSyncClient = {
+      $transaction: vi.fn().mockRejectedValue(failure),
+    };
+
+    await expect(syncOidcUser(client, oidcPrincipal)).rejects.toBe(failure);
+    expect(client.$transaction).toHaveBeenCalledTimes(1);
+  });
 });

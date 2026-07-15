@@ -288,17 +288,31 @@ describe.sequential("real Keycloak authentication", () => {
       ),
     ).resolves.toMatchObject({ email, issuer, oidcSubject: userId });
 
-    const meResponse = await fetch(`${apiBaseUrl}/api/v1/me`, {
-      headers: { authorization: `Bearer ${validAccessToken}` },
-    });
-    const me = await meResponse.json();
-    expect(meResponse.status, JSON.stringify(me)).toBe(200);
-    expect(me).toMatchObject({
-      active: true,
-      email,
-      oidcSubject: userId,
-      roles: [],
-    });
+    const meResponses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        fetch(`${apiBaseUrl}/api/v1/me`, {
+          headers: { authorization: `Bearer ${validAccessToken}` },
+        }),
+      ),
+    );
+    const principals = await Promise.all(meResponses.map((response) => response.json()));
+    expect(
+      meResponses.map((response) => response.status),
+      JSON.stringify(principals),
+    ).toEqual(Array.from({ length: 8 }, () => 200));
+    for (const principal of principals) {
+      expect(principal).toMatchObject({
+        active: true,
+        email,
+        oidcSubject: userId,
+        roles: [],
+      });
+    }
+    expect(new Set(principals.map((principal) => principal.userId)).size).toBe(1);
+    await expect(database.user.count({ where: { email } })).resolves.toBe(1);
+    await expect(database.oidcIdentity.count({ where: { issuer, subject: userId } })).resolves.toBe(
+      1,
+    );
   });
 
   it("rejects callback state and nonce mismatches", async () => {

@@ -7,6 +7,7 @@ import {
 } from "@evaluation/auth";
 import { createDatabaseClient } from "@evaluation/database";
 
+import { ManagedAuthDatabaseClient } from "./auth-database.js";
 import {
   AUTH_DATABASE,
   AUTH_TOKEN_VALIDATOR,
@@ -32,9 +33,11 @@ Module({
     {
       provide: AUTH_DATABASE,
       useFactory: () =>
-        createDatabaseClient(
-          requiredEnvironment("DATABASE_URL"),
-        ) as unknown as import("@evaluation/auth").UserSyncClient,
+        new ManagedAuthDatabaseClient(
+          createDatabaseClient(
+            requiredEnvironment("DATABASE_URL"),
+          ) as unknown as ConstructorParameters<typeof ManagedAuthDatabaseClient>[0],
+        ),
     },
     {
       provide: AUTH_VALIDATION_CONFIG,

@@ -27,10 +27,16 @@ function inactiveUser(): never {
   throw new AppError("AUTH_USER_INACTIVE", "errors.auth.userInactive", 403);
 }
 
-export async function syncOidcUser(
+function isRetryableSyncConflict(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  const code = (error as { readonly code?: unknown }).code;
+  return code === "P2002" || code === "P2034";
+}
+
+async function synchronizeOnce(
   client: UserSyncClient,
   principal: import("./principal.js").ValidatedOidcPrincipal,
-  displayName: string = principal.email,
+  displayName: string,
 ): Promise<import("./principal.js").AuthenticatedPrincipal> {
   return client.$transaction(async (transaction) => {
     const identity = await transaction.oidcIdentity.findUnique({
@@ -83,4 +89,20 @@ export async function syncOidcUser(
       active: true,
     };
   });
+}
+
+export async function syncOidcUser(
+  client: UserSyncClient,
+  principal: import("./principal.js").ValidatedOidcPrincipal,
+  displayName: string = principal.email,
+): Promise<import("./principal.js").AuthenticatedPrincipal> {
+  const maximumAttempts = 3;
+  for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+    try {
+      return await synchronizeOnce(client, principal, displayName);
+    } catch (error) {
+      if (!isRetryableSyncConflict(error) || attempt === maximumAttempts) throw error;
+    }
+  }
+  throw new Error("OIDC synchronization retry loop exhausted unexpectedly");
 }

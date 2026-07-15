@@ -1,3 +1,6 @@
+// COMPAT(openid-client@6.8.4): the package's Configuration declaration is incompatible with
+// TypeScript 7 exactOptionalPropertyTypes. Remove this narrow surface and its .mjs bridge on the
+// next upgrade once the direct package import passes Web typecheck and real Keycloak integration.
 export interface Configuration {
   serverMetadata(): Readonly<{ end_session_endpoint?: string }>;
 }
