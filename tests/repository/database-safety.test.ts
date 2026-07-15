@@ -106,7 +106,9 @@ describe("local database reset guard", () => {
       ].join("\n"),
     );
     expect(publicEntry).not.toContain("generated");
-    expect(vitestWorkspace).toContain('exclude: ["**/*.integration.test.ts"]');
+    expect(vitestWorkspace).toContain(
+      'exclude: ["**/node_modules/**", "**/*.integration.test.ts"]',
+    );
     expect(vitestWorkspace).toContain('"packages/**/*.integration.test.ts"');
   });
 

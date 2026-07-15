@@ -44,6 +44,14 @@ async function pathExists(filePath: string) {
 }
 
 describe("workspace contract", () => {
+  it("never discovers dependency test suites through workspace links", async () => {
+    const vitestWorkspace = await readFile("vitest.workspace.ts", "utf8");
+
+    expect(vitestWorkspace).toContain(
+      'exclude: ["**/node_modules/**", "**/*.integration.test.ts"]',
+    );
+  });
+
   it("declares every Phase 0 workspace with one public entry point", async () => {
     for (const app of requiredApps) {
       const manifest = JSON.parse(await readFile(`apps/${app}/package.json`, "utf8"));
