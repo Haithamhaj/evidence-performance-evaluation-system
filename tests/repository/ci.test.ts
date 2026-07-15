@@ -119,6 +119,8 @@ describe("CI contract", () => {
     expect(job(workflow, "quality")).not.toContain("pnpm build");
     expect(job(workflow, "build")).toContain("pnpm build");
     expect(job(workflow, "integration")).toContain("needs: [quality, build]");
+    expect(job(workflow, "integration")).toContain("pnpm db:verify");
+    expect(job(workflow, "integration")).toContain("pnpm db:deploy");
     expect(job(workflow, "integration")).toContain("pnpm test:integration --passWithNoTests");
     expect(job(workflow, "integration")).toContain("pnpm test:ai --passWithNoTests");
     expect(job(workflow, "integration")).toContain("pnpm test:e2e --pass-with-no-tests");
@@ -172,6 +174,21 @@ describe("CI contract", () => {
     expect(manifest.engines?.pnpm).toBe("11.13.0");
     expect(workspace).not.toMatch(/^trustLockfile:/m);
     expect(workspace).not.toMatch(/^minimumReleaseAgeStrict:\s*false$/m);
+  });
+
+  it("allows install scripts only for the reviewed native and generated dependencies", async () => {
+    const workspace = await readFile("pnpm-workspace.yaml", "utf8");
+
+    expect(workspace).toContain(
+      [
+        "allowBuilds:",
+        '  "@prisma/engines": true',
+        "  esbuild: true",
+        "  prisma: true",
+        "  sharp: true",
+      ].join("\n"),
+    );
+    expect(workspace).not.toContain("set this to true or false");
   });
 
   it.each(secretCases)(
