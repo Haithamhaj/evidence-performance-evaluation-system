@@ -1,0 +1,656 @@
+# TASKS.md
+
+## Execution Task File — Revision 1.1
+
+**Status:** Ready for implementation  
+**Task order:** Dependency-driven and phase-valid  
+**Completion rule:** A task is complete only after required verification passes  
+**Pilot feedback mode:** Identified  
+**Pilot language:** Arabic-first with English support  
+**Cycle 1:** Calibration — Non-Baseline
+
+Legend:
+
+- `P0` foundational or blocking.
+- `P1` core product.
+- `P2` completion, configurability, or hardening.
+- `APPROVAL` requires explicit product approval before execution or change.
+
+The dependency graph must be validated by CI. No task may depend on an unknown task or a task in a later phase.
+
+---
+
+# Phase 0 — Repository, Governance, AI, and Localization Foundations
+
+## T001 — Create Monorepo Foundation
+
+**Priority:** P0  
+**Dependencies:** None  
+**Purpose:** Establish the repository structure and shared tooling.  
+**Expected output:** `apps/web`, `apps/api`, `apps/worker`, shared packages, workspace configuration.  
+**Likely areas:** repository root, package manager, TypeScript, lint, format.  
+**Verification:** install succeeds; all apps compile; workspace scripts run.
+
+## T002 — Add Local Infrastructure
+
+**Priority:** P0  
+**Dependencies:** T001  
+**Purpose:** Provide PostgreSQL, Redis, MinIO, and OIDC identity provider for local development.  
+**Expected output:** Docker Compose and environment templates.  
+**Likely areas:** `infra/docker`, `.env.example`.  
+**Verification:** clean startup; health checks; persistent volumes; documented reset.
+
+## T003 — Establish CI Pipeline
+
+**Priority:** P0  
+**Dependencies:** T001  
+**Purpose:** Enforce build quality from the beginning.  
+**Expected output:** install, lint, typecheck, unit test, integration-test setup, migration validation.  
+**Likely areas:** CI configuration, scripts.  
+**Verification:** CI passes on clean repository and fails on an intentional test failure.
+
+## T004 — Create Database Package and Migration Workflow
+
+**Priority:** P0  
+**Dependencies:** T002  
+**Purpose:** Establish Prisma/PostgreSQL schema ownership and migration rules.  
+**Expected output:** database package, migration commands, test database support.  
+**Likely areas:** `packages/database`.  
+**Verification:** migrate empty DB; rollback through rebuild; generate client; integration test.
+
+## T005 — Implement Structured Logging and Error Model
+
+**Priority:** P0  
+**Dependencies:** T001  
+**Purpose:** Create consistent operational and user-safe errors.  
+**Expected output:** correlation IDs, structured logs, error codes, error boundaries.  
+**Likely areas:** API, worker, shared packages.  
+**Verification:** request trace across web/API/worker; sensitive values not logged.
+
+## T006 — Implement Authentication
+
+**Priority:** P0  
+**Dependencies:** T002, T004  
+**Purpose:** Authenticate users through OIDC.  
+**Expected output:** login/logout/session, user synchronization, deactivation enforcement.  
+**Likely areas:** `packages/auth`, web middleware, API guards.  
+**Verification:** valid login; invalid login; expired session; deactivated user denied.
+
+## T007 — Implement Authorization Framework
+
+**Priority:** P0  
+**Dependencies:** T006  
+**Purpose:** Enforce RBAC and scoped resource rules.  
+**Expected output:** Employee, Manager, System Administrator, Project Owner, Workstream Owner, Contributor, Acting Owner policies.  
+**Likely areas:** `packages/permissions`, API guards.  
+**Verification:** permission matrix tests, including negative manager access to upward data.
+
+## T008 — Seed Pilot Organization and Roles
+
+**Priority:** P0  
+**Dependencies:** T004, T006, T007  
+**Purpose:** Create LeapAI pilot organization, AI department, roles, and separated manager/admin users.  
+**Expected output:** repeatable seed script.  
+**Likely areas:** database seeds.  
+**Verification:** idempotent seed; role separation verified.
+
+## T009 — Create Audit Foundation
+
+**Priority:** P0  
+**Dependencies:** T004, T006  
+**Purpose:** Provide append-only audit events.  
+**Expected output:** audit service, event schema, query API for authorized admins.  
+**Likely areas:** `packages/audit`, API module.  
+**Verification:** protected actions create events; ordinary user cannot modify/delete.
+
+## T010 — Seed Approved Evaluation Rubric
+
+**Priority:** P0  
+**Dependencies:** T004, T008  
+**Purpose:** Store Version 1 sections, 12 criteria, 60 anchors, weights, and five manager criteria.  
+**Expected output:** versioned rubric seed matching `EVALUATION_RUBRIC.md`.  
+**Likely areas:** evaluation configuration schema and seed.  
+**Verification:** automated content/weight comparison; totals equal 100%.
+
+## T011 — Implement AI Router
+
+**Priority:** P0  
+**Dependencies:** T004, T005, T009  
+**Purpose:** Centralize all AI calls and route resolution.  
+**Expected output:** provider adapters, route configs, fallbacks, run trace.  
+**Verification:** project > department > system; override requires reason; provider failure fallback.
+
+## T012 — Implement AI Evaluation Harness
+
+**Priority:** P1  
+**Dependencies:** T011  
+**Purpose:** Regression-test prompts, schemas, feedback-visibility modes, Arabic content, dialects, and criteria quality.  
+**Verification:** versioned English and Arabic fixture suite runs in CI or a controlled evaluation pipeline; no AI output contains a performance rating recommendation.
+
+## T013 — Implement Worker and Queue Infrastructure
+
+**Priority:** P0  
+**Dependencies:** T002, T005  
+**Purpose:** Run asynchronous AI, GitHub, document, notification, and aggregation jobs.  
+**Verification:** retry, dead-letter state, idempotency, traceability.
+
+## T014 — Implement Evaluation Eligibility Snapshot Foundation
+
+**Priority:** P0  
+**Dependencies:** T004, T007, T008  
+**Purpose:** Determine who is eligible for each employee and manager evaluation cycle without depending on the later full leave/delegation module.  
+**Expected output:** Versioned cycle eligibility records with active, excluded, approved-leave, and pending states.  
+**Likely areas:** evaluation configuration, users, cycle domain  
+**Verification:** Eligibility is frozen at cycle open; approved-leave state can be represented; identified pilot completion status works; no Phase 4 task depends on Phase 5.
+
+## T015 — Implement Localization and RTL Foundation
+
+**Priority:** P0  
+**Dependencies:** T001  
+**Purpose:** Make Arabic the pilot default and prevent late retrofitting of RTL.  
+**Expected output:** Locale routing, translation catalogs, RTL tokens/components, mixed-direction utilities, Arabic typography and date/number handling.  
+**Likely areas:** web shell, shared UI, contracts, localization package  
+**Verification:** Arabic and English app shells render; keyboard/focus order works in RTL; code, URLs, model names, and repository paths display correctly.
+
+## T016 — Translate and Approve the Arabic Evaluation Rubric
+
+**Priority:** P0  
+**Dependencies:** T010, T015  
+**Purpose:** Provide employee-ready Arabic meaning for the complete Version 1 rubric before rollout.  
+**Expected output:** Approved Arabic translations of 12 criteria, 60 employee anchors, Project Contribution anchors, five manager criteria, 25 manager anchors, examples, prompts, and bias guidance.  
+**Likely areas:** rubric content, localization data, approval record  
+**Verification:** Arabic subject-matter review passes; adjacent rating meanings remain distinct; IDs and version match English; translation cannot activate independently when meaning is unresolved.  
+**Approval:** Manager/product owner approves the Arabic meaning before employee-facing use.
+
+## T017 — Add Task Dependency Graph Validation
+
+**Priority:** P0  
+**Dependencies:** T003  
+**Purpose:** Prevent task plans from containing dependencies on later phases or unknown task IDs.  
+**Expected output:** CI script that parses TASKS.md and validates IDs, dependencies, cycles, and phase order.  
+**Likely areas:** scripts, CI, project documentation tooling  
+**Verification:** Current task graph passes; an intentionally invalid later-phase dependency fails CI.
+
+---
+
+# Phase 1 — Projects, Workstreams, Documents, and Criteria
+
+## T018 — Implement Project Domain
+
+**Priority:** P1  
+**Dependencies:** T004, T007  
+**Purpose:** Create projects, status, owners, and members.  
+**Expected output:** APIs and domain rules.  
+**Verification:** one active Primary Owner; manager-scoped management; historical ownership retained.
+
+## T019 — Implement Workstream Domain
+
+**Priority:** P1  
+**Dependencies:** T018  
+**Purpose:** Create workstreams, owners, contributors, and parent relationships.  
+**Verification:** one active Workstream Owner; multiple contributors; no supervisor authority implied.
+
+## T020 — Implement Responsibility Windows
+
+**Priority:** P1  
+**Dependencies:** T018, T019  
+**Purpose:** Track Original, Acting, Permanent, and Contributor responsibility periods.  
+**Verification:** overlapping contributor windows allowed; owner invariants; correct period queries.
+
+## T021 — Implement Document Template Engine
+
+**Priority:** P1  
+**Dependencies:** T004, T007  
+**Purpose:** Support protected core sections and configurable defaults.  
+**Expected output:** organization/department templates and versions.  
+**Verification:** six protected project requirements cannot be removed; future-version activation works.
+
+## T022 — Implement File Upload and Object Storage
+
+**Priority:** P1  
+**Dependencies:** T002, T005, T007  
+**Purpose:** Store documents, images, and audio safely.  
+**Verification:** type/size validation; signed access; unauthorized access denied; metadata recorded.
+
+## T023 — Implement Project and Workstream Documents
+
+**Priority:** P1  
+**Dependencies:** T021, T022  
+**Purpose:** Attach versioned documents to projects and workstreams.  
+**Verification:** upload new version; retain old version; optimistic concurrency.
+
+## T024 — Implement Document Readiness Checks
+
+**Priority:** P1  
+**Dependencies:** T023, T011  
+**Purpose:** Validate documents against template requirements.  
+**Expected output:** readiness status, missing items, AI correction instructions.  
+**Verification:** complete/incomplete fixtures; no competing hidden source of truth.
+
+## T025 — Implement Document Comparison and Material Change
+
+**Priority:** P1  
+**Dependencies:** T023, T011  
+**Purpose:** Compare versions and classify material changes.  
+**Verification:** editorial vs material fixtures; source references retained; human review available.
+
+## T026 — Implement Dynamic Project Criteria
+
+**Priority:** P1  
+**Dependencies:** T024, T011  
+**Purpose:** Generate and approve one to three project criteria.  
+**Verification:** employee correction/rejection flow; no AI rating fields; effective date enforced.
+
+## T027 — Implement Dynamic Workstream Criteria
+
+**Priority:** P1  
+**Dependencies:** T024, T019, T011  
+**Purpose:** Generate two to three criteria and collect contributor acknowledgments/objections.  
+**Verification:** no unanimity requirement; objections retained; criteria versioned.
+
+## T028 — Implement Criteria Revision
+
+**Priority:** P1  
+**Dependencies:** T025, T026, T027  
+**Purpose:** Revise criteria prospectively after material changes.  
+**Verification:** old activity remains linked to old version; retroactive link rejected.
+
+## T029 — Build Project and Workstream UI
+
+**Priority:** P1  
+**Dependencies:** T018–T028  
+**Purpose:** Provide simple list/detail, members, documents, criteria, and status screens.  
+**Expected output:** Arabic-first responsive RTL screens with English support.  
+**Verification:** employee/manager scope; responsive UI; core e2e flow.
+
+---
+
+# Phase 2 — Updates, Evidence, GitHub, Check-ins, and Monthly Readiness
+
+## T030 — Implement Activity Timeline
+
+**Priority:** P1  
+**Dependencies:** T018, T019  
+**Purpose:** Store typed project and workstream events.  
+**Verification:** append-only history; pagination; correct contributor/time scope.
+
+## T031 — Implement Text Update Composer
+
+**Priority:** P1  
+**Dependencies:** T030, T011  
+**Purpose:** Structure employee updates through AI and human confirmation.  
+**Verification:** original input retained; structured output validated; employee approval required.
+
+## T032 — Implement Voice Update Flow
+
+**Priority:** P1  
+**Dependencies:** T022, T030, T011  
+**Purpose:** Transcribe, confirm, structure, and store voice updates.  
+**Verification:** transcript editing; original audio trace; failed STT recovery; Fusha, Gulf, and Levantine Arabic fixtures; mixed Arabic/English terminology.
+
+## T033 — Implement Evidence Records
+
+**Priority:** P1  
+**Dependencies:** T022, T030  
+**Purpose:** Link files, images, links, and source metadata to claims and criteria.  
+**Verification:** many-to-many links; permissions; source integrity.
+
+## T034 — Implement Multimodal Evidence Analysis
+
+**Priority:** P1  
+**Dependencies:** T033, T011  
+**Purpose:** Analyze images and documents without treating them as automatic proof.  
+**Verification:** supported/partial/conflicting fixtures; confidence is claim support only.
+
+## T035 — Implement Contribution Attribution
+
+**Priority:** P1  
+**Dependencies:** T030, T033  
+**Purpose:** Record individual/team contribution, peer acknowledgment, and objections.  
+**Verification:** no-response is not approval; disputed state persists.
+
+## T036 — Implement Thursday Workstream Check-in
+
+**Priority:** P1  
+**Dependencies:** T019, T030, T013  
+**Purpose:** Require a lightweight check-in only when no substantive update exists.  
+**Verification:** Thursday logic, leave exemption, update substitution, missing state.
+
+## T037 — Implement Project Check-in Aggregation
+
+**Priority:** P1  
+**Dependencies:** T036  
+**Purpose:** Summarize workstreams for Primary Project Owner.  
+**Verification:** cross-workstream issues visible; no duplicated details required.
+
+## T038 — Create GitHub App Integration
+
+**Priority:** P1  
+**Dependencies:** T007, T009  
+**Purpose:** Install scoped GitHub access.  
+**Verification:** installation flow; minimum permissions; token refresh; uninstall handling.
+
+## T039 — Implement GitHub Webhook Ingestion
+
+**Priority:** P1  
+**Dependencies:** T038, T013  
+**Purpose:** Receive push, PR, and check events idempotently.  
+**Verification:** signature check; duplicate delivery; retry/replay.
+
+## T040 — Implement GitHub Document Sync
+
+**Priority:** P1  
+**Dependencies:** T023, T038, T039  
+**Purpose:** Track branch/path/commit and create document versions.  
+**Verification:** changed file sync; deleted/moved file state; missed-event reconciliation.
+
+## T041 — Implement Suggested Evidence Inbox
+
+**Priority:** P1  
+**Dependencies:** T033, T039  
+**Purpose:** Show PRs, commits, and checks as suggestions requiring employee context.  
+**Verification:** acceptance/rejection; project reassignment; no automatic performance linkage.
+
+## T042 — Build Update, Timeline, and Evidence UI
+
+**Priority:** P1  
+**Dependencies:** T030–T041  
+**Expected output:** Arabic-first responsive RTL screens with English support.  
+**Verification:** text/voice/image/GitHub e2e; accessibility and responsive behavior.
+
+## T043 — Implement Monthly Evaluation Readiness Review
+
+**Priority:** P1  
+**Dependencies:** T030, T033, T012, T036  
+**Purpose:** Surface thin evidence before quarter-end without creating update or evidence quotas.  
+**Expected output:** Employee monthly review of silent workstreams, unsupported artifact-based criteria, incomplete experiments, unapplied learning, unreviewed GitHub suggestions, and unresolved attribution.  
+**Likely areas:** updates, evidence, coaching/readiness, notifications, employee UI  
+**Verification:** No performance score or quota is produced; manager sees operational gaps only, not employee percentages or ranking; fixtures cover false-positive avoidance.
+
+## T044 — Expand Arabic and Dialect AI Fixtures
+
+**Priority:** P1  
+**Dependencies:** T012, T032, T016  
+**Purpose:** Validate AI behavior on the language actually used by the pilot team.  
+**Expected output:** Fusha, Gulf, Levantine, mixed Arabic/English, Arabic PDF/DOCX, STT, update extraction, evidence, and report fixtures.  
+**Likely areas:** AI evaluation datasets, STT tests, document processing tests  
+**Verification:** All critical structured outputs validate; terminology is preserved; privacy and rating prohibitions hold in Arabic; regression thresholds documented.
+
+---
+
+# Phase 3 — Employee Evaluation
+
+## T045 — Implement Evaluation Template Engine
+
+**Priority:** P1  
+**Dependencies:** T010, T007  
+**Purpose:** Support global and department templates, mandatory criteria, ranges, and activation.  
+**Verification:** weight rules; version activation; department scope.
+
+## T046 — Implement Cycle Creation and Snapshot
+
+**Priority:** P1  
+**Dependencies:** T045  
+**Purpose:** Create quarterly cycles, freeze rubric and visibility configuration, and mark Cycle 1 as `Calibration — Non-Baseline`.  
+**Verification:** active-cycle mutation denied; assignments and dates correct; Cycle 1 cannot become an official baseline without an approved policy change.
+
+## T047 — Implement Evidence Preparation
+
+**Priority:** P1  
+**Dependencies:** T046, T030, T033  
+**Purpose:** Gather period evidence, project/workstream context, responsibility windows, monthly-readiness gaps, and source-supported facts.  
+**Verification:** responsibility periods and criteria versions respected.
+
+## T048 — Implement Self-Assessment
+
+**Priority:** P1  
+**Dependencies:** T046, T047  
+**Purpose:** Employee ratings, rationale, evidence, strengths, and development areas.  
+**Verification:** same anchors; AI help after rating only; draft autosave.
+
+## T049 — Implement Independent Manager Assessment
+
+**Priority:** P1  
+**Dependencies:** T046, T047  
+**Purpose:** Manager initial draft without self-rating anchoring.  
+**Verification:** self-rating hidden until initial submission; observation basis supported.
+
+## T050 — Implement Comparison and Discussion
+
+**Priority:** P1  
+**Dependencies:** T048, T049  
+**Purpose:** Show gaps and prepare discussion agenda.  
+**Verification:** AI does not decide; disputed attribution shown accurately.
+
+## T051 — Implement Finalization and Acknowledgment
+
+**Priority:** P1  
+**Dependencies:** T050  
+**Purpose:** Manager final rating, employee acknowledgment/reservation, closure.  
+**Verification:** no automatic averaging; reservation does not change rating; snapshot immutable.
+
+## T052 — Build Employee Evaluation UI
+
+**Priority:** P1  
+**Dependencies:** T046–T051  
+**Expected output:** Arabic-first responsive RTL screens with English support.  
+**Verification:** complete employee/manager e2e cycle.
+
+## T053 — Implement Evaluation Reports and Export
+
+**Priority:** P2  
+**Dependencies:** T051  
+**Verification:** correct snapshot, calibration label, Arabic and English export, feedback visibility matches the frozen mode, export audit event.
+
+## T054 — Implement Evaluation Fact View
+
+**Priority:** P1  
+**Dependencies:** T047, T030, T033, T035, T012  
+**Purpose:** Reduce self-presentation bias by separating normalized source facts from employee interpretation.  
+**Expected output:** Fact View containing event, date, scope, responsibility window, claim, supported facts, unclear parts, result, verification, and attribution.  
+**Likely areas:** evaluation preparation, AI analysis, employee/manager evaluation UI  
+**Verification:** Manager can review normalized facts before narrative; original employee text remains available and labeled; AI does not add unsupported claims or ratings.
+
+---
+
+# Phase 4 — Identified Manager Evaluation and Coaching
+
+## T055 — Implement Manager Evaluation Configuration
+
+**Priority:** P1  
+**Dependencies:** T010, T046, T014  
+**Purpose:** Seed five manager criteria and freeze the selected feedback-visibility mode in the cycle.  
+**Expected output:** Manager rubric configuration and `Identified` pilot visibility snapshot.  
+**Likely areas:** manager evaluation domain, rubric config  
+**Verification:** Pilot cycle is Identified; mode cannot change after cycle opens; future modes are represented by configuration.
+
+## T056 — Implement Identified Manager Evaluation Submissions
+
+**Priority:** P1  
+**Dependencies:** T055, T007  
+**Purpose:** Allow employees to submit named criterion ratings and comments to the manager.  
+**Expected output:** Versioned employee submission linked to identity, ratings, comments, and timestamp.  
+**Likely areas:** manager evaluation API and database  
+**Verification:** Manager can read authorized submissions; employees cannot read peers’ submissions; UI/API do not claim anonymity.
+
+## T057 — Implement Manager Completion and Response View
+
+**Priority:** P1  
+**Dependencies:** T056, T014  
+**Purpose:** Show who submitted, who is pending, who is on approved leave, and what each employee rated.  
+**Expected output:** Manager-facing completion list and response detail.  
+**Likely areas:** manager dashboard, evaluation API  
+**Verification:** Submitted responses are visible immediately; leave does not block others; cycle eligibility is traceable.
+
+## T058 — Implement Optional Manager Feedback Aggregation
+
+**Priority:** P1  
+**Dependencies:** T056, T012  
+**Purpose:** Add trends and repeated themes without replacing identified responses.  
+**Expected output:** Criterion aggregates, repeated themes, strengths, improvement areas, and cross-cycle trends.  
+**Likely areas:** AI worker, reports, manager evaluation  
+**Verification:** Summaries link to source submissions, do not invent consensus, and do not assign an automatic manager judgment.
+
+## T059 — Implement Future Feedback Visibility Mode Foundation
+
+**Priority:** P2  
+**Dependencies:** T055, T007, T009  
+**Purpose:** Avoid hardcoding the pilot’s Identified choice and prepare Manager-Blinded and Anonymous Aggregated modes.  
+**Expected output:** Mode-aware permission contract, identity-link abstraction, conditional sensitive-access hooks, and tests.  
+**Likely areas:** permissions, manager evaluation, audit  
+**Verification:** Identified mode remains unchanged; contract tests prove future protected fields cannot leak when a private mode is enabled.
+
+## T060 — Implement Coaching Insight Engine
+
+**Priority:** P1  
+**Dependencies:** T030, T011, T012, T043  
+**Purpose:** Generate source-grounded, non-scoring coaching insights.  
+**Expected output:** Insights with pattern, sources, period, confidence, limits, and optional action.  
+**Likely areas:** coaching domain, worker, AI routing  
+**Verification:** No ratings, ranking, prediction, or activity-volume score; Arabic and English fixtures pass.
+
+## T061 — Implement Personal Development Actions
+
+**Priority:** P1  
+**Dependencies:** T060  
+**Purpose:** Support accept, modify, reject, defer, private/share, and status tracking.  
+**Expected output:** Employee-controlled personal actions and manager support for shared actions.  
+**Likely areas:** coaching and development domain  
+**Verification:** Manager cannot see private actions or rejection reasons; shared fields match approved rules.
+
+## T062 — Implement Formal Development Plans
+
+**Priority:** P1  
+**Dependencies:** T051, T061  
+**Purpose:** Convert approved development needs into formal trackable plans.  
+**Expected output:** Development area, reason, activity, target date, evidence, owner, and status.  
+**Likely areas:** evaluation and development domain  
+**Verification:** Employee approval required for conversion; completion evidence and history retained.
+
+## T063 — Build Manager Evaluation and Coaching UI
+
+**Priority:** P1  
+**Dependencies:** T055–T062, T015  
+**Purpose:** Provide employee submission, manager identified-response view, optional aggregates, coaching, and development screens.  
+**Expected output:** Arabic-first RTL and English manager-evaluation/coaching experience.  
+**Likely areas:** web application  
+**Verification:** Manager sees pilot identity/status/ratings/comments; employees see clear Identified notice; future mode tests pass; RTL and accessibility pass.
+
+---
+
+# Phase 5 — Leave, Delegation, Offboarding, and Hardening
+
+## T064 — Implement Leave Records
+
+**Priority:** P1  
+**Dependencies:** T014, T018  
+**Purpose:** Complete the leave workflow and connect approved leave to the earlier evaluation-eligibility foundation, check-ins, and delegation.  
+**Verification:** no HR balance logic; check-in and evaluation exemptions.
+
+## T065 — Implement Handover
+
+**Priority:** P1  
+**Dependencies:** T064, T024  
+**Purpose:** Structured Handover with AI completeness review.  
+**Verification:** manager approves delegation, not technical truth.
+
+## T066 — Implement Delegation and Acting Ownership
+
+**Priority:** P1  
+**Dependencies:** T065, T020  
+**Purpose:** Delegate confirmation, emergency activation, full time-bounded authority.  
+**Verification:** original owner not attributed during leave; all actions marked.
+
+## T067 — Implement Return Handover
+
+**Priority:** P1  
+**Dependencies:** T066  
+**Verification:** original confirms; manager can finalize/extend/transfer; authority ends correctly.
+
+## T068 — Implement Account Deactivation and Archiving
+
+**Priority:** P1  
+**Dependencies:** T006, T020  
+**Purpose:** Disable access while preserving history.  
+**Verification:** authentication denied; historical records intact.
+
+## T069 — Implement Reassignment Required
+
+**Priority:** P1  
+**Dependencies:** T068, T018, T019  
+**Purpose:** Flag ownerless active work for manager decision.  
+**Verification:** admin cannot assign; manager resolves; critical alert.
+
+## T070 — Implement Retention Configuration Foundation
+
+**Priority:** P2  
+**Dependencies:** T068  
+**Purpose:** Prepare configurable future retention without automatic deletion in pilot.  
+**Verification:** archive/hide does not break project history.
+
+## T071 — Implement Notification Service
+
+**Priority:** P1  
+**Dependencies:** T013  
+**Purpose:** In-app and email notifications.  
+**Verification:** deduplication, user preferences where allowed, Thursday reminders.
+
+## T072 — Implement Dashboards
+
+**Priority:** P1  
+**Dependencies:** Major feature tasks  
+**Purpose:** Employee, Manager, and System Administrator dashboards including monthly readiness, operational documentation states, and identified manager-feedback status.  
+**Verification:** no unauthorized data; manager sees identified pilot feedback; manager does not see employee Documentation Readiness percentages or ranking; RTL and English layouts pass.
+
+## T073 — Implement Observability and System Health
+
+**Priority:** P2  
+**Dependencies:** T005, T013  
+**Verification:** metrics, traces, job health, provider health, alerting.
+
+## T074 — Security and Privacy Hardening
+
+**Priority:** P0  
+**Dependencies:** All protected features  
+**Purpose:** Threat modeling, permission testing for all feedback-visibility modes, encryption review, prompt-injection controls, and Arabic input safety.  
+**Verification:** privacy test suite and security review pass.
+
+## T075 — Backup and Restore Drill
+
+**Priority:** P0  
+**Dependencies:** T004, T022  
+**Verification:** restore database and object storage; validate audit and evaluation integrity.
+
+## T076 — Pilot Dry Run
+
+**Priority:** P0  
+**Dependencies:** T001–T075  
+**Purpose:** Run one full `Calibration — Non-Baseline` simulated quarter with Arabic and English test users and realistic projects.  
+**Verification:** all critical workflows pass; identified manager-feedback behavior is understood; monthly readiness and Fact View are reviewed; issues logged and resolved.
+
+## T077 — Production Pilot Launch
+
+**Priority:** P0  
+**Dependencies:** T076  
+**Purpose:** Deploy approved pilot.  
+**Verification:** production checklist, monitoring, backups, Arabic rubric approval, RTL validation, identified-feedback notice, onboarding, and rollback plan.
+---
+
+# Approval-Blocked Changes
+
+The following are not normal tasks and require explicit approval:
+
+- Change protected product rules.
+- Change Version 1 rubric, anchors, or weights.
+- Release employee evaluation before the Arabic rubric is approved.
+- Allow AI ratings or rating recommendations.
+- Change the pilot upward manager evaluation from `Identified`.
+- Claim anonymity while the active mode is Identified.
+- Expose individual Documentation Readiness percentages or readiness ranking to the manager.
+- Remove `Calibration — Non-Baseline` status from Cycle 1.
+- Add employee ranking.
+- Add payroll, promotion, or disciplinary automation.
+- Apply criteria retroactively.
+- Modify closed evaluations.
+- Split into microservices.
+- Delete historical records.

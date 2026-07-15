@@ -1,0 +1,51 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build and test outputs
+dist/
+build/
+.next/
+.turbo/
+coverage/
+.cache/
+
+# Temporary and log files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Local AI-agent state
+.codex/
+.claude/
+.cursor/
+
+# Uploaded packages
+*.zip
+
+# Local database and object-storage volumes
+.local-data/
+volumes/
+postgres-data/
+redis-data/
+minio-data/

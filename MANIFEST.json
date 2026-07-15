@@ -1,0 +1,72 @@
+{
+  "package": "Evidence-Based Performance Evaluation System - AI Implementation Starter Pack",
+  "revision": "1.1",
+  "generated_at": "2026-07-13",
+  "pilot_feedback_mode": "Identified",
+  "pilot_language": "Arabic-first with English support",
+  "cycle_1": "Calibration — Non-Baseline",
+  "task_count": 77,
+  "validation": "PASS",
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 12682,
+      "sha256": "04d924b929ee01a020e1e0dfe831a691ecdb81a933c79eac83e8a2704ae37e74"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3275,
+      "sha256": "cba1a9f538bc7e34aa9600a45ca548eb0d20010956b796bfe9feecef44321587"
+    },
+    {
+      "path": "TASKS.md",
+      "bytes": 28712,
+      "sha256": "06dd881ed7ae5809fc2682d6364e21a8ddefc7393a312563bbae8af43a311e9e"
+    },
+    {
+      "path": "docs/EVALUATION_RUBRIC.md",
+      "bytes": 60073,
+      "sha256": "d5b9c96b0849be1f94e901333f5e42d95f7fabe719969ba8ee2cda5cdf5d67a6"
+    },
+    {
+      "path": "docs/IMPLEMENTATION_PLAN.md",
+      "bytes": 35484,
+      "sha256": "4fca9015da5df22c0a1926aba74d219b8b73471423575db431a9536d94b37b5f"
+    },
+    {
+      "path": "docs/PROJECT_REFERENCE.md",
+      "bytes": 65183,
+      "sha256": "790d3d84840f55920c7a80641a1685025fe2f8fb74af873206234b9cfcac964c"
+    },
+    {
+      "path": "docs/REVIEW_RESOLUTION.md",
+      "bytes": 5170,
+      "sha256": "323148f4f8e8d5143110833be7dc2470fb15ec7352d8a4b99fca3aa4b41c05de"
+    },
+    {
+      "path": "docs/VALIDATION_REPORT.md",
+      "bytes": 4928,
+      "sha256": "5aa4fd6f9ca819220d6a8bf50f9f51fc3101dcbabdd13defd1da29fbf75675bc"
+    },
+    {
+      "path": "project-state/PROJECT_STATE.md",
+      "bytes": 3676,
+      "sha256": "9d863bb32ff3c99ed8b2c4e6509eddd093a28d817a138a3b1d6dea3dcbf624bc"
+    },
+    {
+      "path": "project-state/SYSTEM_MAP.html",
+      "bytes": 21210,
+      "sha256": "9252ea523e63fd491831893e7ec72516309c16b7da9a17afe0b2f276f1f8718e"
+    },
+    {
+      "path": "scripts/validate_task_graph.py",
+      "bytes": 4027,
+      "sha256": "ed6424f160d4f7a653a1dcc120b5a04f8e761a1fdf05dc2ac97302bcb473f2aa"
+    },
+    {
+      "path": "source/MASTER_PRODUCT_DEFINITION.md",
+      "bytes": 57743,
+      "sha256": "61a416072f7e6e6218cfb0e862aa8692bd880f6c3ff47b535d73e4cc5631c608"
+    }
+  ]
+}
