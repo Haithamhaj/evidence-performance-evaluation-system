@@ -137,7 +137,6 @@ model AuditEvent {
 enum RubricStatus {
   draft
   active
-  retired
 }
 
 enum RubricCriterionKind {
@@ -188,6 +187,7 @@ model RubricSection {
   criteria       RubricCriterion[]
   createdAt      DateTime          @default(now()) @db.Timestamptz(6)
 
+  @@unique([id, rubricLocaleId])
   @@unique([rubricLocaleId, stableId])
   @@unique([rubricLocaleId, displayOrder])
 }
@@ -197,7 +197,7 @@ model RubricCriterion {
   rubricLocaleId  String               @db.Uuid
   rubricLocale    RubricLocale         @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
   sectionId       String?              @db.Uuid
-  section         RubricSection?       @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  section         RubricSection?       @relation(fields: [sectionId, rubricLocaleId], references: [id, rubricLocaleId], onDelete: Restrict)
   stableId        String
   kind            RubricCriterionKind
   title           String

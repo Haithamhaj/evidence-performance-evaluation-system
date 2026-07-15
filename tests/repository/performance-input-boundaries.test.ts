@@ -23,6 +23,7 @@ describe("performance input boundary scanner", () => {
     expect(result.stderr).toContain("checkCount");
     expect(result.stderr).toContain("activityCount");
     expect(result.stderr).toContain("projectCount");
+    expect(result.stderr).toContain("taskCount");
   });
 
   it("accepts criterion, selected rating, and evidence references", () => {
@@ -41,5 +42,7 @@ describe("performance input boundary scanner", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("evaluation/input.ts.fixture:projectCount");
+    expect(result.stderr).toContain("contracts/input.ts.fixture:taskCount");
+    expect(result.stderr).not.toContain("operations/counters.ts.fixture:taskCount");
   });
 });

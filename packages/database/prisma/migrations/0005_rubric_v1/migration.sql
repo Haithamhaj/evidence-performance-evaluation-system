@@ -1,5 +1,5 @@
 -- Rubric versions and locale content are versioned infrastructure records. Active content is immutable.
-CREATE TYPE "RubricStatus" AS ENUM ('draft', 'active', 'retired');
+CREATE TYPE "RubricStatus" AS ENUM ('draft', 'active');
 CREATE TYPE "RubricCriterionKind" AS ENUM ('employee', 'project_contribution', 'manager');
 
 CREATE TABLE "RubricVersion" (
@@ -91,6 +91,8 @@ CREATE UNIQUE INDEX "RubricSection_rubricLocaleId_stableId_key"
 ON "RubricSection"("rubricLocaleId", "stableId");
 CREATE UNIQUE INDEX "RubricSection_rubricLocaleId_displayOrder_key"
 ON "RubricSection"("rubricLocaleId", "displayOrder");
+CREATE UNIQUE INDEX "RubricSection_id_rubricLocaleId_key"
+ON "RubricSection"("id", "rubricLocaleId");
 CREATE UNIQUE INDEX "RubricCriterion_rubricLocaleId_stableId_key"
 ON "RubricCriterion"("rubricLocaleId", "stableId");
 CREATE UNIQUE INDEX "RubricCriterion_rubricLocaleId_displayOrder_key"
@@ -107,8 +109,8 @@ ALTER TABLE "RubricSection" ADD CONSTRAINT "RubricSection_rubricLocaleId_fkey"
 FOREIGN KEY ("rubricLocaleId") REFERENCES "RubricLocale"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "RubricCriterion" ADD CONSTRAINT "RubricCriterion_rubricLocaleId_fkey"
 FOREIGN KEY ("rubricLocaleId") REFERENCES "RubricLocale"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "RubricCriterion" ADD CONSTRAINT "RubricCriterion_sectionId_fkey"
-FOREIGN KEY ("sectionId") REFERENCES "RubricSection"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "RubricCriterion" ADD CONSTRAINT "RubricCriterion_sectionId_rubricLocaleId_fkey"
+FOREIGN KEY ("sectionId", "rubricLocaleId") REFERENCES "RubricSection"("id", "rubricLocaleId") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "RubricAnchor" ADD CONSTRAINT "RubricAnchor_criterionId_fkey"
 FOREIGN KEY ("criterionId") REFERENCES "RubricCriterion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -124,9 +126,6 @@ BEGIN
     END IF;
     IF OLD."status" <> 'draft' THEN
         RAISE EXCEPTION 'historical rubric content is immutable' USING ERRCODE = '55000';
-    END IF;
-    IF TG_OP = 'UPDATE' AND NEW."status" = 'retired' THEN
-        RAISE EXCEPTION 'rubric status must transition from draft to active' USING ERRCODE = '55000';
     END IF;
     RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
@@ -148,9 +147,6 @@ BEGIN
     END IF;
     IF OLD."status" <> 'draft' THEN
         RAISE EXCEPTION 'historical rubric content is immutable' USING ERRCODE = '55000';
-    END IF;
-    IF TG_OP = 'UPDATE' AND NEW."status" = 'retired' THEN
-        RAISE EXCEPTION 'rubric status must transition from draft to active' USING ERRCODE = '55000';
     END IF;
     RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;

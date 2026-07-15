@@ -11,6 +11,7 @@ const forbiddenFields = [
   "checkCount",
   "activityCount",
   "projectCount",
+  "taskCount",
   "productivityScore",
   "employeeRank",
   "suggestedRating",
@@ -54,7 +55,10 @@ async function main() {
     const performanceContext =
       explicit.length > 0 ||
       /(?:performance|rating|evaluation)/iu.test(path.relative(repositoryRoot, file)) ||
-      /PerformanceRating/u.test(content);
+      /PerformanceRating/u.test(content) ||
+      ["criterionId", "rating", "evidenceReferences"].every((field) =>
+        new RegExp(`\\b${field}\\b`, "u").test(content),
+      );
     if (!performanceContext) continue;
     for (const field of forbiddenFields) {
       if (new RegExp(`\\b${field}\\b`, "u").test(content)) {

@@ -7,4 +7,5 @@ export const unsafePerformanceInput = {
   checkCount: 20,
   activityCount: 15,
   projectCount: 3,
+  taskCount: 8,
 };

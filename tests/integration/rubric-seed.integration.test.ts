@@ -4,7 +4,8 @@ import { spawnSync } from "node:child_process";
 
 import { appendAuditEvent } from "../../packages/audit/src/index.js";
 import { createDatabaseClient } from "../../packages/database/src/index.js";
-import { approvedEnglishRubric, sha256File } from "../../packages/localization/src/index.js";
+import { approvedEnglishRubric } from "../../packages/localization/src/index.js";
+import { sha256File } from "../../packages/localization/src/rubric/source-hash.js";
 import { activateRubricWithAudit, seedPilotWithAudit } from "../../scripts/seed-pilot.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -126,6 +127,93 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("approved rubric Version 1 persi
       targetId: rubric.id,
       source: "seed",
     });
+  });
+
+  it("limits the rubric lifecycle to draft and audited activation", async () => {
+    const statuses = await client.$queryRaw<Array<{ enumlabel: string }>>`
+      SELECT enumlabel
+      FROM pg_enum
+      JOIN pg_type ON pg_type.oid = pg_enum.enumtypid
+      WHERE pg_type.typname = 'RubricStatus'
+      ORDER BY enumlabel
+    `;
+
+    expect(statuses.map(({ enumlabel }) => enumlabel)).toEqual(["active", "draft"]);
+  });
+
+  it("rejects a criterion linked to a section from another locale", async () => {
+    const organization = await client.organization.findUniqueOrThrow({ where: { key: "leapai" } });
+    const rubric = await client.rubricVersion.findUniqueOrThrow({
+      where: { organizationId_version: { organizationId: organization.id, version: "1" } },
+    });
+
+    await expect(
+      client.$transaction(async (transaction) => {
+        const sectionLocale = await transaction.rubricLocale.create({
+          data: {
+            rubricVersionId: rubric.id,
+            locale: "ar-SA",
+            sourceHash: "0".repeat(64),
+            biasGuidance: [],
+          },
+        });
+        const criterionLocale = await transaction.rubricLocale.create({
+          data: {
+            rubricVersionId: rubric.id,
+            locale: "fr-FR",
+            sourceHash: "1".repeat(64),
+            biasGuidance: [],
+          },
+        });
+        const foreignSection = await transaction.rubricSection.create({
+          data: {
+            rubricLocaleId: sectionLocale.id,
+            stableId: "FOREIGN",
+            title: "Foreign section",
+            weight: 100,
+            displayOrder: 0,
+          },
+        });
+
+        await transaction.rubricCriterion.create({
+          data: {
+            rubricLocaleId: criterionLocale.id,
+            sectionId: foreignSection.id,
+            stableId: "CROSS-LOCALE-01",
+            kind: "employee",
+            title: "Cross-locale criterion",
+            internalWeight: 100,
+            content: {},
+            displayOrder: 0,
+          },
+        });
+      }),
+    ).rejects.toMatchObject({ code: "P2003" });
+  });
+
+  it("keeps a new locale draft mutable beneath active Version 1 until its own activation", async () => {
+    const organization = await client.organization.findUniqueOrThrow({ where: { key: "leapai" } });
+    const rubric = await client.rubricVersion.findUniqueOrThrow({
+      where: { organizationId_version: { organizationId: organization.id, version: "1" } },
+    });
+
+    await expect(
+      client.$transaction(async (transaction) => {
+        const locale = await transaction.rubricLocale.create({
+          data: {
+            rubricVersionId: rubric.id,
+            locale: "ar-SA",
+            sourceHash: "0".repeat(64),
+            biasGuidance: [],
+          },
+        });
+        await transaction.rubricLocale.update({
+          where: { id: locale.id },
+          data: { biasGuidance: ["pending human review"] },
+        });
+        await transaction.rubricLocale.delete({ where: { id: locale.id } });
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("is idempotent when the approved rubric is already active", async () => {
@@ -330,115 +418,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("approved rubric Version 1 persi
 
     for (const activation of directActivations) {
       await expect(activation()).rejects.toThrow(/rubric activation must transition from draft/u);
-    }
-  });
-
-  it("rejects draft to retired as an activation bypass", async () => {
-    const organization = await client.organization.create({
-      data: { key: `draft-retired-${crypto.randomUUID()}`, name: "Draft retirement test" },
-    });
-    const version = await client.rubricVersion.create({
-      data: { organizationId: organization.id, version: "1" },
-    });
-
-    await expect(
-      client.rubricVersion.update({
-        where: { id: version.id },
-        data: { status: "retired", activatedAt: new Date() },
-      }),
-    ).rejects.toThrow(/rubric status must transition from draft to active/u);
-  });
-
-  it("keeps retired rubric versions and all historical descendants immutable", async () => {
-    const records = await client.$transaction(async (transaction) => {
-      const organization = await transaction.organization.create({
-        data: { key: `retired-${crypto.randomUUID()}`, name: "Retired history test" },
-      });
-      const version = await transaction.rubricVersion.create({
-        data: { organizationId: organization.id, version: "1" },
-      });
-      const locale = await transaction.rubricLocale.create({
-        data: {
-          rubricVersionId: version.id,
-          locale: "en",
-          sourceHash: "0".repeat(64),
-          biasGuidance: [],
-        },
-      });
-      const section = await transaction.rubricSection.create({
-        data: {
-          rubricLocaleId: locale.id,
-          stableId: "RETIRED",
-          title: "Retired",
-          weight: 100,
-          displayOrder: 0,
-        },
-      });
-      const criterion = await transaction.rubricCriterion.create({
-        data: {
-          rubricLocaleId: locale.id,
-          sectionId: section.id,
-          stableId: "RETIRED-01",
-          kind: "employee",
-          title: "Retired",
-          internalWeight: 100,
-          content: {},
-          displayOrder: 0,
-        },
-      });
-      const anchor = await transaction.rubricAnchor.create({
-        data: { criterionId: criterion.id, rating: 1, text: "Retired" },
-      });
-      await transaction.$executeRawUnsafe(
-        'ALTER TABLE "RubricVersion" DISABLE TRIGGER "RubricVersion_active_immutable"',
-      );
-      await transaction.$executeRawUnsafe(
-        'ALTER TABLE "RubricLocale" DISABLE TRIGGER "RubricLocale_active_immutable"',
-      );
-      const retiredAt = new Date();
-      await transaction.rubricLocale.update({
-        where: { id: locale.id },
-        data: { status: "retired", activatedAt: retiredAt },
-      });
-      await transaction.rubricVersion.update({
-        where: { id: version.id },
-        data: { status: "retired", activatedAt: retiredAt },
-      });
-      await transaction.$executeRawUnsafe(
-        'ALTER TABLE "RubricLocale" ENABLE TRIGGER "RubricLocale_active_immutable"',
-      );
-      await transaction.$executeRawUnsafe(
-        'ALTER TABLE "RubricVersion" ENABLE TRIGGER "RubricVersion_active_immutable"',
-      );
-      return { version, locale, section, criterion, anchor };
-    });
-
-    const mutations = [
-      () =>
-        client.rubricVersion.update({ where: { id: records.version.id }, data: { version: "2" } }),
-      () =>
-        client.rubricLocale.update({
-          where: { id: records.locale.id },
-          data: { sourceHash: "1".repeat(64) },
-        }),
-      () =>
-        client.rubricSection.update({
-          where: { id: records.section.id },
-          data: { title: "Changed" },
-        }),
-      () =>
-        client.rubricCriterion.update({
-          where: { id: records.criterion.id },
-          data: { content: { changed: true } },
-        }),
-      () =>
-        client.rubricAnchor.update({
-          where: { id: records.anchor.id },
-          data: { text: "Changed" },
-        }),
-    ];
-    for (const mutation of mutations) {
-      await expect(mutation()).rejects.toThrow(/rubric content is immutable/u);
     }
   });
 });
