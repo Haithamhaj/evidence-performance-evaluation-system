@@ -38,6 +38,18 @@ const workstreamOwner = subject(
 );
 const contributor = subject("contributor-1", "contributor", "project", "project-1");
 const actingOwner = subject("delegate-1", "acting_owner", "project", "project-1");
+const workstreamContributor = subject(
+  "workstream-contributor-1",
+  "contributor",
+  "workstream",
+  "workstream-1",
+);
+const workstreamActingOwner = subject(
+  "workstream-delegate-1",
+  "acting_owner",
+  "workstream",
+  "workstream-1",
+);
 
 const submittedResponse: import("./model.js").PolicyResource = {
   kind: "managerFeedback.response",
@@ -194,6 +206,94 @@ describe("authorization decision contract", () => {
               subjectId: actingOwner.subjectId,
               scopeType: "project",
               scopeId: "project-1",
+              startsAt: "2026-07-15T08:00:00.000Z",
+              endsAt: "2026-07-15T16:00:00.000Z",
+            },
+          ],
+        },
+      ),
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
+  });
+
+  it("allows a contributor inside the assigned Workstream scope", () => {
+    expect(
+      decide(
+        workstreamContributor,
+        "resource.contribute",
+        { kind: "workstream", workstreamId: "workstream-1", projectId: "project-1" },
+        baseContext,
+      ),
+    ).toEqual({ allowed: true });
+  });
+
+  it("denies a contributor outside the assigned Workstream scope", () => {
+    expect(
+      decide(
+        workstreamContributor,
+        "resource.contribute",
+        { kind: "workstream", workstreamId: "workstream-2", projectId: "project-1" },
+        baseContext,
+      ),
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
+  });
+
+  it("allows a Workstream Acting Owner only during the matching responsibility window", () => {
+    expect(
+      decide(
+        workstreamActingOwner,
+        "workstream.manage",
+        { kind: "workstream", workstreamId: "workstream-1", projectId: "project-1" },
+        {
+          now,
+          actingOwnerWindows: [
+            {
+              subjectId: workstreamActingOwner.subjectId,
+              scopeType: "workstream",
+              scopeId: "workstream-1",
+              startsAt: "2026-07-15T08:00:00.000Z",
+              endsAt: "2026-07-15T16:00:00.000Z",
+            },
+          ],
+        },
+      ),
+    ).toEqual({ allowed: true });
+  });
+
+  it("denies a Workstream Acting Owner after the responsibility window ends", () => {
+    expect(
+      decide(
+        workstreamActingOwner,
+        "workstream.manage",
+        { kind: "workstream", workstreamId: "workstream-1", projectId: "project-1" },
+        {
+          now,
+          actingOwnerWindows: [
+            {
+              subjectId: workstreamActingOwner.subjectId,
+              scopeType: "workstream",
+              scopeId: "workstream-1",
+              startsAt: "2026-07-14T08:00:00.000Z",
+              endsAt: "2026-07-15T12:00:00.000Z",
+            },
+          ],
+        },
+      ),
+    ).toEqual({ allowed: false, reasonCode: "RESOURCE_STATE" });
+  });
+
+  it("denies a Workstream Acting Owner outside the delegated scope", () => {
+    expect(
+      decide(
+        workstreamActingOwner,
+        "workstream.manage",
+        { kind: "workstream", workstreamId: "workstream-2", projectId: "project-1" },
+        {
+          now,
+          actingOwnerWindows: [
+            {
+              subjectId: workstreamActingOwner.subjectId,
+              scopeType: "workstream",
+              scopeId: "workstream-1",
               startsAt: "2026-07-15T08:00:00.000Z",
               endsAt: "2026-07-15T16:00:00.000Z",
             },

@@ -1,9 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 
 import { decide } from "@evaluation/permissions";
 import { AppError } from "@evaluation/contracts";
 
-import { getPolicyRequirement, type PolicyRequest } from "./require-policy.decorator.js";
+import { POLICY_REQUIREMENT } from "./policy.metadata.js";
 
 function authorizationError(reasonCode: import("@evaluation/permissions").DenialReason): AppError {
   return new AppError(
@@ -14,11 +15,21 @@ function authorizationError(reasonCode: import("@evaluation/permissions").Denial
 }
 
 export class PolicyGuard {
+  private readonly reflector: Reflector;
+
+  constructor(reflector: Reflector) {
+    this.reflector = reflector;
+  }
+
   async canActivate(context: import("@nestjs/common").ExecutionContext): Promise<boolean> {
-    const requirement = getPolicyRequirement(context.getHandler());
+    const requirement = this.reflector.get<
+      import("./policy.metadata.js").PolicyRequirement | undefined
+    >(POLICY_REQUIREMENT, context.getHandler());
     if (requirement === undefined) throw authorizationError("ROLE_REQUIRED");
 
-    const request = context.switchToHttp().getRequest<PolicyRequest>();
+    const request = context
+      .switchToHttp()
+      .getRequest<import("./policy.metadata.js").PolicyRequest>();
     const principal = request.principal;
     if (principal === undefined) throw authorizationError("UNAUTHENTICATED");
     if (!principal.active) throw authorizationError("INACTIVE");
@@ -40,3 +51,4 @@ export class PolicyGuard {
 }
 
 Injectable()(PolicyGuard);
+Inject(Reflector)(PolicyGuard, undefined, 0);
