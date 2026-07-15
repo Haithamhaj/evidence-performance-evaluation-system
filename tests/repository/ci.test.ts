@@ -44,6 +44,27 @@ const secretCases = [
   },
 ] as const;
 
+const minimumReleaseAgeExceptions = [
+  "@aws-sdk/checksums@3.1000.17",
+  "@aws-sdk/client-s3@3.1087.0",
+  "@aws-sdk/core@3.975.2",
+  "@aws-sdk/credential-provider-env@3.972.58",
+  "@aws-sdk/credential-provider-http@3.972.60",
+  "@aws-sdk/credential-provider-ini@3.973.2",
+  "@aws-sdk/credential-provider-login@3.972.64",
+  "@aws-sdk/credential-provider-node@3.972.68",
+  "@aws-sdk/credential-provider-process@3.972.58",
+  "@aws-sdk/credential-provider-sso@3.973.2",
+  "@aws-sdk/credential-provider-web-identity@3.972.64",
+  "@aws-sdk/middleware-sdk-s3@3.972.63",
+  "@aws-sdk/nested-clients@3.997.32",
+  "@aws-sdk/s3-request-presigner@3.1087.0",
+  "@aws-sdk/signature-v4-multi-region@3.996.40",
+  "@aws-sdk/token-providers@3.1087.0",
+  "@aws-sdk/types@3.974.1",
+  "@aws-sdk/xml-builder@3.972.35",
+] as const;
+
 async function runScanner(files: string[] = [], cwd = process.cwd()): Promise<CommandResult> {
   try {
     const result = await execFileAsync(process.execPath, [scannerPath, ...files], { cwd });
@@ -120,6 +141,37 @@ describe("CI contract", () => {
     expect(manifest.scripts?.verify).toContain("pnpm validate:task-graph");
     expect(manifest.scripts?.verify).toContain("pnpm format:check");
     expect(manifest.scripts?.verify).toContain("pnpm scan:secrets");
+  });
+
+  it("pins only the hosted release-age exceptions while retaining pnpm 11 protection", async () => {
+    const [manifestText, workspace] = await Promise.all([
+      readFile("package.json", "utf8"),
+      readFile("pnpm-workspace.yaml", "utf8"),
+    ]);
+    const manifest = JSON.parse(manifestText);
+    const exclusionBlock = workspace.match(
+      /^minimumReleaseAgeExclude:\n((?:  - ["'][^"']+["'](?:\n|$))+)/m,
+    );
+    expect(exclusionBlock).not.toBeNull();
+
+    const exceptions = [...(exclusionBlock?.[1] ?? "").matchAll(/^  - ["']([^"']+)["']$/gm)].map(
+      ([, selector]) => selector,
+    );
+    expect(exceptions).toEqual(minimumReleaseAgeExceptions);
+    for (const selector of exceptions) {
+      expect(selector).toMatch(
+        /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/,
+      );
+      expect(selector).not.toContain("*");
+      expect(selector).not.toContain("||");
+    }
+
+    const configuredAge = workspace.match(/^minimumReleaseAge:\s*(\d+)$/m)?.[1];
+    expect(configuredAge ?? "1440").toBe("1440");
+    expect(manifest.packageManager).toBe("pnpm@11.13.0");
+    expect(manifest.engines?.pnpm).toBe("11.13.0");
+    expect(workspace).not.toMatch(/^trustLockfile:/m);
+    expect(workspace).not.toMatch(/^minimumReleaseAgeStrict:\s*false$/m);
   });
 
   it.each(secretCases)(
