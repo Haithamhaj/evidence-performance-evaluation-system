@@ -7,6 +7,7 @@ import { appendAuditEvent, accessSensitiveContent } from "../../packages/audit/s
 import { seedPilotWithAudit } from "../../scripts/seed-pilot.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
+const observer = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 type TestAuditWriter<T> = import("../../packages/contracts/src/index.js").AuditWriter<T>;
 type DatabaseTransaction = Parameters<Parameters<typeof client.$transaction>[0]>[0];
 
@@ -28,6 +29,7 @@ afterAll(async () => {
     { managerSubject: "pilot-manager", adminSubject: "system-admin" },
     databaseWriter,
   );
+  await observer.$disconnect();
   await client.$disconnect();
 });
 
@@ -129,10 +131,11 @@ describe("protected action audit atomicity", () => {
     const loader = vi.fn().mockResolvedValue("protected");
     const writer: TestAuditWriter<unknown> = { append: vi.fn() };
     const authorize = vi.fn().mockResolvedValue(true);
+    const transactionRunner = { $transaction: vi.fn() };
 
     await expect(
       accessSensitiveContent(
-        {},
+        transactionRunner,
         {
           visibilityMode: "manager_blinded",
           reason: "  ",
@@ -152,6 +155,7 @@ describe("protected action audit atomicity", () => {
     ).rejects.toThrow();
     expect(writer.append).not.toHaveBeenCalled();
     expect(authorize).not.toHaveBeenCalled();
+    expect(transactionRunner.$transaction).not.toHaveBeenCalled();
     expect(loader).not.toHaveBeenCalled();
   });
 
@@ -161,10 +165,11 @@ describe("protected action audit atomicity", () => {
       const loader = vi.fn().mockResolvedValue("protected");
       const writer: TestAuditWriter<unknown> = { append: vi.fn() };
       const authorize = vi.fn().mockResolvedValue(true);
+      const transactionRunner = { $transaction: vi.fn() };
 
       await expect(
         accessSensitiveContent(
-          {},
+          transactionRunner,
           {
             visibilityMode: "manager_blinded",
             reason,
@@ -184,11 +189,12 @@ describe("protected action audit atomicity", () => {
       ).rejects.toThrow();
       expect(writer.append).not.toHaveBeenCalled();
       expect(authorize).not.toHaveBeenCalled();
+      expect(transactionRunner.$transaction).not.toHaveBeenCalled();
       expect(loader).not.toHaveBeenCalled();
     },
   );
 
-  it("writes sensitive.access.decision before loading and blocks loading on audit failure", async () => {
+  it("loads allowed content only after sensitive.access.decision commits", async () => {
     const order: string[] = [];
     const request = {
       visibilityMode: "anonymous_aggregated" as const,
@@ -202,22 +208,26 @@ describe("protected action audit atomicity", () => {
       correlationId: crypto.randomUUID(),
       source: "api" as const,
     };
-    const writer: TestAuditWriter<unknown> = {
-      append: vi.fn(async (_tx, input) => {
+    const writer: TestAuditWriter<DatabaseTransaction> = {
+      append: vi.fn(async (transaction, input) => {
         order.push(`audit:${input.eventType}:${input.reason}`);
-        return { id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+        return appendAuditEvent(transaction, input);
       }),
     };
-    const authorize = vi.fn(async () => {
+    const authorize = vi.fn(async (transaction: DatabaseTransaction) => {
+      expect(transaction).toHaveProperty("auditEvent");
       order.push("authorize");
       return true;
     });
     const loader = vi.fn(async () => {
+      await expect(
+        observer.auditEvent.count({ where: { correlationId: request.correlationId } }),
+      ).resolves.toBe(1);
       order.push("load");
       return "protected";
     });
 
-    await expect(accessSensitiveContent({}, request, writer, authorize, loader)).resolves.toBe(
+    await expect(accessSensitiveContent(client, request, writer, authorize, loader)).resolves.toBe(
       "protected",
     );
     expect(order).toEqual([
@@ -225,14 +235,32 @@ describe("protected action audit atomicity", () => {
       "audit:sensitive.access.decision:Governance investigation",
       "load",
     ]);
+  });
+
+  it("never loads future private content when its audit transaction fails", async () => {
+    const request = {
+      visibilityMode: "anonymous_aggregated" as const,
+      reason: "Governance investigation",
+      actor: { kind: "human" as const, id: crypto.randomUUID() },
+      effectiveSubjectId: crypto.randomUUID(),
+      scopeType: "cycle" as const,
+      scopeId: crypto.randomUUID(),
+      targetType: "manager_feedback_response",
+      targetId: crypto.randomUUID(),
+      correlationId: crypto.randomUUID(),
+      source: "api" as const,
+    };
 
     const failedLoader = vi.fn();
     await expect(
       accessSensitiveContent(
-        {},
+        client,
         request,
         { append: vi.fn().mockRejectedValue(new Error("audit failed")) },
-        vi.fn().mockResolvedValue(true),
+        vi.fn(async (transaction: DatabaseTransaction) => {
+          expect(transaction).toHaveProperty("auditEvent");
+          return true;
+        }),
         failedLoader,
       ),
     ).rejects.toThrow("audit failed");
@@ -252,46 +280,34 @@ describe("protected action audit atomicity", () => {
       correlationId: crypto.randomUUID(),
       source: "api" as const,
     };
-    const order: string[] = [];
-    const writer: TestAuditWriter<unknown> = {
-      append: vi.fn(async () => {
-        order.push("audit:denied");
-        return {
-          id: crypto.randomUUID(),
-          createdAt: new Date().toISOString(),
-        };
-      }),
-    };
-    const authorize = vi.fn(async () => {
-      order.push("authorize:denied");
+    const authorize = vi.fn(async (transaction: DatabaseTransaction) => {
+      expect(transaction).toHaveProperty("auditEvent");
       return false;
     });
-    const loader = vi.fn(() => {
-      order.push("load");
-    });
+    const loader = vi.fn();
 
     await expect(
-      accessSensitiveContent({}, request, writer, authorize, loader),
+      accessSensitiveContent(client, request, databaseWriter, authorize, loader),
     ).rejects.toMatchObject({ code: "AUTHZ_SENSITIVE_ACCESS_DENIED", status: 403 });
-    expect(writer.append).toHaveBeenCalledWith(
-      {},
-      expect.objectContaining({
-        eventType: "sensitive.access.decision",
-        safeDiff: { visibilityMode: "manager_blinded", decision: "denied" },
-      }),
-    );
-    expect(order).toEqual(["authorize:denied", "audit:denied"]);
+    await expect(
+      observer.auditEvent.findFirstOrThrow({ where: { correlationId: request.correlationId } }),
+    ).resolves.toMatchObject({
+      eventType: "sensitive.access.decision",
+      reason: "Investigating a protected record",
+      safeDiff: { visibilityMode: "manager_blinded", decision: "denied" },
+    });
     expect(loader).not.toHaveBeenCalled();
   });
 
   it("keeps Identified pilot access allowed without treating it as private access", async () => {
     const writer: TestAuditWriter<unknown> = { append: vi.fn() };
     const authorize = vi.fn();
+    const transactionRunner = { $transaction: vi.fn() };
     const loader = vi.fn().mockResolvedValue("identified response");
 
     await expect(
       accessSensitiveContent(
-        {},
+        transactionRunner,
         { visibilityMode: "identified", targetId: crypto.randomUUID() },
         writer,
         authorize,
@@ -300,5 +316,6 @@ describe("protected action audit atomicity", () => {
     ).resolves.toBe("identified response");
     expect(writer.append).not.toHaveBeenCalled();
     expect(authorize).not.toHaveBeenCalled();
+    expect(transactionRunner.$transaction).not.toHaveBeenCalled();
   });
 });

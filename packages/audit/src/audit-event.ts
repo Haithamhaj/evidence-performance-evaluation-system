@@ -33,16 +33,21 @@ function assertSafeValue(value: unknown, seen: Set<object>): void {
     if (Object.getPrototypeOf(value) !== Array.prototype) {
       throw new Error("Audit safeDiff must contain plain JSON objects only");
     }
+    let itemCount = 0;
     for (const key of Reflect.ownKeys(value)) {
       if (key === "length") continue;
       if (typeof key !== "string" || !/^(?:0|[1-9]\d*)$/u.test(key)) {
         throw new Error("Audit safeDiff must contain JSON values only");
       }
+      itemCount += 1;
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
       if (descriptor === undefined || !("value" in descriptor) || !descriptor.enumerable) {
         throw new Error("Audit safeDiff must contain JSON values only");
       }
       assertSafeValue(descriptor.value, seen);
+    }
+    if (itemCount !== value.length) {
+      throw new Error("Audit safeDiff must contain JSON values only");
     }
   } else {
     const prototype = Object.getPrototypeOf(value);
@@ -66,10 +71,29 @@ function assertSafeValue(value: unknown, seen: Set<object>): void {
   seen.delete(value);
 }
 
+function assertRawSafeDiff(input: unknown): void {
+  if (input === null || typeof input !== "object") return;
+  const prototype = Object.getPrototypeOf(input);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new Error("Audit event input must be a plain object");
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(input, "safeDiff");
+  if (descriptor === undefined) {
+    if ("safeDiff" in input) {
+      throw new Error("Audit safeDiff must be an own data property");
+    }
+    return;
+  }
+  if (!("value" in descriptor) || !descriptor.enumerable) {
+    throw new Error("Audit safeDiff must contain JSON values only");
+  }
+  assertSafeValue(descriptor.value, new Set());
+}
+
 export function parseAuditEventInput(
   input: unknown,
 ): import("@evaluation/contracts").AuditEventInput {
+  assertRawSafeDiff(input);
   const parsed = AuditEventInputSchema.parse(input);
-  if (parsed.safeDiff !== undefined) assertSafeValue(parsed.safeDiff, new Set());
   return parsed;
 }

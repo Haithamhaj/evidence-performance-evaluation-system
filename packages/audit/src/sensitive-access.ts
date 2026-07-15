@@ -24,11 +24,20 @@ const IdentifiedAccessRequestSchema = z
   .object({ visibilityMode: z.literal("identified"), targetId: z.string().uuid() })
   .strict();
 
+interface TransactionRunner<TTransaction> {
+  $transaction<TResult>(
+    operation: (transaction: TTransaction) => Promise<TResult>,
+  ): Promise<TResult>;
+}
+
 export async function accessSensitiveContent<TTransaction, TContent>(
-  transaction: TTransaction,
+  transactionRunner: TransactionRunner<TTransaction>,
   request: unknown,
   writer: import("@evaluation/contracts").AuditWriter<TTransaction>,
-  authorize: (request: z.infer<typeof SensitiveAccessRequestSchema>) => boolean | Promise<boolean>,
+  authorize: (
+    transaction: TTransaction,
+    request: z.infer<typeof SensitiveAccessRequestSchema>,
+  ) => boolean | Promise<boolean>,
   loadProtectedContent: () => Promise<TContent>,
 ): Promise<TContent> {
   const mode = z
@@ -41,19 +50,25 @@ export async function accessSensitiveContent<TTransaction, TContent>(
   }
 
   const parsed = SensitiveAccessRequestSchema.parse(request);
-  const allowed = await authorize(parsed);
-  await writer.append(transaction, {
-    eventType: "sensitive.access.decision",
-    actor: parsed.actor,
-    effectiveSubjectId: parsed.effectiveSubjectId,
-    scopeType: parsed.scopeType,
-    scopeId: parsed.scopeId,
-    targetType: parsed.targetType,
-    targetId: parsed.targetId,
-    reason: parsed.reason,
-    correlationId: parsed.correlationId,
-    source: parsed.source,
-    safeDiff: { visibilityMode: parsed.visibilityMode, decision: allowed ? "allowed" : "denied" },
+  const allowed = await transactionRunner.$transaction(async (transaction) => {
+    const decision = await authorize(transaction, parsed);
+    await writer.append(transaction, {
+      eventType: "sensitive.access.decision",
+      actor: parsed.actor,
+      effectiveSubjectId: parsed.effectiveSubjectId,
+      scopeType: parsed.scopeType,
+      scopeId: parsed.scopeId,
+      targetType: parsed.targetType,
+      targetId: parsed.targetId,
+      reason: parsed.reason,
+      correlationId: parsed.correlationId,
+      source: parsed.source,
+      safeDiff: {
+        visibilityMode: parsed.visibilityMode,
+        decision: decision ? "allowed" : "denied",
+      },
+    });
+    return decision;
   });
   if (!allowed) {
     throw new AppError("AUTHZ_SENSITIVE_ACCESS_DENIED", "errors.authorization.denied", 403);

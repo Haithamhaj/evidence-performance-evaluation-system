@@ -110,6 +110,69 @@ describe("append-only audit persistence", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("validates raw root and nested accessors without invoking getters or persistence", async () => {
+    const rootGetter = vi.fn(() => "safe");
+    const root = {} as Record<string, unknown>;
+    Object.defineProperty(root, "field", { enumerable: true, get: rootGetter });
+    const nestedGetter = vi.fn(() => "safe");
+    const nested = {} as Record<string, unknown>;
+    Object.defineProperty(nested, "field", { enumerable: true, get: nestedGetter });
+    const inputGetter = vi.fn(() => ({ fields: ["displayName"] }));
+    const inputWithAccessor = eventInput();
+    Object.defineProperty(inputWithAccessor, "safeDiff", {
+      enumerable: true,
+      get: inputGetter,
+    });
+
+    for (const input of [
+      eventInput({ safeDiff: root }),
+      eventInput({ safeDiff: { nested } }),
+      inputWithAccessor,
+    ]) {
+      const create = vi.fn();
+      await expect(appendAuditEvent({ auditEvent: { create } }, input)).rejects.toThrow(
+        "Audit safeDiff must contain JSON values only",
+      );
+      expect(create).not.toHaveBeenCalled();
+    }
+    expect(rootGetter).not.toHaveBeenCalled();
+    expect(nestedGetter).not.toHaveBeenCalled();
+    expect(inputGetter).not.toHaveBeenCalled();
+  });
+
+  it("rejects root and nested non-enumerable safeDiff fields before persistence", async () => {
+    const root = {} as Record<string, unknown>;
+    Object.defineProperty(root, "hidden", { enumerable: false, value: "secret" });
+    const nested = {} as Record<string, unknown>;
+    Object.defineProperty(nested, "hidden", { enumerable: false, value: "secret" });
+
+    for (const safeDiff of [root, { nested }]) {
+      const create = vi.fn();
+      await expect(
+        appendAuditEvent({ auditEvent: { create } }, eventInput({ safeDiff })),
+      ).rejects.toThrow("Audit safeDiff must contain JSON values only");
+      expect(create).not.toHaveBeenCalled();
+    }
+  });
+
+  it("rejects sparse arrays and symbol fields before persistence", async () => {
+    const sparse = new Array<unknown>(2);
+    sparse[1] = "value";
+    const symbolValue = { visible: true } as Record<PropertyKey, unknown>;
+    symbolValue[Symbol("hidden")] = "secret";
+
+    for (const nested of [sparse, symbolValue]) {
+      const create = vi.fn();
+      await expect(
+        appendAuditEvent(
+          { auditEvent: { create } },
+          eventInput({ safeDiff: { nested } as Record<string, unknown> }),
+        ),
+      ).rejects.toThrow("Audit safeDiff must contain JSON values only");
+      expect(create).not.toHaveBeenCalled();
+    }
+  });
+
   it.each([new Date(), new Map([["authorization", "Bearer reviewer-secret"]])])(
     "rejects other non-JSON safeDiff object types before persistence",
     async (nested) => {
