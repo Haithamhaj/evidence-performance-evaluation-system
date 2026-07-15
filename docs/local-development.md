@@ -40,4 +40,4 @@ Reset is intentionally destructive and refuses to run without both explicit guar
 APP_ENV=local RESET_LOCAL_DATA=YES pnpm infra:reset
 ```
 
-That command removes the local containers, network, and all three persistent volumes. It cannot target a remote environment because the Compose file contains only loopback-bound local services.
+That command removes the containers, network, and all three persistent volumes from the active Docker context. Confirm that Docker is using the intended local context first; loopback bindings limit port exposure on the selected Docker host but do not prevent targeting a configured remote context.
