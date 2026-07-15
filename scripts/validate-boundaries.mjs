@@ -6,7 +6,17 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const sourceRoots = ["apps", "packages"];
 const sourceExtensions = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]);
 const ignoredDirectories = new Set([".next", ".turbo", "dist", "node_modules"]);
-const webForbiddenPackages = new Set(["ai-routing", "database"]);
+const webForbiddenPackages = [
+  "@evaluation/database",
+  "@evaluation/ai-routing",
+  "ioredis",
+  "redis",
+  "bullmq",
+  "openai",
+  "@anthropic-ai/sdk",
+  "@google/generative-ai",
+  "@google/genai",
+];
 const importPattern =
   /(?:\b(?:import|export)\s+(?:[^"'`;]*?\s+from\s+)?|\bimport\s*\()\s*["']([^"']+)["']/gu;
 
@@ -40,16 +50,17 @@ function inspectImport(filePath, specifier) {
   const relativeFile = path.relative(repositoryRoot, filePath);
   const packageImport = /^@evaluation\/([^/]+)(\/.+)?$/u.exec(specifier);
 
-  if (packageImport?.[2]) {
-    return `BOUNDARY_DEEP_IMPORT:${relativeFile}:${specifier}`;
-  }
-
   if (
     relativeFile.startsWith(`apps${path.sep}web${path.sep}`) &&
-    packageImport &&
-    webForbiddenPackages.has(packageImport[1])
+    webForbiddenPackages.some(
+      (packageName) => specifier === packageName || specifier.startsWith(`${packageName}/`),
+    )
   ) {
     return `BOUNDARY_WEB_SERVER_IMPORT:${relativeFile}:${specifier}`;
+  }
+
+  if (packageImport?.[2]) {
+    return `BOUNDARY_DEEP_IMPORT:${relativeFile}:${specifier}`;
   }
 
   if (specifier.startsWith(".")) {

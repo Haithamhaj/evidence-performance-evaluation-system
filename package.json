@@ -20,6 +20,10 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
+    "@babel/core": "8.0.1",
+    "@babel/eslint-parser": "8.0.1",
+    "@babel/plugin-syntax-decorators": "8.0.1",
+    "@babel/preset-typescript": "8.0.1",
     "@playwright/test": "1.61.1",
     "eslint": "10.7.0",
     "prettier": "3.9.5",
