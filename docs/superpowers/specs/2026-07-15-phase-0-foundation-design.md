@@ -4,7 +4,7 @@
 
 **Date:** 2026-07-15
 
-**Status:** Proposed for product-owner approval
+**Status:** Approved for implementation planning; implementation method not yet selected
 
 **Scope:** Phase 0 only — Tasks T001–T017
 
@@ -563,7 +563,7 @@ No Phase 0 decision depends on a later feature module. Later modules consume sta
 ## 26. Self-review record
 
 - **Unfinished-marker scan:** no unfinished marker or unresolved implementation placeholder remains.
-- **Contradiction scan:** the identified-pilot publication contradiction is recorded explicitly in Section 24.4; the design follows the repeated Revision 1.1 decision.
+- **Contradiction scan:** the identified-pilot publication contradiction is resolved in `docs/PROJECT_REFERENCE.md` section 27.2 and recorded in Section 24.4; no full-team gate applies to the pilot.
 - **Ambiguity scan:** process ownership, data authority, AI routing, localization activation, and Phase 0 boundaries are explicit.
 - **Scope check:** limited to T001–T017 and their verification foundations.
 - **Protected-rule check:** AI rating, readiness/performance separation, no ranking, non-retroactivity, immutability, human final judgment, calibration, and identified pilot behavior are preserved.
@@ -577,13 +577,13 @@ No Phase 0 decision depends on a later feature module. Later modules consume sta
 
 ## 27. Approval gate
 
-Approval of this specification authorizes creation of the detailed Phase 0 implementation plan only. It does not authorize implementation, dependency installation, worktree creation, a pull request, or merging.
+Product-owner approval was recorded on 2026-07-15. It authorizes creation of the detailed Phase 0 implementation plan only. It does not authorize implementation, dependency installation, worktree creation, a pull request, or merging.
 
 After explicit approval, the next artifact is:
 
 `docs/superpowers/plans/2026-07-15-phase-0-foundation-plan.md`
 
-The plan will map every task T001–T017 to exact files, failing tests, commands, expected results, interfaces, migrations, frequent commits, and verification evidence.
+The plan maps every task T001–T017 to exact files, failing tests, commands, expected results, interfaces, migrations, frequent commits, and verification evidence. After plan review, work stops at the execution-method choice until the product owner selects an option.
 
 ## 28. Official technical references checked
 

@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Create and approve the detailed Phase 0 implementation plan, then choose an execution mode without beginning implementation prematurely.
+Choose the Phase 0 execution mode, then execute the approved plan only through the selected Superpowers workflow.
 
 ## Current Reality
 
@@ -19,6 +19,8 @@ Create and approve the detailed Phase 0 implementation plan, then choose an exec
 - The private GitHub repository is published at `https://github.com/Haithamhaj/evidence-performance-evaluation-system` with `main` as its default branch.
 - Six phase milestones and the 23 required governance labels are configured in GitHub.
 - `PROJECT_REFERENCE.md` sections 24.3, 24.4, and 27.2 consistently reject a full-team publication gate for the pilot `Identified` mode.
+- The detailed, self-reviewed Phase 0 plan covers T001–T017 at `docs/superpowers/plans/2026-07-15-phase-0-foundation-plan.md`.
+- Documentation and repository-governance corrections were published in commit `05aa30e`.
 - The current machine has Node.js and pnpm but no Docker-compatible container runtime.
 - The first synchronized external source is GitHub.
 
@@ -72,7 +74,7 @@ Create and approve the detailed Phase 0 implementation plan, then choose an exec
 
 ## Next Recommended Action
 
-Create and self-review the detailed TDD implementation plan for Tasks T001–T017, then stop at the execution-choice gate.
+Choose one execution method: Subagent-Driven development (recommended) or Inline Execution with checkpoints. Do not begin implementation until that choice is explicit.
 
 Do not begin feature UI work before completing:
 
@@ -95,3 +97,4 @@ Do not begin feature UI work before completing:
 - `TASKS.md`
 - `project-state/SYSTEM_MAP.html`
 - `docs/superpowers/specs/2026-07-15-phase-0-foundation-design.md`
+- `docs/superpowers/plans/2026-07-15-phase-0-foundation-plan.md`
