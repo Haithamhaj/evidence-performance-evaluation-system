@@ -1,0 +1,90 @@
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const sourceRoots = ["apps", "packages"];
+const sourceExtensions = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]);
+const ignoredDirectories = new Set([".next", ".turbo", "dist", "node_modules"]);
+const webForbiddenPackages = new Set(["ai-routing", "database"]);
+const importPattern =
+  /(?:\b(?:import|export)\s+(?:[^"'`;]*?\s+from\s+)?|\bimport\s*\()\s*["']([^"']+)["']/gu;
+
+async function collectSourceFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const nestedFiles = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (ignoredDirectories.has(entry.name)) {
+          return [];
+        }
+
+        return collectSourceFiles(entryPath);
+      }
+
+      return sourceExtensions.has(path.extname(entry.name)) ? [entryPath] : [];
+    }),
+  );
+
+  return nestedFiles.flat();
+}
+
+function workspaceDirectory(filePath) {
+  const relativePath = path.relative(repositoryRoot, filePath);
+  const [category, workspace] = relativePath.split(path.sep);
+  return path.join(repositoryRoot, category, workspace);
+}
+
+function inspectImport(filePath, specifier) {
+  const relativeFile = path.relative(repositoryRoot, filePath);
+  const packageImport = /^@evaluation\/([^/]+)(\/.+)?$/u.exec(specifier);
+
+  if (packageImport?.[2]) {
+    return `BOUNDARY_DEEP_IMPORT:${relativeFile}:${specifier}`;
+  }
+
+  if (
+    relativeFile.startsWith(`apps${path.sep}web${path.sep}`) &&
+    packageImport &&
+    webForbiddenPackages.has(packageImport[1])
+  ) {
+    return `BOUNDARY_WEB_SERVER_IMPORT:${relativeFile}:${specifier}`;
+  }
+
+  if (specifier.startsWith(".")) {
+    const importedPath = path.resolve(path.dirname(filePath), specifier);
+    if (workspaceDirectory(importedPath) !== workspaceDirectory(filePath)) {
+      return `BOUNDARY_CROSS_WORKSPACE_RELATIVE:${relativeFile}:${specifier}`;
+    }
+  }
+
+  return undefined;
+}
+
+const files = (
+  await Promise.all(sourceRoots.map((root) => collectSourceFiles(path.join(repositoryRoot, root))))
+).flat();
+const violations = [];
+
+for (const filePath of files) {
+  const source = await readFile(filePath, "utf8");
+  for (const match of source.matchAll(importPattern)) {
+    const specifier = match[1];
+    if (!specifier) {
+      continue;
+    }
+
+    const violation = inspectImport(filePath, specifier);
+    if (violation) {
+      violations.push(violation);
+    }
+  }
+}
+
+if (violations.length > 0) {
+  console.error(violations.join("\n"));
+  process.exitCode = 1;
+} else {
+  console.log(`BOUNDARIES VALID: ${files.length} source files`);
+}

@@ -1,0 +1,22 @@
+import { defineProject } from "vitest/config";
+
+export default [
+  defineProject({
+    test: {
+      name: "unit",
+      include: ["tests/repository/**/*.test.ts", "apps/**/*.test.ts", "packages/**/*.test.ts"],
+    },
+  }),
+  defineProject({
+    test: {
+      name: "integration",
+      include: ["tests/integration/**/*.test.ts"],
+    },
+  }),
+  defineProject({
+    test: {
+      name: "ai-evals",
+      include: ["tests/ai-evals/**/*.test.ts"],
+    },
+  }),
+];
