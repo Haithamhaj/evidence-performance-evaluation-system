@@ -1,6 +1,6 @@
 import { Writable } from "node:stream";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { createCorrelationCarrier, runWithCorrelation } from "./correlation.js";
 import { createLogger, redact } from "./logger.js";
@@ -63,5 +63,43 @@ describe("safe observability", () => {
     expect(output.join("\n")).toContain(correlationId);
     expect(output.join("\n")).toContain("visible");
     expect(output.join("\n")).not.toContain("Bearer secret");
+  });
+
+  it("censors direct message strings and interpolation arguments", () => {
+    const output: string[] = [];
+    const destination = new Writable({
+      write(chunk, _encoding, callback) {
+        output.push(String(chunk));
+        callback();
+      },
+    });
+    const logger = createLogger({ destination, name: "test" });
+
+    logger.info("private feedback body");
+    logger.info("token=%s", "interpolated-token-secret");
+    logger.info({ privateFeedback: "structured-private-feedback" }, "private message");
+
+    const captured = output.join("\n");
+    expect(captured).not.toMatch(
+      /private feedback body|token=%s|interpolated-token-secret|structured-private-feedback|private message/u,
+    );
+    expect(captured).toContain("[REDACTED_MESSAGE]");
+  });
+
+  it("truthfully returns a transformed sanitized value", () => {
+    const circular: Record<string, unknown> = { safe: "visible" };
+    circular.self = circular;
+    const sanitized = redact({
+      occurredAt: new Date("2026-07-15T12:00:00.000Z"),
+      failure: new Error("select private_token from secrets"),
+      circular,
+    });
+
+    expectTypeOf(sanitized).toEqualTypeOf<unknown>();
+    expect(sanitized).toEqual({
+      occurredAt: "2026-07-15T12:00:00.000Z",
+      failure: { name: "Error", message: "[REDACTED]" },
+      circular: { safe: "visible", self: "[Circular]" },
+    });
   });
 });

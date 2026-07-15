@@ -3,6 +3,7 @@ import pino from "pino";
 import { currentCorrelation } from "./correlation.js";
 
 const REDACTED = "[REDACTED]";
+const REDACTED_MESSAGE = "[REDACTED_MESSAGE]";
 const SENSITIVE_KEYS = new Set([
   "authorization",
   "proxyauthorization",
@@ -108,8 +109,17 @@ function redactInternal(value: unknown, seen: WeakSet<object>): unknown {
   return output;
 }
 
-export function redact<T>(value: T): T {
-  return redactInternal(value, new WeakSet()) as T;
+export function redact(value: unknown): unknown {
+  return redactInternal(value, new WeakSet());
+}
+
+function isLogRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeLogRecord(value: Record<string, unknown>): Record<string, unknown> {
+  const sanitized = redact(value);
+  return isLogRecord(sanitized) ? sanitized : { value: REDACTED };
 }
 
 export function createLogger(options: CreateLoggerOptions) {
@@ -120,16 +130,26 @@ export function createLogger(options: CreateLoggerOptions) {
       paths: [...SENSITIVE_LOG_PATHS],
       censor: REDACTED,
     },
+    hooks: {
+      logMethod(inputArguments, method) {
+        const first = inputArguments[0];
+        if (isLogRecord(first)) {
+          method.call(this, sanitizeLogRecord(first), REDACTED_MESSAGE);
+          return;
+        }
+        method.call(this, REDACTED_MESSAGE);
+      },
+    },
     mixin() {
       const carrier = currentCorrelation();
       return carrier === undefined ? {} : serializeSafeCarrier(carrier);
     },
     formatters: {
       bindings(bindings) {
-        return redact(bindings);
+        return sanitizeLogRecord(bindings);
       },
       log(object) {
-        return redact(object);
+        return sanitizeLogRecord(object);
       },
     },
   };
