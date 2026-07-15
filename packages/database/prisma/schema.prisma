@@ -16,13 +16,14 @@ model SystemMetadata {
 }
 
 model User {
-  id          String         @id @default(uuid()) @db.Uuid
-  email       String         @unique
-  displayName String
-  active      Boolean        @default(true)
-  identities  OidcIdentity[]
-  createdAt   DateTime       @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime       @updatedAt @db.Timestamptz(6)
+  id              String           @id @default(uuid()) @db.Uuid
+  email           String           @unique
+  displayName     String
+  active          Boolean          @default(true)
+  identities      OidcIdentity[]
+  roleAssignments RoleAssignment[]
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
 }
 
 model OidcIdentity {
@@ -35,4 +36,58 @@ model OidcIdentity {
 
   @@unique([issuer, subject])
   @@index([userId])
+}
+
+enum Role {
+  employee
+  manager
+  system_administrator
+  project_owner
+  workstream_owner
+  contributor
+  acting_owner
+}
+
+enum ScopeType {
+  system
+  organization
+  department
+  project
+  workstream
+}
+
+model Organization {
+  id          String       @id @default(uuid()) @db.Uuid
+  key         String       @unique
+  name        String
+  departments Department[]
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+}
+
+model Department {
+  id             String       @id @default(uuid()) @db.Uuid
+  key            String       @unique
+  name           String
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId])
+}
+
+model RoleAssignment {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role      Role
+  scopeType ScopeType
+  scopeId   String
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@unique([userId, role, scopeType, scopeId])
+  @@index([userId])
+  @@index([scopeType, scopeId])
 }

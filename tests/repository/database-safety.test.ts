@@ -101,6 +101,12 @@ describe("local database reset guard", () => {
     expect(publicEntry).toBe(
       [
         'export { createDatabaseClient } from "./client.js";',
+        "export {",
+        "  PILOT_SEED_ISSUER,",
+        "  seedPilot,",
+        "  type PilotSubjects,",
+        "  type RoleAssignmentChange,",
+        '} from "./seed-pilot.js";',
         'export { withTransaction } from "./transactions.js";',
         "",
       ].join("\n"),
