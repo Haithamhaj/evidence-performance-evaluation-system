@@ -90,7 +90,10 @@ function job(workflow: string, name: string): string {
 
 describe("CI contract", () => {
   it("pins actions and defines distinct least-privilege Phase 0 gates", async () => {
-    const workflow = await readFile(".github/workflows/ci.yml", "utf8");
+    const [workflow, environmentExample] = await Promise.all([
+      readFile(".github/workflows/ci.yml", "utf8"),
+      readFile(".env.example", "utf8"),
+    ]);
     expect(workflow).toContain("permissions:\n  contents: read");
     expect(workflow).toContain("actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0");
     expect(workflow).toContain("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020");
@@ -118,12 +121,20 @@ describe("CI contract", () => {
     expect(job(workflow, "quality")).not.toMatch(/- run: pnpm test\s*$/m);
     expect(job(workflow, "quality")).not.toContain("pnpm build");
     expect(job(workflow, "build")).toContain("pnpm build");
-    expect(job(workflow, "integration")).toContain("needs: [quality, build]");
-    expect(job(workflow, "integration")).toContain("pnpm db:verify");
-    expect(job(workflow, "integration")).toContain("pnpm db:deploy");
-    expect(job(workflow, "integration")).toContain("pnpm test:integration --passWithNoTests");
-    expect(job(workflow, "integration")).toContain("pnpm test:ai --passWithNoTests");
-    expect(job(workflow, "integration")).toContain("pnpm test:e2e --pass-with-no-tests");
+    const integrationJob = job(workflow, "integration");
+    expect(integrationJob).toContain("needs: [quality, build]");
+    expect(integrationJob).toContain("pnpm db:verify");
+    expect(integrationJob).toContain("pnpm db:deploy");
+    expect(integrationJob).toContain("pnpm test:integration --passWithNoTests");
+    expect(integrationJob).toContain("pnpm test:ai --passWithNoTests");
+    expect(integrationJob).toContain("pnpm test:e2e --pass-with-no-tests");
+    for (const [name, value] of [
+      ["KEYCLOAK_ADMIN_USERNAME", "local-admin"],
+      ["KEYCLOAK_ADMIN_PASSWORD", "local-keycloak-admin-password"],
+    ] as const) {
+      expect(environmentExample).toContain(`${name}=${value}`);
+      expect(integrationJob).toContain(`${name}: ${value}`);
+    }
     expect(workflow).not.toContain("pull_request_target");
     expect(workflow).not.toContain("${{ secrets.");
   });
