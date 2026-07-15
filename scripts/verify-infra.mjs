@@ -97,25 +97,28 @@ async function verifyServices() {
 }
 
 async function databaseConnection(username, password, database) {
-  return dockerCompose([
-    "exec",
-    "-T",
-    "-e",
-    `PGPASSWORD=${password}`,
-    "postgres",
-    "psql",
-    "--no-password",
-    "--host",
-    "127.0.0.1",
-    "--username",
-    username,
-    "--dbname",
-    database,
-    "--tuples-only",
-    "--no-align",
-    "--command",
-    "SELECT 1",
-  ]);
+  return dockerCompose(
+    [
+      "exec",
+      "-T",
+      "-e",
+      "PGPASSWORD",
+      "postgres",
+      "psql",
+      "--no-password",
+      "--host",
+      "127.0.0.1",
+      "--username",
+      username,
+      "--dbname",
+      database,
+      "--tuples-only",
+      "--no-align",
+      "--command",
+      "SELECT 1",
+    ],
+    { env: { ...process.env, PGPASSWORD: password } },
+  );
 }
 
 async function verifyDatabaseIsolation() {

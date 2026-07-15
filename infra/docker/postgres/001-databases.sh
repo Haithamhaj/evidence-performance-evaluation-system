@@ -32,10 +32,12 @@ create_role() {
   local role_name="$1"
   local role_password="$2"
 
-  psql --username "$POSTGRES_USER" --dbname postgres \
-    --set=role_name="$role_name" --set=role_password="$role_password" <<-'SQL'
+  ROLE_PASSWORD="$role_password" psql --username "$POSTGRES_USER" --dbname postgres \
+    --set=role_name="$role_name" <<-'SQL'
+	\getenv role_password ROLE_PASSWORD
 	SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'role_name', :'role_password')
 	WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name') \gexec
+	\unset role_password
 	SQL
 }
 

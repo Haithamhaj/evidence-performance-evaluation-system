@@ -18,4 +18,22 @@ describe("local infrastructure", () => {
     );
     expect(compose).not.toMatch(/image:\s+\S+:latest(?:\s|$)/);
   });
+
+  it("keeps database passwords out of process arguments", async () => {
+    const [databaseInitialization, infrastructureVerification] = await Promise.all([
+      readFile("infra/docker/postgres/001-databases.sh", "utf8"),
+      readFile("scripts/verify-infra.mjs", "utf8"),
+    ]);
+
+    expect(databaseInitialization).not.toContain("--set=role_password=");
+    expect(infrastructureVerification).not.toMatch(/`PGPASSWORD=\$\{[^}]+\}`/);
+  });
+
+  it("lints root scripts and tests through the standard lint command", async () => {
+    const manifest = JSON.parse(await readFile("package.json", "utf8"));
+    const lintScript = manifest.scripts?.lint;
+
+    expect(lintScript).toMatch(/eslint [^&]*scripts/);
+    expect(lintScript).toMatch(/eslint [^&]*tests/);
+  });
 });
