@@ -42,7 +42,7 @@ The `source/` folder preserves the original master product definition.
 - Arabic rubric translation: implementation blocker tracked in T016.
 - Architecture: defined.
 - Task graph: 77 tasks, valid and acyclic.
-- Codebase: not yet created.
+- Implementation code: not yet scaffolded; repository governance and the approved Phase 0 design are established.
 - Implementation: ready to begin.
 
 ## Recommended First Action

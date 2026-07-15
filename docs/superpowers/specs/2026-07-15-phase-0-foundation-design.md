@@ -462,7 +462,7 @@ Telemetry excludes secrets, access tokens, raw rubric comments, uploaded content
 | AI output | Versioned Zod validation + quarantine | free text persistence; best-effort parsing | Protects domain state and human gates | Invalid outputs become visible operational failures, not silent partial data |
 | Localization | Shared keyed catalogs, Arabic default | web-only translation; later RTL retrofit | Arabic/RTL is a blocking foundation | Translation governance adds upfront work but prevents semantic drift |
 | Styling direction | logical CSS + one component tree | separate RTL UI; automatic mirroring | Simple user experience and less visual fragmentation | Requires explicit mixed-direction testing |
-| CI | GitHub Actions, deterministic default | local-only checks; another CI vendor | Fits repository governance and task graph | Remote unavailable until GitHub authentication is restored |
+| CI | GitHub Actions, deterministic default | local-only checks; another CI vendor | Fits repository governance and task graph | Private remote and governance are verified; workflow behavior is verified during Phase 0 implementation |
 | Testing | unit + real infrastructure integration + Playwright + AI evals | mocks only; end-to-end only | Matches approved verification strategy | Container runtime is a local prerequisite |
 | Observability | structured logs + OTel traces/metrics | console logs; vendor-specific SDK only | Portable and privacy-reviewable | Browser telemetry remains minimal until stable need exists |
 
@@ -520,9 +520,9 @@ Phase 0 automated checks must prove:
 
 ## 24. Known risks and mitigations
 
-### 24.1 GitHub authentication
+### 24.1 GitHub repository and authentication
 
-The connected Codex GitHub app can read the authenticated profile, but the local `gh` credential is invalid and the in-app GitHub page is signed out. Repository creation, remote push, milestones, and labels cannot be verified until one GitHub sign-in is restored. Local commits remain safe and complete.
+GitHub authentication is operational. The private repository is published at `https://github.com/Haithamhaj/evidence-performance-evaluation-system`, `main` is the default branch, the local `origin` targets that repository, and the local and remote design commit hashes were verified as equal. The six phase milestones and 23 required governance labels are configured. GitHub Pages remains disabled. Phase 0 still needs to implement and exercise the planned GitHub Actions workflows; repository availability is no longer a blocker.
 
 ### 24.2 Local container runtime
 
@@ -532,11 +532,9 @@ No Docker, Podman, Colima, or equivalent command is currently available. T002 an
 
 Automated parity checks cannot approve evaluation meaning. T016 needs human subject-matter review. The system must keep Arabic content inactive until that approval exists.
 
-### 24.4 Documentation contradiction outside Phase 0 behavior
+### 24.4 Resolved publication-rule contradiction
 
-`docs/PROJECT_REFERENCE.md` section 27.2 contains a sentence saying manager upward-evaluation results remain unpublished until all eligible employees complete. This conflicts with the same document's section 24.4, `docs/REVIEW_RESOLUTION.md`, `docs/EVALUATION_RUBRIC.md`, `docs/IMPLEMENTATION_PLAN.md`, and the protected rule that identified pilot submissions are visible without a full-team gate.
-
-This design follows the repeated Revision 1.1 rule: approved leave and incomplete submissions do not block visibility of other identified responses. The stale sentence should be corrected only with explicit document-owner approval; it is not silently edited here. It does not block Phase 0, but it must be resolved before Phase 4 implementation.
+With explicit document-owner approval, `docs/PROJECT_REFERENCE.md` section 27.2 now matches sections 24.3 and 24.4: approved leave may postpone or exclude one employee's evaluation, but it does not block other identified responses. Each pilot response is visible to the manager immediately after submission with employee identity, criterion ratings, written comments, and timestamp, while completion status remains visible by eligible employee. No full-team publication gate applies to the pilot `Identified` mode.
 
 ### 24.5 Package and framework compatibility
 

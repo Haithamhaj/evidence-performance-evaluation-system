@@ -1501,8 +1501,10 @@ During approved leave:
 - Missing-update alerts are suspended.
 - The period is excluded from response and regularity analytics.
 - Employee self-assessment may be postponed.
-- The employee’s upward evaluation may be postponed.
-- Manager upward-evaluation results remain unpublished until all eligible employees complete.
+- The employee’s upward evaluation may be postponed until return or excluded from the cycle by the manager before the cycle closes.
+- Postponement or exclusion does not delay visibility of other employees’ submitted evaluations.
+- In the pilot `Identified` mode, each response becomes visible to the manager immediately after submission, including employee identity, criterion ratings, written comments, and submission timestamp.
+- The manager can see which eligible employees have submitted, which have not submitted, and which are on approved leave or excluded from the cycle.
 
 ## 27.3 Handover Update
 

@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Approve the Phase 0 foundation design, then create the detailed Phase 0 implementation plan.
+Create and approve the detailed Phase 0 implementation plan, then choose an execution mode without beginning implementation prematurely.
 
 ## Current Reality
 
@@ -15,9 +15,10 @@ Approve the Phase 0 foundation design, then create the detailed Phase 0 implemen
 - A local Git repository exists at `/Users/haitham/development/evidence-performance-evaluation-system` on `main`.
 - Local handoff commit: `334fcf8`; local governance commit: `7b2398e`.
 - Package manifest and all 77 task dependencies pass validation.
-- The Phase 0 foundation design is proposed at `docs/superpowers/specs/2026-07-15-phase-0-foundation-design.md`.
-- The private GitHub repository is published at `https://github.com/Haithamhaj/Evaluation-System-` with `main` as its default branch.
+- The Phase 0 foundation design is approved at `docs/superpowers/specs/2026-07-15-phase-0-foundation-design.md`.
+- The private GitHub repository is published at `https://github.com/Haithamhaj/evidence-performance-evaluation-system` with `main` as its default branch.
 - Six phase milestones and the 23 required governance labels are configured in GitHub.
+- `PROJECT_REFERENCE.md` sections 24.3, 24.4, and 27.2 consistently reject a full-team publication gate for the pilot `Identified` mode.
 - The current machine has Node.js and pnpm but no Docker-compatible container runtime.
 - The first synchronized external source is GitHub.
 
@@ -68,13 +69,10 @@ Approve the Phase 0 foundation design, then create the detailed Phase 0 implemen
 - GitHub evidence may be overvalued despite explicit controls.
 - Complete-system scope requires disciplined implementation order.
 - Phase 0 infrastructure verification is blocked until a supported container runtime is available.
-- `PROJECT_REFERENCE.md` section 27.2 contains a stale publication-gate sentence that conflicts with the approved Identified pilot behavior; resolve before Phase 4.
 
 ## Next Recommended Action
 
-Review and explicitly approve the Phase 0 foundation design.
-
-After design approval, create the detailed TDD implementation plan for Tasks T001–T017. Do not begin implementation before the subsequent execution-choice gate.
+Create and self-review the detailed TDD implementation plan for Tasks T001–T017, then stop at the execution-choice gate.
 
 Do not begin feature UI work before completing:
 
