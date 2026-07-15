@@ -11,6 +11,7 @@ Execute the approved Phase 0 foundation plan (T001–T017) through Subagent-Driv
 - `TASKS.md` contains 77 phase-valid tasks. Five declarations were corrected with eight edges: `T003->T002`, `T009->T007`, `T009->T008`, `T010->T009`, `T013->T004`, `T013->T009`, `T013->T011`, and `T014->T009`.
 - The local runtime is ready. Execute project commands in one shell with: `source .superpowers/runtime-env.zsh && node --version && pnpm --version && docker version --format '{{.Client.Version}}/{{.Server.Version}}' && docker compose version`. Verified values are Node `24.18.0`, pnpm `11.13.0`, Docker client/server `29.6.1/29.5.2`, and Compose `5.3.1`.
 - The private GitHub repository is `https://github.com/Haithamhaj/evidence-performance-evaluation-system`; `main` is the default branch.
+- Phase 0 Tasks T001–T010 are implemented locally. Approved English rubric Version 1 is seeded as immutable, source-hashed infrastructure content with atomic bootstrap audit; Arabic approval remains a separate T016 gate before employee-facing use.
 
 ## Active Decisions
 
@@ -34,7 +35,7 @@ Execute the approved Phase 0 foundation plan (T001–T017) through Subagent-Driv
 
 ## Next Recommended Action
 
-Execute Task 1 (T001) from the amended Phase 0 plan using TDD and the selected Subagent-Driven Development review loop.
+Complete independent review of T010, then execute T011 (AI Router) using TDD and the selected Subagent-Driven Development review loop.
 
 ## Critical References
 

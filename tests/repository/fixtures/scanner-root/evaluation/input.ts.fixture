@@ -1,0 +1,6 @@
+export const unsafeNestedEvaluationInput = {
+  criterionId: "PPB-01",
+  rating: 3,
+  evidenceReferences: ["evidence:example"],
+  projectCount: 3,
+};

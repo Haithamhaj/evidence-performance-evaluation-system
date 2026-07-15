@@ -1,0 +1,10 @@
+export const unsafePerformanceInput = {
+  criterionId: "PPB-01",
+  rating: 3,
+  evidenceReferences: ["evidence:example"],
+  commitCount: 12,
+  pullRequestCount: 4,
+  checkCount: 20,
+  activityCount: 15,
+  projectCount: 3,
+};

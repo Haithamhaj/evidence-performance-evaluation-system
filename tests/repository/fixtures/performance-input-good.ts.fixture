@@ -1,0 +1,5 @@
+export const safePerformanceInput = {
+  criterionId: "PPB-01",
+  rating: 3,
+  evidenceReferences: ["evidence:example"],
+};

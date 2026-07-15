@@ -58,12 +58,13 @@ enum ScopeType {
 }
 
 model Organization {
-  id          String       @id @default(uuid()) @db.Uuid
-  key         String       @unique
-  name        String
-  departments Department[]
-  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  id             String          @id @default(uuid()) @db.Uuid
+  key            String          @unique
+  name           String
+  departments    Department[]
+  rubricVersions RubricVersion[]
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
 }
 
 model Department {
@@ -131,4 +132,94 @@ model AuditEvent {
   @@index([targetType, targetId, createdAt, id])
   @@index([correlationId])
   @@index([createdAt, id])
+}
+
+enum RubricStatus {
+  draft
+  active
+  retired
+}
+
+enum RubricCriterionKind {
+  employee
+  project_contribution
+  manager
+}
+
+model RubricVersion {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  version        String
+  status         RubricStatus   @default(draft)
+  activatedAt    DateTime?      @db.Timestamptz(6)
+  locales        RubricLocale[]
+  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@unique([organizationId, version])
+  @@index([organizationId, status])
+}
+
+model RubricLocale {
+  id              String            @id @default(uuid()) @db.Uuid
+  rubricVersionId String            @db.Uuid
+  rubricVersion   RubricVersion     @relation(fields: [rubricVersionId], references: [id], onDelete: Restrict)
+  locale          String
+  sourceHash      String
+  status          RubricStatus      @default(draft)
+  activatedAt     DateTime?         @db.Timestamptz(6)
+  biasGuidance    Json
+  sections        RubricSection[]
+  criteria        RubricCriterion[]
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@unique([rubricVersionId, locale])
+  @@index([rubricVersionId, status])
+}
+
+model RubricSection {
+  id             String            @id @default(uuid()) @db.Uuid
+  rubricLocaleId String            @db.Uuid
+  rubricLocale   RubricLocale      @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
+  stableId       String
+  title          String
+  weight         Int
+  displayOrder   Int
+  criteria       RubricCriterion[]
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@unique([rubricLocaleId, stableId])
+  @@unique([rubricLocaleId, displayOrder])
+}
+
+model RubricCriterion {
+  id              String               @id @default(uuid()) @db.Uuid
+  rubricLocaleId  String               @db.Uuid
+  rubricLocale    RubricLocale         @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
+  sectionId       String?              @db.Uuid
+  section         RubricSection?       @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  stableId        String
+  kind            RubricCriterionKind
+  title           String
+  assessmentBasis String?
+  internalWeight  Int?
+  content         Json
+  displayOrder    Int
+  anchors         RubricAnchor[]
+  createdAt       DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@unique([rubricLocaleId, stableId])
+  @@unique([rubricLocaleId, displayOrder])
+  @@index([sectionId])
+}
+
+model RubricAnchor {
+  id          String          @id @default(uuid()) @db.Uuid
+  criterionId String          @db.Uuid
+  criterion   RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+  rating      Int
+  text        String
+  createdAt   DateTime        @default(now()) @db.Timestamptz(6)
+
+  @@unique([criterionId, rating])
 }

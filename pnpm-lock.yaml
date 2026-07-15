@@ -17,6 +17,9 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:packages/database
+      '@evaluation/localization':
+        specifier: workspace:*
+        version: link:packages/localization
     devDependencies:
       '@aws-sdk/client-s3':
         specifier: 3.1087.0
@@ -231,7 +234,15 @@ importers:
         specifier: 7.8.0
         version: 7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(magicast@0.5.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@7.0.2)
 
-  packages/localization: {}
+  packages/localization:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
 
   packages/observability:
     dependencies:

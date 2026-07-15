@@ -10,7 +10,8 @@
   "dependencies": {
     "@evaluation/audit": "workspace:*",
     "@evaluation/contracts": "workspace:*",
-    "@evaluation/database": "workspace:*"
+    "@evaluation/database": "workspace:*",
+    "@evaluation/localization": "workspace:*"
   },
   "scripts": {
     "dev": "turbo run dev --parallel",
@@ -27,6 +28,7 @@
     "infra:up": "docker compose --env-file .env.local -f infra/docker/compose.yml up -d --wait",
     "infra:verify": "node scripts/verify-infra.mjs",
     "lint": "turbo run lint && eslint scripts tests && node scripts/validate-boundaries.mjs",
+    "scan:performance-inputs": "node scripts/scan-performance-inputs.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "typecheck": "turbo run typecheck",
     "test": "vitest run --project unit",
@@ -35,7 +37,7 @@
     "test:e2e": "playwright test tests/e2e",
     "test:ai": "vitest run --project ai-evals",
     "validate:task-graph": "python3 scripts/validate_task_graph.py",
-    "verify": "pnpm validate:task-graph && pnpm scan:secrets && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
+    "verify": "pnpm validate:task-graph && pnpm scan:secrets && pnpm scan:performance-inputs && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "3.1087.0",
