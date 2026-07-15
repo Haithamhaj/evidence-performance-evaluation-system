@@ -26,7 +26,7 @@
 - Logs, traces, audits, and test artifacts exclude credentials, tokens, raw private feedback, raw protected prompts, and uploaded content.
 - Unit tests require no network or containers. Integration tests isolate database names, queue prefixes, object prefixes, and OIDC clients.
 - Every implementation task follows red-green-refactor: write one failing behavior test, observe the expected failure, add the smallest implementation, observe the pass, run the task verification, then commit only that task.
-- The current machine has no Docker-compatible runtime. Before T002 execution, install or explicitly approve Docker Desktop, Colima, Podman, or an equivalent Compose-compatible runtime; do not claim T002 complete without real service checks.
+- Execute project tooling from one shell after `source .superpowers/runtime-env.zsh`; that activation selects Node.js `24.18.0`, pnpm `11.13.0`, the project-local Docker CLI configuration, and the Colima socket. Do not claim T002 complete without real service checks.
 - Begin implementation in an isolated worktree created with `superpowers:using-git-worktrees`. Do not implement directly from this planning session.
 
 ## Exact Version Lock
@@ -85,7 +85,7 @@ Any version change requires a separate compatibility decision, updated lock tabl
 
 ## Required Execution Order
 
-`T001 → {T002, T003, T005, T015} → T004 → T006 → T007 → T008 → {T009, T010, T014} → T011 → T012`, with `T013` after T002 and T005, `T016` after T010 and T015, and `T017` after T003. Execute the numbered tasks below in the written order, which respects that graph.
+Execute Tasks 1–17 in written order. The declared graph is: T002 after T001; T003 after T001 and T002; T004 after T002; T005 after T001; T006 after T002 and T004; T007 after T006; T008 after T004, T006, and T007; T009 after T004, T006, T007, and T008; T010 after T004, T008, and T009; T011 after T004, T005, and T009; T012 after T011; T013 after T002, T004, T005, T009, and T011; T014 after T004, T007, T008, and T009; T015 after T001; T016 after T010 and T015; and T017 after T003. This includes the eight corrected edges `T003->T002`, `T009->T007`, `T009->T008`, `T010->T009`, `T013->T004`, `T013->T009`, `T013->T011`, and `T014->T009`.
 
 ---
 
@@ -679,18 +679,22 @@ git commit -m "feat: establish database migration workflow"
 - Create: `packages/observability/src/logger.ts`
 - Create: `packages/observability/src/logger.test.ts`
 - Create: `packages/observability/src/correlation.ts`
+- Create: `packages/observability/src/correlation.test.ts`
 - Create: `packages/observability/src/health.ts`
 - Create: `packages/observability/src/index.ts`
 - Create: `apps/api/src/platform/correlation.middleware.ts`
 - Create: `apps/api/src/platform/error.filter.ts`
 - Create: `apps/api/src/platform/health.controller.ts`
+- Create: `apps/web/src/platform/correlation.ts`
+- Create: `apps/worker/src/platform/correlation.ts`
 - Create: `apps/web/src/app/[locale]/error.tsx`
+- Create: `tests/integration/correlation-contract.integration.test.ts`
 - Modify: `apps/api/src/app.module.ts`
 - Modify: `apps/api/src/main.ts`
 
 **Interfaces:**
 - Consumes: framework-neutral contracts from T001.
-- Produces: `ErrorEnvelopeSchema`, `AppError`, `createLogger(options)`, `redact(value)`, correlation header `x-correlation-id`, and separate `/health/live` and `/health/ready` responses.
+- Produces: `ErrorEnvelopeSchema`, `AppError`, `createLogger(options)`, `redact(value)`, framework-neutral `CorrelationCarrier`, correlation header `x-correlation-id`, and separate `/health/live` and `/health/ready` responses. `CorrelationCarrier` has no database, Redis, BullMQ, `Operation`, or `JobEnvelope` dependency.
 
 - [ ] **Step 1: Write the failing redaction and envelope tests**
 
@@ -721,11 +725,19 @@ describe("safe observability", () => {
 
 Create `packages/contracts/src/errors.test.ts` to assert the exact public envelope `{ code, messageKey, correlationId, details? }` and reject `stack`, SQL text, tokens, and arbitrary unknown properties.
 
+Create `packages/observability/src/correlation.test.ts` and `tests/integration/correlation-contract.integration.test.ts` to require this sequence: Web forwards a valid incoming `x-correlation-id` or creates a UUID; API middleware restores and echoes it; a framework-neutral carrier serializes it; Worker restoration installs the same value in its context; sanitized Web/API/Worker log sinks contain the same ID and no protected value. The test must fail before the Web/Worker adapters and carrier exist.
+
 - [ ] **Step 2: Run tests and observe missing exports**
 
-Run: `pnpm --filter @evaluation/contracts test && pnpm --filter @evaluation/observability test`
+Run each command and observe the missing-contract failure:
 
-Expected: FAIL because the error schema and redaction implementation are absent.
+```bash
+pnpm --filter @evaluation/contracts test
+pnpm --filter @evaluation/observability test
+pnpm exec vitest run tests/integration/correlation-contract.integration.test.ts
+```
+
+Expected: FAIL because the error schema, redaction implementation, Web/Worker adapters, and framework-neutral correlation carrier are absent.
 
 - [ ] **Step 3: Implement the framework-neutral error contract**
 
@@ -763,11 +775,11 @@ export class AppError extends Error {
 
 - [ ] **Step 4: Implement logger, correlation, filters, and health**
 
-Use Pino with a fixed redact list for authorization, cookies, tokens, credentials, raw prompts, uploaded content, and private feedback. Accept a valid incoming correlation UUID or generate a new UUID; echo it in the response and include it in logs and error envelopes. Liveness reports process availability only; readiness reports PostgreSQL, Redis, and required configuration without returning credentials or connection strings.
+Use Pino with a fixed redact list for authorization, cookies, tokens, credentials, raw prompts, uploaded content, and private feedback. Implement `CorrelationCarrier` in `@evaluation/observability` as a strict framework-neutral value containing the correlation ID and trace fields only. Web creates/forwards the header, API restores and echoes it, and Worker restores the shared carrier without importing queue or persistence types. Accept a valid incoming correlation UUID or generate a new UUID; include it in logs and error envelopes. Liveness reports process availability only; readiness reports PostgreSQL, Redis, and required configuration without returning credentials or connection strings.
 
 - [ ] **Step 5: Verify cross-process propagation**
 
-Add an integration test that calls API with `x-correlation-id: 9a11bb8f-79f5-4a72-a98f-2e763e97699b`, enqueues a test operation, and asserts the same ID appears in sanitized API and Worker test log sinks. The Worker portion becomes active when T013 lands; until then the test asserts the API boundary and shared carrier contract.
+Run the framework-neutral integration test with `x-correlation-id: 9a11bb8f-79f5-4a72-a98f-2e763e97699b` through Web header construction, API middleware, carrier serialization, Worker context restoration, and sanitized log sinks. T005 is complete only when this full contract-level Web/API/Worker sequence passes. It must not create a queue, Redis connection, `Operation`, or `JobEnvelope`. T013 separately proves the stronger real Redis/BullMQ queued trace path.
 
 Run:
 
@@ -775,6 +787,7 @@ Run:
 pnpm --filter @evaluation/contracts test
 pnpm --filter @evaluation/observability test
 pnpm --filter @evaluation/api test
+pnpm exec vitest run tests/integration/correlation-contract.integration.test.ts
 pnpm typecheck
 ```
 
@@ -783,7 +796,7 @@ Expected: schemas, redaction, API filter, correlation, and health tests pass wit
 - [ ] **Step 6: Commit T005**
 
 ```bash
-git add packages/contracts packages/observability apps/api/src/platform apps/api/src/app.module.ts apps/api/src/main.ts apps/web/src/app/[locale]/error.tsx pnpm-lock.yaml
+git add packages/contracts packages/observability apps/api/src/platform apps/api/src/app.module.ts apps/api/src/main.ts apps/web/src/platform apps/worker/src/platform apps/web/src/app/[locale]/error.tsx tests/integration/correlation-contract.integration.test.ts pnpm-lock.yaml
 git commit -m "feat: add safe errors and observability foundation"
 ```
 
@@ -985,7 +998,7 @@ git commit -m "feat: add scoped authorization policies"
 
 **Interfaces:**
 - Consumes: User identities from T006 and role vocabulary from T007.
-- Produces: stable seed keys `leapai`, `ai-department`, `pilot-manager`, `system-admin`, and idempotent `seedPilot(client, subjects)`.
+- Produces: stable seed keys `leapai`, `ai-department`, `pilot-manager`, `system-admin`, and transaction-agnostic `seedPilot(tx, subjects): Promise<RoleAssignmentChange[]>`; the caller owns the transaction.
 
 - [ ] **Step 1: Write the failing idempotency and separation test**
 
@@ -993,8 +1006,8 @@ Create `packages/database/src/seed-pilot.integration.test.ts`:
 
 ```ts
 it("seeds LeapAI twice without duplicates and separates manager from administrator", async () => {
-  await seedPilot(client, { managerSubject: "pilot-manager", adminSubject: "system-admin" });
-  await seedPilot(client, { managerSubject: "pilot-manager", adminSubject: "system-admin" });
+  await withTransaction(client, (tx) => seedPilot(tx, { managerSubject: "pilot-manager", adminSubject: "system-admin" }));
+  await withTransaction(client, (tx) => seedPilot(tx, { managerSubject: "pilot-manager", adminSubject: "system-admin" }));
 
   expect(await client.organization.count({ where: { key: "leapai" } })).toBe(1);
   expect(await client.department.count({ where: { key: "ai-department" } })).toBe(1);
@@ -1015,7 +1028,7 @@ Expected: FAIL because Organization, Department, and RoleAssignment are absent.
 
 - [ ] **Step 3: Add scoped organization models and transactional upserts**
 
-Add `Organization`, `Department`, and `RoleAssignment` with unique stable keys, UTC timestamps, explicit scope type/id, and foreign keys. `seedPilot` executes one transaction, uses upserts only on stable keys, reads OIDC subjects from environment, and refuses equal manager/admin subjects.
+Add `Organization`, `Department`, and `RoleAssignment` with unique stable keys, UTC timestamps, explicit scope type/id, and foreign keys. `seedPilot(tx, subjects)` never opens or commits a transaction; it uses the supplied transaction, upserts only stable keys, returns created/changed role assignments, and refuses equal manager/admin subjects. The T008 Prisma seed entrypoint reads OIDC subjects from environment and opens the transaction around `seedPilot`; T009 replaces that composition with the audited higher-level root.
 
 - [ ] **Step 4: Verify idempotency and role separation**
 
@@ -1043,16 +1056,23 @@ git commit -m "feat: seed leapai pilot identities and roles"
 - Modify: `packages/database/prisma/schema.prisma`
 - Create: `packages/database/prisma/migrations/0004_append_only_audit/migration.sql`
 - Create: `packages/audit/src/audit-event.ts`
+- Create: `packages/contracts/src/audit-writer.ts`
 - Create: `packages/audit/src/audit-service.ts`
+- Create: `packages/audit/src/sensitive-access.ts`
 - Create: `packages/audit/src/audit-service.integration.test.ts`
 - Create: `packages/audit/src/index.ts`
+- Create: `scripts/seed-pilot.ts`
+- Modify: `packages/auth/src/user-sync.ts`
+- Modify: `packages/database/src/seed-pilot.ts`
 - Create: `apps/api/src/audit/audit.module.ts`
 - Create: `apps/api/src/audit/audit.controller.ts`
 - Create: `tests/integration/audit-authorization.integration.test.ts`
+- Create: `tests/integration/protected-audit-atomicity.integration.test.ts`
+- Create: `tests/repository/import-boundaries.test.ts`
 
 **Interfaces:**
 - Consumes: database transactions from T004, authenticated actor from T006, policy decisions from T007.
-- Produces: `AuditEventInputSchema`, `appendAuditEvent(tx, input): Promise<AuditEventRef>`, and authorized paginated query by event type, actor, scope, target, correlation ID, and UTC range.
+- Produces: lower-level framework-neutral `AuditWriter` in `@evaluation/contracts`, `AuditEventInputSchema`, `appendAuditEvent(tx, input): Promise<AuditEventRef>`, stable service actor `{ kind: "service", id: "bootstrap" }`, a guarded sensitive-access composition requiring an audit reason and writing before protected-content loading, and authorized paginated query by event type, actor, scope, target, correlation ID, and UTC range. `packages/database` never imports `packages/audit`; `scripts/seed-pilot.ts` is the higher-level composition root allowed to import both.
 
 - [ ] **Step 1: Write the failing append-only database test**
 
@@ -1062,7 +1082,7 @@ Create `packages/audit/src/audit-service.integration.test.ts`:
 it("allows insert and rejects update and delete", async () => {
   const event = await appendAuditEvent(client, {
     eventType: "identity.synchronized",
-    actorId: userId,
+    actor: { kind: "human", id: userId },
     effectiveSubjectId: userId,
     scopeType: "organization",
     scopeId: organizationId,
@@ -1078,11 +1098,19 @@ it("allows insert and rejects update and delete", async () => {
 });
 ```
 
+Add RED integration cases proving all-or-nothing behavior for `identity.synchronized`, `role.assignment.changed`, and a representative future private-mode `sensitive_access.decision`. For private-mode access, make the protected-content loader observable; require a trimmed reason of 3–500 characters; assert missing reason prevents both audit and loading; assert the audit insert occurs before loading; and assert failed audit prevents loading. Also assert that the pilot `Identified` path remains allowed without being reclassified as private, and that seed events use actor `{ kind: "service", id: "bootstrap" }` rather than a manager, administrator, or employee.
+
 - [ ] **Step 2: Run the test and observe missing schema/service failures**
 
-Run: `pnpm --filter @evaluation/audit test:integration`
+Run each command and observe the stated missing-contract failure:
 
-Expected: FAIL because `AuditEvent` and `appendAuditEvent` do not exist.
+```bash
+pnpm --filter @evaluation/audit test:integration
+pnpm exec vitest run tests/integration/protected-audit-atomicity.integration.test.ts
+pnpm exec vitest run tests/repository/import-boundaries.test.ts
+```
+
+Expected: FAIL because `AuditEvent`, `appendAuditEvent`, atomic protected-action composition, and the database-to-audit boundary rule do not exist.
 
 - [ ] **Step 3: Add event schema and database protection**
 
@@ -1093,7 +1121,10 @@ Create the strict input contract:
 ```ts
 export const AuditEventInputSchema = z.object({
   eventType: z.string().regex(/^[a-z]+(?:\.[a-z]+)+$/),
-  actorId: z.string().uuid(),
+  actor: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("human"), id: z.string().uuid() }).strict(),
+    z.object({ kind: z.literal("service"), id: z.enum(["bootstrap"]) }).strict(),
+  ]),
   effectiveSubjectId: z.string().uuid(),
   scopeType: z.enum(["system", "organization", "department", "project", "workstream", "cycle"]),
   scopeId: z.string().uuid(),
@@ -1108,6 +1139,8 @@ export const AuditEventInputSchema = z.object({
 
 Reject keys matching token, secret, password, prompt, rawContent, privateFeedback, or authorization before persistence.
 
+Define `AuditWriter<TTransaction>` and its framework-neutral input/reference types in `@evaluation/contracts`, below persistence and feature composition, so authentication, seed, rubric, routing, queue, eligibility, and localization code can request `append(tx: TTransaction, input): Promise<AuditEventRef>` using their existing transaction without importing a concrete audit service. `@evaluation/contracts` imports neither database nor audit implementation code. Retrofit authentication synchronization so the authoritative mapping update and `identity.synchronized` append use one transaction. Keep `seedPilot(tx, subjects)` transaction-agnostic and audit-agnostic; `scripts/seed-pilot.ts` opens exactly one transaction, invokes `seedPilot(tx, subjects)`, and appends `role.assignment.changed` for every returned change through the same `tx` using `{ actor: { kind: "service", id: "bootstrap" } }`. The repository import-boundary test must fail if any file under `packages/database` imports `@evaluation/audit`. Define `SensitiveAccessRequestSchema` separately so future private modes require `reason: z.string().trim().min(3).max(500)` even though normal audit events may omit a reason.
+
 - [ ] **Step 4: Verify service and API authorization**
 
 Run:
@@ -1116,14 +1149,16 @@ Run:
 pnpm db:migrate
 pnpm --filter @evaluation/audit test:integration
 pnpm exec vitest run tests/integration/audit-authorization.integration.test.ts
+pnpm exec vitest run tests/integration/protected-audit-atomicity.integration.test.ts
+pnpm exec vitest run tests/repository/import-boundaries.test.ts
 ```
 
-Expected: protected actions append events; update/delete fail at both service and database levels; ordinary employees receive 403; authorized administrators receive sanitized paginated results.
+Expected: identity synchronization and role changes commit with their audit rows or fully roll back; representative private-mode access writes `sensitive_access.decision` before content loading and denies access when auditing fails; Identified pilot access remains allowed under its own mode; bootstrap events use the stable service actor; database-to-audit imports fail the boundary test; update/delete fail at service and database levels; ordinary employees receive 403; authorized administrators receive sanitized paginated results.
 
 - [ ] **Step 5: Commit T009**
 
 ```bash
-git add packages/database/prisma packages/audit apps/api/src/audit tests/integration/audit-authorization.integration.test.ts
+git add packages/database/prisma packages/database/src/seed-pilot.ts packages/auth/src/user-sync.ts packages/contracts/src/audit-writer.ts packages/audit apps/api/src/audit scripts/seed-pilot.ts tests/integration/audit-authorization.integration.test.ts tests/integration/protected-audit-atomicity.integration.test.ts tests/repository/import-boundaries.test.ts
 git commit -m "feat: add append-only audit foundation"
 ```
 
@@ -1137,15 +1172,23 @@ git commit -m "feat: add append-only audit foundation"
 - Create: `packages/localization/src/rubric/rubric-schema.ts`
 - Create: `packages/localization/src/rubric/v1.en.json`
 - Create: `packages/localization/src/rubric/source-hash.ts`
+- Create: `packages/contracts/src/documentation-readiness.ts`
+- Create: `packages/contracts/src/performance-rating.ts`
+- Create: `tests/types/readiness-rating.negative.ts`
+- Create: `tests/types/tsconfig.json`
+- Create: `tests/repository/performance-input-boundaries.test.ts`
+- Create: `tests/repository/fixtures/performance-input-bad.ts.fixture`
+- Create: `tests/repository/fixtures/performance-input-good.ts.fixture`
 - Create: `scripts/extract-approved-rubric.mjs`
 - Create: `scripts/compare-approved-rubric.mjs`
+- Create: `scripts/scan-performance-inputs.mjs`
 - Create: `tests/integration/rubric-seed.integration.test.ts`
 - Modify: `packages/database/prisma/seed.ts`
 - Modify: `packages/localization/src/index.ts`
 
 **Interfaces:**
-- Consumes: `docs/EVALUATION_RUBRIC.md` as the approved English source and pilot organization from T008.
-- Produces: immutable rubric version `1`, 12 employee criteria, 60 employee anchors, Project Contribution with five anchors and weight 25, five manager criteria with 25 anchors, weight total 100, and a source SHA-256 stored with the version.
+- Consumes: `docs/EVALUATION_RUBRIC.md` as the approved English source, pilot organization from T008, and `AuditWriter` from T009.
+- Produces: immutable rubric version `1`, 12 employee criteria, 60 employee anchors, Project Contribution with five anchors and weight 25, five manager criteria with 25 anchors, weight total 100, a source SHA-256 stored with the version, transactionally audited `rubric.version.activated`, and structurally separate branded `DocumentationReadiness` and `PerformanceRating` runtime/types.
 
 - [ ] **Step 1: Write the failing source-comparison test**
 
@@ -1160,15 +1203,25 @@ it("matches approved English rubric Version 1 exactly", async () => {
   expect(rubric.managerCriteria.flatMap((criterion) => criterion.anchors)).toHaveLength(25);
   expect(rubric.sections.reduce((sum, section) => sum + section.weight, 0)).toBe(100);
   expect(rubric.sourceHash).toBe(await sha256File("docs/EVALUATION_RUBRIC.md"));
-  expect(await compareApprovedRubric(rubric)).toEqual([]);
+expect(await compareApprovedRubric(rubric)).toEqual([]);
 });
 ```
 
+In the same integration file, add a positive assertion that seed-time activation appends `rubric.version.activated` with actor `{ kind: "service", id: "bootstrap" }`, and a rollback case where audit failure leaves the rubric inactive and writes no event.
+
+Create `tests/types/readiness-rating.negative.ts` with an `@ts-expect-error` assignment from a parsed `DocumentationReadiness` value into a `PerformanceRating` field. Its dedicated `tests/types/tsconfig.json` must enable `noEmit` and must fail if the two brands become assignable. Create `tests/repository/performance-input-boundaries.test.ts`; it invokes `scripts/scan-performance-inputs.mjs` against `tests/repository/fixtures/performance-input-bad.ts.fixture`, which contains `commitCount`, `pullRequestCount`, `checkCount`, `activityCount`, and `projectCount`, and expects rejection. It invokes the scanner against `tests/repository/fixtures/performance-input-good.ts.fixture`, containing only criterion/rating/evidence-reference fields, and expects success.
+
 - [ ] **Step 2: Run the test and observe missing rubric persistence**
 
-Run: `pnpm exec vitest run tests/integration/rubric-seed.integration.test.ts`
+Run each command and observe its missing-schema/scanner failure:
 
-Expected: FAIL because rubric models, content, and comparison functions are absent.
+```bash
+pnpm exec vitest run tests/integration/rubric-seed.integration.test.ts
+pnpm exec tsc -p tests/types/tsconfig.json
+pnpm exec vitest run tests/repository/performance-input-boundaries.test.ts
+```
+
+Expected: FAIL because rubric models/content/comparison functions, branded readiness/rating schemas, and the performance-input scanner are absent.
 
 - [ ] **Step 3: Define versioned rubric content and persistence**
 
@@ -1189,6 +1242,8 @@ export const RubricContentSchema = z.object({
 
 The extractor reads the approved headings and anchor tables, emits stable IDs from the document (`PPB-01` through `EED-04`, `PROJECT-CONTRIBUTION`, `MGR-01` through `MGR-05`), validates counts and weights, computes the source hash, and refuses to overwrite a committed active version. Commit the generated `v1.en.json`; runtime seed reads JSON rather than parsing Markdown.
 
+Define `DocumentationReadinessSchema` and `PerformanceRatingSchema` in separate files with distinct Zod brands and no shared structural alias. The performance input accepts a selected rubric criterion ID, rating anchor `1 | 2 | 3 | 4 | 5`, and evidence references; it has no readiness field and no raw GitHub/activity/project count. Activate the seeded English rubric and append `rubric.version.activated` through the same transaction and T009 `AuditWriter`, using the stable seed actor `{ kind: "service", id: "bootstrap" }`; a failed audit append rolls back activation.
+
 - [ ] **Step 4: Generate, inspect, seed, and compare**
 
 Run:
@@ -1199,18 +1254,21 @@ node scripts/compare-approved-rubric.mjs
 pnpm db:migrate
 pnpm db:seed
 pnpm exec vitest run tests/integration/rubric-seed.integration.test.ts
+pnpm exec tsc -p tests/types/tsconfig.json
+pnpm exec vitest run tests/repository/performance-input-boundaries.test.ts
+node scripts/scan-performance-inputs.mjs
 ```
 
-Expected: extraction reports 12/60 employee, 1/5 Project Contribution, 5/25 manager, and 100% weight; seed is idempotent; comparison reports zero differences.
+Expected: extraction reports 12/60 employee, 1/5 Project Contribution, 5/25 manager, and 100% weight; seed is idempotent; comparison reports zero differences; the negative type assertion remains active; the performance-input scan rejects the bad fixture and accepts the repository; rubric activation and its audit append commit or roll back together.
 
 - [ ] **Step 5: Verify historical protection**
 
-Add a database test proving an active rubric version cannot change criterion text, anchor text, weights, IDs, locale source hash, or activation timestamp. A corrected meaning requires a new version row.
+Add a database test proving an active rubric version cannot change criterion text, anchor text, weights, IDs, locale source hash, or activation timestamp. A corrected meaning requires a new version row. Add an audit rollback case proving neither activation nor `rubric.version.activated` persists when either side fails.
 
 - [ ] **Step 6: Commit T010**
 
 ```bash
-git add packages/database/prisma packages/localization/src/rubric packages/localization/src/index.ts scripts/extract-approved-rubric.mjs scripts/compare-approved-rubric.mjs tests/integration/rubric-seed.integration.test.ts
+git add packages/database/prisma packages/contracts/src/documentation-readiness.ts packages/contracts/src/performance-rating.ts packages/localization/src/rubric packages/localization/src/index.ts scripts/extract-approved-rubric.mjs scripts/compare-approved-rubric.mjs scripts/scan-performance-inputs.mjs tests/integration/rubric-seed.integration.test.ts tests/types tests/repository/performance-input-boundaries.test.ts tests/repository/fixtures/performance-input-bad.ts.fixture tests/repository/fixtures/performance-input-good.ts.fixture
 git commit -m "feat: seed approved evaluation rubric v1"
 ```
 
@@ -1232,6 +1290,7 @@ git commit -m "feat: seed approved evaluation rubric v1"
 - Create: `packages/ai-routing/src/index.ts`
 - Create: `apps/api/src/ai-routing/ai-routing.module.ts`
 - Create: `tests/integration/ai-run-trace.integration.test.ts`
+- Create: `tests/integration/ai-route-audit.integration.test.ts`
 - Modify: `scripts/validate-boundaries.mjs`
 
 **Interfaces:**
@@ -1258,11 +1317,18 @@ it("refuses external fallback for local-only data", async () => {
 
 Create `router.test.ts` to assert invalid structured output is quarantined and cannot call a persistence callback.
 
+Create `tests/integration/ai-route-audit.integration.test.ts` with RED cases proving route/config creation or override without a trimmed 3–500 character reason is rejected; successful route change and `ai.route.changed` append commit together; and audit failure rolls back the route/config change with no partial version.
+
 - [ ] **Step 2: Run tests and observe missing router failures**
 
-Run: `pnpm --filter @evaluation/ai-routing test`
+Run each command and observe its missing-router/audit-composition failure:
 
-Expected: FAIL because route resolution, adapters, and output validation are absent.
+```bash
+pnpm --filter @evaluation/ai-routing test
+pnpm exec vitest run tests/integration/ai-route-audit.integration.test.ts
+```
+
+Expected: FAIL because route resolution, adapters, output validation, and transactionally audited route configuration are absent.
 
 - [ ] **Step 3: Define provider-neutral contracts**
 
@@ -1297,7 +1363,7 @@ Provider errors normalize to `retryable`, `non_retryable`, `policy`, `timeout`, 
 
 - [ ] **Step 4: Persist configuration and run trace transactionally**
 
-Add versioned `AiRoute`, `AiRouteConfig`, and `AiRun` models. Every override requires a non-empty reason and an audit event in the same transaction. Store route/config version, provider/model, scope, source references, prompt/schema versions, timing, usage/cost when present, result state, fallback chain, classification, and human-approval state. Store protected input by authorized reference, never in logs.
+Add versioned `AiRoute`, `AiRouteConfig`, and `AiRun` models. Every route creation/change or override requires a trimmed 3–500 character reason and appends `ai.route.changed` in the same transaction; failed audit leaves no new route/config version. Store route/config version, provider/model, scope, source references, prompt/schema versions, timing, usage/cost when present, result state, fallback chain, classification, and human-approval state. Store protected input by authorized reference, never in logs.
 
 - [ ] **Step 5: Enforce the single-provider boundary**
 
@@ -1308,15 +1374,16 @@ Extend `scripts/validate-boundaries.mjs` so imports of provider SDKs or direct `
 ```bash
 pnpm --filter @evaluation/ai-routing test
 pnpm exec vitest run tests/integration/ai-run-trace.integration.test.ts
+pnpm exec vitest run tests/integration/ai-route-audit.integration.test.ts
 pnpm lint
 ```
 
-Expected: precedence is project > department > system; allowed provider failure falls back in configured order; local-only fallback stops; override without reason fails; each run is traced; invalid output is quarantined without partial persistence.
+Expected: precedence is project > department > system; allowed provider failure falls back in configured order; local-only fallback stops; route changes/overrides require a reason and commit or roll back with `ai.route.changed`; each run is traced; invalid output is quarantined without partial persistence.
 
 - [ ] **Step 7: Commit T011**
 
 ```bash
-git add packages/database/prisma packages/ai-routing apps/api/src/ai-routing tests/integration/ai-run-trace.integration.test.ts scripts/validate-boundaries.mjs pnpm-lock.yaml
+git add packages/database/prisma packages/ai-routing apps/api/src/ai-routing tests/integration/ai-run-trace.integration.test.ts tests/integration/ai-route-audit.integration.test.ts scripts/validate-boundaries.mjs pnpm-lock.yaml
 git commit -m "feat: implement provider-neutral ai router"
 ```
 
@@ -1336,13 +1403,18 @@ git commit -m "feat: implement provider-neutral ai router"
 - Create: `tests/ai-evals/fixtures/prompt-injection.json`
 - Create: `tests/ai-evals/fixtures/visibility-modes.json`
 - Create: `tests/ai-evals/fixtures/no-rating.json`
+- Create: `tests/ai-evals/fixtures/audio/gulf-synthetic.wav`
+- Create: `tests/ai-evals/fixtures/audio/levantine-synthetic.wav`
+- Create: `tests/ai-evals/fixtures/audio/speech-golden.json`
+- Create: `tests/ai-evals/fixtures/audio/PROVENANCE.md`
+- Create: `tests/ai-evals/speech-fixtures.test.ts`
 - Create: `.github/workflows/live-ai-evals.yml`
 - Modify: `vitest.workspace.ts`
 - Modify: `package.json`
 
 **Interfaces:**
 - Consumes: fake adapter and output validation from T011, rubric IDs from T010.
-- Produces: deterministic `runEvalCase(case, adapter): EvalResult`, prohibited-concept scanner for English and Arabic, versioned fixture provenance, and protected opt-in live-provider workflow.
+- Produces: deterministic `runEvalCase(case, adapter): EvalResult`, prohibited-concept scanner for English and Arabic, versioned text and audio fixture provenance, speech-provider extension contract, and protected opt-in live-provider workflow. Phase 0 validates corpus integrity only; full STT-quality execution remains in T032/T044.
 
 - [ ] **Step 1: Write the failing prohibition test**
 
@@ -1365,6 +1437,8 @@ it.each([
 
 Add a passing case for a factual evidence summary that states uncertainty and cites source references without rating language.
 
+Create `tests/ai-evals/speech-fixtures.test.ts` before adding audio files. It must fail while the Gulf/Levantine clips, golden transcripts, provenance record, manifest registration, or matching SHA-256 values are absent. It reads every `speech-golden.json` row, verifies the referenced clip exists, recomputes SHA-256, requires a non-empty golden transcript and numeric tolerance, and requires provenance, license/source, privacy classification, and expected disposition.
+
 - [ ] **Step 2: Run the AI test and observe missing scanner failure**
 
 Run: `pnpm test:ai`
@@ -1373,13 +1447,13 @@ Expected: FAIL because the harness and prohibited-output scanner do not exist.
 
 - [ ] **Step 3: Implement deterministic fixture contracts**
 
-Each manifest entry must contain `id`, `version`, `locale`, `dialect`, `classification`, `provenance`, `inputPath`, `expectedSchemaVersion`, `requiredSourceReferences`, `forbiddenConcepts`, and `expectedDisposition`. Fixtures use synthetic or explicitly licensed content only; no employee data is permitted.
+Each text manifest entry must contain `id`, `version`, `locale`, `dialect`, `classification`, `provenance`, `inputPath`, `expectedSchemaVersion`, `requiredSourceReferences`, `forbiddenConcepts`, and `expectedDisposition`. Each `speech-golden.json` row must contain `fixtureId`, `dialect` (`gulf` or `levantine`), `locale`, `audioPath`, `goldenTranscript`, `tolerance`, `source`, `license`, `provenance`, `sha256`, `privacyClassification`, and `expectedDisposition`. Register both speech fixtures in the main manifest. Fixtures use synthetic or explicitly licensed content only; `PROVENANCE.md` must state how each clip was generated or licensed and prove no real employee data is used.
 
 The scanner checks normalized keys and text for rating recommendation, predicted rating, rank, productivity score, activity-volume inference, and Documentation Readiness conversion. It returns machine-readable violations and never rewrites the output into an allowed result.
 
 - [ ] **Step 4: Cover routes, Arabic, dialects, visibility, and injection**
 
-Add at least one deterministic case for formal Arabic, Gulf Arabic, Levantine Arabic, Arabic/English paths and model names, malicious instructions inside source content, each future visibility mode contract, invalid JSON, timeout, provider fallback, and the approved `Identified` pilot. The `Identified` case must retain submitted identity; private future modes must not alter the pilot route.
+Add at least one deterministic case for formal Arabic, Gulf Arabic, Levantine Arabic, Arabic/English paths and model names, malicious instructions inside source content, each future visibility mode contract, invalid JSON, timeout, provider fallback, and the approved `Identified` pilot. The `Identified` case must retain submitted identity; private future modes must not alter the pilot route. Run `scripts/scan-performance-inputs.mjs` against AI input/output schemas so raw GitHub/activity/project counts cannot become performance inputs.
 
 - [ ] **Step 5: Add protected live evaluation workflow**
 
@@ -1390,6 +1464,8 @@ The manual workflow uses read-only contents, environment approval, no pull-reque
 ```bash
 pnpm test:ai
 pnpm test
+pnpm exec vitest run tests/ai-evals/speech-fixtures.test.ts
+node scripts/scan-performance-inputs.mjs
 node scripts/scan-secrets.mjs
 git add tests/ai-evals vitest.workspace.ts package.json .github/workflows/live-ai-evals.yml
 git commit -m "test: add deterministic ai evaluation harness"
@@ -1412,6 +1488,8 @@ git commit -m "test: add deterministic ai evaluation harness"
 - Modify: `apps/worker/src/app.module.ts`
 - Modify: `apps/worker/src/main.ts`
 - Create: `tests/integration/queue-reliability.integration.test.ts`
+- Create: `tests/integration/queue-correlation.integration.test.ts`
+- Create: `tests/integration/administrative-replay.integration.test.ts`
 
 **Interfaces:**
 - Consumes: Redis T002, correlation/logging T005, database T004, audit T009, AI Router T011.
@@ -1437,11 +1515,18 @@ it("requires version, operation, trace, scope, and idempotency", () => {
 });
 ```
 
+Create `tests/integration/administrative-replay.integration.test.ts` with RED cases requiring a trimmed 3–500 character reason; asserting missing reason does not append or invoke replay; asserting audit failure leaves the durable operation unchanged and never invokes the processor; and asserting a valid reason plus successful `administrative_replay.requested` append permits exactly one replay.
+
 - [ ] **Step 2: Run tests and observe missing queue contracts**
 
-Run: `pnpm --filter @evaluation/contracts test -- jobs`
+Run each command and observe its missing-contract failure:
 
-Expected: FAIL because `JobEnvelopeSchema` is absent.
+```bash
+pnpm --filter @evaluation/contracts test -- jobs
+pnpm exec vitest run tests/integration/administrative-replay.integration.test.ts
+```
+
+Expected: FAIL because `JobEnvelopeSchema` and the reasoned, audited administrative-replay composition are absent.
 
 - [ ] **Step 3: Implement durable operation and queue contracts**
 
@@ -1451,7 +1536,7 @@ Use queue names `<domain>:v<jobVersion>`. Configure attempts per job type, expon
 
 - [ ] **Step 4: Add idempotent processor and trace propagation**
 
-`job-runner.ts` parses before processing, transitions `Operation` transactionally, restores `correlationId` and trace carrier, returns the existing success for a duplicate idempotency key, and writes an audit event before an administrative replay that can alter persistent state.
+`job-runner.ts` parses before processing, transitions `Operation` transactionally, restores `correlationId` and trace carrier, and returns the existing success for a duplicate idempotency key. Administrative replay requires a trimmed 3–500 character reason and opens one transaction that appends `administrative_replay.requested` before invoking any state-changing replay; failed/missing audit leaves the operation unchanged and prevents processor invocation.
 
 - [ ] **Step 5: Verify retry, failure retention, duplicate handling, and shutdown**
 
@@ -1460,14 +1545,16 @@ Run:
 ```bash
 pnpm db:migrate
 pnpm exec vitest run tests/integration/queue-reliability.integration.test.ts
+pnpm exec vitest run tests/integration/queue-correlation.integration.test.ts
+pnpm exec vitest run tests/integration/administrative-replay.integration.test.ts
 ```
 
-Expected: retryable fixture succeeds on attempt 3; non-retryable fixture stops after attempt 1; invalid payload is retained with `JOB_SCHEMA_INVALID`; duplicate enqueue produces one protected effect; API and Worker logs share the correlation ID; SIGTERM closes consumers without losing the active operation record.
+Expected: retryable fixture succeeds on attempt 3; non-retryable fixture stops after attempt 1; invalid payload is retained with `JOB_SCHEMA_INVALID`; duplicate enqueue produces one protected effect; a real Web -> API -> Redis/BullMQ -> Worker path preserves the correlation ID in sanitized API and Worker sinks; administrative replay requires a reason and audit failure rolls back/prevents replay; SIGTERM closes consumers without losing the active operation record.
 
 - [ ] **Step 6: Commit T013**
 
 ```bash
-git add packages/database/prisma packages/contracts/src/jobs.ts packages/contracts/src/jobs.test.ts apps/worker/src/queue apps/worker/src/health apps/worker/src/app.module.ts apps/worker/src/main.ts tests/integration/queue-reliability.integration.test.ts pnpm-lock.yaml
+git add packages/database/prisma packages/contracts/src/jobs.ts packages/contracts/src/jobs.test.ts apps/worker/src/queue apps/worker/src/health apps/worker/src/app.module.ts apps/worker/src/main.ts tests/integration/queue-reliability.integration.test.ts tests/integration/queue-correlation.integration.test.ts tests/integration/administrative-replay.integration.test.ts pnpm-lock.yaml
 git commit -m "feat: add durable worker queue foundation"
 ```
 
@@ -1486,7 +1573,7 @@ git commit -m "feat: add durable worker queue foundation"
 - Create: `tests/integration/identified-visibility-contract.integration.test.ts`
 
 **Interfaces:**
-- Consumes: database T004, policies T007, pilot roles T008.
+- Consumes: database T004, policies T007, pilot roles T008, and `AuditWriter` T009.
 - Produces: `openCycle(input): EligibilitySnapshot`, frozen `visibilityMode`, eligibility states `active | excluded | approved_leave | pending`, `recordSubmissionMarker(cycleId, employeeId, submittedAt)`, and `getCompletionStatus(cycleId, managerId)`. This task does not create Phase 4 ratings, comments, submission UI, or reports.
 
 - [ ] **Step 1: Write the failing frozen-snapshot and immediate-visibility tests**
@@ -1509,6 +1596,8 @@ it("does not block an identified submission marker on incomplete or leave entrie
 });
 ```
 
+Add a RED rollback case for the only permitted post-open eligibility mutation: `pending` or `approved_leave` to `excluded`. It must require a reason, append `evaluation.eligibility.excluded`, and leave both eligibility and audit unchanged when either write fails.
+
 - [ ] **Step 2: Run test and observe missing cycle foundation**
 
 Run: `pnpm exec vitest run tests/integration/identified-visibility-contract.integration.test.ts`
@@ -1517,7 +1606,7 @@ Expected: FAIL because cycle, eligibility snapshot, and completion-state persist
 
 - [ ] **Step 3: Add cycle and frozen snapshot models**
 
-Create `EvaluationCycle`, `EligibilitySnapshot`, and `EligibilityEntry` with version, source reason, state, effective timestamps, and unique cycle/user entries. Opening a cycle copies eligible users and visibility mode into immutable snapshot rows. Database and service checks reject mutation after `openedAt`, except the explicitly audited pre-close transition from `pending` or `approved_leave` to `excluded` allowed by the approved rule.
+Create `EvaluationCycle`, `EligibilitySnapshot`, and `EligibilityEntry` with version, source reason, state, effective timestamps, and unique cycle/user entries. Opening a cycle copies eligible users and visibility mode into immutable snapshot rows. Database and service checks reject mutation after `openedAt`, except the explicitly audited pre-close transition from `pending` or `approved_leave` to `excluded` allowed by the approved rule. That service requires an audit reason and appends `evaluation.eligibility.excluded` through T009 in the same transaction.
 
 - [ ] **Step 4: Implement completion status without a publication gate**
 
@@ -1532,7 +1621,7 @@ pnpm exec vitest run tests/integration/identified-visibility-contract.integratio
 python3 scripts/validate_task_graph.py
 ```
 
-Expected: eligibility and mode freeze at open; leave and exclusion are representable and audited; submitted identified responses appear immediately; all 77 task dependencies remain phase-valid with no Phase 4 dependency on Phase 5.
+Expected: eligibility and mode freeze at open; leave and exclusion are representable; the permitted exclusion and its audit event succeed or roll back atomically; submitted identified responses appear immediately; all 77 task dependencies remain phase-valid with no Phase 4 dependency on Phase 5.
 
 - [ ] **Step 6: Commit T014**
 
@@ -1549,6 +1638,8 @@ git commit -m "feat: add frozen evaluation eligibility snapshots"
 - Create: `packages/localization/src/locales.ts`
 - Create: `packages/localization/src/catalog.ts`
 - Create: `packages/localization/src/catalog.test.ts`
+- Create: `packages/localization/src/formatters.ts`
+- Create: `packages/localization/src/formatters.test.ts`
 - Create: `packages/localization/src/catalogs/ar.json`
 - Create: `packages/localization/src/catalogs/en.json`
 - Create: `packages/ui/src/bidi-text.tsx`
@@ -1568,7 +1659,7 @@ git commit -m "feat: add frozen evaluation eligibility snapshots"
 
 **Interfaces:**
 - Consumes: Web shell T001 and error message keys T005.
-- Produces: `Locale = "ar" | "en"`, `getCatalog(locale)`, Arabic-default locale routing, root `lang/dir`, logical CSS tokens, and `<BidiText kind="auto-isolate | code | url | email | model | path | hash">`.
+- Produces: `Locale = "ar" | "en"`, `getCatalog(locale)`, `defaultTimeZone = "Asia/Riyadh"`, `formatDateTime(value, locale, timeZone = defaultTimeZone)`, `formatNumber(value, locale)`, Arabic-default locale routing, root `lang/dir`, logical CSS tokens, and `<BidiText kind="auto-isolate | code | url | email | model | path | hash">`.
 
 - [ ] **Step 1: Write the failing catalog and direction tests**
 
@@ -1587,6 +1678,8 @@ it("uses Arabic as the default locale", () => {
   expect(localeMetadata.en.direction).toBe("ltr");
 });
 ```
+
+Create `packages/localization/src/formatters.test.ts` with one fixed UTC instant and number. Assert the default timezone is exactly `Asia/Riyadh`; explicit user timezones change only rendered presentation; Arabic and English produce locale-appropriate date and numeric output; the source `Date.toISOString()` remains unchanged; and switching locale leaves a paired stable criterion ID unchanged. Extend `catalog.test.ts` with exact Identified-mode notice keys in both locales and reject anonymity/confidentiality wording in those keys, including `anonymous`, `confidential`, `مجهول`, `مجهولة`, `سري`, and `سرية`.
 
 Write Playwright assertions that `/` redirects to `/ar`, root HTML is `lang=ar dir=rtl`, `/en` is LTR, tab order follows DOM order, and code/path/hash samples remain LTR inside the RTL page.
 
@@ -1612,6 +1705,13 @@ export const localeMetadata = {
 
 Catalog keys include shell navigation, role names, safe error codes, login/logout, health state, and rubric approval status. Feature code imports keys; `scripts/check-user-visible-copy.mjs` rejects hardcoded user-facing English strings outside catalog, test, and documentation files.
 
+The Identified-mode notice values are exact approved pilot copy for this foundation:
+
+- English: `In this identified pilot, your identity, completion status, ratings, comments, and submission timestamp are visible to the authorized manager.`
+- Arabic: `في هذا البرنامج التجريبي محدد الهوية، تظهر هويتك وحالة الإكمال والتقييمات والتعليقات ووقت الإرسال للمدير المخوّل.`
+
+Future manager-blinded or anonymous vocabulary may exist only under configuration/help keys clearly scoped to those future modes; it cannot be reused by the Identified-mode notice. Implement formatters with `Intl.DateTimeFormat` and `Intl.NumberFormat`; do not mutate stored UTC values or criterion IDs.
+
 - [ ] **Step 4: Implement one direction-safe component tree**
 
 Use CSS logical properties only for spacing/alignment. `BidiText` renders code, URL, email, model, path, and hash as `<bdi dir="ltr">`; auto-isolated user text renders `<bdi>`. Mirror only icons whose semantics indicate direction. Self-host the two font assets and include their licenses under `apps/web/public/fonts/LICENSES.md`; make no runtime font CDN request.
@@ -1625,12 +1725,12 @@ pnpm test:e2e -- locale-shell rtl-focus mixed-direction
 node scripts/check-user-visible-copy.mjs
 ```
 
-Expected: Arabic and English keys match; both shells render; root direction is correct before paint; keyboard/focus order passes; paths, URLs, emails, model names, and hashes remain readable; no runtime font request leaves the app.
+Expected: Arabic and English keys match; Identified notices disclose identity, completion status, ratings, comments, and timestamp without anonymity/confidentiality promises; date/time defaults to `Asia/Riyadh`; locale and user timezone change presentation only; both shells render; root direction is correct before paint; keyboard/focus order passes; paths, URLs, emails, model names, and hashes remain readable; no runtime font request leaves the app.
 
 - [ ] **Step 6: Commit T015**
 
 ```bash
-git add packages/localization/src/locales.ts packages/localization/src/catalog.ts packages/localization/src/catalog.test.ts packages/localization/src/catalogs packages/ui/src apps/web/src apps/web/public/fonts tests/e2e scripts/check-user-visible-copy.mjs
+git add packages/localization/src/locales.ts packages/localization/src/catalog.ts packages/localization/src/catalog.test.ts packages/localization/src/formatters.ts packages/localization/src/formatters.test.ts packages/localization/src/catalogs packages/ui/src apps/web/src apps/web/public/fonts tests/e2e scripts/check-user-visible-copy.mjs
 git commit -m "feat: establish arabic-first rtl foundation"
 ```
 
@@ -1650,8 +1750,8 @@ git commit -m "feat: establish arabic-first rtl foundation"
 - Create: `packages/database/prisma/migrations/0009_arabic_rubric_approval/migration.sql`
 
 **Interfaces:**
-- Consumes: approved English rubric T010 and localization T015.
-- Produces: Arabic content with identical IDs/version, per-entry source hash and status, `approveArabicRubric(input, reviewer): ApprovalRecord`, and activation guard requiring complete semantic approval.
+- Consumes: approved English rubric and audited activation T010, `AuditWriter` T009, and localization T015.
+- Produces: Arabic content with identical IDs/version, per-entry source hash and status, separate subject-matter and employee-comprehension dispositions, `approveArabicRubric(input, reviewer): ApprovalRecord`, and activation guard requiring both human approvals plus complete semantic review.
 
 - [ ] **Step 1: Write the failing activation-guard test**
 
@@ -1668,6 +1768,8 @@ it("requires exact English IDs, version, and source hashes", () => {
 });
 ```
 
+Add failing cases where either `subjectMatterDisposition` or `employeeComprehensionDisposition` is missing/not approved; where the reviewer is an AI or machine-translation actor; where RTL or mixed-terminology review is incomplete; where Gulf/Levantine examples are absent; and where audit append fails. Activation must remain absent in every case.
+
 - [ ] **Step 2: Run tests and observe missing approval rules**
 
 Run: `pnpm --filter @evaluation/localization test -- translation-approval`
@@ -1676,27 +1778,29 @@ Expected: FAIL because Arabic review and activation contracts do not exist.
 
 - [ ] **Step 3: Export the exact human review inventory**
 
-`export-rubric-review.mjs` produces `docs/rubric/arabic-v1-review.md` with all 12 criteria, 60 employee anchors, Project Contribution and five anchors, five manager criteria, 25 manager anchors, definitions, examples, prompts, evidence guidance, and bias guidance. Each row includes stable ID, English source, Arabic text, reviewer disposition, and semantic note. The script fails unless the inventory counts match T010.
+`export-rubric-review.mjs` produces `docs/rubric/arabic-v1-review.md` with all 12 criteria, 60 employee anchors, Project Contribution and five anchors, five manager criteria, 25 manager anchors, definitions, examples, prompts, evidence guidance, and bias guidance. Each row includes stable ID, rubric version, English source, English source hash, Arabic text/hash, separate subject-matter disposition, separate employee-comprehension disposition, reviewer identity/kind, and semantic note. The script fails unless the inventory counts match T010.
 
-- [ ] **Step 4: Complete the subject-matter approval gate**
+- [ ] **Step 4: Complete both direct human approval gates**
 
-The product owner or delegated Arabic evaluation subject-matter reviewer supplies and reviews every Arabic entry. Record reviewer user ID, UTC approval time, English source hash, Arabic content hash, rubric version `1`, and decision `approved`. If adjacent rating anchors are not semantically distinct, keep the version inactive and return the specific IDs for correction. AI-generated or machine-translated text alone cannot satisfy this step.
+The product owner or delegated Arabic evaluation subject-matter reviewer supplies and reviews every Arabic entry. Separately, authorized pilot reviewers perform employee-comprehension review using synthetic role labels or authorized review material and never real evaluation data. Record each reviewer user ID, reviewer kind, UTC approval time, exact IDs, English source hash, Arabic content hash, rubric version `1`, and decision. Both inventories must review complete content, RTL layout, mixed Arabic/English terminology, Gulf and Levantine examples, and distinct adjacent anchors. If either disposition is unresolved or adjacent rating anchors are not semantically distinct, keep the version inactive and return the specific IDs. AI-generated or machine-translated text alone cannot satisfy either human gate.
 
 - [ ] **Step 5: Import only the approved artifact**
 
-`import-approved-rubric.mjs` validates the signed review inventory against the English IDs and source hash, writes canonical `v1.ar.json`, and inserts localized rows plus one approval record in a transaction. The activation service requires zero missing entries, zero unresolved dispositions, matching version/source hashes, and an authorized reviewer. Arabic cannot activate independently after the English source changes.
+`import-approved-rubric.mjs` validates both signed review dispositions against the English IDs and source hash, writes canonical `v1.ar.json`, and inserts localized rows plus both approval records in one transaction. The activation service requires zero missing entries, zero unresolved dispositions, matching version/source hashes, complete RTL/mixed-terminology/dialect review, both authorized human reviewer kinds, and distinct adjacent anchors. The same transaction appends `rubric.translation.approved` and `rubric.locale.activated`; a failed audit append or approval insert rolls back all localized rows and activation. Arabic cannot activate independently after the English source changes.
 
 - [ ] **Step 6: Verify complete bilingual integrity**
 
 ```bash
 node scripts/export-rubric-review.mjs
-node scripts/import-approved-rubric.mjs docs/rubric/arabic-v1-review.md
 pnpm db:migrate
+node scripts/import-approved-rubric.mjs docs/rubric/arabic-v1-review.md
 pnpm exec vitest run tests/integration/rubric-localization.integration.test.ts
 pnpm test:ai
 ```
 
-Expected: exact IDs and version match; required content counts are complete; adjacent Arabic anchors remain distinct according to the signed review; activation succeeds only with approval; Arabic AI fixtures pass prohibition and semantic-reference checks.
+Expected: exact IDs, version, and source hashes match; required content counts are complete; separate subject-matter and employee-comprehension dispositions are approved by humans; RTL, mixed terminology, Gulf/Levantine examples, and adjacent-anchor distinction are signed; localized content, both approval records, `rubric.translation.approved`, and `rubric.locale.activated` commit or roll back together; Arabic AI fixtures pass prohibition and semantic-reference checks.
+
+Before this direct human gate, generate a stop package listing the exact review files, structural-parity results, sensitive terminology decisions, meaningful English/Arabic differences, recommended wording, unresolved IDs, and the commands/results above. Do not infer approval from silence and do not substitute AI review for either disposition.
 
 - [ ] **Step 7: Commit T016 only after approval evidence exists**
 
@@ -1822,13 +1926,14 @@ Do not report Phase 0 complete until all of the following evidence exists in the
 - Empty-database and previous-snapshot migrations pass; schema drift is absent.
 - Valid, invalid, expired, wrong-audience, and deactivated authentication cases pass.
 - Authorization matrix passes, including manager/admin separation, cross-scope denial, and immediate identified-response visibility without team completion.
-- Audit mutation is rejected by PostgreSQL and unauthorized query is denied.
-- English rubric counts, weights, source hash, and immutable activation match the approved document.
-- AI route precedence, allowed fallback, local-only denial, output quarantine, run trace, and no-rating/no-ranking fixtures pass.
+- The framework-neutral Web -> API -> carrier -> Worker correlation contract passes in T005, and the real Web -> API -> Redis/BullMQ -> Worker trace passes in T013; all sinks remain sanitized.
+- Audit mutation is rejected by PostgreSQL; unauthorized query is denied; authentication sync, role assignment, rubric activation, administrative replay, eligibility exclusion, Arabic approval/activation, and representative private-mode access have positive and rollback atomicity evidence; bootstrap events use the non-human service actor; no database-to-audit import exists.
+- English rubric counts, weights, source hash, and immutable activation match the approved document; rubric activation is audited atomically; branded Documentation Readiness cannot enter Performance Rating; repository scans find no raw activity/project counts in performance inputs.
+- AI route precedence, allowed fallback, local-only denial, output quarantine, run trace, and no-rating/no-ranking fixtures pass; synthetic/licensed Gulf and Levantine audio entries have verified provenance, checksums, golden transcripts, and no real employee data.
 - Queue retry, non-retryable failure, duplicate idempotency, retained failure, trace propagation, and graceful shutdown pass.
 - Eligibility and visibility snapshots freeze correctly; approved leave does not hide other responses.
-- Arabic/English catalog parity, RTL focus order, mixed-direction isolation, self-hosted fonts, and user-visible-copy scan pass.
-- T016 has explicit Arabic semantic approval; without it, report Phase 0 as blocked at that approval gate rather than complete.
+- Arabic/English catalog parity, Identified-mode visibility notices, prohibition of anonymity/confidentiality promises, `Asia/Riyadh` default date/time behavior, locale-aware numbers, RTL focus order, mixed-direction isolation, self-hosted fonts, and user-visible-copy scan pass.
+- T016 has separate explicit Arabic subject-matter and employee-comprehension approvals plus audited activation; without either direct human disposition, report Phase 0 as blocked at that approval gate rather than complete.
 - Task graph reports exactly 77 valid tasks and every negative fixture fails for the intended reason.
 - GitHub Actions passes on the implementation branch, including proof that an intentional assertion failure is detected and the restored branch returns green.
 
@@ -1842,18 +1947,18 @@ Do not report Phase 0 complete until all of the following evidence exists in the
 | T002 Infrastructure | 2 | PostgreSQL, Redis, MinIO, Keycloak, health, persistence, reset guard |
 | T003 CI | 3 | Pinned Actions, least privilege, install/quality/build/integration gates, intentional failure proof |
 | T004 Database | 4 | Prisma package, empty/rebuild migration, drift, test database, destructive guard |
-| T005 Logging/errors | 5 | Safe envelope, correlation, redaction, health, API/Worker trace carrier |
+| T005 Logging/errors | 5 | Safe envelope, correlation, redaction, health, independently verified Web/API/Worker carrier contract |
 | T006 Authentication | 6 | PKCE, OIDC validation, sync, expiry, audience, deactivation |
 | T007 Authorization | 7 | All seven roles, scoped deny-by-default policy, negative and identified-pilot cases |
 | T008 Pilot seed | 8 | LeapAI, AI department, idempotency, distinct manager/admin identities |
-| T009 Audit | 9 | Append-only service/table/trigger, safe payload, authorized query |
-| T010 English rubric | 10 | 12/60, Project Contribution, 5/25 manager, 100%, source comparison, immutability |
+| T009 Audit | 9 | Append-only service/table/trigger, lower-level writer, protected-action atomicity, bootstrap actor, sensitive-access ordering, authorized query |
+| T010 English rubric | 10 | 12/60, Project Contribution, 5/25 manager, 100%, source comparison, immutable/audited activation, readiness/rating type separation, activity-input scan |
 | T011 AI Router | 11 | Route precedence, adapters, fallback policy, audit, trace, structured validation, quarantine |
-| T012 AI harness | 12 | English/Arabic, Gulf/Levantine, mixed direction, injection, privacy modes, rating prohibition |
+| T012 AI harness | 12 | English/Arabic, Gulf/Levantine text and audio provenance/golden integrity, mixed direction, injection, privacy modes, rating prohibition |
 | T013 Worker/queue | 13 | Versioning, idempotency, bounded retry, retained failure, durable operation, trace |
 | T014 Eligibility | 14 | Frozen active/excluded/leave/pending snapshot, completion status, no full-team gate |
-| T015 Localization | 15 | Arabic default, English, RTL, catalogs, bidi, typography, date/number metadata, accessibility |
-| T016 Arabic rubric | 16 | Full content inventory, structural parity, semantic human gate, activation protection |
+| T015 Localization | 15 | Arabic default, English, RTL, catalogs, identified notice, bidi, typography, `Asia/Riyadh` date/number formatting, accessibility |
+| T016 Arabic rubric | 16 | Full content inventory, structural parity, subject-matter and employee-comprehension human gates, audited activation protection |
 | T017 Task graph | 17 | IDs, dependencies, cycles, phase order, positive and negative CI checks |
 
 ### Design coverage
@@ -1880,15 +1985,10 @@ Do not report Phase 0 complete until all of the following evidence exists in the
 - **Spec coverage:** all design sections and every source task T001–T017 map to a task or an explicit Phase 0 exclusion.
 - **Unfinished-marker scan:** no unresolved implementation marker is present; T016 is an explicit human approval gate with defined input, validation, evidence, and stop condition.
 - **Type consistency:** `AuthenticatedPrincipal`, `Decision`, `AuditEventInput`, `AiRunRequest`, `AiProviderAdapter`, `JobEnvelope`, `Operation`, `EvaluationCycle`, and `EligibilitySnapshot` have one owning task and stable downstream consumers.
-- **Dependency consistency:** the written order respects every dependency in `TASKS.md`; no Phase 0 task consumes a Phase 1–5 implementation.
+- **Dependency consistency:** the written order respects every dependency in `TASKS.md`, including all five corrected declarations and eight added edges; no Phase 0 task consumes a Phase 1–5 implementation.
 - **Protected-rule consistency:** no AI rating or ranking, no Documentation Readiness performance conversion, no full-team publication gate, no role conflation, and no Arabic activation without semantic approval.
 - **Scope consistency:** object upload UI, GitHub App ingestion, product evaluation screens, coaching, full leave/delegation, deployment, and later product domains remain excluded.
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-07-15-phase-0-foundation-plan.md`. Two execution options:
-
-1. **Subagent-Driven (recommended)** — use `superpowers:subagent-driven-development`; dispatch a fresh subagent per task and perform two-stage review between tasks for faster, isolated iteration.
-2. **Inline Execution** — use `superpowers:executing-plans`; execute tasks in this session in batches with explicit verification checkpoints.
-
-Do not begin either option until the user chooses one.
+Plan complete and saved to `docs/superpowers/plans/2026-07-15-phase-0-foundation-plan.md`. The user selected **Subagent-Driven Development**: use `superpowers:subagent-driven-development`, dispatch a fresh implementer per task, perform independent task review after every task, and perform a whole-branch review after T017. Begin Task 1 after the approved amendment is verified and committed.
