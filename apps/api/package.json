@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@evaluation/audit": "workspace:*",
+    "@evaluation/ai-routing": "workspace:*",
     "@evaluation/auth": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",

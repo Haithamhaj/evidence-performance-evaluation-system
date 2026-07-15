@@ -1,0 +1,7 @@
+import OpenAI from "openai";
+
+export async function bypassRouter() {
+  const sdk = new OpenAI();
+  await sdk.chat.completions.create({ model: "unsafe", messages: [] });
+  return fetch("https://provider.invalid/v1/chat/completions");
+}

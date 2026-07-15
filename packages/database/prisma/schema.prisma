@@ -23,6 +23,7 @@ model User {
   active          Boolean          @default(true)
   identities      OidcIdentity[]
   roleAssignments RoleAssignment[]
+  aiRouteConfigs  AiRouteConfig[]
   createdAt       DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
 }
@@ -87,6 +88,7 @@ model AuthorizationScope {
   departmentId    String?          @db.Uuid
   department      Department?      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   roleAssignments RoleAssignment[]
+  aiRoutes        AiRoute[]
   createdAt       DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
 
@@ -193,11 +195,11 @@ model RubricSection {
 }
 
 model RubricCriterion {
-  id              String               @id @default(uuid()) @db.Uuid
-  rubricLocaleId  String               @db.Uuid
-  rubricLocale    RubricLocale         @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
-  sectionId       String?              @db.Uuid
-  section         RubricSection?       @relation(fields: [sectionId, rubricLocaleId], references: [id, rubricLocaleId], onDelete: Restrict)
+  id              String              @id @default(uuid()) @db.Uuid
+  rubricLocaleId  String              @db.Uuid
+  rubricLocale    RubricLocale        @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
+  sectionId       String?             @db.Uuid
+  section         RubricSection?      @relation(fields: [sectionId, rubricLocaleId], references: [id, rubricLocaleId], onDelete: Restrict)
   stableId        String
   kind            RubricCriterionKind
   title           String
@@ -206,7 +208,7 @@ model RubricCriterion {
   content         Json
   displayOrder    Int
   anchors         RubricAnchor[]
-  createdAt       DateTime             @default(now()) @db.Timestamptz(6)
+  createdAt       DateTime            @default(now()) @db.Timestamptz(6)
 
   @@unique([rubricLocaleId, stableId])
   @@unique([rubricLocaleId, displayOrder])
@@ -222,4 +224,95 @@ model RubricAnchor {
   createdAt   DateTime        @default(now()) @db.Timestamptz(6)
 
   @@unique([criterionId, rating])
+}
+
+enum AiProviderLocality {
+  local
+  external
+}
+
+enum AiDataClassification {
+  public
+  internal
+  confidential
+  local_only
+}
+
+enum AiRunState {
+  succeeded
+  failed
+  quarantined
+}
+
+enum AiHumanApprovalState {
+  not_required
+  pending
+}
+
+model AiRoute {
+  id        String             @id @default(uuid()) @db.Uuid
+  routeKey  String
+  level     ScopeType
+  scopeId   String             @db.Uuid
+  scope     AuthorizationScope @relation(fields: [scopeId, level], references: [id, scopeType], onDelete: Restrict)
+  configs   AiRouteConfig[]
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+
+  @@unique([routeKey, level, scopeId])
+  @@index([level, scopeId, routeKey])
+}
+
+model AiRouteConfig {
+  id            String   @id @default(uuid()) @db.Uuid
+  routeId       String   @db.Uuid
+  route         AiRoute  @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  version       Int
+  providerChain Json
+  reason        String
+  createdById   String   @db.Uuid
+  createdBy     User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  runs          AiRun[]
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([routeId, version])
+  @@unique([id, routeId, version])
+  @@index([routeId, version(sort: Desc)])
+  @@index([createdById, createdAt])
+}
+
+model AiRun {
+  id                    String               @id @default(uuid()) @db.Uuid
+  routeKey              String
+  routeId               String               @db.Uuid
+  routeConfigId         String               @db.Uuid
+  routeConfigVersion    Int
+  routeConfig           AiRouteConfig        @relation(fields: [routeConfigId, routeId, routeConfigVersion], references: [id, routeId, version], onDelete: Restrict)
+  routeLevel            ScopeType
+  scopeId               String               @db.Uuid
+  providerKey           String
+  modelKey              String
+  classification        AiDataClassification
+  inputReference        String
+  inputSchemaVersion    String
+  outputSchemaVersion   String
+  promptTemplateVersion String
+  sourceReferences      Json
+  outputReference       String?
+  startedAt             DateTime             @db.Timestamptz(6)
+  completedAt           DateTime             @db.Timestamptz(6)
+  latencyMs             Int
+  usage                 Json?
+  costUsd               Float?
+  state                 AiRunState
+  errorCategory         String?
+  fallbackChain         Json
+  humanApprovalState    AiHumanApprovalState
+  correlationId         String               @unique @db.Uuid
+  validationIssueCodes  Json
+  createdAt             DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@index([routeId, routeConfigVersion, createdAt])
+  @@index([routeKey, createdAt])
+  @@index([state, createdAt])
+  @@index([scopeId, createdAt])
 }

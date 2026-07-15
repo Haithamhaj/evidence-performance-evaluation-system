@@ -78,9 +78,15 @@ importers:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@26.1.1)(@vitest/coverage-v8@4.1.10)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   apps/api:
     dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../../packages/ai-routing
       '@evaluation/audit':
         specifier: workspace:*
         version: link:../../packages/audit
@@ -184,7 +190,17 @@ importers:
         specifier: 26.1.1
         version: 26.1.1
 
-  packages/ai-routing: {}
+  packages/ai-routing:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/audit:
     dependencies:

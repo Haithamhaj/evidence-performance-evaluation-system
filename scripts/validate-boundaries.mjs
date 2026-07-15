@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceRoots = ["apps", "packages"];
-const sourceExtensions = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]);
+const sourceExtensions = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".fixture"]);
 const ignoredDirectories = new Set([".next", ".turbo", "dist", "node_modules"]);
 const webForbiddenPackages = [
   "@evaluation/database",
@@ -21,6 +21,15 @@ const webForbiddenPackages = [
 ];
 const importPattern =
   /(?:\b(?:import|export)\s+(?:[^"'`;]*?\s+from\s+)?|\bimport\s*\()\s*["']([^"']+)["']/gu;
+const aiProviderPackages = [
+  "openai",
+  "@anthropic-ai/sdk",
+  "@google/generative-ai",
+  "@google/genai",
+  "@azure/openai",
+  "cohere-ai",
+];
+const directProviderRoutePattern = /(?:\/chat\/completions|\/v1\/responses|\/v1\/messages)/u;
 
 async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -61,6 +70,15 @@ function inspectImport(filePath, specifier) {
     return `BOUNDARY_WEB_SERVER_IMPORT:${relativeFile}:${specifier}`;
   }
 
+  if (
+    !isAiRoutingFile(relativeFile) &&
+    aiProviderPackages.some(
+      (packageName) => specifier === packageName || specifier.startsWith(`${packageName}/`),
+    )
+  ) {
+    return `BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:${specifier}`;
+  }
+
   if (packageImport?.[2]) {
     return `BOUNDARY_DEEP_IMPORT:${relativeFile}:${specifier}`;
   }
@@ -75,8 +93,26 @@ function inspectImport(filePath, specifier) {
   return undefined;
 }
 
+function isAiRoutingFile(relativeFile) {
+  const normalized = relativeFile.split(path.sep).join("/");
+  return (
+    normalized.startsWith("packages/ai-routing/") || normalized.includes("/packages/ai-routing/")
+  );
+}
+
+const arguments_ = process.argv.slice(2);
+const rootIndex = arguments_.indexOf("--root");
+const rootArgument = rootIndex < 0 ? undefined : arguments_[rootIndex + 1];
+if (rootIndex >= 0 && (!rootArgument || arguments_.length !== 2)) {
+  throw new Error("Usage: validate-boundaries.mjs [--root <directory>]");
+}
+
 const files = (
-  await Promise.all(sourceRoots.map((root) => collectSourceFiles(path.join(repositoryRoot, root))))
+  await Promise.all(
+    (rootArgument ? [rootArgument] : sourceRoots).map((root) =>
+      collectSourceFiles(path.resolve(repositoryRoot, root)),
+    ),
+  )
 ).flat();
 const violations = [];
 
@@ -92,6 +128,14 @@ for (const filePath of files) {
     if (violation) {
       violations.push(violation);
     }
+  }
+  if (
+    !isAiRoutingFile(path.relative(repositoryRoot, filePath)) &&
+    directProviderRoutePattern.test(source)
+  ) {
+    violations.push(
+      `BOUNDARY_DIRECT_AI_PROVIDER:${path.relative(repositoryRoot, filePath)}:chat/completions`,
+    );
   }
 }
 
