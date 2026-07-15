@@ -10,6 +10,10 @@
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
+    "infra:down": "docker compose --env-file .env.local -f infra/docker/compose.yml down",
+    "infra:reset": "node scripts/reset-local-infra.mjs",
+    "infra:up": "docker compose --env-file .env.local -f infra/docker/compose.yml up -d --wait",
+    "infra:verify": "node scripts/verify-infra.mjs",
     "lint": "turbo run lint && node scripts/validate-boundaries.mjs",
     "typecheck": "turbo run typecheck",
     "test": "vitest run --project unit",
@@ -20,6 +24,8 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "3.1087.0",
+    "@aws-sdk/s3-request-presigner": "3.1087.0",
     "@babel/core": "8.0.1",
     "@babel/eslint-parser": "8.0.1",
     "@babel/plugin-syntax-decorators": "8.0.1",
