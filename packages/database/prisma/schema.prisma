@@ -14,3 +14,25 @@ model SystemMetadata {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 }
+
+model User {
+  id          String         @id @default(uuid()) @db.Uuid
+  email       String         @unique
+  displayName String
+  active      Boolean        @default(true)
+  identities  OidcIdentity[]
+  createdAt   DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(6)
+}
+
+model OidcIdentity {
+  id        String   @id @default(uuid()) @db.Uuid
+  issuer    String
+  subject   String
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([issuer, subject])
+  @@index([userId])
+}

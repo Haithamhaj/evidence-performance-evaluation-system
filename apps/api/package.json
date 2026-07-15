@@ -11,7 +11,9 @@
     "test": "vitest run --root ../.. apps/api/src"
   },
   "dependencies": {
+    "@evaluation/auth": "workspace:*",
     "@evaluation/contracts": "workspace:*",
+    "@evaluation/database": "workspace:*",
     "@evaluation/observability": "workspace:*",
     "@nestjs/common": "11.1.28",
     "@nestjs/core": "11.1.28",
