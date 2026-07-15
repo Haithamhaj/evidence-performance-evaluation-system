@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Start implementation of the complete Evidence-Based Performance Evaluation System for the LeapAI AI Department using the corrected Starter Pack Revision 1.1.
+Approve the Phase 0 foundation design, then create the detailed Phase 0 implementation plan.
 
 ## Current Reality
 
@@ -12,7 +12,13 @@ Start implementation of the complete Evidence-Based Performance Evaluation Syste
 - `IMPLEMENTATION_PLAN.md` Revision 1.1 contains the corrected architecture and build sequence.
 - `TASKS.md` contains 77 phase-valid tasks with no later-phase dependency.
 - AI Router, Worker infrastructure, evaluation eligibility, localization, Arabic rubric approval, and DAG validation are Phase 0 foundations.
-- No code repository has been created yet.
+- A local Git repository exists at `/Users/haitham/development/evidence-performance-evaluation-system` on `main`.
+- Local handoff commit: `334fcf8`; local governance commit: `7b2398e`.
+- Package manifest and all 77 task dependencies pass validation.
+- The Phase 0 foundation design is proposed at `docs/superpowers/specs/2026-07-15-phase-0-foundation-design.md`.
+- The private GitHub repository is published at `https://github.com/Haithamhaj/Evaluation-System-` with `main` as its default branch.
+- Six phase milestones and the 23 required governance labels are configured in GitHub.
+- The current machine has Node.js and pnpm but no Docker-compatible container runtime.
 - The first synchronized external source is GitHub.
 
 ## Active Decisions
@@ -61,10 +67,14 @@ Start implementation of the complete Evidence-Based Performance Evaluation Syste
 - Attribution disputes may become operationally heavy.
 - GitHub evidence may be overvalued despite explicit controls.
 - Complete-system scope requires disciplined implementation order.
+- Phase 0 infrastructure verification is blocked until a supported container runtime is available.
+- `PROJECT_REFERENCE.md` section 27.2 contains a stale publication-gate sentence that conflicts with the approved Identified pilot behavior; resolve before Phase 4.
 
 ## Next Recommended Action
 
-Create the repository and execute Tasks T001–T017.
+Review and explicitly approve the Phase 0 foundation design.
+
+After design approval, create the detailed TDD implementation plan for Tasks T001–T017. Do not begin implementation before the subsequent execution-choice gate.
 
 Do not begin feature UI work before completing:
 
@@ -86,3 +96,4 @@ Do not begin feature UI work before completing:
 - `AGENTS.md`
 - `TASKS.md`
 - `project-state/SYSTEM_MAP.html`
+- `docs/superpowers/specs/2026-07-15-phase-0-foundation-design.md`
