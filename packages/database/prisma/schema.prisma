@@ -17,6 +17,7 @@ model SystemMetadata {
 
 model User {
   id              String           @id @default(uuid()) @db.Uuid
+  pilotKey        String?          @unique
   email           String           @unique
   displayName     String
   active          Boolean          @default(true)
@@ -66,26 +67,42 @@ model Organization {
 }
 
 model Department {
-  id             String       @id @default(uuid()) @db.Uuid
-  key            String       @unique
-  name           String
-  organizationId String       @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+  id                  String               @id @default(uuid()) @db.Uuid
+  key                 String               @unique
+  name                String
+  organizationId      String               @db.Uuid
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  authorizationScopes AuthorizationScope[]
+  createdAt           DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
 
   @@index([organizationId])
 }
 
+model AuthorizationScope {
+  id              String           @id @default(uuid()) @db.Uuid
+  key             String           @unique
+  scopeType       ScopeType
+  departmentId    String?          @db.Uuid
+  department      Department?      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  roleAssignments RoleAssignment[]
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+
+  @@unique([id, scopeType])
+  @@index([departmentId])
+}
+
 model RoleAssignment {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @db.Uuid
-  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id        String             @id @default(uuid()) @db.Uuid
+  userId    String             @db.Uuid
+  user      User               @relation(fields: [userId], references: [id], onDelete: Restrict)
   role      Role
   scopeType ScopeType
-  scopeId   String
-  createdAt DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  scopeId   String             @db.Uuid
+  scope     AuthorizationScope @relation(fields: [scopeId, scopeType], references: [id, scopeType], onDelete: Restrict)
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
 
   @@unique([userId, role, scopeType, scopeId])
   @@index([userId])

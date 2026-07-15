@@ -26,7 +26,7 @@ export interface RoleAssignmentChange {
 interface PilotIdentity {
   readonly displayName: string;
   readonly email: string;
-  readonly subject: string;
+  readonly pilotKey: "pilot-manager" | "system-admin";
 }
 
 function requiredSubject(name: string, value: string): string {
@@ -37,25 +37,67 @@ function requiredSubject(name: string, value: string): string {
 
 async function upsertPilotUser(
   transaction: TransactionClient,
-  issuer: string,
   identity: PilotIdentity,
 ): Promise<DatabaseUser> {
-  const existingIdentity = await transaction.oidcIdentity.findUnique({
-    where: { issuer_subject: { issuer, subject: identity.subject } },
-    include: { user: true },
-  });
-  if (existingIdentity !== null) return existingIdentity.user;
-
-  const user = await transaction.user.upsert({
-    where: { email: identity.email },
+  return transaction.user.upsert({
+    where: { pilotKey: identity.pilotKey },
     update: { displayName: identity.displayName },
-    create: { email: identity.email, displayName: identity.displayName },
+    create: {
+      pilotKey: identity.pilotKey,
+      email: identity.email,
+      displayName: identity.displayName,
+    },
   });
+}
 
-  await transaction.oidcIdentity.create({
-    data: { issuer, subject: identity.subject, userId: user.id },
+async function bindPilotIdentity(
+  transaction: TransactionClient,
+  user: DatabaseUser,
+  issuer: string,
+  subject: string,
+): Promise<void> {
+  const existingIdentity = await transaction.oidcIdentity.findUnique({
+    where: { issuer_subject: { issuer, subject } },
   });
-  return user;
+  if (existingIdentity !== null) {
+    if (existingIdentity.userId !== user.id) {
+      throw new Error("OIDC identity is already assigned to another user");
+    }
+    return;
+  }
+
+  await transaction.oidcIdentity.create({ data: { issuer, subject, userId: user.id } });
+}
+
+async function rejectOppositePilotRole(
+  transaction: TransactionClient,
+  userId: string,
+  oppositeRole: "manager" | "system_administrator",
+): Promise<void> {
+  const assignment = await transaction.roleAssignment.findFirst({
+    where: { userId, role: oppositeRole },
+    select: { id: true },
+  });
+  if (assignment !== null) throw new Error("Pilot user has the opposite protected pilot role");
+}
+
+async function ensureAuthorizationScope(
+  transaction: TransactionClient,
+  input: Readonly<{
+    key: string;
+    scopeType: ScopeType;
+    departmentId: string | null;
+  }>,
+): Promise<{ readonly id: string }> {
+  const existing = await transaction.authorizationScope.findUnique({ where: { key: input.key } });
+  if (existing !== null) {
+    if (existing.scopeType !== input.scopeType || existing.departmentId !== input.departmentId) {
+      throw new Error("Canonical authorization scope conflicts with the pilot seed");
+    }
+    return existing;
+  }
+
+  return transaction.authorizationScope.create({ data: input });
 }
 
 async function ensureRoleAssignment(
@@ -110,32 +152,48 @@ export async function seedPilot(
     },
   });
 
-  const manager = await upsertPilotUser(transaction, issuer, {
+  const systemScope = await ensureAuthorizationScope(transaction, {
+    key: "system",
+    scopeType: "system",
+    departmentId: null,
+  });
+  const departmentScope = await ensureAuthorizationScope(transaction, {
+    key: `department:${PILOT_DEPARTMENT.key}`,
+    scopeType: "department",
+    departmentId: department.id,
+  });
+
+  const manager = await upsertPilotUser(transaction, {
+    pilotKey: "pilot-manager",
     displayName: "Pilot Manager",
     email: "pilot-manager@seed.invalid",
-    subject: managerSubject,
   });
-  const administrator = await upsertPilotUser(transaction, issuer, {
+  const administrator = await upsertPilotUser(transaction, {
+    pilotKey: "system-admin",
     displayName: "System Administrator",
     email: "system-admin@seed.invalid",
-    subject: adminSubject,
   });
   if (manager.id === administrator.id) {
     throw new Error("Pilot manager and system administrator must be separate users");
   }
+
+  await rejectOppositePilotRole(transaction, manager.id, "system_administrator");
+  await rejectOppositePilotRole(transaction, administrator.id, "manager");
+  await bindPilotIdentity(transaction, manager, issuer, managerSubject);
+  await bindPilotIdentity(transaction, administrator, issuer, adminSubject);
 
   const changes = await Promise.all([
     ensureRoleAssignment(transaction, {
       userId: manager.id,
       role: "manager",
       scopeType: "department",
-      scopeId: department.id,
+      scopeId: departmentScope.id,
     }),
     ensureRoleAssignment(transaction, {
       userId: administrator.id,
       role: "system_administrator",
       scopeType: "system",
-      scopeId: "system",
+      scopeId: systemScope.id,
     }),
   ]);
 
