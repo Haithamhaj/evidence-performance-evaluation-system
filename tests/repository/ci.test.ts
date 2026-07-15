@@ -2,11 +2,61 @@ import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import process from "node:process";
 import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
 const execFileAsync = promisify(execFile);
+const scannerPath = path.resolve("scripts/scan-secrets.mjs");
+
+type CommandResult = {
+  exitCode: number;
+  stderr: string;
+  stdout: string;
+};
+
+const secretCases = [
+  {
+    label: "private key",
+    name: "private keys",
+    value: () => ["-----BEGIN", "PRIVATE KEY-----"].join(" "),
+  },
+  {
+    label: "GitHub token",
+    name: "GitHub tokens",
+    value: () => ["github", "pat", "11", "A".repeat(82)].join("_"),
+  },
+  {
+    label: "AWS access key",
+    name: "AWS access keys",
+    value: () => `AKIA${"A".repeat(16)}`,
+  },
+  {
+    label: "OpenAI API key",
+    name: "OpenAI API keys",
+    value: () => ["sk", "A".repeat(32)].join("-"),
+  },
+  {
+    label: "Slack token",
+    name: "Slack tokens",
+    value: () => ["xoxb", "A".repeat(24)].join("-"),
+  },
+] as const;
+
+async function runScanner(files: string[] = [], cwd = process.cwd()): Promise<CommandResult> {
+  try {
+    const result = await execFileAsync(process.execPath, [scannerPath, ...files], { cwd });
+    return { exitCode: 0, stderr: result.stderr, stdout: result.stdout };
+  } catch (error) {
+    const failure = error as Error & { code?: number; stderr?: string; stdout?: string };
+    return {
+      exitCode: typeof failure.code === "number" ? failure.code : -1,
+      stderr: failure.stderr ?? "",
+      stdout: failure.stdout ?? "",
+    };
+  }
+}
 
 function job(workflow: string, name: string): string {
   const jobs = workflow.slice(workflow.indexOf("jobs:\n") + "jobs:\n".length);
@@ -35,9 +85,16 @@ describe("CI contract", () => {
     }
 
     expect(job(workflow, "integrity")).toContain("node scripts/scan-secrets.mjs");
-    for (const command of ["validate:task-graph", "lint", "typecheck", "test"]) {
+    for (const command of [
+      "validate:task-graph",
+      "format:check",
+      "lint",
+      "typecheck",
+      "test:coverage",
+    ]) {
       expect(job(workflow, "quality")).toContain(`pnpm ${command}`);
     }
+    expect(job(workflow, "quality")).not.toMatch(/- run: pnpm test\s*$/m);
     expect(job(workflow, "quality")).not.toContain("pnpm build");
     expect(job(workflow, "build")).toContain("pnpm build");
     expect(job(workflow, "integration")).toContain("needs: [quality, build]");
@@ -51,31 +108,107 @@ describe("CI contract", () => {
   it("keeps repository integrity checks in the local verification command", async () => {
     const manifest = JSON.parse(await readFile("package.json", "utf8"));
 
+    expect(manifest.scripts?.["format:check"]).toBe(
+      "prettier --check package.json pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs prettier.config.mjs vitest.config.ts vitest.workspace.ts .github apps packages scripts tests",
+    );
     expect(manifest.scripts?.["scan:secrets"]).toBe("node scripts/scan-secrets.mjs");
+    expect(manifest.scripts?.["test:coverage"]).toBe(
+      "vitest run --project unit --coverage --coverage.provider=v8 --coverage.reporter=text --coverage.include='apps/**/src/**/*.{ts,tsx}' --coverage.include='packages/**/src/**/*.ts' --coverage.include='scripts/**/*.mjs'",
+    );
     expect(manifest.scripts?.["test:e2e"]).toBe("playwright test tests/e2e");
+    expect(manifest.devDependencies?.["@vitest/coverage-v8"]).toBe("4.1.10");
     expect(manifest.scripts?.verify).toContain("pnpm validate:task-graph");
+    expect(manifest.scripts?.verify).toContain("pnpm format:check");
     expect(manifest.scripts?.verify).toContain("pnpm scan:secrets");
   });
 
-  it("rejects a high-confidence secret without printing its value", async () => {
-    const fixtureDirectory = await mkdtemp(path.join(tmpdir(), "secret-scan-"));
-    const fixturePath = path.join(fixtureDirectory, "fixture.txt");
-    const fakeSecret = ["github", "pat", "11", "A".repeat(82)].join("_");
-    await writeFile(fixturePath, `${fakeSecret}\n`);
+  it.each(secretCases)(
+    "rejects $name without printing the matched value",
+    async ({ label, value }) => {
+      const fixtureDirectory = await mkdtemp(path.join(tmpdir(), "secret-scan-"));
+      const fixturePath = path.join(fixtureDirectory, "fixture.txt");
+      const fakeSecret = value();
+      await writeFile(fixturePath, `safe prefix\n${fakeSecret}\n`);
+
+      try {
+        const result = await runScanner([fixturePath]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain(`${fixturePath}:2: possible ${label}`);
+        expect(result.stderr).not.toContain(fakeSecret);
+      } finally {
+        await rm(fixtureDirectory, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it("allows safe placeholders and approved environment examples", async () => {
+    const fixtureDirectory = await mkdtemp(path.join(tmpdir(), "secret-scan-safe-"));
+    const examplePaths = [".env.example", ".env.test.example"].map((name) =>
+      path.join(fixtureDirectory, name),
+    );
+    const safePlaceholders = [
+      "-----BEGIN PUBLIC KEY-----",
+      "github_pat_example",
+      "AKIAEXAMPLE",
+      "sk-example",
+      "xoxb-example",
+    ].join("\n");
+    await Promise.all(examplePaths.map((filePath) => writeFile(filePath, safePlaceholders)));
 
     try {
-      await expect(
-        execFileAsync(process.execPath, ["scripts/scan-secrets.mjs", fixturePath]),
-      ).rejects.toMatchObject({
-        stderr: expect.stringContaining("GitHub token"),
-      });
-      await expect(
-        execFileAsync(process.execPath, ["scripts/scan-secrets.mjs", fixturePath]),
-      ).rejects.not.toMatchObject({
-        stderr: expect.stringContaining(fakeSecret),
-      });
+      const result = await runScanner(examplePaths);
+      expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+      expect(result.stdout).toContain("SECRET SCAN VALID: 2 files checked");
     } finally {
       await rm(fixtureDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it.each([".env.production", "server.key", "credentials-prod.json", "secrets-ci.json"])(
+    "rejects sensitive filename %s",
+    async (filename) => {
+      const fixtureDirectory = await mkdtemp(path.join(tmpdir(), "secret-scan-name-"));
+      const fixturePath = path.join(fixtureDirectory, filename);
+      const harmlessContent = "placeholder only";
+      await writeFile(fixturePath, harmlessContent);
+
+      try {
+        const result = await runScanner([fixturePath]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain(`${fixturePath}:1: possible sensitive filename`);
+        expect(result.stderr).not.toContain(harmlessContent);
+      } finally {
+        await rm(fixtureDirectory, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it("discovers tracked and non-ignored untracked files while excluding ignored files", async () => {
+    const repository = await mkdtemp(path.join(tmpdir(), "secret-scan-repository-"));
+    const trackedSecret = ["sk", "T".repeat(32)].join("-");
+    const untrackedSecret = `ASIA${"U".repeat(16)}`;
+    const ignoredSecret = ["xoxb", "I".repeat(24)].join("-");
+
+    try {
+      await Promise.all([
+        writeFile(path.join(repository, ".gitignore"), ".env.local\n"),
+        writeFile(path.join(repository, "tracked.txt"), trackedSecret),
+        writeFile(path.join(repository, "untracked.txt"), untrackedSecret),
+        writeFile(path.join(repository, ".env.local"), ignoredSecret),
+      ]);
+      await execFileAsync("git", ["init", "--quiet"], { cwd: repository });
+      await execFileAsync("git", ["add", ".gitignore", "tracked.txt"], { cwd: repository });
+
+      const result = await runScanner([], repository);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain("tracked.txt:1: possible OpenAI API key");
+      expect(result.stderr).toContain("untracked.txt:1: possible AWS access key");
+      expect(result.stderr).not.toContain(".env.local");
+      for (const value of [trackedSecret, untrackedSecret, ignoredSecret]) {
+        expect(result.stderr).not.toContain(value);
+      }
+    } finally {
+      await rm(repository, { force: true, recursive: true });
     }
   });
 });

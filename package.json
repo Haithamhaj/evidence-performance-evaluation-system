@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs prettier.config.mjs vitest.config.ts vitest.workspace.ts .github apps packages scripts tests",
     "infra:down": "docker compose --env-file .env.local -f infra/docker/compose.yml down",
     "infra:reset": "node scripts/reset-local-infra.mjs",
     "infra:up": "docker compose --env-file .env.local -f infra/docker/compose.yml up -d --wait",
@@ -18,11 +19,12 @@
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "typecheck": "turbo run typecheck",
     "test": "vitest run --project unit",
+    "test:coverage": "vitest run --project unit --coverage --coverage.provider=v8 --coverage.reporter=text --coverage.include='apps/**/src/**/*.{ts,tsx}' --coverage.include='packages/**/src/**/*.ts' --coverage.include='scripts/**/*.mjs'",
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test tests/e2e",
     "test:ai": "vitest run --project ai-evals",
     "validate:task-graph": "python3 scripts/validate_task_graph.py",
-    "verify": "pnpm validate:task-graph && pnpm scan:secrets && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm validate:task-graph && pnpm scan:secrets && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "3.1087.0",
@@ -32,6 +34,7 @@
     "@babel/plugin-syntax-decorators": "8.0.1",
     "@babel/preset-typescript": "8.0.1",
     "@playwright/test": "1.61.1",
+    "@vitest/coverage-v8": "4.1.10",
     "eslint": "10.7.0",
     "prettier": "3.9.5",
     "turbo": "2.10.5",
