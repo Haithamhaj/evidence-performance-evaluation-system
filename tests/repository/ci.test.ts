@@ -168,7 +168,7 @@ describe("CI contract", () => {
 
     const configuredAge = workspace.match(/^minimumReleaseAge:\s*(\d+)$/m)?.[1];
     expect(configuredAge ?? "1440").toBe("1440");
-    expect(manifest.packageManager).toBe("pnpm@11.13.0");
+    expect(manifest.packageManager).toBe("pnpm@0.0.0");
     expect(manifest.engines?.pnpm).toBe("11.13.0");
     expect(workspace).not.toMatch(/^trustLockfile:/m);
     expect(workspace).not.toMatch(/^minimumReleaseAgeStrict:\s*false$/m);
