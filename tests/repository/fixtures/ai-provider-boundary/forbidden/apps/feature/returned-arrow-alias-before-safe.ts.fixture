@@ -1,0 +1,21 @@
+let method = "generate";
+const opaque = {} as Record<string, () => unknown>;
+
+class BaseRunner {
+  makeHandler() {
+    return () => this.helper();
+  }
+  helper() {
+    return Promise.resolve();
+  }
+}
+class DerivedRunner extends BaseRunner {
+  helper() {
+    return opaque[method]();
+  }
+}
+
+const handler = BaseRunner.prototype.makeHandler.call(new DerivedRunner());
+const alias = handler;
+alias();
+method = "health";

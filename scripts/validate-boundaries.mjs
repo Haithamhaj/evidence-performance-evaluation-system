@@ -1214,12 +1214,17 @@ function possibleRuntimeClassReceivers(
     return result;
   }
   if (expression.type === "Identifier") {
+    const knownReceiverCount = result.receivers.size;
     for (const target of declaredFunctionTargets.get(lexicalBinding(expression, pathByNode)) ??
       []) {
       if (["ClassDeclaration", "ClassExpression"].includes(target.type)) addReceiver(target, true);
     }
     const writes = possibleBindingWrites(expression, bindingWrites, pathByNode);
-    result.truncated ||= writes.truncated || writes.unknown;
+    result.truncated ||=
+      writes.truncated ||
+      (writes.unknown &&
+        result.receivers.size === knownReceiverCount &&
+        result.receivers.size === 0);
     for (const write of writes.values) {
       if (resolvingWrites.has(write)) {
         result.truncated = true;
@@ -1246,6 +1251,317 @@ function possibleRuntimeClassReceivers(
   return result;
 }
 
+function exactBuiltinFunctionKinds(node, bindingWrites, pathByNode) {
+  const kinds = new Set();
+  for (const [globalName, selection, kind] of [
+    ["Function", ["prototype", "call"], "function-call"],
+    ["Function", ["prototype", "apply"], "function-apply"],
+    ["Function", ["prototype", "bind"], "function-bind"],
+    ["Reflect", ["apply"], "reflect-apply"],
+  ]) {
+    if (isExactGlobalSelection(node, globalName, selection, bindingWrites, pathByNode)) {
+      kinds.add(kind);
+    }
+  }
+  return kinds;
+}
+
+function possibleArgumentLists(node, bindingWrites, pathByNode, options = {}) {
+  const result = { values: [], truncated: false };
+  const resolvingWrites = options.resolvingWrites ?? new Set();
+  const depth = options.depth ?? 0;
+  if (depth > maxResolvedValues) return { values: [], truncated: true };
+  const merge = (nested) => {
+    for (const value of nested.values) {
+      if (result.values.length >= maxResolvedValues) result.truncated = true;
+      else result.values.push(value);
+    }
+    result.truncated ||= nested.truncated;
+  };
+  const recurse = (candidate, nextResolvingWrites = resolvingWrites) =>
+    merge(
+      possibleArgumentLists(candidate, bindingWrites, pathByNode, {
+        depth: depth + 1,
+        resolvingWrites: nextResolvingWrites,
+      }),
+    );
+  const expression = unwrapTransparentExpression(node);
+  if (expression?.type === "ArrayExpression") {
+    const lists = [[]];
+    for (const element of expression.elements) {
+      if (element === null) {
+        for (const list of lists) list.push(undefined);
+      } else if (element.type === "SpreadElement") {
+        const spread = possibleArgumentLists(element.argument, bindingWrites, pathByNode, {
+          depth: depth + 1,
+          resolvingWrites,
+        });
+        result.truncated ||= spread.truncated;
+        if (spread.values.length !== 1) result.truncated = true;
+        for (const list of lists) list.push(...(spread.values[0] ?? []));
+      } else {
+        for (const list of lists) list.push(element);
+      }
+    }
+    result.values.push(...lists);
+    return result;
+  }
+  if (expression?.type === "Identifier") {
+    const writes = possibleBindingWrites(expression, bindingWrites, pathByNode);
+    result.truncated ||= writes.truncated || writes.unknown || writes.values.size === 0;
+    for (const write of writes.values) {
+      const identity = write.origin ?? write;
+      if (write.selection?.length || resolvingWrites.has(identity)) {
+        result.truncated = true;
+        continue;
+      }
+      const next = new Set(resolvingWrites);
+      next.add(identity);
+      recurse(write.expression, next);
+    }
+    return result;
+  }
+  if (expression?.type === "ConditionalExpression") {
+    recurse(expression.consequent);
+    recurse(expression.alternate);
+    return result;
+  }
+  if (expression?.type === "LogicalExpression") {
+    recurse(expression.left);
+    recurse(expression.right);
+    return result;
+  }
+  result.truncated = true;
+  return result;
+}
+
+function expandExactBuiltinInvocation(target, receiver, arguments_, bindingWrites, pathByNode) {
+  const result = { calls: [], truncated: false };
+  const kinds = exactBuiltinFunctionKinds(target, bindingWrites, pathByNode);
+  if (kinds.size === 0) {
+    result.calls.push({ arguments_, receiver, target });
+    return result;
+  }
+  for (const kind of kinds) {
+    if (kind === "function-bind") {
+      if (receiver === undefined || arguments_[0] === undefined) result.truncated = true;
+      else {
+        result.calls.push({
+          arguments_: arguments_.slice(1),
+          bound: true,
+          receiver: arguments_[0],
+          target: receiver,
+        });
+      }
+      continue;
+    }
+    if (kind === "function-call") {
+      if (receiver === undefined || arguments_[0] === undefined) result.truncated = true;
+      else {
+        result.calls.push({
+          arguments_: arguments_.slice(1),
+          receiver: arguments_[0],
+          target: receiver,
+        });
+      }
+      continue;
+    }
+    if (kind === "function-apply") {
+      if (receiver === undefined || arguments_[0] === undefined) {
+        result.truncated = true;
+        continue;
+      }
+      if (arguments_[1] === undefined) {
+        result.calls.push({ arguments_: [], receiver: arguments_[0], target: receiver });
+        continue;
+      }
+      const lists = possibleArgumentLists(arguments_[1], bindingWrites, pathByNode);
+      result.truncated ||= lists.truncated;
+      for (const list of lists.values) {
+        result.calls.push({ arguments_: list, receiver: arguments_[0], target: receiver });
+      }
+      continue;
+    }
+    if (kind === "reflect-apply") {
+      if (
+        arguments_[0] === undefined ||
+        arguments_[1] === undefined ||
+        arguments_[2] === undefined
+      ) {
+        result.truncated = true;
+        continue;
+      }
+      const lists = possibleArgumentLists(arguments_[2], bindingWrites, pathByNode);
+      result.truncated ||= lists.truncated;
+      for (const list of lists.values) {
+        result.calls.push({ arguments_: list, receiver: arguments_[1], target: arguments_[0] });
+      }
+    }
+  }
+  return result;
+}
+
+function possibleBoundFunctionValues(node, bindingWrites, pathByNode, options = {}) {
+  const result = { values: [], truncated: false };
+  const resolvingWrites = options.resolvingWrites ?? new Set();
+  const depth = options.depth ?? 0;
+  if (depth > maxResolvedValues) return { values: [], truncated: true };
+  const add = (value) => {
+    if (result.values.length >= maxResolvedValues) result.truncated = true;
+    else result.values.push(value);
+  };
+  const expression = unwrapTransparentExpression(node);
+  if (["CallExpression", "OptionalCallExpression"].includes(expression?.type)) {
+    const normalized = normalizeCallInvocations(expression, bindingWrites, pathByNode, {
+      depth: depth + 1,
+      resolvingWrites,
+      skipBoundCallee: true,
+    });
+    result.truncated ||= normalized.truncated;
+    for (const call of normalized.calls) if (call.bound) add(call);
+    return result;
+  }
+  if (expression?.type === "Identifier") {
+    const writes = possibleBindingWrites(expression, bindingWrites, pathByNode);
+    result.truncated ||= writes.truncated;
+    for (const write of writes.values) {
+      const identity = write.origin ?? write;
+      if (write.selection?.length || resolvingWrites.has(identity)) {
+        result.truncated = true;
+        continue;
+      }
+      const next = new Set(resolvingWrites);
+      next.add(identity);
+      const nested = possibleBoundFunctionValues(write.expression, bindingWrites, pathByNode, {
+        depth: depth + 1,
+        resolvingWrites: next,
+      });
+      result.truncated ||= nested.truncated;
+      for (const value of nested.values) add(value);
+    }
+    return result;
+  }
+  if (expression?.type === "ConditionalExpression" || expression?.type === "LogicalExpression") {
+    for (const candidate of expression.type === "ConditionalExpression"
+      ? [expression.consequent, expression.alternate]
+      : [expression.left, expression.right]) {
+      const nested = possibleBoundFunctionValues(candidate, bindingWrites, pathByNode, {
+        depth: depth + 1,
+        resolvingWrites,
+      });
+      result.truncated ||= nested.truncated;
+      for (const value of nested.values) add(value);
+    }
+  }
+  return result;
+}
+
+function normalizeCallInvocations(callNode, bindingWrites, pathByNode, options = {}) {
+  const result = { calls: [], truncated: false };
+  const depth = options.depth ?? 0;
+  if (depth > maxResolvedValues) return { calls: [], truncated: true };
+  const arguments_ = callNode.arguments.map((argument) =>
+    argument?.type === "SpreadElement" ? argument.argument : argument,
+  );
+  const appendExpanded = (target, receiver, callArguments) => {
+    const expanded = expandExactBuiltinInvocation(
+      target,
+      receiver,
+      callArguments,
+      bindingWrites,
+      pathByNode,
+    );
+    result.truncated ||= expanded.truncated;
+    result.calls.push(...expanded.calls);
+  };
+
+  if (!options.skipBoundCallee) {
+    const boundValues = possibleBoundFunctionValues(callNode.callee, bindingWrites, pathByNode, {
+      depth: depth + 1,
+      resolvingWrites: options.resolvingWrites,
+    });
+    if (boundValues.values.length > 0) {
+      result.truncated ||= boundValues.truncated;
+      for (const bound of boundValues.values) {
+        appendExpanded(bound.target, bound.receiver, [...bound.arguments_, ...arguments_]);
+      }
+      return result;
+    }
+  }
+
+  const callee = unwrapTransparentExpression(callNode.callee);
+  if (["MemberExpression", "OptionalMemberExpression"].includes(callee?.type)) {
+    const memberName = propertyName(callee, bindingWrites, pathByNode);
+    if (["call", "apply", "bind"].includes(memberName)) {
+      if (arguments_[0] === undefined) {
+        result.truncated = true;
+        return result;
+      }
+      if (memberName === "bind") {
+        result.calls.push({
+          arguments_: arguments_.slice(1),
+          bound: true,
+          receiver: arguments_[0],
+          target: callee.object,
+        });
+        return result;
+      }
+      if (memberName === "apply") {
+        if (arguments_[1] === undefined) {
+          appendExpanded(callee.object, arguments_[0], []);
+          return result;
+        }
+        const lists = possibleArgumentLists(arguments_[1], bindingWrites, pathByNode);
+        result.truncated ||= lists.truncated;
+        for (const list of lists.values) appendExpanded(callee.object, arguments_[0], list);
+        return result;
+      }
+      appendExpanded(callee.object, arguments_[0], arguments_.slice(1));
+      return result;
+    }
+  }
+  appendExpanded(
+    callNode.callee,
+    ["MemberExpression", "OptionalMemberExpression"].includes(callee?.type)
+      ? callee.object
+      : undefined,
+    arguments_,
+  );
+  return result;
+}
+
+function directFunctionReturnExpressions(target) {
+  if (target?.type === "ArrowFunctionExpression" && target.body.type !== "BlockStatement") {
+    return [target.body];
+  }
+  if (target?.body?.type !== "BlockStatement") return [];
+  const returns = [];
+  const visit = (node) => {
+    for (const child of childrenOf(node)) {
+      if (
+        child !== target &&
+        [
+          "ArrowFunctionExpression",
+          "ClassDeclaration",
+          "ClassExpression",
+          "FunctionDeclaration",
+          "FunctionExpression",
+          "ObjectMethod",
+          "ClassMethod",
+          "ClassPrivateMethod",
+        ].includes(child.type)
+      ) {
+        continue;
+      }
+      if (child.type === "ReturnStatement") {
+        if (child.argument) returns.push(child.argument);
+      } else visit(child);
+    }
+  };
+  visit(target.body);
+  return returns;
+}
+
 function possibleFunctionTargets(
   node,
   declaredFunctionTargets,
@@ -1259,6 +1575,7 @@ function possibleFunctionTargets(
   const contained = options.contained ?? false;
   const runtimeClassTarget = options.runtimeClassTarget;
   const runtimeStatic = options.runtimeStatic;
+  const resolveCallResult = options.resolveCallResult ?? false;
   const depth = options.depth ?? 0;
   const observationBoundary =
     options.observationBoundary ?? executionBoundary(pathByNode.get(node));
@@ -1297,6 +1614,7 @@ function possibleFunctionTargets(
         observationPosition: nextOptions.observationPosition ?? observationPosition,
         runtimeClassTarget: nextOptions.runtimeClassTarget ?? runtimeClassTarget,
         runtimeStatic: nextOptions.runtimeStatic ?? runtimeStatic,
+        resolveCallResult: nextOptions.resolveCallResult ?? resolveCallResult,
       },
     );
     merge(nested);
@@ -1626,45 +1944,66 @@ function possibleFunctionTargets(
       nextResolvingWrites.add(write);
       recurse(write.expression, {
         resolvingWrites: nextResolvingWrites,
+        resolveCallResult: true,
         selection: write.selection ?? [],
       });
     }
     return result;
   }
   if (["CallExpression", "OptionalCallExpression"].includes(expression.type)) {
-    const memberCallee = ["MemberExpression", "OptionalMemberExpression"].includes(
-      expression.callee?.type,
-    )
-      ? expression.callee
-      : undefined;
-    const indirectMember = memberCallee
-      ? propertyName(memberCallee, bindingWrites, pathByNode)
-      : undefined;
-    const reflectedApply = isExactGlobalSelection(
-      expression.callee,
-      "Reflect",
-      ["apply"],
-      bindingWrites,
-      pathByNode,
-    );
-    const targetExpression = reflectedApply ? expression.arguments[0] : memberCallee?.object;
-    const receiverExpression = reflectedApply ? expression.arguments[1] : expression.arguments[0];
-    if (reflectedApply || ["call", "apply", "bind"].includes(indirectMember)) {
+    const normalized = normalizeCallInvocations(expression, bindingWrites, pathByNode);
+    result.truncated ||= normalized.truncated;
+    for (const call of normalized.calls) {
+      if (call.bound && !resolveCallResult) continue;
+      if (call.receiver === undefined) {
+        const resolved = possibleFunctionTargets(
+          call.target,
+          declaredFunctionTargets,
+          bindingWrites,
+          pathByNode,
+          {
+            depth: depth + 1,
+            observationBoundary,
+            observationPosition,
+          },
+        );
+        if (!resolveCallResult || call.bound) {
+          merge(resolved);
+          continue;
+        }
+        for (const target of resolved.targets) {
+          for (const returned of directFunctionReturnExpressions(target)) {
+            recurse(returned, { resolveCallResult: true });
+          }
+        }
+        continue;
+      }
       const receivers = possibleRuntimeClassReceivers(
-        receiverExpression?.type === "SpreadElement"
-          ? receiverExpression.argument
-          : receiverExpression,
+        call.receiver,
         declaredFunctionTargets,
         bindingWrites,
         pathByNode,
       );
+      const resolvedTargets = [];
       if (receivers.receivers.size === 0) {
-        const unresolvedTarget = recurse(targetExpression);
+        const unresolvedTarget = possibleFunctionTargets(
+          call.target,
+          declaredFunctionTargets,
+          bindingWrites,
+          pathByNode,
+          {
+            depth: depth + 1,
+            observationBoundary,
+            observationPosition,
+          },
+        );
+        resolvedTargets.push({ resolved: unresolvedTarget });
         if (
           receivers.truncated &&
-          [...unresolvedTarget.targets].some(
-            (target) => enclosingClassMember(target, pathByNode) !== undefined,
-          )
+          [...unresolvedTarget.targets].some((target) => {
+            const context = enclosingClassMember(target, pathByNode);
+            return context !== undefined && classMemberValue(context.member) === target;
+          })
         ) {
           result.truncated = true;
         }
@@ -1672,16 +2011,41 @@ function possibleFunctionTargets(
         result.truncated ||= receivers.truncated;
         for (const [classNode, modes] of receivers.receivers) {
           for (const mode of modes) {
-            recurse(targetExpression, {
-              runtimeClassTarget: classNode,
-              runtimeStatic: mode === "static",
+            const resolved = possibleFunctionTargets(
+              call.target,
+              declaredFunctionTargets,
+              bindingWrites,
+              pathByNode,
+              {
+                depth: depth + 1,
+                observationBoundary,
+                observationPosition,
+                runtimeClassTarget: classNode,
+                runtimeStatic: mode === "static",
+              },
+            );
+            resolvedTargets.push({ classNode, mode, resolved });
+          }
+        }
+      }
+      for (const resolvedTarget of resolvedTargets) {
+        result.truncated ||= resolvedTarget.resolved.truncated;
+        if (!resolveCallResult || call.bound) {
+          merge(resolvedTarget.resolved);
+          continue;
+        }
+        for (const target of resolvedTarget.resolved.targets) {
+          const returns = directFunctionReturnExpressions(target);
+          for (const returned of returns) {
+            recurse(returned, {
+              resolveCallResult: true,
+              runtimeClassTarget: resolvedTarget.classNode,
+              runtimeStatic: resolvedTarget.mode === "static",
             });
           }
         }
       }
-      return result;
     }
-    recurse(expression.callee);
     return result;
   }
   if (["MemberExpression", "OptionalMemberExpression"].includes(expression.type)) {
@@ -2397,6 +2761,33 @@ function inspectAst(filePath, source) {
   }
   let memberWriteResolutionTruncated = false;
   const globalObjectFreezeWrites = [];
+  const resolvesFunctionReplacement = (source, resolvingWrites = new Set(), depth = 0) => {
+    if (depth > maxResolvedValues) return true;
+    const expression = unwrapTransparentExpression(source);
+    if (directFunctionTarget(expression) !== undefined) return true;
+    if (expression?.type === "Identifier") {
+      const writes = possibleBindingWrites(expression, bindingWrites, pathByNode);
+      if (writes.truncated) return true;
+      for (const write of writes.values) {
+        const identity = write.origin ?? write;
+        if (resolvingWrites.has(identity)) return true;
+        const next = new Set(resolvingWrites);
+        next.add(identity);
+        if (resolvesFunctionReplacement(write.expression, next, depth + 1)) return true;
+      }
+    }
+    if (expression?.type === "ConditionalExpression") {
+      return [expression.consequent, expression.alternate].some((candidate) =>
+        resolvesFunctionReplacement(candidate, resolvingWrites, depth + 1),
+      );
+    }
+    if (expression?.type === "LogicalExpression") {
+      return [expression.left, expression.right].some((candidate) =>
+        resolvesFunctionReplacement(candidate, resolvingWrites, depth + 1),
+      );
+    }
+    return false;
+  };
   const recordMemberWrite = (
     member,
     source,
@@ -2412,7 +2803,7 @@ function inspectAst(filePath, source) {
     );
     memberWriteResolutionTruncated ||= resolvedTargets.truncated;
     memberWriteResolutionTruncated ||=
-      resolvedTargets.unresolved && directFunctionTarget(source) !== undefined;
+      resolvedTargets.unresolved && resolvesFunctionReplacement(source);
     for (const target of resolvedTargets.targets) {
       if (target.globalObject) {
         if (exactSelectionName(target.selection, bindingWrites, pathByNode) !== "freeze") continue;
@@ -2537,91 +2928,101 @@ function inspectAst(filePath, source) {
     }
   };
   for (const callNode of callNodes) {
-    const arguments_ = callNode.arguments.map((argument) =>
-      argument?.type === "SpreadElement" ? argument.argument : argument,
-    );
-    const defineProperty = isExactGlobalSelection(
-      callNode.callee,
-      "Object",
-      ["defineProperty"],
-      bindingWrites,
-      pathByNode,
-    );
-    const defineProperties = isExactGlobalSelection(
-      callNode.callee,
-      "Object",
-      ["defineProperties"],
-      bindingWrites,
-      pathByNode,
-    );
-    const reflectSet = isExactGlobalSelection(
-      callNode.callee,
-      "Reflect",
-      ["set"],
-      bindingWrites,
-      pathByNode,
-    );
-    if (defineProperty && arguments_[0] && arguments_[1]) {
-      const descriptor = possibleStaticObjectProperties(arguments_[2], bindingWrites, pathByNode);
-      const values = descriptor.properties.filter((property) => property.key === "value");
-      if (values.length === 0) {
-        recordReflectivePropertyWrite(arguments_[0], arguments_[1], undefined, callNode, true);
-      } else {
-        for (const value of values) {
-          recordReflectivePropertyWrite(
-            arguments_[0],
-            arguments_[1],
-            value.value,
-            callNode,
-            descriptor.unknown || descriptor.truncated || values.length > 1,
-          );
-        }
-      }
-    }
-    if (defineProperties && arguments_[0]) {
-      const descriptors = possibleStaticObjectProperties(arguments_[1], bindingWrites, pathByNode);
-      for (const descriptor of descriptors.properties) {
-        const values = possibleStaticObjectProperties(descriptor.value, bindingWrites, pathByNode);
-        const descriptorValues = values.properties.filter((property) => property.key === "value");
-        if (descriptorValues.length === 0) {
-          recordReflectivePropertyWrite(
-            arguments_[0],
-            { type: "StringLiteral", value: descriptor.key },
-            undefined,
-            callNode,
-            true,
-          );
+    const normalized = normalizeCallInvocations(callNode, bindingWrites, pathByNode);
+    for (const invocation of normalized.calls) {
+      if (invocation.bound) continue;
+      const arguments_ = invocation.arguments_;
+      const defineProperty = isExactGlobalSelection(
+        invocation.target,
+        "Object",
+        ["defineProperty"],
+        bindingWrites,
+        pathByNode,
+      );
+      const defineProperties = isExactGlobalSelection(
+        invocation.target,
+        "Object",
+        ["defineProperties"],
+        bindingWrites,
+        pathByNode,
+      );
+      const reflectSet = isExactGlobalSelection(
+        invocation.target,
+        "Reflect",
+        ["set"],
+        bindingWrites,
+        pathByNode,
+      );
+      if (defineProperty && arguments_[0] && arguments_[1]) {
+        const descriptor = possibleStaticObjectProperties(arguments_[2], bindingWrites, pathByNode);
+        const values = descriptor.properties.filter((property) => property.key === "value");
+        if (values.length === 0) {
+          recordReflectivePropertyWrite(arguments_[0], arguments_[1], undefined, callNode, true);
         } else {
-          for (const value of descriptorValues) {
+          for (const value of values) {
             recordReflectivePropertyWrite(
               arguments_[0],
-              { type: "StringLiteral", value: descriptor.key },
+              arguments_[1],
               value.value,
               callNode,
-              descriptors.unknown ||
-                descriptors.truncated ||
-                values.unknown ||
-                values.truncated ||
-                descriptorValues.length > 1,
+              descriptor.unknown || descriptor.truncated || values.length > 1,
             );
           }
         }
       }
-      if (
-        (descriptors.unknown || descriptors.truncated || descriptors.properties.length === 0) &&
-        isExactGlobalSelection(arguments_[0], "Object", [], bindingWrites, pathByNode)
-      ) {
-        recordReflectivePropertyWrite(
-          arguments_[0],
-          { type: "StringLiteral", value: "freeze" },
-          undefined,
-          callNode,
-          true,
+      if (defineProperties && arguments_[0]) {
+        const descriptors = possibleStaticObjectProperties(
+          arguments_[1],
+          bindingWrites,
+          pathByNode,
         );
+        for (const descriptor of descriptors.properties) {
+          const values = possibleStaticObjectProperties(
+            descriptor.value,
+            bindingWrites,
+            pathByNode,
+          );
+          const descriptorValues = values.properties.filter((property) => property.key === "value");
+          if (descriptorValues.length === 0) {
+            recordReflectivePropertyWrite(
+              arguments_[0],
+              { type: "StringLiteral", value: descriptor.key },
+              undefined,
+              callNode,
+              true,
+            );
+          } else {
+            for (const value of descriptorValues) {
+              recordReflectivePropertyWrite(
+                arguments_[0],
+                { type: "StringLiteral", value: descriptor.key },
+                value.value,
+                callNode,
+                descriptors.unknown ||
+                  descriptors.truncated ||
+                  values.unknown ||
+                  values.truncated ||
+                  descriptorValues.length > 1,
+              );
+            }
+          }
+        }
+        if (
+          (descriptors.unknown || descriptors.truncated || descriptors.properties.length === 0) &&
+          isExactGlobalSelection(arguments_[0], "Object", [], bindingWrites, pathByNode)
+        ) {
+          recordReflectivePropertyWrite(
+            arguments_[0],
+            { type: "StringLiteral", value: "freeze" },
+            undefined,
+            callNode,
+            true,
+          );
+        }
       }
-    }
-    if (reflectSet && arguments_[0] && arguments_[1]) {
-      recordReflectivePropertyWrite(arguments_[0], arguments_[1], arguments_[2], callNode);
+      if (reflectSet && arguments_[0] && arguments_[1]) {
+        recordReflectivePropertyWrite(arguments_[0], arguments_[1], arguments_[2], callNode);
+      }
     }
   }
   for (const writes of bindingWrites.values()) {

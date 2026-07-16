@@ -1,0 +1,15 @@
+let method = "generate";
+
+class LocalRunner {
+  makeHandler() {
+    const nested = () => this.helper();
+    return () => nested();
+  }
+  helper() {
+    return Promise.resolve();
+  }
+}
+
+const handler = new LocalRunner().makeHandler();
+method = "health";
+handler?.();

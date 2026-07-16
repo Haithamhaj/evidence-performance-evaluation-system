@@ -1,0 +1,18 @@
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+
+class BaseRunner {
+  execute() {
+    return this.helper();
+  }
+  helper() {
+    return Promise.resolve();
+  }
+}
+class DerivedRunner extends BaseRunner {
+  helper() {
+    return fetch(providerBaseUrl);
+  }
+}
+
+Function.prototype.bind.call(BaseRunner.prototype.execute, new DerivedRunner())();
+providerBaseUrl = "https://example.test/health";
