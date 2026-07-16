@@ -12,8 +12,18 @@ class LocalDocumentGenerator {
 }
 
 const documentGenerator = new LocalDocumentGenerator();
+let assignedGenerate: () => string;
+assignedGenerate = report.generate;
+let assignedDestructuredGenerate: () => string;
+({ generate: assignedDestructuredGenerate } = report);
 
 export const directReport = report.generate();
 export const aliasedReport = aliasedGenerate();
 export const destructuredReport = destructuredGenerate();
 export const document = documentGenerator.generate();
+export const optionalDocument = documentGenerator?.generate();
+export const boundReport = report.generate.bind(report)();
+export const calledReport = report.generate.call(report);
+export const reflectedReport = Reflect.get(report, "generate")();
+export const assignedReport = assignedGenerate();
+export const assignedDestructuredReport = assignedDestructuredGenerate();

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FakeAiProviderAdapter } from "./adapters/fake.js";
 import { outputSchemaDescriptor } from "./configuration.js";
 import { AiProviderError, OpaqueReferenceSchema } from "./contracts.js";
-import { validateAiOutputSchema } from "./output-validator.js";
+import { validateAiOutput, validateAiOutputSchema } from "./output-validator.js";
 import { AiRouter } from "./router.js";
 
 function configuredProvider(
@@ -667,6 +667,22 @@ describe("AI router output safety", () => {
     ).toThrowError(expect.objectContaining({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" }));
   });
 
+  it.each(["talentRanking", "candidateRank", "subordinateLeaderboard", "successionRanked"])(
+    "rejects global ranking field %s outside an evaluation route",
+    (field) => {
+      expect(() =>
+        validateAiOutputSchema("document.analyze", z.object({ [field]: z.number() })),
+      ).toThrowError(expect.objectContaining({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" }));
+      expect(
+        validateAiOutput(
+          "document.analyze",
+          z.object({ details: z.record(z.string(), z.unknown()) }).strict(),
+          { details: { [field]: 1 } },
+        ),
+      ).toMatchObject({ valid: false, issueCodes: ["forbidden_performance_field"] });
+    },
+  );
+
   it.each([
     "performanceContext",
     "qualityScore",
@@ -684,11 +700,28 @@ describe("AI router output safety", () => {
     "priorityRanking",
     "riskRanking",
     "relevanceRanking",
+    "displayOrder",
+    "criterionOrder",
+    "sortOrder",
+    "resultOrder",
   ])("allows neutral field that contains only one protected token family: %s", (field) => {
     expect(() =>
       validateAiOutputSchema("evaluation.prepare", z.object({ [field]: z.string() })),
     ).not.toThrow();
   });
+
+  it.each(["displayOrder", "criterionOrder", "sortOrder", "resultOrder"])(
+    "allows neutral runtime order metadata %s",
+    (field) => {
+      expect(
+        validateAiOutput(
+          "evaluation.prepare",
+          z.object({ details: z.record(z.string(), z.unknown()) }).strict(),
+          { details: { [field]: 1 } },
+        ),
+      ).toMatchObject({ valid: true });
+    },
+  );
 
   it.each([
     { details: { updateCount: 3 } },

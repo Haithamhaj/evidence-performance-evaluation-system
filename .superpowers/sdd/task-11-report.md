@@ -13,7 +13,51 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Fresh re-review remediation commit subject: `fix: close ai router governance gaps`
 - Final review remediation commit subject: `fix: complete ai router safety boundaries`
 - Fourth review remediation commit subject: `fix: enforce ai router invariants`
+- Fifth review remediation commit subject: `fix: fail closed on ai router boundaries`
 - Push: prohibited and not attempted
+
+## Fifth review remediation
+
+The fifth review at `.superpowers/sdd/task-11-fifth-review.md` identified one critical and three important issues. Each behavior was reproduced before implementation changes.
+
+### Fifth review RED evidence
+
+1. Global ranking and neutral order semantics
+   - AI-routing package: 142 tests executed; 12 failed and 130 passed.
+   - Schema and recursive runtime validation accepted talent/candidate/subordinate/succession rank variants outside evaluation routes, while `displayOrder`, `criterionOrder`, `sortOrder`, and `resultOrder` were incorrectly rejected on evaluation routes.
+
+2. Opaque generator-member access
+   - Provider-boundary suite: 2 tests executed; 1 failed and 1 passed.
+   - Optional `generate` access, bind/call extraction, Reflect access, later assignment, destructuring assignment, and destructured function parameters bypassed the call-shape-oriented detector.
+
+3. Exact AI-routing workspace trust
+   - Provider-boundary suite: 2 tests executed; 1 failed and 1 passed.
+   - `apps/api/src/packages/ai-routing/escape.ts` was incorrectly trusted because the prior check accepted a `packages/ai-routing` substring anywhere in the repository-relative path.
+
+### Fifth review changes
+
+- Globally reject `rank`, `ranked`, `ranking`, and `leaderboard` outputs unless the key is demonstrably neutral search, priority, risk, relevance, or precise leaderboard metadata. `order` is now separate: it is prohibited only when paired with an explicit people subject, so ordinary display, criterion, sort, and result ordering remains valid. The same predicate governs schema registration, schema execution, and recursive runtime validation.
+- Reject opaque `generate` member access/extraction itself outside AI-routing, rather than enumerating invocation shapes. This covers optional access, bind/call, Reflect extraction, declaration and later assignment aliases, destructuring declarations/assignments, and opaque destructured parameters.
+- Preserve only statically proven local object/class generator members and their proven aliases/destructuring; regression controls cover optional, bind/call, Reflect, assignment, destructuring, and comments.
+- Calculate trusted workspace paths relative to the actual scan root. Production trusts only exact `packages/ai-routing/**`; `--root` establishes a virtual fixture repository root without weakening production path checks.
+
+### Fifth review GREEN evidence
+
+1. Focused remediation verification
+   - AI-routing package: 142/142 tests passed.
+   - Provider-boundary suite: 2/2 tests passed; production boundary validation inspected 124 source files.
+   - Combined router, governance, audit, trace, protected API, and boundary run: 10 files and 193/193 tests passed.
+
+2. Full integration verification
+   - `pnpm test:integration`: 15 files and 120/120 tests passed.
+
+3. Migration verification
+   - `pnpm db:verify`: empty database, previous 0005 snapshot upgrade, drift detection, and rebuild equivalence all passed; the included database integration set passed 12/12.
+   - No migration or schema delta was required.
+
+4. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 247 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 286/286 tests; forced build 14/14.
 
 ## Fourth review remediation
 
@@ -306,7 +350,7 @@ The tests also cover project > department > system precedence, no lower-scope by
 - Centralized protected schema registration/execution validation, added contextual ranking protection, conservative generator provenance, canonical governance-import enforcement, and bounded non-success trace persistence.
 - Added unit, integration, migration, protected-module, and repository-boundary regression tests and fixtures.
 - Database migration `0006_ai_routing` adds `AiRoute`, immutable `AiRouteConfig` versions, immutable `AiRun` traces, immutable local trust policies and schema artifacts, supporting enums, exact authoritative-scope and trust-policy foreign keys, constraints, indexes, and immutability triggers.
-- Latest remediation commit subject: `fix: enforce ai router invariants`.
+- Latest remediation commit subject: `fix: fail closed on ai router boundaries`.
 
 ## Security and privacy impact
 
@@ -322,7 +366,7 @@ The tests also cover project > department > system precedence, no lower-scope by
 - Live provider credentials and deployment-specific endpoints are deliberately not configured in this task; the adapter contract and security boundary are tested with controlled HTTP doubles.
 - Deployment must register and audit an immutable local trust policy before a local provider can be configured; non-loopback local endpoints still require HTTPS.
 - T012 remains responsible for model-quality evaluation fixtures, including Arabic and dialect behavior. T011 enforces structural and protected-output policy, not model quality.
-- Independent verification of the fourth remediation commit is still required before merge.
+- Independent verification of the fifth remediation commit is still required before merge.
 
 ## Project-state effect
 

@@ -33,6 +33,14 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("client-generate.ts.fixture");
     expect(result.stderr).toContain("gateway-aliased-generate.ts.fixture");
     expect(result.stderr).toContain("gateway-destructured-generate.ts.fixture");
+    expect(result.stderr).toContain("optional-generate.ts.fixture");
+    expect(result.stderr).toContain("bind-generate.ts.fixture");
+    expect(result.stderr).toContain("call-generate.ts.fixture");
+    expect(result.stderr).toContain("reflect-generate.ts.fixture");
+    expect(result.stderr).toContain("assignment-generate.ts.fixture");
+    expect(result.stderr).toContain("destructured-assignment-generate.ts.fixture");
+    expect(result.stderr).toContain("destructured-parameter-generate.ts.fixture");
+    expect(result.stderr).toContain("apps/api/src/packages/ai-routing/escape.ts");
     expect(result.stderr).toContain("environment-provider-url.ts.fixture");
     expect(result.stderr).toContain("restricted-composition.ts.fixture");
     expect(result.stderr).toContain("relative-admin-composition.ts.fixture");

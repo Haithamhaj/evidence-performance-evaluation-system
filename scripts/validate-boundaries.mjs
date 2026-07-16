@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from "node:url";
 import { parseSync } from "@babel/core";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+let scanRoot = repositoryRoot;
 const sourceRoots = ["apps", "packages"];
 const sourceExtensions = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".fixture"]);
 const ignoredDirectories = new Set([".next", ".turbo", "dist", "node_modules"]);
@@ -55,21 +56,13 @@ async function collectSourceFiles(directory) {
 }
 
 function workspaceDirectory(filePath) {
-  const relativePath = path.relative(repositoryRoot, filePath);
+  const relativePath = path.relative(scanRoot, filePath);
   const [category, workspace] = relativePath.split(path.sep);
-  return path.join(repositoryRoot, category, workspace);
+  return path.join(scanRoot, category, workspace);
 }
 
 function logicalSourcePath(filePath) {
-  let normalized = path.relative(repositoryRoot, filePath).split(path.sep).join("/");
-  const sourceMarkers = ["/apps/", "/packages/"];
-  for (const marker of sourceMarkers) {
-    const markerIndex = normalized.lastIndexOf(marker);
-    if (markerIndex >= 0) {
-      normalized = normalized.slice(markerIndex + 1);
-      break;
-    }
-  }
+  const normalized = path.relative(scanRoot, filePath).split(path.sep).join("/");
   return normalized.endsWith(".fixture") ? normalized.slice(0, -".fixture".length) : normalized;
 }
 
@@ -108,7 +101,7 @@ function inspectImport(filePath, specifier) {
   }
 
   if (
-    relativeFile.startsWith(`apps${path.sep}web${path.sep}`) &&
+    normalizedFile.startsWith("apps/web/") &&
     webForbiddenPackages.some(
       (packageName) => specifier === packageName || specifier.startsWith(`${packageName}/`),
     )
@@ -117,7 +110,7 @@ function inspectImport(filePath, specifier) {
   }
 
   if (
-    !isAiRoutingFile(relativeFile) &&
+    !isAiRoutingFile(filePath) &&
     aiProviderPackages.some(
       (packageName) => specifier === packageName || specifier.startsWith(`${packageName}/`),
     )
@@ -172,11 +165,23 @@ function staticString(node, bindings) {
 }
 
 function propertyName(expression, bindings) {
-  if (expression?.type !== "MemberExpression") return undefined;
+  if (!["MemberExpression", "OptionalMemberExpression"].includes(expression?.type)) {
+    return undefined;
+  }
   if (!expression.computed && expression.property?.type === "Identifier") {
     return expression.property.name;
   }
   return staticString(expression.property, bindings);
+}
+
+function patternExtractsGenerate(pattern, bindings) {
+  return (
+    pattern?.type === "ObjectPattern" &&
+    pattern.properties.some(
+      (property) =>
+        property.type === "ObjectProperty" && propertyKeyName(property, bindings) === "generate",
+    )
+  );
 }
 
 function propertyKeyName(property, bindings) {
@@ -281,7 +286,7 @@ function containsProviderEnvironment(node, taintedBindings) {
 
 function inspectAst(filePath, source) {
   const relativeFile = path.relative(repositoryRoot, filePath);
-  const aiRoutingFile = isAiRoutingFile(relativeFile);
+  const aiRoutingFile = isAiRoutingFile(filePath);
   const sourceFile = parseSync(source, {
     filename: filePath,
     configFile: false,
@@ -391,6 +396,52 @@ function inspectAst(filePath, source) {
       const violation = inspectImport(filePath, node.source.value);
       if (violation) findings.push(violation);
     }
+    if (
+      !aiRoutingFile &&
+      ["MemberExpression", "OptionalMemberExpression"].includes(node.type) &&
+      propertyName(node, bindings) === "generate" &&
+      !isLocalGeneratorExpression(
+        node.object,
+        neutralGeneratorBindings,
+        localGeneratorClasses,
+        bindings,
+      )
+    ) {
+      findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
+    }
+    if (
+      !aiRoutingFile &&
+      node.type === "VariableDeclarator" &&
+      patternExtractsGenerate(node.id, bindings) &&
+      !isLocalGeneratorExpression(
+        node.init,
+        neutralGeneratorBindings,
+        localGeneratorClasses,
+        bindings,
+      )
+    ) {
+      findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
+    }
+    if (
+      !aiRoutingFile &&
+      node.type === "AssignmentExpression" &&
+      patternExtractsGenerate(node.left, bindings) &&
+      !isLocalGeneratorExpression(
+        node.right,
+        neutralGeneratorBindings,
+        localGeneratorClasses,
+        bindings,
+      )
+    ) {
+      findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
+    }
+    if (
+      !aiRoutingFile &&
+      Array.isArray(node.params) &&
+      node.params.some((parameter) => patternExtractsGenerate(parameter, bindings))
+    ) {
+      findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
+    }
     if (node.type === "CallExpression" || node.type === "ImportExpression") {
       const callee = node.type === "CallExpression" ? node.callee : undefined;
       const arguments_ = node.type === "CallExpression" ? node.arguments : [node.source];
@@ -403,6 +454,21 @@ function inspectAst(filePath, source) {
           const violation = inspectImport(filePath, specifier);
           if (violation) findings.push(violation);
         }
+      }
+      if (
+        !aiRoutingFile &&
+        callee?.type === "MemberExpression" &&
+        memberPath(callee) === "Reflect.get" &&
+        arguments_[1] !== undefined &&
+        staticString(arguments_[1], bindings) === "generate" &&
+        !isLocalGeneratorExpression(
+          arguments_[0],
+          neutralGeneratorBindings,
+          localGeneratorClasses,
+          bindings,
+        )
+      ) {
+        findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
       }
       if (
         (!aiRoutingFile &&
@@ -452,11 +518,9 @@ function inspectAst(filePath, source) {
   return findings;
 }
 
-function isAiRoutingFile(relativeFile) {
-  const normalized = relativeFile.split(path.sep).join("/");
-  return (
-    normalized.startsWith("packages/ai-routing/") || normalized.includes("/packages/ai-routing/")
-  );
+function isAiRoutingFile(filePath) {
+  const normalized = logicalSourcePath(filePath);
+  return normalized === "packages/ai-routing" || normalized.startsWith("packages/ai-routing/");
 }
 
 const arguments_ = process.argv.slice(2);
@@ -465,6 +529,7 @@ const rootArgument = rootIndex < 0 ? undefined : arguments_[rootIndex + 1];
 if (rootIndex >= 0 && (!rootArgument || arguments_.length !== 2)) {
   throw new Error("Usage: validate-boundaries.mjs [--root <directory>]");
 }
+scanRoot = rootArgument ? path.resolve(repositoryRoot, rootArgument) : repositoryRoot;
 
 const files = (
   await Promise.all(

@@ -41,7 +41,7 @@ const PEOPLE_RANKING_SUBJECTS = [
   "teammate",
   "peer",
 ] as const;
-const RANKING_TERMS = ["rank", "ranked", "ranking", "order", "leaderboard"] as const;
+const GLOBAL_RANKING_TERMS = ["rank", "ranked", "ranking", "leaderboard"] as const;
 const NEUTRAL_RANKING_SUBJECTS = ["search", "priority", "risk", "relevance"] as const;
 const NEUTRAL_RANKING_METADATA = ["title", "label", "description"] as const;
 
@@ -77,13 +77,13 @@ function forbiddenField(routeKey: string, field: string): boolean {
     /(?:recommended|suggested|predicted|performance|employee|manager|final|overall|criterion)rating/iu.test(
       normalized,
     );
-  const rankingTerm = hasAny(RANKING_TERMS);
+  const globalRankingTerm = hasAny(GLOBAL_RANKING_TERMS);
   const demonstrablyNeutralRanking =
     hasAny(NEUTRAL_RANKING_SUBJECTS) ||
     (tokens.has("leaderboard") && hasAny(NEUTRAL_RANKING_METADATA));
   const employeeRanking =
-    (hasAny(PEOPLE_RANKING_SUBJECTS) && rankingTerm) ||
-    (PERFORMANCE_ROUTE.test(routeKey) && rankingTerm && !demonstrablyNeutralRanking) ||
+    (globalRankingTerm && !demonstrablyNeutralRanking) ||
+    (hasAny(PEOPLE_RANKING_SUBJECTS) && tokens.has("order")) ||
     normalized === "employeerank" ||
     normalized === "employeeranking" ||
     /(?:employee.*rank|rank.*employee)/iu.test(normalized);
