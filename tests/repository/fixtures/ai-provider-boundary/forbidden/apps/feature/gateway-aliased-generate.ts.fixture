@@ -1,0 +1,4 @@
+declare const gateway: { generate(input: unknown): unknown };
+
+const execute = gateway.generate;
+export const result = execute({ protected: true });

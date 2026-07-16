@@ -1,0 +1,5 @@
+declare const client: { generate(input: unknown): unknown };
+let execute: (input: unknown) => unknown;
+
+execute = client.generate;
+export { execute };

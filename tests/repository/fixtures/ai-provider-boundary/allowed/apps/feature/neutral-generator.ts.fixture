@@ -1,0 +1,7 @@
+const report = {
+  generate: () => "neutral report",
+};
+const { generate } = report;
+
+export const directReport = report.generate();
+export const destructuredReport = generate();

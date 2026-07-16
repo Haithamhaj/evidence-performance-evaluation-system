@@ -7,7 +7,7 @@
 **Architecture style:** Modular monolith with separate web, API, and worker processes  
 **Implementation objective:** Build the complete integrated product in ordered phases  
 **Parent references:** `PROJECT_REFERENCE.md`, `EVALUATION_RUBRIC.md`  
-**Revision:** 1.1 — corrected dependencies, identified pilot feedback, Arabic-first delivery, calibration, and evidence readiness
+**Revision:** 1.2 — Phase 0 closure, English-only pilot permission, deferred Arabic semantic approval, and fast controlled execution
 
 ---
 
@@ -1044,12 +1044,12 @@ The modular monolith must allow:
 
 ## 13.5 Localization
 
-Arabic is the pilot default language.
+English-only pilot use is permitted. Arabic employee use requires approved Arabic rubric content and semantic review. Existing localization and RTL foundations remain required for the future Arabic release.
 
 Requirements:
 
 - English support.
-- Approved bilingual rubric content.
+- Approved English rubric content for English pilot use and approved Arabic rubric content before Arabic employee use.
 - RTL layout.
 - Mixed Arabic/English technical text.
 - Arabic PDF and DOCX processing.
@@ -1092,6 +1092,8 @@ Exit criteria:
 - Rubric seed matches the approved source.
 - No task depends on a task in a later phase.
 
+Status: **Complete.** English Pilot Readiness is available. T016 is deferred, draft, and inactive; it is a future Arabic-release gate rather than a Phase 0 or engineering-phase blocker.
+
 ## Phase 1 — Projects, Workstreams, Documents, and Responsibility
 
 Build:
@@ -1131,7 +1133,7 @@ Build:
 
 Exit criteria:
 
-- An employee can document real work in Arabic or English with traceable evidence.
+- An employee can document real work in English with traceable evidence; the same Arabic workflow may be released only after T016 approval.
 - GitHub activity never becomes performance automatically.
 - Thin evidence is surfaced before quarter-end without quotas.
 
@@ -1159,7 +1161,7 @@ Exit criteria:
 - One complete `Calibration — Non-Baseline` cycle can run without manual database intervention.
 - Closed evaluation is immutable.
 - AI never writes a rating.
-- Arabic and English rubric meanings match the same version.
+- The approved English rubric is preserved exactly; any future Arabic release must match the same stable IDs and version after T016 approval.
 
 ## Phase 4 — Identified Manager Evaluation and Coaching
 
@@ -1319,8 +1321,8 @@ Before pilot launch:
 - Employee and manager onboarding guide completed.
 - Thursday schedule configured.
 - One dry-run Calibration — Non-Baseline evaluation completed with test users.
-- Approved Arabic rubric content loaded.
-- RTL and Arabic critical-flow testing passed.
+- Approved Arabic rubric content loaded before Arabic employee release; this is not required for an English-only pilot launch.
+- RTL and Arabic critical-flow testing passed before Arabic employee release; existing foundations remain continuously tested.
 - Monthly Evaluation Readiness Review tested.
 - Evaluation Fact View reviewed for neutrality.
 - Export content reviewed.
@@ -1379,7 +1381,7 @@ No implementation agent should assume an API signature or library version from m
 - Versioned records and append-only audit.
 - No full event sourcing.
 - No microservices in the pilot.
-- Arabic-first RTL pilot with English support.
+- English-only pilot availability with preserved Arabic/RTL foundations and a protected T016 gate before Arabic employee release.
 - Cycle 1 is Calibration — Non-Baseline.
 - Pilot upward manager evaluation is Identified.
 - Future manager-feedback privacy modes remain configurable.

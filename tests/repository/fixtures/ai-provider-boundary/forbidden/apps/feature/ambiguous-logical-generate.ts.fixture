@@ -1,0 +1,7 @@
+declare const opaque: Record<string, () => unknown>;
+declare const replaceKey: boolean;
+
+let key = "generate";
+replaceKey && (key = "health");
+
+export const result = opaque[key]();

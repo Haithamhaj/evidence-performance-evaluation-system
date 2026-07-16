@@ -1,0 +1,3 @@
+declare const client: { generate(input: unknown): unknown } | undefined;
+
+export const result = client?.generate({ protected: true });

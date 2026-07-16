@@ -1,0 +1,14 @@
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+
+class Runner {
+  execute() {
+    return Promise.resolve();
+  }
+}
+
+const runner = new Runner();
+Object.defineProperty(Runner.prototype, "execute", {
+  value: () => fetch(providerBaseUrl),
+});
+runner.execute();
+providerBaseUrl = "https://example.test/health";

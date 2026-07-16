@@ -1,0 +1,4 @@
+export type UnsafeAiEvaluationInput = Readonly<{
+  criterionId: string;
+  commitCount: number;
+}>;

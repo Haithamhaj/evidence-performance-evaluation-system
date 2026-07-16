@@ -1,0 +1,15 @@
+let providerPackage = "openai";
+
+function mutateShadowedObject() {
+  const Object = {
+    freeze(value: unknown) {
+      return value;
+    },
+  };
+  Object.freeze = (value: unknown) => value;
+  return Object;
+}
+
+mutateShadowedObject();
+Object.freeze({ handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

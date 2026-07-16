@@ -1,0 +1,7 @@
+let method = "generate";
+const client = {} as Record<string, () => void>;
+let handler: () => void;
+
+({ handler = () => client[method]() } = {});
+handler();
+method = "safe";

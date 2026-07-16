@@ -1,0 +1,13 @@
+let providerPackage = "openai";
+const define = Object.defineProperties.bind(Object);
+
+define(Object, {
+  freeze: {
+    value: (value: unknown) => {
+      (value as { handler: () => unknown }).handler();
+      return value;
+    },
+  },
+});
+Object.freeze({ handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

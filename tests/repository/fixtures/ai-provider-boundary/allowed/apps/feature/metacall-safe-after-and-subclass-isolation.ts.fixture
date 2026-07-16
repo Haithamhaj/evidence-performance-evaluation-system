@@ -1,0 +1,21 @@
+let method = "generate";
+const opaque = {} as Record<string, () => unknown>;
+
+class BaseRunner {
+  execute() {
+    return this.helper();
+  }
+  helper() {
+    return Promise.resolve();
+  }
+}
+class DangerousRunner extends BaseRunner {
+  helper() {
+    return opaque[method]();
+  }
+}
+class SafeRunner extends BaseRunner {}
+
+method = "health";
+Function.prototype.call.call(BaseRunner.prototype.execute, new DangerousRunner());
+Function.prototype.call.call(BaseRunner.prototype.execute, new SafeRunner());

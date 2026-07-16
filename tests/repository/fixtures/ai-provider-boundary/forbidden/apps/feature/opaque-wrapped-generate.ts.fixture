@@ -1,0 +1,7 @@
+declare const provider: { generate(): string };
+const local = { generate: () => "local" };
+
+export const asserted = (provider as { generate(): string }).generate();
+export const nonNull = provider!.generate();
+export const satisfied = (provider satisfies { generate(): string }).generate();
+export const sequenced = (local, provider).generate();

@@ -1,0 +1,7 @@
+declare const invokeMaybe: undefined | ((value: unknown) => unknown);
+
+let providerPackage = "openai";
+const execute = () => import(providerPackage);
+
+invokeMaybe?.({ nested: { handler: execute } });
+providerPackage = "./safe-local-module";

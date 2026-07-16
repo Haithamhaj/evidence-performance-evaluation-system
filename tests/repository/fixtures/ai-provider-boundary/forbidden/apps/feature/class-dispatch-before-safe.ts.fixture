@@ -1,0 +1,62 @@
+let method = "generate";
+let providerPackage = "openai";
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+const opaque = {} as Record<string, () => unknown>;
+
+class BaseRunner {
+  execute() {
+    return this.helper();
+  }
+
+  helper() {
+    return opaque[method]();
+  }
+
+  static execute() {
+    return superHelper.call(this);
+  }
+}
+
+function superHelper() {
+  return import(providerPackage);
+}
+
+class DerivedRunner extends BaseRunner {
+  generated = () => opaque[method]();
+  field = () => fetch(providerBaseUrl);
+  static field = () => import(providerPackage);
+
+  viaSuper() {
+    return super.execute();
+  }
+}
+
+new DerivedRunner().execute();
+DerivedRunner.execute();
+new DerivedRunner().viaSuper();
+new DerivedRunner().generated();
+new DerivedRunner().field();
+DerivedRunner.field();
+
+class StaticBaseRunner {
+  static execute() {
+    return this.helper();
+  }
+
+  static helper() {
+    return import(providerPackage);
+  }
+}
+
+class StaticDerivedRunner extends StaticBaseRunner {
+  static viaSuper() {
+    return super.execute();
+  }
+}
+
+StaticDerivedRunner.execute();
+StaticDerivedRunner.viaSuper();
+
+method = "health";
+providerPackage = "./safe-local-module";
+providerBaseUrl = "https://example.test/health";

@@ -1,6 +1,6 @@
 # Evidence-Based Performance Evaluation System
 
-## AI Implementation Starter Pack — Revision 1.1
+## AI Implementation Starter Pack — Revision 1.2
 
 This folder is the corrected handoff from project discovery, evaluation-rubric design, external review, and implementation planning.
 
@@ -19,6 +19,7 @@ Read the files in this order:
 7. `TASKS.md` — 77 ordered, dependency-valid implementation tasks.
 8. `AGENTS.md` — mandatory operating rules for Codex and other coding agents.
 9. `project-state/PROJECT_STATE.md` — short current-state snapshot.
+10. `scripts/README.md` — bounded repository-validation scope and known limitations.
 
 The `source/` folder preserves the original master product definition.
 
@@ -28,7 +29,7 @@ The `source/` folder preserves the original master product definition.
 - No task depends on a later implementation phase.
 - Monthly Evaluation Readiness Review added to reduce thin quarter-end evidence.
 - Evaluation Fact View added to reduce self-presentation bias.
-- Arabic-first RTL delivery and Arabic/dialect AI fixtures are explicit blockers.
+- Arabic localization, RTL delivery, and Arabic/dialect AI fixtures remain protected foundations; Arabic employee release is gated by semantic approval.
 - Cycle 1 is `Calibration — Non-Baseline`.
 - The pilot upward manager evaluation is `Identified`.
 - The manager sees who submitted, who did not, ratings, comments, and timestamps.
@@ -39,17 +40,18 @@ The `source/` folder preserves the original master product definition.
 
 - Product reference: approved Revision 1.1.
 - Evaluation rubric: approved English source Version 1.1.
-- Arabic rubric translation: implementation blocker tracked in T016.
+- Phase 0 Foundation: complete.
+- English Pilot Readiness: available.
+- Arabic rubric translation: deferred, draft, and inactive in `deferred/arabic-rubric-v1`.
+- Arabic employee release: blocked until T016 approval; other engineering phases are not blocked.
 - Architecture: defined.
 - Task graph: 77 tasks, valid and acyclic.
-- Implementation code: not yet scaffolded; repository governance and the approved Phase 0 design are established.
-- Implementation: ready to begin.
+- Implementation code: Phase 0 foundation is implemented and technically verified.
+- Implementation: Phase 1 is ready to begin.
 
 ## Recommended First Action
 
-Create a new Git repository using the monorepo structure in `docs/IMPLEMENTATION_PLAN.md`, then execute Tasks T001–T017.
-
-Do not begin feature UI work before the Phase 0 governance, AI, eligibility, localization, and Arabic-rubric foundations are complete.
+Execute Phase 1 from the approved task graph. English-only pilot use is permitted. Do not expose Arabic employee use until the deferred T016 human semantic approvals and activation conditions are complete.
 
 ## Protected Product Rules
 

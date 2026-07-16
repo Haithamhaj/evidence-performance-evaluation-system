@@ -1,0 +1,13 @@
+declare const condition: boolean;
+declare const unknownTarget: ObjectConstructor;
+let providerPackage = "openai";
+const target = condition ? Object : unknownTarget;
+const replacement = (value: unknown) => {
+  (value as { handler: () => unknown }).handler();
+  return value;
+};
+const replacementAlias = replacement;
+
+Object.defineProperty(target, "freeze", { value: replacementAlias });
+Object.freeze({ handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

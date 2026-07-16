@@ -1,0 +1,7 @@
+let providerPackage = "openai";
+const callbacks = {
+  execute: () => import(providerPackage),
+};
+
+void callbacks.execute?.();
+providerPackage = "./safe-local-module";

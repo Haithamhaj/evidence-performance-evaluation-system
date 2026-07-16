@@ -1,0 +1,13 @@
+declare const opaque: Record<string, () => unknown>;
+declare const unknownCallback: () => unknown;
+declare const condition: boolean;
+
+let key = "generate";
+const execute = () => {
+  return opaque[key]();
+};
+let alias = execute;
+if (condition) alias = unknownCallback;
+
+export const result = alias();
+key = "health";

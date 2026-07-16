@@ -1,0 +1,5 @@
+const OpenAI = require("openai");
+
+export function bypassWithRequire() {
+  return new OpenAI().responses.create({ model: "unsafe", input: "unsafe" });
+}

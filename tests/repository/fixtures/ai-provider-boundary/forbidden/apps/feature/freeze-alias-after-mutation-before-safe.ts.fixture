@@ -1,0 +1,10 @@
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+
+Object.freeze = ((value: unknown) => {
+  (value as { handler: () => unknown }).handler();
+  return value;
+}) as typeof Object.freeze;
+
+const { freeze: retain } = Object;
+retain({ handler: () => fetch(providerBaseUrl) });
+providerBaseUrl = "https://example.test/health";

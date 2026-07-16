@@ -138,31 +138,19 @@ footer{color:var(--muted);text-align:center;padding:18px}
 
 <section id="architecture" class="panel">
 <h2>4. Technical Architecture</h2>
-<div class="grid">
-<div class="card full">
-<svg viewBox="0 0 1100 410" role="img" aria-label="Technical architecture">
-<defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3659d9"/></marker></defs>
-<rect x="30" y="40" width="200" height="70" rx="14" fill="#eef2ff" stroke="#3659d9" stroke-width="2"/><text x="130" y="70" text-anchor="middle" font-size="18" font-weight="700">Next.js Web</text><text x="130" y="94" text-anchor="middle" font-size="13" fill="#5e6a7f">Employee · Manager · Admin</text>
-<rect x="330" y="40" width="260" height="70" rx="14" fill="#eef2ff" stroke="#3659d9" stroke-width="2"/><text x="460" y="70" text-anchor="middle" font-size="18" font-weight="700">NestJS Modular API</text><text x="460" y="94" text-anchor="middle" font-size="13" fill="#5e6a7f">Domains · RBAC · Transactions</text>
-<rect x="690" y="40" width="210" height="70" rx="14" fill="#eef2ff" stroke="#3659d9" stroke-width="2"/><text x="795" y="70" text-anchor="middle" font-size="18" font-weight="700">Worker</text><text x="795" y="94" text-anchor="middle" font-size="13" fill="#5e6a7f">AI · GitHub · Jobs · Reports</text>
-<line x1="230" y1="75" x2="330" y2="75" stroke="#3659d9" stroke-width="2" marker-end="url(#b)"/>
-<line x1="590" y1="75" x2="690" y2="75" stroke="#3659d9" stroke-width="2" marker-end="url(#b)"/>
-<rect x="90" y="190" width="210" height="72" rx="14" fill="#fff" stroke="#0f8a73" stroke-width="2"/><text x="195" y="220" text-anchor="middle" font-size="17" font-weight="700">PostgreSQL</text><text x="195" y="245" text-anchor="middle" font-size="13" fill="#5e6a7f">Authoritative records</text>
-<rect x="355" y="190" width="180" height="72" rx="14" fill="#fff" stroke="#0f8a73" stroke-width="2"/><text x="445" y="220" text-anchor="middle" font-size="17" font-weight="700">Redis / BullMQ</text><text x="445" y="245" text-anchor="middle" font-size="13" fill="#5e6a7f">Queues and locks</text>
-<rect x="590" y="190" width="180" height="72" rx="14" fill="#fff" stroke="#0f8a73" stroke-width="2"/><text x="680" y="220" text-anchor="middle" font-size="17" font-weight="700">S3 / MinIO</text><text x="680" y="245" text-anchor="middle" font-size="13" fill="#5e6a7f">Files, images, audio</text>
-<rect x="825" y="190" width="190" height="72" rx="14" fill="#fff" stroke="#0f8a73" stroke-width="2"/><text x="920" y="220" text-anchor="middle" font-size="17" font-weight="700">OIDC</text><text x="920" y="245" text-anchor="middle" font-size="13" fill="#5e6a7f">Identity and MFA</text>
-<line x1="460" y1="110" x2="195" y2="190" stroke="#3659d9" marker-end="url(#b)"/>
-<line x1="460" y1="110" x2="445" y2="190" stroke="#3659d9" marker-end="url(#b)"/>
-<line x1="795" y1="110" x2="680" y2="190" stroke="#3659d9" marker-end="url(#b)"/>
-<line x1="130" y1="110" x2="920" y2="190" stroke="#3659d9" marker-end="url(#b)"/>
-<rect x="145" y="320" width="230" height="60" rx="14" fill="#fff8eb" stroke="#b66a00"/><text x="260" y="348" text-anchor="middle" font-size="16" font-weight="700">GitHub App</text><text x="260" y="368" text-anchor="middle" font-size="12" fill="#5e6a7f">Documents · PRs · Commits · Checks</text>
-<rect x="435" y="320" width="230" height="60" rx="14" fill="#fff8eb" stroke="#b66a00"/><text x="550" y="348" text-anchor="middle" font-size="16" font-weight="700">AI Router</text><text x="550" y="368" text-anchor="middle" font-size="12" fill="#5e6a7f">Project → Department → System</text>
-<rect x="725" y="320" width="230" height="60" rx="14" fill="#fff8eb" stroke="#b66a00"/><text x="840" y="348" text-anchor="middle" font-size="16" font-weight="700">Local & External Models</text><text x="840" y="368" text-anchor="middle" font-size="12" fill="#5e6a7f">Text · Code · Vision · Speech</text>
-<line x1="795" y1="110" x2="260" y2="320" stroke="#3659d9" marker-end="url(#b)"/>
-<line x1="795" y1="110" x2="550" y2="320" stroke="#3659d9" marker-end="url(#b)"/>
-<line x1="665" y1="350" x2="725" y2="350" stroke="#3659d9" marker-end="url(#b)"/>
-</svg>
+<div class="flow" aria-label="Implemented Phase 0 request and asynchronous job flow">
+<div class="node"><span class="tag">Implemented</span><strong>Next.js Web</strong><span>Arabic-first shell, OIDC session, correlation carrier.</span></div><div class="arrow">→</div>
+<div class="node"><span class="tag">Implemented</span><strong>NestJS Modular API</strong><span>Authentication, scoped authorization, transactions, eligibility.</span></div><div class="arrow">→</div>
+<div class="node"><span class="tag">Durable</span><strong>Redis / BullMQ Queue</strong><span>Versioned envelopes, retry state, idempotency and trace context.</span></div><div class="arrow">→</div>
+<div class="node"><span class="tag">Implemented</span><strong>Worker</strong><span>Lifecycle-managed consumers and graceful draining.</span></div>
 </div>
+<div class="grid">
+<div class="card"><h3>PostgreSQL Authority</h3><p>API and Worker persist authoritative, historical, operation, receipt, and append-only audit records through owned boundaries.</p></div>
+<div class="card"><h3>OIDC / Keycloak</h3><p>Web sign-in and server-side token validation enforce identity, expiry, audience, synchronization, and deactivation.</p></div>
+<div class="card"><h3>Append-only Audit</h3><p>Protected actions write same-transaction audit evidence; database controls reject mutation.</p></div>
+<div class="card"><h3>AI Router Boundary</h3><p>Feature modules cannot call provider SDKs directly. Routes resolve Project → Department → System and retain trace evidence.</p></div>
+<div class="card"><h3>Localization Boundary</h3><p>Arabic is the default shell locale with English support, RTL, mixed-direction isolation, and Asia/Riyadh rendering.</p></div>
+<div class="card"><h3>Private Object Storage</h3><p>MinIO provides the Phase 0 S3-compatible infrastructure boundary; product upload workflows remain later-phase work.</p></div>
 </div>
 </section>
 
@@ -206,7 +194,7 @@ footer{color:var(--muted);text-align:center;padding:18px}
 
 <section id="phases" class="panel">
 <h2>8. Implementation Order</h2>
-<div class="phase"><b>Phase 0 — Governance, AI & Localization Foundations</b><span>Repository, identity, permissions, audit, AI Router, worker, eligibility, Arabic/English RTL, rubric approval, DAG validation.</span></div>
+<div class="phase"><b>Phase 0 — Governance, AI & Localization Foundations</b><span>Complete: repository, identity, permissions, audit, AI Router, worker, eligibility, Arabic/English RTL foundations, and DAG validation. T016 is deferred outside the engineering gate.</span></div>
 <div class="phase"><b>Phase 1 — Projects and Documents</b><span>Projects, workstreams, responsibility, templates, versions, dynamic criteria.</span></div>
 <div class="phase"><b>Phase 2 — Updates, Evidence & Readiness</b><span>Text, voice, images, GitHub, attribution, Thursday check-ins, monthly readiness, Arabic fixtures.</span></div>
 <div class="phase"><b>Phase 3 — Employee Evaluation</b><span>Templates, Calibration Cycle, Fact View, self/manager assessment, discussion, finalization.</span></div>
@@ -220,15 +208,15 @@ footer{color:var(--muted);text-align:center;padding:18px}
 <div class="card"><span class="tag">Approved</span><h3>Product Reference</h3><p>Purpose, workflows, roles, privacy, and configuration.</p></div>
 <div class="card"><span class="tag">Approved</span><h3>Evaluation Rubric</h3><p>12 criteria, 60 anchors, manager rubric, weights.</p></div>
 <div class="card"><span class="tag">Ready</span><h3>Implementation Plan</h3><p>Architecture, corrected dependencies, modules, data, phases, tests.</p></div>
-<div class="card"><span class="tag">Next</span><h3>Repository Creation</h3><p>Execute Tasks T001–T017 before feature UI work.</p></div>
+<div class="card"><span class="tag">Complete</span><h3>Phase 0 Foundation</h3><p>Tasks T001–T015 and T017 are implemented and technically verified. English Pilot Readiness is available.</p></div>
 <div class="card wide"><span class="tag">Protected</span><h3>Do Not Drift</h3><p>No AI ratings, no ranking, no activity-volume scoring, no retroactive criteria, no mutation of closed evaluations, no anonymity claim in Identified mode, no manager access to readiness percentages.</p></div>
-<div class="card"><span class="tag">Arabic-first</span><h3>Localization</h3><p>Approved bilingual rubric, RTL, mixed-direction technical content, Arabic documents, reports, and dialect fixtures.</p></div>
+<div class="card"><span class="tag">English ready</span><h3>Localization</h3><p>English-only pilot use is permitted. Arabic/RTL foundations remain verified, while Arabic employee use waits for the inactive T016 draft's two separate human reviews.</p></div>
 <div class="card"><span class="tag">Calibration</span><h3>Cycle 1</h3><p>Complete workflow stored as Calibration — Non-Baseline; official longitudinal baseline begins from Cycle 2.</p></div>
 <div class="card"><span class="tag">Monthly</span><h3>Evidence Readiness</h3><p>Thin records are surfaced before quarter-end without quotas, scoring, or automatic penalties.</p></div>
 <div class="card wide"><span class="tag">Deferred</span><h3>Not in First Build</h3><p>Billing, full self-service multi-tenancy, HRIS, Google Drive auto-sync, formal appeal workflow, microservices, automated salary/promotion decisions. Private manager-feedback modes are foundations, not pilot operating rules.</p></div>
 </div>
 </section>
 </main>
-<footer>Generated for the Evidence-Based Performance Evaluation System AI Implementation Starter Pack · Revision 1.1 · 2026-07-13</footer>
+<footer>Evidence-Based Performance Evaluation System · Operational state updated 2026-07-17 · Phase 0 complete · Arabic rubric remains inactive pending human approval</footer>
 </body>
 </html>

@@ -1,0 +1,6 @@
+declare const opaque: Record<string, () => unknown>;
+
+let key = "generate";
+key ||= "health";
+
+export const result = opaque[key]();

@@ -1,0 +1,3 @@
+const providerUrl = process.env.OPENAI_BASE_URL;
+
+export const result = providerUrl === undefined ? undefined : fetch(providerUrl);

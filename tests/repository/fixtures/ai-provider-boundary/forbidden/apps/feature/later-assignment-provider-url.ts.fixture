@@ -1,0 +1,4 @@
+let providerUrl = "/health";
+providerUrl = process.env.OPENAI_BASE_URL;
+
+export const response = fetch(providerUrl);

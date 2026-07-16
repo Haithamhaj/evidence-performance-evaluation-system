@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Validate TASKS.md task identifiers and dependency phase order."""
+"""Validate task identifiers and phase-valid dependencies in a task plan."""
 
 from __future__ import annotations
 
-import collections
+from dataclasses import dataclass
 import re
 import sys
 from pathlib import Path
@@ -14,6 +14,13 @@ PHASE_RE = re.compile(r"^# Phase (\d+)")
 DEPS_RE = re.compile(r"^\*\*Dependencies:\*\* (.+)$")
 RANGE_RE = re.compile(r"(T\d{3})[–-](T\d{3})")
 ID_RE = re.compile(r"T\d{3}")
+CONTEXT_RESET_RE = re.compile(r"^#{1,2}(?:\s|$)")
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    task_count: int
+    errors: list[str]
 
 
 def expand_dependencies(value: str) -> set[str]:
@@ -33,86 +40,103 @@ def expand_dependencies(value: str) -> set[str]:
     return dependencies
 
 
-def validate(path: Path) -> list[str]:
+def validate_task_graph(path: Path) -> ValidationResult:
     text = path.read_text(encoding="utf-8")
     phase = -1
     current_task: str | None = None
     phases: dict[str, int] = {}
     dependencies: dict[str, set[str]] = {}
+    declared_dependencies: set[str] = set()
     errors: list[str] = []
 
     for line_number, line in enumerate(text.splitlines(), start=1):
         phase_match = PHASE_RE.match(line)
         if phase_match:
             phase = int(phase_match.group(1))
+            current_task = None
             continue
 
         task_match = TASK_RE.match(line)
         if task_match:
             current_task = task_match.group(1)
             if current_task in phases:
-                errors.append(f"Line {line_number}: duplicate task ID {current_task}")
+                errors.append(f"DUPLICATE_TASK_ID:{current_task}")
+                current_task = None
+                continue
             phases[current_task] = phase
             dependencies.setdefault(current_task, set())
             continue
 
+        if CONTEXT_RESET_RE.match(line):
+            current_task = None
+            continue
+
         dependency_match = DEPS_RE.match(line)
+        if dependency_match and current_task is None:
+            errors.append(f"ORPHAN_DEPENDENCIES:{line_number}")
+            continue
+
         if dependency_match and current_task:
+            if current_task in declared_dependencies:
+                errors.append(f"DUPLICATE_DEPENDENCIES:{current_task}")
+                continue
+            declared_dependencies.add(current_task)
             try:
                 dependencies[current_task] = expand_dependencies(dependency_match.group(1))
             except ValueError as exc:
-                errors.append(f"Line {line_number}: {exc}")
+                errors.append(f"INVALID_DEPENDENCY_RANGE:{current_task}:{exc}")
 
     for task_id, task_dependencies in dependencies.items():
-        for dependency in task_dependencies:
+        for dependency in sorted(task_dependencies):
             if dependency not in phases:
-                errors.append(f"{task_id}: unknown dependency {dependency}")
+                errors.append(f"UNKNOWN_DEPENDENCY:{dependency}")
                 continue
             if phases[dependency] > phases[task_id]:
-                errors.append(
-                    f"{task_id}: depends on later-phase task {dependency} "
-                    f"(phase {phases[task_id]} -> {phases[dependency]})"
-                )
+                errors.append(f"LATER_PHASE_DEPENDENCY:{task_id}->{dependency}")
 
-    indegree = {task_id: 0 for task_id in phases}
-    adjacency: dict[str, list[str]] = {task_id: [] for task_id in phases}
-    for task_id, task_dependencies in dependencies.items():
-        for dependency in task_dependencies:
+    visited: set[str] = set()
+    visiting: set[str] = set()
+    stack: list[str] = []
+    reported_cycles: set[tuple[str, ...]] = set()
+
+    def visit(task_id: str) -> None:
+        if task_id in visited:
+            return
+        if task_id in visiting:
+            cycle_start = stack.index(task_id)
+            cycle = tuple(stack[cycle_start:] + [task_id])
+            if cycle not in reported_cycles:
+                errors.append(f"DEPENDENCY_CYCLE:{'->'.join(cycle)}")
+                reported_cycles.add(cycle)
+            return
+
+        visiting.add(task_id)
+        stack.append(task_id)
+        for dependency in sorted(dependencies.get(task_id, set())):
             if dependency in phases:
-                adjacency[dependency].append(task_id)
-                indegree[task_id] += 1
+                visit(dependency)
+        stack.pop()
+        visiting.remove(task_id)
+        visited.add(task_id)
 
-    queue = collections.deque(task for task, degree in indegree.items() if degree == 0)
-    visited = 0
-    while queue:
-        task = queue.popleft()
-        visited += 1
-        for dependent in adjacency[task]:
-            indegree[dependent] -= 1
-            if indegree[dependent] == 0:
-                queue.append(dependent)
-
-    if visited != len(phases):
-        cyclic = sorted(task for task, degree in indegree.items() if degree > 0)
-        errors.append(f"Dependency cycle detected among: {', '.join(cyclic)}")
+    for task_id in phases:
+        visit(task_id)
 
     if not phases:
-        errors.append("No tasks found.")
+        errors.append("NO_TASKS_FOUND")
 
-    return errors
+    return ValidationResult(task_count=len(phases), errors=errors)
 
 
 def main() -> int:
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("TASKS.md")
-    errors = validate(path)
-    if errors:
-        print("TASK GRAPH INVALID")
-        for error in errors:
-            print(f"- {error}")
+    result = validate_task_graph(path)
+    if result.errors:
+        for error in result.errors:
+            print(error)
         return 1
 
-    count = sum(1 for line in path.read_text(encoding="utf-8").splitlines() if TASK_RE.match(line))
-    print(f"TASK GRAPH VALID: {count} tasks")
+    print(f"TASK GRAPH VALID: {result.task_count} tasks")
     return 0
 
 

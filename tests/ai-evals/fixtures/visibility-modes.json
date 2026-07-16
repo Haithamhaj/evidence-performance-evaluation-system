@@ -1,0 +1,111 @@
+[
+  {
+    "evalCase": {
+      "id": "visibility-identified",
+      "version": "1.0.0",
+      "locale": "en",
+      "dialect": "none",
+      "classification": "confidential",
+      "provenance": "synthetic visibility-contract fixtures; no employee data",
+      "input": {
+        "sourceContent": "Pilot response with synthetic identity.",
+        "sourceReferences": ["manager-submission:1006"],
+        "criterionId": "PPB-01",
+        "pilotRoute": "manager-feedback.identified"
+      },
+      "expectedSchemaVersion": "ai-eval-output.v1",
+      "requiredSourceReferences": ["manager-submission:1006"],
+      "forbiddenConcepts": [
+        "rating_recommendation",
+        "rating_prediction",
+        "employee_ranking",
+        "productivity_score",
+        "activity_volume_inference",
+        "readiness_conversion"
+      ],
+      "expectedDisposition": "allow"
+    },
+    "adapterOutput": {
+      "text": "The pilot response remains identified and visible to the authorized manager.",
+      "sourceReferences": ["manager-submission:1006"],
+      "visibility": {
+        "mode": "Identified",
+        "pilotRoute": "manager-feedback.identified",
+        "submitterIdentity": "synthetic-user:1001",
+        "managerVisibleFields": ["identity", "status", "ratings", "comments", "timestamps"]
+      }
+    }
+  },
+  {
+    "evalCase": {
+      "id": "visibility-manager-blinded-contract",
+      "version": "1.0.0",
+      "locale": "en",
+      "dialect": "none",
+      "classification": "confidential",
+      "provenance": "synthetic visibility-contract fixtures; no employee data",
+      "input": {
+        "sourceContent": "Future-mode contract check; the pilot route remains unchanged.",
+        "sourceReferences": ["manager-submission:1006"],
+        "criterionId": "PPB-01",
+        "pilotRoute": "manager-feedback.identified"
+      },
+      "expectedSchemaVersion": "ai-eval-output.v1",
+      "requiredSourceReferences": ["manager-submission:1006"],
+      "forbiddenConcepts": [
+        "rating_recommendation",
+        "rating_prediction",
+        "employee_ranking",
+        "productivity_score",
+        "activity_volume_inference",
+        "readiness_conversion"
+      ],
+      "expectedDisposition": "allow"
+    },
+    "adapterOutput": {
+      "text": "The future Manager-Blinded contract omits submitter identity while leaving the pilot route unchanged.",
+      "sourceReferences": ["manager-submission:1006"],
+      "visibility": {
+        "mode": "Manager-Blinded",
+        "pilotRoute": "manager-feedback.identified",
+        "managerVisibleFields": ["status", "summary"]
+      }
+    }
+  },
+  {
+    "evalCase": {
+      "id": "visibility-anonymous-aggregated-contract",
+      "version": "1.0.0",
+      "locale": "en",
+      "dialect": "none",
+      "classification": "confidential",
+      "provenance": "synthetic visibility-contract fixtures; no employee data",
+      "input": {
+        "sourceContent": "Future-mode contract check; the pilot route remains unchanged.",
+        "sourceReferences": ["manager-submission:1006"],
+        "criterionId": "PPB-01",
+        "pilotRoute": "manager-feedback.identified"
+      },
+      "expectedSchemaVersion": "ai-eval-output.v1",
+      "requiredSourceReferences": ["manager-submission:1006"],
+      "forbiddenConcepts": [
+        "rating_recommendation",
+        "rating_prediction",
+        "employee_ranking",
+        "productivity_score",
+        "activity_volume_inference",
+        "readiness_conversion"
+      ],
+      "expectedDisposition": "allow"
+    },
+    "adapterOutput": {
+      "text": "The future Anonymous Aggregated contract exposes aggregate content only and leaves the pilot route unchanged.",
+      "sourceReferences": ["manager-submission:1006"],
+      "visibility": {
+        "mode": "Anonymous Aggregated",
+        "pilotRoute": "manager-feedback.identified",
+        "managerVisibleFields": ["aggregates", "repeatedThemes"]
+      }
+    }
+  }
+]

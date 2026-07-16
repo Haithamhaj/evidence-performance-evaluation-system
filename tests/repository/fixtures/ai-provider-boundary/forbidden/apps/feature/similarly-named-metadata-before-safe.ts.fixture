@@ -1,0 +1,6 @@
+let providerPackage = "openai";
+const SetMetadata = (_key: string, value: unknown) => value;
+const retain = SetMetadata;
+
+retain("evaluation:handler", { handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

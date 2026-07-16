@@ -1,0 +1,9 @@
+declare const opaque: Record<string, () => unknown>;
+
+const prefix = "gen";
+let suffix = "health";
+suffix = "er";
+let key = "health";
+key = `${prefix}${suffix}${["a", "t", "e"].join("")}`;
+
+export const result = opaque[key]();

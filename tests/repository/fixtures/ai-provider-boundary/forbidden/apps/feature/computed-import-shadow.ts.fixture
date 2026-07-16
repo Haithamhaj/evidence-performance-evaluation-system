@@ -1,0 +1,9 @@
+const providerPackage = "openai";
+
+function safeShadow() {
+  const providerPackage = "./local-module";
+  return import(providerPackage);
+}
+
+export const providerModule = import(providerPackage);
+export const control = safeShadow;

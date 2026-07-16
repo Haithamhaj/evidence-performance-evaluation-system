@@ -1,0 +1,16 @@
+let method = "generate";
+const opaque = {} as Record<string, () => unknown>;
+const ObjectAlias = Object;
+const freezeKey = "freeze";
+
+({ nested: { replacement: ObjectAlias[freezeKey] } } = {
+  nested: {
+    replacement: ((value: unknown) => {
+      (value as { handler: () => unknown }).handler();
+      return value;
+    }) as typeof Object.freeze,
+  },
+});
+
+Object.freeze({ handler: () => opaque[method]() });
+method = "health";

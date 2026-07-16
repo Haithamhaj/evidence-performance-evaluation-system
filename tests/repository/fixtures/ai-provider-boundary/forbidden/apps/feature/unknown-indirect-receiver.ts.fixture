@@ -1,0 +1,13 @@
+declare const receiver: BaseRunner;
+
+class BaseRunner {
+  execute() {
+    return this.helper();
+  }
+
+  helper() {
+    return Promise.resolve();
+  }
+}
+
+BaseRunner.prototype.execute.call(receiver);

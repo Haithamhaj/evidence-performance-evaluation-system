@@ -1,0 +1,27 @@
+declare const opaque: Record<string, () => unknown>;
+
+let key = "generate";
+let providerPackage = "openai";
+let providerUrl = process.env.OPENAI_BASE_URL;
+
+const executeGenerate = () => {
+  return opaque[key]();
+};
+async function executeProvider() {
+  await import(providerPackage);
+  return fetch(providerUrl);
+}
+function invokeNow(callback: () => unknown) {
+  return callback();
+}
+function wrapper() {
+  executeGenerate();
+  return executeProvider();
+}
+
+const alias = executeGenerate;
+key = "health";
+providerPackage = "./local-module";
+providerUrl = "/health";
+
+export const controls = [alias(), invokeNow(executeGenerate), wrapper()];

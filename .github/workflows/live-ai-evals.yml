@@ -1,0 +1,52 @@
+name: Manual live AI evaluations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-ai-evals:
+    name: Opt-in non-required live evaluation report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: live-ai-evals
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+        with:
+          version: 11.13.0
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: live_eval
+        name: Run synthetic live-provider evaluation
+        continue-on-error: true
+        env:
+          LIVE_AI_EVALS: "true"
+          LIVE_AI_API_KEY: ${{ secrets.LIVE_AI_API_KEY }}
+          LIVE_AI_BASE_URL: ${{ secrets.LIVE_AI_BASE_URL }}
+          LIVE_AI_MODEL: ${{ secrets.LIVE_AI_MODEL }}
+        run: pnpm test:ai
+      - name: Write sanitized result
+        if: always()
+        env:
+          EVAL_OUTCOME: ${{ steps.live_eval.outcome }}
+        run: |
+          echo "Live AI evaluation outcome: ${EVAL_OUTCOME}" > live-ai-eval-summary.txt
+          echo "Workflow run: ${GITHUB_RUN_ID}" >> live-ai-eval-summary.txt
+      - name: Upload sanitized result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: live-ai-eval-summary
+          path: live-ai-eval-summary.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Report live evaluation failure
+        if: steps.live_eval.outcome != 'success'
+        run: exit 1

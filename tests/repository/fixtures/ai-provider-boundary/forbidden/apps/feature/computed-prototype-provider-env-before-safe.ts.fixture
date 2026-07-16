@@ -1,0 +1,10 @@
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+const method = "execute";
+
+class Runner {}
+Runner.prototype[method] = () => fetch(providerBaseUrl);
+
+const prototype = Runner.prototype;
+const execute = prototype[method];
+void execute();
+providerBaseUrl = "https://example.test/health";

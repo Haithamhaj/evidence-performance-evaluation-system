@@ -1,0 +1,34 @@
+let method = "generate";
+let providerPackage = "openai";
+const opaque = {} as Record<string, () => unknown>;
+
+class BaseRunner {
+  execute() {
+    return this.helper?.();
+  }
+
+  helper() {
+    return Promise.resolve();
+  }
+
+  static execute() {
+    return this.helper?.();
+  }
+
+  static helper() {
+    return Promise.resolve();
+  }
+}
+
+class MiddleRunner extends BaseRunner {}
+
+class DerivedRunner extends MiddleRunner {
+  helper = () => opaque[method]();
+  static helper = () => import(providerPackage);
+}
+
+new DerivedRunner().execute?.();
+DerivedRunner.execute?.();
+
+method = "health";
+providerPackage = "./safe-local-module";

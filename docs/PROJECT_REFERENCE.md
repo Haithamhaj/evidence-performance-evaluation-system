@@ -2099,16 +2099,17 @@ The pilot uses:
 - One separate System Administrator.
 - `Identified` upward manager evaluation.
 - Visible completion status, ratings, and comments.
-- Arabic-first user experience with English support.
+- English-only pilot use is permitted; Arabic employee use remains gated by approved Arabic rubric content and semantic review.
 - 1-to-5 rating scale.
 
 ## 36.1 Localization Governance
 
-The pilot user experience is Arabic-first and supports English.
+English-only pilot use is permitted. Arabic employee use requires approved Arabic rubric content and semantic review. Existing localization and RTL foundations remain in the product for the future Arabic release.
 
 Requirements:
 
-- Approved Arabic and English versions of every criterion and Behavioral Anchor.
+- An approved English version of every criterion and Behavioral Anchor for English pilot use.
+- Approved Arabic versions of every criterion and Behavioral Anchor before Arabic employee use.
 - The same stable Criterion ID and version across languages.
 - A translation cannot be activated independently if it changes the meaning of the approved source.
 - RTL layout for Arabic.
@@ -2203,7 +2204,7 @@ The following decisions are approved:
 - Images are valid evidence when contextualized.
 - GitHub activity is suggested evidence only.
 - Cycle 1 is a Calibration — Non-Baseline cycle.
-- Arabic is the pilot default language, with approved bilingual rubric content and RTL support.
+- English-only pilot use is permitted; Arabic employee use requires approved Arabic rubric content, semantic review, and RTL support.
 - The manager sees operational Documentation Readiness states but not employee percentages or rankings.
 - Evaluation Fact View is shown before emphasizing employee narrative.
 - Commit count is not performance.
@@ -2337,13 +2338,13 @@ Mitigation:
 
 ---
 
-# 41. Open Decisions Blocking Implementation
+# 41. Open Implementation and Release Decisions
 
 The core product is ready for implementation.
 
 The following implementation-level decisions remain and must be resolved during the relevant tasks:
 
-1. Final approved Arabic translation of the 12 employee criteria, 60 anchors, Project Contribution anchors, and five manager criteria.
+1. Final approved Arabic translation of the 12 employee criteria, 60 anchors, Project Contribution anchors, and five manager criteria. This gates Arabic employee release only and does not block Phase 0 completion or later engineering phases.
 2. Exact Thursday reminder times.
 3. Exact monthly readiness-review day.
 4. Selected external and local AI providers for the pilot environment.

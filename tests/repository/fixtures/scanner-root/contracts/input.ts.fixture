@@ -1,0 +1,6 @@
+export const unsafeGenericContract = {
+  criterionId: "PPB-01",
+  rating: 3,
+  evidenceReferences: ["evidence:example"],
+  taskCount: 8,
+};

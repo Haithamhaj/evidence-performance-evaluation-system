@@ -1,0 +1,9 @@
+import { SetMetadata } from "@nestjs/common";
+
+declare const unknownContainer: <T>(key: string, value: T) => unknown;
+
+let providerPackage = "openai";
+let retain = SetMetadata;
+retain = unknownContainer;
+retain("evaluation:handler", { handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

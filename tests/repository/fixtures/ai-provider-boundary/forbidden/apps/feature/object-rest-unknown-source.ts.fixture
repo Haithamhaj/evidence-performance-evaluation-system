@@ -1,0 +1,4 @@
+declare const source: Record<string, unknown>;
+const { ...callbacks } = source;
+
+(callbacks.handler as () => void)();

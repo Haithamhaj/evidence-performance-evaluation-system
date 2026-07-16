@@ -1,0 +1,6 @@
+declare function require(moduleName: string): unknown;
+
+let providerPackage = "./local-module";
+providerPackage = ["open", "ai"].join("");
+
+export const provider = require(providerPackage);

@@ -1,0 +1,5 @@
+const providerPath = ["chat", "completions"].join("/");
+
+export function bypassWithConstructedUrl() {
+  return fetch(new URL(providerPath, "https://provider.invalid/v1/"));
+}

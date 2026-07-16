@@ -1,0 +1,3 @@
+declare const client: { generate(input: unknown): unknown };
+
+export const execute = client.generate.bind(client);

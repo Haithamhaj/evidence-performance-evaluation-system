@@ -1,0 +1,7 @@
+declare const opaque: Record<string, () => unknown>;
+
+let method = "generate";
+const execute = () => opaque[method]();
+
+execute?.();
+method = "health";

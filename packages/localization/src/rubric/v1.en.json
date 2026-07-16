@@ -1,0 +1,737 @@
+{
+  "version": "1",
+  "locale": "en",
+  "sourceHash": "d5b9c96b0849be1f94e901333f5e42d95f7fabe719969ba8ee2cda5cdf5d67a6",
+  "sections": [
+    {
+      "id": "PPB",
+      "title": "Professional Performance and Workplace Behavior",
+      "weight": 20
+    },
+    {
+      "id": "ARL",
+      "title": "AI Research, Learning, and Development",
+      "weight": 25
+    },
+    {
+      "id": "EED",
+      "title": "Engineering, Execution, and Documentation",
+      "weight": 30
+    },
+    {
+      "id": "PROJECT-CONTRIBUTION",
+      "title": "Project Contribution",
+      "weight": 25
+    }
+  ],
+  "employeeCriteria": [
+    {
+      "id": "PPB-01",
+      "title": "Responsibility and Reliability",
+      "sectionId": "PPB",
+      "internalWeight": 30,
+      "assessmentBasis": "Observation-Based + Outcome-Based + Project Records",
+      "definition": "Consistently owns assigned responsibilities, keeps work visible, follows through on commitments, raises blockers early, and protects continuity through clear handover and status management.",
+      "whyItMatters": "The pilot team works with high autonomy and limited task-level supervision. Reliable ownership is necessary for projects to continue without constant managerial intervention.",
+      "included": "Follow-through; timely status communication; early blocker escalation; realistic commitments; continuity during leave or reassignment; accountability for decisions within the employee’s responsibility window.",
+      "excluded": "Raw hours worked; always being available; accepting unreasonable workload; project outcomes controlled mainly by clients, data access, or external dependencies; technical quality assessed elsewhere.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Repeatedly leaves responsibilities unclear or unattended, misses commitments without early notice, and requires frequent intervention to restore visibility or continuity."
+        },
+        {
+          "rating": 2,
+          "text": "Shows partial ownership but follow-through, status clarity, or blocker escalation is inconsistent and sometimes causes avoidable delay or confusion."
+        },
+        {
+          "rating": 3,
+          "text": "Reliably owns assigned work, communicates status and blockers in time, follows through on commitments, and completes appropriate handovers."
+        },
+        {
+          "rating": 4,
+          "text": "Anticipates continuity risks, improves visibility for others, resolves ownership gaps early, and repeatedly makes delivery more dependable beyond their own tasks."
+        },
+        {
+          "rating": 5,
+          "text": "Creates a sustained standard of ownership that materially improves team reliability, prevents recurring operational failure, and strengthens continuity across multiple projects or workstreams."
+        }
+      ],
+      "evidenceGuidance": "Manager observation; Thursday check-ins; project/workstream status history; handovers; responsibility windows; delivery records; documented blocker escalation.",
+      "examples": [
+        "Rating 3: Keeps project status current, raises a data dependency before it blocks the team, and completes a usable handover before leave.",
+        "Rating 3: Revises an expected completion date with a clear reason and next step rather than allowing the date to become silently outdated.",
+        "Rating 4: Detects that ownership between two workstreams is unclear and coordinates a documented resolution before integration is affected.",
+        "Rating 5: Establishes a repeatable continuity practice that is adopted across the department and measurably reduces stalled or ownerless work.",
+        "Anti-example: Working late or responding instantly does not by itself demonstrate reliability if commitments, status, and handovers remain unclear."
+      ]
+    },
+    {
+      "id": "PPB-02",
+      "title": "Collaboration and Knowledge Sharing",
+      "sectionId": "PPB",
+      "internalWeight": 25,
+      "assessmentBasis": "Observation-Based + Peer/Project Records + Mixed",
+      "definition": "Contributes constructively to shared work, supports colleagues, represents contribution fairly, and transfers useful knowledge so the team can progress without unnecessary dependency on one person.",
+      "whyItMatters": "Projects and workstreams are collaborative, responsibilities may overlap, and knowledge must survive delegation, leave, and changing ownership.",
+      "included": "Practical support; constructive review; shared problem solving; fair attribution; knowledge transfer; usable explanations; participation in joint decisions.",
+      "excluded": "Popularity; sociability; being talkative; doing another employee’s work permanently; technical documentation quality assessed under EED-04.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Repeatedly withholds needed context, creates avoidable friction, misrepresents shared contribution, or makes collaboration materially harder."
+        },
+        {
+          "rating": 2,
+          "text": "Cooperates when directed but support, knowledge sharing, or contribution clarity is inconsistent and others often need to reconstruct missing context."
+        },
+        {
+          "rating": 3,
+          "text": "Works constructively with colleagues, shares relevant knowledge, supports joint work, and represents individual and team contributions fairly."
+        },
+        {
+          "rating": 4,
+          "text": "Proactively removes collaboration barriers, improves shared understanding, and repeatedly helps others become more capable or independent."
+        },
+        {
+          "rating": 5,
+          "text": "Creates sustained team-wide capability through exceptional knowledge transfer, fair collaboration practices, and reusable methods that materially improve collective performance."
+        }
+      ],
+      "evidenceGuidance": "Manager observation; shared updates; peer acknowledgment; review comments; handover quality; learning sessions; contribution records; reusable guides.",
+      "examples": [
+        "Rating 3: Reviews a colleague’s approach, explains a risk clearly, and records the joint decision without claiming sole credit.",
+        "Rating 3: Shares a tested setup or lesson that allows another contributor to continue the work.",
+        "Rating 4: Converts repeated individual questions into a reusable team guide and helps colleagues apply it.",
+        "Rating 5: Builds a sustained knowledge-sharing practice that reduces dependency on individuals across several projects.",
+        "Anti-example: Attending meetings or frequently commenting does not by itself demonstrate meaningful collaboration."
+      ]
+    },
+    {
+      "id": "PPB-03",
+      "title": "Communication and Professional Conduct",
+      "sectionId": "PPB",
+      "internalWeight": 20,
+      "assessmentBasis": "Observation-Based",
+      "definition": "Communicates work-relevant information clearly, respectfully, and at the appropriate time; handles disagreement and feedback professionally; and makes risks, decisions, and expectations understandable to relevant people.",
+      "whyItMatters": "The manager is not expected to direct every technical task, so clarity and professional exchange are essential for informed decisions and coordination.",
+      "included": "Clear explanation; timely communication; respectful disagreement; active listening; appropriate feedback; accurate representation of uncertainty and risk.",
+      "excluded": "Extroversion; friendliness as personality; smiling; avoiding all disagreement; presentation polish unrelated to work; durable technical documentation assessed under EED-04.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Communication is repeatedly unclear, late, disrespectful, or misleading, causing avoidable misunderstanding, conflict, or poor decisions."
+        },
+        {
+          "rating": 2,
+          "text": "Communicates basic information but clarity, timing, listening, or professional handling of disagreement is inconsistent in important situations."
+        },
+        {
+          "rating": 3,
+          "text": "Communicates clearly and respectfully, raises relevant information in time, listens to others, and handles feedback and disagreement professionally."
+        },
+        {
+          "rating": 4,
+          "text": "Adapts communication effectively to technical and non-technical audiences, surfaces difficult issues constructively, and repeatedly improves shared decisions."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional clarity and trust across complex situations, enabling difficult decisions, resolving recurring communication failure, and strengthening professional team norms."
+        }
+      ],
+      "evidenceGuidance": "Manager observation; meeting outcomes; decision records; stakeholder communication; discussion notes; feedback interactions.",
+      "examples": [
+        "Rating 3: Explains why a model result is preliminary and separates facts from assumptions before a decision is made.",
+        "Rating 3: Disagrees with an approach respectfully and provides a clear alternative.",
+        "Rating 4: Translates a complex technical risk into an actionable decision for a non-technical stakeholder.",
+        "Rating 5: Establishes a communication approach that materially improves alignment across the department and external stakeholders.",
+        "Anti-example: Being agreeable or avoiding conflict is not automatically strong professional communication."
+      ]
+    },
+    {
+      "id": "PPB-04",
+      "title": "Initiative and Adaptability",
+      "sectionId": "PPB",
+      "internalWeight": 25,
+      "assessmentBasis": "Observation-Based + Outcome-Based",
+      "definition": "Moves work forward without waiting for detailed technical instructions, identifies useful next steps, and adapts direction responsibly when priorities, evidence, or constraints change.",
+      "whyItMatters": "The department operates through broad product and POC direction rather than detailed task assignment, and AI technology changes rapidly.",
+      "included": "Self-directed next steps; useful proposals; responsible experimentation; adapting to new evidence; reprioritization; recovery from changed assumptions.",
+      "excluded": "Uncoordinated activity; changing direction without reason; research quality assessed in Section 2; solution quality assessed in Section 3.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Frequently waits for detailed direction, continues an unsuitable path despite clear signals, or initiates uncoordinated work that creates avoidable disruption."
+        },
+        {
+          "rating": 2,
+          "text": "Shows initiative in familiar situations but often needs prompting to define next steps or adapt when priorities and evidence change."
+        },
+        {
+          "rating": 3,
+          "text": "Independently identifies appropriate next steps, proposes useful options, and adapts responsibly to changing priorities or information."
+        },
+        {
+          "rating": 4,
+          "text": "Repeatedly anticipates useful opportunities or risks, redirects work with sound reasoning, and helps projects adapt faster without losing control."
+        },
+        {
+          "rating": 5,
+          "text": "Consistently turns ambiguity and change into high-value direction that materially improves multiple projects, team methods, or product opportunities."
+        }
+      ],
+      "evidenceGuidance": "Manager observation; proposed approaches; project decisions; priority changes; coaching history; project/workstream timelines.",
+      "examples": [
+        "Rating 3: Receives a broad POC objective, identifies the next research and implementation steps, and adjusts after early test results.",
+        "Rating 3: Changes a plan when a dependency fails and documents the reason and new path.",
+        "Rating 4: Anticipates a likely integration problem and validates an alternative before it blocks delivery.",
+        "Rating 5: Identifies and develops a new reusable product capability that becomes valuable across several client contexts.",
+        "Anti-example: Starting many ideas without finishing, validating, or coordinating them is not strong initiative."
+      ]
+    },
+    {
+      "id": "ARL-01",
+      "title": "Problem and Hypothesis Formulation",
+      "sectionId": "ARL",
+      "internalWeight": 20,
+      "assessmentBasis": "Artifact-Based + Mixed",
+      "definition": "Transforms an unclear need into a well-framed technical or research problem with explicit objectives, assumptions, constraints, and testable questions.",
+      "whyItMatters": "AI work often begins with ambiguous product or client direction. Poor framing produces wasted research, misleading experiments, and unsuitable solutions.",
+      "included": "Problem definition; user or business context; hypothesis; assumptions; constraints; success question; uncertainty identification.",
+      "excluded": "Full project success criteria; final architecture; experiment execution; generic restatement of a client request.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Regularly begins work without a clear problem, objective, or testable question, leading to irrelevant research or results that cannot support a decision."
+        },
+        {
+          "rating": 2,
+          "text": "Identifies the general problem but important assumptions, constraints, or hypotheses remain unclear and require substantial correction."
+        },
+        {
+          "rating": 3,
+          "text": "Frames the problem adequately, identifies relevant assumptions and constraints, and defines questions that can guide research or testing."
+        },
+        {
+          "rating": 4,
+          "text": "Repeatedly clarifies complex ambiguity, exposes hidden assumptions, and produces strong hypotheses that improve the efficiency and relevance of downstream work."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptionally clear and reusable problem-framing approaches that materially improve decisions across multiple projects or workstreams."
+        }
+      ],
+      "evidenceGuidance": "Project/workstream documents; research questions; hypothesis records; decision notes; experiment plans; clarification updates.",
+      "examples": [
+        "Rating 3: Defines whether memory personalization should improve retrieval relevance and identifies privacy and latency as constraints.",
+        "Rating 3: Separates a client’s desired outcome from an assumed technical solution before selecting models.",
+        "Rating 4: Detects that a weak OCR result is actually caused by image quality distribution and reframes the experiment accordingly.",
+        "Rating 5: Creates a reusable framing method that consistently prevents solution-first errors across the department.",
+        "Anti-example: Rewriting the project description in technical language is not sufficient if the uncertainty remains undefined."
+      ]
+    },
+    {
+      "id": "ARL-02",
+      "title": "Research Quality and Technical Exploration",
+      "sectionId": "ARL",
+      "internalWeight": 25,
+      "assessmentBasis": "Artifact-Based + Outcome-Based",
+      "definition": "Selects, studies, and compares relevant sources, tools, models, and approaches with sufficient depth and focus to inform the work.",
+      "whyItMatters": "Rapid AI change requires continuous exploration, but value comes from relevant and critical research rather than consuming large amounts of content.",
+      "included": "Source selection; relevance; breadth and depth; comparison; credibility; understanding limitations; targeted exploration.",
+      "excluded": "Number of papers, videos, repositories, or courses; experiment quality assessed under ARL-03; implementation assessed under Section 3.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Research is repeatedly superficial, poorly targeted, unreliable, or disconnected from the problem, leading to weak or misleading direction."
+        },
+        {
+          "rating": 2,
+          "text": "Finds relevant material but comparison, critical understanding, or focus is inconsistent and important alternatives or limitations are often missed."
+        },
+        {
+          "rating": 3,
+          "text": "Uses appropriate and credible sources, explores relevant alternatives, and extracts information that meaningfully informs the work."
+        },
+        {
+          "rating": 4,
+          "text": "Conducts focused, critical, and efficient exploration that repeatedly reveals important options, limitations, or opportunities others might miss."
+        },
+        {
+          "rating": 5,
+          "text": "Produces exceptional research synthesis that materially shifts product or technical direction and becomes a durable reference for multiple projects or the team."
+        }
+      ],
+      "evidenceGuidance": "Research notes; source lists; comparison documents; repository reviews; paper summaries; technical recommendations; applied learning records.",
+      "examples": [
+        "Rating 3: Compares several memory approaches using relevant project constraints and documents meaningful trade-offs.",
+        "Rating 3: Reviews a research paper and an implementation repository, identifying where the published assumptions do not match the current data.",
+        "Rating 4: Finds an alternative model or method that materially reduces cost or operational complexity after a focused comparison.",
+        "Rating 5: Creates a research synthesis that becomes the department’s reference and informs several product decisions.",
+        "Anti-example: Listing many links or completing a course does not demonstrate research quality without understanding and relevance."
+      ]
+    },
+    {
+      "id": "ARL-03",
+      "title": "Experiment and Evaluation Design",
+      "sectionId": "ARL",
+      "internalWeight": 25,
+      "assessmentBasis": "Artifact-Based + Outcome-Based",
+      "definition": "Designs fair, reproducible, and decision-relevant experiments with suitable baselines, test cases, measures, controls, and documented conditions.",
+      "whyItMatters": "AI results are easy to overstate when comparisons are inconsistent, samples are weak, or metrics do not match the real use case.",
+      "included": "Baseline; test set; metric choice; qualitative and quantitative evaluation; reproducibility; controls; failure cases; evaluation plan.",
+      "excluded": "Final production reliability; implementation quality; merely running a model; client acceptance unless included in dynamic criteria.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Experiments repeatedly lack valid comparison, appropriate measures, or documented conditions, making results unreliable or unusable for decisions."
+        },
+        {
+          "rating": 2,
+          "text": "Runs useful tests but design quality is inconsistent; baselines, samples, metrics, or controls are incomplete in important cases."
+        },
+        {
+          "rating": 3,
+          "text": "Designs appropriate experiments with clear baselines, measures, test conditions, and enough documentation to support a practical decision."
+        },
+        {
+          "rating": 4,
+          "text": "Repeatedly builds robust evaluations that expose limitations, reduce false conclusions, and improve confidence in difficult technical choices."
+        },
+        {
+          "rating": 5,
+          "text": "Establishes exceptional, reusable evaluation methods that materially raise the quality and reliability of experimentation across the department."
+        }
+      ],
+      "evidenceGuidance": "Experiment plans; benchmarks; test datasets; baseline results; evaluation tables; failure analysis; reproducibility instructions.",
+      "examples": [
+        "Rating 3: Compares two OCR models on the same representative sample with speed and accuracy measures.",
+        "Rating 3: Defines a baseline and test cases before evaluating an agent-memory approach.",
+        "Rating 4: Adds failure-case categories and confidence analysis that change the recommended solution.",
+        "Rating 5: Builds a reusable evaluation framework adopted across multiple AI products.",
+        "Anti-example: Showing one successful demo or cherry-picked output is not a sound experiment."
+      ]
+    },
+    {
+      "id": "ARL-04",
+      "title": "Insight, Decision-Making, and Applied Learning",
+      "sectionId": "ARL",
+      "internalWeight": 30,
+      "assessmentBasis": "Outcome-Based + Mixed",
+      "definition": "Interprets research and experimental results accurately, converts them into justified decisions or practical improvements, and transfers useful learning when appropriate.",
+      "whyItMatters": "Research and learning create value only when they improve understanding, choices, work methods, products, or team capability.",
+      "included": "Interpretation; conclusion; decision rationale; learning application; rejected-path value; knowledge transfer; uncertainty communication.",
+      "excluded": "Raw research volume; architecture execution; project outcome itself; confident claims unsupported by results.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Frequently draws unsupported conclusions, fails to extract usable learning, or repeats unproductive paths without adapting decisions."
+        },
+        {
+          "rating": 2,
+          "text": "Identifies basic lessons but conclusions, application, or decision rationale is inconsistent and often needs significant guidance."
+        },
+        {
+          "rating": 3,
+          "text": "Interprets results appropriately, records practical conclusions, applies learning to decisions or work, and shares relevant knowledge."
+        },
+        {
+          "rating": 4,
+          "text": "Repeatedly converts ambiguous or failed results into high-value decisions, improvements, and transferable learning beyond the immediate task."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional, sustained decision quality and reusable insight that materially changes products, methods, or team capability across multiple contexts."
+        }
+      ],
+      "evidenceGuidance": "Decision records; recommendations; applied changes; lessons learned; rejected-option rationale; knowledge sessions; coaching insights.",
+      "examples": [
+        "Rating 3: Concludes that a model is unsuitable for weak images, records why, and chooses a better next experiment.",
+        "Rating 3: Applies learning from a course to improve an actual workflow and documents the effect.",
+        "Rating 4: Uses a failed POC to identify a reusable constraint that prevents repeated waste in later projects.",
+        "Rating 5: Produces insight that changes the department’s product strategy or operating method across several projects.",
+        "Anti-example: Stating that something 'worked' or 'did not work' without interpreting why is not applied learning."
+      ]
+    },
+    {
+      "id": "EED-01",
+      "title": "Solution Design and Technical Judgment",
+      "sectionId": "EED",
+      "internalWeight": 25,
+      "assessmentBasis": "Artifact-Based + Outcome-Based + Mixed",
+      "definition": "Selects and structures a solution appropriate to the problem, constraints, risk, and expected future use, with clear boundaries, dependencies, and justified trade-offs.",
+      "whyItMatters": "AI-assisted development makes code generation easier, but sound architecture and technical judgment remain essential.",
+      "included": "Architecture; component boundaries; technology selection; simplicity; modularity; risk trade-offs; dependency design; technical decision rationale.",
+      "excluded": "Research depth; experiment method; code volume; final project success; theoretical complexity not required by the use case.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Frequently selects unsuitable or unnecessarily complex designs, overlooks major dependencies or constraints, and requires substantial redesign."
+        },
+        {
+          "rating": 2,
+          "text": "Produces workable designs in simple cases but important trade-offs, boundaries, or future implications are inconsistently handled."
+        },
+        {
+          "rating": 3,
+          "text": "Designs solutions appropriate to the problem, explains key choices, manages dependencies, and balances simplicity with maintainability."
+        },
+        {
+          "rating": 4,
+          "text": "Repeatedly makes strong technical judgments in complex contexts, avoids unnecessary complexity, and improves architecture beyond immediate requirements."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional design direction or reusable architecture that materially improves multiple products, reliability, or future development capability."
+        }
+      ],
+      "evidenceGuidance": "Architecture diagrams; technical decision records; project/workstream documents; design reviews; dependency maps; implementation outcomes.",
+      "examples": [
+        "Rating 3: Chooses a simple modular workflow that fits the POC while leaving clear extension points.",
+        "Rating 3: Documents why a local or external model is suitable for the project’s constraints.",
+        "Rating 4: Simplifies an overengineered design while preserving future maintainability and reducing operational risk.",
+        "Rating 5: Creates a reusable architecture pattern adopted across multiple products.",
+        "Anti-example: Using more services, frameworks, or agents does not automatically demonstrate better design."
+      ]
+    },
+    {
+      "id": "EED-02",
+      "title": "Execution Quality and Oversight of Agent Outputs",
+      "sectionId": "EED",
+      "internalWeight": 30,
+      "assessmentBasis": "Artifact-Based + Outcome-Based",
+      "definition": "Turns approved direction into correct, maintainable work and actively reviews, tests, and improves outputs produced manually or by AI coding agents.",
+      "whyItMatters": "The team relies heavily on coding agents. Professional quality depends on direction, review, correction, and ownership—not on who typed the code.",
+      "included": "Implementation correctness; maintainability; code and configuration organization; agent prompting and control; review; error detection; iterative correction; responsibility for output.",
+      "excluded": "Commit count; manual coding speed; tool preference; experimentation quality; final integration reliability assessed under EED-03.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Frequently accepts incorrect or unsuitable outputs, produces fragile work, or cannot explain and take responsibility for what was implemented."
+        },
+        {
+          "rating": 2,
+          "text": "Produces usable work but review, correction, maintainability, or agent oversight is inconsistent and recurring defects require substantial support."
+        },
+        {
+          "rating": 3,
+          "text": "Implements correctly, reviews agent outputs, understands the solution, corrects issues, and leaves work maintainable for its intended context."
+        },
+        {
+          "rating": 4,
+          "text": "Repeatedly delivers high-quality execution, catches subtle agent or implementation errors, and improves methods that increase speed without sacrificing control."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional execution practices or reusable agent-assisted methods that materially improve quality and delivery capability across the team."
+        }
+      ],
+      "evidenceGuidance": "Code and configuration; PRs; reviews; defect history; agent-generated changes with correction records; implementation demos; maintainability outcomes.",
+      "examples": [
+        "Rating 3: Uses Codex to build a feature, reviews the code, corrects unsafe assumptions, tests it, and can explain the implementation.",
+        "Rating 3: Refactors an agent-generated component to match project architecture and maintainability needs.",
+        "Rating 4: Detects a subtle data or security issue in generated output and improves the review method for future work.",
+        "Rating 5: Develops a reusable agent-assisted engineering workflow that materially improves quality across the department.",
+        "Anti-example: Generating a large amount of code quickly is not strong execution if the employee cannot validate or maintain it."
+      ]
+    },
+    {
+      "id": "EED-03",
+      "title": "Testing, Reliability, and Integration",
+      "sectionId": "EED",
+      "internalWeight": 25,
+      "assessmentBasis": "Artifact-Based + Outcome-Based",
+      "definition": "Verifies that components work as intended, handles relevant failure conditions, and integrates them reliably with the surrounding system or delivery environment.",
+      "whyItMatters": "A successful isolated demo is not sufficient for a dependable POC, client solution, or product.",
+      "included": "Functional tests; integration tests; failure cases; observability; error handling; environment readiness; reproducible operation; integration validation.",
+      "excluded": "Research experiment methodology; general code quality; client acceptance criteria unless dynamically assigned; perfection or zero-defect expectation.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Frequently delivers unverified or poorly integrated work, overlooks basic failure conditions, and causes repeated instability or unusable results."
+        },
+        {
+          "rating": 2,
+          "text": "Performs basic testing but coverage of important integration, reliability, or failure scenarios is inconsistent and issues are often discovered late."
+        },
+        {
+          "rating": 3,
+          "text": "Tests relevant behavior, verifies integration, handles expected failure conditions, and delivers a suitably reliable result for the project stage."
+        },
+        {
+          "rating": 4,
+          "text": "Repeatedly anticipates difficult integration and reliability risks, improves validation depth, and prevents issues that would materially affect use or delivery."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional, reusable reliability or integration practices that materially improve several products or the department’s delivery confidence."
+        }
+      ],
+      "evidenceGuidance": "Test results; CI logs; integration demos; error-handling records; deployment checks; bug and resolution history; monitoring outputs.",
+      "examples": [
+        "Rating 3: Tests normal and expected failure paths and validates the component against the actual integration interface.",
+        "Rating 3: Documents and verifies environment requirements so another employee can reproduce the result.",
+        "Rating 4: Builds automated integration checks that prevent repeated regressions across workstreams.",
+        "Rating 5: Establishes a reusable testing or reliability framework adopted across multiple products.",
+        "Anti-example: A demo that succeeds once in a controlled environment is not sufficient evidence of reliability."
+      ]
+    },
+    {
+      "id": "EED-04",
+      "title": "Documentation and Reproducibility",
+      "sectionId": "EED",
+      "internalWeight": 20,
+      "assessmentBasis": "Artifact-Based + Mixed",
+      "definition": "Maintains durable, accurate, and usable documentation that allows others to understand decisions, operate the work, reproduce important results, and continue development.",
+      "whyItMatters": "The system depends on continuity, delegation, shared ownership, and AI-assisted work that must remain understandable beyond the original contributor.",
+      "included": "Project/workstream documents; setup and operation; architecture; decision rationale; experiment reproduction; update quality as a sustained practice; handover usability.",
+      "excluded": "A single update completeness score; writing volume; polished formatting without usable content; communication in meetings.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Documentation is repeatedly absent, outdated, or unusable, leaving key work dependent on the employee’s memory and making continuation or reproduction difficult."
+        },
+        {
+          "rating": 2,
+          "text": "Documents basic information but important decisions, operation steps, or current state are inconsistently maintained and others often need clarification."
+        },
+        {
+          "rating": 3,
+          "text": "Maintains documentation that accurately supports understanding, operation, reproduction, and continuation of assigned work."
+        },
+        {
+          "rating": 4,
+          "text": "Repeatedly creates clear, efficient, and reusable documentation that reduces dependency, improves onboarding, and strengthens project continuity."
+        },
+        {
+          "rating": 5,
+          "text": "Establishes exceptional documentation and reproducibility practices that materially improve knowledge continuity across multiple projects or the department."
+        }
+      ],
+      "evidenceGuidance": "Project/workstream documents; setup guides; architecture diagrams; decision records; handovers; reproducibility results; document version history.",
+      "examples": [
+        "Rating 3: Keeps the Workstream document current and provides enough setup and decision context for a delegate to continue.",
+        "Rating 3: Records why a model was rejected and how the benchmark can be rerun.",
+        "Rating 4: Converts fragmented project knowledge into a concise reusable structure that materially reduces handover time.",
+        "Rating 5: Creates a documentation approach adopted across the department and measurably improves continuity and reproducibility.",
+        "Anti-example: A high Documentation Readiness percentage on several updates does not automatically justify a high performance rating."
+      ]
+    }
+  ],
+  "projectContribution": {
+    "id": "PROJECT-CONTRIBUTION",
+    "title": "Project Contribution",
+    "sectionId": "PROJECT-CONTRIBUTION",
+    "sectionWeight": 25,
+    "purpose": "Project Contribution evaluates what the employee actually contributed within the context of active projects and workstreams.",
+    "anchors": [
+      {
+        "rating": 1,
+        "text": "Contribution is repeatedly unclear, substantially incomplete, or below the agreed project/workstream expectations within the employee’s responsibility periods."
+      },
+      {
+        "rating": 2,
+        "text": "Some meaningful contribution exists, but important agreed expectations, ownership responsibilities, or delivery quality are inconsistent or require substantial support."
+      },
+      {
+        "rating": 3,
+        "text": "Consistently makes the expected contribution across assigned projects and workstreams, appropriately meeting active criteria within the actual context and responsibility period."
+      },
+      {
+        "rating": 4,
+        "text": "Repeatedly contributes beyond agreed expectations through strong ownership, high-value decisions, difficult problem resolution, or additional impact across assigned work."
+      },
+      {
+        "rating": 5,
+        "text": "Creates exceptional, sustained project impact that materially advances products, clients, reusable capabilities, or department methods beyond normal expectations."
+      }
+    ],
+    "prohibitedInputs": [
+      "Number of projects.",
+      "Average project scores.",
+      "Average workstream scores.",
+      "Number of dynamic criteria.",
+      "Number of updates.",
+      "Evidence count.",
+      "Commit count."
+    ],
+    "requiredContextReview": [
+      "Employee responsibility periods.",
+      "Agreed project and workstream criteria active during those periods.",
+      "Work completed individually and collectively.",
+      "Actual employee control over outcomes.",
+      "External and organizational blockers.",
+      "Approved leave and delegation.",
+      "Project stage: research, POC, product, integration, or delivery.",
+      "Attribution status.",
+      "Material decisions and results.",
+      "Whether the employee created durable value beyond visible output."
+    ],
+    "examples": [
+      "Rating 3: Reliably fulfills the expected contribution across assigned workstreams, meets the active criteria, and maintains clear responsibility and evidence.",
+      "Rating 4: Repeatedly exceeds agreed expectations through difficult problem resolution, strong ownership, integration impact, or valuable decisions beyond normal delivery.",
+      "Rating 5: Creates sustained project impact that materially advances products, reusable capability, major client outcomes, or department methods across more than one context.",
+      "Anti-example: Completing many small POCs does not automatically justify a higher rating than making a strong contribution to one long-term product.",
+      "Anti-example: Being Primary Owner does not automatically justify more credit than Contributors."
+    ]
+  },
+  "managerCriteria": [
+    {
+      "id": "MGR-01",
+      "title": "Direction and Priority Clarity",
+      "definition": "Provides understandable direction, translates wider goals into useful priorities, and helps the team distinguish what matters now from what can wait.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Direction and priorities are repeatedly unclear or contradictory, causing substantial confusion, rework, or unmanaged switching."
+        },
+        {
+          "rating": 2,
+          "text": "Provides some direction, but priorities or expectations are often unclear, late, or changed without enough context."
+        },
+        {
+          "rating": 3,
+          "text": "Usually provides clear direction and priorities, explains material changes, and helps the team understand expected outcomes."
+        },
+        {
+          "rating": 4,
+          "text": "Consistently creates strong clarity in ambiguous situations, aligns competing priorities, and reduces avoidable rework."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional strategic clarity that materially improves team focus, product direction, and decision quality over time."
+        }
+      ],
+      "commentPrompt": "What repeated management behavior helped or reduced clarity and focus? Give a specific work-related example when useful."
+    },
+    {
+      "id": "MGR-02",
+      "title": "Support, Barrier Removal, and Team Protection",
+      "definition": "Enables employees to work effectively by removing organizational blockers, obtaining needed decisions or access, and protecting the team from avoidable disruption.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Regularly leaves major barriers unresolved, adds avoidable disruption, or fails to support the team in critical situations."
+        },
+        {
+          "rating": 2,
+          "text": "Provides support inconsistently; important blockers often remain too long or escalation occurs only after significant impact."
+        },
+        {
+          "rating": 3,
+          "text": "Provides appropriate support, escalates meaningful blockers, and protects the team from unnecessary operational disruption."
+        },
+        {
+          "rating": 4,
+          "text": "Anticipates and removes significant barriers early, manages stakeholders effectively, and repeatedly improves team operating conditions."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional organizational leverage that materially increases the team’s ability to deliver, experiment, and sustain high-quality work."
+        }
+      ],
+      "commentPrompt": "What repeated behavior helped remove or created barriers for the team? Explain the effect on your work or the team."
+    },
+    {
+      "id": "MGR-03",
+      "title": "Communication, Listening, and Psychological Safety",
+      "definition": "Communicates openly, listens seriously, invites professional disagreement, and maintains an environment where employees can raise risk, failure, uncertainty, and concerns without inappropriate retaliation.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Communication discourages honesty or disagreement, important concerns are dismissed, or employees reasonably fear negative consequences for speaking openly."
+        },
+        {
+          "rating": 2,
+          "text": "Listens and communicates in routine situations but reacts inconsistently to challenge, failure, or difficult feedback."
+        },
+        {
+          "rating": 3,
+          "text": "Communicates respectfully, listens to concerns, accepts professional disagreement, and allows employees to discuss mistakes and uncertainty."
+        },
+        {
+          "rating": 4,
+          "text": "Actively creates trust, responds constructively to difficult feedback, and repeatedly improves the quality and openness of team discussion."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional psychological safety and honest dialogue that materially improves learning, risk detection, and team decision-making."
+        }
+      ],
+      "commentPrompt": "How safe and useful is communication with the manager over time? Explain what behavior should continue or change."
+    },
+    {
+      "id": "MGR-04",
+      "title": "Delegation, Fairness, and Recognition",
+      "definition": "Delegates with appropriate trust, applies expectations fairly, gives credit accurately, and avoids unnecessary micromanagement.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Delegation, recognition, or treatment is repeatedly unfair, controlling, or inconsistent, materially damaging trust or ownership."
+        },
+        {
+          "rating": 2,
+          "text": "Delegates or recognizes contribution inconsistently; expectations or treatment sometimes appear unclear or uneven."
+        },
+        {
+          "rating": 3,
+          "text": "Delegates appropriately, treats employees fairly, recognizes meaningful contribution, and avoids unnecessary control."
+        },
+        {
+          "rating": 4,
+          "text": "Consistently strengthens ownership through trust, fair decisions, and accurate recognition while maintaining needed accountability."
+        },
+        {
+          "rating": 5,
+          "text": "Creates an exceptional culture of trust, fairness, and ownership that materially improves initiative, retention of knowledge, and team performance."
+        }
+      ],
+      "commentPrompt": "What repeated behavior affected trust, fairness, delegation, or recognition? Give the context needed to understand your rating."
+    },
+    {
+      "id": "MGR-05",
+      "title": "Feedback, Development, and Innovation Support",
+      "definition": "Provides useful feedback, supports employee growth, and creates room for research, experimentation, learning, and responsible innovation.",
+      "anchors": [
+        {
+          "rating": 1,
+          "text": "Rarely provides useful feedback or development support and repeatedly discourages learning, experimentation, or employee growth."
+        },
+        {
+          "rating": 2,
+          "text": "Provides occasional feedback and support, but it is often late, general, or disconnected from practical development."
+        },
+        {
+          "rating": 3,
+          "text": "Provides timely, useful feedback, supports reasonable development actions, and allows responsible research and experimentation."
+        },
+        {
+          "rating": 4,
+          "text": "Consistently coaches employees, connects development to real work, and creates strong conditions for learning and innovation."
+        },
+        {
+          "rating": 5,
+          "text": "Creates exceptional sustained growth and innovation capability, materially raising employee development and the department’s ability to learn and adapt."
+        }
+      ],
+      "commentPrompt": "What repeated behavior supported or limited feedback, growth, learning, or innovation? Explain what would improve the experience."
+    }
+  ],
+  "biasGuidance": [
+    "Recency bias | Recent work dominates the rating | What pattern appears across the full period?",
+    "Halo effect | One strength raises all ratings | What independent evidence supports this criterion?",
+    "Horn effect | One weakness lowers unrelated ratings | Is this behavior relevant to this criterion?",
+    "Visibility bias | Client-facing or vocal work appears more valuable | What less visible work created equivalent or greater value?",
+    "Similarity bias | Manager favors employees with similar style | Would the rating change if the same result came from a different personality?",
+    "Extroversion bias | Sociability is mistaken for collaboration | What observable team contribution occurred?",
+    "Project prestige bias | Large client project is rated above internal product work | What was the employee’s actual responsibility and impact?",
+    "Outcome bias | Final success hides poor method, or failure hides strong method | What was within the employee’s control and how sound was the process?",
+    "AI fluency bias | Fast agent use is mistaken for engineering quality | Did the employee direct, review, validate, and own the output?",
+    "Effort-impact confusion | Long hours are mistaken for effectiveness | What useful outcome, learning, or risk reduction resulted?",
+    "Team-credit inflation | Whole project success is copied to every member | What did this employee contribute during their responsibility period?",
+    "Leave bias | Approved absence reduces perceived reliability | Was the responsibility properly handed over and excluded from the period?",
+    "Documentation-volume bias | More records imply better performance | Does the documentation create clarity, continuity, or reproducibility?",
+    "One-incident bias | One mistake defines the rating | Is this a repeated pattern or an isolated event?",
+    "Self-promotion bias | Strong narration receives more credit | What do the records, outcomes, and observed behavior support?"
+  ]
+}

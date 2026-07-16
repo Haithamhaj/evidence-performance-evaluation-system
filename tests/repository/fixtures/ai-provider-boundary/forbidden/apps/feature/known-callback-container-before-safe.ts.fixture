@@ -1,0 +1,5 @@
+let providerPackage = "openai";
+const execute = () => import(providerPackage);
+
+[1].forEach(execute);
+providerPackage = "./safe-local-module";

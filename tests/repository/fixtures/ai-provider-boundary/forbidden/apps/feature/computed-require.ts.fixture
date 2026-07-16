@@ -1,0 +1,3 @@
+const providerPackage = ["@anthropic-ai", "sdk"].join("/");
+
+export const providerModule = require(providerPackage);

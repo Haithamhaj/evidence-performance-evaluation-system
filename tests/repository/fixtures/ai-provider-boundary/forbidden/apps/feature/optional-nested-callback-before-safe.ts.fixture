@@ -1,0 +1,6 @@
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+const callbackName = "execute";
+const callbacks = [{ execute: () => fetch(providerBaseUrl) }];
+
+void callbacks[0]?.[callbackName]?.();
+providerBaseUrl = "https://example.test/health";

@@ -1,0 +1,6 @@
+let providerEnvironment = "/health";
+providerEnvironment = process.env.MODEL_PROVIDER_URL;
+let providerUrl = "/health";
+providerUrl = providerEnvironment;
+
+export const response = fetch(providerUrl);

@@ -1,0 +1,7 @@
+declare const provider: { generate(): string };
+const local = { generate: () => "local" };
+
+let alias = local;
+alias = provider;
+
+export const result = alias.generate();

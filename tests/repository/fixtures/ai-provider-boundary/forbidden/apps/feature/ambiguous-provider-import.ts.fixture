@@ -1,0 +1,8 @@
+let providerPackage = "openai";
+try {
+  providerPackage = "./local-module";
+} catch {
+  // A failed write cannot erase the known provider package.
+}
+
+export const imported = import(providerPackage);

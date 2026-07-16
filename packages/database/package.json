@@ -1,0 +1,30 @@
+{
+  "name": "@evaluation/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "db:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "lint": "eslint src --ignore-pattern src/generated",
+    "prisma": "prisma",
+    "test": "vitest run",
+    "test:integration": "prisma generate && vitest run --root ../.. packages/database/src/client.integration.test.ts packages/database/src/seed-pilot.integration.test.ts",
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "pg": "8.22.0"
+  },
+  "devDependencies": {
+    "dotenv": "17.4.2",
+    "prisma": "7.8.0"
+  }
+}

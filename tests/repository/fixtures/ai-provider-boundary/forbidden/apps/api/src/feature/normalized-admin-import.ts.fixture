@@ -1,0 +1,3 @@
+import { createAiGovernanceComposition } from "../ai-routing/./admin-composition.js";
+
+export const bypass = createAiGovernanceComposition;

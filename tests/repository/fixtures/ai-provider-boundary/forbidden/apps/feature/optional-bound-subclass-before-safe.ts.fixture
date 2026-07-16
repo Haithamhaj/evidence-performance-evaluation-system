@@ -1,0 +1,22 @@
+let method = "generate";
+const opaque = {} as Record<string, () => unknown>;
+
+class BaseRunner {
+  execute() {
+    return this.helper();
+  }
+
+  helper() {
+    return Promise.resolve();
+  }
+}
+
+class DerivedRunner extends BaseRunner {
+  helper() {
+    return opaque[method]();
+  }
+}
+
+const bound = BaseRunner.prototype.execute.bind(new DerivedRunner());
+bound?.();
+method = "health";

@@ -1,0 +1,8 @@
+let method = "safe";
+const client = {} as Record<string, () => void>;
+const callbacks = { handler: () => undefined };
+
+callbacks.handler = () => client[method]();
+method = "generate";
+callbacks.handler();
+method = "safe";

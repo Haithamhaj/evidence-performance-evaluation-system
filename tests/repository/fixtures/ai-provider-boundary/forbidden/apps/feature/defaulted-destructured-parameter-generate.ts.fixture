@@ -1,0 +1,7 @@
+declare const provider: { generate(input: unknown): unknown };
+
+export function execute(
+  { generate } = provider,
+) {
+  return generate({ protected: true });
+}

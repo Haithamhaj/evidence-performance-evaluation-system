@@ -1,0 +1,12 @@
+let method = "generate";
+const opaque = {} as Record<string, () => unknown>;
+const define = Object.defineProperty;
+
+define.call(Object, Object, "freeze", {
+  value: (value: unknown) => {
+    (value as { handler: () => unknown }).handler();
+    return value;
+  },
+});
+Object.freeze({ handler: () => opaque[method]() });
+method = "health";

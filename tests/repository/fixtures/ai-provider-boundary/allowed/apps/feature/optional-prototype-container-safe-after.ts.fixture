@@ -1,0 +1,55 @@
+import { SetMetadata } from "@nestjs/common";
+
+let method = "generate";
+let providerPackage = "openai";
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+const opaque = {} as Record<string, () => unknown>;
+
+const execute = () => opaque[method]();
+const optionalCallbacks = { execute: () => import(providerPackage) };
+class Runner {
+  execute() {
+    return fetch(providerBaseUrl);
+  }
+  static execute() {
+    return import(providerPackage);
+  }
+}
+const prototypeExecute = Runner.prototype.execute;
+const instanceExecute = new Runner().execute;
+const staticExecute = Runner.execute;
+
+class MutableRunner {}
+MutableRunner.prototype.execute = () => import(providerPackage);
+MutableRunner.prototype.execute = () => Promise.resolve();
+const mutablePrototypeExecute = MutableRunner.prototype.execute;
+
+const freeze = Object.freeze;
+const retainMetadata = SetMetadata;
+let reassignedFreeze: typeof Object.freeze = (_value) => _value;
+reassignedFreeze = Object.freeze;
+let reassignedMetadata: typeof SetMetadata = (_key, _value) => () => undefined;
+reassignedMetadata = SetMetadata;
+const frozen = freeze({ handler: () => import(providerPackage) });
+const metadata = retainMetadata("evaluation:handler", {
+  nested: { handler: () => fetch(providerBaseUrl) },
+});
+const reassignedFrozen = reassignedFreeze({ handler: () => import(providerPackage) });
+const reassignedMetadataValue = reassignedMetadata("evaluation:handler", {
+  handler: () => fetch(providerBaseUrl),
+});
+
+method = "health";
+providerPackage = "./safe-local-module";
+providerBaseUrl = "https://example.test/health";
+
+execute?.();
+void optionalCallbacks.execute?.();
+void prototypeExecute();
+void instanceExecute();
+void staticExecute();
+void mutablePrototypeExecute();
+void frozen;
+void metadata;
+void reassignedFrozen;
+void reassignedMetadataValue;

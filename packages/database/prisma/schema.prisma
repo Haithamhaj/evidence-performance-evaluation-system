@@ -1,0 +1,554 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SystemMetadata {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model User {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  pilotKey                String?                  @unique
+  email                   String                   @unique
+  displayName             String
+  active                  Boolean                  @default(true)
+  identities              OidcIdentity[]
+  roleAssignments         RoleAssignment[]
+  aiRouteConfigs          AiRouteConfig[]
+  aiProviderConfigs       AiProviderConfig[]
+  aiTrustPolicies         AiLocalTrustPolicy[]
+  aiSchemaArtifacts       AiOutputSchemaArtifact[]
+  managedEvaluationCycles EvaluationCycle[]        @relation("EvaluationCycleManager")
+  eligibilityEntries      EligibilityEntry[]       @relation("EligibilityEmployee")
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime                 @updatedAt @db.Timestamptz(6)
+}
+
+model OidcIdentity {
+  id        String   @id @default(uuid()) @db.Uuid
+  issuer    String
+  subject   String
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([issuer, subject])
+  @@index([userId])
+}
+
+enum Role {
+  employee
+  manager
+  system_administrator
+  project_owner
+  workstream_owner
+  contributor
+  acting_owner
+}
+
+enum ScopeType {
+  system
+  organization
+  department
+  project
+  workstream
+}
+
+model Organization {
+  id             String          @id @default(uuid()) @db.Uuid
+  key            String          @unique
+  name           String
+  departments    Department[]
+  operations     Operation[]
+  rubricVersions RubricVersion[]
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+}
+
+enum OperationStatus {
+  pending
+  running
+  succeeded
+  failed
+}
+
+model Operation {
+  id              String                   @id @db.Uuid
+  organizationId  String                   @db.Uuid
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  jobType         String
+  jobVersion      Int
+  idempotencyKey  String                   @unique
+  correlationId   String                   @db.Uuid
+  payloadHash     String
+  status          OperationStatus          @default(pending)
+  attemptCount    Int                      @default(0)
+  errorCode       String?
+  resultReference String?
+  startedAt       DateTime?                @db.Timestamptz(6)
+  completedAt     DateTime?                @db.Timestamptz(6)
+  createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime                 @updatedAt @db.Timestamptz(6)
+  effectReceipts  OperationEffectReceipt[]
+
+  @@index([organizationId, status, createdAt])
+  @@index([jobType, jobVersion, status, createdAt])
+  @@index([status, createdAt])
+  @@index([correlationId])
+}
+
+model OperationEffectReceipt {
+  id               String    @id @default(uuid()) @db.Uuid
+  operationId      String    @db.Uuid
+  operation        Operation @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  effectName       String
+  idempotencyKey   String    @unique
+  receiptReference String
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([operationId, effectName])
+  @@index([operationId, createdAt])
+}
+
+model Department {
+  id                  String               @id @default(uuid()) @db.Uuid
+  key                 String               @unique
+  name                String
+  organizationId      String               @db.Uuid
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  authorizationScopes AuthorizationScope[]
+  evaluationCycles    EvaluationCycle[]
+  createdAt           DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId])
+}
+
+enum FeedbackVisibilityMode {
+  identified
+  manager_blinded
+  anonymous_aggregated
+}
+
+enum EligibilityState {
+  active
+  excluded
+  approved_leave
+  pending
+}
+
+model EvaluationCycle {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  departmentId       String                 @db.Uuid
+  department         Department             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  managerId          String                 @db.Uuid
+  manager            User                   @relation("EvaluationCycleManager", fields: [managerId], references: [id], onDelete: Restrict)
+  version            Int
+  visibilityMode     FeedbackVisibilityMode
+  sourceReason       String
+  effectiveFrom      DateTime               @db.Timestamptz(6)
+  effectiveTo        DateTime               @db.Timestamptz(6)
+  openedAt           DateTime?              @db.Timestamptz(6)
+  closedAt           DateTime?              @db.Timestamptz(6)
+  snapshot           EligibilitySnapshot?
+  eligibilityEntries EligibilityEntry[]
+  createdAt          DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([departmentId, version])
+  @@index([managerId, openedAt])
+  @@index([departmentId, openedAt])
+}
+
+model EligibilitySnapshot {
+  id             String                 @id @default(uuid()) @db.Uuid
+  cycleId        String                 @unique @db.Uuid
+  cycle          EvaluationCycle        @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  version        Int
+  visibilityMode FeedbackVisibilityMode
+  sourceReason   String
+  effectiveFrom  DateTime               @db.Timestamptz(6)
+  effectiveTo    DateTime               @db.Timestamptz(6)
+  entries        EligibilityEntry[]
+  createdAt      DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, cycleId])
+}
+
+model EligibilityEntry {
+  id            String              @id @default(uuid()) @db.Uuid
+  cycleId       String              @db.Uuid
+  cycle         EvaluationCycle     @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  snapshotId    String              @db.Uuid
+  snapshot      EligibilitySnapshot @relation(fields: [snapshotId, cycleId], references: [id, cycleId], onDelete: Restrict)
+  employeeId    String              @db.Uuid
+  employee      User                @relation("EligibilityEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  position      Int
+  version       Int                 @default(1)
+  state         EligibilityState
+  sourceReason  String
+  effectiveFrom DateTime            @db.Timestamptz(6)
+  effectiveTo   DateTime            @db.Timestamptz(6)
+  submittedAt   DateTime?           @db.Timestamptz(6)
+  createdAt     DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(6)
+
+  @@unique([cycleId, employeeId])
+  @@unique([snapshotId, position])
+  @@index([employeeId, cycleId])
+  @@index([cycleId, state])
+}
+
+model AuthorizationScope {
+  id                    String           @id @default(uuid()) @db.Uuid
+  key                   String           @unique
+  scopeType             ScopeType
+  departmentId          String?          @db.Uuid
+  department            Department?      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  roleAssignments       RoleAssignment[]
+  aiRoutes              AiRoute[]
+  aiRunProjectScopes    AiRun[]          @relation("AiRunProjectScope")
+  aiRunDepartmentScopes AiRun[]          @relation("AiRunDepartmentScope")
+  createdAt             DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime         @updatedAt @db.Timestamptz(6)
+
+  @@unique([id, scopeType])
+  @@index([departmentId])
+}
+
+model RoleAssignment {
+  id        String             @id @default(uuid()) @db.Uuid
+  userId    String             @db.Uuid
+  user      User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role      Role
+  scopeType ScopeType
+  scopeId   String             @db.Uuid
+  scope     AuthorizationScope @relation(fields: [scopeId, scopeType], references: [id, scopeType], onDelete: Restrict)
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
+
+  @@unique([userId, role, scopeType, scopeId])
+  @@index([userId])
+  @@index([scopeType, scopeId])
+}
+
+model AuditEvent {
+  id                 String   @id @default(uuid()) @db.Uuid
+  eventType          String
+  actorKind          String
+  actorId            String
+  effectiveSubjectId String   @db.Uuid
+  scopeType          String
+  scopeId            String   @db.Uuid
+  targetType         String
+  targetId           String   @db.Uuid
+  reason             String?
+  safeDiff           Json?
+  correlationId      String   @db.Uuid
+  source             String
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([eventType, createdAt, id])
+  @@index([actorKind, actorId, createdAt, id])
+  @@index([scopeType, scopeId, createdAt, id])
+  @@index([targetType, targetId, createdAt, id])
+  @@index([correlationId])
+  @@index([createdAt, id])
+}
+
+enum RubricStatus {
+  draft
+  active
+}
+
+enum RubricCriterionKind {
+  employee
+  project_contribution
+  manager
+}
+
+model RubricVersion {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  version        String
+  status         RubricStatus   @default(draft)
+  activatedAt    DateTime?      @db.Timestamptz(6)
+  locales        RubricLocale[]
+  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@unique([organizationId, version])
+  @@index([organizationId, status])
+}
+
+model RubricLocale {
+  id              String            @id @default(uuid()) @db.Uuid
+  rubricVersionId String            @db.Uuid
+  rubricVersion   RubricVersion     @relation(fields: [rubricVersionId], references: [id], onDelete: Restrict)
+  locale          String
+  sourceHash      String
+  status          RubricStatus      @default(draft)
+  activatedAt     DateTime?         @db.Timestamptz(6)
+  biasGuidance    Json
+  sections        RubricSection[]
+  criteria        RubricCriterion[]
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@unique([rubricVersionId, locale])
+  @@index([rubricVersionId, status])
+}
+
+model RubricSection {
+  id             String            @id @default(uuid()) @db.Uuid
+  rubricLocaleId String            @db.Uuid
+  rubricLocale   RubricLocale      @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
+  stableId       String
+  title          String
+  weight         Int
+  displayOrder   Int
+  criteria       RubricCriterion[]
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, rubricLocaleId])
+  @@unique([rubricLocaleId, stableId])
+  @@unique([rubricLocaleId, displayOrder])
+}
+
+model RubricCriterion {
+  id              String              @id @default(uuid()) @db.Uuid
+  rubricLocaleId  String              @db.Uuid
+  rubricLocale    RubricLocale        @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
+  sectionId       String?             @db.Uuid
+  section         RubricSection?      @relation(fields: [sectionId, rubricLocaleId], references: [id, rubricLocaleId], onDelete: Restrict)
+  stableId        String
+  kind            RubricCriterionKind
+  title           String
+  assessmentBasis String?
+  internalWeight  Int?
+  content         Json
+  displayOrder    Int
+  anchors         RubricAnchor[]
+  createdAt       DateTime            @default(now()) @db.Timestamptz(6)
+
+  @@unique([rubricLocaleId, stableId])
+  @@unique([rubricLocaleId, displayOrder])
+  @@index([sectionId])
+}
+
+model RubricAnchor {
+  id          String          @id @default(uuid()) @db.Uuid
+  criterionId String          @db.Uuid
+  criterion   RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+  rating      Int
+  text        String
+  createdAt   DateTime        @default(now()) @db.Timestamptz(6)
+
+  @@unique([criterionId, rating])
+}
+
+enum AiProviderLocality {
+  local
+  external
+}
+
+enum AiDataClassification {
+  public
+  internal
+  confidential
+  local_only
+}
+
+enum AiRunState {
+  succeeded
+  failed
+  quarantined
+}
+
+enum AiHumanApprovalState {
+  not_required
+  pending
+}
+
+model AiRoute {
+  id        String             @id @default(uuid()) @db.Uuid
+  routeKey  String
+  level     ScopeType
+  scopeId   String             @db.Uuid
+  scope     AuthorizationScope @relation(fields: [scopeId, level], references: [id, scopeType], onDelete: Restrict)
+  configs   AiRouteConfig[]
+  runs      AiRun[]
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+
+  @@unique([routeKey, level, scopeId])
+  @@unique([id, routeKey, level, scopeId])
+  @@index([level, scopeId, routeKey])
+}
+
+model AiRouteConfig {
+  id          String                  @id @default(uuid()) @db.Uuid
+  routeId     String                  @db.Uuid
+  route       AiRoute                 @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  version     Int
+  reason      String
+  createdById String                  @db.Uuid
+  createdBy   User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  runs        AiRun[]
+  providers   AiRouteConfigProvider[]
+  createdAt   DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@unique([routeId, version])
+  @@unique([id, routeId, version])
+  @@index([routeId, version(sort: Desc)])
+  @@index([createdById, createdAt])
+}
+
+model AiProviderConfig {
+  id                      String                       @id @default(uuid()) @db.Uuid
+  providerKey             String
+  version                 Int
+  adapterKey              String
+  modelKey                String
+  locality                AiProviderLocality
+  endpoint                String
+  endpointProtocol        String
+  endpointHost            String
+  localTrustPolicyId      String?                      @db.Uuid
+  localTrustPolicyVersion Int?
+  localTrustAllowedIp     String?
+  localTrustAllowed       AiLocalTrustPolicyAllowedIp? @relation(fields: [localTrustPolicyId, localTrustPolicyVersion, localTrustAllowedIp], references: [policyId, policyVersion, ipAddress], onDelete: Restrict)
+  reason                  String
+  createdById             String                       @db.Uuid
+  createdBy               User                         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  routeProviders          AiRouteConfigProvider[]
+  createdAt               DateTime                     @default(now()) @db.Timestamptz(6)
+
+  @@unique([providerKey, version])
+  @@unique([id, version])
+  @@index([providerKey, version(sort: Desc)])
+  @@index([createdById, createdAt])
+  @@index([localTrustPolicyId, localTrustPolicyVersion, localTrustAllowedIp])
+}
+
+model AiLocalTrustPolicy {
+  id          String                        @id @default(uuid()) @db.Uuid
+  policyKey   String
+  version     Int
+  reason      String
+  createdById String                        @db.Uuid
+  createdBy   User                          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  allowedIps  AiLocalTrustPolicyAllowedIp[]
+  createdAt   DateTime                      @default(now()) @db.Timestamptz(6)
+
+  @@unique([policyKey, version])
+  @@unique([id, version])
+  @@index([policyKey, version(sort: Desc)])
+  @@index([createdById, createdAt])
+}
+
+model AiLocalTrustPolicyAllowedIp {
+  id              String             @id @default(uuid()) @db.Uuid
+  policyId        String             @db.Uuid
+  policyVersion   Int
+  ipAddress       String
+  policy          AiLocalTrustPolicy @relation(fields: [policyId, policyVersion], references: [id, version], onDelete: Restrict)
+  providerConfigs AiProviderConfig[]
+
+  @@unique([policyId, policyVersion, ipAddress])
+  @@index([ipAddress])
+}
+
+model AiRouteConfigProvider {
+  id                    String           @id @default(uuid()) @db.Uuid
+  routeConfigId         String           @db.Uuid
+  routeConfig           AiRouteConfig    @relation(fields: [routeConfigId], references: [id], onDelete: Restrict)
+  position              Int
+  providerConfigId      String           @db.Uuid
+  providerConfigVersion Int
+  providerConfig        AiProviderConfig @relation(fields: [providerConfigId, providerConfigVersion], references: [id, version], onDelete: Restrict)
+  runs                  AiRun[]
+
+  @@unique([routeConfigId, position])
+  @@unique([id, routeConfigId, providerConfigId, providerConfigVersion])
+  @@index([providerConfigId, providerConfigVersion])
+}
+
+model AiOutputSchemaArtifact {
+  id                           String   @id @default(uuid()) @db.Uuid
+  routeKey                     String
+  version                      String
+  schemaHash                   String
+  schemaArtifact               Json
+  reason                       String
+  expectedBehavior             String
+  evaluationEvidenceReferences Json
+  humanApprovalPolicy          String
+  createdById                  String   @db.Uuid
+  createdBy                    User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  runs                         AiRun[]
+  createdAt                    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([routeKey, version])
+  @@unique([id, routeKey, version, schemaHash])
+  @@index([schemaHash])
+  @@index([createdById, createdAt])
+}
+
+model AiRun {
+  id                     String                 @id @default(uuid()) @db.Uuid
+  routeKey               String
+  routeId                String                 @db.Uuid
+  route                  AiRoute                @relation(fields: [routeId, routeKey, routeLevel, scopeId], references: [id, routeKey, level, scopeId], onDelete: Restrict)
+  routeConfigId          String                 @db.Uuid
+  routeConfigVersion     Int
+  routeConfig            AiRouteConfig          @relation(fields: [routeConfigId, routeId, routeConfigVersion], references: [id, routeId, version], onDelete: Restrict)
+  routeLevel             ScopeType
+  scopeId                String                 @db.Uuid
+  routeConfigProviderId  String                 @db.Uuid
+  providerConfigId       String                 @db.Uuid
+  providerConfigVersion  Int
+  routeConfigProvider    AiRouteConfigProvider  @relation(fields: [routeConfigProviderId, routeConfigId, providerConfigId, providerConfigVersion], references: [id, routeConfigId, providerConfigId, providerConfigVersion], onDelete: Restrict)
+  projectScopeId         String?                @db.Uuid
+  projectScopeType       ScopeType?
+  projectScope           AuthorizationScope?    @relation("AiRunProjectScope", fields: [projectScopeId, projectScopeType], references: [id, scopeType], onDelete: Restrict)
+  departmentScopeId      String?                @db.Uuid
+  departmentScopeType    ScopeType?
+  departmentScope        AuthorizationScope?    @relation("AiRunDepartmentScope", fields: [departmentScopeId, departmentScopeType], references: [id, scopeType], onDelete: Restrict)
+  classification         AiDataClassification
+  inputReference         String
+  inputSchemaVersion     String
+  outputSchemaVersion    String
+  outputSchemaArtifactId String                 @db.Uuid
+  outputSchemaHash       String
+  outputSchemaArtifact   AiOutputSchemaArtifact @relation(fields: [outputSchemaArtifactId, routeKey, outputSchemaVersion, outputSchemaHash], references: [id, routeKey, version, schemaHash], onDelete: Restrict)
+  promptTemplateVersion  String
+  sourceReferences       Json
+  outputReference        String?
+  startedAt              DateTime               @db.Timestamptz(6)
+  completedAt            DateTime               @db.Timestamptz(6)
+  latencyMs              Int
+  usage                  Json?
+  costUsd                Float?
+  state                  AiRunState
+  errorCategory          String?
+  fallbackChain          Json
+  humanApprovalState     AiHumanApprovalState
+  correlationId          String                 @db.Uuid
+  validationIssueCodes   Json
+  createdAt              DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@index([routeId, routeConfigVersion, createdAt])
+  @@index([routeKey, createdAt])
+  @@index([state, createdAt])
+  @@index([scopeId, createdAt])
+  @@index([correlationId])
+  @@index([projectScopeId, createdAt])
+  @@index([departmentScopeId, createdAt])
+}

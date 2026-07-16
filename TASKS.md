@@ -1,12 +1,12 @@
 # TASKS.md
 
-## Execution Task File — Revision 1.1
+## Execution Task File — Revision 1.2
 
 **Status:** Ready for implementation  
 **Task order:** Dependency-driven and phase-valid  
 **Completion rule:** A task is complete only after required verification passes  
 **Pilot feedback mode:** Identified  
-**Pilot language:** Arabic-first with English support  
+**Pilot language:** English-only use permitted; Arabic employee use requires approved Arabic rubric content and semantic review
 **Cycle 1:** Calibration — Non-Baseline
 
 Legend:
@@ -43,7 +43,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 ## T003 — Establish CI Pipeline
 
 **Priority:** P0  
-**Dependencies:** T001  
+**Dependencies:** T001, T002
 **Purpose:** Enforce build quality from the beginning.  
 **Expected output:** install, lint, typecheck, unit test, integration-test setup, migration validation.  
 **Likely areas:** CI configuration, scripts.  
@@ -65,7 +65,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 **Purpose:** Create consistent operational and user-safe errors.  
 **Expected output:** correlation IDs, structured logs, error codes, error boundaries.  
 **Likely areas:** API, worker, shared packages.  
-**Verification:** request trace across web/API/worker; sensitive values not logged.
+**Verification:** correlation carrier contract across Web/API/Worker; sensitive values not logged; real queued trace propagation verified by T013.
 
 ## T006 — Implement Authentication
 
@@ -97,20 +97,20 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 ## T009 — Create Audit Foundation
 
 **Priority:** P0  
-**Dependencies:** T004, T006  
+**Dependencies:** T004, T006, T007, T008
 **Purpose:** Provide append-only audit events.  
 **Expected output:** audit service, event schema, query API for authorized admins.  
 **Likely areas:** `packages/audit`, API module.  
-**Verification:** protected actions create events; ordinary user cannot modify/delete.
+**Verification:** authentication synchronization, pilot role assignment, representative private-mode access decisions, and their audit events succeed or roll back atomically; bootstrap seed events use a non-human service actor; database-to-audit imports are prohibited; ordinary users cannot modify/delete or query protected events.
 
 ## T010 — Seed Approved Evaluation Rubric
 
 **Priority:** P0  
-**Dependencies:** T004, T008  
+**Dependencies:** T004, T008, T009
 **Purpose:** Store Version 1 sections, 12 criteria, 60 anchors, weights, and five manager criteria.  
 **Expected output:** versioned rubric seed matching `EVALUATION_RUBRIC.md`.  
 **Likely areas:** evaluation configuration schema and seed.  
-**Verification:** automated content/weight comparison; totals equal 100%.
+**Verification:** automated content/weight comparison; totals equal 100%; rubric activation and its audit event are atomic; Documentation Readiness cannot enter a performance-rating input; raw activity counts are absent from performance input contracts.
 
 ## T011 — Implement AI Router
 
@@ -125,42 +125,43 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 **Priority:** P1  
 **Dependencies:** T011  
 **Purpose:** Regression-test prompts, schemas, feedback-visibility modes, Arabic content, dialects, and criteria quality.  
-**Verification:** versioned English and Arabic fixture suite runs in CI or a controlled evaluation pipeline; no AI output contains a performance rating recommendation.
+**Verification:** versioned English and Arabic fixture suite runs in CI or a controlled evaluation pipeline; synthetic or licensed Gulf and Levantine audio fixtures pass manifest, provenance, checksum, and golden-transcript integrity checks; raw activity counts are absent from performance inputs; no AI output contains a performance rating recommendation.
 
 ## T013 — Implement Worker and Queue Infrastructure
 
 **Priority:** P0  
-**Dependencies:** T002, T005  
+**Dependencies:** T002, T004, T005, T009, T011
 **Purpose:** Run asynchronous AI, GitHub, document, notification, and aggregation jobs.  
 **Verification:** retry, dead-letter state, idempotency, traceability.
 
 ## T014 — Implement Evaluation Eligibility Snapshot Foundation
 
 **Priority:** P0  
-**Dependencies:** T004, T007, T008  
+**Dependencies:** T004, T007, T008, T009
 **Purpose:** Determine who is eligible for each employee and manager evaluation cycle without depending on the later full leave/delegation module.  
 **Expected output:** Versioned cycle eligibility records with active, excluded, approved-leave, and pending states.  
 **Likely areas:** evaluation configuration, users, cycle domain  
-**Verification:** Eligibility is frozen at cycle open; approved-leave state can be represented; identified pilot completion status works; no Phase 4 task depends on Phase 5.
+**Verification:** Eligibility is frozen at cycle open; approved-leave state can be represented; the permitted pre-close exclusion transition and its audit event are atomic; identified pilot completion status works; no Phase 4 task depends on Phase 5.
 
 ## T015 — Implement Localization and RTL Foundation
 
 **Priority:** P0  
 **Dependencies:** T001  
-**Purpose:** Make Arabic the pilot default and prevent late retrofitting of RTL.  
+**Purpose:** Preserve Arabic localization and RTL foundations without permitting Arabic employee use before rubric approval.
 **Expected output:** Locale routing, translation catalogs, RTL tokens/components, mixed-direction utilities, Arabic typography and date/number handling.  
 **Likely areas:** web shell, shared UI, contracts, localization package  
-**Verification:** Arabic and English app shells render; keyboard/focus order works in RTL; code, URLs, model names, and repository paths display correctly.
+**Verification:** Arabic and English app shells render; keyboard/focus order works in RTL; code, URLs, model names, and repository paths display correctly; UTC values render with locale-aware dates and numbers in the user timezone with `Asia/Riyadh` as the default; Identified-mode catalogs disclose manager visibility and reject anonymity/confidentiality promises.
 
 ## T016 — Translate and Approve the Arabic Evaluation Rubric
 
-**Priority:** P0  
+**Priority:** APPROVAL
+**Status:** Deferred, draft, and inactive; future Arabic employee-release gate, not a Phase 0 or engineering-phase blocker.
 **Dependencies:** T010, T015  
 **Purpose:** Provide employee-ready Arabic meaning for the complete Version 1 rubric before rollout.  
 **Expected output:** Approved Arabic translations of 12 criteria, 60 employee anchors, Project Contribution anchors, five manager criteria, 25 manager anchors, examples, prompts, and bias guidance.  
 **Likely areas:** rubric content, localization data, approval record  
-**Verification:** Arabic subject-matter review passes; adjacent rating meanings remain distinct; IDs and version match English; translation cannot activate independently when meaning is unresolved.  
-**Approval:** Manager/product owner approves the Arabic meaning before employee-facing use.
+**Verification:** Separate Arabic subject-matter and employee-comprehension reviews pass; adjacent rating meanings remain distinct; IDs, version, and source hashes match English; activation, approval, and their audit events are atomic; translation cannot activate independently when either human disposition or meaning is unresolved.
+**Approval:** Product owner or delegated Arabic evaluation subject-matter reviewer approves the Arabic meaning, and authorized pilot reviewers complete employee-comprehension review, before employee-facing use.
 
 ## T017 — Add Task Dependency Graph Validation
 
@@ -370,7 +371,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 ## T044 — Expand Arabic and Dialect AI Fixtures
 
 **Priority:** P1  
-**Dependencies:** T012, T032, T016  
+**Dependencies:** T012, T032
 **Purpose:** Validate AI behavior on the language actually used by the pilot team.  
 **Expected output:** Fusha, Gulf, Levantine, mixed Arabic/English, Arabic PDF/DOCX, STT, update extraction, evidence, and report fixtures.  
 **Likely areas:** AI evaluation datasets, STT tests, document processing tests  
@@ -624,16 +625,16 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 ## T076 — Pilot Dry Run
 
 **Priority:** P0  
-**Dependencies:** T001–T075  
-**Purpose:** Run one full `Calibration — Non-Baseline` simulated quarter with Arabic and English test users and realistic projects.  
-**Verification:** all critical workflows pass; identified manager-feedback behavior is understood; monthly readiness and Fact View are reviewed; issues logged and resolved.
+**Dependencies:** T001–T015, T017–T075
+**Purpose:** Run one full `Calibration — Non-Baseline` simulated quarter with English test users and realistic projects; include Arabic test users only after T016 approval.
+**Verification:** all English critical workflows pass; identified manager-feedback behavior is understood; monthly readiness and Fact View are reviewed; issues logged and resolved. Arabic release validation remains conditional on T016 approval.
 
 ## T077 — Production Pilot Launch
 
 **Priority:** P0  
 **Dependencies:** T076  
 **Purpose:** Deploy approved pilot.  
-**Verification:** production checklist, monitoring, backups, Arabic rubric approval, RTL validation, identified-feedback notice, onboarding, and rollback plan.
+**Verification:** production checklist, monitoring, backups, identified-feedback notice, onboarding, and rollback plan. Arabic rubric approval and RTL release validation are required only before Arabic employee use.
 ---
 
 # Approval-Blocked Changes
@@ -642,7 +643,7 @@ The following are not normal tasks and require explicit approval:
 
 - Change protected product rules.
 - Change Version 1 rubric, anchors, or weights.
-- Release employee evaluation before the Arabic rubric is approved.
+- Release Arabic employee evaluation before the Arabic rubric is approved and semantically reviewed; English-only employee evaluation is permitted.
 - Allow AI ratings or rating recommendations.
 - Change the pilot upward manager evaluation from `Identified`.
 - Claim anonymity while the active mode is Identified.

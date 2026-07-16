@@ -1,0 +1,21 @@
+let method = "generate";
+const opaque = {} as Record<string, () => unknown>;
+const callKey = "call";
+const invoke = Function.prototype[callKey];
+
+class BaseRunner {
+  execute() {
+    return this.helper();
+  }
+  helper() {
+    return Promise.resolve();
+  }
+}
+class DerivedRunner extends BaseRunner {
+  helper() {
+    return opaque[method]();
+  }
+}
+
+Reflect.apply(invoke, BaseRunner.prototype.execute, [new DerivedRunner()]);
+method = "health";

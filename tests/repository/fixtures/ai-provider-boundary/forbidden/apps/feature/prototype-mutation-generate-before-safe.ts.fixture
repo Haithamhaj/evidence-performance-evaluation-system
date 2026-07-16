@@ -1,0 +1,12 @@
+declare const opaque: Record<string, () => unknown>;
+
+let method = "generate";
+class Runner {
+  execute() {
+    return undefined;
+  }
+}
+
+Runner.prototype.execute = () => opaque[method]();
+void new Runner().execute();
+method = "health";

@@ -1,0 +1,6 @@
+let providerPackage = "openai";
+const values: Array<undefined | (() => Promise<unknown>)> = [];
+const [, handler = () => import(providerPackage)] = values;
+
+void handler();
+providerPackage = "./safe-local-module";

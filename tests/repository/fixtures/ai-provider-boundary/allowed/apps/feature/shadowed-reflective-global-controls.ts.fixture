@@ -1,0 +1,12 @@
+let providerPackage = "openai";
+
+function mutateLocal(Object: {
+  defineProperty: (target: object, key: string, descriptor: PropertyDescriptor) => void;
+}) {
+  const localTarget = {};
+  Object.defineProperty(localTarget, "freeze", { value: () => Promise.resolve() });
+}
+
+mutateLocal({ defineProperty: () => undefined });
+Object.freeze({ handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

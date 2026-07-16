@@ -1,0 +1,4 @@
+declare const adapter: { generate(input: unknown): unknown };
+
+const { generate } = adapter;
+export const result = generate({ protected: true });

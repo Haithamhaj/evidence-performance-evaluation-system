@@ -1,6 +1,6 @@
 # REVIEW_RESOLUTION.md
 
-## Handoff Review Resolution — Revision 1.1
+## Handoff Review Resolution — Revision 1.2
 
 **Review source:** External review of the complete Starter Pack  
 **Decision owner:** Haitham Hussein Hamadneh  
@@ -118,9 +118,18 @@ Added:
 - Arabic PDF, DOCX, and report tests.
 - Arabic critical-flow and accessibility verification.
 
+### Superseding owner decision — 2026-07-17
+
+- This decision supersedes the rollout policy in `docs/EVALUATION_RUBRIC.md` Sections 18.1, 18.2, and 20 without changing Version 1 criterion, anchor, weight, or source-hash content.
+- English-only pilot use is permitted.
+- Arabic employee use requires approved Arabic rubric content and semantic review.
+- T016 remains draft, inactive, and deferred; it does not block Phase 0 completion or later engineering phases.
+- Existing localization and RTL foundations remain required and must not be removed.
+- Unapproved Arabic rubric content must not be imported or activated.
+
 ### Status
 
-Resolved as a Phase 0 implementation blocker.
+Phase 0 foundation resolved. Arabic employee release remains blocked at the deferred T016 human semantic-review gate.
 
 ---
 

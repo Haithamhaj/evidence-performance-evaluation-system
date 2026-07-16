@@ -1,0 +1,20 @@
+let providerPackage = "openai";
+const reflectedApply = Reflect.apply.bind(Reflect);
+
+class BaseRunner {
+  static execute() {
+    return this.helper();
+  }
+  static helper() {
+    return Promise.resolve();
+  }
+}
+class MiddleRunner extends BaseRunner {}
+class DerivedRunner extends MiddleRunner {
+  static helper() {
+    return import(providerPackage);
+  }
+}
+
+reflectedApply(BaseRunner.execute, DerivedRunner, []);
+providerPackage = "./safe-local-module";

@@ -10,6 +10,8 @@
 
 **Parent sources:** `docs/PROJECT_REFERENCE.md`, `docs/EVALUATION_RUBRIC.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/REVIEW_RESOLUTION.md`, `AGENTS.md`, and `TASKS.md`
 
+> **Superseding decision — 2026-07-17:** Phase 0 is complete without T016 semantic approval. English-only pilot use is permitted. T016 remains draft, inactive, and deferred on `deferred/arabic-rubric-v1`; Arabic employee use remains blocked until its direct human semantic reviews and activation conditions pass. Existing localization and RTL foundations remain unchanged.
+
 ## 1. Purpose and decision summary
 
 Phase 0 creates the technical and governance foundations needed by every later phase. It does not implement project, evidence, evaluation, coaching, or continuity product workflows.
@@ -20,7 +22,7 @@ The recommended foundation is a TypeScript modular monolith in one pnpm workspac
 - NestJS API for domain rules, authorization, transactions, persistence, and public contracts.
 - NestJS Worker for BullMQ consumers, AI work, document jobs, notification jobs, and later integration jobs.
 
-PostgreSQL is authoritative. Redis is non-authoritative queue and lock infrastructure. S3-compatible object storage holds files and large artifacts. Keycloak supplies the local OIDC environment. All AI access passes through a provider-neutral AI Router. Arabic, RTL, authorization, audit, eligibility snapshots, structured AI output, and task-graph validation are blocking foundations rather than later retrofits.
+PostgreSQL is authoritative. Redis is non-authoritative queue and lock infrastructure. S3-compatible object storage holds files and large artifacts. Keycloak supplies the local OIDC environment. All AI access passes through a provider-neutral AI Router. Localization, RTL, authorization, audit, eligibility snapshots, structured AI output, and task-graph validation are foundations rather than later retrofits; only Arabic employee release waits for T016 semantic approval.
 
 The design intentionally keeps the user-facing surface simple while making internal boundaries explicit and testable.
 
@@ -31,7 +33,7 @@ The design intentionally keeps the user-facing surface simple while making inter
 - The architecture is a modular monolith, not microservices.
 - Web, API, and Worker are separate processes.
 - PostgreSQL, Prisma, Redis/BullMQ, S3-compatible storage, OIDC, and a provider-neutral AI Router are approved.
-- Arabic is the pilot default, English is supported, and RTL is a launch blocker.
+- English-only pilot use is permitted. Arabic employee use requires approved Arabic rubric content and semantic review; RTL remains an Arabic-release requirement.
 - AI must never assign or recommend performance ratings.
 - Cycle 1 is `Calibration — Non-Baseline`.
 - The pilot manager evaluation is `Identified`; the manager sees identity, status, ratings, comments, and timestamps.
@@ -460,7 +462,7 @@ Telemetry excludes secrets, access tokens, raw rubric comments, uploaded content
 | Audit | Append-only table with DB protection | logs only; event sourcing | Meets traceability without event-sourcing complexity | Payload discipline required to avoid sensitive-data leakage |
 | AI | Provider-neutral Router | direct SDKs; one provider | Required project/dept/system routing and trace | Adapter maintenance; enforced import boundary prevents bypass |
 | AI output | Versioned Zod validation + quarantine | free text persistence; best-effort parsing | Protects domain state and human gates | Invalid outputs become visible operational failures, not silent partial data |
-| Localization | Shared keyed catalogs, Arabic default | web-only translation; later RTL retrofit | Arabic/RTL is a blocking foundation | Translation governance adds upfront work but prevents semantic drift |
+| Localization | Shared keyed catalogs with Arabic/RTL foundations | web-only translation; later RTL retrofit | English-only pilot is permitted; Arabic release remains gated | Translation governance adds upfront work but prevents semantic drift |
 | Styling direction | logical CSS + one component tree | separate RTL UI; automatic mirroring | Simple user experience and less visual fragmentation | Requires explicit mixed-direction testing |
 | CI | GitHub Actions, deterministic default | local-only checks; another CI vendor | Fits repository governance and task graph | Private remote and governance are verified; workflow behavior is verified during Phase 0 implementation |
 | Testing | unit + real infrastructure integration + Playwright + AI evals | mocks only; end-to-end only | Matches approved verification strategy | Container runtime is a local prerequisite |

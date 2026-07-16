@@ -1,0 +1,4 @@
+declare const adapter: { generate(input: unknown): unknown };
+
+const executeProvider = adapter.generate;
+export const result = executeProvider({ protected: true });

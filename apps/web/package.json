@@ -1,0 +1,30 @@
+{
+  "name": "@evaluation/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit && next build --experimental-build-mode generate",
+    "start": "next start",
+    "lint": "eslint src",
+    "typecheck": "next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. apps/web/src"
+  },
+  "dependencies": {
+    "@evaluation/localization": "workspace:*",
+    "@evaluation/observability": "workspace:*",
+    "@evaluation/ui": "workspace:*",
+    "jose": "6.2.3",
+    "next": "16.2.10",
+    "openid-client": "6.8.4",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "typescript": "7.0.2"
+  }
+}

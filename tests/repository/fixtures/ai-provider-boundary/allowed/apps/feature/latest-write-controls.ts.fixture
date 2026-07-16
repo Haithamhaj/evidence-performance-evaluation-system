@@ -1,0 +1,10 @@
+declare const opaque: Record<string, () => unknown>;
+
+let key = "generate";
+key = "health";
+
+let providerUrl = process.env.OPENAI_BASE_URL;
+providerUrl = "/health";
+
+export const generated = opaque[key]();
+export const response = fetch(providerUrl);

@@ -1,0 +1,10 @@
+declare const opaque: Record<string, () => unknown>;
+
+let key = "generate";
+const execute = () => opaque[key]();
+function invokeContained(callbacks: { nested: [() => unknown] }) {
+  return callbacks.nested[0]();
+}
+
+export const result = invokeContained({ nested: [execute] });
+key = "health";

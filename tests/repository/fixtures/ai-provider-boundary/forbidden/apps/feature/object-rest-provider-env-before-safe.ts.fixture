@@ -1,0 +1,10 @@
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+const source = {
+  ignored: true,
+  handler: () => fetch(providerBaseUrl),
+};
+const { ignored, ...callbacks } = source;
+
+void ignored;
+void callbacks.handler();
+providerBaseUrl = "https://example.test/health";

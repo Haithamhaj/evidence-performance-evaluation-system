@@ -1,0 +1,8 @@
+let providerUrl = process.env.OPENAI_BASE_URL;
+async function execute() {
+  return fetch(providerUrl);
+}
+const callbacks = [{ execute }];
+
+export const result = callbacks[0].execute();
+providerUrl = "/health";

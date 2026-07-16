@@ -1,0 +1,9 @@
+type Generator = { generate(): string };
+
+const client: Generator = { generate: () => "local" };
+
+export const outer = client.generate();
+
+export function execute(client: Generator) {
+  return client.generate();
+}

@@ -1,0 +1,10 @@
+let providerPackage = "openai";
+async function execute() {
+  return import(providerPackage);
+}
+async function wrapper() {
+  return execute();
+}
+
+export const result = wrapper();
+providerPackage = "./local-module";
