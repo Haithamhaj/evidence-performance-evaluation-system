@@ -14,6 +14,7 @@ PHASE_RE = re.compile(r"^# Phase (\d+)")
 DEPS_RE = re.compile(r"^\*\*Dependencies:\*\* (.+)$")
 RANGE_RE = re.compile(r"(T\d{3})[–-](T\d{3})")
 ID_RE = re.compile(r"T\d{3}")
+CONTEXT_RESET_RE = re.compile(r"^#{1,2}(?:\s|$)")
 
 
 @dataclass(frozen=True)
@@ -45,12 +46,14 @@ def validate_task_graph(path: Path) -> ValidationResult:
     current_task: str | None = None
     phases: dict[str, int] = {}
     dependencies: dict[str, set[str]] = {}
+    declared_dependencies: set[str] = set()
     errors: list[str] = []
 
     for line_number, line in enumerate(text.splitlines(), start=1):
         phase_match = PHASE_RE.match(line)
         if phase_match:
             phase = int(phase_match.group(1))
+            current_task = None
             continue
 
         task_match = TASK_RE.match(line)
@@ -64,8 +67,20 @@ def validate_task_graph(path: Path) -> ValidationResult:
             dependencies.setdefault(current_task, set())
             continue
 
+        if CONTEXT_RESET_RE.match(line):
+            current_task = None
+            continue
+
         dependency_match = DEPS_RE.match(line)
+        if dependency_match and current_task is None:
+            errors.append(f"ORPHAN_DEPENDENCIES:{line_number}")
+            continue
+
         if dependency_match and current_task:
+            if current_task in declared_dependencies:
+                errors.append(f"DUPLICATE_DEPENDENCIES:{current_task}")
+                continue
+            declared_dependencies.add(current_task)
             try:
                 dependencies[current_task] = expand_dependencies(dependency_match.group(1))
             except ValueError as exc:

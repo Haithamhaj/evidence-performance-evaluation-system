@@ -108,7 +108,11 @@ describe("CI contract", () => {
       expect(action[1]).toMatch(/@[0-9a-f]{40}$/);
     }
 
-    expect(job(workflow, "integrity")).toContain("node scripts/scan-secrets.mjs");
+    const integrityJob = job(workflow, "integrity");
+    expect(integrityJob).toContain("python3 scripts/validate_task_graph.py");
+    expect(integrityJob).toContain("node scripts/scan-secrets.mjs");
+    expect(integrityJob).not.toContain("pnpm install");
+    expect(job(workflow, "quality")).toContain("pnpm validate:task-graph");
     for (const command of [
       "validate:task-graph",
       "format:check",
