@@ -1,0 +1,10 @@
+let providerUrl = process.env.OPENAI_BASE_URL;
+async function execute() {
+  return fetch(providerUrl);
+}
+async function wrapper() {
+  return execute();
+}
+
+export const result = wrapper();
+providerUrl = "/health";

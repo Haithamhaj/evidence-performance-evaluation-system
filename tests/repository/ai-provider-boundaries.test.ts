@@ -77,6 +77,11 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("cross-function-later-provider.ts.fixture");
     expect(result.stderr).toContain("cross-function-call-between-writes.ts.fixture");
     expect(result.stderr).toContain("cross-function-mutation-generate.ts.fixture");
+    expect(result.stderr).toContain("indirect-alias-call-before-safe.ts.fixture");
+    expect(result.stderr).toContain("indirect-callback-before-safe.ts.fixture");
+    expect(result.stderr).toContain("nested-wrapper-before-safe.ts.fixture");
+    expect(result.stderr).toContain("nested-wrapper-provider-import-before-safe.ts.fixture");
+    expect(result.stderr).toContain("nested-wrapper-provider-env-before-safe.ts.fixture");
     expect(result.stderr).toContain("bounded-expansion-generate.ts.fixture");
     expect(result.stderr).toContain("apps/api/src/packages/ai-routing/escape.ts");
     expect(result.stderr).toContain("environment-provider-url.ts.fixture");

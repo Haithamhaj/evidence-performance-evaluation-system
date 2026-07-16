@@ -35,7 +35,7 @@ const protectedAiCompositionFile = "apps/api/src/ai-routing/ai-routing.module.ts
 const providerEnvironmentPattern =
   /(?:^|_)(?:AI|OPENAI|ANTHROPIC|AZURE_OPENAI|COHERE|MODEL_PROVIDER)(?:_|$)/u;
 const maxResolvedValues = 32;
-const invocationPositionsByBindingWrites = new WeakMap();
+const invocationAnalysisByBindingWrites = new WeakMap();
 
 async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -313,12 +313,18 @@ function possibleBindingWrites(identifier, bindingWrites, pathByNode) {
   // A nested reference observes outer state when its function is invoked, not when
   // the function body appears in source. Direct local calls cover reviewed runtime
   // order; end-of-owner-boundary represents later/external invocation after init.
-  const invocationPositions = invocationPositionsByBindingWrites
-    .get(bindingWrites)
-    ?.get(referenceBoundary)
+  const invocationAnalysis = invocationAnalysisByBindingWrites.get(bindingWrites);
+  const invocationPositions = invocationAnalysis?.positions
+    .get(referenceBoundary)
     ?.get(ownerBoundary);
+  const invocationPositionsTruncated =
+    invocationAnalysis?.truncated.get(referenceBoundary)?.has(ownerBoundary) ?? false;
   const observationPositions = [...(invocationPositions ?? []), Number.POSITIVE_INFINITY];
-  const result = { values: new Set(), unknown: false, truncated: false };
+  const result = {
+    values: new Set(),
+    unknown: false,
+    truncated: invocationPositionsTruncated,
+  };
   for (const position of observationPositions) {
     unionResolved(result, bindingStateAt(binding, ownerBoundary, position, bindingWrites));
   }
@@ -538,6 +544,70 @@ function unwrapTransparentExpression(node) {
 function lexicalBinding(node, pathByNode) {
   if (node?.type !== "Identifier") return undefined;
   return pathByNode.get(node)?.scope.getBinding(node.name);
+}
+
+function directFunctionTarget(node) {
+  const expression = unwrapTransparentExpression(node);
+  return ["ArrowFunctionExpression", "FunctionExpression"].includes(expression?.type)
+    ? expression
+    : undefined;
+}
+
+function addFunctionTarget(functionTargets, binding, target) {
+  if (binding === undefined || target === undefined) return false;
+  let targets = functionTargets.get(binding);
+  if (targets === undefined) {
+    targets = new Set();
+    functionTargets.set(binding, targets);
+  }
+  const previousSize = targets.size;
+  targets.add(target);
+  return targets.size !== previousSize;
+}
+
+function possibleFunctionTargets(node, functionTargets, pathByNode) {
+  const expression = unwrapTransparentExpression(node);
+  const direct = directFunctionTarget(expression);
+  if (direct !== undefined) return new Set([direct]);
+  if (expression?.type !== "Identifier") return new Set();
+  return functionTargets.get(lexicalBinding(expression, pathByNode)) ?? new Set();
+}
+
+function addInvocationPosition(analysis, target, observedBoundary, position) {
+  let byBoundary = analysis.positions.get(target);
+  if (byBoundary === undefined) {
+    byBoundary = new Map();
+    analysis.positions.set(target, byBoundary);
+  }
+  let positions = byBoundary.get(observedBoundary);
+  if (positions === undefined) {
+    positions = new Set();
+    byBoundary.set(observedBoundary, positions);
+  }
+  if (positions.has(position)) return false;
+  if (positions.size >= maxResolvedValues) {
+    let truncatedBoundaries = analysis.truncated.get(target);
+    if (truncatedBoundaries === undefined) {
+      truncatedBoundaries = new Set();
+      analysis.truncated.set(target, truncatedBoundaries);
+    }
+    const wasTruncated = truncatedBoundaries.has(observedBoundary);
+    truncatedBoundaries.add(observedBoundary);
+    return !wasTruncated;
+  }
+  positions.add(position);
+  return true;
+}
+
+function propagateInvocationTruncation(analysis, target, observedBoundary) {
+  let truncatedBoundaries = analysis.truncated.get(target);
+  if (truncatedBoundaries === undefined) {
+    truncatedBoundaries = new Set();
+    analysis.truncated.set(target, truncatedBoundaries);
+  }
+  const wasTruncated = truncatedBoundaries.has(observedBoundary);
+  truncatedBoundaries.add(observedBoundary);
+  return !wasTruncated;
 }
 
 function isDirectLocalGeneratorExpression(node, localGeneratorClasses, bindings, pathByNode) {
@@ -808,37 +878,6 @@ function inspectAst(filePath, source) {
     },
   });
 
-  const functionByBinding = new Map();
-  for (const functionNode of functionNodes) {
-    let identifier;
-    if (functionNode.type === "FunctionDeclaration") identifier = functionNode.id;
-    else {
-      const parent = pathByNode.get(functionNode)?.parentPath?.node;
-      if (parent?.type === "VariableDeclarator" && parent.id?.type === "Identifier") {
-        identifier = parent.id;
-      }
-    }
-    const binding = lexicalBinding(identifier, pathByNode);
-    if (binding) functionByBinding.set(binding, functionNode);
-  }
-  const invocationPositions = new Map();
-  for (const callNode of callNodes) {
-    const callee = unwrapTransparentExpression(callNode.callee);
-    if (callee?.type !== "Identifier") continue;
-    const functionNode = functionByBinding.get(lexicalBinding(callee, pathByNode));
-    const callerBoundary = executionBoundary(pathByNode.get(callNode));
-    if (functionNode === undefined || callerBoundary === undefined) continue;
-    let byCaller = invocationPositions.get(functionNode);
-    if (byCaller === undefined) {
-      byCaller = new Map();
-      invocationPositions.set(functionNode, byCaller);
-    }
-    const positions = byCaller.get(callerBoundary) ?? [];
-    positions.push(bindingWritePosition(callNode));
-    byCaller.set(callerBoundary, positions);
-  }
-  invocationPositionsByBindingWrites.set(bindingWrites, invocationPositions);
-
   for (const declaration of declarations) {
     if (declaration.id?.type === "Identifier") {
       // `var name;` is not a runtime write and must not erase a prior initializer.
@@ -887,6 +926,83 @@ function inspectAst(filePath, source) {
   for (const writes of bindingWrites.values()) {
     writes.sort((left, right) => left.position - right.position);
   }
+
+  // Resolve locally-declared function values through exact lexical aliases. Every
+  // possible target is retained: an unknown value or reassignment cannot erase a
+  // function that the binding may still invoke along another runtime path.
+  const functionTargets = new Map();
+  for (const functionNode of functionNodes) {
+    if (functionNode.type === "FunctionDeclaration") {
+      addFunctionTarget(functionTargets, lexicalBinding(functionNode.id, pathByNode), functionNode);
+    }
+  }
+  for (const [binding, writes] of bindingWrites) {
+    for (const write of writes) {
+      addFunctionTarget(functionTargets, binding, directFunctionTarget(write.expression));
+    }
+  }
+  for (let pass = 0; pass < allBindings.size + 1; pass += 1) {
+    let changed = false;
+    for (const [binding, writes] of bindingWrites) {
+      for (const write of writes) {
+        const expression = unwrapTransparentExpression(write.expression);
+        if (expression?.type !== "Identifier") continue;
+        for (const target of functionTargets.get(lexicalBinding(expression, pathByNode)) ?? []) {
+          changed = addFunctionTarget(functionTargets, binding, target) || changed;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+
+  // Each call edge records the call's real position in its lexical caller. A
+  // function-valued argument is conservatively treated as a synchronous callback.
+  // Propagating the caller's runtime observations through these edges gives nested
+  // wrappers the external position at which their captured outer state is observed.
+  const invocationEdges = [];
+  for (const callNode of callNodes) {
+    const callerBoundary = executionBoundary(pathByNode.get(callNode));
+    if (callerBoundary === undefined) continue;
+    const targets = new Set([
+      ...possibleFunctionTargets(callNode.callee, functionTargets, pathByNode),
+      ...callNode.arguments.flatMap((argument) =>
+        argument?.type === "SpreadElement"
+          ? []
+          : [...possibleFunctionTargets(argument, functionTargets, pathByNode)],
+      ),
+    ]);
+    for (const target of targets) {
+      invocationEdges.push({
+        callerBoundary,
+        position: bindingWritePosition(callNode),
+        target,
+      });
+    }
+  }
+  const invocationAnalysis = { positions: new Map(), truncated: new Map() };
+  for (const edge of invocationEdges) {
+    addInvocationPosition(invocationAnalysis, edge.target, edge.callerBoundary, edge.position);
+  }
+  for (let pass = 0; pass < functionNodes.length + 1; pass += 1) {
+    let changed = false;
+    for (const edge of invocationEdges) {
+      const callerObservations = invocationAnalysis.positions.get(edge.callerBoundary);
+      for (const [observedBoundary, positions] of callerObservations ?? []) {
+        for (const position of positions) {
+          changed =
+            addInvocationPosition(invocationAnalysis, edge.target, observedBoundary, position) ||
+            changed;
+        }
+      }
+      for (const observedBoundary of invocationAnalysis.truncated.get(edge.callerBoundary) ?? []) {
+        changed =
+          propagateInvocationTruncation(invocationAnalysis, edge.target, observedBoundary) ||
+          changed;
+      }
+    }
+    if (!changed) break;
+  }
+  invocationAnalysisByBindingWrites.set(bindingWrites, invocationAnalysis);
 
   for (const classNode of localGeneratorClassNodes) {
     const classPath = pathByNode.get(classNode)?.parentPath?.node;

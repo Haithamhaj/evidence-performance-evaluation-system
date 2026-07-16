@@ -20,7 +20,41 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Ninth review remediation commit subject: `fix: bind ai boundary values lexically`
 - Tenth review remediation commit subject: `fix: track ai boundary value writes`
 - Eleventh review remediation commit subject: `fix: model possible ai boundary values`
+- Twelfth review remediation commit subject: `fix: propagate ai boundary invocation positions`
 - Push: prohibited and not attempted
+
+## Twelfth review remediation
+
+The twelfth review at `.superpowers/sdd/task-11-twelfth-review.md` identified one critical indirect-invocation gap: aliased calls, synchronous callbacks, and nested wrappers did not propagate their real outer call position to captured binding analysis.
+
+### Twelfth review RED evidence
+
+- Provider-boundary suite: 1/2 tests failed for the expected reason while the existing allowed controls passed.
+- The forbidden scan missed all five new probes: an aliased call, a synchronous callback, a nested wrapper with computed `generate`, a nested wrapper with a computed OpenAI import, and a nested wrapper with a provider-environment fetch, each invoked before a later safe overwrite.
+
+### Twelfth review changes
+
+- Added bounded function-target analysis keyed by exact Babel lexical bindings. Function declarations and directly bound function expressions are mapped, and possible targets propagate through identifier aliases without an unknown or ambiguous reassignment erasing an already possible function target.
+- Added invocation graph edges from each lexical caller boundary to direct or aliased callees. Function-valued callback arguments are conservatively represented as synchronous invocation edges.
+- Seeded each edge with its actual local call position, then propagated ancestor runtime observation positions through nested wrapper, callback, and alias chains to a fixed point. Exact-set deduplication bounds cycles; per-boundary observations cap at 32 and mark truncation so protected boundary checks fail closed instead of dropping a possible call position.
+- Preserved the existing post-initialization observation, definite safe-overwrite behavior, ambiguous-write union, static-value cap, lexical binding identity, and unresolved-value security contracts.
+- Added five forbidden regression fixtures and one consolidated safe-after-overwrite control covering alias, callback, wrapper, provider import, and provider-environment paths.
+
+### Twelfth review GREEN evidence
+
+1. Focused remediation verification
+   - Provider-boundary suite: 2/2 tests passed.
+   - AI-routing, provider-boundary, and import-boundary combined set: 5 files and 172/172 tests passed.
+   - Production boundary validation inspected 124 source files.
+
+2. Migration and integration verification
+   - `pnpm db:verify`: all six migrations passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; database integration passed 12/12.
+   - Full integration verification passed 15 files and 120/120 tests after deploying the six existing migrations to the isolated test database.
+   - No migration or schema delta was required.
+
+3. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 297 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 311/311 tests; forced build 14/14.
 
 ## Eleventh review remediation
 
