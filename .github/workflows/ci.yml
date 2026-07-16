@@ -67,6 +67,8 @@ jobs:
       DATABASE_URL: postgresql://evaluation_test:local-evaluation-test-password@127.0.0.1:5432/evaluation_test
       KEYCLOAK_ADMIN_PASSWORD: local-keycloak-admin-password
       KEYCLOAK_ADMIN_USERNAME: local-admin
+      OIDC_AUDIENCE: evaluation-api
+      OIDC_ISSUER: http://127.0.0.1:8081/realms/evaluation
       POSTGRES_SUPERUSER_PASSWORD: local-postgres-password
       TEST_DATABASE_URL: postgresql://evaluation_test:local-evaluation-test-password@127.0.0.1:5432/evaluation_test
     steps:
