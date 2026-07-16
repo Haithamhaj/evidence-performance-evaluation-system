@@ -299,6 +299,18 @@ importers:
 
   packages/permissions: {}
 
+  packages/projects:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
   packages/test-utils: {}
 
   packages/ui:
