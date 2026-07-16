@@ -187,6 +187,8 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   cycle_closed_at TIMESTAMPTZ(6);
+  cycle_effective_from TIMESTAMPTZ(6);
+  cycle_effective_to TIMESTAMPTZ(6);
   cycle_opened_at TIMESTAMPTZ(6);
 BEGIN
   IF TG_OP = 'DELETE' THEN
@@ -202,7 +204,8 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  SELECT "openedAt", "closedAt" INTO cycle_opened_at, cycle_closed_at
+  SELECT "openedAt", "closedAt", "effectiveFrom", "effectiveTo"
+  INTO cycle_opened_at, cycle_closed_at, cycle_effective_from, cycle_effective_to
   FROM "EvaluationCycle" WHERE "id" = OLD."cycleId";
   IF cycle_opened_at IS NULL THEN
     RAISE EXCEPTION 'unopened cycle eligibility cannot record transitions' USING ERRCODE = '55000';
@@ -224,6 +227,13 @@ BEGIN
      AND OLD."submittedAt" IS NULL
      AND NEW."submittedAt" IS NOT NULL
      AND NEW."createdAt" = OLD."createdAt" THEN
+    IF NEW."submittedAt" < OLD."effectiveFrom"
+       OR NEW."submittedAt" > OLD."effectiveTo"
+       OR NEW."submittedAt" < cycle_effective_from
+       OR NEW."submittedAt" > cycle_effective_to THEN
+      RAISE EXCEPTION 'submission timestamp must be inside the frozen eligibility period'
+        USING ERRCODE = '23514';
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -239,6 +249,13 @@ BEGIN
      AND NEW."version" = OLD."version" + 1
      AND NEW."effectiveTo" = OLD."effectiveTo"
      AND NEW."createdAt" = OLD."createdAt" THEN
+    IF NEW."effectiveFrom" < OLD."effectiveFrom"
+       OR NEW."effectiveFrom" >= OLD."effectiveTo"
+       OR NEW."effectiveFrom" < cycle_effective_from
+       OR NEW."effectiveFrom" >= cycle_effective_to THEN
+      RAISE EXCEPTION 'exclusion timestamp must be inside the frozen eligibility period'
+        USING ERRCODE = '23514';
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -249,3 +266,48 @@ $$;
 CREATE TRIGGER "EligibilityEntry_protected"
 BEFORE INSERT OR UPDATE OR DELETE ON "EligibilityEntry"
 FOR EACH ROW EXECUTE FUNCTION "protect_eligibility_entry"();
+
+CREATE FUNCTION "require_eligibility_exclusion_audit"() RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  matching_audit_exists BOOLEAN;
+BEGIN
+  IF OLD."state" IN ('pending', 'approved_leave')
+     AND NEW."state" = 'excluded' THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM "AuditEvent" audit_event
+      JOIN "EvaluationCycle" cycle ON cycle."id" = NEW."cycleId"
+      WHERE audit_event.xmin::text = pg_current_xact_id()::text
+        AND audit_event."eventType" = 'evaluation.eligibility.excluded'
+        AND audit_event."actorKind" = 'human'
+        AND audit_event."actorId" = cycle."managerId"::text
+        AND audit_event."effectiveSubjectId" = NEW."employeeId"
+        AND audit_event."scopeType" = 'cycle'
+        AND audit_event."scopeId" = NEW."cycleId"
+        AND audit_event."targetType" = 'evaluation_eligibility_entry'
+        AND audit_event."targetId" = NEW."id"
+        AND audit_event."reason" = NEW."sourceReason"
+        AND audit_event."source" = 'api'
+        AND audit_event."safeDiff"->>'employeeId' = NEW."employeeId"::text
+        AND (audit_event."safeDiff"->>'effectiveAt')::TIMESTAMPTZ(6) = NEW."effectiveFrom"
+        AND audit_event."safeDiff"->'previous'->>'state' = OLD."state"::text
+        AND (audit_event."safeDiff"->'previous'->>'version')::INTEGER = OLD."version"
+        AND audit_event."safeDiff"->'next'->>'state' = NEW."state"::text
+        AND (audit_event."safeDiff"->'next'->>'version')::INTEGER = NEW."version"
+    ) INTO matching_audit_exists;
+
+    IF NOT matching_audit_exists THEN
+      RAISE EXCEPTION 'eligibility exclusion requires a matching same-transaction audit event'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE CONSTRAINT TRIGGER "EligibilityEntry_exclusion_audit"
+AFTER UPDATE ON "EligibilityEntry"
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION "require_eligibility_exclusion_audit"();

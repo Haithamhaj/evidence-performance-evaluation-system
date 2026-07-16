@@ -127,13 +127,22 @@ export class EligibilityService {
         );
       }
 
+      const effectiveAt = new Date(parsed.effectiveAt);
+      if (!isWithinFrozenPeriod(effectiveAt, cycle, entry, true)) {
+        throw new AppError(
+          "ELIGIBILITY_EFFECTIVE_AT_OUT_OF_RANGE",
+          "errors.evaluation.eligibilityEffectiveAtOutOfRange",
+          400,
+        );
+      }
+
       const updated = await transaction.eligibilityEntry.update({
         where: { id: entry.id },
         data: {
           version: { increment: 1 },
           state: "excluded",
           sourceReason: parsed.reason,
-          effectiveFrom: new Date(parsed.effectiveAt),
+          effectiveFrom: effectiveAt,
         },
       });
       await this.auditWriter.append(transaction, {
@@ -185,6 +194,13 @@ export class EligibilityService {
           "SUBMISSION_MARKER_STATE_INVALID",
           "errors.evaluation.submissionMarkerStateInvalid",
           409,
+        );
+      }
+      if (!isWithinFrozenPeriod(submittedAt, cycle, entry, false)) {
+        throw new AppError(
+          "SUBMISSION_MARKER_OUT_OF_RANGE",
+          "errors.evaluation.submissionMarkerOutOfRange",
+          400,
         );
       }
       if (entry.submittedAt !== null) {
@@ -397,6 +413,18 @@ function resourceError(code: string): AppError {
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
+}
+
+function isWithinFrozenPeriod(
+  timestamp: Date,
+  cycle: { effectiveFrom: Date; effectiveTo: Date },
+  entry: { effectiveFrom: Date; effectiveTo: Date },
+  endExclusive: boolean,
+): boolean {
+  const time = timestamp.getTime();
+  const lowerBound = Math.max(cycle.effectiveFrom.getTime(), entry.effectiveFrom.getTime());
+  const upperBound = Math.min(cycle.effectiveTo.getTime(), entry.effectiveTo.getTime());
+  return time >= lowerBound && (endExclusive ? time < upperBound : time <= upperBound);
 }
 
 async function serializable<T>(

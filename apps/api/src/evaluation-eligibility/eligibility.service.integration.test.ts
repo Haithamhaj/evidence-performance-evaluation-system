@@ -212,4 +212,101 @@ describe("evaluation eligibility persistence", () => {
     ).rejects.toMatchObject({ code: "ELIGIBILITY_TRANSITION_INVALID" });
     expect(append).not.toHaveBeenCalled();
   });
+
+  it("rejects a direct unaudited exclusion at the database transaction boundary", async () => {
+    const snapshot = await createEligibilityService(client, auditWriter).openCycle(openInput());
+
+    await expect(
+      client.$transaction(async (transaction) => {
+        await transaction.eligibilityEntry.update({
+          where: { cycleId_employeeId: { cycleId: snapshot.cycleId, employeeId } },
+          data: {
+            state: "excluded",
+            version: { increment: 1 },
+            sourceReason: "Direct unaudited exclusion",
+            effectiveFrom: new Date("2026-08-01T10:00:00.000Z"),
+          },
+        });
+        await transaction.$executeRawUnsafe("SET CONSTRAINTS ALL IMMEDIATE");
+      }),
+    ).rejects.toThrow(/matching same-transaction audit event/iu);
+    await expect(
+      client.eligibilityEntry.findUniqueOrThrow({
+        where: { cycleId_employeeId: { cycleId: snapshot.cycleId, employeeId } },
+      }),
+    ).resolves.toMatchObject({ state: "pending", version: 1 });
+  });
+
+  it.each([
+    ["before", "2026-06-30T23:59:59.999Z"],
+    ["after", "2026-10-01T00:00:00.000Z"],
+  ] as const)(
+    "rejects an exclusion effective %s the frozen eligibility period",
+    async (_, effectiveAt) => {
+      const snapshot = await createEligibilityService(client, auditWriter).openCycle(openInput());
+
+      await expect(
+        createEligibilityService(client, auditWriter).excludeEligibility({
+          actorId: managerId,
+          cycleId: snapshot.cycleId,
+          employeeId,
+          reason: "Out-of-period exclusion",
+          effectiveAt,
+          correlationId: crypto.randomUUID(),
+        }),
+      ).rejects.toMatchObject({ code: "ELIGIBILITY_EFFECTIVE_AT_OUT_OF_RANGE", status: 400 });
+    },
+  );
+
+  it.each([
+    ["before", "2026-06-30T23:59:59.999Z"],
+    ["after", "2026-10-01T00:00:00.000Z"],
+  ] as const)(
+    "rejects a submission marker %s the frozen eligibility period",
+    async (_, submittedAt) => {
+      const input = openInput();
+      input.eligibleEmployees[0]!.state = "active";
+      const snapshot = await createEligibilityService(client, auditWriter).openCycle(input);
+
+      await expect(
+        createEligibilityService(client, auditWriter).recordSubmissionMarker(
+          snapshot.cycleId,
+          employeeId,
+          new Date(submittedAt),
+        ),
+      ).rejects.toMatchObject({ code: "SUBMISSION_MARKER_OUT_OF_RANGE", status: 400 });
+    },
+  );
+
+  it.each([
+    ["exclusion", "before", "2026-06-30T23:59:59.999Z"],
+    ["exclusion", "after", "2026-10-01T00:00:00.000Z"],
+    ["submission", "before", "2026-06-30T23:59:59.999Z"],
+    ["submission", "after", "2026-10-01T00:00:00.000Z"],
+  ] as const)(
+    "rejects a direct database %s timestamp %s the frozen eligibility period",
+    async (operation, _, timestamp) => {
+      const input = openInput();
+      input.eligibleEmployees[0]!.state = operation === "submission" ? "active" : "pending";
+      const snapshot = await createEligibilityService(client, auditWriter).openCycle(input);
+
+      await expect(
+        client.$transaction(async (transaction) => {
+          await transaction.eligibilityEntry.update({
+            where: { cycleId_employeeId: { cycleId: snapshot.cycleId, employeeId } },
+            data:
+              operation === "submission"
+                ? { submittedAt: new Date(timestamp) }
+                : {
+                    state: "excluded",
+                    version: { increment: 1 },
+                    sourceReason: "Direct out-of-period exclusion",
+                    effectiveFrom: new Date(timestamp),
+                  },
+          });
+          await transaction.$executeRawUnsafe("SET CONSTRAINTS ALL IMMEDIATE");
+        }),
+      ).rejects.toThrow(/frozen eligibility period/iu);
+    },
+  );
 });
