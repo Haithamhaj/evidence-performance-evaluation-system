@@ -1,0 +1,7 @@
+let providerPackage = "./safe-local-module";
+const callbacks = [() => Promise.resolve()];
+
+callbacks[0] = () => import(providerPackage);
+providerPackage = "openai";
+void callbacks[0]();
+providerPackage = "./safe-local-module";

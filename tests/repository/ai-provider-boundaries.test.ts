@@ -89,6 +89,15 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("indirect-container-callback-before-safe.ts.fixture");
     expect(result.stderr).toContain("container-computed-import-before-safe.ts.fixture");
     expect(result.stderr).toContain("container-provider-env-before-safe.ts.fixture");
+    expect(result.stderr).toContain("object-default-computed-generate-before-safe.ts.fixture");
+    expect(result.stderr).toContain("array-default-import-before-safe.ts.fixture");
+    expect(result.stderr).toContain("object-rest-provider-env-before-safe.ts.fixture");
+    expect(result.stderr).toContain("object-rest-unknown-source.ts.fixture");
+    expect(result.stderr).toContain("array-rest-import-before-safe.ts.fixture");
+    expect(result.stderr).toContain("member-write-computed-generate-before-safe.ts.fixture");
+    expect(result.stderr).toContain("array-write-import-before-safe.ts.fixture");
+    expect(result.stderr).toContain("class-instance-provider-env-before-safe.ts.fixture");
+    expect(result.stderr).toContain("known-callback-container-before-safe.ts.fixture");
     expect(result.stderr).toContain("bounded-expansion-generate.ts.fixture");
     expect(result.stderr).toContain("apps/api/src/packages/ai-routing/escape.ts");
     expect(result.stderr).toContain("environment-provider-url.ts.fixture");

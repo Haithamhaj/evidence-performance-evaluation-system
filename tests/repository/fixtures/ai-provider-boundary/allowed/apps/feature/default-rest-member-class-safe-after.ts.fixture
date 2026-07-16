@@ -1,0 +1,40 @@
+let method = "generate";
+let providerPackage = "openai";
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+const client = {} as Record<string, () => void>;
+
+let objectDefault: () => void;
+({ objectDefault = () => client[method]() } = {});
+
+const [, arrayDefault = () => import(providerPackage)] = [] as Array<
+  undefined | (() => Promise<unknown>)
+>;
+const { ignored, ...objectRest } = {
+  ignored: true,
+  handler: () => fetch(providerBaseUrl),
+};
+const [, ...arrayRest] = [undefined, () => import(providerPackage)] as const;
+const objectCallbacks = { handler: () => undefined };
+objectCallbacks.handler = () => client[method]();
+const arrayCallbacks = [() => Promise.resolve()];
+arrayCallbacks[0] = () => import(providerPackage);
+
+class Runner {
+  execute() {
+    return fetch(providerBaseUrl);
+  }
+}
+const runner = new Runner();
+
+method = "safe";
+providerPackage = "./safe-local-module";
+providerBaseUrl = "https://example.test/health";
+
+void ignored;
+objectDefault();
+void arrayDefault();
+void objectRest.handler();
+void arrayRest[0]();
+objectCallbacks.handler();
+void arrayCallbacks[0]();
+void runner.execute();

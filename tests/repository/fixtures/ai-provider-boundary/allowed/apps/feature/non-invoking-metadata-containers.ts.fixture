@@ -1,0 +1,13 @@
+import { SetMetadata } from "@nestjs/common";
+
+let providerPackage = "openai";
+const execute = () => import(providerPackage);
+
+const frozen = Object.freeze({ handler: execute });
+const metadata = SetMetadata("evaluation:handler", {
+  nested: { handler: execute },
+});
+
+providerPackage = "./safe-local-module";
+void frozen;
+void metadata;

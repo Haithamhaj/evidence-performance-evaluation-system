@@ -680,3 +680,13 @@ The tests also cover project > department > system precedence, no lower-scope by
 ## Project-state effect
 
 No update. This implements the approved AI Router architecture without changing the current goal, protected decisions, architecture direction, active risks, or recommended next action.
+
+## Fourteenth-review remediation
+
+- Strict RED reproduced both findings: dangerous defaults/rest/member/class target paths were absent, while `Object.freeze` and imported Nest `SetMetadata` containers were falsely treated as callback invocations. A second focused RED proved unknown object-rest sources did not fail closed.
+- The boundary resolver now models destructuring defaults, object/array rest (including holes), source-ordered property/element writes, and class-instance methods while retaining lexical bindings, invocation positions, bounded cycles, and safe-after overwrite behavior.
+- Function-valued arguments remain fail-closed except for two evidence-backed non-invoking metadata containers: unshadowed global `Object.freeze` and the exact lexical `SetMetadata` import from `@nestjs/common`. Known callback APIs, unknown calls, and nested callback containers remain conservative.
+- Focused AI routing/repository suites passed 196/196; production boundary validation passed 124 files; unit/coverage passed 311/311; full integration passed 120/120.
+- Migration verification passed empty, previous `0005`, drift, and rebuild-equivalence paths with DB integration 12/12. Forced verification passed graph 77, secret scan 316, performance scan 95, formatting, 14/14 lint/typecheck/build targets, and `git diff --check`.
+- Temporary Docker services, networks, and volumes were removed. Homebrew PostgreSQL 16 was restored and accepted connections.
+- No database, schema, approved documentation, rubric, privacy mode, audit semantics, or protected product rule changed. A fresh independent review remains required before T011 is approved and pushed.
