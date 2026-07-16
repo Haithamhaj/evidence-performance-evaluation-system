@@ -4,7 +4,11 @@ export default [
   defineProject({
     test: {
       name: "unit",
-      include: ["tests/repository/**/*.test.ts", "apps/**/*.test.ts", "packages/**/*.test.ts"],
+      include: [
+        "tests/repository/**/*.test.ts",
+        "apps/**/*.test.{ts,tsx}",
+        "packages/**/*.test.{ts,tsx}",
+      ],
       exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
     },
   }),

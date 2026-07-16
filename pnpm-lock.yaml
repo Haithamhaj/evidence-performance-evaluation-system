@@ -139,9 +139,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@evaluation/localization':
+        specifier: workspace:*
+        version: link:../../packages/localization
       '@evaluation/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@evaluation/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       jose:
         specifier: 6.2.3
         version: 6.2.3
@@ -295,7 +301,20 @@ importers:
 
   packages/test-utils: {}
 
-  packages/ui: {}
+  packages/ui:
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
 
 packages:
 

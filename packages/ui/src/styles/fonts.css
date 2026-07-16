@@ -1,0 +1,23 @@
+@font-face {
+  font-family: "Noto Sans Arabic";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/NotoSansArabic-Variable.woff2") format("woff2-variations");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/Inter-Variable.woff2") format("woff2-variations");
+}
+
+:lang(ar) {
+  font-family: "Noto Sans Arabic", "Inter", sans-serif;
+}
+
+:lang(en) {
+  font-family: "Inter", "Noto Sans Arabic", sans-serif;
+}

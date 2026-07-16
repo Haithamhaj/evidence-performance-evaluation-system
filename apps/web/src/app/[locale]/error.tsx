@@ -1,5 +1,8 @@
 "use client";
 
+import { getCatalogSync, isLocale } from "@evaluation/localization";
+import { useParams } from "next/navigation";
+
 interface ErrorBoundaryProperties {
   readonly error: Error & { readonly correlationId?: unknown };
   readonly reset: () => void;
@@ -15,13 +18,16 @@ export function getSafeErrorCorrelationId(error: { readonly correlationId?: unkn
 
 export default function ErrorBoundary({ error, reset }: ErrorBoundaryProperties) {
   const correlationId = getSafeErrorCorrelationId(error);
+  const params = useParams<{ locale?: string }>();
+  const locale = params.locale !== undefined && isLocale(params.locale) ? params.locale : "ar";
+  const catalog = getCatalogSync(locale);
 
   return (
     <main role="alert" data-error-code="INTERNAL_ERROR">
-      <h1 data-message-key="errors.internal">errors.internal</h1>
+      <h1 data-message-key="errors.internal">{catalog["errors.internal"]}</h1>
       {correlationId === undefined ? null : <code>{correlationId}</code>}
       <button type="button" data-message-key="actions.retry" onClick={reset}>
-        actions.retry
+        {catalog["actions.retry"]}
       </button>
     </main>
   );

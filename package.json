@@ -27,7 +27,7 @@
     "infra:reset": "node scripts/reset-local-infra.mjs",
     "infra:up": "docker compose --env-file .env.local -f infra/docker/compose.yml up -d --wait",
     "infra:verify": "node scripts/verify-infra.mjs",
-    "lint": "turbo run lint && eslint scripts tests && node scripts/validate-boundaries.mjs",
+    "lint": "turbo run lint && eslint scripts tests && node scripts/validate-boundaries.mjs && node scripts/check-user-visible-copy.mjs",
     "scan:performance-inputs": "node scripts/scan-performance-inputs.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "typecheck": "turbo run typecheck",

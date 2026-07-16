@@ -11,7 +11,9 @@
     "test": "vitest run --root ../.. apps/web/src"
   },
   "dependencies": {
+    "@evaluation/localization": "workspace:*",
     "@evaluation/observability": "workspace:*",
+    "@evaluation/ui": "workspace:*",
     "jose": "6.2.3",
     "next": "16.2.10",
     "openid-client": "6.8.4",
