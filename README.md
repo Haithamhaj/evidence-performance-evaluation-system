@@ -19,6 +19,7 @@ Read the files in this order:
 7. `TASKS.md` — 77 ordered, dependency-valid implementation tasks.
 8. `AGENTS.md` — mandatory operating rules for Codex and other coding agents.
 9. `project-state/PROJECT_STATE.md` — short current-state snapshot.
+10. `scripts/README.md` — bounded repository-validation scope and known limitations.
 
 The `source/` folder preserves the original master product definition.
 

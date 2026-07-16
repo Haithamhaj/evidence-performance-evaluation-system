@@ -1,5 +1,19 @@
 # T011 Implementer Report
 
+## Product-owner bounded acceptance decision
+
+T011 is frozen at commit `4bbd342` plus documentation of the accepted tooling boundary. The protected AI-Router-only rule remains fully in force.
+
+Accepted checker behavior:
+
+- direct provider SDK imports outside `packages/ai-routing` are rejected;
+- the 17 committed direct/meta-call rejection cases remain green; and
+- the current production tree scans without false positives, including OIDC, logger, audit, and administration chains.
+
+Complete value-flow analysis of closures returned inside containers, aliased/destructured indirect flows, and reflection-based invocation is explicitly out of scope. `scripts/README.md` records these limitations and the required layered controls: runtime provider-key isolation, CI direct-import scanning, and human code review.
+
+The product owner explicitly ended the open-ended adversarial reviewer loop for T011. No protected product rule, AI routing rule, schema, migration, privacy behavior, or approved artifact was weakened.
+
 ## Status
 
 DONE — implementation, independent-review remediation, and repository-wide verification complete.
