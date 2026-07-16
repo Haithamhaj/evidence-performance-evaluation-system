@@ -1,0 +1,11 @@
+declare const opaque: { generate(): unknown };
+
+const key = "generate";
+
+function safeShadow() {
+  const key = "other";
+  return { [key]: true };
+}
+
+export const result = opaque[key]();
+export const control = safeShadow();

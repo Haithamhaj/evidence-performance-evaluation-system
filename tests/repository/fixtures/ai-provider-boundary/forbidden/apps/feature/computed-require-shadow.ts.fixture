@@ -1,0 +1,7 @@
+export function loadProvider() {
+  const providerPackage = ["@anthropic-ai", "sdk"].join("/");
+  return require(providerPackage);
+}
+
+const providerPackage = "./local-module";
+export const control = providerPackage;

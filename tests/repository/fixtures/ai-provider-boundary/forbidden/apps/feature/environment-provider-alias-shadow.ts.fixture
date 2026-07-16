@@ -1,0 +1,10 @@
+const providerUrl = process.env.OPENAI_BASE_URL;
+const endpoint = providerUrl;
+
+function safeShadow() {
+  const providerUrl = "/health";
+  return fetch(providerUrl);
+}
+
+export const result = endpoint === undefined ? undefined : fetch(endpoint);
+export const control = safeShadow;

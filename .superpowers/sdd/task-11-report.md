@@ -17,7 +17,50 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Sixth review remediation commit subject: `fix: close ai router review gaps`
 - Seventh review remediation commit subject: `fix: close final ai router review gaps`
 - Eighth review remediation commit subject: `fix: close ai router destructuring gap`
+- Ninth review remediation commit subject: `fix: bind ai boundary values lexically`
 - Push: prohibited and not attempted
+
+## Ninth review remediation
+
+The ninth review at `.superpowers/sdd/task-11-ninth-review.md` identified one critical name-keyed static-value and provider-environment-taint issue. Same-name bindings in separate lexical scopes were reproduced in both declaration orders before the boundary implementation changed.
+
+### Ninth review RED evidence
+
+- Provider-boundary suite: 2/2 tests failed for the expected reasons.
+- The prohibited-fixture case missed same-name computed `generate` keys in both declaration orders and missed computed provider `import()` / `require()` specifiers when an unrelated same-name binding overwrote the global value.
+- The allowed-fixture case incorrectly rejected a safe local `/health` request because an unused same-name provider-environment binding tainted every identifier with that text.
+
+### Ninth review changes
+
+- Keyed every propagated static string by the exact Babel lexical `Binding` returned through the existing `pathByNode` / `lexicalBinding` mechanism, rather than identifier text.
+- Applied exact binding resolution to computed member and property keys, object and class generator provenance, `Reflect.get`, static URL construction, and computed `import()` / `require()` specifiers.
+- Keyed provider-environment taint propagation by exact lexical binding while preserving direct `process.env.PROVIDER_*` detection.
+- Added forbidden regressions for both computed-key declaration orders and computed provider imports/requires, plus safe literal, local-generator, local-module, local-URL, and provider-environment shadow controls.
+
+### Ninth review GREEN evidence
+
+1. Focused remediation verification
+   - AI Router and provider-boundary set: 4 files and 169/169 tests passed.
+   - Provider-boundary suite alone: 2/2 tests passed.
+
+2. Combined T011 verification
+   - Router, adapters, governance, audit, run trace, workspace/import, and provider boundaries: 12 files and 253/253 tests passed.
+
+3. Migration verification
+   - `pnpm db:verify`: all six migrations passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; database integration passed 12/12.
+   - No migration or schema delta was required.
+
+4. Full integration verification
+   - `pnpm test:integration --passWithNoTests`: 15 files and 120/120 tests passed against the isolated PostgreSQL, Redis, MinIO, and Keycloak stack.
+
+5. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 269 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 311/311 tests; forced build 14/14.
+   - `git diff --check` passed, and no database, approved product, rubric, implementation-plan, task, or agent-governance file changed.
+
+6. Local service continuity
+   - Temporary containers, network, and volumes were removed.
+   - The pre-existing Homebrew PostgreSQL 16 service was restored and accepts connections on `127.0.0.1:5432`.
 
 ## Eighth review remediation
 
@@ -485,7 +528,7 @@ The tests also cover project > department > system precedence, no lower-scope by
 - Live provider credentials and deployment-specific endpoints are deliberately not configured in this task; the adapter contract and security boundary are tested with controlled HTTP doubles.
 - Deployment must register and audit an immutable local trust policy before a local provider can be configured; non-loopback local endpoints still require HTTPS.
 - T012 remains responsible for model-quality evaluation fixtures, including Arabic and dialect behavior. T011 enforces structural and protected-output policy, not model quality.
-- Independent verification of the sixth remediation commit is still required before merge.
+- Fresh independent verification of the ninth remediation commit is still required before merge.
 
 ## Project-state effect
 

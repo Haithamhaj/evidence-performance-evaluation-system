@@ -1,0 +1,24 @@
+function providerConfigurationOnly() {
+  const providerPackage = "openai";
+  const providerUrl = process.env.OPENAI_BASE_URL;
+  return { providerPackage, providerUrl };
+}
+
+const providerPackage = "./local-module";
+const providerUrl = "/health";
+const key = "generate";
+const localGenerator = {
+  generate() {
+    return "local";
+  },
+};
+
+function unrelatedShadow() {
+  const key = "other";
+  return { [key]: true };
+}
+
+export const imported = import(providerPackage);
+export const fetched = fetch(providerUrl);
+export const generated = localGenerator[key]();
+export const controls = [providerConfigurationOnly, unrelatedShadow];

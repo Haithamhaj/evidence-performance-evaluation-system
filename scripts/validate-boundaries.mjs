@@ -132,19 +132,21 @@ function inspectImport(filePath, specifier) {
   return undefined;
 }
 
-function staticString(node, bindings) {
+function staticString(node, bindings, pathByNode) {
   if (node?.type === "StringLiteral") return node.value;
-  if (node?.type === "Identifier") return bindings.get(node.name);
-  if (node?.type === "ParenthesizedExpression") return staticString(node.expression, bindings);
+  if (node?.type === "Identifier") return bindings.get(lexicalBinding(node, pathByNode));
+  if (node?.type === "ParenthesizedExpression") {
+    return staticString(node.expression, bindings, pathByNode);
+  }
   if (node?.type === "BinaryExpression" && node.operator === "+") {
-    const left = staticString(node.left, bindings);
-    const right = staticString(node.right, bindings);
+    const left = staticString(node.left, bindings, pathByNode);
+    const right = staticString(node.right, bindings, pathByNode);
     return left === undefined || right === undefined ? undefined : `${left}${right}`;
   }
   if (node?.type === "TemplateLiteral") {
     let value = node.quasis[0]?.value.cooked ?? "";
     for (let index = 0; index < node.expressions.length; index += 1) {
-      const expression = staticString(node.expressions[index], bindings);
+      const expression = staticString(node.expressions[index], bindings, pathByNode);
       if (expression === undefined) return undefined;
       value += expression + (node.quasis[index + 1]?.value.cooked ?? "");
     }
@@ -153,59 +155,63 @@ function staticString(node, bindings) {
   if (
     node?.type === "CallExpression" &&
     node.callee?.type === "MemberExpression" &&
-    propertyName(node.callee, bindings) === "join" &&
+    propertyName(node.callee, bindings, pathByNode) === "join" &&
     node.callee.object?.type === "ArrayExpression"
   ) {
-    const separator = node.arguments[0] ? staticString(node.arguments[0], bindings) : ",";
-    const items = node.callee.object.elements.map((element) => staticString(element, bindings));
+    const separator = node.arguments[0]
+      ? staticString(node.arguments[0], bindings, pathByNode)
+      : ",";
+    const items = node.callee.object.elements.map((element) =>
+      staticString(element, bindings, pathByNode),
+    );
     if (separator === undefined || items.some((item) => item === undefined)) return undefined;
     return items.join(separator);
   }
   return undefined;
 }
 
-function propertyName(expression, bindings) {
+function propertyName(expression, bindings, pathByNode) {
   if (!["MemberExpression", "OptionalMemberExpression"].includes(expression?.type)) {
     return undefined;
   }
   if (!expression.computed && expression.property?.type === "Identifier") {
     return expression.property.name;
   }
-  return staticString(expression.property, bindings);
+  return staticString(expression.property, bindings, pathByNode);
 }
 
-function patternExtractsGenerate(pattern, bindings) {
+function patternExtractsGenerate(pattern, bindings, pathByNode) {
   if (pattern?.type === "AssignmentPattern") {
-    return patternExtractsGenerate(pattern.left, bindings);
+    return patternExtractsGenerate(pattern.left, bindings, pathByNode);
   }
   if (pattern?.type === "RestElement") {
-    return patternExtractsGenerate(pattern.argument, bindings);
+    return patternExtractsGenerate(pattern.argument, bindings, pathByNode);
   }
   if (pattern?.type !== "ObjectPattern") return false;
   return pattern.properties.some((property) => {
     if (property.type === "RestElement") {
-      return patternExtractsGenerate(property.argument, bindings);
+      return patternExtractsGenerate(property.argument, bindings, pathByNode);
     }
     if (property.type !== "ObjectProperty") return false;
     return (
-      propertyKeyName(property, bindings) === "generate" ||
-      patternExtractsGenerate(property.value, bindings)
+      propertyKeyName(property, bindings, pathByNode) === "generate" ||
+      patternExtractsGenerate(property.value, bindings, pathByNode)
     );
   });
 }
 
-function propertyKeyName(property, bindings) {
+function propertyKeyName(property, bindings, pathByNode) {
   const key = property?.key;
   if (!property?.computed && key?.type === "Identifier") return key.name;
   if (key?.type === "StringLiteral") return key.value;
-  return property?.computed ? staticString(key, bindings) : undefined;
+  return property?.computed ? staticString(key, bindings, pathByNode) : undefined;
 }
 
-function classDefinesLocalGenerate(node, bindings) {
+function classDefinesLocalGenerate(node, bindings, pathByNode) {
   return node?.body?.body?.some(
     (member) =>
       (member.type === "ClassMethod" || member.type === "ClassPrivateMethod") &&
-      propertyKeyName(member, bindings) === "generate",
+      propertyKeyName(member, bindings, pathByNode) === "generate",
   );
 }
 
@@ -245,7 +251,7 @@ function isDirectLocalGeneratorExpression(node, localGeneratorClasses, bindings,
   const expression = unwrapTransparentExpression(node);
   if (expression?.type === "ObjectExpression") {
     return expression.properties.some((property) => {
-      if (propertyKeyName(property, bindings) !== "generate") return false;
+      if (propertyKeyName(property, bindings, pathByNode) !== "generate") return false;
       if (property.type === "ObjectMethod") return true;
       return (
         property.type === "ObjectProperty" &&
@@ -351,16 +357,20 @@ function collectOpaquePatternWrites(pattern, writes, pathByNode) {
   }
 }
 
-function staticUrl(node, bindings) {
-  const direct = staticString(node, bindings);
+function staticUrl(node, bindings, pathByNode) {
+  const direct = staticString(node, bindings, pathByNode);
   if (direct !== undefined) return direct;
   if (
     node?.type === "NewExpression" &&
     node.callee?.type === "Identifier" &&
     node.callee.name === "URL"
   ) {
-    const relative = node.arguments[0] ? staticString(node.arguments[0], bindings) : undefined;
-    const base = node.arguments[1] ? staticString(node.arguments[1], bindings) : undefined;
+    const relative = node.arguments[0]
+      ? staticString(node.arguments[0], bindings, pathByNode)
+      : undefined;
+    const base = node.arguments[1]
+      ? staticString(node.arguments[1], bindings, pathByNode)
+      : undefined;
     if (relative === undefined || base === undefined) return undefined;
     try {
       return new URL(relative, base).toString();
@@ -399,10 +409,15 @@ function walk(node, visit) {
   for (const child of childrenOf(node)) walk(child, visit);
 }
 
-function containsProviderEnvironment(node, taintedBindings) {
+function containsProviderEnvironment(node, taintedBindings, pathByNode) {
   let found = false;
   walk(node, (candidate) => {
-    if (candidate.type === "Identifier" && taintedBindings.has(candidate.name)) found = true;
+    if (
+      candidate.type === "Identifier" &&
+      taintedBindings.has(lexicalBinding(candidate, pathByNode))
+    ) {
+      found = true;
+    }
     const pathValue = memberPath(candidate);
     if (pathValue?.startsWith("process.env.")) {
       const name = pathValue.slice("process.env.".length);
@@ -452,7 +467,7 @@ function inspectAst(filePath, source) {
       if (
         (node.type === "ClassDeclaration" || node.type === "ClassExpression") &&
         node.id?.type === "Identifier" &&
-        classDefinesLocalGenerate(node, bindings)
+        classDefinesLocalGenerate(node, bindings, pathByNode)
       ) {
         localGeneratorClassNodes.push(node.id);
       }
@@ -484,16 +499,18 @@ function inspectAst(filePath, source) {
     for (const declaration of declarations) {
       if (!declaration.init) continue;
       if (declaration.id?.type === "Identifier") {
-        const value = staticString(declaration.init, bindings);
-        if (value !== undefined && bindings.get(declaration.id.name) !== value) {
-          bindings.set(declaration.id.name, value);
+        const binding = lexicalBinding(declaration.id, pathByNode);
+        const value = staticString(declaration.init, bindings, pathByNode);
+        if (binding !== undefined && value !== undefined && bindings.get(binding) !== value) {
+          bindings.set(binding, value);
           changed = true;
         }
         if (
-          containsProviderEnvironment(declaration.init, taintedBindings) &&
-          !taintedBindings.has(declaration.id.name)
+          binding !== undefined &&
+          containsProviderEnvironment(declaration.init, taintedBindings, pathByNode) &&
+          !taintedBindings.has(binding)
         ) {
-          taintedBindings.add(declaration.id.name);
+          taintedBindings.add(binding);
           changed = true;
         }
       }
@@ -594,7 +611,7 @@ function inspectAst(filePath, source) {
     if (
       !aiRoutingFile &&
       ["MemberExpression", "OptionalMemberExpression"].includes(node.type) &&
-      propertyName(node, bindings) === "generate" &&
+      propertyName(node, bindings, pathByNode) === "generate" &&
       !isLocalGeneratorExpression(
         node.object,
         neutralGeneratorBindings,
@@ -608,7 +625,7 @@ function inspectAst(filePath, source) {
     if (
       !aiRoutingFile &&
       node.type === "VariableDeclarator" &&
-      patternExtractsGenerate(node.id, bindings) &&
+      patternExtractsGenerate(node.id, bindings, pathByNode) &&
       !isLocalGeneratorExpression(
         node.init,
         neutralGeneratorBindings,
@@ -622,7 +639,7 @@ function inspectAst(filePath, source) {
     if (
       !aiRoutingFile &&
       node.type === "AssignmentExpression" &&
-      patternExtractsGenerate(node.left, bindings) &&
+      patternExtractsGenerate(node.left, bindings, pathByNode) &&
       !isLocalGeneratorExpression(
         node.right,
         neutralGeneratorBindings,
@@ -636,18 +653,20 @@ function inspectAst(filePath, source) {
     if (
       !aiRoutingFile &&
       Array.isArray(node.params) &&
-      node.params.some((parameter) => patternExtractsGenerate(parameter, bindings))
+      node.params.some((parameter) => patternExtractsGenerate(parameter, bindings, pathByNode))
     ) {
       findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
     }
     if (node.type === "CallExpression" || node.type === "ImportExpression") {
       const callee = node.type === "CallExpression" ? node.callee : undefined;
       const arguments_ = node.type === "CallExpression" ? node.arguments : [node.source];
-      const calledName = propertyName(callee, bindings);
+      const calledName = propertyName(callee, bindings, pathByNode);
       const directImport = node.type === "ImportExpression" || callee?.type === "Import";
       const directRequire = callee?.type === "Identifier" && callee.name === "require";
       if (directImport || directRequire) {
-        const specifier = arguments_[0] ? staticString(arguments_[0], bindings) : undefined;
+        const specifier = arguments_[0]
+          ? staticString(arguments_[0], bindings, pathByNode)
+          : undefined;
         if (specifier !== undefined) {
           const violation = inspectImport(filePath, specifier);
           if (violation) findings.push(violation);
@@ -658,7 +677,7 @@ function inspectAst(filePath, source) {
         callee?.type === "MemberExpression" &&
         memberPath(callee) === "Reflect.get" &&
         arguments_[1] !== undefined &&
-        staticString(arguments_[1], bindings) === "generate" &&
+        staticString(arguments_[1], bindings, pathByNode) === "generate" &&
         !isLocalGeneratorExpression(
           arguments_[0],
           neutralGeneratorBindings,
@@ -684,10 +703,10 @@ function inspectAst(filePath, source) {
       }
       if (!aiRoutingFile && callee?.type === "Identifier" && callee.name === "fetch") {
         const target = arguments_[0];
-        const staticTarget = target ? staticUrl(target, bindings) : undefined;
+        const staticTarget = target ? staticUrl(target, bindings, pathByNode) : undefined;
         if (
           target &&
-          (containsProviderEnvironment(target, taintedBindings) ||
+          (containsProviderEnvironment(target, taintedBindings, pathByNode) ||
             (staticTarget !== undefined && directProviderRoutePattern.test(staticTarget)))
         ) {
           findings.push(

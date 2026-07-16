@@ -1,0 +1,9 @@
+declare const opaque: { generate(): unknown };
+
+export function invokeProvider() {
+  const key = "generate";
+  return opaque[key]();
+}
+
+const key = "other";
+export const control = { [key]: true };
