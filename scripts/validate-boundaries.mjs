@@ -806,6 +806,221 @@ function lexicalBinding(node, pathByNode) {
   return pathByNode.get(node)?.scope.getBinding(node.name);
 }
 
+function isExactGlobalSelection(
+  node,
+  globalName,
+  expectedKeys,
+  bindingWrites,
+  pathByNode,
+  resolvingWrites = new Set(),
+  selection = [],
+) {
+  const expression = unwrapTransparentExpression(node);
+  if (["MemberExpression", "OptionalMemberExpression"].includes(expression?.type)) {
+    return isExactGlobalSelection(
+      expression.object,
+      globalName,
+      expectedKeys,
+      bindingWrites,
+      pathByNode,
+      resolvingWrites,
+      [
+        {
+          computed: expression.computed,
+          key: expression.property,
+          type: "property",
+        },
+        ...selection,
+      ],
+    );
+  }
+  if (expression?.type === "ConditionalExpression") {
+    return [expression.consequent, expression.alternate].every((candidate) =>
+      isExactGlobalSelection(
+        candidate,
+        globalName,
+        expectedKeys,
+        bindingWrites,
+        pathByNode,
+        resolvingWrites,
+        selection,
+      ),
+    );
+  }
+  if (expression?.type === "LogicalExpression") {
+    return [expression.left, expression.right].every((candidate) =>
+      isExactGlobalSelection(
+        candidate,
+        globalName,
+        expectedKeys,
+        bindingWrites,
+        pathByNode,
+        resolvingWrites,
+        selection,
+      ),
+    );
+  }
+  if (expression?.type !== "Identifier") return false;
+  const binding = lexicalBinding(expression, pathByNode);
+  if (binding === undefined) {
+    if (expression.name !== globalName || selection.length !== expectedKeys.length) return false;
+    return selection.every((selector, index) => {
+      const keys = staticSelectionKeys(selector, bindingWrites, pathByNode);
+      return (
+        !keys.truncated &&
+        keys.values.size === 1 &&
+        String([...keys.values][0]) === expectedKeys[index]
+      );
+    });
+  }
+  const writes = possibleSelectedBindingWrites(
+    expression,
+    selection,
+    bindingWrites,
+    pathByNode,
+    false,
+  );
+  if (writes.unknown || writes.truncated || writes.values.size === 0) return false;
+  return [...writes.values].every((write) => {
+    const identity = write.origin ?? write;
+    if (write.expression === undefined || resolvingWrites.has(identity)) return false;
+    const nextResolvingWrites = new Set(resolvingWrites);
+    nextResolvingWrites.add(identity);
+    return isExactGlobalSelection(
+      write.expression,
+      globalName,
+      expectedKeys,
+      bindingWrites,
+      pathByNode,
+      nextResolvingWrites,
+      write.selection ?? [],
+    );
+  });
+}
+
+function possibleStaticObjectProperties(
+  node,
+  bindingWrites,
+  pathByNode,
+  resolvingWrites = new Set(),
+) {
+  const result = { properties: [], truncated: false, unknown: false };
+  const merge = (nested) => {
+    result.properties.push(...nested.properties);
+    result.truncated ||= nested.truncated;
+    result.unknown ||= nested.unknown;
+  };
+  const expression = unwrapTransparentExpression(node);
+  if (expression?.type === "ObjectExpression") {
+    for (const property of expression.properties) {
+      if (property.type === "SpreadElement") {
+        const spread = possibleStaticObjectProperties(
+          property.argument,
+          bindingWrites,
+          pathByNode,
+          resolvingWrites,
+        );
+        merge(spread);
+        continue;
+      }
+      const keys = property.computed
+        ? possibleStaticStrings(property.key, bindingWrites, pathByNode)
+        : {
+            truncated: false,
+            unknown: false,
+            values: new Set([propertyKeyName(property, bindingWrites, pathByNode)]),
+          };
+      result.truncated ||= keys.truncated;
+      result.unknown ||= keys.unknown || keys.values.size === 0;
+      for (const key of keys.values) {
+        result.properties.push({
+          key: String(key),
+          value: property.type === "ObjectMethod" ? property : property.value,
+        });
+      }
+    }
+    return result;
+  }
+  if (expression?.type === "Identifier") {
+    const writes = possibleBindingWrites(expression, bindingWrites, pathByNode);
+    result.truncated ||= writes.truncated;
+    result.unknown ||= writes.unknown || writes.values.size === 0;
+    for (const write of writes.values) {
+      if (write.expression === undefined || resolvingWrites.has(write)) {
+        result.unknown = true;
+        continue;
+      }
+      const nextResolvingWrites = new Set(resolvingWrites);
+      nextResolvingWrites.add(write);
+      const selected = write.selection ?? [];
+      if (selected.length === 0) {
+        merge(
+          possibleStaticObjectProperties(
+            write.expression,
+            bindingWrites,
+            pathByNode,
+            nextResolvingWrites,
+          ),
+        );
+        continue;
+      }
+      const sourceProperties = possibleStaticObjectProperties(
+        write.expression,
+        bindingWrites,
+        pathByNode,
+        nextResolvingWrites,
+      );
+      const firstKeys = staticSelectionKeys(selected[0], bindingWrites, pathByNode);
+      result.truncated ||= sourceProperties.truncated || firstKeys.truncated;
+      result.unknown ||= sourceProperties.unknown;
+      for (const property of sourceProperties.properties) {
+        if (![...firstKeys.values].some((key) => String(key) === property.key)) continue;
+        if (selected.length === 1) {
+          merge(
+            possibleStaticObjectProperties(
+              property.value,
+              bindingWrites,
+              pathByNode,
+              nextResolvingWrites,
+            ),
+          );
+        } else result.unknown = true;
+      }
+    }
+    return result;
+  }
+  if (expression?.type === "ConditionalExpression") {
+    merge(
+      possibleStaticObjectProperties(
+        expression.consequent,
+        bindingWrites,
+        pathByNode,
+        resolvingWrites,
+      ),
+    );
+    merge(
+      possibleStaticObjectProperties(
+        expression.alternate,
+        bindingWrites,
+        pathByNode,
+        resolvingWrites,
+      ),
+    );
+    return result;
+  }
+  if (expression?.type === "LogicalExpression") {
+    merge(
+      possibleStaticObjectProperties(expression.left, bindingWrites, pathByNode, resolvingWrites),
+    );
+    merge(
+      possibleStaticObjectProperties(expression.right, bindingWrites, pathByNode, resolvingWrites),
+    );
+    return result;
+  }
+  result.unknown = true;
+  return result;
+}
+
 function directFunctionTarget(node) {
   const expression = unwrapTransparentExpression(node);
   return [
@@ -920,6 +1135,115 @@ function staticSelectionKeys(selector, bindingWrites, pathByNode) {
   }
   const resolved = possibleStaticStrings(selector.key, bindingWrites, pathByNode);
   return { truncated: resolved.truncated || resolved.unknown, values: resolved.values };
+}
+
+function possibleRuntimeClassReceivers(
+  node,
+  declaredFunctionTargets,
+  bindingWrites,
+  pathByNode,
+  options = {},
+) {
+  const result = { receivers: new Map(), truncated: false };
+  const depth = options.depth ?? 0;
+  const resolvingWrites = options.resolvingWrites ?? new Set();
+  if (depth > maxResolvedValues) {
+    result.truncated = true;
+    return result;
+  }
+  const addReceiver = (classNode, isStatic) => {
+    let modes = result.receivers.get(classNode);
+    if (modes === undefined) {
+      modes = new Set();
+      result.receivers.set(classNode, modes);
+    }
+    modes.add(isStatic ? "static" : "instance");
+  };
+  const merge = (nested) => {
+    for (const [classNode, modes] of nested.receivers) {
+      for (const mode of modes) addReceiver(classNode, mode === "static");
+    }
+    result.truncated ||= nested.truncated;
+  };
+  const recurse = (candidate, nextOptions = {}) =>
+    merge(
+      possibleRuntimeClassReceivers(candidate, declaredFunctionTargets, bindingWrites, pathByNode, {
+        depth: depth + 1,
+        resolvingWrites: nextOptions.resolvingWrites ?? resolvingWrites,
+      }),
+    );
+
+  const expression = unwrapTransparentExpression(node);
+  if (expression == null) {
+    result.truncated = true;
+    return result;
+  }
+  if (["ClassDeclaration", "ClassExpression"].includes(expression.type)) {
+    addReceiver(expression, true);
+    return result;
+  }
+  if (expression.type === "NewExpression") {
+    const targets = possibleFunctionTargets(
+      expression.callee,
+      declaredFunctionTargets,
+      bindingWrites,
+      pathByNode,
+    );
+    result.truncated ||= targets.truncated;
+    for (const target of targets.targets) {
+      if (["ClassDeclaration", "ClassExpression"].includes(target.type)) addReceiver(target, false);
+    }
+    if (result.receivers.size === 0) result.truncated = true;
+    return result;
+  }
+  if (expression.type === "ThisExpression") {
+    const context = enclosingClassMember(expression, pathByNode);
+    if (context === undefined) {
+      result.truncated = true;
+      return result;
+    }
+    const knownReceivers = classReceiverAnalysisByBindingWrites
+      .get(bindingWrites)
+      ?.receivers.get(classMemberValue(context.member));
+    for (const [classNode, modes] of knownReceivers ?? []) {
+      if (modes.has(context.member.static ? "static" : "instance")) {
+        addReceiver(classNode, Boolean(context.member.static));
+      }
+    }
+    if (result.receivers.size === 0) addReceiver(context.classNode, Boolean(context.member.static));
+    return result;
+  }
+  if (expression.type === "Identifier") {
+    for (const target of declaredFunctionTargets.get(lexicalBinding(expression, pathByNode)) ??
+      []) {
+      if (["ClassDeclaration", "ClassExpression"].includes(target.type)) addReceiver(target, true);
+    }
+    const writes = possibleBindingWrites(expression, bindingWrites, pathByNode);
+    result.truncated ||= writes.truncated || writes.unknown;
+    for (const write of writes.values) {
+      if (resolvingWrites.has(write)) {
+        result.truncated = true;
+        continue;
+      }
+      const nextResolvingWrites = new Set(resolvingWrites);
+      nextResolvingWrites.add(write);
+      recurse(write.expression, { resolvingWrites: nextResolvingWrites });
+    }
+    if (result.receivers.size === 0) result.truncated = true;
+    return result;
+  }
+  if (expression.type === "ConditionalExpression") {
+    recurse(expression.consequent);
+    recurse(expression.alternate);
+    return result;
+  }
+  if (expression.type === "LogicalExpression") {
+    recurse(expression.left);
+    recurse(expression.right);
+    return result;
+  }
+  result.truncated = true;
+  return result;
 }
 
 function possibleFunctionTargets(
@@ -1307,6 +1631,59 @@ function possibleFunctionTargets(
     }
     return result;
   }
+  if (["CallExpression", "OptionalCallExpression"].includes(expression.type)) {
+    const memberCallee = ["MemberExpression", "OptionalMemberExpression"].includes(
+      expression.callee?.type,
+    )
+      ? expression.callee
+      : undefined;
+    const indirectMember = memberCallee
+      ? propertyName(memberCallee, bindingWrites, pathByNode)
+      : undefined;
+    const reflectedApply = isExactGlobalSelection(
+      expression.callee,
+      "Reflect",
+      ["apply"],
+      bindingWrites,
+      pathByNode,
+    );
+    const targetExpression = reflectedApply ? expression.arguments[0] : memberCallee?.object;
+    const receiverExpression = reflectedApply ? expression.arguments[1] : expression.arguments[0];
+    if (reflectedApply || ["call", "apply", "bind"].includes(indirectMember)) {
+      const receivers = possibleRuntimeClassReceivers(
+        receiverExpression?.type === "SpreadElement"
+          ? receiverExpression.argument
+          : receiverExpression,
+        declaredFunctionTargets,
+        bindingWrites,
+        pathByNode,
+      );
+      if (receivers.receivers.size === 0) {
+        const unresolvedTarget = recurse(targetExpression);
+        if (
+          receivers.truncated &&
+          [...unresolvedTarget.targets].some(
+            (target) => enclosingClassMember(target, pathByNode) !== undefined,
+          )
+        ) {
+          result.truncated = true;
+        }
+      } else {
+        result.truncated ||= receivers.truncated;
+        for (const [classNode, modes] of receivers.receivers) {
+          for (const mode of modes) {
+            recurse(targetExpression, {
+              runtimeClassTarget: classNode,
+              runtimeStatic: mode === "static",
+            });
+          }
+        }
+      }
+      return result;
+    }
+    recurse(expression.callee);
+    return result;
+  }
   if (["MemberExpression", "OptionalMemberExpression"].includes(expression.type)) {
     const memberName = propertyName(expression, bindingWrites, pathByNode);
     if (memberName === "bind") return result;
@@ -1323,14 +1700,6 @@ function possibleFunctionTargets(
         },
       ],
     });
-    return result;
-  }
-  if (
-    ["CallExpression", "OptionalCallExpression"].includes(expression.type) &&
-    ["MemberExpression", "OptionalMemberExpression"].includes(expression.callee?.type) &&
-    propertyName(expression.callee, bindingWrites, pathByNode) === "bind"
-  ) {
-    recurse(expression.callee.object);
     return result;
   }
   if (expression.type === "ConditionalExpression") {
@@ -1699,6 +2068,17 @@ function isKnownNonInvokingFunctionContainer(
   bindingWrites,
   pathByNode,
 ) {
+  if (
+    [
+      ["Object", "defineProperty"],
+      ["Object", "defineProperties"],
+      ["Reflect", "set"],
+    ].some(([globalName, methodName]) =>
+      isExactGlobalSelection(callNode.callee, globalName, [methodName], bindingWrites, pathByNode),
+    )
+  ) {
+    return true;
+  }
   return isExactNonInvokingFunctionContainer(
     callNode.callee,
     metadataContainerBindings,
@@ -2118,6 +2498,135 @@ function inspectAst(filePath, source) {
   for (const writes of bindingWrites.values()) {
     writes.sort((left, right) => left.position - right.position);
   }
+
+  const recordReflectivePropertyWrite = (target, key, source, callNode, forceAmbiguous = false) => {
+    const resolvedKeys = possibleStaticStrings(key, bindingWrites, pathByNode);
+    for (const resolvedKey of resolvedKeys.values) {
+      recordMemberWrite(
+        {
+          computed: true,
+          object: target,
+          property: { type: "StringLiteral", value: String(resolvedKey) },
+          type: "MemberExpression",
+        },
+        source,
+        callNode,
+        [],
+        forceAmbiguous ||
+          resolvedKeys.unknown ||
+          resolvedKeys.truncated ||
+          resolvedKeys.values.size > 1,
+      );
+    }
+    if (
+      (resolvedKeys.unknown || resolvedKeys.truncated || resolvedKeys.values.size === 0) &&
+      isExactGlobalSelection(target, "Object", [], bindingWrites, pathByNode)
+    ) {
+      recordMemberWrite(
+        {
+          computed: true,
+          object: target,
+          property: { type: "StringLiteral", value: "freeze" },
+          type: "MemberExpression",
+        },
+        undefined,
+        callNode,
+        [],
+        true,
+      );
+    }
+  };
+  for (const callNode of callNodes) {
+    const arguments_ = callNode.arguments.map((argument) =>
+      argument?.type === "SpreadElement" ? argument.argument : argument,
+    );
+    const defineProperty = isExactGlobalSelection(
+      callNode.callee,
+      "Object",
+      ["defineProperty"],
+      bindingWrites,
+      pathByNode,
+    );
+    const defineProperties = isExactGlobalSelection(
+      callNode.callee,
+      "Object",
+      ["defineProperties"],
+      bindingWrites,
+      pathByNode,
+    );
+    const reflectSet = isExactGlobalSelection(
+      callNode.callee,
+      "Reflect",
+      ["set"],
+      bindingWrites,
+      pathByNode,
+    );
+    if (defineProperty && arguments_[0] && arguments_[1]) {
+      const descriptor = possibleStaticObjectProperties(arguments_[2], bindingWrites, pathByNode);
+      const values = descriptor.properties.filter((property) => property.key === "value");
+      if (values.length === 0) {
+        recordReflectivePropertyWrite(arguments_[0], arguments_[1], undefined, callNode, true);
+      } else {
+        for (const value of values) {
+          recordReflectivePropertyWrite(
+            arguments_[0],
+            arguments_[1],
+            value.value,
+            callNode,
+            descriptor.unknown || descriptor.truncated || values.length > 1,
+          );
+        }
+      }
+    }
+    if (defineProperties && arguments_[0]) {
+      const descriptors = possibleStaticObjectProperties(arguments_[1], bindingWrites, pathByNode);
+      for (const descriptor of descriptors.properties) {
+        const values = possibleStaticObjectProperties(descriptor.value, bindingWrites, pathByNode);
+        const descriptorValues = values.properties.filter((property) => property.key === "value");
+        if (descriptorValues.length === 0) {
+          recordReflectivePropertyWrite(
+            arguments_[0],
+            { type: "StringLiteral", value: descriptor.key },
+            undefined,
+            callNode,
+            true,
+          );
+        } else {
+          for (const value of descriptorValues) {
+            recordReflectivePropertyWrite(
+              arguments_[0],
+              { type: "StringLiteral", value: descriptor.key },
+              value.value,
+              callNode,
+              descriptors.unknown ||
+                descriptors.truncated ||
+                values.unknown ||
+                values.truncated ||
+                descriptorValues.length > 1,
+            );
+          }
+        }
+      }
+      if (
+        (descriptors.unknown || descriptors.truncated || descriptors.properties.length === 0) &&
+        isExactGlobalSelection(arguments_[0], "Object", [], bindingWrites, pathByNode)
+      ) {
+        recordReflectivePropertyWrite(
+          arguments_[0],
+          { type: "StringLiteral", value: "freeze" },
+          undefined,
+          callNode,
+          true,
+        );
+      }
+    }
+    if (reflectSet && arguments_[0] && arguments_[1]) {
+      recordReflectivePropertyWrite(arguments_[0], arguments_[1], arguments_[2], callNode);
+    }
+  }
+  for (const writes of bindingWrites.values()) {
+    writes.sort((left, right) => left.position - right.position);
+  }
   globalObjectFreezeWrites.sort((left, right) => left.position - right.position);
   globalObjectFreezeWritesByBindingWrites.set(bindingWrites, globalObjectFreezeWrites);
 
@@ -2156,12 +2665,20 @@ function inspectAst(filePath, source) {
     for (const callNode of callNodes) {
       const callerBoundary = executionBoundary(pathByNode.get(callNode));
       if (callerBoundary === undefined) continue;
-      const calleeTargets = possibleFunctionTargets(
-        callNode.callee,
+      const resolvedCallTargets = possibleFunctionTargets(
+        callNode,
         declaredFunctionTargets,
         bindingWrites,
         pathByNode,
       );
+      const exactFunctionBind =
+        ["MemberExpression", "OptionalMemberExpression"].includes(callNode.callee?.type) &&
+        propertyName(callNode.callee, bindingWrites, pathByNode) === "bind" &&
+        resolvedCallTargets.targets.size > 0 &&
+        !resolvedCallTargets.truncated;
+      const calleeTargets = exactFunctionBind
+        ? { receiverTargets: new Map(), targets: new Set(), truncated: false }
+        : resolvedCallTargets;
       truncatedFunctionTargetResolution ||= calleeTargets.truncated;
       const targets = new Set(calleeTargets.targets);
       const receiverClasses = new Map();
@@ -2177,6 +2694,7 @@ function inspectAst(filePath, source) {
       };
       mergeReceiverTargets(calleeTargets);
       if (
+        !exactFunctionBind &&
         !isKnownNonInvokingFunctionContainer(
           callNode,
           metadataContainerBindings,
@@ -2252,6 +2770,24 @@ function inspectAst(filePath, source) {
               position,
               edge.receiverClass,
             ) || changed;
+        }
+      }
+      if (edge.receiverClass === undefined && edge.target.type === "ArrowFunctionExpression") {
+        for (const [receiverClass, byObservedBoundary] of invocationAnalysis.receiverPositions.get(
+          edge.callerBoundary,
+        ) ?? []) {
+          for (const [observedBoundary, positions] of byObservedBoundary) {
+            for (const position of positions) {
+              changed =
+                addInvocationPosition(
+                  invocationAnalysis,
+                  edge.target,
+                  observedBoundary,
+                  position,
+                  receiverClass,
+                ) || changed;
+            }
+          }
         }
       }
       for (const observedBoundary of invocationAnalysis.truncated.get(edge.callerBoundary) ?? []) {

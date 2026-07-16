@@ -1,0 +1,12 @@
+let method = "generate";
+const opaque = {} as Record<string, () => unknown>;
+const set = Reflect.set;
+const objectAlias = Object;
+const key = "freeze";
+
+set(objectAlias, key, (value: unknown) => {
+  (value as { handler: () => unknown }).handler();
+  return value;
+});
+Object.freeze({ handler: () => opaque[method]() });
+method = "health";

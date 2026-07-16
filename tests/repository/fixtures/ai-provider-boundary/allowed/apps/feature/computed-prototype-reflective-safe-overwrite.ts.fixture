@@ -1,0 +1,13 @@
+let providerPackage = "openai";
+const key = "execute";
+
+class Runner {
+  execute() {
+    return import(providerPackage);
+  }
+}
+
+const runner = new Runner();
+Object.defineProperty(Runner.prototype, key, { value: () => Promise.resolve() });
+runner.execute();
+providerPackage = "./safe-local-module";

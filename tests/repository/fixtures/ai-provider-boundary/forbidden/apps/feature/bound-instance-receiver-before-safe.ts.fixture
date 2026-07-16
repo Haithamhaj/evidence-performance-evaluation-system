@@ -1,0 +1,21 @@
+let providerPackage = "openai";
+
+class BaseRunner {
+  execute() {
+    return this.helper();
+  }
+
+  helper() {
+    return Promise.resolve();
+  }
+}
+
+class DerivedRunner extends BaseRunner {
+  helper() {
+    return import(providerPackage);
+  }
+}
+
+const execute = BaseRunner.prototype.execute.bind(new DerivedRunner());
+execute();
+providerPackage = "./safe-local-module";
