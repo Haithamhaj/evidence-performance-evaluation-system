@@ -1,17 +1,23 @@
 import { AppError } from "@evaluation/contracts";
 
-import { AiProviderError } from "./contracts.js";
+import {
+  AiProviderError,
+  OpaqueReferenceSchema,
+  RouteKeySchema,
+  VersionReferenceSchema,
+} from "./contracts.js";
 import { validateAiOutput, validateAiOutputSchema } from "./output-validator.js";
+import { outputSchemaDescriptor } from "./configuration.js";
 import { resolveFallback, resolveRoute } from "./resolve-route.js";
 
-export class AiRouter {
+export class AiRouter<TTransaction = unknown> {
   private readonly routes: import("./contracts.js").RouteRepository;
-  private readonly traces: import("./contracts.js").RunTraceRepository;
+  private readonly traces: import("./contracts.js").RunTraceRepository<TTransaction>;
   private readonly adapters: ReadonlyMap<string, import("./contracts.js").AiProviderAdapter>;
 
   constructor(
     routes: import("./contracts.js").RouteRepository,
-    traces: import("./contracts.js").RunTraceRepository,
+    traces: import("./contracts.js").RunTraceRepository<TTransaction>,
     adapters: readonly import("./contracts.js").AiProviderAdapter[],
   ) {
     this.routes = routes;
@@ -25,10 +31,23 @@ export class AiRouter {
 
   async run<TInput, TOutput>(
     input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
-    persistValidatedOutput: import("./contracts.js").PersistValidatedOutput<TOutput>,
+    persistValidatedOutput: import("./contracts.js").PersistValidatedOutput<TOutput, TTransaction>,
   ): Promise<import("./contracts.js").ValidatedAiResult<TOutput>> {
     validateRequest(input);
     validateAiOutputSchema(input.routeKey, input.outputSchema);
+    const schemaDescriptor = outputSchemaDescriptor(
+      input.routeKey,
+      input.outputSchemaVersion,
+      input.outputSchema,
+    );
+    const schemaArtifact = await this.routes.findOutputSchemaArtifact({
+      routeKey: input.routeKey,
+      version: input.outputSchemaVersion,
+      schemaHash: schemaDescriptor.schemaHash,
+    });
+    if (schemaArtifact === null) {
+      throw new AppError("AI_SCHEMA_ARTIFACT_NOT_FOUND", "errors.ai.schemaArtifactNotFound", 500);
+    }
     const route = await resolveRoute(
       this.routes,
       input.routeKey,
@@ -46,10 +65,18 @@ export class AiRouter {
     while (providerIndex < route.providers.length) {
       const provider = route.providers[providerIndex]!;
       const adapter = this.adapters.get(provider.providerKey);
-      if (adapter === undefined || adapter.locality !== provider.locality) {
+      if (adapter === undefined || !adapter.matchesConfiguration(provider)) {
         const category = "non_retryable" as const;
         fallbackChain.push({ ...provider, outcome: category });
-        return this.failRun(input, route, provider, startedAt, fallbackChain, category);
+        return this.failRun(
+          input,
+          schemaArtifact,
+          route,
+          provider,
+          startedAt,
+          fallbackChain,
+          category,
+        );
       }
 
       let result: import("./contracts.js").ProviderResult;
@@ -76,6 +103,7 @@ export class AiRouter {
         } catch (fallbackError) {
           await this.appendTrace(
             input,
+            schemaArtifact,
             route,
             provider,
             startedAt,
@@ -90,7 +118,15 @@ export class AiRouter {
           throw fallbackError;
         }
         if (fallback === null) {
-          return this.failRun(input, route, provider, startedAt, fallbackChain, category);
+          return this.failRun(
+            input,
+            schemaArtifact,
+            route,
+            provider,
+            startedAt,
+            fallbackChain,
+            category,
+          );
         }
         providerIndex += 1;
         continue;
@@ -105,6 +141,7 @@ export class AiRouter {
         });
         await this.appendTrace(
           input,
+          schemaArtifact,
           route,
           provider,
           startedAt,
@@ -119,32 +156,72 @@ export class AiRouter {
         throw new AppError("AI_OUTPUT_QUARANTINED", "errors.ai.outputQuarantined", 502);
       }
 
-      const persisted = await persistValidatedOutput(validation.output);
-      if (persisted.outputReference.trim().length === 0) {
-        throw new AppError("AI_OUTPUT_REFERENCE_INVALID", "errors.ai.outputReferenceInvalid", 500);
-      }
       fallbackChain.push({
         providerKey: provider.providerKey,
         modelKey: provider.modelKey,
         outcome: "succeeded",
       });
-      const run = await this.appendTrace(
-        input,
-        route,
-        provider,
-        startedAt,
-        fallbackChain,
-        "succeeded",
-        null,
-        persisted.outputReference,
-        sanitizeUsage(result.usage),
-        sanitizeCost(result.costUsd),
-        [],
-      );
+      let run: Readonly<{
+        id: string;
+        outputReference: import("./contracts.js").OpaqueReference;
+      }>;
+      try {
+        run = await this.traces.commitSucceededRun({
+          output: validation.output,
+          persistValidatedOutput: async (transaction, output) => {
+            const persisted = await persistValidatedOutput(transaction, output);
+            const parsed = OpaqueReferenceSchema.safeParse(persisted.outputReference);
+            if (!parsed.success) {
+              throw new AppError(
+                "AI_OUTPUT_REFERENCE_INVALID",
+                "errors.ai.outputReferenceInvalid",
+                500,
+              );
+            }
+            return { outputReference: parsed.data };
+          },
+          buildTrace: (outputReference) =>
+            this.createTrace(
+              input,
+              schemaArtifact,
+              route,
+              provider,
+              startedAt,
+              fallbackChain,
+              "succeeded",
+              null,
+              outputReference,
+              sanitizeUsage(result.usage),
+              sanitizeCost(result.costUsd),
+              [],
+            ),
+        });
+      } catch (error) {
+        try {
+          await this.appendTrace(
+            input,
+            schemaArtifact,
+            route,
+            provider,
+            startedAt,
+            fallbackChain,
+            "failed",
+            "persistence",
+            null,
+            null,
+            null,
+            [],
+          );
+        } catch {
+          // Durable storage is unavailable; return only a sanitized application error.
+        }
+        if (error instanceof AppError && error.code === "AI_OUTPUT_REFERENCE_INVALID") throw error;
+        throw new AppError("AI_RUN_PERSISTENCE_FAILED", "errors.ai.runPersistenceFailed", 500);
+      }
       return {
         runId: run.id,
         output: validation.output,
-        outputReference: persisted.outputReference,
+        outputReference: run.outputReference,
         requiresHumanApproval: input.requiresHumanApproval,
       };
     }
@@ -154,6 +231,7 @@ export class AiRouter {
 
   private async failRun<TInput, TOutput>(
     input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
+    schemaArtifact: Readonly<{ id: string; version: string; schemaHash: string }>,
     route: import("./contracts.js").ResolvedRoute,
     provider: import("./contracts.js").ResolvedRoute["providers"][number],
     startedAt: Date,
@@ -162,6 +240,7 @@ export class AiRouter {
   ): Promise<never> {
     await this.appendTrace(
       input,
+      schemaArtifact,
       route,
       provider,
       startedAt,
@@ -178,33 +257,73 @@ export class AiRouter {
 
   private appendTrace<TInput, TOutput>(
     input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
+    schemaArtifact: Readonly<{ id: string; version: string; schemaHash: string }>,
     route: import("./contracts.js").ResolvedRoute,
     provider: import("./contracts.js").ResolvedRoute["providers"][number],
     startedAt: Date,
     fallbackChain: readonly import("./contracts.js").FallbackHop[],
     state: import("./contracts.js").AiRunTrace["state"],
-    errorCategory: import("./contracts.js").ProviderErrorCategory | null,
+    errorCategory: import("./contracts.js").RunErrorCategory | null,
     outputReference: string | null,
     usage: import("./contracts.js").AiRunTrace["usage"],
     costUsd: number | null,
     validationIssueCodes: readonly string[],
   ) {
+    return this.traces.appendRunTrace(
+      this.createTrace(
+        input,
+        schemaArtifact,
+        route,
+        provider,
+        startedAt,
+        fallbackChain,
+        state,
+        errorCategory,
+        outputReference,
+        usage,
+        costUsd,
+        validationIssueCodes,
+      ),
+    );
+  }
+
+  private createTrace<TInput, TOutput>(
+    input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
+    schemaArtifact: Readonly<{ id: string; version: string; schemaHash: string }>,
+    route: import("./contracts.js").ResolvedRoute,
+    provider: import("./contracts.js").ResolvedRoute["providers"][number],
+    startedAt: Date,
+    fallbackChain: readonly import("./contracts.js").FallbackHop[],
+    state: import("./contracts.js").AiRunTrace["state"],
+    errorCategory: import("./contracts.js").RunErrorCategory | null,
+    outputReference: string | null,
+    usage: import("./contracts.js").AiRunTrace["usage"],
+    costUsd: number | null,
+    validationIssueCodes: readonly string[],
+  ): import("./contracts.js").AiRunTrace {
     const completedAt = new Date();
-    return this.traces.appendRunTrace({
+    return {
       routeKey: input.routeKey,
       routeId: route.routeId,
       routeConfigId: route.configId,
       routeConfigVersion: route.configVersion,
       routeLevel: route.level,
       scopeId: route.scopeId,
+      routeConfigProviderId: provider.routeConfigProviderId,
+      providerConfigId: provider.providerConfigId,
+      providerConfigVersion: provider.providerConfigVersion,
       providerKey: provider.providerKey,
       modelKey: provider.modelKey,
       classification: input.classification,
       inputReference: input.inputReference,
       inputSchemaVersion: input.inputSchemaVersion,
       outputSchemaVersion: input.outputSchemaVersion,
+      outputSchemaArtifactId: schemaArtifact.id,
+      outputSchemaHash: schemaArtifact.schemaHash,
       promptTemplateVersion: input.promptTemplateVersion,
       sourceReferences: [...input.sourceReferences],
+      projectScopeId: input.projectId ?? null,
+      departmentScopeId: input.departmentId ?? null,
       outputReference,
       startedAt,
       completedAt,
@@ -217,7 +336,7 @@ export class AiRouter {
       humanApprovalState: input.requiresHumanApproval ? "pending" : "not_required",
       correlationId: input.correlationId,
       validationIssueCodes: [...validationIssueCodes],
-    });
+    };
   }
 }
 
@@ -227,31 +346,46 @@ async function generateWithTimeout(
   timeoutMs: number,
 ): Promise<import("./contracts.js").ProviderResult> {
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(new DOMException("Timed out", "TimeoutError")),
-    timeoutMs,
-  );
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const operation = Promise.resolve().then(() => adapter.generate(request, controller.signal));
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort(new DOMException("Timed out", "TimeoutError"));
+      reject(new AiProviderError("timeout"));
+    }, timeoutMs);
+  });
   try {
-    return await adapter.generate(request, controller.signal);
+    return await Promise.race([operation, deadline]);
   } finally {
-    clearTimeout(timeout);
+    if (timeout !== undefined) clearTimeout(timeout);
+    operation.catch(() => undefined);
   }
 }
 
 function normalizedCategory(error: unknown): import("./contracts.js").ProviderErrorCategory {
-  return error instanceof AiProviderError ? error.category : "retryable";
+  return error instanceof AiProviderError ? error.category : "non_retryable";
 }
 
 function validateRequest<TInput, TOutput>(
   input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
 ): void {
+  const validReferences =
+    OpaqueReferenceSchema.safeParse(input.inputReference).success &&
+    input.sourceReferences.length > 0 &&
+    input.sourceReferences.length <= 50 &&
+    input.sourceReferences.every((reference) => OpaqueReferenceSchema.safeParse(reference).success);
+  const validVersions = [
+    input.inputSchemaVersion,
+    input.outputSchemaVersion,
+    input.promptTemplateVersion,
+  ].every((version) => VersionReferenceSchema.safeParse(version).success);
   if (
-    input.routeKey.trim().length === 0 ||
-    input.inputReference.trim().length === 0 ||
-    input.inputSchemaVersion.trim().length === 0 ||
-    input.outputSchemaVersion.trim().length === 0 ||
-    input.promptTemplateVersion.trim().length === 0 ||
-    input.sourceReferences.some((reference) => reference.trim().length === 0) ||
+    !RouteKeySchema.safeParse(input.routeKey).success ||
+    !validReferences ||
+    !validVersions ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+      input.correlationId,
+    ) ||
     !Number.isSafeInteger(input.timeoutMs) ||
     input.timeoutMs < 1 ||
     input.timeoutMs > 300_000

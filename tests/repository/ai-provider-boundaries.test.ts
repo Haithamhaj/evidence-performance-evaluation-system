@@ -21,6 +21,10 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("BOUNDARY_DIRECT_AI_PROVIDER");
     expect(result.stderr).toContain("openai");
     expect(result.stderr).toContain("chat/completions");
+    expect(result.stderr).toContain("require-provider.ts.fixture");
+    expect(result.stderr).toContain("generate.ts.fixture");
+    expect(result.stderr).toContain("split-url.ts.fixture");
+    expect(result.stderr).toContain("public-adapter.ts.fixture");
   });
 
   it("allows neutral provider integration inside packages/ai-routing", () => {

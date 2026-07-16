@@ -20,7 +20,7 @@ const webForbiddenPackages = [
   "@google/genai",
 ];
 const importPattern =
-  /(?:\b(?:import|export)\s+(?:[^"'`;]*?\s+from\s+)?|\bimport\s*\()\s*["']([^"']+)["']/gu;
+  /(?:\b(?:import|export)\s+(?:[^"'`;]*?\s+from\s+)?|\bimport\s*\(|\brequire\s*\()\s*["']([^"']+)["']/gu;
 const aiProviderPackages = [
   "openai",
   "@anthropic-ai/sdk",
@@ -30,6 +30,10 @@ const aiProviderPackages = [
   "cohere-ai",
 ];
 const directProviderRoutePattern = /(?:\/chat\/completions|\/v1\/responses|\/v1\/messages)/u;
+const splitProviderRoutePattern =
+  /(?:["']chat["'][\s\S]{0,100}["']completions["']|["']v1["'][\s\S]{0,100}["'](?:responses|messages)["'])/u;
+const directAdapterGeneratePattern = /\.\s*generate\s*\(/u;
+const publicAdapterPattern = /\b(?:FakeAiProviderAdapter|OpenAiCompatibleAdapter)\b/u;
 
 async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -131,7 +135,10 @@ for (const filePath of files) {
   }
   if (
     !isAiRoutingFile(path.relative(repositoryRoot, filePath)) &&
-    directProviderRoutePattern.test(source)
+    (directProviderRoutePattern.test(source) ||
+      splitProviderRoutePattern.test(source) ||
+      directAdapterGeneratePattern.test(source) ||
+      publicAdapterPattern.test(source))
   ) {
     violations.push(
       `BOUNDARY_DIRECT_AI_PROVIDER:${path.relative(repositoryRoot, filePath)}:chat/completions`,

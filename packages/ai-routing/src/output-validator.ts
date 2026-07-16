@@ -48,16 +48,14 @@ function forbiddenField(routeKey: string, field: string): boolean {
       normalized,
     );
   const employeeRanking =
-    (tokens.has("employee") && (tokens.has("rank") || tokens.has("ranking"))) ||
+    (tokens.has("employee") &&
+      (tokens.has("rank") || tokens.has("ranked") || tokens.has("ranking"))) ||
     normalized === "employeerank" ||
-    normalized === "employeeranking";
-  const productivityScore =
-    (tokens.has("productivity") && tokens.has("score")) || normalized === "productivityscore";
+    normalized === "employeeranking" ||
+    /(?:employee.*rank|rank.*employee)/iu.test(normalized);
+  const productivityScore = tokens.has("productivity") || normalized.includes("productivity");
   const rawActivityCount =
-    tokens.has("count") &&
-    ["activity", "check", "commit", "project", "pullrequest", "task"].some((token) =>
-      tokens.has(token),
-    );
+    tokens.has("count") || tokens.has("volume") || /(?:count|volume)$/iu.test(normalized);
   return (
     ALWAYS_FORBIDDEN.has(normalized) ||
     ratingOutput ||

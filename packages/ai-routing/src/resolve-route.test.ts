@@ -3,6 +3,26 @@ import { describe, expect, it } from "vitest";
 import { resolveFallback, resolveRoute } from "./resolve-route.js";
 import type { ResolvedRoute } from "./contracts.js";
 
+function provider(
+  providerKey: string,
+  modelKey: string,
+  locality: import("./contracts.js").ProviderLocality,
+): import("./contracts.js").AiProviderRoute {
+  return {
+    routeConfigProviderId: crypto.randomUUID(),
+    providerConfigId: crypto.randomUUID(),
+    providerConfigVersion: 1,
+    providerKey,
+    adapterKey: providerKey,
+    modelKey,
+    locality,
+    endpoint:
+      locality === "local"
+        ? "http://127.0.0.1:11434/v1/chat/completions"
+        : "https://provider.example.invalid/v1/chat/completions",
+  };
+}
+
 const routes = {
   project: {
     routeId: "00000000-0000-4000-8000-000000000001",
@@ -12,8 +32,8 @@ const routes = {
     scopeId: "00000000-0000-4000-8000-000000000101",
     routeKey: "evaluation.summary",
     providers: [
-      { providerKey: "local-primary", modelKey: "local-a", locality: "local" },
-      { providerKey: "external-fallback", modelKey: "external-a", locality: "external" },
+      provider("local-primary", "local-a", "local"),
+      provider("external-fallback", "external-a", "external"),
     ],
   },
   department: {
@@ -23,7 +43,7 @@ const routes = {
     level: "department",
     scopeId: "00000000-0000-4000-8000-000000000102",
     routeKey: "evaluation.summary",
-    providers: [{ providerKey: "department", modelKey: "department-a", locality: "local" }],
+    providers: [provider("department", "department-a", "local")],
   },
   system: {
     routeId: "00000000-0000-4000-8000-000000000003",
@@ -32,7 +52,7 @@ const routes = {
     level: "system",
     scopeId: "00000000-0000-4000-8000-000000000103",
     routeKey: "evaluation.summary",
-    providers: [{ providerKey: "system", modelKey: "system-a", locality: "local" }],
+    providers: [provider("system", "system-a", "local")],
   },
 } as const satisfies Record<string, ResolvedRoute>;
 
@@ -42,6 +62,7 @@ function repositoryWith(
   return {
     findActiveRoute: async ({ level }) =>
       levels.includes(level) ? routes[level as keyof typeof routes] : null,
+    findOutputSchemaArtifact: async () => null,
   };
 }
 
@@ -75,6 +96,7 @@ describe("AI route resolution", () => {
         calls.push(query.level);
         return query.level === "project" ? routes.project : routes.system;
       },
+      findOutputSchemaArtifact: async () => null,
     };
 
     await expect(
@@ -102,9 +124,9 @@ describe("AI route resolution", () => {
     const route: ResolvedRoute = {
       ...routes.project,
       providers: [
-        { providerKey: "one", modelKey: "m1", locality: "local" },
-        { providerKey: "two", modelKey: "m2", locality: "external" },
-        { providerKey: "three", modelKey: "m3", locality: "external" },
+        provider("one", "m1", "local"),
+        provider("two", "m2", "external"),
+        provider("three", "m3", "external"),
       ],
     };
 
@@ -123,10 +145,11 @@ describe("AI route resolution", () => {
   it("rejects an external primary route for local-only data before a provider is called", async () => {
     const externalRoute: ResolvedRoute = {
       ...routes.project,
-      providers: [{ providerKey: "external", modelKey: "external-a", locality: "external" }],
+      providers: [provider("external", "external-a", "external")],
     };
     const repository: import("./contracts.js").RouteRepository = {
       findActiveRoute: async () => externalRoute,
+      findOutputSchemaArtifact: async () => null,
     };
 
     await expect(

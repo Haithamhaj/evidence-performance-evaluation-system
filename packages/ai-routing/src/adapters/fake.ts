@@ -46,6 +46,10 @@ export class FakeAiProviderAdapter {
     }
     return { output: fixture };
   }
+
+  matchesConfiguration(provider: import("../contracts.js").AiProviderRoute): boolean {
+    return provider.providerKey === this.providerKey && provider.locality === this.locality;
+  }
 }
 
 function isUsage(value: unknown): value is import("../contracts.js").ProviderUsage {

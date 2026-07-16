@@ -16,16 +16,17 @@ model SystemMetadata {
 }
 
 model User {
-  id              String           @id @default(uuid()) @db.Uuid
-  pilotKey        String?          @unique
-  email           String           @unique
-  displayName     String
-  active          Boolean          @default(true)
-  identities      OidcIdentity[]
-  roleAssignments RoleAssignment[]
-  aiRouteConfigs  AiRouteConfig[]
-  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  id                String             @id @default(uuid()) @db.Uuid
+  pilotKey          String?            @unique
+  email             String             @unique
+  displayName       String
+  active            Boolean            @default(true)
+  identities        OidcIdentity[]
+  roleAssignments   RoleAssignment[]
+  aiRouteConfigs    AiRouteConfig[]
+  aiProviderConfigs AiProviderConfig[]
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
 }
 
 model OidcIdentity {
@@ -82,15 +83,17 @@ model Department {
 }
 
 model AuthorizationScope {
-  id              String           @id @default(uuid()) @db.Uuid
-  key             String           @unique
-  scopeType       ScopeType
-  departmentId    String?          @db.Uuid
-  department      Department?      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  roleAssignments RoleAssignment[]
-  aiRoutes        AiRoute[]
-  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  id                    String           @id @default(uuid()) @db.Uuid
+  key                   String           @unique
+  scopeType             ScopeType
+  departmentId          String?          @db.Uuid
+  department            Department?      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  roleAssignments       RoleAssignment[]
+  aiRoutes              AiRoute[]
+  aiRunProjectScopes    AiRun[]          @relation("AiRunProjectScope")
+  aiRunDepartmentScopes AiRun[]          @relation("AiRunDepartmentScope")
+  createdAt             DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime         @updatedAt @db.Timestamptz(6)
 
   @@unique([id, scopeType])
   @@index([departmentId])
@@ -256,23 +259,25 @@ model AiRoute {
   scopeId   String             @db.Uuid
   scope     AuthorizationScope @relation(fields: [scopeId, level], references: [id, scopeType], onDelete: Restrict)
   configs   AiRouteConfig[]
+  runs      AiRun[]
   createdAt DateTime           @default(now()) @db.Timestamptz(6)
 
   @@unique([routeKey, level, scopeId])
+  @@unique([id, routeKey, level, scopeId])
   @@index([level, scopeId, routeKey])
 }
 
 model AiRouteConfig {
-  id            String   @id @default(uuid()) @db.Uuid
-  routeId       String   @db.Uuid
-  route         AiRoute  @relation(fields: [routeId], references: [id], onDelete: Restrict)
-  version       Int
-  providerChain Json
-  reason        String
-  createdById   String   @db.Uuid
-  createdBy     User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  runs          AiRun[]
-  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  id          String                  @id @default(uuid()) @db.Uuid
+  routeId     String                  @db.Uuid
+  route       AiRoute                 @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  version     Int
+  reason      String
+  createdById String                  @db.Uuid
+  createdBy   User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  runs        AiRun[]
+  providers   AiRouteConfigProvider[]
+  createdAt   DateTime                @default(now()) @db.Timestamptz(6)
 
   @@unique([routeId, version])
   @@unique([id, routeId, version])
@@ -280,39 +285,103 @@ model AiRouteConfig {
   @@index([createdById, createdAt])
 }
 
+model AiProviderConfig {
+  id             String                  @id @default(uuid()) @db.Uuid
+  providerKey    String
+  version        Int
+  adapterKey     String
+  modelKey       String
+  locality       AiProviderLocality
+  endpoint       String
+  reason         String
+  createdById    String                  @db.Uuid
+  createdBy      User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  routeProviders AiRouteConfigProvider[]
+  createdAt      DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@unique([providerKey, version])
+  @@unique([id, version])
+  @@index([providerKey, version(sort: Desc)])
+  @@index([createdById, createdAt])
+}
+
+model AiRouteConfigProvider {
+  id                    String           @id @default(uuid()) @db.Uuid
+  routeConfigId         String           @db.Uuid
+  routeConfig           AiRouteConfig    @relation(fields: [routeConfigId], references: [id], onDelete: Restrict)
+  position              Int
+  providerConfigId      String           @db.Uuid
+  providerConfigVersion Int
+  providerConfig        AiProviderConfig @relation(fields: [providerConfigId, providerConfigVersion], references: [id, version], onDelete: Restrict)
+  runs                  AiRun[]
+
+  @@unique([routeConfigId, position])
+  @@unique([id, routeConfigId, providerConfigId, providerConfigVersion])
+  @@index([providerConfigId, providerConfigVersion])
+}
+
+model AiOutputSchemaArtifact {
+  id             String   @id @default(uuid()) @db.Uuid
+  routeKey       String
+  version        String
+  schemaHash     String
+  schemaArtifact Json
+  runs           AiRun[]
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([routeKey, version])
+  @@unique([id, version, schemaHash])
+  @@index([schemaHash])
+}
+
 model AiRun {
-  id                    String               @id @default(uuid()) @db.Uuid
-  routeKey              String
-  routeId               String               @db.Uuid
-  routeConfigId         String               @db.Uuid
-  routeConfigVersion    Int
-  routeConfig           AiRouteConfig        @relation(fields: [routeConfigId, routeId, routeConfigVersion], references: [id, routeId, version], onDelete: Restrict)
-  routeLevel            ScopeType
-  scopeId               String               @db.Uuid
-  providerKey           String
-  modelKey              String
-  classification        AiDataClassification
-  inputReference        String
-  inputSchemaVersion    String
-  outputSchemaVersion   String
-  promptTemplateVersion String
-  sourceReferences      Json
-  outputReference       String?
-  startedAt             DateTime             @db.Timestamptz(6)
-  completedAt           DateTime             @db.Timestamptz(6)
-  latencyMs             Int
-  usage                 Json?
-  costUsd               Float?
-  state                 AiRunState
-  errorCategory         String?
-  fallbackChain         Json
-  humanApprovalState    AiHumanApprovalState
-  correlationId         String               @unique @db.Uuid
-  validationIssueCodes  Json
-  createdAt             DateTime             @default(now()) @db.Timestamptz(6)
+  id                     String                 @id @default(uuid()) @db.Uuid
+  routeKey               String
+  routeId                String                 @db.Uuid
+  route                  AiRoute                @relation(fields: [routeId, routeKey, routeLevel, scopeId], references: [id, routeKey, level, scopeId], onDelete: Restrict)
+  routeConfigId          String                 @db.Uuid
+  routeConfigVersion     Int
+  routeConfig            AiRouteConfig          @relation(fields: [routeConfigId, routeId, routeConfigVersion], references: [id, routeId, version], onDelete: Restrict)
+  routeLevel             ScopeType
+  scopeId                String                 @db.Uuid
+  routeConfigProviderId  String                 @db.Uuid
+  providerConfigId       String                 @db.Uuid
+  providerConfigVersion  Int
+  routeConfigProvider    AiRouteConfigProvider  @relation(fields: [routeConfigProviderId, routeConfigId, providerConfigId, providerConfigVersion], references: [id, routeConfigId, providerConfigId, providerConfigVersion], onDelete: Restrict)
+  projectScopeId         String?                @db.Uuid
+  projectScopeType       ScopeType?
+  projectScope           AuthorizationScope?    @relation("AiRunProjectScope", fields: [projectScopeId, projectScopeType], references: [id, scopeType], onDelete: Restrict)
+  departmentScopeId      String?                @db.Uuid
+  departmentScopeType    ScopeType?
+  departmentScope        AuthorizationScope?    @relation("AiRunDepartmentScope", fields: [departmentScopeId, departmentScopeType], references: [id, scopeType], onDelete: Restrict)
+  classification         AiDataClassification
+  inputReference         String
+  inputSchemaVersion     String
+  outputSchemaVersion    String
+  outputSchemaArtifactId String                 @db.Uuid
+  outputSchemaHash       String
+  outputSchemaArtifact   AiOutputSchemaArtifact @relation(fields: [outputSchemaArtifactId, outputSchemaVersion, outputSchemaHash], references: [id, version, schemaHash], onDelete: Restrict)
+  promptTemplateVersion  String
+  sourceReferences       Json
+  outputReference        String?
+  startedAt              DateTime               @db.Timestamptz(6)
+  completedAt            DateTime               @db.Timestamptz(6)
+  latencyMs              Int
+  usage                  Json?
+  costUsd                Float?
+  state                  AiRunState
+  errorCategory          String?
+  fallbackChain          Json
+  humanApprovalState     AiHumanApprovalState
+  correlationId          String                 @db.Uuid
+  validationIssueCodes   Json
+  createdAt              DateTime               @default(now()) @db.Timestamptz(6)
 
   @@index([routeId, routeConfigVersion, createdAt])
   @@index([routeKey, createdAt])
   @@index([state, createdAt])
   @@index([scopeId, createdAt])
+  @@index([correlationId])
+  @@index([projectScopeId, createdAt])
+  @@index([departmentScopeId, createdAt])
 }

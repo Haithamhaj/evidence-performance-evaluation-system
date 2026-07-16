@@ -2,8 +2,42 @@ import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 
 import { FakeAiProviderAdapter } from "./adapters/fake.js";
+import { OpaqueReferenceSchema } from "./contracts.js";
 import { validateAiOutputSchema } from "./output-validator.js";
 import { AiRouter } from "./router.js";
+
+function configuredProvider(
+  providerKey: string,
+  modelKey: string,
+  locality: import("./contracts.js").ProviderLocality,
+): import("./contracts.js").AiProviderRoute {
+  return {
+    routeConfigProviderId: crypto.randomUUID(),
+    providerConfigId: crypto.randomUUID(),
+    providerConfigVersion: 1,
+    providerKey,
+    adapterKey: providerKey,
+    modelKey,
+    locality,
+    endpoint:
+      locality === "local"
+        ? "http://127.0.0.1:11434/v1/chat/completions"
+        : "https://provider.example.invalid/v1/chat/completions",
+  };
+}
+
+function repositoryFor(
+  findActiveRoute: import("./contracts.js").RouteRepository["findActiveRoute"],
+): import("./contracts.js").RouteRepository {
+  return {
+    findActiveRoute,
+    findOutputSchemaArtifact: async (query) => ({
+      id: "00000000-0000-4000-8000-000000000020",
+      version: query.version,
+      schemaHash: query.schemaHash,
+    }),
+  };
+}
 
 const resolvedRoute: import("./contracts.js").ResolvedRoute = {
   routeId: "00000000-0000-4000-8000-000000000001",
@@ -12,7 +46,7 @@ const resolvedRoute: import("./contracts.js").ResolvedRoute = {
   level: "system",
   scopeId: "00000000-0000-4000-8000-000000000003",
   routeKey: "document.analyze",
-  providers: [{ providerKey: "fake", modelKey: "fixture-model", locality: "local" }],
+  providers: [configuredProvider("fake", "fixture-model", "local")],
 };
 
 const forbiddenSchemas: ReadonlyArray<readonly [string, z.ZodType]> = [
@@ -43,13 +77,18 @@ function request<T>(outputSchema: z.ZodType<T>) {
 
 function harness(adapter: FakeAiProviderAdapter) {
   const traces: import("./contracts.js").AiRunTrace[] = [];
-  const routes: import("./contracts.js").RouteRepository = {
-    findActiveRoute: async () => resolvedRoute,
-  };
+  const routes = repositoryFor(async () => resolvedRoute);
   const traceRepository: import("./contracts.js").RunTraceRepository = {
     appendRunTrace: async (trace) => {
       traces.push(trace);
       return { id: `run-${traces.length}` };
+    },
+    commitSucceededRun: async (input) => {
+      const persisted = await input.persistValidatedOutput(undefined, input.output);
+      const outputReference = OpaqueReferenceSchema.parse(persisted.outputReference);
+      const trace = input.buildTrace(outputReference);
+      traces.push(trace);
+      return { id: `run-${traces.length}`, outputReference };
     },
   };
   return {
@@ -59,6 +98,13 @@ function harness(adapter: FakeAiProviderAdapter) {
 }
 
 describe("AI router output safety", () => {
+  it.each([
+    "document:eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature",
+    "document:employee-was-excellent-and-deserves-recognition",
+  ])("rejects non-opaque reference payload %s", (value) => {
+    expect(OpaqueReferenceSchema.safeParse(value).success).toBe(false);
+  });
+
   it("quarantines invalid structured output without invoking feature persistence", async () => {
     const adapter = new FakeAiProviderAdapter("fake", "local", { unsupported: true });
     const { router, traces } = harness(adapter);
@@ -134,12 +180,49 @@ describe("AI router output safety", () => {
     });
   });
 
+  it("uses the run repository as transaction owner so trace failure cannot leave feature output", async () => {
+    const committedOutputs: unknown[] = [];
+    const completedFailures: import("./contracts.js").AiRunTrace[] = [];
+    type StagingTransaction = { stage(output: unknown): void };
+    const repository: import("./contracts.js").RouteRepository &
+      import("./contracts.js").RunTraceRepository<StagingTransaction> = {
+      ...repositoryFor(async () => resolvedRoute),
+      appendRunTrace: async (trace: import("./contracts.js").AiRunTrace) => {
+        completedFailures.push(trace);
+        return { id: "failed-run" };
+      },
+      commitSucceededRun: async (input) => {
+        const staged: unknown[] = [];
+        await input.persistValidatedOutput(
+          { stage: (output) => staged.push(output) },
+          input.output,
+        );
+        throw new Error("success trace unavailable");
+      },
+    };
+    const router = new AiRouter(repository, repository, [
+      new FakeAiProviderAdapter("fake", "local", { supported: true }),
+    ]);
+
+    await expect(
+      router.run(
+        request(z.object({ supported: z.boolean() }).strict()),
+        async (transaction: StagingTransaction, output: unknown) => {
+          transaction.stage(output);
+          return { outputReference: "analysis:792" };
+        },
+      ),
+    ).rejects.toMatchObject({ code: "AI_RUN_PERSISTENCE_FAILED" });
+    expect(committedOutputs).toEqual([]);
+    expect(completedFailures[0]).toMatchObject({ state: "failed", errorCategory: "persistence" });
+  });
+
   it("uses configured provider fallback order only for allowed error categories", async () => {
     const route: import("./contracts.js").ResolvedRoute = {
       ...resolvedRoute,
       providers: [
-        { providerKey: "first", modelKey: "m1", locality: "local" },
-        { providerKey: "second", modelKey: "m2", locality: "external" },
+        configuredProvider("first", "m1", "local"),
+        configuredProvider("second", "m2", "external"),
       ],
     };
     const calls: string[] = [];
@@ -153,11 +236,18 @@ describe("AI router output safety", () => {
     });
     const traces: import("./contracts.js").AiRunTrace[] = [];
     const router = new AiRouter(
-      { findActiveRoute: async () => route },
+      repositoryFor(async () => route),
       {
         appendRunTrace: async (trace) => {
           traces.push(trace);
           return { id: "run-1" };
+        },
+        commitSucceededRun: async (input) => {
+          const persisted = await input.persistValidatedOutput(undefined, input.output);
+          const outputReference = OpaqueReferenceSchema.parse(persisted.outputReference);
+          const trace = input.buildTrace(outputReference);
+          traces.push(trace);
+          return { id: "run-1", outputReference };
         },
       },
       [first, second],
@@ -165,7 +255,7 @@ describe("AI router output safety", () => {
 
     await expect(
       router.run(request(z.object({ supported: z.boolean() }).strict()), async () => ({
-        outputReference: "analysis:allowed-fallback",
+        outputReference: "analysis:790",
       })),
     ).resolves.toMatchObject({ output: { supported: true } });
     expect(calls).toEqual(["first", "second"]);
@@ -174,6 +264,91 @@ describe("AI router output safety", () => {
       { providerKey: "second", modelKey: "m2", outcome: "succeeded" },
     ]);
   });
+
+  it("fails closed on unknown programming errors without external fallback", async () => {
+    const route: import("./contracts.js").ResolvedRoute = {
+      ...resolvedRoute,
+      providers: [
+        configuredProvider("broken", "m1", "local"),
+        configuredProvider("external", "m2", "external"),
+      ],
+    };
+    const external = new FakeAiProviderAdapter("external", "external", { supported: true });
+    const broken: import("./contracts.js").AiProviderAdapter = {
+      providerKey: "broken",
+      locality: "local",
+      matchesConfiguration: () => true,
+      generate: async () => {
+        throw new Error("programming defect");
+      },
+    };
+    const traces: import("./contracts.js").AiRunTrace[] = [];
+    const router = new AiRouter(
+      repositoryFor(async () => route),
+      {
+        appendRunTrace: async (trace) => {
+          traces.push(trace);
+          return { id: "run-unknown-error" };
+        },
+        commitSucceededRun: async () => {
+          throw new Error("success persistence is not expected");
+        },
+      },
+      [broken, external],
+    );
+
+    await expect(
+      router.run(request(z.object({ supported: z.boolean() }).strict()), vi.fn()),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_FAILED" });
+    expect(external.requests).toHaveLength(0);
+    expect(traces[0]).toMatchObject({ state: "failed", errorCategory: "non_retryable" });
+  });
+
+  it("races the entire provider operation against timeout even when it ignores AbortSignal", async () => {
+    const slow: import("./contracts.js").AiProviderAdapter = {
+      providerKey: "fake",
+      locality: "local",
+      matchesConfiguration: () => true,
+      generate: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return { output: { supported: true } };
+      },
+    };
+    const { router, traces } = harness(slow as FakeAiProviderAdapter);
+    const started = performance.now();
+
+    await expect(
+      router.run(
+        { ...request(z.object({ supported: z.boolean() }).strict()), timeoutMs: 10 },
+        vi.fn(),
+      ),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_FAILED" });
+    expect(performance.now() - started).toBeLessThan(100);
+    expect(traces[0]).toMatchObject({ state: "failed", errorCategory: "timeout" });
+  });
+
+  it.each([
+    { inputReference: "https://private.example/document?token=secret" },
+    { inputReference: "Bearer abc123" },
+    { sourceReferences: ["document:ok", "api_key=secret"] },
+    { inputReference: `document:${"x".repeat(300)}` },
+    { inputReference: "document:eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature" },
+    { inputReference: "document:employee-was-excellent-and-deserves-recognition" },
+  ])(
+    "rejects unsafe or unbounded opaque references before provider execution",
+    async (override) => {
+      const adapter = new FakeAiProviderAdapter("fake", "local", { supported: true });
+      const { router } = harness(adapter);
+
+      await expect(
+        router.run(
+          { ...request(z.object({ supported: z.boolean() }).strict()), ...override },
+          vi.fn(),
+        ),
+      ).rejects.toMatchObject({ code: "AI_RUN_REQUEST_INVALID" });
+      expect(adapter.requests).toHaveLength(0);
+    },
+  );
 
   it("persists only approved nonnegative usage and cost metadata", async () => {
     const adapter = new FakeAiProviderAdapter("fake", "local", {
@@ -184,7 +359,7 @@ describe("AI router output safety", () => {
     const { router, traces } = harness(adapter);
 
     await router.run(request(z.object({ supported: z.boolean() }).strict()), async () => ({
-      outputReference: "analysis:sanitized-metadata",
+      outputReference: "analysis:791",
     }));
 
     expect(traces[0]?.usage).toEqual({ inputTokens: 5 });
@@ -211,6 +386,42 @@ describe("AI router output safety", () => {
         z.object({ githubCommitCount: z.number(), documentationReadinessPercentage: z.number() }),
       ),
     ).toThrowError(expect.objectContaining({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" }));
+  });
+
+  it.each([
+    "updateCount",
+    "evidenceCount",
+    "changedLineCount",
+    "activityVolume",
+    "productivityIndex",
+    "productivityMeasure",
+    "rankedEmployeeIds",
+    "employeeRankingBand",
+  ])("rejects protected compound performance field %s", (field) => {
+    expect(() =>
+      validateAiOutputSchema("evaluation.prepare", z.object({ [field]: z.number() })),
+    ).toThrowError(expect.objectContaining({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" }));
+  });
+
+  it.each([
+    { details: { updateCount: 3 } },
+    { details: { productivityIndex: 0.8 } },
+    { details: { rankedEmployeeIds: ["employee:1"] } },
+  ])("quarantines protected compound fields inside dynamic output", async (output) => {
+    const adapter = new FakeAiProviderAdapter("fake", "local", output);
+    const { router } = harness(adapter);
+    const persistValidatedOutput = vi.fn();
+
+    await expect(
+      router.run(
+        {
+          ...request(z.object({ details: z.record(z.string(), z.unknown()) }).strict()),
+          routeKey: "evaluation.prepare",
+        },
+        persistValidatedOutput,
+      ),
+    ).rejects.toMatchObject({ code: "AI_OUTPUT_QUARANTINED" });
+    expect(persistValidatedOutput).not.toHaveBeenCalled();
   });
 
   it("does not mistake ordinary words ending in 'rating' for a rating field", () => {

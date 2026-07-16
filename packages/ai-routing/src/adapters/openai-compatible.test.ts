@@ -30,6 +30,68 @@ describe("OpenAI-compatible neutral adapter", () => {
     ).rejects.toMatchObject({ category: "timeout" });
   });
 
+  it("does not let credential lookup outlive an aborted provider operation", async () => {
+    const adapter = new OpenAiCompatibleAdapter({
+      providerKey: "slow-credential",
+      locality: "local",
+      baseUrl: "http://127.0.0.1:11434/v1/",
+      credentialProvider: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return undefined;
+      },
+      fetchImplementation: async () => new Response("{}", { status: 200 }),
+    });
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), 5);
+    const started = performance.now();
+
+    await expect(
+      adapter.generate(
+        { routeKey: "document.analyze", modelKey: "local-model", input: { protected: true } },
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ category: "timeout" });
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
+  it("normalizes credential lookup failure as fail-closed policy rather than retryable", async () => {
+    const adapter = new OpenAiCompatibleAdapter({
+      providerKey: "credential-failure",
+      locality: "external",
+      baseUrl: "https://provider.example.invalid/v1/",
+      credentialProvider: async () => {
+        throw new Error("credential store unavailable");
+      },
+      fetchImplementation: vi.fn(),
+    });
+
+    await expect(
+      adapter.generate(
+        { routeKey: "document.analyze", modelKey: "external-model", input: {} },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ category: "policy" });
+  });
+
+  it("normalizes request serialization failure as non-retryable", async () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    const adapter = new OpenAiCompatibleAdapter({
+      providerKey: "serialization-failure",
+      locality: "external",
+      baseUrl: "https://provider.example.invalid/v1/",
+      credentialProvider: async () => undefined,
+      fetchImplementation: vi.fn(),
+    });
+
+    await expect(
+      adapter.generate(
+        { routeKey: "document.analyze", modelKey: "external-model", input: cyclic },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ category: "non_retryable" });
+  });
+
   it("rejects credentials embedded in stored adapter URLs", () => {
     expect(
       () =>
@@ -62,5 +124,44 @@ describe("OpenAI-compatible neutral adapter", () => {
           credentialProvider: async () => undefined,
         }),
     ).not.toThrow();
+  });
+
+  it.each([
+    "http://198.51.100.20:11434/v1/",
+    "https://remote-model.example.invalid/v1/",
+    "http://localhost.example.invalid:11434/v1/",
+  ])("rejects arbitrary remote or DNS endpoints labeled local: %s", (baseUrl) => {
+    expect(
+      () =>
+        new OpenAiCompatibleAdapter({
+          providerKey: "false-local",
+          locality: "local",
+          baseUrl,
+          credentialProvider: async () => undefined,
+        }),
+    ).toThrowError(expect.objectContaining({ code: "AI_ADAPTER_URL_INVALID" }));
+  });
+
+  it("allows only explicitly trusted on-prem IP literals in addition to loopback", () => {
+    expect(
+      () =>
+        new OpenAiCompatibleAdapter({
+          providerKey: "trusted-on-prem",
+          locality: "local",
+          baseUrl: "https://10.20.30.40:8443/v1/",
+          trustedLocalHosts: ["10.20.30.40"],
+          credentialProvider: async () => undefined,
+        }),
+    ).not.toThrow();
+    expect(
+      () =>
+        new OpenAiCompatibleAdapter({
+          providerKey: "dns-even-if-listed",
+          locality: "local",
+          baseUrl: "https://model.internal.example/v1/",
+          trustedLocalHosts: ["model.internal.example"],
+          credentialProvider: async () => undefined,
+        }),
+    ).toThrowError(expect.objectContaining({ code: "AI_ADAPTER_URL_INVALID" }));
   });
 });

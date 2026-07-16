@@ -1,30 +1,13 @@
 import { AppError } from "@evaluation/contracts";
 import { z } from "zod";
 
-const ProviderRouteSchema = z
-  .object({
-    providerKey: z
-      .string()
-      .min(1)
-      .max(100)
-      .refine((value) => value === value.trim()),
-    modelKey: z
-      .string()
-      .min(1)
-      .max(200)
-      .refine((value) => value === value.trim()),
-    locality: z.enum(["local", "external"]),
-  })
-  .strict();
-
 export const AiRouteChangeSchema = z
   .object({
     routeKey: z
       .string()
       .min(1)
       .max(200)
-      .regex(/^[a-z0-9]+(?:[.-][a-z0-9-]+)*$/u)
-      .refine((value) => value === value.trim()),
+      .regex(/^[a-z0-9]+(?:[.-][a-z0-9-]+)*$/u),
     level: z.enum(["project", "department", "system"]),
     scopeId: z.string().uuid(),
     reason: z
@@ -32,15 +15,30 @@ export const AiRouteChangeSchema = z
       .min(3)
       .max(500)
       .refine((value) => value === value.trim()),
-    actor: z.object({ kind: z.literal("human"), id: z.string().uuid() }).strict(),
-    effectiveSubjectId: z.string().uuid(),
     correlationId: z.string().uuid(),
-    source: z.enum(["api", "admin_replay"]),
-    providers: z.array(ProviderRouteSchema).min(1).max(10),
+    providers: z
+      .array(z.object({ providerConfigId: z.string().uuid() }).strict())
+      .min(1)
+      .max(10)
+      .refine(
+        (providers) =>
+          new Set(providers.map(({ providerConfigId }) => providerConfigId)).size ===
+          providers.length,
+      ),
   })
   .strict();
 
-export type AiRouteChange = z.infer<typeof AiRouteChangeSchema>;
+const AiRouteChangeContextSchema = z
+  .object({
+    actorId: z.string().uuid(),
+    effectiveSubjectId: z.string().uuid(),
+    source: z.enum(["api", "admin_replay"]),
+  })
+  .strict();
+
+export type AiRouteChangeRequest = z.infer<typeof AiRouteChangeSchema>;
+export type AiRouteChangeContext = z.infer<typeof AiRouteChangeContextSchema>;
+export type AiRouteChange = AiRouteChangeRequest & AiRouteChangeContext;
 
 type DatabaseClient = ReturnType<typeof import("@evaluation/database").createDatabaseClient>;
 type DatabaseTransaction = Parameters<Parameters<DatabaseClient["$transaction"]>[0]>[0];
@@ -53,10 +51,14 @@ export type AiRouteChangeAuthorizer = (
 export async function changeAiRouteWithAudit(
   client: DatabaseClient,
   input: unknown,
+  context: AiRouteChangeContext,
   writer: AuditWriter,
   authorize?: AiRouteChangeAuthorizer,
 ): Promise<Readonly<{ routeId: string; configId: string; configVersion: number }>> {
-  const parsed = AiRouteChangeSchema.parse(input);
+  const parsed = {
+    ...AiRouteChangeSchema.parse(input),
+    ...AiRouteChangeContextSchema.parse(context),
+  };
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       return await client.$transaction(
@@ -82,16 +84,25 @@ async function changeInTransaction(
     where: { id_scopeType: { id: input.scopeId, scopeType: input.level } },
     select: { id: true },
   });
-  if (scope === null) {
-    throw new AppError("AI_ROUTE_SCOPE_INVALID", "errors.ai.routeScopeInvalid", 400);
-  }
   const actor = await transaction.user.findUnique({
-    where: { id: input.actor.id },
+    where: { id: input.actorId },
     select: { id: true },
   });
-  if (actor === null) {
+  const providerConfigs = await transaction.aiProviderConfig.findMany({
+    where: { id: { in: input.providers.map(({ providerConfigId }) => providerConfigId) } },
+  });
+  if (scope === null)
+    throw new AppError("AI_ROUTE_SCOPE_INVALID", "errors.ai.routeScopeInvalid", 400);
+  if (actor === null)
     throw new AppError("AI_ROUTE_ACTOR_INVALID", "errors.ai.routeActorInvalid", 400);
-  }
+  const providersById = new Map(providerConfigs.map((provider) => [provider.id, provider]));
+  const orderedProviders = input.providers.map(({ providerConfigId }) => {
+    const provider = providersById.get(providerConfigId);
+    if (provider === undefined) {
+      throw new AppError("AI_PROVIDER_CONFIG_INVALID", "errors.ai.providerConfigInvalid", 400);
+    }
+    return provider;
+  });
 
   let route = await transaction.aiRoute.findUnique({
     where: {
@@ -107,27 +118,47 @@ async function changeInTransaction(
     data: { routeKey: input.routeKey, level: input.level, scopeId: input.scopeId },
     select: { id: true },
   });
-  const latest = await transaction.aiRouteConfig.findFirst({
+  const previous = await transaction.aiRouteConfig.findFirst({
     where: { routeId: route.id },
     orderBy: { version: "desc" },
-    select: { version: true },
+    include: { providers: { orderBy: { position: "asc" }, include: { providerConfig: true } } },
   });
-  const version = (latest?.version ?? 0) + 1;
-  const providerChain = input.providers.map((provider) => ({ ...provider }));
+  const version = (previous?.version ?? 0) + 1;
   const config = await transaction.aiRouteConfig.create({
     data: {
       routeId: route.id,
       version,
-      providerChain,
       reason: input.reason,
-      createdById: input.actor.id,
+      createdById: input.actorId,
+      providers: {
+        create: orderedProviders.map((provider, position) => ({
+          position,
+          providerConfigId: provider.id,
+          providerConfigVersion: provider.version,
+        })),
+      },
     },
-    select: { id: true },
+    include: { providers: { orderBy: { position: "asc" }, include: { providerConfig: true } } },
   });
 
+  const snapshot = (value: typeof config | typeof previous) =>
+    value === null
+      ? null
+      : {
+          configId: value.id,
+          version: value.version,
+          providers: value.providers.map(({ providerConfig }) => ({
+            providerConfigId: providerConfig.id,
+            providerConfigVersion: providerConfig.version,
+            providerKey: providerConfig.providerKey,
+            modelKey: providerConfig.modelKey,
+            locality: providerConfig.locality,
+          })),
+        };
+  const effectiveAt = config.createdAt.toISOString();
   await writer.append(transaction, {
     eventType: "ai.route.changed",
-    actor: input.actor,
+    actor: { kind: "human", id: input.actorId },
     effectiveSubjectId: input.effectiveSubjectId,
     scopeType: input.level,
     scopeId: input.scopeId,
@@ -137,8 +168,11 @@ async function changeInTransaction(
     safeDiff: {
       routeKey: input.routeKey,
       routeLevel: input.level,
-      configVersion: version,
-      providerChain,
+      affectedDataType: input.routeKey.split(".")[0] ?? input.routeKey,
+      administratorId: input.actorId,
+      effectiveAt,
+      previous: snapshot(previous),
+      next: snapshot(config),
     },
     correlationId: input.correlationId,
     source: input.source,
@@ -148,12 +182,5 @@ async function changeInTransaction(
 
 function isConcurrencyConflict(error: unknown): boolean {
   if (error === null || typeof error !== "object") return false;
-  const code = (error as { code?: unknown }).code;
-  return code === "P2034" || code === "P2002";
-}
-
-export function parseProviderChain(
-  value: unknown,
-): readonly import("./contracts.js").AiProviderRoute[] {
-  return z.array(ProviderRouteSchema).min(1).max(10).parse(value);
+  return ["P2034", "P2002"].includes(String((error as { code?: unknown }).code));
 }

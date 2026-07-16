@@ -1,0 +1,8 @@
+import { OpenAiCompatibleAdapter } from "@evaluation/ai-routing";
+
+export const adapter = new OpenAiCompatibleAdapter({
+  providerKey: "bypass",
+  locality: "external",
+  baseUrl: "https://provider.invalid/v1/",
+  credentialProvider: async () => undefined,
+});

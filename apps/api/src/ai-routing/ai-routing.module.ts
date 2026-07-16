@@ -31,31 +31,37 @@ export async function changeAuthorizedAiRoute(
   writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
 ) {
   if (!principal.active) throw authorizationError("INACTIVE");
-  return changeAiRouteWithAudit(client, input, writer, async (transaction, parsed) => {
-    if (
-      parsed.actor.kind !== "human" ||
-      parsed.actor.id !== principal.userId ||
-      parsed.effectiveSubjectId !== principal.userId
-    ) {
-      throw authorizationError("SCOPE_MISMATCH");
-    }
-    const systemScope = await transaction.authorizationScope.findUnique({
-      where: { key: "system" },
-      select: { id: true },
-    });
-    if (systemScope === null) throw authorizationError("RESOURCE_STATE");
-    const roles = await transaction.roleAssignment.findMany({
-      where: { userId: principal.userId },
-      select: { role: true, scopeType: true, scopeId: true },
-    });
-    const decision = decide(
-      { subjectId: principal.userId, active: principal.active, roles },
-      "system.configure",
-      { kind: "system", systemId: systemScope.id },
-      { now: new Date().toISOString() },
-    );
-    if (!decision.allowed) throw authorizationError(decision.reasonCode);
-  });
+  return changeAiRouteWithAudit(
+    client,
+    input,
+    {
+      actorId: principal.userId,
+      effectiveSubjectId: principal.userId,
+      source: "api",
+    },
+    writer,
+    async (transaction, parsed) => {
+      if (parsed.actorId !== principal.userId || parsed.effectiveSubjectId !== principal.userId) {
+        throw authorizationError("SCOPE_MISMATCH");
+      }
+      const systemScope = await transaction.authorizationScope.findUnique({
+        where: { key: "system" },
+        select: { id: true },
+      });
+      if (systemScope === null) throw authorizationError("RESOURCE_STATE");
+      const roles = await transaction.roleAssignment.findMany({
+        where: { userId: principal.userId },
+        select: { role: true, scopeType: true, scopeId: true },
+      });
+      const decision = decide(
+        { subjectId: principal.userId, active: principal.active, roles },
+        "system.configure",
+        { kind: "system", systemId: systemScope.id },
+        { now: new Date().toISOString() },
+      );
+      if (!decision.allowed) throw authorizationError(decision.reasonCode);
+    },
+  );
 }
 
 export class ManagedAiRoutingDatabase {
@@ -109,7 +115,7 @@ export class AiRoutingController {
     this.service = service;
   }
 
-  change(input: import("@evaluation/ai-routing").AiRouteChange, request: AiRouteRequest) {
+  change(input: import("@evaluation/ai-routing").AiRouteChangeRequest, request: AiRouteRequest) {
     if (request.principal === undefined) throw authorizationError("UNAUTHENTICATED");
     return this.service.change(request.principal, input);
   }

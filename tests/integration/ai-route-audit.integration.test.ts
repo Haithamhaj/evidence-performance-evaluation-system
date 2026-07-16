@@ -1,5 +1,8 @@
 import { appendAuditEvent } from "../../packages/audit/src/index.js";
-import { changeAiRouteWithAudit } from "../../packages/ai-routing/src/index.js";
+import {
+  changeAiRouteWithAudit,
+  registerAiProviderConfig,
+} from "../../packages/ai-routing/src/index.js";
 import { createDatabaseClient } from "../../packages/database/src/index.js";
 import { seedPilotWithAudit } from "../../scripts/seed-pilot.js";
 import { changeAuthorizedAiRoute } from "../../apps/api/src/ai-routing/ai-routing.module.js";
@@ -22,6 +25,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
   let administratorId: string;
   let managerId: string;
   let systemScopeId: string;
+  let localProviderConfigId: string;
+  let externalProviderConfigId: string;
 
   beforeAll(async () => {
     client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
@@ -36,6 +41,28 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     systemScopeId = (
       await client.authorizationScope.findUniqueOrThrow({ where: { key: "system" } })
     ).id;
+    localProviderConfigId = (
+      await registerAiProviderConfig(client, {
+        providerKey: `local-${crypto.randomUUID()}`,
+        adapterKey: "openai-compatible",
+        modelKey: "model-a",
+        locality: "local",
+        endpoint: "http://127.0.0.1:11434/v1/",
+        reason: "Register local integration-test provider",
+        createdById: administratorId,
+      })
+    ).id;
+    externalProviderConfigId = (
+      await registerAiProviderConfig(client, {
+        providerKey: `external-${crypto.randomUUID()}`,
+        adapterKey: "openai-compatible",
+        modelKey: "model-b",
+        locality: "external",
+        endpoint: "https://provider.example.invalid/v1/",
+        reason: "Register external integration-test provider",
+        createdById: administratorId,
+      })
+    ).id;
   });
 
   afterAll(async () => {
@@ -48,15 +75,25 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
       level: "system" as const,
       scopeId: systemScopeId,
       reason,
-      actor: { kind: "human" as const, id: administratorId },
-      effectiveSubjectId: administratorId,
       correlationId: crypto.randomUUID(),
-      source: "api" as const,
       providers: [
-        { providerKey: "local", modelKey: "model-a", locality: "local" as const },
-        { providerKey: "external", modelKey: "model-b", locality: "external" as const },
+        { providerConfigId: localProviderConfigId },
+        { providerConfigId: externalProviderConfigId },
       ],
     };
+  }
+
+  function applyChange(
+    input: unknown,
+    writer: AuditWriter<DatabaseTransaction> = databaseWriter,
+    actorId = administratorId,
+  ) {
+    return changeAiRouteWithAudit(
+      client,
+      input,
+      { actorId, effectiveSubjectId: actorId, source: "api" },
+      writer,
+    );
   }
 
   it.each(["", "  ", "ab", ` ${"a".repeat(3)}`, `${"a".repeat(3)} `, "a".repeat(501)])(
@@ -64,9 +101,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     async (reason) => {
       const routeKey = `test.invalid-reason.${crypto.randomUUID()}`;
 
-      await expect(
-        changeAiRouteWithAudit(client, change(routeKey, reason), databaseWriter),
-      ).rejects.toThrow();
+      await expect(applyChange(change(routeKey, reason))).rejects.toThrow();
       await expect(client.aiRoute.count({ where: { routeKey } })).resolves.toBe(0);
       await expect(
         client.auditEvent.count({
@@ -83,7 +118,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     const routeKey = `test.atomic-success.${crypto.randomUUID()}`;
     const request = change(routeKey, "Route required for local document processing");
 
-    const result = await changeAiRouteWithAudit(client, request, databaseWriter);
+    const result = await applyChange(request);
     const [route, config, audit] = await Promise.all([
       client.aiRoute.findUniqueOrThrow({ where: { id: result.routeId } }),
       client.aiRouteConfig.findUniqueOrThrow({ where: { id: result.configId } }),
@@ -114,9 +149,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
       append: vi.fn().mockRejectedValue(new Error("audit unavailable")),
     };
 
-    await expect(changeAiRouteWithAudit(client, request, failingWriter)).rejects.toThrow(
-      "audit unavailable",
-    );
+    await expect(applyChange(request, failingWriter)).rejects.toThrow("audit unavailable");
     await expect(client.aiRoute.count({ where: { routeKey } })).resolves.toBe(0);
     await expect(
       client.auditEvent.count({ where: { correlationId: request.correlationId } }),
@@ -125,21 +158,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
 
   it("rolls back only the attempted next version when audit append fails", async () => {
     const routeKey = `test.version-rollback.${crypto.randomUUID()}`;
-    await changeAiRouteWithAudit(
-      client,
-      change(routeKey, "Initial safe route configuration"),
-      databaseWriter,
-    );
+    await applyChange(change(routeKey, "Initial safe route configuration"));
     const failingWriter: AuditWriter<DatabaseTransaction> = {
       append: vi.fn().mockRejectedValue(new Error("audit unavailable")),
     };
 
     await expect(
-      changeAiRouteWithAudit(
-        client,
-        change(routeKey, "Attempted second route configuration"),
-        failingWriter,
-      ),
+      applyChange(change(routeKey, "Attempted second route configuration"), failingWriter),
     ).rejects.toThrow("audit unavailable");
 
     const route = await client.aiRoute.findFirstOrThrow({ where: { routeKey } });
@@ -152,16 +177,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     const routeKey = `test.concurrent.${crypto.randomUUID()}`;
 
     await Promise.all([
-      changeAiRouteWithAudit(
-        client,
-        change(routeKey, "Concurrent route change number one"),
-        databaseWriter,
-      ),
-      changeAiRouteWithAudit(
-        client,
-        change(routeKey, "Concurrent route change number two"),
-        databaseWriter,
-      ),
+      applyChange(change(routeKey, "Concurrent route change number one")),
+      applyChange(change(routeKey, "Concurrent route change number two")),
     ]);
 
     const route = await client.aiRoute.findFirstOrThrow({ where: { routeKey } });
@@ -172,7 +189,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     expect(configs.map(({ version }) => version)).toEqual([1, 2]);
     await expect(
       client.aiRouteConfig.update({ where: { id: configs[0]!.id }, data: { reason: "mutated" } }),
-    ).rejects.toThrow(/AI route configuration history is immutable/u);
+    ).rejects.toThrow(/AI history is immutable/u);
   });
 
   it("rejects a route whose scope UUID is missing or has the wrong scope type", async () => {
@@ -182,21 +199,56 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
       level: "department" as const,
     };
 
-    await expect(
-      changeAiRouteWithAudit(client, { ...missing, scopeId: crypto.randomUUID() }, databaseWriter),
-    ).rejects.toMatchObject({ code: "AI_ROUTE_SCOPE_INVALID" });
-    await expect(changeAiRouteWithAudit(client, wrongType, databaseWriter)).rejects.toMatchObject({
+    await expect(applyChange({ ...missing, scopeId: crypto.randomUUID() })).rejects.toMatchObject({
+      code: "AI_ROUTE_SCOPE_INVALID",
+    });
+    await expect(applyChange(wrongType)).rejects.toMatchObject({
       code: "AI_ROUTE_SCOPE_INVALID",
     });
   });
 
+  it("accepts only authoritative provider-config IDs and ignores no caller locality claims", async () => {
+    const routeKey = `test.authoritative-provider.${crypto.randomUUID()}`;
+    const invalid = {
+      ...change(routeKey, "Reject caller-authored provider locality"),
+      providers: [
+        {
+          providerConfigId: localProviderConfigId,
+          locality: "external",
+          endpoint: "https://evil.invalid",
+        },
+      ],
+    };
+
+    await expect(applyChange(invalid)).rejects.toThrow();
+    await expect(
+      applyChange({
+        ...change(routeKey, "Reject unknown provider configuration"),
+        providers: [{ providerConfigId: crypto.randomUUID() }],
+      }),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_CONFIG_INVALID" });
+    await expect(client.aiRoute.count({ where: { routeKey } })).resolves.toBe(0);
+  });
+
+  it("rejects a remote endpoint registered as local before it can enter a route", async () => {
+    const providerKey = `false-local-${crypto.randomUUID()}`;
+    await expect(
+      registerAiProviderConfig(client, {
+        providerKey,
+        adapterKey: "openai-compatible",
+        modelKey: "remote-model",
+        locality: "local",
+        endpoint: "https://198.51.100.20/v1/",
+        reason: "Attempt to mislabel remote provider as local",
+        createdById: administratorId,
+      }),
+    ).rejects.toMatchObject({ code: "AI_ADAPTER_URL_INVALID" });
+    await expect(client.aiProviderConfig.count({ where: { providerKey } })).resolves.toBe(0);
+  });
+
   it("denies protected route management to a non-administrator before change or audit", async () => {
     const routeKey = `test.unauthorized.${crypto.randomUUID()}`;
-    const request = {
-      ...change(routeKey, "Unauthorized manager route change attempt"),
-      actor: { kind: "human" as const, id: managerId },
-      effectiveSubjectId: managerId,
-    };
+    const request = change(routeKey, "Unauthorized manager route change attempt");
 
     await expect(
       changeAuthorizedAiRoute(client, { userId: managerId, active: true }, request, databaseWriter),
@@ -205,5 +257,50 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     await expect(
       client.auditEvent.count({ where: { correlationId: request.correlationId } }),
     ).resolves.toBe(0);
+  });
+
+  it("derives actor, effective subject, and API audit source from the authenticated server context", async () => {
+    const clientInput = change(
+      `test.server-provenance.${crypto.randomUUID()}`,
+      "Server-derived audit provenance verification",
+    );
+    const result = await changeAuthorizedAiRoute(
+      client,
+      { userId: administratorId, active: true },
+      clientInput,
+      databaseWriter,
+    );
+    const audit = await client.auditEvent.findFirstOrThrow({
+      where: { targetId: result.configId },
+    });
+
+    expect(audit).toMatchObject({
+      actorId: administratorId,
+      effectiveSubjectId: administratorId,
+      source: "api",
+    });
+  });
+
+  it("records previous and new route context, affected data type, effective time, and administrator", async () => {
+    const routeKey = `document.audit-context.${crypto.randomUUID()}`;
+    const first = change(routeKey, "Initial provider route for audit context");
+    const firstResult = await applyChange(first);
+    const second = {
+      ...change(routeKey, "Replace provider route with exact audit context"),
+      providers: [{ providerConfigId: externalProviderConfigId }],
+    };
+    const secondResult = await applyChange(second);
+    const audit = await client.auditEvent.findFirstOrThrow({
+      where: { targetId: secondResult.configId },
+    });
+
+    expect(audit.safeDiff).toMatchObject({
+      routeKey,
+      affectedDataType: "document",
+      administratorId,
+      previous: { configId: firstResult.configId, version: 1 },
+      next: { configId: secondResult.configId, version: 2 },
+    });
+    expect((audit.safeDiff as { effectiveAt?: unknown }).effectiveAt).toEqual(expect.any(String));
   });
 });

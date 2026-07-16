@@ -1,4 +1,5 @@
 import { AppError } from "@evaluation/contracts";
+import { isIP } from "node:net";
 
 import { AiProviderError } from "../contracts.js";
 
@@ -9,6 +10,7 @@ export type OpenAiCompatibleAdapterOptions = Readonly<{
   locality: import("../contracts.js").ProviderLocality;
   baseUrl: string;
   credentialProvider: () => Promise<string | undefined>;
+  trustedLocalHosts?: readonly string[];
   fetchImplementation?: FetchImplementation;
 }>;
 
@@ -22,7 +24,11 @@ export class OpenAiCompatibleAdapter {
   constructor(options: OpenAiCompatibleAdapterOptions) {
     this.providerKey = options.providerKey;
     this.locality = options.locality;
-    this.endpoint = safeEndpoint(options.baseUrl, options.locality);
+    this.endpoint = safeEndpoint(
+      options.baseUrl,
+      options.locality,
+      options.trustedLocalHosts ?? [],
+    );
     this.credentialProvider = options.credentialProvider;
     this.fetchImplementation = options.fetchImplementation ?? fetch;
   }
@@ -31,35 +37,70 @@ export class OpenAiCompatibleAdapter {
     request: import("../contracts.js").ProviderRequest,
     signal: AbortSignal,
   ): Promise<import("../contracts.js").ProviderResult> {
+    let credential: string | undefined;
     try {
-      const credential = await this.credentialProvider();
-      const response = await this.fetchImplementation(this.endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(credential === undefined ? {} : { authorization: `Bearer ${credential}` }),
-        },
-        body: JSON.stringify({
-          model: request.modelKey,
-          messages: [{ role: "user", content: JSON.stringify(request.input) }],
-          response_format: { type: "json_object" },
+      credential = await raceWithAbort(this.credentialProvider(), signal);
+    } catch (error) {
+      if (signal.aborted) throw new AiProviderError("timeout");
+      if (error instanceof AiProviderError) throw error;
+      throw new AiProviderError("policy");
+    }
+
+    let body: string;
+    try {
+      body = JSON.stringify({
+        model: request.modelKey,
+        messages: [{ role: "user", content: JSON.stringify(request.input) }],
+        response_format: { type: "json_object" },
+      });
+    } catch {
+      throw new AiProviderError("non_retryable");
+    }
+
+    let response: Response;
+    try {
+      response = await raceWithAbort(
+        this.fetchImplementation(this.endpoint, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(credential === undefined ? {} : { authorization: `Bearer ${credential}` }),
+          },
+          body,
+          signal,
         }),
         signal,
-      });
-      if (!response.ok) throw new AiProviderError(categoryForStatus(response.status));
-      const payload: unknown = await response.json();
-      return parseResponse(payload);
+      );
     } catch (error) {
       if (error instanceof AiProviderError) throw error;
-      if (signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
-        throw new AiProviderError("timeout");
-      }
-      throw new AiProviderError("retryable");
+      if (signal.aborted) throw new AiProviderError("timeout");
+      throw new AiProviderError(isTransientTransportError(error) ? "retryable" : "non_retryable");
     }
+    if (!response.ok) throw new AiProviderError(categoryForStatus(response.status));
+    let payload: unknown;
+    try {
+      payload = await raceWithAbort(response.json(), signal);
+    } catch (_error) {
+      if (signal.aborted) throw new AiProviderError("timeout");
+      throw new AiProviderError("invalid_output");
+    }
+    return parseResponse(payload);
+  }
+
+  matchesConfiguration(provider: import("../contracts.js").AiProviderRoute): boolean {
+    return (
+      provider.providerKey === this.providerKey &&
+      provider.locality === this.locality &&
+      provider.endpoint === this.endpoint.toString()
+    );
   }
 }
 
-function safeEndpoint(baseUrl: string, locality: import("../contracts.js").ProviderLocality): URL {
+export function safeEndpoint(
+  baseUrl: string,
+  locality: import("../contracts.js").ProviderLocality,
+  trustedLocalHosts: readonly string[],
+): URL {
   let parsed: URL;
   try {
     parsed = new URL(baseUrl);
@@ -76,9 +117,48 @@ function safeEndpoint(baseUrl: string, locality: import("../contracts.js").Provi
   ) {
     throw new AppError("AI_ADAPTER_URL_INVALID", "errors.ai.adapterUrlInvalid", 500);
   }
+  if (locality === "local" && !isTrustedLocalHost(parsed.hostname, trustedLocalHosts)) {
+    throw new AppError("AI_ADAPTER_URL_INVALID", "errors.ai.adapterUrlInvalid", 500);
+  }
   const normalized = new URL(parsed.toString());
   if (!normalized.pathname.endsWith("/")) normalized.pathname += "/";
   return new URL("chat/completions", normalized);
+}
+
+function isTrustedLocalHost(hostname: string, trustedLocalHosts: readonly string[]): boolean {
+  const host = hostname.replace(/^\[|\]$/gu, "").toLowerCase();
+  if (isIP(host) === 0) return false;
+  if (host === "::1") return true;
+  if (isIP(host) === 4 && host.split(".")[0] === "127") return true;
+  return trustedLocalHosts.some((candidate) => {
+    const normalized = candidate.replace(/^\[|\]$/gu, "").toLowerCase();
+    return isIP(normalized) > 0 && normalized === host;
+  });
+}
+
+async function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) throw new AiProviderError("timeout");
+  let abort: (() => void) | undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    abort = () => reject(new AiProviderError("timeout"));
+    signal.addEventListener("abort", abort, { once: true });
+  });
+  try {
+    return await Promise.race([operation, aborted]);
+  } finally {
+    if (abort !== undefined) signal.removeEventListener("abort", abort);
+    operation.catch(() => undefined);
+  }
+}
+
+function isTransientTransportError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const cause = error.cause;
+  if (cause === null || typeof cause !== "object") return false;
+  const code = (cause as { code?: unknown }).code;
+  return ["ECONNRESET", "ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "ETIMEDOUT"].includes(
+    String(code),
+  );
 }
 
 function categoryForStatus(status: number): import("../contracts.js").ProviderErrorCategory {

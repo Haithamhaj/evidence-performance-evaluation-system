@@ -2,14 +2,73 @@
 
 ## Status
 
-DONE — implementation and repository-wide verification complete.
+DONE — implementation, independent-review remediation, and repository-wide verification complete.
 
 ## Scope
 
 - Task: T011 — Implement AI Router
 - Base: `cfc4f8428a5c937b716547b83e9ba676a65250aa`
 - Required commit subject: `feat: implement provider-neutral ai router`
+- Review remediation commit subject: `fix: harden ai router security boundaries`
 - Push: prohibited and not attempted
+
+## Independent-review remediation
+
+The review at `.superpowers/sdd/task-11-review.md` identified one critical, eight important, and one minor issue. All findings were reproduced with failing tests before the implementation was changed.
+
+### Remediation RED evidence
+
+1. AI Router policy, timeout, reference, and fallback suite
+   - 47 tests executed: 20 failed and 27 passed.
+   - Failures reproduced unsafe local DNS endpoints, unknown-error fallback, a provider operation ignoring cancellation past the deadline, unsafe opaque references, compound prohibited policy terms, and nested-output bypasses.
+   - Two later reference-specific tests failed for JWT-like and raw narrative values, confirming the previous slug pattern was too broad.
+
+2. OpenAI-compatible adapter suite
+   - 10 tests executed: 7 failed and 3 passed.
+   - Failures reproduced uncapped credential lookup, incorrect error categorization, credential failures marked retryable, and serialization failures marked retryable.
+
+3. Provider-boundary suite
+   - The prohibited-fixture case failed because CommonJS `require`, direct `.generate`, split route strings, and public adapter exports were not detected.
+
+4. Run-trace and database suite
+   - After correcting test-only database isolation and authoritative fixtures, 8 tests executed: 6 failed and 2 passed.
+   - Failures reproduced missing immutable provider/schema registries, insufficient exact-version bindings, non-atomic feature persistence, duplicate-correlation rejection, missing invocation scope persistence, and contradictory run metadata.
+
+5. Route-audit suite
+   - 15 tests executed: 2 failed and 13 passed.
+   - Failures reproduced trusting client-supplied provenance and incomplete audit context.
+
+### Remediation changes
+
+- Added immutable, versioned provider configuration and output-schema artifact registries. Runs now bind through composite foreign keys to the exact route, provider configuration, model/endpoint, output schema version, and SHA-256 schema artifact used.
+- Restricted local endpoints to IP literals that are loopback or explicitly injected as approved on-premises addresses. DNS names cannot opt into local trust.
+- Made fallback an explicit transient-failure policy. Unknown, credential, serialization, policy, configuration, and validation failures do not fall through to another provider.
+- Raced the complete provider operation, including credential lookup, against the deadline and safely absorbed late completion or rejection.
+- Made successful feature persistence and successful run tracing one transaction owned by the run-trace repository; any callback or trace failure rolls both back.
+- Tightened persisted references to bounded, namespaced opaque identifiers backed by numeric IDs, UUIDs, hashes, or ULIDs. JWTs, URLs, credentials, query strings, and narrative text are rejected in both application and database paths.
+- Expanded recursive output-policy checks for rating recommendations, ranking, productivity, readiness, and performance-route activity counts/volumes.
+- Persisted project and department invocation scopes with typed foreign keys, while keeping correlation identifiers non-unique.
+- Removed adapter exports from the package public API and expanded repository boundary detection to cover import/require variants, direct generation calls, split provider routes, public adapter references, and provider SDK imports.
+- Route audit identity, effective subject, and source are now derived from the authenticated server principal. Audit details include prior/next configuration snapshots, affected data type, effective timestamp, administrator identity, and the mandatory reason.
+
+### Remediation GREEN evidence
+
+1. Focused AI Router verification
+   - 3 files, 55 tests passed.
+
+2. Focused database and boundary verification
+   - 3 files, 28 tests passed.
+
+3. Full integration verification
+   - 14 files, 104 tests passed.
+
+4. Migration verification
+   - `pnpm db:verify` passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schema; its database integration set passed 12/12.
+
+5. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 215 files; performance scan 95 files; format; lint 14/14; boundaries 122 source files; typecheck 14/14; unit coverage 28 files and 199 tests; build 14/14.
+   - `git diff --check` passed.
 
 ## RED evidence
 
@@ -97,8 +156,9 @@ The tests also cover project > department > system precedence, no lower-scope by
 ## Remaining risks
 
 - Live provider credentials and deployment-specific endpoints are deliberately not configured in this task; the adapter contract and security boundary are tested with controlled HTTP doubles.
+- Deployment must provide the explicit on-premises IP allowlist before a non-loopback local provider can be registered.
 - T012 remains responsible for model-quality evaluation fixtures, including Arabic and dialect behavior. T011 enforces structural and protected-output policy, not model quality.
-- Independent review is still required before merge.
+- Independent re-review of the remediation is still required before merge.
 
 ## Project-state effect
 
