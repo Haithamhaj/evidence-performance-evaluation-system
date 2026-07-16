@@ -35,30 +35,56 @@ function fieldTokens(field: string): ReadonlySet<string> {
       .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
       .toLowerCase()
       .split(/[^a-z0-9]+/gu)
-      .filter((token) => token.length > 0),
+      .filter((token) => token.length > 0)
+      .map(singularToken),
   );
+}
+
+function singularToken(token: string): string {
+  if (token.endsWith("ies") && token.length > 3) return `${token.slice(0, -3)}y`;
+  if (token.endsWith("s") && !token.endsWith("ss") && token.length > 3) {
+    return token.slice(0, -1);
+  }
+  return token;
 }
 
 function forbiddenField(routeKey: string, field: string): boolean {
   const normalized = normalizeField(field);
   const tokens = fieldTokens(field);
+  const hasAny = (values: readonly string[]) => values.some((value) => tokens.has(value));
   const ratingOutput =
     tokens.has("rating") ||
     /(?:recommended|suggested|predicted|performance|employee|manager|final|overall|criterion)rating/iu.test(
       normalized,
     );
   const employeeRanking =
-    (tokens.has("employee") &&
-      (tokens.has("rank") || tokens.has("ranked") || tokens.has("ranking"))) ||
+    (hasAny(["employee", "team", "member", "worker", "person"]) &&
+      hasAny(["rank", "ranked", "ranking", "order", "leaderboard"])) ||
     normalized === "employeerank" ||
     normalized === "employeeranking" ||
     /(?:employee.*rank|rank.*employee)/iu.test(normalized);
+  const performanceScore = tokens.has("performance") && hasAny(["score", "grade"]);
   const productivityScore = tokens.has("productivity") || normalized.includes("productivity");
+  const activityNoun =
+    hasAny([
+      "commit",
+      "update",
+      "activity",
+      "evidence",
+      "check",
+      "pr",
+      "project",
+      "task",
+      "delivery",
+      "output",
+    ]) ||
+    (tokens.has("changed") && tokens.has("line"));
   const rawActivityCount =
-    tokens.has("count") || tokens.has("volume") || /(?:count|volume)$/iu.test(normalized);
+    activityNoun && hasAny(["count", "total", "number", "num", "amount", "volume", "frequency"]);
   return (
     ALWAYS_FORBIDDEN.has(normalized) ||
     ratingOutput ||
+    performanceScore ||
     employeeRanking ||
     productivityScore ||
     (PERFORMANCE_ROUTE.test(routeKey) &&

@@ -6,17 +6,23 @@ type FakeResponse =
 export class FakeAiProviderAdapter {
   readonly requests: import("../contracts.js").ProviderRequest[] = [];
   readonly providerKey: string;
+  readonly adapterKey: string;
   readonly locality: import("../contracts.js").ProviderLocality;
   private readonly response: FakeResponse | (() => FakeResponse);
+  private readonly localTrustPolicy:
+    Readonly<{ id: string; version: number; allowedIp: string }> | undefined;
 
   constructor(
     providerKey: string,
     locality: import("../contracts.js").ProviderLocality,
     response: FakeResponse | (() => FakeResponse),
+    localTrustPolicy?: Readonly<{ id: string; version: number; allowedIp: string }>,
   ) {
     this.providerKey = providerKey;
+    this.adapterKey = providerKey;
     this.locality = locality;
     this.response = response;
+    this.localTrustPolicy = localTrustPolicy;
   }
 
   async generate(
@@ -48,7 +54,14 @@ export class FakeAiProviderAdapter {
   }
 
   matchesConfiguration(provider: import("../contracts.js").AiProviderRoute): boolean {
-    return provider.providerKey === this.providerKey && provider.locality === this.locality;
+    return (
+      provider.providerKey === this.providerKey &&
+      provider.adapterKey === this.adapterKey &&
+      provider.locality === this.locality &&
+      provider.localTrustPolicyId === (this.localTrustPolicy?.id ?? null) &&
+      provider.localTrustPolicyVersion === (this.localTrustPolicy?.version ?? null) &&
+      provider.localTrustAllowedIp === (this.localTrustPolicy?.allowedIp ?? null)
+    );
   }
 }
 

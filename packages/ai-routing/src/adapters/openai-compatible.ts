@@ -7,28 +7,30 @@ type FetchImplementation = (input: string | URL | Request, init?: RequestInit) =
 
 export type OpenAiCompatibleAdapterOptions = Readonly<{
   providerKey: string;
+  adapterKey: string;
   locality: import("../contracts.js").ProviderLocality;
   baseUrl: string;
   credentialProvider: () => Promise<string | undefined>;
-  trustedLocalHosts?: readonly string[];
+  localTrustPolicy?: Readonly<{ id: string; version: number; allowedIp: string }>;
   fetchImplementation?: FetchImplementation;
 }>;
 
 export class OpenAiCompatibleAdapter {
   readonly providerKey: string;
+  readonly adapterKey: string;
   readonly locality: import("../contracts.js").ProviderLocality;
   private readonly endpoint: URL;
+  private readonly localTrustPolicy:
+    Readonly<{ id: string; version: number; allowedIp: string }> | undefined;
   private readonly credentialProvider: () => Promise<string | undefined>;
   private readonly fetchImplementation: FetchImplementation;
 
   constructor(options: OpenAiCompatibleAdapterOptions) {
     this.providerKey = options.providerKey;
+    this.adapterKey = options.adapterKey;
     this.locality = options.locality;
-    this.endpoint = safeEndpoint(
-      options.baseUrl,
-      options.locality,
-      options.trustedLocalHosts ?? [],
-    );
+    this.localTrustPolicy = options.localTrustPolicy;
+    this.endpoint = safeEndpoint(options.baseUrl, options.locality, options.localTrustPolicy);
     this.credentialProvider = options.credentialProvider;
     this.fetchImplementation = options.fetchImplementation ?? fetch;
   }
@@ -90,8 +92,12 @@ export class OpenAiCompatibleAdapter {
   matchesConfiguration(provider: import("../contracts.js").AiProviderRoute): boolean {
     return (
       provider.providerKey === this.providerKey &&
+      provider.adapterKey === this.adapterKey &&
       provider.locality === this.locality &&
-      provider.endpoint === this.endpoint.toString()
+      provider.endpoint === this.endpoint.toString() &&
+      provider.localTrustPolicyId === (this.localTrustPolicy?.id ?? null) &&
+      provider.localTrustPolicyVersion === (this.localTrustPolicy?.version ?? null) &&
+      provider.localTrustAllowedIp === (this.localTrustPolicy?.allowedIp ?? null)
     );
   }
 }
@@ -99,7 +105,7 @@ export class OpenAiCompatibleAdapter {
 export function safeEndpoint(
   baseUrl: string,
   locality: import("../contracts.js").ProviderLocality,
-  trustedLocalHosts: readonly string[],
+  localTrustPolicy?: Readonly<{ id: string; version: number; allowedIp: string }>,
 ): URL {
   let parsed: URL;
   try {
@@ -113,11 +119,15 @@ export function safeEndpoint(
     parsed.search.length > 0 ||
     parsed.hash.length > 0 ||
     !["http:", "https:"].includes(parsed.protocol) ||
-    (locality === "external" && parsed.protocol !== "https:")
+    (locality === "external" && parsed.protocol !== "https:") ||
+    (locality === "external" && localTrustPolicy !== undefined)
   ) {
     throw new AppError("AI_ADAPTER_URL_INVALID", "errors.ai.adapterUrlInvalid", 500);
   }
-  if (locality === "local" && !isTrustedLocalHost(parsed.hostname, trustedLocalHosts)) {
+  if (locality === "local" && !isTrustedLocalHost(parsed.hostname, localTrustPolicy)) {
+    throw new AppError("AI_ADAPTER_URL_INVALID", "errors.ai.adapterUrlInvalid", 500);
+  }
+  if (locality === "local" && !isLoopback(parsed.hostname) && parsed.protocol !== "https:") {
     throw new AppError("AI_ADAPTER_URL_INVALID", "errors.ai.adapterUrlInvalid", 500);
   }
   const normalized = new URL(parsed.toString());
@@ -125,15 +135,20 @@ export function safeEndpoint(
   return new URL("chat/completions", normalized);
 }
 
-function isTrustedLocalHost(hostname: string, trustedLocalHosts: readonly string[]): boolean {
+function isTrustedLocalHost(
+  hostname: string,
+  policy: Readonly<{ allowedIp: string }> | undefined,
+): boolean {
   const host = hostname.replace(/^\[|\]$/gu, "").toLowerCase();
   if (isIP(host) === 0) return false;
-  if (host === "::1") return true;
-  if (isIP(host) === 4 && host.split(".")[0] === "127") return true;
-  return trustedLocalHosts.some((candidate) => {
-    const normalized = candidate.replace(/^\[|\]$/gu, "").toLowerCase();
-    return isIP(normalized) > 0 && normalized === host;
-  });
+  if (policy === undefined) return false;
+  const allowedIp = policy.allowedIp.replace(/^\[|\]$/gu, "").toLowerCase();
+  return isIP(allowedIp) > 0 && allowedIp === host;
+}
+
+function isLoopback(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/gu, "").toLowerCase();
+  return host === "::1" || (isIP(host) === 4 && host.split(".")[0] === "127");
 }
 
 async function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {

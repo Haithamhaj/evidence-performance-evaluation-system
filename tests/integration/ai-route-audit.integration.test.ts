@@ -1,11 +1,11 @@
 import { appendAuditEvent } from "../../packages/audit/src/index.js";
-import {
-  changeAiRouteWithAudit,
-  registerAiProviderConfig,
-} from "../../packages/ai-routing/src/index.js";
 import { createDatabaseClient } from "../../packages/database/src/index.js";
 import { seedPilotWithAudit } from "../../scripts/seed-pilot.js";
-import { changeAuthorizedAiRoute } from "../../apps/api/src/ai-routing/ai-routing.module.js";
+import {
+  changeAuthorizedAiRoute,
+  registerAuthorizedAiLocalTrustPolicy,
+  registerAuthorizedAiProviderConfig,
+} from "../../apps/api/src/ai-routing/ai-routing.module.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 type DatabaseClient = ReturnType<typeof createDatabaseClient>;
@@ -16,7 +16,7 @@ const databaseWriter: AuditWriter<DatabaseTransaction> = { append: appendAuditEv
 
 describe("AI route audit composition contract", () => {
   it("provides the transaction-owning route change operation", () => {
-    expect(changeAiRouteWithAudit).toBeTypeOf("function");
+    expect(changeAuthorizedAiRoute).toBeTypeOf("function");
   });
 });
 
@@ -27,6 +27,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
   let systemScopeId: string;
   let localProviderConfigId: string;
   let externalProviderConfigId: string;
+  let localTrustPolicy: Readonly<{ id: string; version: number }>;
 
   beforeAll(async () => {
     client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
@@ -41,27 +42,51 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     systemScopeId = (
       await client.authorizationScope.findUniqueOrThrow({ where: { key: "system" } })
     ).id;
+    localTrustPolicy = await registerAuthorizedAiLocalTrustPolicy(
+      client,
+      { userId: administratorId, active: true },
+      {
+        policyKey: `route-test-${crypto.randomUUID()}`,
+        allowedIps: ["127.0.0.1"],
+        reason: "Trust loopback for route integration tests",
+        correlationId: crypto.randomUUID(),
+      },
+      databaseWriter,
+    );
     localProviderConfigId = (
-      await registerAiProviderConfig(client, {
-        providerKey: `local-${crypto.randomUUID()}`,
-        adapterKey: "openai-compatible",
-        modelKey: "model-a",
-        locality: "local",
-        endpoint: "http://127.0.0.1:11434/v1/",
-        reason: "Register local integration-test provider",
-        createdById: administratorId,
-      })
+      await registerAuthorizedAiProviderConfig(
+        client,
+        { userId: administratorId, active: true },
+        {
+          providerKey: `local-${crypto.randomUUID()}`,
+          adapterKey: "openai-compatible",
+          modelKey: "model-a",
+          locality: "local",
+          endpoint: "http://127.0.0.1:11434/v1/",
+          localTrustPolicyId: localTrustPolicy.id,
+          localTrustPolicyVersion: localTrustPolicy.version,
+          localTrustAllowedIp: "127.0.0.1",
+          reason: "Register local integration-test provider",
+          correlationId: crypto.randomUUID(),
+        },
+        databaseWriter,
+      )
     ).id;
     externalProviderConfigId = (
-      await registerAiProviderConfig(client, {
-        providerKey: `external-${crypto.randomUUID()}`,
-        adapterKey: "openai-compatible",
-        modelKey: "model-b",
-        locality: "external",
-        endpoint: "https://provider.example.invalid/v1/",
-        reason: "Register external integration-test provider",
-        createdById: administratorId,
-      })
+      await registerAuthorizedAiProviderConfig(
+        client,
+        { userId: administratorId, active: true },
+        {
+          providerKey: `external-${crypto.randomUUID()}`,
+          adapterKey: "openai-compatible",
+          modelKey: "model-b",
+          locality: "external",
+          endpoint: "https://provider.example.invalid/v1/",
+          reason: "Register external integration-test provider",
+          correlationId: crypto.randomUUID(),
+        },
+        databaseWriter,
+      )
     ).id;
   });
 
@@ -83,15 +108,11 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     };
   }
 
-  function applyChange(
-    input: unknown,
-    writer: AuditWriter<DatabaseTransaction> = databaseWriter,
-    actorId = administratorId,
-  ) {
-    return changeAiRouteWithAudit(
+  function applyChange(input: unknown, writer: AuditWriter<DatabaseTransaction> = databaseWriter) {
+    return changeAuthorizedAiRoute(
       client,
+      { userId: administratorId, active: true },
       input,
-      { actorId, effectiveSubjectId: actorId, source: "api" },
       writer,
     );
   }
@@ -233,15 +254,23 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
   it("rejects a remote endpoint registered as local before it can enter a route", async () => {
     const providerKey = `false-local-${crypto.randomUUID()}`;
     await expect(
-      registerAiProviderConfig(client, {
-        providerKey,
-        adapterKey: "openai-compatible",
-        modelKey: "remote-model",
-        locality: "local",
-        endpoint: "https://198.51.100.20/v1/",
-        reason: "Attempt to mislabel remote provider as local",
-        createdById: administratorId,
-      }),
+      registerAuthorizedAiProviderConfig(
+        client,
+        { userId: administratorId, active: true },
+        {
+          providerKey,
+          adapterKey: "openai-compatible",
+          modelKey: "remote-model",
+          locality: "local",
+          endpoint: "https://198.51.100.20/v1/",
+          localTrustPolicyId: localTrustPolicy.id,
+          localTrustPolicyVersion: localTrustPolicy.version,
+          localTrustAllowedIp: "127.0.0.1",
+          reason: "Attempt to mislabel remote provider as local",
+          correlationId: crypto.randomUUID(),
+        },
+        databaseWriter,
+      ),
     ).rejects.toMatchObject({ code: "AI_ADAPTER_URL_INVALID" });
     await expect(client.aiProviderConfig.count({ where: { providerKey } })).resolves.toBe(0);
   });

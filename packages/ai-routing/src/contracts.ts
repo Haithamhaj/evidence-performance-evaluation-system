@@ -47,6 +47,9 @@ export type AiProviderRoute = Readonly<{
   modelKey: string;
   locality: ProviderLocality;
   endpoint: string;
+  localTrustPolicyId: string | null;
+  localTrustPolicyVersion: number | null;
+  localTrustAllowedIp: string | null;
 }>;
 
 export type ResolvedRoute = Readonly<{
@@ -66,6 +69,7 @@ export type RouteScope = Readonly<{
 }>;
 
 export interface RouteRepository {
+  validateInvocationScope(scope: RouteScope): Promise<void>;
   findActiveRoute(
     query: Readonly<{
       routeKey: string;
@@ -102,6 +106,7 @@ export type ProviderResult = Readonly<{
 
 export interface AiProviderAdapter {
   readonly providerKey: string;
+  readonly adapterKey: string;
   readonly locality: ProviderLocality;
   matchesConfiguration(provider: AiProviderRoute): boolean;
   generate(request: ProviderRequest, signal: AbortSignal): Promise<ProviderResult>;

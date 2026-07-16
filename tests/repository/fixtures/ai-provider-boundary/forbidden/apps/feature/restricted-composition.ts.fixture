@@ -1,0 +1,3 @@
+import { createAiGovernanceComposition } from "@evaluation/ai-routing/admin-composition";
+
+export const forbiddenComposition = createAiGovernanceComposition;

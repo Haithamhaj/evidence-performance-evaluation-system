@@ -10,7 +10,61 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Base: `cfc4f8428a5c937b716547b83e9ba676a65250aa`
 - Required commit subject: `feat: implement provider-neutral ai router`
 - Review remediation commit subject: `fix: harden ai router security boundaries`
+- Fresh re-review remediation commit subject: `fix: close ai router governance gaps`
 - Push: prohibited and not attempted
+
+## Fresh re-review remediation
+
+The fresh review at `.superpowers/sdd/task-11-rereview.md` identified one critical, seven important, and one minor issue. Each behavioral gap was reproduced before implementation changes.
+
+### Fresh re-review RED evidence
+
+1. Output-policy and portable-schema identity
+   - 70 tests executed: 24 failed and 46 passed.
+   - Failures reproduced token/morphology aliases that bypassed protected output checks, recursive aliases reaching persistence, runtime-only Zod constructs sharing an authoritative artifact, opposing refinements sharing one hash, and a refined schema reaching the provider.
+   - A later focused case reproduced the inverse edge: representable built-in minimum/maximum constraints were initially rejected.
+
+2. Deadline, route identity, and authoritative invocation scope
+   - 84 tests executed: 4 failed and 80 passed.
+   - Failures reproduced plaintext non-loopback on-premises HTTP, adapter/trust identity mismatch, a reset-per-stage deadline, and a valid UUID with the wrong authoritative scope type.
+
+3. Static provider boundary
+   - The prohibited-fixture case failed while the allowed fixture passed.
+   - Computed import/require, bracket or aliased `generate`, and provider URLs obtained from environment state bypassed the previous text scanner.
+
+4. Governance persistence and composition
+   - 9 integration tests failed before governance composition and persistence existed.
+   - Failures covered public mutation exposure, missing active-System-Administrator authorization, missing server provenance and reasons, non-atomic audit behavior, absent immutable local trust/schema registries, and insufficient exact policy/provider identity constraints.
+
+### Fresh re-review changes
+
+- Unified static and recursive protected-field checks around required token pairs, singular/plural morphology, and exact false-positive controls for performance score/grade, employee ranking, and performance-route raw activity quantities.
+- Added canonical JSON Schema artifacts as the authoritative schema identity and rejected runtime semantics that cannot be represented exactly, including refinements, transforms, preprocess/default/catch/coercion, pipes, and overwrite checks. Representable built-in constraints remain supported, concurrent identical registration is idempotent, and conflicting semantics cannot share a version.
+- Applied one monotonic whole-run deadline before schema lookup, authoritative scope validation, route resolution, credential lookup, provider execution, fallback, and response handling. Every stage receives only remaining time and late settlements are absorbed.
+- Added exact authoritative system/project/department UUID-plus-type validation before route lookup or provider side effects; invalid scope input creates no partial run trace.
+- Added immutable versioned local trust policies. Runtime adapter matching now binds provider key, adapter key, locality, normalized endpoint, and exact policy ID/version/IP. External routes require HTTPS; local plaintext is limited to loopback, while non-loopback local endpoints require HTTPS.
+- Moved all governance mutation composition into the protected API workspace. The AI-routing package retains one public entry point and exposes no route/provider/trust/schema registration mutation. Every mutation requires a live active System Administrator with `system.configure`, derives provenance from the server principal, requires a reason, and commits state plus audit atomically.
+- Extended migration 0006 with exact local-trust/provider foreign keys, endpoint identity checks, immutable schema artifacts, expected behavior, evaluation evidence references, human-approval policy metadata, and immutability triggers.
+- Replaced regex-only provider enforcement with Babel AST inspection covering computed imports/requires, static string construction, aliased/bracket generation calls, and environment-derived provider HTTP calls.
+
+### Fresh re-review GREEN evidence
+
+1. Focused router, governance, and boundary verification
+   - AI-routing package: 95/95 tests passed.
+   - Workspace/import/provider boundaries: 29/29 tests passed.
+   - Governance, route audit, run trace, and protected API composition against live PostgreSQL: 37/37 tests passed.
+   - Final combined focused rerun: 10 files and 161/161 tests passed.
+
+2. Full integration verification
+   - `pnpm test:integration`: 15 files and 114/114 tests passed.
+
+3. Migration verification
+   - `pnpm db:verify`: empty database, previous 0005 snapshot upgrade, drift detection, and rebuild equivalence all passed; the included database integration set passed 12/12.
+
+4. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 224 files; performance scan 96 files; format; forced lint 14/14; boundaries 125 source files; forced typecheck 14/14; unit coverage 28 files and 239/239 tests; forced build 14/14.
+   - The AI-eval and end-to-end commands currently report no test files in the repository; T012 remains the approved owner of AI evaluation fixtures.
 
 ## Independent-review remediation
 
@@ -138,11 +192,12 @@ The tests also cover project > department > system precedence, no lower-scope by
 - Added provider-neutral routing contracts, deterministic project > department > system resolution, policy-limited fallback, timeout/cancellation, output-schema safety checks, invalid-output quarantine, and sanitized durable traces in `packages/ai-routing`.
 - Added a fake adapter and an OpenAI-compatible HTTP adapter that receives credentials through an injected provider and rejects non-HTTPS, credential-bearing, query-bearing, or fragment-bearing external endpoints.
 - Added immutable route/config/run persistence and a transaction-owning route-change operation that writes its audit event in the same serializable transaction.
-- Added the protected AI route-management API module with server-side authentication and `system.configure` authorization.
+- Added immutable local trust policies and output-schema governance metadata; exact policy ID/version/IP and normalized endpoint identity are enforced by application and database constraints.
+- Added the protected AI governance and route-management composition inside the API workspace with live server-side authentication and `system.configure` authorization.
 - Extended the boundary scanner so provider SDK imports and direct provider HTTP paths are prohibited outside AI-routing adapters.
 - Added unit, integration, migration, protected-module, and repository-boundary regression tests and fixtures.
-- Database migration `0006_ai_routing` adds `AiRoute`, immutable `AiRouteConfig` versions, immutable `AiRun` traces, supporting enums, authoritative-scope foreign keys, constraints, indexes, and immutability triggers.
-- Commit subject: `feat: implement provider-neutral ai router` (this task commit).
+- Database migration `0006_ai_routing` adds `AiRoute`, immutable `AiRouteConfig` versions, immutable `AiRun` traces, immutable local trust policies and schema artifacts, supporting enums, exact authoritative-scope and trust-policy foreign keys, constraints, indexes, and immutability triggers.
+- Fresh remediation commit subject: `fix: close ai router governance gaps`.
 
 ## Security and privacy impact
 
@@ -156,7 +211,7 @@ The tests also cover project > department > system precedence, no lower-scope by
 ## Remaining risks
 
 - Live provider credentials and deployment-specific endpoints are deliberately not configured in this task; the adapter contract and security boundary are tested with controlled HTTP doubles.
-- Deployment must provide the explicit on-premises IP allowlist before a non-loopback local provider can be registered.
+- Deployment must register and audit an immutable local trust policy before a local provider can be configured; non-loopback local endpoints still require HTTPS.
 - T012 remains responsible for model-quality evaluation fixtures, including Arabic and dialect behavior. T011 enforces structural and protected-output policy, not model quality.
 - Independent re-review of the remediation is still required before merge.
 

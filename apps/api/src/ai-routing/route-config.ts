@@ -36,7 +36,7 @@ const AiRouteChangeContextSchema = z
   })
   .strict();
 
-export type AiRouteChangeRequest = z.infer<typeof AiRouteChangeSchema>;
+export type AiRouteChangeRequest = Readonly<z.infer<typeof AiRouteChangeSchema>>;
 export type AiRouteChangeContext = z.infer<typeof AiRouteChangeContextSchema>;
 export type AiRouteChange = AiRouteChangeRequest & AiRouteChangeContext;
 
@@ -53,7 +53,7 @@ export async function changeAiRouteWithAudit(
   input: unknown,
   context: AiRouteChangeContext,
   writer: AuditWriter,
-  authorize?: AiRouteChangeAuthorizer,
+  authorize: AiRouteChangeAuthorizer,
 ): Promise<Readonly<{ routeId: string; configId: string; configVersion: number }>> {
   const parsed = {
     ...AiRouteChangeSchema.parse(input),
@@ -77,9 +77,9 @@ async function changeInTransaction(
   transaction: DatabaseTransaction,
   input: AiRouteChange,
   writer: AuditWriter,
-  authorize: AiRouteChangeAuthorizer | undefined,
+  authorize: AiRouteChangeAuthorizer,
 ) {
-  await authorize?.(transaction, input);
+  await authorize(transaction, input);
   const scope = await transaction.authorizationScope.findUnique({
     where: { id_scopeType: { id: input.scopeId, scopeType: input.level } },
     select: { id: true },

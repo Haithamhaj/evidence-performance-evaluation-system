@@ -13,6 +13,35 @@ export class PrismaAiRoutingRepository {
     this.client = client;
   }
 
+  async validateInvocationScope(scope: import("./contracts.js").RouteScope): Promise<void> {
+    const lookups = [
+      this.client.authorizationScope.findUnique({
+        where: { id_scopeType: { id: scope.systemId, scopeType: "system" } },
+        select: { id: true },
+      }),
+      ...(scope.projectId === undefined
+        ? []
+        : [
+            this.client.authorizationScope.findUnique({
+              where: { id_scopeType: { id: scope.projectId, scopeType: "project" } },
+              select: { id: true },
+            }),
+          ]),
+      ...(scope.departmentId === undefined
+        ? []
+        : [
+            this.client.authorizationScope.findUnique({
+              where: { id_scopeType: { id: scope.departmentId, scopeType: "department" } },
+              select: { id: true },
+            }),
+          ]),
+    ];
+    const resolved = await Promise.all(lookups);
+    if (resolved.some((value) => value === null)) {
+      throw new AppError("AI_RUN_SCOPE_INVALID", "errors.ai.runScopeInvalid", 400);
+    }
+  }
+
   async findActiveRoute(
     query: Readonly<{
       routeKey: string;
@@ -59,6 +88,9 @@ export class PrismaAiRoutingRepository {
         modelKey: providerConfig.modelKey,
         locality: providerConfig.locality,
         endpoint: providerConfig.endpoint,
+        localTrustPolicyId: providerConfig.localTrustPolicyId,
+        localTrustPolicyVersion: providerConfig.localTrustPolicyVersion,
+        localTrustAllowedIp: providerConfig.localTrustAllowedIp,
       })),
     };
   }

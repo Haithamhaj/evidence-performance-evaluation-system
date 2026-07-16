@@ -1,0 +1,3 @@
+const providerPackage = "open" + "ai";
+
+export const providerModule = import(providerPackage);

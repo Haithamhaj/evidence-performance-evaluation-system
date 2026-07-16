@@ -1,14 +1,13 @@
 import { Body, Controller, Inject, Injectable, Module, Post, Req, UseGuards } from "@nestjs/common";
 
 import { databaseAuditWriter } from "@evaluation/audit";
-import { changeAiRouteWithAudit } from "@evaluation/ai-routing";
 import type { AuthenticatedPrincipal } from "@evaluation/auth";
 import { AppError } from "@evaluation/contracts";
 import { createDatabaseClient } from "@evaluation/database";
-import { decide } from "@evaluation/permissions";
 
 import { AuthGuard } from "../auth/auth.guard.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { createAiGovernanceComposition } from "./admin-composition.js";
 
 type DatabaseClient = ReturnType<typeof createDatabaseClient>;
 type DatabaseTransaction = Parameters<Parameters<DatabaseClient["$transaction"]>[0]>[0];
@@ -30,38 +29,34 @@ export async function changeAuthorizedAiRoute(
   input: unknown,
   writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
 ) {
-  if (!principal.active) throw authorizationError("INACTIVE");
-  return changeAiRouteWithAudit(
-    client,
-    input,
-    {
-      actorId: principal.userId,
-      effectiveSubjectId: principal.userId,
-      source: "api",
-    },
-    writer,
-    async (transaction, parsed) => {
-      if (parsed.actorId !== principal.userId || parsed.effectiveSubjectId !== principal.userId) {
-        throw authorizationError("SCOPE_MISMATCH");
-      }
-      const systemScope = await transaction.authorizationScope.findUnique({
-        where: { key: "system" },
-        select: { id: true },
-      });
-      if (systemScope === null) throw authorizationError("RESOURCE_STATE");
-      const roles = await transaction.roleAssignment.findMany({
-        where: { userId: principal.userId },
-        select: { role: true, scopeType: true, scopeId: true },
-      });
-      const decision = decide(
-        { subjectId: principal.userId, active: principal.active, roles },
-        "system.configure",
-        { kind: "system", systemId: systemScope.id },
-        { now: new Date().toISOString() },
-      );
-      if (!decision.allowed) throw authorizationError(decision.reasonCode);
-    },
-  );
+  return createAiGovernanceComposition(client, writer).changeRoute(principal, input);
+}
+
+export function registerAuthorizedAiLocalTrustPolicy(
+  client: DatabaseClient,
+  principal: RoutePrincipal,
+  input: unknown,
+  writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
+) {
+  return createAiGovernanceComposition(client, writer).registerLocalTrustPolicy(principal, input);
+}
+
+export function registerAuthorizedAiProviderConfig(
+  client: DatabaseClient,
+  principal: RoutePrincipal,
+  input: unknown,
+  writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
+) {
+  return createAiGovernanceComposition(client, writer).registerProviderConfig(principal, input);
+}
+
+export function registerAuthorizedAiOutputSchema(
+  client: DatabaseClient,
+  principal: RoutePrincipal,
+  input: unknown,
+  writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
+) {
+  return createAiGovernanceComposition(client, writer).registerOutputSchema(principal, input);
 }
 
 export class ManagedAiRoutingDatabase {
@@ -115,7 +110,7 @@ export class AiRoutingController {
     this.service = service;
   }
 
-  change(input: import("@evaluation/ai-routing").AiRouteChangeRequest, request: AiRouteRequest) {
+  change(input: unknown, request: AiRouteRequest) {
     if (request.principal === undefined) throw authorizationError("UNAUTHENTICATED");
     return this.service.change(request.principal, input);
   }

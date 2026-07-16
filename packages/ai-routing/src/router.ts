@@ -34,31 +34,46 @@ export class AiRouter<TTransaction = unknown> {
     persistValidatedOutput: import("./contracts.js").PersistValidatedOutput<TOutput, TTransaction>,
   ): Promise<import("./contracts.js").ValidatedAiResult<TOutput>> {
     validateRequest(input);
+    const deadline = new WholeRunDeadline(input.timeoutMs);
+    const startedAt = new Date();
+    try {
+      return await this.runWithinDeadline(input, persistValidatedOutput, deadline, startedAt);
+    } finally {
+      deadline.dispose();
+    }
+  }
+
+  private async runWithinDeadline<TInput, TOutput>(
+    input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
+    persistValidatedOutput: import("./contracts.js").PersistValidatedOutput<TOutput, TTransaction>,
+    deadline: WholeRunDeadline,
+    startedAt: Date,
+  ): Promise<import("./contracts.js").ValidatedAiResult<TOutput>> {
     validateAiOutputSchema(input.routeKey, input.outputSchema);
     const schemaDescriptor = outputSchemaDescriptor(
       input.routeKey,
       input.outputSchemaVersion,
       input.outputSchema,
     );
-    const schemaArtifact = await this.routes.findOutputSchemaArtifact({
-      routeKey: input.routeKey,
-      version: input.outputSchemaVersion,
-      schemaHash: schemaDescriptor.schemaHash,
-    });
+    const schemaArtifact = await deadline.race(() =>
+      this.routes.findOutputSchemaArtifact({
+        routeKey: input.routeKey,
+        version: input.outputSchemaVersion,
+        schemaHash: schemaDescriptor.schemaHash,
+      }),
+    );
     if (schemaArtifact === null) {
       throw new AppError("AI_SCHEMA_ARTIFACT_NOT_FOUND", "errors.ai.schemaArtifactNotFound", 500);
     }
-    const route = await resolveRoute(
-      this.routes,
-      input.routeKey,
-      {
-        ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
-        ...(input.departmentId === undefined ? {} : { departmentId: input.departmentId }),
-        systemId: input.systemId,
-      },
-      input.classification,
+    const invocationScope = {
+      ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
+      ...(input.departmentId === undefined ? {} : { departmentId: input.departmentId }),
+      systemId: input.systemId,
+    };
+    await deadline.race(() => this.routes.validateInvocationScope(invocationScope));
+    const route = await deadline.race(() =>
+      resolveRoute(this.routes, input.routeKey, invocationScope, input.classification),
     );
-    const startedAt = new Date();
     const fallbackChain: import("./contracts.js").FallbackHop[] = [];
     let providerIndex = 0;
 
@@ -81,14 +96,15 @@ export class AiRouter<TTransaction = unknown> {
 
       let result: import("./contracts.js").ProviderResult;
       try {
-        result = await generateWithTimeout(
-          adapter,
-          {
-            routeKey: input.routeKey,
-            modelKey: provider.modelKey,
-            input: input.input,
-          },
-          input.timeoutMs,
+        result = await deadline.race(() =>
+          adapter.generate(
+            {
+              routeKey: input.routeKey,
+              modelKey: provider.modelKey,
+              input: input.input,
+            },
+            deadline.signal,
+          ),
         );
       } catch (error) {
         const category = normalizedCategory(error);
@@ -340,25 +356,49 @@ export class AiRouter<TTransaction = unknown> {
   }
 }
 
-async function generateWithTimeout(
-  adapter: import("./contracts.js").AiProviderAdapter,
-  request: Parameters<import("./contracts.js").AiProviderAdapter["generate"]>[0],
-  timeoutMs: number,
-): Promise<import("./contracts.js").ProviderResult> {
-  const controller = new AbortController();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  const operation = Promise.resolve().then(() => adapter.generate(request, controller.signal));
-  const deadline = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      controller.abort(new DOMException("Timed out", "TimeoutError"));
-      reject(new AiProviderError("timeout"));
-    }, timeoutMs);
-  });
-  try {
-    return await Promise.race([operation, deadline]);
-  } finally {
-    if (timeout !== undefined) clearTimeout(timeout);
-    operation.catch(() => undefined);
+class WholeRunDeadline {
+  private readonly controller = new AbortController();
+  private readonly expiresAt: number;
+
+  constructor(timeoutMs: number) {
+    this.expiresAt = performance.now() + timeoutMs;
+  }
+
+  get signal(): AbortSignal {
+    return this.controller.signal;
+  }
+
+  async race<T>(start: () => Promise<T>): Promise<T> {
+    const remaining = this.expiresAt - performance.now();
+    if (remaining <= 0 || this.signal.aborted) {
+      this.abort();
+      throw new AiProviderError("timeout");
+    }
+    const operation = Promise.resolve().then(start);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let abortListener: (() => void) | undefined;
+    const expired = new Promise<never>((_, reject) => {
+      abortListener = () => reject(new AiProviderError("timeout"));
+      this.signal.addEventListener("abort", abortListener, { once: true });
+      timeout = setTimeout(() => this.abort(), remaining);
+    });
+    try {
+      return await Promise.race([operation, expired]);
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+      if (abortListener !== undefined) this.signal.removeEventListener("abort", abortListener);
+      operation.catch(() => undefined);
+    }
+  }
+
+  dispose(): void {
+    this.abort();
+  }
+
+  private abort(): void {
+    if (!this.controller.signal.aborted) {
+      this.controller.abort(new DOMException("Timed out", "TimeoutError"));
+    }
   }
 }
 

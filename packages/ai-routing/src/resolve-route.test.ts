@@ -20,6 +20,9 @@ function provider(
       locality === "local"
         ? "http://127.0.0.1:11434/v1/chat/completions"
         : "https://provider.example.invalid/v1/chat/completions",
+    localTrustPolicyId: null,
+    localTrustPolicyVersion: null,
+    localTrustAllowedIp: null,
   };
 }
 
@@ -60,6 +63,7 @@ function repositoryWith(
   levels: ReadonlyArray<ResolvedRoute["level"]>,
 ): import("./contracts.js").RouteRepository {
   return {
+    validateInvocationScope: async () => undefined,
     findActiveRoute: async ({ level }) =>
       levels.includes(level) ? routes[level as keyof typeof routes] : null,
     findOutputSchemaArtifact: async () => null,
@@ -92,6 +96,7 @@ describe("AI route resolution", () => {
   it("does not skip an applicable project override to select a lower-level route", async () => {
     const calls: string[] = [];
     const repository: import("./contracts.js").RouteRepository = {
+      validateInvocationScope: async () => undefined,
       findActiveRoute: async (query) => {
         calls.push(query.level);
         return query.level === "project" ? routes.project : routes.system;
@@ -148,6 +153,7 @@ describe("AI route resolution", () => {
       providers: [provider("external", "external-a", "external")],
     };
     const repository: import("./contracts.js").RouteRepository = {
+      validateInvocationScope: async () => undefined,
       findActiveRoute: async () => externalRoute,
       findOutputSchemaArtifact: async () => null,
     };

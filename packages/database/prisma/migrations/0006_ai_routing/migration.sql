@@ -33,6 +33,82 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION "is_valid_ai_ip"(value TEXT) RETURNS BOOLEAN
+LANGUAGE plpgsql IMMUTABLE STRICT
+AS $$
+BEGIN
+  PERFORM value::INET;
+  RETURN value !~ '/';
+EXCEPTION WHEN OTHERS THEN
+  RETURN FALSE;
+END;
+$$;
+
+CREATE FUNCTION "is_ai_loopback_ip"(value TEXT) RETURNS BOOLEAN
+LANGUAGE plpgsql IMMUTABLE STRICT
+AS $$
+DECLARE
+  address INET;
+BEGIN
+  address := value::INET;
+  RETURN address <<= '127.0.0.0/8'::INET OR address = '::1'::INET;
+EXCEPTION WHEN OTHERS THEN
+  RETURN FALSE;
+END;
+$$;
+
+CREATE FUNCTION "ai_endpoint_matches_identity"(value TEXT, protocol TEXT, expected_host TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql IMMUTABLE STRICT
+AS $$
+DECLARE
+  authority TEXT;
+  actual_host TEXT;
+BEGIN
+  IF protocol NOT IN ('http', 'https') OR split_part(value, '://', 1) <> protocol THEN
+    RETURN FALSE;
+  END IF;
+  authority := substring(value FROM '^[a-z]+://([^/]+)');
+  IF authority IS NULL OR authority = '' THEN
+    RETURN FALSE;
+  END IF;
+  IF left(authority, 1) = '[' THEN
+    actual_host := substring(authority FROM '^\[([^\]]+)\]');
+  ELSE
+    actual_host := split_part(authority, ':', 1);
+  END IF;
+  RETURN lower(actual_host) = lower(expected_host);
+END;
+$$;
+
+CREATE TABLE "AiLocalTrustPolicy" (
+    "id" UUID NOT NULL,
+    "policyKey" TEXT NOT NULL,
+    "version" INTEGER NOT NULL,
+    "reason" TEXT NOT NULL,
+    "createdById" UUID NOT NULL,
+    "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AiLocalTrustPolicy_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "AiLocalTrustPolicy_version_check" CHECK ("version" > 0),
+    CONSTRAINT "AiLocalTrustPolicy_key_check" CHECK (
+      length("policyKey") BETWEEN 1 AND 100 AND "policyKey" = btrim("policyKey")
+      AND "policyKey" ~ '^[a-z0-9]+([._-][a-z0-9]+)*$'
+    ),
+    CONSTRAINT "AiLocalTrustPolicy_reason_check" CHECK (
+      length("reason") BETWEEN 3 AND 500 AND "reason" = btrim("reason")
+    )
+);
+
+CREATE TABLE "AiLocalTrustPolicyAllowedIp" (
+    "id" UUID NOT NULL,
+    "policyId" UUID NOT NULL,
+    "policyVersion" INTEGER NOT NULL,
+    "ipAddress" TEXT NOT NULL,
+    CONSTRAINT "AiLocalTrustPolicyAllowedIp_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "AiLocalTrustPolicyAllowedIp_version_check" CHECK ("policyVersion" > 0),
+    CONSTRAINT "AiLocalTrustPolicyAllowedIp_ip_check" CHECK ("is_valid_ai_ip"("ipAddress"))
+);
+
 CREATE TABLE "AiProviderConfig" (
     "id" UUID NOT NULL,
     "providerKey" TEXT NOT NULL,
@@ -41,6 +117,11 @@ CREATE TABLE "AiProviderConfig" (
     "modelKey" TEXT NOT NULL,
     "locality" "AiProviderLocality" NOT NULL,
     "endpoint" TEXT NOT NULL,
+    "endpointProtocol" TEXT NOT NULL,
+    "endpointHost" TEXT NOT NULL,
+    "localTrustPolicyId" UUID,
+    "localTrustPolicyVersion" INTEGER,
+    "localTrustAllowedIp" TEXT,
     "reason" TEXT NOT NULL,
     "createdById" UUID NOT NULL,
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -55,6 +136,21 @@ CREATE TABLE "AiProviderConfig" (
       length("endpoint") BETWEEN 8 AND 2048
       AND "endpoint" !~ '[?#]'
       AND "endpoint" !~ '://[^/]*@'
+      AND "ai_endpoint_matches_identity"("endpoint", "endpointProtocol", "endpointHost")
+    ),
+    CONSTRAINT "AiProviderConfig_locality_check" CHECK (
+      ("locality" = 'external'
+        AND "endpointProtocol" = 'https'
+        AND "localTrustPolicyId" IS NULL
+        AND "localTrustPolicyVersion" IS NULL
+        AND "localTrustAllowedIp" IS NULL)
+      OR
+      ("locality" = 'local'
+        AND "localTrustPolicyId" IS NOT NULL
+        AND "localTrustPolicyVersion" IS NOT NULL
+        AND "localTrustAllowedIp" IS NOT NULL
+        AND lower("endpointHost") = lower("localTrustAllowedIp")
+        AND ("endpointProtocol" = 'https' OR "is_ai_loopback_ip"("endpointHost")))
     ),
     CONSTRAINT "AiProviderConfig_reason_check" CHECK (
       length("reason") BETWEEN 3 AND 500 AND "reason" = btrim("reason")
@@ -67,6 +163,11 @@ CREATE TABLE "AiOutputSchemaArtifact" (
     "version" TEXT NOT NULL,
     "schemaHash" TEXT NOT NULL,
     "schemaArtifact" JSONB NOT NULL,
+    "reason" TEXT NOT NULL,
+    "expectedBehavior" TEXT NOT NULL,
+    "evaluationEvidenceReferences" JSONB NOT NULL,
+    "humanApprovalPolicy" TEXT NOT NULL,
+    "createdById" UUID NOT NULL,
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "AiOutputSchemaArtifact_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "AiOutputSchemaArtifact_route_check" CHECK (
@@ -76,7 +177,19 @@ CREATE TABLE "AiOutputSchemaArtifact" (
       length("version") BETWEEN 1 AND 128 AND "version" ~ '^[A-Za-z0-9][A-Za-z0-9._-]*$'
     ),
     CONSTRAINT "AiOutputSchemaArtifact_hash_check" CHECK ("schemaHash" ~ '^[a-f0-9]{64}$'),
-    CONSTRAINT "AiOutputSchemaArtifact_schema_check" CHECK (jsonb_typeof("schemaArtifact") = 'object')
+    CONSTRAINT "AiOutputSchemaArtifact_schema_check" CHECK (jsonb_typeof("schemaArtifact") = 'object'),
+    CONSTRAINT "AiOutputSchemaArtifact_reason_check" CHECK (
+      length("reason") BETWEEN 3 AND 500 AND "reason" = btrim("reason")
+    ),
+    CONSTRAINT "AiOutputSchemaArtifact_behavior_check" CHECK (
+      length("expectedBehavior") BETWEEN 10 AND 2000 AND "expectedBehavior" = btrim("expectedBehavior")
+    ),
+    CONSTRAINT "AiOutputSchemaArtifact_evidence_check" CHECK (
+      "is_safe_ai_reference_array"("evaluationEvidenceReferences")
+    ),
+    CONSTRAINT "AiOutputSchemaArtifact_human_gate_check" CHECK (
+      "humanApprovalPolicy" = 'feature_defined'
+    )
 );
 
 CREATE TABLE "AiRoute" (
@@ -186,13 +299,21 @@ CREATE TABLE "AiRun" (
     )
 );
 
+CREATE UNIQUE INDEX "AiLocalTrustPolicy_policyKey_version_key" ON "AiLocalTrustPolicy"("policyKey", "version");
+CREATE UNIQUE INDEX "AiLocalTrustPolicy_id_version_key" ON "AiLocalTrustPolicy"("id", "version");
+CREATE INDEX "AiLocalTrustPolicy_policyKey_version_idx" ON "AiLocalTrustPolicy"("policyKey", "version" DESC);
+CREATE INDEX "AiLocalTrustPolicy_createdById_createdAt_idx" ON "AiLocalTrustPolicy"("createdById", "createdAt");
+CREATE UNIQUE INDEX "AiLocalTrustPolicyAllowedIp_policyId_policyVersion_ipAddres_key" ON "AiLocalTrustPolicyAllowedIp"("policyId", "policyVersion", "ipAddress");
+CREATE INDEX "AiLocalTrustPolicyAllowedIp_ipAddress_idx" ON "AiLocalTrustPolicyAllowedIp"("ipAddress");
 CREATE UNIQUE INDEX "AiProviderConfig_providerKey_version_key" ON "AiProviderConfig"("providerKey", "version");
 CREATE UNIQUE INDEX "AiProviderConfig_id_version_key" ON "AiProviderConfig"("id", "version");
 CREATE INDEX "AiProviderConfig_providerKey_version_idx" ON "AiProviderConfig"("providerKey", "version" DESC);
 CREATE INDEX "AiProviderConfig_createdById_createdAt_idx" ON "AiProviderConfig"("createdById", "createdAt");
+CREATE INDEX "AiProviderConfig_localTrustPolicyId_localTrustPolicyVersion_idx" ON "AiProviderConfig"("localTrustPolicyId", "localTrustPolicyVersion", "localTrustAllowedIp");
 CREATE UNIQUE INDEX "AiOutputSchemaArtifact_routeKey_version_key" ON "AiOutputSchemaArtifact"("routeKey", "version");
 CREATE UNIQUE INDEX "AiOutputSchemaArtifact_id_version_schemaHash_key" ON "AiOutputSchemaArtifact"("id", "version", "schemaHash");
 CREATE INDEX "AiOutputSchemaArtifact_schemaHash_idx" ON "AiOutputSchemaArtifact"("schemaHash");
+CREATE INDEX "AiOutputSchemaArtifact_createdById_createdAt_idx" ON "AiOutputSchemaArtifact"("createdById", "createdAt");
 CREATE UNIQUE INDEX "AiRoute_routeKey_level_scopeId_key" ON "AiRoute"("routeKey", "level", "scopeId");
 CREATE UNIQUE INDEX "AiRoute_id_routeKey_level_scopeId_key" ON "AiRoute"("id", "routeKey", "level", "scopeId");
 CREATE INDEX "AiRoute_level_scopeId_routeKey_idx" ON "AiRoute"("level", "scopeId", "routeKey");
@@ -211,8 +332,15 @@ CREATE INDEX "AiRun_scopeId_createdAt_idx" ON "AiRun"("scopeId", "createdAt");
 CREATE INDEX "AiRun_projectScopeId_createdAt_idx" ON "AiRun"("projectScopeId", "createdAt");
 CREATE INDEX "AiRun_departmentScopeId_createdAt_idx" ON "AiRun"("departmentScopeId", "createdAt");
 
+ALTER TABLE "AiLocalTrustPolicy" ADD CONSTRAINT "AiLocalTrustPolicy_createdById_fkey"
+FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "AiLocalTrustPolicyAllowedIp" ADD CONSTRAINT "AiLocalTrustPolicyAllowedIp_policyId_policyVersion_fkey"
+FOREIGN KEY ("policyId", "policyVersion") REFERENCES "AiLocalTrustPolicy"("id", "version") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "AiProviderConfig" ADD CONSTRAINT "AiProviderConfig_createdById_fkey"
 FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "AiProviderConfig" ADD CONSTRAINT "AiProviderConfig_localTrustPolicyId_localTrustPolicyVersio_fkey"
+FOREIGN KEY ("localTrustPolicyId", "localTrustPolicyVersion", "localTrustAllowedIp")
+REFERENCES "AiLocalTrustPolicyAllowedIp"("policyId", "policyVersion", "ipAddress") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "AiRoute" ADD CONSTRAINT "AiRoute_scopeId_level_fkey"
 FOREIGN KEY ("scopeId", "level") REFERENCES "AuthorizationScope"("id", "scopeType") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "AiRouteConfig" ADD CONSTRAINT "AiRouteConfig_routeId_fkey"
@@ -237,6 +365,8 @@ FOREIGN KEY ("departmentScopeId", "departmentScopeType") REFERENCES "Authorizati
 ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_outputSchemaArtifactId_outputSchemaVersion_outputSch_fkey"
 FOREIGN KEY ("outputSchemaArtifactId", "outputSchemaVersion", "outputSchemaHash")
 REFERENCES "AiOutputSchemaArtifact"("id", "version", "schemaHash") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "AiOutputSchemaArtifact" ADD CONSTRAINT "AiOutputSchemaArtifact_createdById_fkey"
+FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE FUNCTION "prevent_ai_history_mutation"() RETURNS trigger
 LANGUAGE plpgsql
@@ -246,6 +376,10 @@ BEGIN
 END;
 $$;
 
+CREATE TRIGGER "AiLocalTrustPolicy_immutable" BEFORE UPDATE OR DELETE ON "AiLocalTrustPolicy"
+FOR EACH ROW EXECUTE FUNCTION "prevent_ai_history_mutation"();
+CREATE TRIGGER "AiLocalTrustPolicyAllowedIp_immutable" BEFORE UPDATE OR DELETE ON "AiLocalTrustPolicyAllowedIp"
+FOR EACH ROW EXECUTE FUNCTION "prevent_ai_history_mutation"();
 CREATE TRIGGER "AiProviderConfig_immutable" BEFORE UPDATE OR DELETE ON "AiProviderConfig"
 FOR EACH ROW EXECUTE FUNCTION "prevent_ai_history_mutation"();
 CREATE TRIGGER "AiOutputSchemaArtifact_immutable" BEFORE UPDATE OR DELETE ON "AiOutputSchemaArtifact"

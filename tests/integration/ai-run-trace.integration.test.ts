@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { appendAuditEvent } from "../../packages/audit/src/index.js";
+import { AiRouter, PrismaAiRoutingRepository } from "../../packages/ai-routing/src/index.js";
 import {
-  AiRouter,
-  changeAiRouteWithAudit,
-  PrismaAiRoutingRepository,
-  registerAiOutputSchemaArtifact,
-  registerAiProviderConfig,
-} from "../../packages/ai-routing/src/index.js";
+  changeAuthorizedAiRoute,
+  registerAuthorizedAiLocalTrustPolicy,
+  registerAuthorizedAiOutputSchema,
+  registerAuthorizedAiProviderConfig,
+} from "../../apps/api/src/ai-routing/ai-routing.module.js";
 import { FakeAiProviderAdapter } from "../../packages/ai-routing/src/adapters/fake.js";
 import { createDatabaseClient } from "../../packages/database/src/index.js";
 import { seedPilotWithAudit } from "../../scripts/seed-pilot.js";
@@ -31,6 +31,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
   let systemScopeId: string;
   let projectScopeId: string;
   let departmentScopeId: string;
+  let localTrustPolicy: Readonly<{ id: string; version: number; allowedIp: string }>;
 
   beforeAll(async () => {
     client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
@@ -61,6 +62,18 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
         update: {},
       })
     ).id;
+    const policy = await registerAuthorizedAiLocalTrustPolicy(
+      client,
+      { userId: administratorId, active: true },
+      {
+        policyKey: `run-trace-${crypto.randomUUID()}`,
+        allowedIps: ["127.0.0.1"],
+        reason: "Trust loopback for durable run trace tests",
+        correlationId: crypto.randomUUID(),
+      },
+      databaseWriter,
+    );
+    localTrustPolicy = { ...policy, allowedIp: "127.0.0.1" };
   });
 
   afterAll(async () => {
@@ -68,23 +81,40 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
   });
 
   async function configure(routeKey: string, modelKey: string) {
-    const provider = await registerAiProviderConfig(client, {
-      providerKey: "fake",
-      adapterKey: "fake",
-      modelKey,
-      locality: "local",
-      endpoint: "http://127.0.0.1:11434/v1/",
-      reason: `Register ${modelKey} for durable trace verification`,
-      createdById: administratorId,
-    });
-    await registerAiOutputSchemaArtifact(
+    const provider = await registerAuthorizedAiProviderConfig(
       client,
-      routeKey,
-      "trace-output.v1",
-      z.object({ summary: z.string() }).strict(),
+      { userId: administratorId, active: true },
+      {
+        providerKey: "fake",
+        adapterKey: "fake",
+        modelKey,
+        locality: "local",
+        endpoint: "http://127.0.0.1:11434/v1/",
+        localTrustPolicyId: localTrustPolicy.id,
+        localTrustPolicyVersion: localTrustPolicy.version,
+        localTrustAllowedIp: localTrustPolicy.allowedIp,
+        reason: `Register ${modelKey} for durable trace verification`,
+        correlationId: crypto.randomUUID(),
+      },
+      databaseWriter,
     );
-    return changeAiRouteWithAudit(
+    await registerAuthorizedAiOutputSchema(
       client,
+      { userId: administratorId, active: true },
+      {
+        routeKey,
+        version: "trace-output.v1",
+        schema: z.object({ summary: z.string() }).strict(),
+        reason: "Register the durable trace output contract",
+        expectedBehavior: "Returns one source-grounded summary string.",
+        evaluationEvidenceReferences: ["ai-eval:00000000-0000-4000-8000-000000000303"],
+        correlationId: crypto.randomUUID(),
+      },
+      databaseWriter,
+    );
+    return changeAuthorizedAiRoute(
+      client,
+      { userId: administratorId, active: true },
       {
         routeKey,
         level: "system",
@@ -93,9 +123,12 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
         correlationId: crypto.randomUUID(),
         providers: [{ providerConfigId: provider.id }],
       },
-      { actorId: administratorId, effectiveSubjectId: administratorId, source: "api" },
       databaseWriter,
     );
+  }
+
+  function fakeAdapter(response: ConstructorParameters<typeof FakeAiProviderAdapter>[2]) {
+    return new FakeAiProviderAdapter("fake", "local", response, localTrustPolicy);
   }
 
   function request(routeKey: string, correlationId: string, withInvocationScopes = false) {
@@ -142,7 +175,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
     const routeKey = `test.run-trace.${crypto.randomUUID()}`;
     const firstConfig = await configure(routeKey, "model-v1");
     const repository = new PrismaAiRoutingRepository(client);
-    const adapter = new FakeAiProviderAdapter("fake", "local", {
+    const adapter = fakeAdapter({
       summary: "validated output",
       usage: { inputTokens: 5, outputTokens: 3, totalTokens: 8 },
       costUsd: 0.001,
@@ -216,7 +249,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
     await configure(routeKey, "model-quarantine");
     const repository = new PrismaAiRoutingRepository(client);
     const router = new AiRouter(repository, repository, [
-      new FakeAiProviderAdapter("fake", "local", { unsafeRawValue: "do not persist" }),
+      fakeAdapter({ unsafeRawValue: "do not persist" }),
     ]);
     const correlationId = crypto.randomUUID();
 
@@ -238,9 +271,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
     const routeKey = `test.atomic-output.${crypto.randomUUID()}`;
     await configure(routeKey, "model-atomic");
     const repository = new PrismaAiRoutingRepository(client);
-    const router = new AiRouter(repository, repository, [
-      new FakeAiProviderAdapter("fake", "local", { summary: "validated" }),
-    ]);
+    const router = new AiRouter(repository, repository, [fakeAdapter({ summary: "validated" })]);
     const correlationId = crypto.randomUUID();
     const featureCorrelationId = crypto.randomUUID();
 
@@ -272,9 +303,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
     const routeKey = `test.callback-failure.${crypto.randomUUID()}`;
     await configure(routeKey, "model-callback-failure");
     const repository = new PrismaAiRoutingRepository(client);
-    const router = new AiRouter(repository, repository, [
-      new FakeAiProviderAdapter("fake", "local", { summary: "validated" }),
-    ]);
+    const router = new AiRouter(repository, repository, [fakeAdapter({ summary: "validated" })]);
     const correlationId = crypto.randomUUID();
     const featureCorrelationId = crypto.randomUUID();
 
@@ -306,9 +335,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
     const routeKey = `test.shared-correlation.${crypto.randomUUID()}`;
     await configure(routeKey, "model-shared-correlation");
     const repository = new PrismaAiRoutingRepository(client);
-    const router = new AiRouter(repository, repository, [
-      new FakeAiProviderAdapter("fake", "local", { invalid: "quarantine" }),
-    ]);
+    const router = new AiRouter(repository, repository, [fakeAdapter({ invalid: "quarantine" })]);
     const correlationId = crypto.randomUUID();
 
     for (let index = 0; index < 2; index += 1) {
@@ -323,9 +350,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
     const routeKey = `test.invocation-scopes.${crypto.randomUUID()}`;
     await configure(routeKey, "model-scopes");
     const repository = new PrismaAiRoutingRepository(client);
-    const router = new AiRouter(repository, repository, [
-      new FakeAiProviderAdapter("fake", "local", { summary: "scoped" }),
-    ]);
+    const router = new AiRouter(repository, repository, [fakeAdapter({ summary: "scoped" })]);
     const correlationId = crypto.randomUUID();
 
     await router.run(request(routeKey, correlationId, true), async () => ({
@@ -337,13 +362,29 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
     expect(run).toMatchObject({ projectScopeId, departmentScopeId });
   });
 
+  it("rejects a wrong authoritative scope type before provider execution or trace creation", async () => {
+    const routeKey = `test.invalid-invocation-scope.${crypto.randomUUID()}`;
+    await configure(routeKey, "model-invalid-scope");
+    const repository = new PrismaAiRoutingRepository(client);
+    const adapter = fakeAdapter({ summary: "must not execute" });
+    const router = new AiRouter(repository, repository, [adapter]);
+    const correlationId = crypto.randomUUID();
+
+    await expect(
+      router.run(
+        { ...request(routeKey, correlationId), projectId: departmentScopeId },
+        async () => ({ outputReference: "must-not-persist" }),
+      ),
+    ).rejects.toMatchObject({ code: "AI_RUN_SCOPE_INVALID" });
+    expect(adapter.requests).toHaveLength(0);
+    await expect(client.aiRun.count({ where: { correlationId } })).resolves.toBe(0);
+  });
+
   it("rejects an AiRun whose denormalized route or provider identity contradicts its config", async () => {
     const routeKey = `test.trace-integrity.${crypto.randomUUID()}`;
     await configure(routeKey, "model-integrity");
     const repository = new PrismaAiRoutingRepository(client);
-    const router = new AiRouter(repository, repository, [
-      new FakeAiProviderAdapter("fake", "local", { summary: "integrity" }),
-    ]);
+    const router = new AiRouter(repository, repository, [fakeAdapter({ summary: "integrity" })]);
     const correlationId = crypto.randomUUID();
     await router.run(request(routeKey, correlationId), async () => ({
       outputReference: "analysis:1004",

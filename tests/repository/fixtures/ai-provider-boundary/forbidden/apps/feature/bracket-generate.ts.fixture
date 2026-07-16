@@ -1,0 +1,3 @@
+declare const adapter: Record<string, (...args: unknown[]) => unknown>;
+
+export const result = adapter["generate"]({ protected: true });

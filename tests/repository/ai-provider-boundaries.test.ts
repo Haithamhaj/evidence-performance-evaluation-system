@@ -25,6 +25,13 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("generate.ts.fixture");
     expect(result.stderr).toContain("split-url.ts.fixture");
     expect(result.stderr).toContain("public-adapter.ts.fixture");
+    expect(result.stderr).toContain("computed-import.ts.fixture");
+    expect(result.stderr).toContain("computed-require.ts.fixture");
+    expect(result.stderr).toContain("bracket-generate.ts.fixture");
+    expect(result.stderr).toContain("aliased-generate.ts.fixture");
+    expect(result.stderr).toContain("environment-provider-url.ts.fixture");
+    expect(result.stderr).toContain("restricted-composition.ts.fixture");
+    expect(result.stderr).toContain("BOUNDARY_RESTRICTED_AI_COMPOSITION");
   });
 
   it("allows neutral provider integration inside packages/ai-routing", () => {

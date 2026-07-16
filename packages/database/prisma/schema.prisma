@@ -16,17 +16,19 @@ model SystemMetadata {
 }
 
 model User {
-  id                String             @id @default(uuid()) @db.Uuid
-  pilotKey          String?            @unique
-  email             String             @unique
+  id                String                   @id @default(uuid()) @db.Uuid
+  pilotKey          String?                  @unique
+  email             String                   @unique
   displayName       String
-  active            Boolean            @default(true)
+  active            Boolean                  @default(true)
   identities        OidcIdentity[]
   roleAssignments   RoleAssignment[]
   aiRouteConfigs    AiRouteConfig[]
   aiProviderConfigs AiProviderConfig[]
-  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  aiTrustPolicies   AiLocalTrustPolicy[]
+  aiSchemaArtifacts AiOutputSchemaArtifact[]
+  createdAt         DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                 @updatedAt @db.Timestamptz(6)
 }
 
 model OidcIdentity {
@@ -286,23 +288,58 @@ model AiRouteConfig {
 }
 
 model AiProviderConfig {
-  id             String                  @id @default(uuid()) @db.Uuid
-  providerKey    String
-  version        Int
-  adapterKey     String
-  modelKey       String
-  locality       AiProviderLocality
-  endpoint       String
-  reason         String
-  createdById    String                  @db.Uuid
-  createdBy      User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  routeProviders AiRouteConfigProvider[]
-  createdAt      DateTime                @default(now()) @db.Timestamptz(6)
+  id                      String                       @id @default(uuid()) @db.Uuid
+  providerKey             String
+  version                 Int
+  adapterKey              String
+  modelKey                String
+  locality                AiProviderLocality
+  endpoint                String
+  endpointProtocol        String
+  endpointHost            String
+  localTrustPolicyId      String?                      @db.Uuid
+  localTrustPolicyVersion Int?
+  localTrustAllowedIp     String?
+  localTrustAllowed       AiLocalTrustPolicyAllowedIp? @relation(fields: [localTrustPolicyId, localTrustPolicyVersion, localTrustAllowedIp], references: [policyId, policyVersion, ipAddress], onDelete: Restrict)
+  reason                  String
+  createdById             String                       @db.Uuid
+  createdBy               User                         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  routeProviders          AiRouteConfigProvider[]
+  createdAt               DateTime                     @default(now()) @db.Timestamptz(6)
 
   @@unique([providerKey, version])
   @@unique([id, version])
   @@index([providerKey, version(sort: Desc)])
   @@index([createdById, createdAt])
+  @@index([localTrustPolicyId, localTrustPolicyVersion, localTrustAllowedIp])
+}
+
+model AiLocalTrustPolicy {
+  id          String                        @id @default(uuid()) @db.Uuid
+  policyKey   String
+  version     Int
+  reason      String
+  createdById String                        @db.Uuid
+  createdBy   User                          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  allowedIps  AiLocalTrustPolicyAllowedIp[]
+  createdAt   DateTime                      @default(now()) @db.Timestamptz(6)
+
+  @@unique([policyKey, version])
+  @@unique([id, version])
+  @@index([policyKey, version(sort: Desc)])
+  @@index([createdById, createdAt])
+}
+
+model AiLocalTrustPolicyAllowedIp {
+  id              String             @id @default(uuid()) @db.Uuid
+  policyId        String             @db.Uuid
+  policyVersion   Int
+  ipAddress       String
+  policy          AiLocalTrustPolicy @relation(fields: [policyId, policyVersion], references: [id, version], onDelete: Restrict)
+  providerConfigs AiProviderConfig[]
+
+  @@unique([policyId, policyVersion, ipAddress])
+  @@index([ipAddress])
 }
 
 model AiRouteConfigProvider {
@@ -321,17 +358,24 @@ model AiRouteConfigProvider {
 }
 
 model AiOutputSchemaArtifact {
-  id             String   @id @default(uuid()) @db.Uuid
-  routeKey       String
-  version        String
-  schemaHash     String
-  schemaArtifact Json
-  runs           AiRun[]
-  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  id                           String   @id @default(uuid()) @db.Uuid
+  routeKey                     String
+  version                      String
+  schemaHash                   String
+  schemaArtifact               Json
+  reason                       String
+  expectedBehavior             String
+  evaluationEvidenceReferences Json
+  humanApprovalPolicy          String
+  createdById                  String   @db.Uuid
+  createdBy                    User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  runs                         AiRun[]
+  createdAt                    DateTime @default(now()) @db.Timestamptz(6)
 
   @@unique([routeKey, version])
   @@unique([id, version, schemaHash])
   @@index([schemaHash])
+  @@index([createdById, createdAt])
 }
 
 model AiRun {

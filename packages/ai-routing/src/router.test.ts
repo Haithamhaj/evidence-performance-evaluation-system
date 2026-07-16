@@ -2,7 +2,8 @@ import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 
 import { FakeAiProviderAdapter } from "./adapters/fake.js";
-import { OpaqueReferenceSchema } from "./contracts.js";
+import { outputSchemaDescriptor } from "./configuration.js";
+import { AiProviderError, OpaqueReferenceSchema } from "./contracts.js";
 import { validateAiOutputSchema } from "./output-validator.js";
 import { AiRouter } from "./router.js";
 
@@ -23,6 +24,9 @@ function configuredProvider(
       locality === "local"
         ? "http://127.0.0.1:11434/v1/chat/completions"
         : "https://provider.example.invalid/v1/chat/completions",
+    localTrustPolicyId: null,
+    localTrustPolicyVersion: null,
+    localTrustAllowedIp: null,
   };
 }
 
@@ -30,6 +34,7 @@ function repositoryFor(
   findActiveRoute: import("./contracts.js").RouteRepository["findActiveRoute"],
 ): import("./contracts.js").RouteRepository {
   return {
+    validateInvocationScope: async () => undefined,
     findActiveRoute,
     findOutputSchemaArtifact: async (query) => ({
       id: "00000000-0000-4000-8000-000000000020",
@@ -276,6 +281,7 @@ describe("AI router output safety", () => {
     const external = new FakeAiProviderAdapter("external", "external", { supported: true });
     const broken: import("./contracts.js").AiProviderAdapter = {
       providerKey: "broken",
+      adapterKey: "broken",
       locality: "local",
       matchesConfiguration: () => true,
       generate: async () => {
@@ -307,6 +313,7 @@ describe("AI router output safety", () => {
   it("races the entire provider operation against timeout even when it ignores AbortSignal", async () => {
     const slow: import("./contracts.js").AiProviderAdapter = {
       providerKey: "fake",
+      adapterKey: "fake",
       locality: "local",
       matchesConfiguration: () => true,
       generate: async () => {
@@ -325,6 +332,103 @@ describe("AI router output safety", () => {
     ).rejects.toMatchObject({ code: "AI_PROVIDER_FAILED" });
     expect(performance.now() - started).toBeLessThan(100);
     expect(traces[0]).toMatchObject({ state: "failed", errorCategory: "timeout" });
+  });
+
+  it("uses one deadline across schema lookup, scope and route resolution, and all fallbacks", async () => {
+    const delay = (milliseconds: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+    const route: import("./contracts.js").ResolvedRoute = {
+      ...resolvedRoute,
+      providers: [
+        configuredProvider("slow-first", "m1", "local"),
+        configuredProvider("second", "m2", "local"),
+      ],
+    };
+    const repository = {
+      findOutputSchemaArtifact: async (query: { version: string; schemaHash: string }) => {
+        await delay(25);
+        return {
+          id: "00000000-0000-4000-8000-000000000020",
+          version: query.version,
+          schemaHash: query.schemaHash,
+        };
+      },
+      validateInvocationScope: async () => delay(25),
+      findActiveRoute: async () => {
+        await delay(15);
+        return route;
+      },
+    } as import("./contracts.js").RouteRepository & {
+      validateInvocationScope(scope: import("./contracts.js").RouteScope): Promise<void>;
+    };
+    const first: import("./contracts.js").AiProviderAdapter = {
+      providerKey: "slow-first",
+      adapterKey: "slow-first",
+      locality: "local",
+      matchesConfiguration: () => true,
+      generate: async () => {
+        await delay(40);
+        throw new AiProviderError("retryable");
+      },
+    };
+    const second = new FakeAiProviderAdapter("second", "local", { supported: true });
+    const traces: import("./contracts.js").AiRunTrace[] = [];
+    const router = new AiRouter(
+      repository,
+      {
+        appendRunTrace: async (trace) => {
+          traces.push(trace);
+          return { id: "run-total-deadline" };
+        },
+        commitSucceededRun: async () => {
+          throw new Error("deadline must prevent success persistence");
+        },
+      },
+      [first, second],
+    );
+    const started = performance.now();
+
+    await expect(
+      router.run(
+        { ...request(z.object({ supported: z.boolean() }).strict()), timeoutMs: 75 },
+        vi.fn(),
+      ),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_FAILED" });
+    expect(performance.now() - started).toBeLessThan(125);
+    expect(second.requests).toHaveLength(0);
+    expect(traces[0]).toMatchObject({ state: "failed", errorCategory: "timeout" });
+  });
+
+  it("validates authoritative invocation scope types before any provider side effect", async () => {
+    const adapter = new FakeAiProviderAdapter("fake", "local", { supported: true });
+    const repository = {
+      ...repositoryFor(async () => resolvedRoute),
+      validateInvocationScope: vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("wrong project scope type"), { code: "AI_RUN_SCOPE_INVALID" }),
+        ),
+    };
+    const router = new AiRouter(
+      repository,
+      {
+        appendRunTrace: vi.fn(),
+        commitSucceededRun: vi.fn(),
+      },
+      [adapter],
+    );
+
+    await expect(
+      router.run(
+        {
+          ...request(z.object({ supported: z.boolean() }).strict()),
+          projectId: "00000000-0000-4000-8000-000000000099",
+        },
+        vi.fn(),
+      ),
+    ).rejects.toMatchObject({ code: "AI_RUN_SCOPE_INVALID" });
+    expect(repository.validateInvocationScope).toHaveBeenCalledOnce();
+    expect(adapter.requests).toHaveLength(0);
   });
 
   it.each([
@@ -404,9 +508,49 @@ describe("AI router output safety", () => {
   });
 
   it.each([
+    "managerPerformanceScore",
+    "performanceGrade",
+    "rankedTeamMemberIds",
+    "workerRanking",
+    "personLeaderboardPosition",
+    "commitTotal",
+    "numberOfCommits",
+    "numUpdates",
+    "totalActivities",
+    "evidenceAmount",
+    "changedLineFrequency",
+    "prVolume",
+    "deliveryCount",
+  ])("rejects protected morphology-pair field %s", (field) => {
+    expect(() =>
+      validateAiOutputSchema("evaluation.prepare", z.object({ [field]: z.number() })),
+    ).toThrowError(expect.objectContaining({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" }));
+  });
+
+  it.each([
+    "performanceContext",
+    "qualityScore",
+    "commitMessage",
+    "totalCost",
+    "numberFormat",
+    "activityDescription",
+    "projectStatus",
+    "outputFormat",
+    "leaderboardTitle",
+  ])("allows neutral field that contains only one protected token family: %s", (field) => {
+    expect(() =>
+      validateAiOutputSchema("evaluation.prepare", z.object({ [field]: z.string() })),
+    ).not.toThrow();
+  });
+
+  it.each([
     { details: { updateCount: 3 } },
     { details: { productivityIndex: 0.8 } },
     { details: { rankedEmployeeIds: ["employee:1"] } },
+    { details: { managerPerformanceScore: 4 } },
+    { details: { rankedTeamMemberIds: ["employee:1"] } },
+    { details: { numberOfCommits: 12 } },
+    { details: { totalActivities: 20 } },
   ])("quarantines protected compound fields inside dynamic output", async (output) => {
     const adapter = new FakeAiProviderAdapter("fake", "local", output);
     const { router } = harness(adapter);
@@ -437,5 +581,57 @@ describe("AI router output safety", () => {
         z.object({ documentationReadinessPercentage: z.number().min(0).max(100) }),
       ),
     ).not.toThrow();
+  });
+
+  it.each([
+    ["custom refinement", z.object({ summary: z.string().refine((value) => value.length > 3) })],
+    ["custom super refinement", z.object({ summary: z.string().superRefine(() => undefined) })],
+    ["transform", z.object({ summary: z.string().transform((value) => value.trim()) })],
+    ["preprocess", z.object({ summary: z.preprocess((value) => value, z.string()) })],
+    ["coercion", z.object({ summary: z.coerce.string() })],
+    ["default", z.object({ summary: z.string().default("safe") })],
+    ["catch", z.object({ summary: z.string().catch("safe") })],
+  ] as const)(
+    "rejects %s because persisted JSON Schema cannot identify its runtime semantics",
+    (_, schema) => {
+      expect(() =>
+        outputSchemaDescriptor("document.analyze", "document-output.v1", schema),
+      ).toThrowError(expect.objectContaining({ code: "AI_SCHEMA_SEMANTICS_UNREPRESENTABLE" }));
+    },
+  );
+
+  it("does not allow opposing runtime refinements to share one schema identity", () => {
+    const acceptsA = z.object({ value: z.string().refine((value) => value === "a") });
+    const acceptsB = z.object({ value: z.string().refine((value) => value === "b") });
+
+    expect(() =>
+      outputSchemaDescriptor("document.analyze", "document-output.v1", acceptsA),
+    ).toThrowError(expect.objectContaining({ code: "AI_SCHEMA_SEMANTICS_UNREPRESENTABLE" }));
+    expect(() =>
+      outputSchemaDescriptor("document.analyze", "document-output.v1", acceptsB),
+    ).toThrowError(expect.objectContaining({ code: "AI_SCHEMA_SEMANTICS_UNREPRESENTABLE" }));
+  });
+
+  it("allows built-in constraints that are represented exactly in canonical JSON Schema", () => {
+    expect(() =>
+      outputSchemaDescriptor(
+        "document.analyze",
+        "document-output.v1",
+        z.object({ summary: z.string().min(3).max(200), confidence: z.number().min(0).max(1) }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects an unrepresentable runtime schema before provider execution", async () => {
+    const adapter = new FakeAiProviderAdapter("fake", "local", { summary: "safe" });
+    const { router } = harness(adapter);
+
+    await expect(
+      router.run(
+        request(z.object({ summary: z.string().refine((value) => value === "safe") })),
+        vi.fn(),
+      ),
+    ).rejects.toMatchObject({ code: "AI_SCHEMA_SEMANTICS_UNREPRESENTABLE" });
+    expect(adapter.requests).toHaveLength(0);
   });
 });
