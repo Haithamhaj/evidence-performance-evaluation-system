@@ -1,0 +1,9 @@
+type Generator = { generate(): string };
+
+declare const providers: Generator[];
+const local: Generator = { generate: () => "local" };
+let client = local;
+
+[client] = providers;
+
+export const result = client.generate();

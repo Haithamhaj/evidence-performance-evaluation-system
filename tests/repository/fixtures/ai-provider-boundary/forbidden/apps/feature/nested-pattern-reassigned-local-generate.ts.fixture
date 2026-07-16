@@ -1,0 +1,9 @@
+type Generator = { generate(): string };
+
+declare const providerEnvelope: { nested: { client: Generator } };
+const local: Generator = { generate: () => "local" };
+let client = local;
+
+({ nested: { client } } = providerEnvelope);
+
+export const result = client.generate();

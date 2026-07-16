@@ -41,6 +41,10 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("destructured-assignment-generate.ts.fixture");
     expect(result.stderr).toContain("destructured-parameter-generate.ts.fixture");
     expect(result.stderr).toContain("reassigned-local-generate.ts.fixture");
+    expect(result.stderr).toContain("object-pattern-reassigned-local-generate.ts.fixture");
+    expect(result.stderr).toContain("array-pattern-reassigned-local-generate.ts.fixture");
+    expect(result.stderr).toContain("nested-pattern-reassigned-local-generate.ts.fixture");
+    expect(result.stderr).toContain("defaulted-pattern-reassigned-local-generate.ts.fixture");
     expect(result.stderr).toContain("defaulted-destructured-parameter-generate.ts.fixture");
     expect(result.stderr).toContain("nested-destructured-parameter-generate.ts.fixture");
     expect(result.stderr).toContain("nested-destructured-assignment-generate.ts.fixture");

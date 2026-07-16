@@ -281,34 +281,42 @@ function addGeneratorWrite(writes, binding, expression) {
   else writes.set(binding, [expression]);
 }
 
-function collectRestGeneratorWrites(pattern, source, writes, bindings, pathByNode, nested = false) {
-  if (pattern?.type === "AssignmentPattern") {
-    collectRestGeneratorWrites(pattern.left, source, writes, bindings, pathByNode, nested);
+function collectPatternGeneratorWrites(pattern, source, writes, pathByNode, nested = false) {
+  if (pattern?.type === "Identifier") {
+    addGeneratorWrite(writes, lexicalBinding(pattern, pathByNode), undefined);
     return;
   }
-  if (pattern?.type !== "ObjectPattern") return;
-  for (const property of pattern.properties) {
-    if (property.type === "RestElement") {
-      if (property.argument?.type === "Identifier") {
-        addGeneratorWrite(
-          writes,
-          lexicalBinding(property.argument, pathByNode),
-          nested ? undefined : source,
-        );
-      } else {
-        collectRestGeneratorWrites(
-          property.argument,
-          undefined,
-          writes,
-          bindings,
-          pathByNode,
-          true,
-        );
-      }
-      continue;
+  if (pattern?.type === "AssignmentPattern") {
+    collectPatternGeneratorWrites(pattern.left, undefined, writes, pathByNode, true);
+    return;
+  }
+  if (pattern?.type === "RestElement") {
+    if (pattern.argument?.type === "Identifier" && !nested) {
+      addGeneratorWrite(writes, lexicalBinding(pattern.argument, pathByNode), source);
+    } else {
+      collectPatternGeneratorWrites(pattern.argument, undefined, writes, pathByNode, true);
     }
-    if (property.type === "ObjectProperty") {
-      collectRestGeneratorWrites(property.value, undefined, writes, bindings, pathByNode, true);
+    return;
+  }
+  if (pattern?.type === "ObjectPattern") {
+    for (const property of pattern.properties) {
+      if (property.type === "RestElement") {
+        if (property.argument?.type === "Identifier" && !nested) {
+          addGeneratorWrite(writes, lexicalBinding(property.argument, pathByNode), source);
+        } else {
+          collectPatternGeneratorWrites(property.argument, undefined, writes, pathByNode, true);
+        }
+        continue;
+      }
+      if (property.type === "ObjectProperty") {
+        collectPatternGeneratorWrites(property.value, undefined, writes, pathByNode, true);
+      }
+    }
+    return;
+  }
+  if (pattern?.type === "ArrayPattern") {
+    for (const element of pattern.elements) {
+      if (element) collectPatternGeneratorWrites(element, undefined, writes, pathByNode, true);
     }
   }
 }
@@ -503,13 +511,7 @@ function inspectAst(filePath, source) {
         declaration.init,
       );
     } else {
-      collectRestGeneratorWrites(
-        declaration.id,
-        declaration.init,
-        generatorWrites,
-        bindings,
-        pathByNode,
-      );
+      collectPatternGeneratorWrites(declaration.id, declaration.init, generatorWrites, pathByNode);
     }
   }
   for (const assignment of assignments) {
@@ -520,13 +522,7 @@ function inspectAst(filePath, source) {
         assignment.operator === "=" ? assignment.right : undefined,
       );
     } else if (assignment.operator === "=") {
-      collectRestGeneratorWrites(
-        assignment.left,
-        assignment.right,
-        generatorWrites,
-        bindings,
-        pathByNode,
-      );
+      collectPatternGeneratorWrites(assignment.left, assignment.right, generatorWrites, pathByNode);
     } else {
       collectOpaquePatternWrites(assignment.left, generatorWrites, pathByNode);
     }

@@ -16,7 +16,44 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Fifth review remediation commit subject: `fix: fail closed on ai router boundaries`
 - Sixth review remediation commit subject: `fix: close ai router review gaps`
 - Seventh review remediation commit subject: `fix: close final ai router review gaps`
+- Eighth review remediation commit subject: `fix: close ai router destructuring gap`
 - Push: prohibited and not attempted
+
+## Eighth review remediation
+
+The eighth review at `.superpowers/sdd/task-11-eighth-review.md` identified one critical lexical-provider-provenance issue. The exact object and array destructuring reassignments, plus nested and defaulted variants, were reproduced before the boundary implementation changed.
+
+### Eighth review RED evidence
+
+- Provider-boundary suite: 2 tests executed; the prohibited-fixture case failed while the allowed local-provenance controls passed.
+- The missing findings reproduced a previously proven local binding reassigned through `({ client } = providerEnvelope)`, `[client] = providers`, nested object destructuring, and defaulted object destructuring, followed by `client.generate()`.
+
+### Eighth review changes
+
+- Replaced the rest-only write collector with a recursive lexical pattern-write collector for `ObjectPattern`, `ArrayPattern`, `AssignmentPattern`, nested patterns, and rest elements.
+- Every identifier affected by an unknown property or element source receives an opaque write against its exact Babel lexical binding, so a destructuring reassignment invalidates only the binding actually written.
+- Preserved the reviewed top-level object-rest provenance for a proven local source. Existing later-local-assignment, transparent-wrapper, top-level object-rest, and same-name separate-scope controls remain accepted without name-based trust.
+
+### Eighth review GREEN evidence
+
+1. Focused remediation verification
+   - AI-routing package: 167/167 tests passed.
+   - Provider-boundary suite: 2/2 tests passed, including all four new prohibited fixtures and the existing allowed lexical controls.
+
+2. Combined T011 verification
+   - Router, adapters, governance, audit, run trace, workspace/import, and provider boundaries: 12 files and 253/253 tests passed.
+
+3. Migration verification
+   - `pnpm db:verify`: all six migrations passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; database integration passed 12/12.
+   - No migration or schema delta was required.
+
+4. Full integration verification
+   - `pnpm test:integration`: 15 files and 120/120 tests passed against the isolated PostgreSQL, Redis, MinIO, and Keycloak stack.
+
+5. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 263 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 311/311 tests; forced build 14/14.
+   - `git diff --check` passed, and no database, approved product, rubric, implementation-plan, task, or agent-governance file changed.
 
 ## Seventh review remediation
 
