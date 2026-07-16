@@ -80,27 +80,41 @@ enum OperationStatus {
 }
 
 model Operation {
-  id              String          @id @db.Uuid
-  organizationId  String          @db.Uuid
-  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  id              String                   @id @db.Uuid
+  organizationId  String                   @db.Uuid
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   jobType         String
   jobVersion      Int
-  idempotencyKey  String          @unique
-  correlationId   String          @db.Uuid
+  idempotencyKey  String                   @unique
+  correlationId   String                   @db.Uuid
   payloadHash     String
-  status          OperationStatus @default(pending)
-  attemptCount    Int             @default(0)
+  status          OperationStatus          @default(pending)
+  attemptCount    Int                      @default(0)
   errorCode       String?
   resultReference String?
-  startedAt       DateTime?       @db.Timestamptz(6)
-  completedAt     DateTime?       @db.Timestamptz(6)
-  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+  startedAt       DateTime?                @db.Timestamptz(6)
+  completedAt     DateTime?                @db.Timestamptz(6)
+  createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime                 @updatedAt @db.Timestamptz(6)
+  effectReceipts  OperationEffectReceipt[]
 
   @@index([organizationId, status, createdAt])
   @@index([jobType, jobVersion, status, createdAt])
   @@index([status, createdAt])
   @@index([correlationId])
+}
+
+model OperationEffectReceipt {
+  id               String    @id @default(uuid()) @db.Uuid
+  operationId      String    @db.Uuid
+  operation        Operation @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  effectName       String
+  idempotencyKey   String    @unique
+  receiptReference String
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([operationId, effectName])
+  @@index([operationId, createdAt])
 }
 
 model Department {

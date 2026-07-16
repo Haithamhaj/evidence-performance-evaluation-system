@@ -8,7 +8,8 @@ import { executeJob, retainSchemaFailure } from "./operation-execution.js";
 type DatabaseClient = ReturnType<typeof import("@evaluation/database").createDatabaseClient>;
 type JobEnvelope = import("@evaluation/contracts").JobEnvelope;
 
-export type JobProcessor = (envelope: JobEnvelope) => Promise<string>;
+export type { JobEffectContext, JobProcessor } from "./operation-execution.js";
+type JobProcessor = import("./operation-execution.js").JobProcessor;
 
 interface SafeLogger {
   info(fields: Readonly<Record<string, unknown>>, message?: string): void;

@@ -1,8 +1,9 @@
-import { Module } from "@nestjs/common";
+import { Inject, Injectable, Module } from "@nestjs/common";
 import { Queue, QueueEvents, Worker } from "bullmq";
 
 import { JobEnvelopeSchema, jobQueueName } from "@evaluation/contracts";
 import { currentCorrelation } from "@evaluation/observability";
+import { createDatabaseClient } from "@evaluation/database";
 
 import {
   hashJobPayload,
@@ -12,6 +13,7 @@ import {
   runJob,
   type JobProcessor,
 } from "./job-runner.js";
+import { testProcessor } from "./test.processor.js";
 
 type DatabaseClient = ReturnType<typeof import("@evaluation/database").createDatabaseClient>;
 type BackoffStrategy = import("bullmq").BackoffStrategy;
@@ -31,7 +33,20 @@ export interface QueueRuntime {
   readonly queue: Queue;
   readonly queueEvents: QueueEvents;
   readonly worker: Worker;
+  start(): Promise<void>;
+  close(): Promise<void>;
 }
+
+export interface QueueRuntimeConfiguration {
+  readonly databaseUrl: string;
+  readonly redisUrl: string;
+  readonly jobType: string;
+  readonly jobVersion: number;
+}
+
+export const QUEUE_RUNTIME_CONFIGURATION = Symbol("QUEUE_RUNTIME_CONFIGURATION");
+export const QUEUE_RUNTIME_FACTORY = Symbol("QUEUE_RUNTIME_FACTORY");
+export type QueueRuntimeFactory = (configuration: QueueRuntimeConfiguration) => QueueRuntime;
 
 export function redisConnection(redisUrl: string): ConnectionOptions {
   const url = new URL(redisUrl);
@@ -74,6 +89,7 @@ export function createQueueRuntime(options: {
   readonly redisUrl: string;
   readonly processor: JobProcessor;
   readonly logger?: SafeLogger;
+  readonly closeDatabaseOnShutdown?: boolean;
 }): QueueRuntime {
   const queueName = jobQueueName(options.jobType, options.jobVersion);
   // BullMQ reserves ':' for its Redis key separator. Keep the authoritative
@@ -96,7 +112,8 @@ export function createQueueRuntime(options: {
     },
   );
 
-  return {
+  let runtime!: QueueRuntime;
+  runtime = {
     database: options.database,
     jobType: options.jobType,
     jobVersion: options.jobVersion,
@@ -104,7 +121,11 @@ export function createQueueRuntime(options: {
     queue,
     queueEvents,
     worker,
+    start: () => startQueueRuntime(runtime),
+    close: () => closeQueueRuntime(runtime),
   };
+  databaseOwnership.set(runtime, options.closeDatabaseOnShutdown === true);
+  return runtime;
 }
 
 async function durableEnvelope(runtime: QueueRuntime, rawEnvelope: unknown): Promise<JobEnvelope> {
@@ -156,11 +177,7 @@ async function durableEnvelope(runtime: QueueRuntime, rawEnvelope: unknown): Pro
 export async function enqueueJob(runtime: QueueRuntime, rawEnvelope: unknown): Promise<string> {
   const envelope = await durableEnvelope(runtime, rawEnvelope);
   const policy = retryPolicyForJobType(envelope.jobType);
-  await Promise.all([
-    runtime.queue.waitUntilReady(),
-    runtime.queueEvents.waitUntilReady(),
-    runtime.worker.waitUntilReady(),
-  ]);
+  await startQueueRuntime(runtime);
   const job = await runtime.queue.add(envelope.jobType, envelope, {
     jobId: envelope.operationId,
     attempts: policy.attempts,
@@ -172,6 +189,20 @@ export async function enqueueJob(runtime: QueueRuntime, rawEnvelope: unknown): P
 }
 
 const closures = new WeakMap<QueueRuntime, Promise<void>>();
+const starts = new WeakMap<QueueRuntime, Promise<void>>();
+const databaseOwnership = new WeakMap<QueueRuntime, boolean>();
+
+export function startQueueRuntime(runtime: QueueRuntime): Promise<void> {
+  const existing = starts.get(runtime);
+  if (existing !== undefined) return existing;
+  const start = Promise.all([
+    runtime.queue.waitUntilReady(),
+    runtime.queueEvents.waitUntilReady(),
+    runtime.worker.waitUntilReady(),
+  ]).then(() => undefined);
+  starts.set(runtime, start);
+  return start;
+}
 
 export function closeQueueRuntime(runtime: QueueRuntime): Promise<void> {
   const existing = closures.get(runtime);
@@ -180,6 +211,7 @@ export function closeQueueRuntime(runtime: QueueRuntime): Promise<void> {
     await runtime.worker.close();
     await runtime.queueEvents.close();
     await runtime.queue.close();
+    if (databaseOwnership.get(runtime) === true) await runtime.database.$disconnect();
   })();
   closures.set(runtime, closure);
   return closure;
@@ -206,6 +238,76 @@ export function waitForQueueShutdownSignal(
 export { hashJobPayload, NonRetryableJobError, PolicyJobError, RetryableJobError, runJob };
 export type { JobProcessor };
 
+function configuredJobVersion(rawValue: string | undefined): number {
+  if (rawValue === undefined) return 1;
+  const value = Number(rawValue);
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new TypeError("WORKER_JOB_VERSION must be a positive integer");
+  }
+  return value;
+}
+
+export function createQueueRuntimeConfiguration(): QueueRuntimeConfiguration | undefined {
+  const databaseUrl = process.env.DATABASE_URL;
+  const redisUrl = process.env.REDIS_URL;
+  if (databaseUrl === undefined || redisUrl === undefined) return undefined;
+  return {
+    databaseUrl,
+    redisUrl,
+    jobType: process.env.WORKER_JOB_TYPE ?? "system.test",
+    jobVersion: configuredJobVersion(process.env.WORKER_JOB_VERSION),
+  };
+}
+
+export const createConfiguredQueueRuntime: QueueRuntimeFactory = (configuration) =>
+  createQueueRuntime({
+    database: createDatabaseClient(configuration.databaseUrl),
+    redisUrl: configuration.redisUrl,
+    jobType: configuration.jobType,
+    jobVersion: configuration.jobVersion,
+    processor: testProcessor,
+    closeDatabaseOnShutdown: true,
+  });
+
+export class QueueRuntimeLifecycle {
+  private runtime: QueueRuntime | undefined;
+  private readonly configuration: QueueRuntimeConfiguration | undefined;
+  private readonly createRuntime: QueueRuntimeFactory;
+
+  constructor(
+    configuration: QueueRuntimeConfiguration | undefined,
+    createRuntime: QueueRuntimeFactory,
+  ) {
+    this.configuration = configuration;
+    this.createRuntime = createRuntime;
+  }
+
+  async onApplicationBootstrap(): Promise<void> {
+    if (this.configuration === undefined) return;
+    const runtime = this.createRuntime(this.configuration);
+    this.runtime = runtime;
+    await runtime.start();
+  }
+
+  async onApplicationShutdown(): Promise<void> {
+    await this.runtime?.close();
+  }
+}
+
+Inject(QUEUE_RUNTIME_CONFIGURATION)(QueueRuntimeLifecycle, undefined, 0);
+Inject(QUEUE_RUNTIME_FACTORY)(QueueRuntimeLifecycle, undefined, 1);
+Injectable()(QueueRuntimeLifecycle);
+
 export class QueueModule {}
 
-Module({})(QueueModule);
+Module({
+  providers: [
+    {
+      provide: QUEUE_RUNTIME_CONFIGURATION,
+      useFactory: createQueueRuntimeConfiguration,
+    },
+    { provide: QUEUE_RUNTIME_FACTORY, useValue: createConfiguredQueueRuntime },
+    QueueRuntimeLifecycle,
+  ],
+  exports: [QueueRuntimeLifecycle],
+})(QueueModule);

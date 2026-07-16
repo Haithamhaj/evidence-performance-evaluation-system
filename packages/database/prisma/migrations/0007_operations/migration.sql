@@ -67,3 +67,37 @@ CREATE INDEX "Operation_correlationId_idx" ON "Operation"("correlationId");
 
 ALTER TABLE "Operation" ADD CONSTRAINT "Operation_organizationId_fkey"
 FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+CREATE TABLE "OperationEffectReceipt" (
+    "id" UUID NOT NULL,
+    "operationId" UUID NOT NULL,
+    "effectName" TEXT NOT NULL,
+    "idempotencyKey" TEXT NOT NULL,
+    "receiptReference" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "OperationEffectReceipt_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "OperationEffectReceipt_effect_name_check" CHECK (
+      length("effectName") BETWEEN 3 AND 80
+      AND "effectName" ~ '^[a-z][a-z0-9-]*$'
+    ),
+    CONSTRAINT "OperationEffectReceipt_idempotency_key_check" CHECK (
+      length("idempotencyKey") BETWEEN 3 AND 281
+      AND "idempotencyKey" = btrim("idempotencyKey")
+      AND "idempotencyKey" ~ '^[a-z0-9][A-Za-z0-9._:/-]*$'
+    ),
+    CONSTRAINT "OperationEffectReceipt_reference_check" CHECK (
+      length("receiptReference") BETWEEN 3 AND 256
+      AND "receiptReference" = btrim("receiptReference")
+      AND "receiptReference" !~* '(token|secret|password|credential|bearer|api[-_]?key)'
+    )
+);
+
+CREATE UNIQUE INDEX "OperationEffectReceipt_idempotencyKey_key"
+ON "OperationEffectReceipt"("idempotencyKey");
+CREATE UNIQUE INDEX "OperationEffectReceipt_operationId_effectName_key"
+ON "OperationEffectReceipt"("operationId", "effectName");
+CREATE INDEX "OperationEffectReceipt_operationId_createdAt_idx"
+ON "OperationEffectReceipt"("operationId", "createdAt");
+
+ALTER TABLE "OperationEffectReceipt" ADD CONSTRAINT "OperationEffectReceipt_operationId_fkey"
+FOREIGN KEY ("operationId") REFERENCES "Operation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

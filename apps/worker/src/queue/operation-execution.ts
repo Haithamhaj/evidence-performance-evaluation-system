@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { UnrecoverableError } from "bullmq";
 import { z } from "zod";
 
-import { asJobExecutionError, NonRetryableJobError, RetryableJobError } from "./job-errors.js";
+import { asJobExecutionError, NonRetryableJobError } from "./job-errors.js";
 
 const ResultReferenceSchema = z
   .string()
@@ -26,8 +26,22 @@ const JobIdentitySchema = z
   .passthrough();
 
 type DatabaseClient = ReturnType<typeof import("@evaluation/database").createDatabaseClient>;
+type TransactionOperation = Parameters<typeof import("@evaluation/database").withTransaction>[1];
+type TransactionClient = Parameters<TransactionOperation>[0];
 type JobEnvelope = import("@evaluation/contracts").JobEnvelope;
-type JobProcessor = (envelope: JobEnvelope) => Promise<string>;
+
+export interface ExternalEffectReceipt {
+  readonly idempotencyKey: string;
+  findReceipt(): Promise<string | null>;
+  recordReceipt(receiptReference: string): Promise<void>;
+}
+
+export interface JobEffectContext {
+  readonly transaction: TransactionClient;
+  externalEffect(effectName: string): ExternalEffectReceipt;
+}
+
+export type JobProcessor = (envelope: JobEnvelope, context: JobEffectContext) => Promise<string>;
 
 interface SafeLogger {
   info(fields: Readonly<Record<string, unknown>>, message?: string): void;
@@ -38,19 +52,41 @@ export function hashJobPayload(payload: unknown): string {
   return createHash("sha256").update(JSON.stringify(payload), "utf8").digest("hex");
 }
 
-async function existingOutcome(database: DatabaseClient, operationId: string): Promise<string> {
-  for (let attempt = 0; attempt < 500; attempt += 1) {
-    const operation = await database.operation.findUnique({ where: { id: operationId } });
-    if (operation === null) throw new UnrecoverableError("JOB_OPERATION_NOT_FOUND");
-    if (operation.status === "succeeded" && operation.resultReference !== null) {
-      return operation.resultReference;
-    }
-    if (operation.status === "failed" && operation.errorCode !== null) {
-      throw new UnrecoverableError(operation.errorCode);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new RetryableJobError("JOB_OPERATION_BUSY");
+const EffectNameSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(80)
+  .regex(/^[a-z][a-z0-9-]*$/u);
+
+function effectContext(transaction: TransactionClient, envelope: JobEnvelope): JobEffectContext {
+  return {
+    transaction,
+    externalEffect(rawEffectName) {
+      const effectName = EffectNameSchema.parse(rawEffectName);
+      const idempotencyKey = `${envelope.idempotencyKey}:${effectName}`;
+      return {
+        idempotencyKey,
+        async findReceipt() {
+          const receipt = await transaction.operationEffectReceipt.findUnique({
+            where: { operationId_effectName: { operationId: envelope.operationId, effectName } },
+          });
+          return receipt?.receiptReference ?? null;
+        },
+        async recordReceipt(rawReceiptReference) {
+          const receiptReference = ResultReferenceSchema.parse(rawReceiptReference);
+          await transaction.operationEffectReceipt.create({
+            data: {
+              operationId: envelope.operationId,
+              effectName,
+              idempotencyKey,
+              receiptReference,
+            },
+          });
+        },
+      };
+    },
+  };
 }
 
 export async function executeJob(
@@ -81,37 +117,86 @@ export async function executeJob(
     },
   });
 
-  if (acquired.count === 0) return existingOutcome(database, envelope.operationId);
-  logger?.info(
-    { event: "worker.job.started", operationId: envelope.operationId, jobType: envelope.jobType },
-    "worker job started",
-  );
+  if (acquired.count > 0) {
+    logger?.info(
+      { event: "worker.job.started", operationId: envelope.operationId, jobType: envelope.jobType },
+      "worker job started",
+    );
+  }
 
   try {
-    const result = ResultReferenceSchema.safeParse(await processor(envelope));
-    if (!result.success) throw new NonRetryableJobError("JOB_RESULT_INVALID");
-    await database.operation.update({
-      where: { id: envelope.operationId },
-      data: {
-        status: "succeeded",
-        resultReference: result.data,
-        errorCode: null,
-        completedAt: new Date(),
+    const outcome = await database.$transaction(
+      async (transaction) => {
+        await transaction.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "Operation"
+          WHERE "id" = ${envelope.operationId}::uuid
+          FOR UPDATE
+        `;
+        const operation = await transaction.operation.findUnique({
+          where: { id: envelope.operationId },
+        });
+        if (operation === null) throw new NonRetryableJobError("JOB_OPERATION_NOT_FOUND");
+        if (operation.status === "succeeded" && operation.resultReference !== null) {
+          return { resultReference: operation.resultReference, processed: false } as const;
+        }
+        if (
+          operation.organizationId !== envelope.scope.organizationId ||
+          operation.jobType !== envelope.jobType ||
+          operation.jobVersion !== envelope.jobVersion ||
+          operation.idempotencyKey !== envelope.idempotencyKey ||
+          operation.correlationId !== envelope.correlationId ||
+          operation.payloadHash !== hashJobPayload(envelope.payload)
+        ) {
+          throw new NonRetryableJobError("JOB_OPERATION_MISMATCH");
+        }
+
+        if (operation.status !== "running") {
+          await transaction.operation.update({
+            where: { id: envelope.operationId },
+            data: {
+              status: "running",
+              attemptCount: { increment: 1 },
+              errorCode: null,
+              resultReference: null,
+              startedAt,
+              completedAt: null,
+            },
+          });
+        }
+
+        const result = ResultReferenceSchema.safeParse(
+          await processor(envelope, effectContext(transaction, envelope)),
+        );
+        if (!result.success) throw new NonRetryableJobError("JOB_RESULT_INVALID");
+        await transaction.operation.update({
+          where: { id: envelope.operationId },
+          data: {
+            status: "succeeded",
+            resultReference: result.data,
+            errorCode: null,
+            completedAt: new Date(),
+          },
+        });
+        return { resultReference: result.data, processed: true } as const;
       },
-    });
+      { maxWait: 5_000, timeout: 30_000 },
+    );
+    if (!outcome.processed) return outcome.resultReference;
     logger?.info(
       { event: "worker.job.succeeded", operationId: envelope.operationId },
       "worker job succeeded",
     );
-    return result.data;
+    return outcome.resultReference;
   } catch (error) {
     const jobError = asJobExecutionError(error);
-    await database.operation.update({
-      where: { id: envelope.operationId },
+    await database.operation.updateMany({
+      where: { id: envelope.operationId, status: { in: ["pending", "running", "failed"] } },
       data: {
         status: "failed",
+        ...(acquired.count === 0 ? { attemptCount: { increment: 1 } } : {}),
         errorCode: jobError.code,
         resultReference: null,
+        startedAt,
         completedAt: new Date(),
       },
     });

@@ -203,6 +203,19 @@ describe("CI contract", () => {
     expect(workspace).not.toContain("set this to true or false");
   });
 
+  it("pins the approved BullMQ release exactly", async () => {
+    const [workerManifestText, workspace] = await Promise.all([
+      readFile("apps/worker/package.json", "utf8"),
+      readFile("pnpm-workspace.yaml", "utf8"),
+    ]);
+    const workerManifest = JSON.parse(workerManifestText);
+
+    expect(workerManifest.dependencies?.bullmq).toBe("5.80.3");
+    expect(workspace).toContain("  - bullmq@5.80.3");
+    expect(workspace).not.toContain("bullmq@5.80.5");
+    expect(workspace).toContain("  msgpackr-extract: false");
+  });
+
   it.each(secretCases)(
     "rejects $name without printing the matched value",
     async ({ label, value }) => {

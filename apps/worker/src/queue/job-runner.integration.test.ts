@@ -40,9 +40,19 @@ beforeAll(async () => {
   await database.organization.create({
     data: { id: organizationId, key: `worker-${organizationId}`, name: "Worker Test" },
   });
+  await database.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "T013ProtectedEffectFixture" (
+      "operationId" UUID PRIMARY KEY,
+      "effectCount" INTEGER NOT NULL
+    )
+  `);
 });
 
 afterAll(async () => {
+  await database.$executeRawUnsafe('DROP TABLE IF EXISTS "T013ProtectedEffectFixture"');
+  await database.operationEffectReceipt.deleteMany({
+    where: { operation: { organizationId } },
+  });
   await database.operation.deleteMany({ where: { organizationId } });
   await database.organization.delete({ where: { id: organizationId } });
   await database.$disconnect();
@@ -67,6 +77,93 @@ describe("JobRunner", () => {
       resultReference: "result:fixture-1",
       status: "succeeded",
     });
+  });
+
+  it("rolls back a protected database effect with a retryable crash and commits it once on retry", async () => {
+    const input = envelope();
+    await persistPending(input);
+    let crashAfterEffect = true;
+    const processor: JobProcessor = vi.fn(async (_envelope, context) => {
+      await context.transaction.$executeRawUnsafe(
+        'INSERT INTO "T013ProtectedEffectFixture" ("operationId", "effectCount") VALUES ($1::uuid, 1)',
+        input.operationId,
+      );
+      if (crashAfterEffect) {
+        crashAfterEffect = false;
+        throw new RetryableJobError("CRASH_AFTER_EFFECT");
+      }
+      return "result:transactional-effect";
+    });
+
+    await expect(runJob(database, input, processor)).rejects.toThrow("CRASH_AFTER_EFFECT");
+    await expect(
+      database.$queryRawUnsafe<Array<{ count: bigint }>>(
+        'SELECT COUNT(*)::bigint AS count FROM "T013ProtectedEffectFixture" WHERE "operationId" = $1::uuid',
+        input.operationId,
+      ),
+    ).resolves.toEqual([{ count: 0n }]);
+    await expect(
+      database.operation.findUnique({ where: { id: input.operationId } }),
+    ).resolves.toMatchObject({ status: "failed", errorCode: "CRASH_AFTER_EFFECT" });
+
+    await expect(runJob(database, input, processor)).resolves.toBe("result:transactional-effect");
+    await expect(
+      database.$queryRawUnsafe<Array<{ count: bigint }>>(
+        'SELECT COUNT(*)::bigint AS count FROM "T013ProtectedEffectFixture" WHERE "operationId" = $1::uuid',
+        input.operationId,
+      ),
+    ).resolves.toEqual([{ count: 1n }]);
+    expect(processor).toHaveBeenCalledTimes(2);
+  });
+
+  it("recovers an operation left running by a terminated worker", async () => {
+    const input = envelope();
+    await persistPending(input);
+    await database.operation.update({
+      where: { id: input.operationId },
+      data: { status: "running", attemptCount: 1, startedAt: new Date() },
+    });
+    const processor: JobProcessor = vi.fn(async (_envelope, context) => {
+      await context.transaction.$executeRawUnsafe(
+        'INSERT INTO "T013ProtectedEffectFixture" ("operationId", "effectCount") VALUES ($1::uuid, 1)',
+        input.operationId,
+      );
+      return "result:recovered-running";
+    });
+
+    await expect(runJob(database, input, processor)).resolves.toBe("result:recovered-running");
+    await expect(runJob(database, input, processor)).resolves.toBe("result:recovered-running");
+    expect(processor).toHaveBeenCalledTimes(1);
+    await expect(
+      database.$queryRawUnsafe<Array<{ count: bigint }>>(
+        'SELECT COUNT(*)::bigint AS count FROM "T013ProtectedEffectFixture" WHERE "operationId" = $1::uuid',
+        input.operationId,
+      ),
+    ).resolves.toEqual([{ count: 1n }]);
+    await expect(
+      database.operation.findUnique({ where: { id: input.operationId } }),
+    ).resolves.toMatchObject({ status: "succeeded", resultReference: "result:recovered-running" });
+  });
+
+  it("gives external effects a stable idempotency key and durable receipt", async () => {
+    const input = envelope();
+    await persistPending(input);
+    const processor: JobProcessor = vi.fn(async (_envelope, context) => {
+      const effect = context.externalEffect("provider-delivery");
+      expect(effect.idempotencyKey).toBe(`${input.idempotencyKey}:provider-delivery`);
+      await expect(effect.findReceipt()).resolves.toBeNull();
+      await effect.recordReceipt("receipt:provider-delivery");
+      await expect(effect.findReceipt()).resolves.toBe("receipt:provider-delivery");
+      return "result:external-effect";
+    });
+
+    await expect(runJob(database, input, processor)).resolves.toBe("result:external-effect");
+    await expect(
+      database.$queryRawUnsafe<Array<{ count: bigint }>>(
+        'SELECT COUNT(*)::bigint AS count FROM "OperationEffectReceipt" WHERE "operationId" = $1::uuid',
+        input.operationId,
+      ),
+    ).resolves.toEqual([{ count: 1n }]);
   });
 
   it("retains an invalid queued payload as JOB_SCHEMA_INVALID", async () => {

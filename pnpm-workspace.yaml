@@ -26,4 +26,4 @@ minimumReleaseAgeExclude:
   - "@aws-sdk/token-providers@3.1087.0"
   - "@aws-sdk/types@3.974.1"
   - "@aws-sdk/xml-builder@3.972.35"
-  - bullmq@5.80.5
+  - bullmq@5.80.3
