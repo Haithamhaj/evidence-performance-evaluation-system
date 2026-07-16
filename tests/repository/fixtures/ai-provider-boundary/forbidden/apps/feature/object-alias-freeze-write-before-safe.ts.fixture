@@ -1,0 +1,12 @@
+let providerPackage = "openai";
+const ObjectAlias = Object;
+const secondAlias = ObjectAlias;
+const invokingFreeze = ((value: unknown) => {
+  (value as { handler: () => unknown }).handler();
+  return value;
+}) as typeof Object.freeze;
+
+secondAlias["freeze"] = invokingFreeze;
+
+Object.freeze({ handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

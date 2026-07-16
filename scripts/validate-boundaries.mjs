@@ -37,6 +37,7 @@ const providerEnvironmentPattern =
 const maxResolvedValues = 32;
 const invocationAnalysisByBindingWrites = new WeakMap();
 const globalObjectFreezeWritesByBindingWrites = new WeakMap();
+const classReceiverAnalysisByBindingWrites = new WeakMap();
 
 async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -868,6 +869,39 @@ function addFunctionTarget(functionTargets, binding, target) {
   return targets.size !== previousSize;
 }
 
+function addClassReceiver(bindingWrites, target, classNode, isStatic) {
+  if (target === undefined || classNode === undefined) return;
+  const analysis = classReceiverAnalysisByBindingWrites.get(bindingWrites);
+  if (analysis === undefined) return;
+  let byClass = analysis.receivers.get(target);
+  if (byClass === undefined) {
+    byClass = new Map();
+    analysis.receivers.set(target, byClass);
+  }
+  let modes = byClass.get(classNode);
+  if (modes === undefined) {
+    modes = new Set();
+    byClass.set(classNode, modes);
+  }
+  const previousSize = modes.size;
+  modes.add(isStatic ? "static" : "instance");
+  if (modes.size !== previousSize) analysis.changed = true;
+}
+
+function addResolvedReceiver(receiverTargets, target, classNode, isStatic) {
+  let byClass = receiverTargets.get(target);
+  if (byClass === undefined) {
+    byClass = new Map();
+    receiverTargets.set(target, byClass);
+  }
+  let modes = byClass.get(classNode);
+  if (modes === undefined) {
+    modes = new Set();
+    byClass.set(classNode, modes);
+  }
+  modes.add(isStatic ? "static" : "instance");
+}
+
 function staticSelectionKeys(selector, bindingWrites, pathByNode) {
   if (selector.type === "index") {
     return { truncated: false, values: new Set([selector.index]) };
@@ -895,10 +929,12 @@ function possibleFunctionTargets(
   pathByNode,
   options = {},
 ) {
-  const result = { targets: new Set(), truncated: false };
+  const result = { receiverTargets: new Map(), targets: new Set(), truncated: false };
   const resolvingWrites = options.resolvingWrites ?? new Set();
   const selection = options.selection ?? [];
   const contained = options.contained ?? false;
+  const runtimeClassTarget = options.runtimeClassTarget;
+  const runtimeStatic = options.runtimeStatic;
   const depth = options.depth ?? 0;
   const observationBoundary =
     options.observationBoundary ?? executionBoundary(pathByNode.get(node));
@@ -912,6 +948,13 @@ function possibleFunctionTargets(
   const merge = (nested) => {
     for (const target of nested.targets) {
       if (!addBounded(result.targets, target)) result.truncated = true;
+    }
+    for (const [target, byClass] of nested.receiverTargets) {
+      for (const [classNode, modes] of byClass) {
+        for (const mode of modes) {
+          addResolvedReceiver(result.receiverTargets, target, classNode, mode === "static");
+        }
+      }
     }
     result.truncated ||= nested.truncated;
   };
@@ -928,6 +971,8 @@ function possibleFunctionTargets(
         selection: nextOptions.selection ?? [],
         observationBoundary: nextOptions.observationBoundary ?? observationBoundary,
         observationPosition: nextOptions.observationPosition ?? observationPosition,
+        runtimeClassTarget: nextOptions.runtimeClassTarget ?? runtimeClassTarget,
+        runtimeStatic: nextOptions.runtimeStatic ?? runtimeStatic,
       },
     );
     merge(nested);
@@ -953,24 +998,36 @@ function possibleFunctionTargets(
         result.truncated = true;
         return result;
       }
-      const classTarget =
-        expression.type === "Super" ? context.classNode.superClass : context.classNode;
-      if (classTarget === null || classTarget === undefined) {
+      const receivers = classReceiverAnalysisByBindingWrites
+        .get(bindingWrites)
+        ?.receivers.get(classMemberValue(context.member));
+      const runtimeReceivers = [];
+      for (const [classNode, modes] of receivers ?? []) {
+        if (modes.has(context.member.static ? "static" : "instance"))
+          runtimeReceivers.push(classNode);
+      }
+      if (runtimeReceivers.length === 0) runtimeReceivers.push(context.classNode);
+      const lookupTarget = expression.type === "Super" ? context.classNode.superClass : undefined;
+      if (expression.type === "Super" && (lookupTarget === null || lookupTarget === undefined)) {
         result.truncated = true;
         return result;
       }
-      recurse(classTarget, {
-        selection: context.member.static
-          ? selection
-          : [
-              {
-                computed: false,
-                key: { type: "Identifier", name: "prototype" },
-                type: "property",
-              },
-              ...selection,
-            ],
-      });
+      for (const receiver of runtimeReceivers) {
+        recurse(lookupTarget ?? receiver, {
+          runtimeClassTarget: receiver,
+          runtimeStatic: Boolean(context.member.static),
+          selection: context.member.static
+            ? selection
+            : [
+                {
+                  computed: false,
+                  key: { type: "Identifier", name: "prototype" },
+                  type: "property",
+                },
+                ...selection,
+              ],
+        });
+      }
       return result;
     }
     if (expression.type === "Identifier") {
@@ -1124,6 +1181,7 @@ function possibleFunctionTargets(
       return result;
     }
     if (["ClassDeclaration", "ClassExpression"].includes(expression.type)) {
+      const activeRuntimeClassTarget = runtimeClassTarget ?? expression;
       const prototypeSelected = [...keys.values].some((key) => String(key) === "prototype");
       if (prototypeSelected) {
         if (remaining.length === 0) {
@@ -1133,7 +1191,11 @@ function possibleFunctionTargets(
             }
           }
           if (expression.superClass) {
-            const inherited = recurse(expression.superClass, { selection });
+            const inherited = recurse(expression.superClass, {
+              runtimeClassTarget: activeRuntimeClassTarget,
+              runtimeStatic: false,
+              selection,
+            });
             if (inherited.targets.size === 0 && !isKnownClassTarget(expression.superClass)) {
               result.truncated = true;
             }
@@ -1150,7 +1212,11 @@ function possibleFunctionTargets(
               String(propertyKeyName(member, bindingWrites, pathByNode)) === String(key),
           );
           if (matches.length > 0) {
-            recurse(classMemberValue(matches.at(-1)), { selection: remaining.slice(1) });
+            recurse(classMemberValue(matches.at(-1)), {
+              runtimeClassTarget: activeRuntimeClassTarget,
+              runtimeStatic: false,
+              selection: remaining.slice(1),
+            });
           } else if (expression.superClass) {
             const inherited = recurse(expression.superClass, {
               selection: [
@@ -1162,6 +1228,8 @@ function possibleFunctionTargets(
                 remaining[0],
                 ...remaining.slice(1),
               ],
+              runtimeClassTarget: activeRuntimeClassTarget,
+              runtimeStatic: false,
             });
             if (inherited.targets.size === 0 && !isKnownClassTarget(expression.superClass)) {
               result.truncated = true;
@@ -1178,9 +1246,15 @@ function possibleFunctionTargets(
             String(propertyKeyName(member, bindingWrites, pathByNode)) === String(key),
         );
         if (matches.length > 0) {
-          recurse(classMemberValue(matches.at(-1)), { selection: remaining });
+          recurse(classMemberValue(matches.at(-1)), {
+            runtimeClassTarget: activeRuntimeClassTarget,
+            runtimeStatic: true,
+            selection: remaining,
+          });
         } else if (expression.superClass) {
           const inherited = recurse(expression.superClass, {
+            runtimeClassTarget: activeRuntimeClassTarget,
+            runtimeStatic: true,
             selection: [selector, ...remaining],
           });
           if (inherited.targets.size === 0 && !isKnownClassTarget(expression.superClass)) {
@@ -1206,6 +1280,10 @@ function possibleFunctionTargets(
   const direct = directFunctionTarget(expression);
   if (direct !== undefined) {
     addBounded(result.targets, direct);
+    if (runtimeClassTarget !== undefined && runtimeStatic !== undefined) {
+      addClassReceiver(bindingWrites, direct, runtimeClassTarget, runtimeStatic);
+      addResolvedReceiver(result.receiverTargets, direct, runtimeClassTarget, runtimeStatic);
+    }
     return result;
   }
   if (expression.type === "Identifier") {
@@ -1282,7 +1360,7 @@ function possibleFunctionTargets(
   return result;
 }
 
-function addInvocationPosition(analysis, target, observedBoundary, position) {
+function addInvocationPosition(analysis, target, observedBoundary, position, receiverClass) {
   let byBoundary = analysis.positions.get(target);
   if (byBoundary === undefined) {
     byBoundary = new Map();
@@ -1293,8 +1371,8 @@ function addInvocationPosition(analysis, target, observedBoundary, position) {
     positions = new Set();
     byBoundary.set(observedBoundary, positions);
   }
-  if (positions.has(position)) return false;
-  if (positions.size >= maxResolvedValues) {
+  let changed = false;
+  if (!positions.has(position) && positions.size >= maxResolvedValues) {
     let truncatedBoundaries = analysis.truncated.get(target);
     if (truncatedBoundaries === undefined) {
       truncatedBoundaries = new Set();
@@ -1304,8 +1382,32 @@ function addInvocationPosition(analysis, target, observedBoundary, position) {
     truncatedBoundaries.add(observedBoundary);
     return !wasTruncated;
   }
-  positions.add(position);
-  return true;
+  if (!positions.has(position)) {
+    positions.add(position);
+    changed = true;
+  }
+  if (receiverClass !== undefined) {
+    let byReceiver = analysis.receiverPositions.get(target);
+    if (byReceiver === undefined) {
+      byReceiver = new Map();
+      analysis.receiverPositions.set(target, byReceiver);
+    }
+    let byObservedBoundary = byReceiver.get(receiverClass);
+    if (byObservedBoundary === undefined) {
+      byObservedBoundary = new Map();
+      byReceiver.set(receiverClass, byObservedBoundary);
+    }
+    let receiverPositions = byObservedBoundary.get(observedBoundary);
+    if (receiverPositions === undefined) {
+      receiverPositions = new Set();
+      byObservedBoundary.set(observedBoundary, receiverPositions);
+    }
+    if (!receiverPositions.has(position)) {
+      receiverPositions.add(position);
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function propagateInvocationTruncation(analysis, target, observedBoundary) {
@@ -1482,13 +1584,27 @@ function exactSelectionName(selection, bindingWrites, pathByNode) {
   return !keys.truncated && keys.values.size === 1 ? String([...keys.values][0]) : undefined;
 }
 
-function isTrustedGlobalObjectFreezeAt(node, bindingWrites, pathByNode) {
+function globalObjectFreezeStateAt(node, bindingWrites, pathByNode) {
   const boundary = executionBoundary(pathByNode.get(node));
   const position = node?.start ?? Number.POSITIVE_INFINITY;
+  const state = { builtin: true, values: new Set(), unknown: false, truncated: false };
   for (const write of globalObjectFreezeWritesByBindingWrites.get(bindingWrites) ?? []) {
-    if (write.boundary !== boundary || write.position <= position) return false;
+    if (write.boundary !== boundary || write.position > position) continue;
+    if (!write.ambiguous) {
+      state.builtin = false;
+      state.values.clear();
+      state.unknown = write.expression === undefined;
+      state.truncated = false;
+    }
+    if (write.expression === undefined) state.unknown = true;
+    else if (!addBounded(state.values, write)) state.truncated = true;
   }
-  return true;
+  for (const write of globalObjectFreezeWritesByBindingWrites.get(bindingWrites) ?? []) {
+    if (write.boundary === boundary) continue;
+    if (write.expression === undefined) state.unknown = true;
+    else if (!addBounded(state.values, write)) state.truncated = true;
+  }
+  return state;
 }
 
 // These APIs retain function-valued metadata but do not execute it. All other
@@ -1526,7 +1642,28 @@ function isExactNonInvokingFunctionContainer(
     callee.name === "Object" &&
     exactSelectionName(selection, bindingWrites, pathByNode) === "freeze"
   ) {
-    return isTrustedGlobalObjectFreezeAt(callee, bindingWrites, pathByNode);
+    const state = globalObjectFreezeStateAt(callee, bindingWrites, pathByNode);
+    if (state.unknown || state.truncated || (!state.builtin && state.values.size === 0))
+      return false;
+    for (const write of state.values) {
+      const identity = write.origin ?? write;
+      if (write.expression === undefined || resolvingWrites.has(identity)) return false;
+      const nextResolvingWrites = new Set(resolvingWrites);
+      nextResolvingWrites.add(identity);
+      if (
+        !isExactNonInvokingFunctionContainer(
+          write.expression,
+          metadataContainerBindings,
+          bindingWrites,
+          pathByNode,
+          nextResolvingWrites,
+          write.selection ?? [],
+        )
+      ) {
+        return false;
+      }
+    }
+    return true;
   }
   if (selection.length === 0 && metadataContainerBindings.has(binding)) return true;
 
@@ -1599,7 +1736,8 @@ function memberWriteTarget(member, pathByNode) {
   }
   if (current?.type !== "Identifier") return undefined;
   const binding = lexicalBinding(current, pathByNode);
-  return binding === undefined ? undefined : { binding, selection };
+  if (binding !== undefined) return { binding, selection };
+  return current.name === "Object" ? { globalObject: true, selection } : undefined;
 }
 
 function canonicalMemberWriteTargets(member, writeNode, bindingWrites, pathByNode) {
@@ -1620,13 +1758,21 @@ function canonicalMemberWriteTargets(member, writeNode, bindingWrites, pathByNod
     if (expression?.type === "Identifier") {
       const aliasBinding = lexicalBinding(expression, pathByNode);
       if (aliasBinding) resolve(aliasBinding, selection, depth + 1);
+      else if (expression.name === "Object") targets.push({ globalObject: true, selection });
       else unresolved = true;
       return;
     }
     if (["MemberExpression", "OptionalMemberExpression"].includes(expression?.type)) {
       const aliasTarget = memberWriteTarget(expression, pathByNode);
       if (aliasTarget) {
-        resolve(aliasTarget.binding, [...aliasTarget.selection, ...selection], depth + 1);
+        if (aliasTarget.globalObject) {
+          targets.push({
+            globalObject: true,
+            selection: [...aliasTarget.selection, ...selection],
+          });
+        } else {
+          resolve(aliasTarget.binding, [...aliasTarget.selection, ...selection], depth + 1);
+        }
       } else unresolved = true;
       return;
     }
@@ -1678,8 +1824,64 @@ function canonicalMemberWriteTargets(member, writeNode, bindingWrites, pathByNod
     visited.delete(identity);
   };
 
-  resolve(direct.binding, direct.selection);
+  if (direct.globalObject) targets.push(direct);
+  else resolve(direct.binding, direct.selection);
   return { targets, truncated, unresolved };
+}
+
+function collectPatternMemberWrites(
+  pattern,
+  source,
+  visit,
+  selection = [],
+  forceAmbiguous = false,
+) {
+  if (["MemberExpression", "OptionalMemberExpression"].includes(pattern?.type)) {
+    visit(pattern, source, selection, forceAmbiguous);
+    return;
+  }
+  if (pattern?.type === "AssignmentPattern") {
+    collectPatternMemberWrites(pattern.left, source, visit, selection, forceAmbiguous);
+    collectPatternMemberWrites(pattern.left, pattern.right, visit, [], true);
+    return;
+  }
+  if (pattern?.type === "RestElement") {
+    collectPatternMemberWrites(pattern.argument, source, visit, selection, forceAmbiguous);
+    return;
+  }
+  if (pattern?.type === "ObjectPattern") {
+    const excluded = [];
+    for (const property of pattern.properties) {
+      if (property.type === "RestElement") {
+        collectPatternMemberWrites(property.argument, source, visit, [
+          ...selection,
+          { excluded: [...excluded], type: "object-rest" },
+        ]);
+        continue;
+      }
+      excluded.push({ computed: property.computed, key: property.key, type: "property" });
+      collectPatternMemberWrites(property.value, source, visit, [
+        ...selection,
+        { computed: property.computed, key: property.key, type: "property" },
+      ]);
+    }
+    return;
+  }
+  if (pattern?.type === "ArrayPattern") {
+    for (const [index, element] of pattern.elements.entries()) {
+      if (element?.type === "RestElement") {
+        collectPatternMemberWrites(element.argument, source, visit, [
+          ...selection,
+          { index, type: "array-rest" },
+        ]);
+      } else if (element) {
+        collectPatternMemberWrites(element, source, visit, [
+          ...selection,
+          { index, type: "index" },
+        ]);
+      }
+    }
+  }
 }
 
 function containsProviderEnvironment(node, bindingWrites, pathByNode, resolvingWrites = new Set()) {
@@ -1814,6 +2016,50 @@ function inspectAst(filePath, source) {
     }
   }
   let memberWriteResolutionTruncated = false;
+  const globalObjectFreezeWrites = [];
+  const recordMemberWrite = (
+    member,
+    source,
+    writeNode,
+    sourceSelection = [],
+    forceAmbiguous = false,
+  ) => {
+    const resolvedTargets = canonicalMemberWriteTargets(
+      member,
+      writeNode,
+      bindingWrites,
+      pathByNode,
+    );
+    memberWriteResolutionTruncated ||= resolvedTargets.truncated;
+    memberWriteResolutionTruncated ||=
+      resolvedTargets.unresolved && directFunctionTarget(source) !== undefined;
+    for (const target of resolvedTargets.targets) {
+      if (target.globalObject) {
+        if (exactSelectionName(target.selection, bindingWrites, pathByNode) !== "freeze") continue;
+        globalObjectFreezeWrites.push({
+          ambiguous:
+            forceAmbiguous ||
+            hasAmbiguousControlFlow(writeNode, pathByNode) ||
+            (writeNode?.type === "AssignmentExpression" && writeNode.operator !== "="),
+          boundary: executionBoundary(pathByNode.get(writeNode)),
+          expression: source,
+          position: bindingWritePosition(writeNode),
+          selection: sourceSelection,
+        });
+        continue;
+      }
+      addBindingWrite(
+        bindingWrites,
+        target.binding,
+        writeNode,
+        source,
+        pathByNode,
+        sourceSelection,
+        target.selection,
+        forceAmbiguous,
+      );
+    }
+  };
   for (const assignment of assignments) {
     if (assignment.left?.type === "Identifier") {
       addBindingWrite(
@@ -1826,28 +2072,13 @@ function inspectAst(filePath, source) {
         pathByNode,
       );
     } else if (["MemberExpression", "OptionalMemberExpression"].includes(assignment.left?.type)) {
-      const resolvedTargets = canonicalMemberWriteTargets(
+      recordMemberWrite(
         assignment.left,
+        assignment.operator === "=" || ["&&=", "||=", "??="].includes(assignment.operator)
+          ? assignment.right
+          : undefined,
         assignment,
-        bindingWrites,
-        pathByNode,
       );
-      memberWriteResolutionTruncated ||= resolvedTargets.truncated;
-      memberWriteResolutionTruncated ||=
-        resolvedTargets.unresolved && directFunctionTarget(assignment.right) !== undefined;
-      for (const target of resolvedTargets.targets) {
-        addBindingWrite(
-          bindingWrites,
-          target.binding,
-          assignment,
-          assignment.operator === "=" || ["&&=", "||=", "??="].includes(assignment.operator)
-            ? assignment.right
-            : undefined,
-          pathByNode,
-          [],
-          target.selection,
-        );
-      }
     } else {
       if (assignment.operator === "=") {
         collectSelectedBindingWrites(
@@ -1856,6 +2087,13 @@ function inspectAst(filePath, source) {
           assignment,
           bindingWrites,
           pathByNode,
+        );
+        collectPatternMemberWrites(
+          assignment.left,
+          assignment.right,
+          (member, source, selection, ambiguous) => {
+            recordMemberWrite(member, source, assignment, selection, ambiguous);
+          },
         );
       } else {
         collectUnknownBindingWrites(assignment.left, assignment, bindingWrites, pathByNode);
@@ -1880,22 +2118,7 @@ function inspectAst(filePath, source) {
   for (const writes of bindingWrites.values()) {
     writes.sort((left, right) => left.position - right.position);
   }
-
-  const globalObjectFreezeWrites = assignments
-    .filter((assignment) => {
-      const target = unwrapTransparentExpression(assignment.left);
-      return (
-        ["MemberExpression", "OptionalMemberExpression"].includes(target?.type) &&
-        target.object?.type === "Identifier" &&
-        target.object.name === "Object" &&
-        lexicalBinding(target.object, pathByNode) === undefined &&
-        hasPossiblePropertyName(target, "freeze", bindingWrites, pathByNode)
-      );
-    })
-    .map((assignment) => ({
-      boundary: executionBoundary(pathByNode.get(assignment)),
-      position: bindingWritePosition(assignment),
-    }));
+  globalObjectFreezeWrites.sort((left, right) => left.position - right.position);
   globalObjectFreezeWritesByBindingWrites.set(bindingWrites, globalObjectFreezeWrites);
 
   // Resolve locally-declared function values through exact lexical aliases. Every
@@ -1922,60 +2145,113 @@ function inspectAst(filePath, source) {
   // function-valued argument is conservatively treated as a synchronous callback.
   // Propagating the caller's runtime observations through these edges gives nested
   // wrappers the external position at which their captured outer state is observed.
-  const invocationEdges = [];
+  const classReceiverAnalysis = { changed: false, receivers: new Map() };
+  classReceiverAnalysisByBindingWrites.set(bindingWrites, classReceiverAnalysis);
+  let invocationEdges = [];
   let truncatedFunctionTargetResolution = false;
-  for (const callNode of callNodes) {
-    const callerBoundary = executionBoundary(pathByNode.get(callNode));
-    if (callerBoundary === undefined) continue;
-    const calleeTargets = possibleFunctionTargets(
-      callNode.callee,
-      declaredFunctionTargets,
-      bindingWrites,
-      pathByNode,
-    );
-    truncatedFunctionTargetResolution ||= calleeTargets.truncated;
-    const targets = new Set(calleeTargets.targets);
-    if (
-      !isKnownNonInvokingFunctionContainer(
-        callNode,
-        metadataContainerBindings,
+  const receiverPassLimit = functionNodes.length + localGeneratorClassNodes.length + 1;
+  for (let pass = 0; pass < receiverPassLimit; pass += 1) {
+    classReceiverAnalysis.changed = false;
+    const nextInvocationEdges = [];
+    for (const callNode of callNodes) {
+      const callerBoundary = executionBoundary(pathByNode.get(callNode));
+      if (callerBoundary === undefined) continue;
+      const calleeTargets = possibleFunctionTargets(
+        callNode.callee,
+        declaredFunctionTargets,
         bindingWrites,
         pathByNode,
-      )
-    ) {
-      for (const argument of callNode.arguments) {
-        const callbackTargets = possibleFunctionTargets(
-          argument?.type === "SpreadElement" ? argument.argument : argument,
-          declaredFunctionTargets,
+      );
+      truncatedFunctionTargetResolution ||= calleeTargets.truncated;
+      const targets = new Set(calleeTargets.targets);
+      const receiverClasses = new Map();
+      const mergeReceiverTargets = (resolved) => {
+        for (const [target, byClass] of resolved.receiverTargets) {
+          let classes = receiverClasses.get(target);
+          if (classes === undefined) {
+            classes = new Set();
+            receiverClasses.set(target, classes);
+          }
+          for (const classNode of byClass.keys()) classes.add(classNode);
+        }
+      };
+      mergeReceiverTargets(calleeTargets);
+      if (
+        !isKnownNonInvokingFunctionContainer(
+          callNode,
+          metadataContainerBindings,
           bindingWrites,
           pathByNode,
-          { contained: true },
-        );
-        truncatedFunctionTargetResolution ||= callbackTargets.truncated;
-        for (const target of callbackTargets.targets) targets.add(target);
+        )
+      ) {
+        for (const argument of callNode.arguments) {
+          const callbackTargets = possibleFunctionTargets(
+            argument?.type === "SpreadElement" ? argument.argument : argument,
+            declaredFunctionTargets,
+            bindingWrites,
+            pathByNode,
+            { contained: true },
+          );
+          truncatedFunctionTargetResolution ||= callbackTargets.truncated;
+          for (const target of callbackTargets.targets) targets.add(target);
+          mergeReceiverTargets(callbackTargets);
+        }
+      }
+      for (const target of targets) {
+        const classes = receiverClasses.get(target);
+        if (classes === undefined || classes.size === 0) {
+          nextInvocationEdges.push({
+            callerBoundary,
+            position: bindingWritePosition(callNode),
+            target,
+          });
+        } else {
+          for (const receiverClass of classes) {
+            nextInvocationEdges.push({
+              callerBoundary,
+              position: bindingWritePosition(callNode),
+              receiverClass,
+              target,
+            });
+          }
+        }
       }
     }
-    for (const target of targets) {
-      invocationEdges.push({
-        callerBoundary,
-        position: bindingWritePosition(callNode),
-        target,
-      });
-    }
+    invocationEdges = nextInvocationEdges;
+    if (!classReceiverAnalysis.changed) break;
+    if (pass === receiverPassLimit - 1) truncatedFunctionTargetResolution = true;
   }
-  const invocationAnalysis = { positions: new Map(), truncated: new Map() };
+  const invocationAnalysis = {
+    positions: new Map(),
+    receiverPositions: new Map(),
+    truncated: new Map(),
+  };
   for (const edge of invocationEdges) {
-    addInvocationPosition(invocationAnalysis, edge.target, edge.callerBoundary, edge.position);
+    addInvocationPosition(
+      invocationAnalysis,
+      edge.target,
+      edge.callerBoundary,
+      edge.position,
+      edge.receiverClass,
+    );
   }
   for (let pass = 0; pass < functionNodes.length + 1; pass += 1) {
     let changed = false;
     for (const edge of invocationEdges) {
-      const callerObservations = invocationAnalysis.positions.get(edge.callerBoundary);
+      const callerObservations =
+        edge.receiverClass === undefined
+          ? invocationAnalysis.positions.get(edge.callerBoundary)
+          : invocationAnalysis.receiverPositions.get(edge.callerBoundary)?.get(edge.receiverClass);
       for (const [observedBoundary, positions] of callerObservations ?? []) {
         for (const position of positions) {
           changed =
-            addInvocationPosition(invocationAnalysis, edge.target, observedBoundary, position) ||
-            changed;
+            addInvocationPosition(
+              invocationAnalysis,
+              edge.target,
+              observedBoundary,
+              position,
+              edge.receiverClass,
+            ) || changed;
         }
       }
       for (const observedBoundary of invocationAnalysis.truncated.get(edge.callerBoundary) ?? []) {

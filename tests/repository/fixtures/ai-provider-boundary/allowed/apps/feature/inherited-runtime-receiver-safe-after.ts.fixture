@@ -1,0 +1,31 @@
+let providerPackage = "openai";
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+
+class BaseRunner {
+  execute() {
+    return this.helper?.();
+  }
+
+  helper() {
+    return Promise.resolve();
+  }
+
+  static execute() {
+    return this.helper?.();
+  }
+
+  static helper() {
+    return Promise.resolve();
+  }
+}
+
+class MiddleRunner extends BaseRunner {}
+class DerivedRunner extends MiddleRunner {
+  helper = () => import(providerPackage);
+  static helper = () => fetch(providerBaseUrl);
+}
+
+providerPackage = "./safe-local-module";
+providerBaseUrl = "https://example.test/health";
+new DerivedRunner().execute?.();
+DerivedRunner.execute?.();

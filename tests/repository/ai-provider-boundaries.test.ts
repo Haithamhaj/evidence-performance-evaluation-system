@@ -119,6 +119,12 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("computed-overwritten-global-freeze-before-safe.ts.fixture");
     expect(result.stderr).toContain("freeze-alias-after-mutation-before-safe.ts.fixture");
     expect(result.stderr).toContain("ambiguous-global-freeze-mutation-before-safe.ts.fixture");
+    expect(result.stderr).toContain("inherited-runtime-receiver-before-safe.ts.fixture");
+    expect(result.stderr).toContain("super-runtime-receiver-before-safe.ts.fixture");
+    expect(result.stderr).toContain("object-alias-freeze-write-before-safe.ts.fixture");
+    expect(result.stderr).toContain("destructured-global-freeze-write-before-safe.ts.fixture");
+    expect(result.stderr).toContain("destructured-prototype-write-before-safe.ts.fixture");
+    expect(result.stderr).toContain("ambiguous-freeze-restoration-before-safe.ts.fixture");
     expect(result.stderr).toContain("bounded-expansion-generate.ts.fixture");
     expect(result.stderr).toContain("apps/api/src/packages/ai-routing/escape.ts");
     expect(result.stderr).toContain("environment-provider-url.ts.fixture");

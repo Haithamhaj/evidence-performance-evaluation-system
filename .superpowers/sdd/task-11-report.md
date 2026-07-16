@@ -24,6 +24,40 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Thirteenth review remediation commit subject: `fix: resolve ai boundary container targets`
 - Push: prohibited and not attempted
 
+## Seventeenth review remediation
+
+The seventeenth review at `.superpowers/sdd/task-11-seventeenth-review.md` identified three critical boundary-analysis gaps and one important false-positive class: inherited dispatch lost the statically known runtime receiver; exact aliases and destructured member writes did not enter global `Object.freeze` history; destructured prototype writes did not enter canonical prototype history; and global freeze trust could not recover after an exact restoration or preserve an unaffected captured original.
+
+### Seventeenth review RED evidence
+
+- The focused provider-boundary suite failed 2/2 before implementation: the forbidden scan accepted the new inherited/super, global-freeze, and prototype-mutation probes, while the allowed scan rejected exact restoration and safe destructured-prototype controls.
+- An adjacent two-subclass ordering control then produced a second intentional RED during GREEN refinement. It proved that receiver identity also had to remain attached to invocation positions, rather than being unioned globally per inherited method.
+
+### Seventeenth review changes
+
+- Runtime receiver identity now flows through instance/static/class-field method selection, multi-level inheritance, `this`, `super`, and optional calls. Receiver-specific invocation positions prevent one subclass call from contaminating another subclass's source-order analysis; unknown/capped resolution remains fail-closed.
+- Exact aliases of the unshadowed global `Object` and direct/computed/nested-destructured member targets canonicalize into one source-ordered `Object.freeze` history. The history retains possible values, ambiguous mutations, captured original aliases, and proven restorations instead of permanently distrusting all later calls after the first write.
+- Destructured direct/computed/nested prototype member targets canonicalize into the same class/prototype write history used by ordinary member assignments, including existing instances and definite safe dominance.
+- Existing exact `SetMetadata` handling, production Nest decorators, provider/import boundaries, protected product rules, schema, migrations, and approved documentation remain unchanged.
+- Added six forbidden reviewer-category fixtures and five adjacent safe controls covering alias chains, multi-level receivers, cross-subclass ordering, exact restoration/capture, shadowed `Object`, and prototype safe-after ordering.
+
+### Seventeenth review GREEN evidence
+
+1. Focused and repository verification
+   - AI Router: 3 files and 167/167 tests passed.
+   - Provider/import/workspace boundaries: 3 files and 29/29 tests passed.
+   - Production boundary scan: 124 source files.
+   - Repository formatting, lint, and `git diff --check` passed.
+
+2. Migration and integration verification
+   - `pnpm db:verify` passed all six migrations from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; database integration passed 12/12.
+   - Full integration passed 15 files and 120/120 tests after deploying migrations to the isolated test database.
+   - No migration or schema change was required.
+
+3. Full forced verification and cleanup
+   - `TURBO_FORCE=true pnpm verify` exited 0: task graph 77, secret scan 350 files, performance scan 95 files, formatting, production boundaries 124 files, unit/coverage 28 files and 311/311 tests, and all 14 lint/typecheck/build targets passed.
+   - Temporary Docker containers, network, and volumes were removed. Homebrew PostgreSQL 16 was restored and accepted connections on `127.0.0.1:5432`.
+
 ## Thirteenth review remediation
 
 The thirteenth review at `.superpowers/sdd/task-11-thirteenth-review.md` identified one critical invocation-graph gap: function targets hidden by `.bind`, object properties, destructuring, array elements, or callback containers were not connected to the outer runtime call position.
