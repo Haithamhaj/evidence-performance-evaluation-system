@@ -1,0 +1,30 @@
+[
+  {
+    "fixtureId": "speech-gulf-synthetic",
+    "dialect": "gulf",
+    "locale": "ar-SA",
+    "audioPath": "audio/gulf-synthetic.wav",
+    "goldenTranscript": "هلا، هذا تسجيل خليجي اصطناعي لاختبار سلامة ملف الصوت.",
+    "tolerance": 0.15,
+    "source": "Locally generated synthetic speech using the macOS Majed Arabic system voice",
+    "license": "Project test fixture — synthetic generated audio; no source recording is redistributed",
+    "provenance": "Generated from the exact golden transcript with no user or employee content",
+    "sha256": "1886b334ec6116da84bccb63a82db0188b54fa23d4504d6b3228f2c40db6012e",
+    "privacyClassification": "synthetic_non_personal",
+    "expectedDisposition": "integrity_only"
+  },
+  {
+    "fixtureId": "speech-levantine-synthetic",
+    "dialect": "levantine",
+    "locale": "ar-LB",
+    "audioPath": "audio/levantine-synthetic.wav",
+    "goldenTranscript": "مرحبا، هيدا تسجيل شامي اصطناعي لفحص سلامة ملف الصوت.",
+    "tolerance": 0.15,
+    "source": "Locally generated synthetic speech using the macOS Majed Arabic system voice",
+    "license": "Project test fixture — synthetic generated audio; no source recording is redistributed",
+    "provenance": "Generated from the exact golden transcript with no user or employee content",
+    "sha256": "18c7162de17b6e548f3552d9f03282bc5b407b1eeee83621ea76dcdb5574a624",
+    "privacyClassification": "synthetic_non_personal",
+    "expectedDisposition": "integrity_only"
+  }
+]
