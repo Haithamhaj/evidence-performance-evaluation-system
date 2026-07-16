@@ -1,0 +1,5 @@
+export function execute(
+  { client: { generate } }: { client: { generate(input: unknown): unknown } },
+) {
+  return generate({ protected: true });
+}

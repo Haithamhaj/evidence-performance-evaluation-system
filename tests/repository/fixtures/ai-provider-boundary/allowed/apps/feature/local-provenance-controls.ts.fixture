@@ -1,0 +1,25 @@
+type Generator = { generate(): string };
+
+const local: Generator = { generate: () => "local" };
+
+let assignedLater: Generator;
+assignedLater = local;
+
+const { ...restDeclared } = local;
+let restAssigned: Generator;
+({ ...restAssigned } = local);
+
+const { generate: extracted } = local;
+let assignedExtracted: () => string;
+({ generate: assignedExtracted } = local);
+
+export const later = assignedLater.generate();
+export const restDeclaration = restDeclared.generate();
+export const restAssignment = restAssigned.generate();
+export const destructured = extracted();
+export const destructuredAssignment = assignedExtracted();
+export const parenthesized = (local).generate();
+export const sequenced = (0, local).generate();
+export const asserted = (local as Generator).generate();
+export const nonNull = local!.generate();
+export const satisfied = (local satisfies Generator).generate();

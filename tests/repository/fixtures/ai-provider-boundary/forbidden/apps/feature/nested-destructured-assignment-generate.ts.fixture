@@ -1,0 +1,6 @@
+declare const provider: { client: { generate(input: unknown): unknown } };
+let execute: (input: unknown) => unknown;
+
+({ client: { generate: execute } } = provider);
+
+export { execute };

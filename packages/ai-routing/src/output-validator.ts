@@ -24,26 +24,20 @@ const PERFORMANCE_INPUT_FORBIDDEN = new Set([
   "readinessscore",
 ]);
 const PERFORMANCE_ROUTE = /(?:^|[.-])(?:evaluation|performance|rating|coaching)(?:[.-]|$)/iu;
-const PEOPLE_RANKING_SUBJECTS = [
-  "employee",
-  "team",
-  "member",
-  "worker",
-  "person",
-  "people",
-  "individual",
-  "staff",
-  "personnel",
-  "workforce",
-  "contributor",
-  "colleague",
-  "coworker",
-  "teammate",
-  "peer",
-] as const;
-const GLOBAL_RANKING_TERMS = ["rank", "ranked", "ranking", "leaderboard"] as const;
-const NEUTRAL_RANKING_SUBJECTS = ["search", "priority", "risk", "relevance"] as const;
-const NEUTRAL_RANKING_METADATA = ["title", "label", "description"] as const;
+const GLOBAL_RANKING_TERMS = ["rank", "ranked", "ranking", "leaderboard", "order"] as const;
+const EXACT_NEUTRAL_RANKING_FIELDS = new Set([
+  "searchranking",
+  "priorityranking",
+  "riskranking",
+  "relevanceranking",
+  "leaderboardtitle",
+  "leaderboardlabel",
+  "leaderboarddescription",
+  "displayorder",
+  "criterionorder",
+  "sortorder",
+  "resultorder",
+]);
 
 function normalizeField(field: string): string {
   return field.replace(/[^a-z0-9]/giu, "").toLowerCase();
@@ -78,15 +72,7 @@ function forbiddenField(routeKey: string, field: string): boolean {
       normalized,
     );
   const globalRankingTerm = hasAny(GLOBAL_RANKING_TERMS);
-  const demonstrablyNeutralRanking =
-    hasAny(NEUTRAL_RANKING_SUBJECTS) ||
-    (tokens.has("leaderboard") && hasAny(NEUTRAL_RANKING_METADATA));
-  const employeeRanking =
-    (globalRankingTerm && !demonstrablyNeutralRanking) ||
-    (hasAny(PEOPLE_RANKING_SUBJECTS) && tokens.has("order")) ||
-    normalized === "employeerank" ||
-    normalized === "employeeranking" ||
-    /(?:employee.*rank|rank.*employee)/iu.test(normalized);
+  const employeeRanking = globalRankingTerm && !EXACT_NEUTRAL_RANKING_FIELDS.has(normalized);
   const performanceScore = tokens.has("performance") && hasAny(["score", "grade"]);
   const suggestedPerformanceLevel =
     tokens.has("performance") &&

@@ -14,7 +14,46 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Final review remediation commit subject: `fix: complete ai router safety boundaries`
 - Fourth review remediation commit subject: `fix: enforce ai router invariants`
 - Fifth review remediation commit subject: `fix: fail closed on ai router boundaries`
+- Sixth review remediation commit subject: `fix: close ai router review gaps`
 - Push: prohibited and not attempted
+
+## Sixth review remediation
+
+The sixth review at `.superpowers/sdd/task-11-sixth-review.md` identified three critical and one important issue. Each behavior was reproduced before implementation changes.
+
+### Sixth review RED evidence
+
+1. Exact neutral ranking and order shapes
+   - AI-routing package: 160 tests executed; 7 failed and 153 passed.
+   - The seven failures reproduced schema-registration and recursive-runtime acceptance of `staffPriorityRank`, `employeeLeaderboardTitle`, `peopleRiskLeaderboard`, `candidateRelevanceRank`, `applicantOrder`, `directReportOrder`, and `associateOrder` on a non-performance route.
+
+2. Invalidatable generator provenance and transparent local controls
+   - Provider-boundary suite: 2 tests executed; both failed.
+   - The forbidden case missed a proven-local alias after opaque reassignment plus defaulted/nested destructuring, while the allowed case rejected later local assignment, local object-rest declaration/assignment, and transparent local parenthesized, sequence-last, and TypeScript wrappers.
+
+### Sixth review changes
+
+- Replaced token-presence neutral ranking exceptions and people-subject synonym checks with an exact normalized allowlist for `searchRanking`, `priorityRanking`, `riskRanking`, `relevanceRanking`, `leaderboardTitle`, `leaderboardLabel`, `leaderboardDescription`, `displayOrder`, `criterionOrder`, `sortOrder`, and `resultOrder`. Every other field containing a `rank`, `ranked`, `ranking`, `leaderboard`, or `order` token fails closed through the shared schema/runtime predicate.
+- Reworked local-generator provenance around all binding writes. A binding is trusted only when every declaration or assignment resolves to a direct local generator or another finally trusted binding, so any opaque reassignment invalidates trust globally and conservatively.
+- Propagated proven local provenance through later assignment and top-level object-rest declaration/assignment. Transparent parenthesized, sequence-last, TypeScript assertion/non-null/satisfies, instantiation, and equivalent Babel wrappers are unwrapped; opaque wrapped expressions remain rejected.
+- Made `generate` extraction inspection recursive through defaulted `AssignmentPattern`, nested `ObjectPattern`, and `RestElement` shapes for declarations, assignments, and function parameters.
+
+### Sixth review GREEN evidence
+
+1. Focused remediation verification
+   - AI-routing package: 160/160 tests passed.
+   - Provider-boundary suite: 2/2 tests passed.
+
+2. Full integration verification
+   - `pnpm test:integration`: 15 files and 120/120 tests passed against the documented isolated PostgreSQL, Redis, MinIO, and Keycloak stack.
+
+3. Migration verification
+   - `pnpm db:verify`: all six migrations passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; the included database integration set passed 12/12.
+   - No migration or schema delta was required.
+
+4. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 255 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 304/304 tests; forced build 14/14.
 
 ## Fifth review remediation
 
@@ -350,7 +389,7 @@ The tests also cover project > department > system precedence, no lower-scope by
 - Centralized protected schema registration/execution validation, added contextual ranking protection, conservative generator provenance, canonical governance-import enforcement, and bounded non-success trace persistence.
 - Added unit, integration, migration, protected-module, and repository-boundary regression tests and fixtures.
 - Database migration `0006_ai_routing` adds `AiRoute`, immutable `AiRouteConfig` versions, immutable `AiRun` traces, immutable local trust policies and schema artifacts, supporting enums, exact authoritative-scope and trust-policy foreign keys, constraints, indexes, and immutability triggers.
-- Latest remediation commit subject: `fix: fail closed on ai router boundaries`.
+- Latest remediation commit subject: `fix: close ai router review gaps`.
 
 ## Security and privacy impact
 
@@ -366,7 +405,7 @@ The tests also cover project > department > system precedence, no lower-scope by
 - Live provider credentials and deployment-specific endpoints are deliberately not configured in this task; the adapter contract and security boundary are tested with controlled HTTP doubles.
 - Deployment must register and audit an immutable local trust policy before a local provider can be configured; non-loopback local endpoints still require HTTPS.
 - T012 remains responsible for model-quality evaluation fixtures, including Arabic and dialect behavior. T011 enforces structural and protected-output policy, not model quality.
-- Independent verification of the fifth remediation commit is still required before merge.
+- Independent verification of the sixth remediation commit is still required before merge.
 
 ## Project-state effect
 

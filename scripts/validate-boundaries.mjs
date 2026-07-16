@@ -175,13 +175,23 @@ function propertyName(expression, bindings) {
 }
 
 function patternExtractsGenerate(pattern, bindings) {
-  return (
-    pattern?.type === "ObjectPattern" &&
-    pattern.properties.some(
-      (property) =>
-        property.type === "ObjectProperty" && propertyKeyName(property, bindings) === "generate",
-    )
-  );
+  if (pattern?.type === "AssignmentPattern") {
+    return patternExtractsGenerate(pattern.left, bindings);
+  }
+  if (pattern?.type === "RestElement") {
+    return patternExtractsGenerate(pattern.argument, bindings);
+  }
+  if (pattern?.type !== "ObjectPattern") return false;
+  return pattern.properties.some((property) => {
+    if (property.type === "RestElement") {
+      return patternExtractsGenerate(property.argument, bindings);
+    }
+    if (property.type !== "ObjectProperty") return false;
+    return (
+      propertyKeyName(property, bindings) === "generate" ||
+      patternExtractsGenerate(property.value, bindings)
+    );
+  });
 }
 
 function propertyKeyName(property, bindings) {
@@ -199,15 +209,37 @@ function classDefinesLocalGenerate(node, bindings) {
   );
 }
 
-function isLocalGeneratorExpression(
-  node,
-  neutralGeneratorBindings,
-  localGeneratorClasses,
-  bindings,
-) {
-  if (node?.type === "Identifier") return neutralGeneratorBindings.has(node.name);
-  if (node?.type === "ObjectExpression") {
-    return node.properties.some((property) => {
+function unwrapTransparentExpression(node) {
+  let current = node;
+  while (current) {
+    if (current.type === "SequenceExpression") {
+      current = current.expressions.at(-1);
+      continue;
+    }
+    if (
+      [
+        "ParenthesizedExpression",
+        "TSAsExpression",
+        "TSTypeAssertion",
+        "TSNonNullExpression",
+        "TSSatisfiesExpression",
+        "TSInstantiationExpression",
+        "TypeCastExpression",
+        "ChainExpression",
+      ].includes(current.type)
+    ) {
+      current = current.expression;
+      continue;
+    }
+    return current;
+  }
+  return current;
+}
+
+function isDirectLocalGeneratorExpression(node, localGeneratorClasses, bindings) {
+  const expression = unwrapTransparentExpression(node);
+  if (expression?.type === "ObjectExpression") {
+    return expression.properties.some((property) => {
       if (propertyKeyName(property, bindings) !== "generate") return false;
       if (property.type === "ObjectMethod") return true;
       return (
@@ -217,10 +249,50 @@ function isLocalGeneratorExpression(
     });
   }
   return (
-    node?.type === "NewExpression" &&
-    node.callee?.type === "Identifier" &&
-    localGeneratorClasses.has(node.callee.name)
+    expression?.type === "NewExpression" &&
+    expression.callee?.type === "Identifier" &&
+    localGeneratorClasses.has(expression.callee.name)
   );
+}
+
+function isLocalGeneratorExpression(
+  node,
+  neutralGeneratorBindings,
+  localGeneratorClasses,
+  bindings,
+) {
+  const expression = unwrapTransparentExpression(node);
+  if (expression?.type === "Identifier") {
+    return neutralGeneratorBindings.has(expression.name);
+  }
+  return isDirectLocalGeneratorExpression(expression, localGeneratorClasses, bindings);
+}
+
+function addGeneratorWrite(writes, name, expression) {
+  const existing = writes.get(name);
+  if (existing) existing.push(expression);
+  else writes.set(name, [expression]);
+}
+
+function collectRestGeneratorWrites(pattern, source, writes, bindings, nested = false) {
+  if (pattern?.type === "AssignmentPattern") {
+    collectRestGeneratorWrites(pattern.left, source, writes, bindings, nested);
+    return;
+  }
+  if (pattern?.type !== "ObjectPattern") return;
+  for (const property of pattern.properties) {
+    if (property.type === "RestElement") {
+      if (property.argument?.type === "Identifier") {
+        addGeneratorWrite(writes, property.argument.name, nested ? undefined : source);
+      } else {
+        collectRestGeneratorWrites(property.argument, undefined, writes, bindings, true);
+      }
+      continue;
+    }
+    if (property.type === "ObjectProperty") {
+      collectRestGeneratorWrites(property.value, undefined, writes, bindings, true);
+    }
+  }
 }
 
 function staticUrl(node, bindings) {
@@ -298,12 +370,12 @@ function inspectAst(filePath, source) {
   const taintedBindings = new Set();
   const neutralGeneratorBindings = new Set();
   const localGeneratorClasses = new Set();
-  const neutralGenerateAliases = new Set();
-  const prohibitedGenerateAliases = new Set();
   const declarations = [];
+  const assignments = [];
 
   walk(sourceFile, (node) => {
     if (node.type === "VariableDeclarator") declarations.push(node);
+    if (node.type === "AssignmentExpression" && node.operator === "=") assignments.push(node);
     if (
       (node.type === "ClassDeclaration" || node.type === "ClassExpression") &&
       node.id?.type === "Identifier" &&
@@ -330,56 +402,42 @@ function inspectAst(filePath, source) {
           taintedBindings.add(declaration.id.name);
           changed = true;
         }
-        if (
-          isLocalGeneratorExpression(
-            declaration.init,
-            neutralGeneratorBindings,
-            localGeneratorClasses,
-            bindings,
-          ) &&
-          !neutralGeneratorBindings.has(declaration.id.name)
-        ) {
-          neutralGeneratorBindings.add(declaration.id.name);
-          changed = true;
-        }
-        if (
-          declaration.init.type === "MemberExpression" &&
-          propertyName(declaration.init, bindings) === "generate"
-        ) {
-          const target = isLocalGeneratorExpression(
-            declaration.init.object,
-            neutralGeneratorBindings,
-            localGeneratorClasses,
-            bindings,
-          )
-            ? neutralGenerateAliases
-            : prohibitedGenerateAliases;
-          if (!target.has(declaration.id.name)) {
-            target.add(declaration.id.name);
-            changed = true;
-          }
-        }
-      } else if (declaration.id?.type === "ObjectPattern") {
-        const target = isLocalGeneratorExpression(
-          declaration.init,
-          neutralGeneratorBindings,
-          localGeneratorClasses,
-          bindings,
-        )
-          ? neutralGenerateAliases
-          : prohibitedGenerateAliases;
-        for (const property of declaration.id.properties) {
-          if (
-            property.type === "ObjectProperty" &&
-            propertyKeyName(property, bindings) === "generate" &&
-            property.value.type === "Identifier"
-          ) {
-            if (!target.has(property.value.name)) {
-              target.add(property.value.name);
-              changed = true;
-            }
-          }
-        }
+      }
+    }
+    if (!changed) break;
+  }
+
+  const generatorWrites = new Map();
+  for (const declaration of declarations) {
+    if (!declaration.init) continue;
+    if (declaration.id?.type === "Identifier") {
+      addGeneratorWrite(generatorWrites, declaration.id.name, declaration.init);
+    } else {
+      collectRestGeneratorWrites(declaration.id, declaration.init, generatorWrites, bindings);
+    }
+  }
+  for (const assignment of assignments) {
+    if (assignment.left?.type === "Identifier") {
+      addGeneratorWrite(generatorWrites, assignment.left.name, assignment.right);
+    } else {
+      collectRestGeneratorWrites(assignment.left, assignment.right, generatorWrites, bindings);
+    }
+  }
+
+  for (let pass = 0; pass < generatorWrites.size + 1; pass += 1) {
+    let changed = false;
+    for (const [name, writes] of generatorWrites) {
+      if (neutralGeneratorBindings.has(name)) continue;
+      const everyWriteIsLocal = writes.every((write) => {
+        const expression = unwrapTransparentExpression(write);
+        return (
+          isDirectLocalGeneratorExpression(expression, localGeneratorClasses, bindings) ||
+          (expression?.type === "Identifier" && neutralGeneratorBindings.has(expression.name))
+        );
+      });
+      if (everyWriteIsLocal) {
+        neutralGeneratorBindings.add(name);
+        changed = true;
       }
     }
     if (!changed) break;
@@ -471,17 +529,14 @@ function inspectAst(filePath, source) {
         findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
       }
       if (
-        (!aiRoutingFile &&
-          calledName === "generate" &&
-          !isLocalGeneratorExpression(
-            callee?.object,
-            neutralGeneratorBindings,
-            localGeneratorClasses,
-            bindings,
-          )) ||
-        (!aiRoutingFile &&
-          callee?.type === "Identifier" &&
-          prohibitedGenerateAliases.has(callee.name))
+        !aiRoutingFile &&
+        calledName === "generate" &&
+        !isLocalGeneratorExpression(
+          callee?.object,
+          neutralGeneratorBindings,
+          localGeneratorClasses,
+          bindings,
+        )
       ) {
         findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:adapter.generate`);
       }

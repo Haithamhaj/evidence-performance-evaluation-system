@@ -684,6 +684,52 @@ describe("AI router output safety", () => {
   );
 
   it.each([
+    "staffPriorityRank",
+    "employeeLeaderboardTitle",
+    "peopleRiskLeaderboard",
+    "candidateRelevanceRank",
+    "applicantOrder",
+    "directReportOrder",
+    "associateOrder",
+  ])("rejects every non-reviewed ranking or order shape on every route: %s", (field) => {
+    expect(() =>
+      validateAiOutputSchema("document.analyze", z.object({ [field]: z.number() })),
+    ).toThrowError(expect.objectContaining({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" }));
+    expect(
+      validateAiOutput(
+        "document.analyze",
+        z.object({ details: z.record(z.string(), z.unknown()) }).strict(),
+        { details: { [field]: 1 } },
+      ),
+    ).toMatchObject({ valid: false, issueCodes: ["forbidden_performance_field"] });
+  });
+
+  it.each([
+    "searchRanking",
+    "priorityRanking",
+    "riskRanking",
+    "relevanceRanking",
+    "leaderboardTitle",
+    "leaderboardLabel",
+    "leaderboardDescription",
+    "displayOrder",
+    "criterionOrder",
+    "sortOrder",
+    "resultOrder",
+  ])("allows exact reviewed neutral ranking or order shape: %s", (field) => {
+    expect(() =>
+      validateAiOutputSchema("document.analyze", z.object({ [field]: z.string() })),
+    ).not.toThrow();
+    expect(
+      validateAiOutput(
+        "document.analyze",
+        z.object({ details: z.record(z.string(), z.unknown()) }).strict(),
+        { details: { [field]: "neutral" } },
+      ),
+    ).toMatchObject({ valid: true });
+  });
+
+  it.each([
     "performanceContext",
     "qualityScore",
     "commitMessage",
