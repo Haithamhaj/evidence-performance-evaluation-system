@@ -7,8 +7,9 @@ export type Catalog = Readonly<Record<CatalogKey, string>>;
 const placeholderNamePattern = /^[A-Za-z][A-Za-z0-9_.-]*$/u;
 const supportedPlaceholderTypes = new Set(["date", "number", "time"]);
 
-function placeholderNames(value: string, key: string) {
+function placeholderDescriptors(value: string, key: string) {
   const names = new Set<string>();
+  const descriptors = new Set<string>();
 
   for (let index = 0; index < value.length; index += 1) {
     if (value[index] === "}") {
@@ -38,10 +39,11 @@ function placeholderNames(value: string, key: string) {
     }
 
     names.add(name);
+    descriptors.add(`${name}:${isSimple ? "simple" : parts[1]}`);
     index = end;
   }
 
-  return [...names].sort();
+  return [...descriptors].sort();
 }
 
 export function assertCatalogCompatibility(
@@ -60,8 +62,11 @@ export function assertCatalogCompatibility(
       throw new Error("LOCALIZATION_CATALOG_KEY_MISMATCH");
     }
 
-    const arabicPlaceholders = placeholderNames(arabicCatalog[englishKey] ?? "", englishKey);
-    const englishPlaceholders = placeholderNames(englishCatalog[englishKey] ?? "", englishKey);
+    const arabicPlaceholders = placeholderDescriptors(arabicCatalog[englishKey] ?? "", englishKey);
+    const englishPlaceholders = placeholderDescriptors(
+      englishCatalog[englishKey] ?? "",
+      englishKey,
+    );
     if (arabicPlaceholders.join("\u0000") !== englishPlaceholders.join("\u0000")) {
       throw new Error(`LOCALIZATION_CATALOG_PLACEHOLDER_MISMATCH:${englishKey}`);
     }

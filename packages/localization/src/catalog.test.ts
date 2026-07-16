@@ -65,6 +65,26 @@ describe("localization catalogs", () => {
   });
 
   it.each([
+    ["different typed placeholders", "{value, date}", "{value, number}"],
+    ["simple and typed placeholders", "{value}", "{value, date}"],
+  ])("rejects matching placeholder names with %s", (_label, arabic, english) => {
+    expect(() => assertCatalogCompatibility({ key: arabic }, { key: english })).toThrowError(
+      "LOCALIZATION_CATALOG_PLACEHOLDER_MISMATCH:key",
+    );
+  });
+
+  it.each([
+    ["simple", "{value}"],
+    ["date", "{value, date}"],
+    ["number", "{value, number}"],
+    ["time", "{value, time}"],
+  ])("accepts matching %s placeholders", (_label, placeholder) => {
+    expect(() =>
+      assertCatalogCompatibility({ key: placeholder }, { key: placeholder }),
+    ).not.toThrow();
+  });
+
+  it.each([
     ["unknown typed", "{count, wat}"],
     ["incomplete complex ICU", "{count, plural}"],
     ["unsupported complex ICU", "{count, plural, one {item} other {items}}"],
