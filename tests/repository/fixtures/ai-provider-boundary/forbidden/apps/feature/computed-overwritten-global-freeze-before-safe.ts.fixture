@@ -1,0 +1,10 @@
+let providerPackage = "openai";
+const freezeKey = "freeze";
+
+Object[freezeKey] = ((value: unknown) => {
+  (value as { handler: () => unknown }).handler();
+  return value;
+}) as typeof Object.freeze;
+
+Object.freeze({ handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

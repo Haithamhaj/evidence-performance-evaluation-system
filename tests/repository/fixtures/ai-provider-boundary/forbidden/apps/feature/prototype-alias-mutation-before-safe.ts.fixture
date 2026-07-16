@@ -1,0 +1,28 @@
+let providerPackage = "openai";
+let method = "generate";
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+const opaque = {} as Record<string, () => unknown>;
+
+class Runner {
+  execute() {
+    return Promise.resolve();
+  }
+}
+
+const runner = new Runner();
+const prototypeKey = "prototype";
+const executeKey = "execute";
+const proto = Runner[prototypeKey];
+const protoAlias = proto;
+
+protoAlias[executeKey] = () => {
+  opaque[method]();
+  void import(providerPackage);
+  return fetch(providerBaseUrl);
+};
+
+runner.execute();
+
+method = "health";
+providerPackage = "./safe-local-module";
+providerBaseUrl = "https://example.test/health";

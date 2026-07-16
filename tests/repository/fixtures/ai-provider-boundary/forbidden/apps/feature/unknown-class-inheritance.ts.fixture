@@ -1,0 +1,5 @@
+declare const DynamicBase: new () => { execute(): unknown };
+
+class Runner extends DynamicBase {}
+
+new Runner().execute();

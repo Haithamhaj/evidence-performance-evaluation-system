@@ -36,6 +36,7 @@ const providerEnvironmentPattern =
   /(?:^|_)(?:AI|OPENAI|ANTHROPIC|AZURE_OPENAI|COHERE|MODEL_PROVIDER)(?:_|$)/u;
 const maxResolvedValues = 32;
 const invocationAnalysisByBindingWrites = new WeakMap();
+const globalObjectFreezeWritesByBindingWrites = new WeakMap();
 
 async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -475,7 +476,12 @@ function selectedBindingStateAt(
   contained,
 ) {
   const writes = bindingWrites.get(binding) ?? [];
-  const state = { values: new Set(), unknown: writes.length === 0, truncated: false };
+  const state = {
+    dominatesDeclared: false,
+    values: new Set(),
+    unknown: writes.length === 0,
+    truncated: false,
+  };
 
   const applyWrite = (write, crossBoundary = false) => {
     const targetSelection = write.targetSelection ?? [];
@@ -498,6 +504,7 @@ function selectedBindingStateAt(
       state.values.clear();
       state.unknown = false;
       state.truncated = targetIsPrefix.truncated || requestedIsPrefix.truncated;
+      state.dominatesDeclared = targetIsPrefix.matches;
     }
     if (write.expression === undefined) {
       state.unknown = true;
@@ -531,19 +538,25 @@ function possibleSelectedBindingWrites(
   bindingWrites,
   pathByNode,
   contained,
+  observationBoundary,
+  observationPosition,
 ) {
   const binding = lexicalBinding(identifier, pathByNode);
-  if (binding === undefined) return { values: new Set(), unknown: true, truncated: false };
+  if (binding === undefined) {
+    return { dominatesDeclared: false, values: new Set(), unknown: true, truncated: false };
+  }
   const ownerBoundary = executionBoundary(binding.path);
   const referenceBoundary = executionBoundary(pathByNode.get(identifier));
   if (ownerBoundary === undefined || referenceBoundary === undefined) {
-    return { values: new Set(), unknown: true, truncated: false };
+    return { dominatesDeclared: false, values: new Set(), unknown: true, truncated: false };
   }
   if (ownerBoundary === referenceBoundary) {
     return selectedBindingStateAt(
       binding,
       ownerBoundary,
-      identifier?.start ?? Number.POSITIVE_INFINITY,
+      observationBoundary === ownerBoundary
+        ? observationPosition
+        : (identifier?.start ?? Number.POSITIVE_INFINITY),
       requestedSelection,
       bindingWrites,
       pathByNode,
@@ -556,23 +569,23 @@ function possibleSelectedBindingWrites(
     .get(referenceBoundary)
     ?.get(ownerBoundary);
   const result = {
+    dominatesDeclared: true,
     values: new Set(),
     unknown: false,
     truncated: invocationAnalysis?.truncated.get(referenceBoundary)?.has(ownerBoundary) ?? false,
   };
   for (const position of [...(invocationPositions ?? []), Number.POSITIVE_INFINITY]) {
-    unionResolved(
-      result,
-      selectedBindingStateAt(
-        binding,
-        ownerBoundary,
-        position,
-        requestedSelection,
-        bindingWrites,
-        pathByNode,
-        contained,
-      ),
+    const state = selectedBindingStateAt(
+      binding,
+      ownerBoundary,
+      position,
+      requestedSelection,
+      bindingWrites,
+      pathByNode,
+      contained,
     );
+    result.dominatesDeclared &&= state.dominatesDeclared;
+    unionResolved(result, state);
   }
   return result;
 }
@@ -805,6 +818,44 @@ function directFunctionTarget(node) {
     : undefined;
 }
 
+function enclosingClassMember(node, pathByNode) {
+  let current = pathByNode.get(node);
+  while (current) {
+    if (
+      [
+        "ClassMethod",
+        "ClassPrivateMethod",
+        "ClassProperty",
+        "ClassPrivateProperty",
+        "ClassAccessorProperty",
+        "PropertyDefinition",
+      ].includes(current.node.type)
+    ) {
+      const classNode = current.parentPath?.parentPath?.node;
+      if (["ClassDeclaration", "ClassExpression"].includes(classNode?.type)) {
+        return { classNode, member: current.node };
+      }
+    }
+    current = current.parentPath;
+  }
+  return undefined;
+}
+
+function isCallableClassMember(member) {
+  return [
+    "ClassMethod",
+    "ClassPrivateMethod",
+    "ClassProperty",
+    "ClassPrivateProperty",
+    "ClassAccessorProperty",
+    "PropertyDefinition",
+  ].includes(member?.type);
+}
+
+function classMemberValue(member) {
+  return ["ClassMethod", "ClassPrivateMethod"].includes(member?.type) ? member : member?.value;
+}
+
 function addFunctionTarget(functionTargets, binding, target) {
   if (binding === undefined || target === undefined) return false;
   let targets = functionTargets.get(binding);
@@ -849,6 +900,10 @@ function possibleFunctionTargets(
   const selection = options.selection ?? [];
   const contained = options.contained ?? false;
   const depth = options.depth ?? 0;
+  const observationBoundary =
+    options.observationBoundary ?? executionBoundary(pathByNode.get(node));
+  const observationPosition =
+    options.observationPosition ?? node?.start ?? Number.POSITIVE_INFINITY;
   if (depth > maxResolvedValues) {
     result.truncated = true;
     return result;
@@ -861,13 +916,29 @@ function possibleFunctionTargets(
     result.truncated ||= nested.truncated;
   };
   const recurse = (candidate, nextOptions = {}) => {
-    merge(
-      possibleFunctionTargets(candidate, declaredFunctionTargets, bindingWrites, pathByNode, {
+    const nested = possibleFunctionTargets(
+      candidate,
+      declaredFunctionTargets,
+      bindingWrites,
+      pathByNode,
+      {
         contained: nextOptions.contained ?? contained,
         depth: depth + 1,
         resolvingWrites: nextOptions.resolvingWrites ?? resolvingWrites,
         selection: nextOptions.selection ?? [],
-      }),
+        observationBoundary: nextOptions.observationBoundary ?? observationBoundary,
+        observationPosition: nextOptions.observationPosition ?? observationPosition,
+      },
+    );
+    merge(nested);
+    return nested;
+  };
+  const isKnownClassTarget = (candidate) => {
+    const target = unwrapTransparentExpression(candidate);
+    if (["ClassDeclaration", "ClassExpression"].includes(target?.type)) return true;
+    if (target?.type !== "Identifier") return false;
+    return [...(declaredFunctionTargets.get(lexicalBinding(target, pathByNode)) ?? [])].some(
+      (declared) => ["ClassDeclaration", "ClassExpression"].includes(declared.type),
     );
   };
 
@@ -876,18 +947,48 @@ function possibleFunctionTargets(
 
   if (selection.length > 0) {
     const [selector, ...remaining] = selection;
-    if (expression.type === "Identifier") {
-      for (const target of declaredFunctionTargets.get(lexicalBinding(expression, pathByNode)) ??
-        []) {
-        recurse(target, { selection });
+    if (["ThisExpression", "Super"].includes(expression.type)) {
+      const context = enclosingClassMember(expression, pathByNode);
+      if (context === undefined) {
+        result.truncated = true;
+        return result;
       }
+      const classTarget =
+        expression.type === "Super" ? context.classNode.superClass : context.classNode;
+      if (classTarget === null || classTarget === undefined) {
+        result.truncated = true;
+        return result;
+      }
+      recurse(classTarget, {
+        selection: context.member.static
+          ? selection
+          : [
+              {
+                computed: false,
+                key: { type: "Identifier", name: "prototype" },
+                type: "property",
+              },
+              ...selection,
+            ],
+      });
+      return result;
+    }
+    if (expression.type === "Identifier") {
       const writes = possibleSelectedBindingWrites(
         expression,
         selection,
         bindingWrites,
         pathByNode,
         contained,
+        observationBoundary,
+        observationPosition,
       );
+      if (!writes.dominatesDeclared) {
+        for (const target of declaredFunctionTargets.get(lexicalBinding(expression, pathByNode)) ??
+          []) {
+          recurse(target, { selection });
+        }
+      }
       result.truncated ||=
         writes.truncated ||
         (writes.unknown &&
@@ -1027,33 +1128,65 @@ function possibleFunctionTargets(
       if (prototypeSelected) {
         if (remaining.length === 0) {
           for (const member of expression.body.body) {
-            if (["ClassMethod", "ClassPrivateMethod"].includes(member.type) && !member.static) {
-              recurse(member);
+            if (isCallableClassMember(member) && !member.static) {
+              recurse(classMemberValue(member));
+            }
+          }
+          if (expression.superClass) {
+            const inherited = recurse(expression.superClass, { selection });
+            if (inherited.targets.size === 0 && !isKnownClassTarget(expression.superClass)) {
+              result.truncated = true;
             }
           }
           return result;
         }
         const methodKeys = staticSelectionKeys(remaining[0], bindingWrites, pathByNode);
         result.truncated ||= methodKeys.truncated;
-        for (const member of expression.body.body) {
-          if (!["ClassMethod", "ClassPrivateMethod"].includes(member.type) || member.static) {
-            continue;
+        for (const key of methodKeys.values) {
+          const matches = expression.body.body.filter(
+            (member) =>
+              isCallableClassMember(member) &&
+              !member.static &&
+              String(propertyKeyName(member, bindingWrites, pathByNode)) === String(key),
+          );
+          if (matches.length > 0) {
+            recurse(classMemberValue(matches.at(-1)), { selection: remaining.slice(1) });
+          } else if (expression.superClass) {
+            const inherited = recurse(expression.superClass, {
+              selection: [
+                {
+                  computed: false,
+                  key: { type: "Identifier", name: "prototype" },
+                  type: "property",
+                },
+                remaining[0],
+                ...remaining.slice(1),
+              ],
+            });
+            if (inherited.targets.size === 0 && !isKnownClassTarget(expression.superClass)) {
+              result.truncated = true;
+            }
           }
-          const memberKey = propertyKeyName(member, bindingWrites, pathByNode);
-          if (![...methodKeys.values].some((key) => String(key) === String(memberKey))) {
-            continue;
-          }
-          recurse(member, { selection: remaining.slice(1) });
         }
         return result;
       }
-      for (const member of expression.body.body) {
-        if (!["ClassMethod", "ClassPrivateMethod"].includes(member.type) || !member.static) {
-          continue;
+      for (const key of keys.values) {
+        const matches = expression.body.body.filter(
+          (member) =>
+            isCallableClassMember(member) &&
+            member.static &&
+            String(propertyKeyName(member, bindingWrites, pathByNode)) === String(key),
+        );
+        if (matches.length > 0) {
+          recurse(classMemberValue(matches.at(-1)), { selection: remaining });
+        } else if (expression.superClass) {
+          const inherited = recurse(expression.superClass, {
+            selection: [selector, ...remaining],
+          });
+          if (inherited.targets.size === 0 && !isKnownClassTarget(expression.superClass)) {
+            result.truncated = true;
+          }
         }
-        const memberKey = propertyKeyName(member, bindingWrites, pathByNode);
-        if (![...keys.values].some((key) => String(key) === String(memberKey))) continue;
-        recurse(member, { selection: remaining });
       }
       return result;
     }
@@ -1343,6 +1476,21 @@ function memberPath(node) {
   return parent === undefined || child === undefined ? undefined : `${parent}.${child}`;
 }
 
+function exactSelectionName(selection, bindingWrites, pathByNode) {
+  if (selection.length !== 1 || selection[0].type !== "property") return undefined;
+  const keys = staticSelectionKeys(selection[0], bindingWrites, pathByNode);
+  return !keys.truncated && keys.values.size === 1 ? String([...keys.values][0]) : undefined;
+}
+
+function isTrustedGlobalObjectFreezeAt(node, bindingWrites, pathByNode) {
+  const boundary = executionBoundary(pathByNode.get(node));
+  const position = node?.start ?? Number.POSITIVE_INFINITY;
+  for (const write of globalObjectFreezeWritesByBindingWrites.get(bindingWrites) ?? []) {
+    if (write.boundary !== boundary || write.position <= position) return false;
+  }
+  return true;
+}
+
 // These APIs retain function-valued metadata but do not execute it. All other
 // calls remain conservatively callback-capable, including unknown callees.
 function isExactNonInvokingFunctionContainer(
@@ -1351,26 +1499,47 @@ function isExactNonInvokingFunctionContainer(
   bindingWrites,
   pathByNode,
   resolvingWrites = new Set(),
+  selection = [],
 ) {
   const callee = unwrapTransparentExpression(node);
-  if (
-    ["MemberExpression", "OptionalMemberExpression"].includes(callee?.type) &&
-    memberPath(callee) === "Object.freeze" &&
-    callee.object?.type === "Identifier" &&
-    lexicalBinding(callee.object, pathByNode) === undefined
-  ) {
-    return true;
+  if (["MemberExpression", "OptionalMemberExpression"].includes(callee?.type)) {
+    return isExactNonInvokingFunctionContainer(
+      callee.object,
+      metadataContainerBindings,
+      bindingWrites,
+      pathByNode,
+      resolvingWrites,
+      [
+        {
+          computed: callee.computed,
+          key: callee.property,
+          type: "property",
+        },
+        ...selection,
+      ],
+    );
   }
   if (callee?.type !== "Identifier") return false;
   const binding = lexicalBinding(callee, pathByNode);
-  if (metadataContainerBindings.has(binding)) return true;
+  if (
+    binding === undefined &&
+    callee.name === "Object" &&
+    exactSelectionName(selection, bindingWrites, pathByNode) === "freeze"
+  ) {
+    return isTrustedGlobalObjectFreezeAt(callee, bindingWrites, pathByNode);
+  }
+  if (selection.length === 0 && metadataContainerBindings.has(binding)) return true;
 
-  const writes = possibleBindingWrites(callee, bindingWrites, pathByNode);
+  const writes =
+    selection.length === 0
+      ? possibleBindingWrites(callee, bindingWrites, pathByNode)
+      : possibleSelectedBindingWrites(callee, selection, bindingWrites, pathByNode, false);
   if (writes.unknown || writes.truncated || writes.values.size === 0) return false;
   for (const write of writes.values) {
-    if (write.expression === undefined || resolvingWrites.has(write)) return false;
+    const identity = write.origin ?? write;
+    if (write.expression === undefined || resolvingWrites.has(identity)) return false;
     const nextResolvingWrites = new Set(resolvingWrites);
-    nextResolvingWrites.add(write);
+    nextResolvingWrites.add(identity);
     if (
       !isExactNonInvokingFunctionContainer(
         write.expression,
@@ -1378,6 +1547,7 @@ function isExactNonInvokingFunctionContainer(
         bindingWrites,
         pathByNode,
         nextResolvingWrites,
+        write.selection ?? [],
       )
     ) {
       return false;
@@ -1430,6 +1600,86 @@ function memberWriteTarget(member, pathByNode) {
   if (current?.type !== "Identifier") return undefined;
   const binding = lexicalBinding(current, pathByNode);
   return binding === undefined ? undefined : { binding, selection };
+}
+
+function canonicalMemberWriteTargets(member, writeNode, bindingWrites, pathByNode) {
+  const direct = memberWriteTarget(member, pathByNode);
+  if (direct === undefined) return { targets: [], truncated: false, unresolved: false };
+  const targets = [];
+  const visited = new Set();
+  let truncated = false;
+  let unresolved = false;
+
+  const isClassBinding = (binding) =>
+    [binding.path?.node, binding.path?.parentPath?.node].some((node) =>
+      ["ClassDeclaration", "ClassExpression"].includes(node?.type),
+    );
+
+  const resolveExpression = (expressionNode, selection, depth) => {
+    const expression = unwrapTransparentExpression(expressionNode);
+    if (expression?.type === "Identifier") {
+      const aliasBinding = lexicalBinding(expression, pathByNode);
+      if (aliasBinding) resolve(aliasBinding, selection, depth + 1);
+      else unresolved = true;
+      return;
+    }
+    if (["MemberExpression", "OptionalMemberExpression"].includes(expression?.type)) {
+      const aliasTarget = memberWriteTarget(expression, pathByNode);
+      if (aliasTarget) {
+        resolve(aliasTarget.binding, [...aliasTarget.selection, ...selection], depth + 1);
+      } else unresolved = true;
+      return;
+    }
+    if (expression?.type === "ConditionalExpression") {
+      resolveExpression(expression.consequent, selection, depth + 1);
+      resolveExpression(expression.alternate, selection, depth + 1);
+      return;
+    }
+    if (expression?.type === "LogicalExpression") {
+      resolveExpression(expression.left, selection, depth + 1);
+      resolveExpression(expression.right, selection, depth + 1);
+      return;
+    }
+    if (
+      ["ArrayExpression", "ObjectExpression", "NewExpression", "ClassExpression"].includes(
+        expression?.type,
+      )
+    ) {
+      return;
+    }
+    unresolved = true;
+  };
+
+  const resolve = (binding, selection, depth = 0) => {
+    const identity = `${binding.identifier?.start ?? "unknown"}:${selection
+      .map((item) => item.key?.start ?? item.index ?? item.type)
+      .join(":")}`;
+    if (visited.has(identity) || depth > maxResolvedValues) {
+      truncated = true;
+      return;
+    }
+    visited.add(identity);
+    targets.push({ binding, selection });
+
+    const ownerBoundary = executionBoundary(binding.path);
+    if (ownerBoundary === undefined) return;
+    const state = bindingStateAt(
+      binding,
+      ownerBoundary,
+      writeNode?.start ?? Number.POSITIVE_INFINITY,
+      bindingWrites,
+    );
+    truncated ||= state.truncated;
+    unresolved ||= state.unknown && !isClassBinding(binding);
+    for (const write of state.values) {
+      const selected = [...(write.selection ?? []), ...selection];
+      resolveExpression(write.expression, selected, depth);
+    }
+    visited.delete(identity);
+  };
+
+  resolve(direct.binding, direct.selection);
+  return { targets, truncated, unresolved };
 }
 
 function containsProviderEnvironment(node, bindingWrites, pathByNode, resolvingWrites = new Set()) {
@@ -1563,6 +1813,7 @@ function inspectAst(filePath, source) {
       );
     }
   }
+  let memberWriteResolutionTruncated = false;
   for (const assignment of assignments) {
     if (assignment.left?.type === "Identifier") {
       addBindingWrite(
@@ -1575,8 +1826,16 @@ function inspectAst(filePath, source) {
         pathByNode,
       );
     } else if (["MemberExpression", "OptionalMemberExpression"].includes(assignment.left?.type)) {
-      const target = memberWriteTarget(assignment.left, pathByNode);
-      if (target) {
+      const resolvedTargets = canonicalMemberWriteTargets(
+        assignment.left,
+        assignment,
+        bindingWrites,
+        pathByNode,
+      );
+      memberWriteResolutionTruncated ||= resolvedTargets.truncated;
+      memberWriteResolutionTruncated ||=
+        resolvedTargets.unresolved && directFunctionTarget(assignment.right) !== undefined;
+      for (const target of resolvedTargets.targets) {
         addBindingWrite(
           bindingWrites,
           target.binding,
@@ -1621,6 +1880,23 @@ function inspectAst(filePath, source) {
   for (const writes of bindingWrites.values()) {
     writes.sort((left, right) => left.position - right.position);
   }
+
+  const globalObjectFreezeWrites = assignments
+    .filter((assignment) => {
+      const target = unwrapTransparentExpression(assignment.left);
+      return (
+        ["MemberExpression", "OptionalMemberExpression"].includes(target?.type) &&
+        target.object?.type === "Identifier" &&
+        target.object.name === "Object" &&
+        lexicalBinding(target.object, pathByNode) === undefined &&
+        hasPossiblePropertyName(target, "freeze", bindingWrites, pathByNode)
+      );
+    })
+    .map((assignment) => ({
+      boundary: executionBoundary(pathByNode.get(assignment)),
+      position: bindingWritePosition(assignment),
+    }));
+  globalObjectFreezeWritesByBindingWrites.set(bindingWrites, globalObjectFreezeWrites);
 
   // Resolve locally-declared function values through exact lexical aliases. Every
   // possible target is retained: an unknown value or reassignment cannot erase a
@@ -1800,7 +2076,7 @@ function inspectAst(filePath, source) {
   }
 
   const findings = [];
-  if (!aiRoutingFile && truncatedFunctionTargetResolution) {
+  if (!aiRoutingFile && (truncatedFunctionTargetResolution || memberWriteResolutionTruncated)) {
     findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:dynamic-provider-execution`);
   }
   const visit = (node) => {

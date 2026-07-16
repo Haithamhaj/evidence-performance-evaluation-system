@@ -1,0 +1,47 @@
+let providerPackage = "openai";
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+
+class BaseRunner {
+  execute() {
+    return import(providerPackage);
+  }
+}
+
+class Runner extends BaseRunner {}
+Runner.prototype.execute = () => Promise.resolve();
+new Runner().execute();
+
+class SafeBaseRunner {
+  execute() {
+    return import(providerPackage);
+  }
+
+  static execute() {
+    return fetch(providerBaseUrl);
+  }
+}
+
+class SafeDerivedRunner extends SafeBaseRunner {
+  field = () => import(providerPackage);
+  static field = () => fetch(providerBaseUrl);
+}
+
+const capturedFreeze = Object.freeze;
+const { freeze: retainedFreeze } = Object;
+const freezeKey = "freeze";
+const computedFreeze = Object[freezeKey];
+
+Object.freeze({ handler: () => import(providerPackage) });
+capturedFreeze({ handler: () => import(providerPackage) });
+retainedFreeze({ handler: () => fetch(providerBaseUrl) });
+computedFreeze({ handler: () => fetch(providerBaseUrl) });
+
+Object.freeze = ((value: unknown) => value) as typeof Object.freeze;
+
+providerPackage = "./safe-local-module";
+providerBaseUrl = "https://example.test/health";
+
+new SafeDerivedRunner().execute();
+SafeDerivedRunner.execute();
+new SafeDerivedRunner().field();
+SafeDerivedRunner.field();

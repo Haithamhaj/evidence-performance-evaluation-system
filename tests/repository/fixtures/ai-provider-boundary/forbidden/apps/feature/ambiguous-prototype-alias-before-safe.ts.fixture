@@ -1,0 +1,11 @@
+declare const condition: boolean;
+declare const unknownPrototype: object;
+let providerPackage = "openai";
+
+class Runner {}
+
+const prototype = condition ? Runner.prototype : unknownPrototype;
+prototype.execute = () => import(providerPackage);
+new Runner().execute();
+
+providerPackage = "./safe-local-module";

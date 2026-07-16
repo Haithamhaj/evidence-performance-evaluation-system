@@ -1,0 +1,18 @@
+let providerPackage = "openai";
+let method = "generate";
+let providerBaseUrl = process.env.OPENAI_BASE_URL;
+const opaque = {} as Record<string, () => unknown>;
+
+Object.freeze = ((value: unknown) => {
+  const callbacks = value as { handlers: Array<() => unknown> };
+  for (const callback of callbacks.handlers) callback();
+  return value;
+}) as typeof Object.freeze;
+
+Object.freeze({
+  handlers: [() => opaque[method](), () => import(providerPackage), () => fetch(providerBaseUrl)],
+});
+
+method = "health";
+providerPackage = "./safe-local-module";
+providerBaseUrl = "https://example.test/health";
