@@ -24,6 +24,26 @@ const PERFORMANCE_INPUT_FORBIDDEN = new Set([
   "readinessscore",
 ]);
 const PERFORMANCE_ROUTE = /(?:^|[.-])(?:evaluation|performance|rating|coaching)(?:[.-]|$)/iu;
+const PEOPLE_RANKING_SUBJECTS = [
+  "employee",
+  "team",
+  "member",
+  "worker",
+  "person",
+  "people",
+  "individual",
+  "staff",
+  "personnel",
+  "workforce",
+  "contributor",
+  "colleague",
+  "coworker",
+  "teammate",
+  "peer",
+] as const;
+const RANKING_TERMS = ["rank", "ranked", "ranking", "order", "leaderboard"] as const;
+const NEUTRAL_RANKING_SUBJECTS = ["search", "priority", "risk", "relevance"] as const;
+const NEUTRAL_RANKING_METADATA = ["title", "label", "description"] as const;
 
 function normalizeField(field: string): string {
   return field.replace(/[^a-z0-9]/giu, "").toLowerCase();
@@ -57,9 +77,13 @@ function forbiddenField(routeKey: string, field: string): boolean {
     /(?:recommended|suggested|predicted|performance|employee|manager|final|overall|criterion)rating/iu.test(
       normalized,
     );
+  const rankingTerm = hasAny(RANKING_TERMS);
+  const demonstrablyNeutralRanking =
+    hasAny(NEUTRAL_RANKING_SUBJECTS) ||
+    (tokens.has("leaderboard") && hasAny(NEUTRAL_RANKING_METADATA));
   const employeeRanking =
-    (hasAny(["employee", "team", "member", "worker", "person", "staff", "contributor"]) &&
-      hasAny(["rank", "ranked", "ranking", "order", "leaderboard"])) ||
+    (hasAny(PEOPLE_RANKING_SUBJECTS) && rankingTerm) ||
+    (PERFORMANCE_ROUTE.test(routeKey) && rankingTerm && !demonstrablyNeutralRanking) ||
     normalized === "employeerank" ||
     normalized === "employeeranking" ||
     /(?:employee.*rank|rank.*employee)/iu.test(normalized);

@@ -6,7 +6,7 @@ import {
   RouteKeySchema,
   VersionReferenceSchema,
 } from "./contracts.js";
-import { validateAiOutput, validateAiOutputSchema } from "./output-validator.js";
+import { validateAiOutput } from "./output-validator.js";
 import { outputSchemaDescriptor } from "./configuration.js";
 import { resolveFallback, resolveRoute } from "./resolve-route.js";
 
@@ -49,8 +49,6 @@ export class AiRouter<TTransaction = unknown> {
     deadline: WholeRunDeadline,
     startedAt: Date,
   ): Promise<import("./contracts.js").ValidatedAiResult<TOutput>> {
-    deadline.assertActive();
-    validateAiOutputSchema(input.routeKey, input.outputSchema);
     deadline.assertActive();
     const schemaDescriptor = outputSchemaDescriptor(
       input.routeKey,
@@ -101,6 +99,7 @@ export class AiRouter<TTransaction = unknown> {
           startedAt,
           fallbackChain,
           category,
+          deadline,
         );
       }
 
@@ -127,19 +126,21 @@ export class AiRouter<TTransaction = unknown> {
         try {
           fallback = resolveFallback(route, providerIndex, input.classification, category);
         } catch (fallbackError) {
-          await this.appendTrace(
-            input,
-            schemaArtifact,
-            route,
-            provider,
-            startedAt,
-            fallbackChain,
-            "failed",
-            "policy",
-            null,
-            null,
-            null,
-            [],
+          await this.appendTraceWithinDeadline(deadline, () =>
+            this.appendTrace(
+              input,
+              schemaArtifact,
+              route,
+              provider,
+              startedAt,
+              fallbackChain,
+              "failed",
+              "policy",
+              null,
+              null,
+              null,
+              [],
+            ),
           );
           throw fallbackError;
         }
@@ -152,6 +153,7 @@ export class AiRouter<TTransaction = unknown> {
             startedAt,
             fallbackChain,
             category,
+            deadline,
           );
         }
         providerIndex += 1;
@@ -167,19 +169,21 @@ export class AiRouter<TTransaction = unknown> {
           modelKey: provider.modelKey,
           outcome: "invalid_output",
         });
-        await this.appendTrace(
-          input,
-          schemaArtifact,
-          route,
-          provider,
-          startedAt,
-          fallbackChain,
-          "quarantined",
-          "invalid_output",
-          null,
-          sanitizeUsage(result.usage),
-          sanitizeCost(result.costUsd),
-          validation.issueCodes,
+        await this.appendTraceWithinDeadline(deadline, () =>
+          this.appendTrace(
+            input,
+            schemaArtifact,
+            route,
+            provider,
+            startedAt,
+            fallbackChain,
+            "quarantined",
+            "invalid_output",
+            null,
+            sanitizeUsage(result.usage),
+            sanitizeCost(result.costUsd),
+            validation.issueCodes,
+          ),
         );
         throw new AppError("AI_OUTPUT_QUARANTINED", "errors.ai.outputQuarantined", 502);
       }
@@ -273,22 +277,39 @@ export class AiRouter<TTransaction = unknown> {
     startedAt: Date,
     fallbackChain: readonly import("./contracts.js").FallbackHop[],
     category: import("./contracts.js").ProviderErrorCategory,
+    deadline: WholeRunDeadline,
   ): Promise<never> {
-    await this.appendTrace(
-      input,
-      schemaArtifact,
-      route,
-      provider,
-      startedAt,
-      fallbackChain,
-      category === "invalid_output" ? "quarantined" : "failed",
-      category,
-      null,
-      null,
-      null,
-      [],
+    await this.appendTraceWithinDeadline(deadline, () =>
+      this.appendTrace(
+        input,
+        schemaArtifact,
+        route,
+        provider,
+        startedAt,
+        fallbackChain,
+        category === "invalid_output" ? "quarantined" : "failed",
+        category,
+        null,
+        null,
+        null,
+        [],
+      ),
     );
     throw new AppError("AI_PROVIDER_FAILED", "errors.ai.providerFailed", 502);
+  }
+
+  private async appendTraceWithinDeadline(
+    deadline: WholeRunDeadline,
+    append: () => Promise<Readonly<{ id: string }>>,
+  ): Promise<void> {
+    const operation = Promise.resolve().then(append);
+    try {
+      await deadline.race(() => operation);
+    } catch (error) {
+      operation.catch(() => undefined);
+      if (error instanceof AiProviderError && error.category === "timeout") return;
+      throw error;
+    }
   }
 
   private appendTrace<TInput, TOutput>(

@@ -1,0 +1,3 @@
+import { mutateRoute } from "../ai-routing/internal/../route-config.mjs";
+
+export const bypass = mutateRoute;

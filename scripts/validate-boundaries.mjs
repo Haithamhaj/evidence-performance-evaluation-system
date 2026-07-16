@@ -60,9 +60,34 @@ function workspaceDirectory(filePath) {
   return path.join(repositoryRoot, category, workspace);
 }
 
+function logicalSourcePath(filePath) {
+  let normalized = path.relative(repositoryRoot, filePath).split(path.sep).join("/");
+  const sourceMarkers = ["/apps/", "/packages/"];
+  for (const marker of sourceMarkers) {
+    const markerIndex = normalized.lastIndexOf(marker);
+    if (markerIndex >= 0) {
+      normalized = normalized.slice(markerIndex + 1);
+      break;
+    }
+  }
+  return normalized.endsWith(".fixture") ? normalized.slice(0, -".fixture".length) : normalized;
+}
+
+function moduleStem(filePath) {
+  return logicalSourcePath(filePath).replace(/\.(?:[cm]?[jt]sx?)$/u, "");
+}
+
+function protectedGovernanceTarget(filePath, specifier) {
+  if (!specifier.startsWith(".")) return undefined;
+  const target = moduleStem(path.resolve(path.dirname(filePath), specifier));
+  if (target.endsWith("/ai-routing/admin-composition")) return "admin-composition";
+  if (target.endsWith("/ai-routing/route-config")) return "route-config";
+  return undefined;
+}
+
 function inspectImport(filePath, specifier) {
   const relativeFile = path.relative(repositoryRoot, filePath);
-  const normalizedFile = relativeFile.split(path.sep).join("/");
+  const normalizedFile = logicalSourcePath(filePath);
   const packageImport = /^@evaluation\/([^/]+)(\/.+)?$/u.exec(specifier);
 
   if (specifier === restrictedAiComposition) {
@@ -71,10 +96,12 @@ function inspectImport(filePath, specifier) {
       : `BOUNDARY_RESTRICTED_AI_COMPOSITION:${relativeFile}:${specifier}`;
   }
 
-  if (/(?:^|\/)ai-routing\/(?:admin-composition|route-config)(?:\.[cm]?[jt]s)?$/u.test(specifier)) {
-    const allowedFile = specifier.includes("route-config")
-      ? "apps/api/src/ai-routing/admin-composition.ts"
-      : protectedAiCompositionFile;
+  const governanceTarget = protectedGovernanceTarget(filePath, specifier);
+  if (governanceTarget !== undefined) {
+    const allowedFile =
+      governanceTarget === "route-config"
+        ? "apps/api/src/ai-routing/admin-composition.ts"
+        : protectedAiCompositionFile;
     return normalizedFile === allowedFile
       ? undefined
       : `BOUNDARY_RESTRICTED_AI_COMPOSITION:${relativeFile}:${specifier}`;
@@ -152,18 +179,42 @@ function propertyName(expression, bindings) {
   return staticString(expression.property, bindings);
 }
 
-function identifierTokens(name) {
-  return name
-    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
-    .toLowerCase()
-    .split(/[^a-z0-9]+/gu);
+function propertyKeyName(property, bindings) {
+  const key = property?.key;
+  if (!property?.computed && key?.type === "Identifier") return key.name;
+  if (key?.type === "StringLiteral") return key.value;
+  return property?.computed ? staticString(key, bindings) : undefined;
 }
 
-function isProviderBinding(node) {
-  if (node?.type !== "Identifier") return false;
-  const tokens = identifierTokens(node.name);
-  return tokens.some((token) =>
-    ["adapter", "provider", "openai", "anthropic", "cohere"].includes(token),
+function classDefinesLocalGenerate(node, bindings) {
+  return node?.body?.body?.some(
+    (member) =>
+      (member.type === "ClassMethod" || member.type === "ClassPrivateMethod") &&
+      propertyKeyName(member, bindings) === "generate",
+  );
+}
+
+function isLocalGeneratorExpression(
+  node,
+  neutralGeneratorBindings,
+  localGeneratorClasses,
+  bindings,
+) {
+  if (node?.type === "Identifier") return neutralGeneratorBindings.has(node.name);
+  if (node?.type === "ObjectExpression") {
+    return node.properties.some((property) => {
+      if (propertyKeyName(property, bindings) !== "generate") return false;
+      if (property.type === "ObjectMethod") return true;
+      return (
+        property.type === "ObjectProperty" &&
+        ["ArrowFunctionExpression", "FunctionExpression"].includes(property.value?.type)
+      );
+    });
+  }
+  return (
+    node?.type === "NewExpression" &&
+    node.callee?.type === "Identifier" &&
+    localGeneratorClasses.has(node.callee.name)
   );
 }
 
@@ -240,11 +291,21 @@ function inspectAst(filePath, source) {
   if (sourceFile === null) return [];
   const bindings = new Map();
   const taintedBindings = new Set();
-  const generateAliases = new Set();
+  const neutralGeneratorBindings = new Set();
+  const localGeneratorClasses = new Set();
+  const neutralGenerateAliases = new Set();
+  const prohibitedGenerateAliases = new Set();
   const declarations = [];
 
   walk(sourceFile, (node) => {
     if (node.type === "VariableDeclarator") declarations.push(node);
+    if (
+      (node.type === "ClassDeclaration" || node.type === "ClassExpression") &&
+      node.id?.type === "Identifier" &&
+      classDefinesLocalGenerate(node, bindings)
+    ) {
+      localGeneratorClasses.add(node.id.name);
+    }
   });
 
   for (let pass = 0; pass < declarations.length + 1; pass += 1) {
@@ -265,23 +326,53 @@ function inspectAst(filePath, source) {
           changed = true;
         }
         if (
-          declaration.init.type === "MemberExpression" &&
-          propertyName(declaration.init, bindings) === "generate" &&
-          isProviderBinding(declaration.init.object)
+          isLocalGeneratorExpression(
+            declaration.init,
+            neutralGeneratorBindings,
+            localGeneratorClasses,
+            bindings,
+          ) &&
+          !neutralGeneratorBindings.has(declaration.id.name)
         ) {
-          generateAliases.add(declaration.id.name);
+          neutralGeneratorBindings.add(declaration.id.name);
+          changed = true;
         }
-      } else if (declaration.id?.type === "ObjectPattern" && isProviderBinding(declaration.init)) {
+        if (
+          declaration.init.type === "MemberExpression" &&
+          propertyName(declaration.init, bindings) === "generate"
+        ) {
+          const target = isLocalGeneratorExpression(
+            declaration.init.object,
+            neutralGeneratorBindings,
+            localGeneratorClasses,
+            bindings,
+          )
+            ? neutralGenerateAliases
+            : prohibitedGenerateAliases;
+          if (!target.has(declaration.id.name)) {
+            target.add(declaration.id.name);
+            changed = true;
+          }
+        }
+      } else if (declaration.id?.type === "ObjectPattern") {
+        const target = isLocalGeneratorExpression(
+          declaration.init,
+          neutralGeneratorBindings,
+          localGeneratorClasses,
+          bindings,
+        )
+          ? neutralGenerateAliases
+          : prohibitedGenerateAliases;
         for (const property of declaration.id.properties) {
           if (
             property.type === "ObjectProperty" &&
-            propertyName(
-              { type: "MemberExpression", computed: property.computed, property: property.key },
-              bindings,
-            ) === "generate" &&
+            propertyKeyName(property, bindings) === "generate" &&
             property.value.type === "Identifier"
           ) {
-            generateAliases.add(property.value.name);
+            if (!target.has(property.value.name)) {
+              target.add(property.value.name);
+              changed = true;
+            }
           }
         }
       }
@@ -314,8 +405,17 @@ function inspectAst(filePath, source) {
         }
       }
       if (
-        (!aiRoutingFile && calledName === "generate" && isProviderBinding(callee?.object)) ||
-        (!aiRoutingFile && callee?.type === "Identifier" && generateAliases.has(callee.name))
+        (!aiRoutingFile &&
+          calledName === "generate" &&
+          !isLocalGeneratorExpression(
+            callee?.object,
+            neutralGeneratorBindings,
+            localGeneratorClasses,
+            bindings,
+          )) ||
+        (!aiRoutingFile &&
+          callee?.type === "Identifier" &&
+          prohibitedGenerateAliases.has(callee.name))
       ) {
         findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:adapter.generate`);
       }

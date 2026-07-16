@@ -30,10 +30,15 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("bracket-generate.ts.fixture");
     expect(result.stderr).toContain("aliased-generate.ts.fixture");
     expect(result.stderr).toContain("destructured-generate.ts.fixture");
+    expect(result.stderr).toContain("client-generate.ts.fixture");
+    expect(result.stderr).toContain("gateway-aliased-generate.ts.fixture");
+    expect(result.stderr).toContain("gateway-destructured-generate.ts.fixture");
     expect(result.stderr).toContain("environment-provider-url.ts.fixture");
     expect(result.stderr).toContain("restricted-composition.ts.fixture");
     expect(result.stderr).toContain("relative-admin-composition.ts.fixture");
     expect(result.stderr).toContain("relative-route-config.ts.fixture");
+    expect(result.stderr).toContain("normalized-admin-import.ts.fixture");
+    expect(result.stderr).toContain("normalized-route-config-import.ts.fixture");
     expect(result.stderr).toContain("BOUNDARY_RESTRICTED_AI_COMPOSITION");
   });
 

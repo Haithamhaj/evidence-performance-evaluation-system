@@ -336,6 +336,33 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
     ).resolves.toBe(2);
   });
 
+  it.each([
+    ["rating", z.object({ recommendedRating: z.number() }).strict()],
+    ["ranking", z.object({ personnelRanking: z.number() }).strict()],
+    ["activity", z.object({ commitCount: z.number() }).strict()],
+  ])("rejects protected %s schema registration without artifact or audit", async (_, schema) => {
+    const routeKey = `evaluation.governance-protected.${crypto.randomUUID()}`;
+    const correlationId = crypto.randomUUID();
+
+    await expect(
+      governance.registerAuthorizedAiOutputSchema(
+        client,
+        { userId: administratorId, active: true },
+        {
+          routeKey,
+          version: "v1",
+          schema,
+          reason: "Reject a protected evaluation output contract before persistence",
+          expectedBehavior: "The protected schema must never become authoritative.",
+          evaluationEvidenceReferences: ["ai-eval:00000000-0000-4000-8000-000000000303"],
+          correlationId,
+        },
+      ),
+    ).rejects.toMatchObject({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" });
+    await expect(client.aiOutputSchemaArtifact.count({ where: { routeKey } })).resolves.toBe(0);
+    await expect(client.auditEvent.count({ where: { correlationId } })).resolves.toBe(0);
+  });
+
   it("rolls back schema registration when audit fails and rejects incomplete evidence metadata", async () => {
     const routeKey = `governance.schema-rollback.${crypto.randomUUID()}`;
     const base = {

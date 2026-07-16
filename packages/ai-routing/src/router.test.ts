@@ -335,6 +335,61 @@ describe("AI router output safety", () => {
     expect(traces[0]).toMatchObject({ state: "failed", errorCategory: "timeout" });
   });
 
+  it.each(["adapter-missing", "fallback-policy", "invalid-output"] as const)(
+    "bounds never-settling %s trace persistence by the whole-run deadline",
+    async (scenario) => {
+      const providers =
+        scenario === "fallback-policy"
+          ? [
+              configuredProvider("fake", "fixture-model", "local"),
+              configuredProvider("external", "fallback-model", "external"),
+            ]
+          : resolvedRoute.providers;
+      const route = { ...resolvedRoute, providers };
+      const fake = new FakeAiProviderAdapter(
+        "fake",
+        "local",
+        scenario === "fallback-policy"
+          ? () => {
+              throw new AiProviderError("retryable");
+            }
+          : scenario === "invalid-output"
+            ? { unsupported: true }
+            : { supported: true },
+      );
+      const router = new AiRouter(
+        repositoryFor(async () => route),
+        {
+          appendRunTrace: () => new Promise<never>(() => undefined),
+          commitSucceededRun: async () => {
+            throw new Error("success persistence is not expected");
+          },
+        },
+        scenario === "adapter-missing" ? [] : [fake],
+      );
+      const run = router.run(
+        {
+          ...request(z.object({ supported: z.boolean() }).strict()),
+          classification: scenario === "fallback-policy" ? "local_only" : "confidential",
+          timeoutMs: 20,
+        },
+        vi.fn(),
+      );
+      const started = performance.now();
+      const hung = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("run exceeded bounded test guard")), 120),
+      );
+      const expectedCode = {
+        "adapter-missing": "AI_PROVIDER_FAILED",
+        "fallback-policy": "AI_FALLBACK_FORBIDDEN",
+        "invalid-output": "AI_OUTPUT_QUARANTINED",
+      }[scenario];
+
+      await expect(Promise.race([run, hung])).rejects.toMatchObject({ code: expectedCode });
+      expect(performance.now() - started).toBeLessThan(100);
+    },
+  );
+
   it("uses one deadline across schema lookup, scope and route resolution, and all fallbacks", async () => {
     const delay = (milliseconds: number) =>
       new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
@@ -590,6 +645,14 @@ describe("AI router output safety", () => {
     "suggestedPerformanceLevel",
     "staffRanking",
     "contributorRank",
+    "personnelRanking",
+    "workforceRank",
+    "colleagueRanking",
+    "peerLeaderboard",
+    "coworkerOrder",
+    "talentRanking",
+    "subordinateRank",
+    "candidateRanking",
     "commitTotal",
     "numberOfCommits",
     "numUpdates",
@@ -617,6 +680,10 @@ describe("AI router output safety", () => {
     "performanceLevelDescription",
     "staffDirectory",
     "contributorRole",
+    "searchRanking",
+    "priorityRanking",
+    "riskRanking",
+    "relevanceRanking",
   ])("allows neutral field that contains only one protected token family: %s", (field) => {
     expect(() =>
       validateAiOutputSchema("evaluation.prepare", z.object({ [field]: z.string() })),
@@ -634,6 +701,14 @@ describe("AI router output safety", () => {
     { details: { suggestedPerformanceLevel: "high" } },
     { details: { staffRanking: 1 } },
     { details: { contributorRank: 2 } },
+    { details: { personnelRanking: 1 } },
+    { details: { workforceRank: 2 } },
+    { details: { colleagueRanking: 3 } },
+    { details: { peerLeaderboard: 4 } },
+    { details: { coworkerOrder: 5 } },
+    { details: { talentRanking: 6 } },
+    { details: { subordinateRank: 7 } },
+    { details: { candidateRanking: 8 } },
   ])("quarantines protected compound fields inside dynamic output", async (output) => {
     const adapter = new FakeAiProviderAdapter("fake", "local", output);
     const { router } = harness(adapter);
@@ -703,6 +778,16 @@ describe("AI router output safety", () => {
         z.object({ summary: z.string().min(3).max(200), confidence: z.number().min(0).max(1) }),
       ),
     ).not.toThrow();
+  });
+
+  it("does not describe or hash a protected output schema", () => {
+    expect(() =>
+      outputSchemaDescriptor(
+        "evaluation.prepare",
+        "evaluation-output.v1",
+        z.object({ workforceRanking: z.number() }).strict(),
+      ),
+    ).toThrowError(expect.objectContaining({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" }));
   });
 
   it("rejects an unrepresentable runtime schema before provider execution", async () => {
