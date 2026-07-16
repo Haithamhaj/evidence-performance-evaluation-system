@@ -13,6 +13,8 @@ secrets*.json
 # Dependencies
 node_modules/
 .pnpm-store/
+__pycache__/
+*.py[cod]
 
 # Build and test outputs
 dist/

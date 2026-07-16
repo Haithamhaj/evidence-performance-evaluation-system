@@ -125,13 +125,14 @@ describe("CI contract", () => {
     expect(integrationJob).toContain("needs: [quality, build]");
     expect(integrationJob).toContain("pnpm db:verify");
     expect(integrationJob).toContain("pnpm db:deploy");
-    expect(integrationJob).toContain("pnpm test:integration --passWithNoTests");
-    expect(integrationJob).toContain("pnpm test:ai --passWithNoTests");
-    expect(integrationJob).toContain("pnpm test:e2e --pass-with-no-tests");
+    expect(integrationJob).toMatch(/- run: pnpm test:integration\s*$/m);
+    expect(integrationJob).toMatch(/- run: pnpm test:ai\s*$/m);
+    expect(integrationJob).toMatch(/- run: pnpm test:e2e\s*$/m);
+    expect(integrationJob).not.toMatch(/passWithNoTests|pass-with-no-tests/);
     expect(integrationJob).toContain("pnpm exec playwright install --with-deps chromium");
     expect(
       integrationJob.indexOf("pnpm exec playwright install --with-deps chromium"),
-    ).toBeLessThan(integrationJob.indexOf("pnpm test:e2e --pass-with-no-tests"));
+    ).toBeLessThan(integrationJob.indexOf("pnpm test:e2e"));
     for (const [name, value] of [
       ["KEYCLOAK_ADMIN_USERNAME", "local-admin"],
       ["KEYCLOAK_ADMIN_PASSWORD", "local-keycloak-admin-password"],
@@ -150,8 +151,12 @@ describe("CI contract", () => {
       "prettier --check package.json pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs prettier.config.mjs vitest.config.ts vitest.workspace.ts .github apps packages scripts tests",
     );
     expect(manifest.scripts?.["scan:secrets"]).toBe("node scripts/scan-secrets.mjs");
+    expect(manifest.scripts?.["test:task-graph"]).toBe(
+      "python3 -m unittest scripts.tests.test_validate_task_graph -v",
+    );
+    expect(manifest.scripts?.test).toContain("pnpm test:task-graph");
     expect(manifest.scripts?.["test:coverage"]).toBe(
-      "vitest run --project unit --coverage --coverage.provider=v8 --coverage.reporter=text --coverage.include='apps/**/src/**/*.{ts,tsx}' --coverage.include='packages/**/src/**/*.ts' --coverage.include='scripts/**/*.mjs'",
+      "pnpm test:task-graph && vitest run --project unit --coverage --coverage.provider=v8 --coverage.reporter=text --coverage.include='apps/**/src/**/*.{ts,tsx}' --coverage.include='packages/**/src/**/*.ts' --coverage.include='scripts/**/*.mjs'",
     );
     expect(manifest.scripts?.["test:e2e"]).toBe("playwright test tests/e2e");
     expect(manifest.devDependencies?.["@vitest/coverage-v8"]).toBe("4.1.10");
