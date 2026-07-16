@@ -1,0 +1,11 @@
+type Generator = { generate(): string };
+
+declare const provider: Generator;
+let nullishClient: Generator = { generate: () => "local" };
+let fallbackClient: Generator = { generate: () => "local" };
+
+nullishClient ??= provider;
+fallbackClient ||= provider;
+
+export const nullishResult = nullishClient.generate();
+export const fallbackResult = fallbackClient.generate();

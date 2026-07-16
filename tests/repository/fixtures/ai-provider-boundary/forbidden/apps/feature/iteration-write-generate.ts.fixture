@@ -1,0 +1,8 @@
+type Generator = { generate(): string };
+
+declare const providers: Generator[];
+let client: Generator = { generate: () => "local" };
+
+for (client of providers) {
+  client.generate();
+}

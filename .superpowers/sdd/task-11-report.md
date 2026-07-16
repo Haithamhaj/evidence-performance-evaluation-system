@@ -15,7 +15,50 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Fourth review remediation commit subject: `fix: enforce ai router invariants`
 - Fifth review remediation commit subject: `fix: fail closed on ai router boundaries`
 - Sixth review remediation commit subject: `fix: close ai router review gaps`
+- Seventh review remediation commit subject: `fix: close final ai router review gaps`
 - Push: prohibited and not attempted
+
+## Seventh review remediation
+
+The seventh review at `.superpowers/sdd/task-11-seventh-review.md` identified two critical issues. Each behavior was reproduced before implementation changed.
+
+### Seventh review RED evidence
+
+1. Fully normalized ranking and order concepts
+   - AI-routing package: 167 tests executed; 7 failed and 160 passed.
+   - The failures reproduced schema and recursive-runtime acceptance of `staffpriorityrank`, `STAFFPRIORITYRANK`, `candidateranking`, `CANDIDATERANKING`, `candidateRanking2`, `staffdisplayorder`, and `employeeleaderboardtitle`.
+
+2. Lexical generator provenance
+   - Provider-boundary suite: 2 tests executed; the prohibited-fixture case failed while the allowed same-name local control passed.
+   - The missing findings reproduced an opaque function-parameter shadow, an uninitialized block shadow, `??=` / `||=` writes, and a `for-of` write inheriting or retaining unrelated name-based trust.
+
+### Seventh review changes
+
+- Apply the exact 11 normalized neutral ranking/order fields before a fail-closed search of the fully normalized field for `rank`, `ranked`, `ranking`, `leaderboard`, or `order`. Casing, separators, concatenation, plurals, and suffixes no longer bypass the shared schema/runtime decision.
+- Replace name-based local-generator trust with Babel lexical `Binding` identity from the existing exact-pinned `@babel/core@8.0.1` traversal API. Same-name bindings in distinct scopes are independent.
+- Treat parameters, catch bindings, non-`=` assignments, updates, `for-of` / `for-in` writes, and unknown constant violations as opaque. Preserve only reviewed direct local generators, exact local aliases, transparent wrappers, and top-level object-rest assignment flows.
+- No package or lockfile dependency changed. The authorized `@babel/traverse@8.0.1` version does not exist in the registry, and the existing Babel core API already provides the required lexical traversal.
+
+### Seventh review GREEN evidence
+
+1. Focused remediation verification
+   - AI-routing package: 167/167 tests passed.
+   - Provider-boundary suite: 2/2 tests passed.
+
+2. Combined T011 verification
+   - Router, adapter, governance, route audit, run trace, protected audit, workspace/import, and provider-boundary run: 11 files and 250/250 tests passed.
+
+3. Migration verification
+   - `pnpm db:verify`: all six migrations passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; database integration passed 12/12.
+   - No migration or schema delta was required.
+
+4. Full integration verification
+   - `pnpm test:integration`: 15 files and 120/120 tests passed against the isolated PostgreSQL, Redis, MinIO, and Keycloak stack.
+
+5. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 259 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 311/311 tests; forced build 14/14.
+   - `git diff --check` passed, and no approved product, rubric, implementation-plan, task, or agent-governance document changed.
 
 ## Sixth review remediation
 

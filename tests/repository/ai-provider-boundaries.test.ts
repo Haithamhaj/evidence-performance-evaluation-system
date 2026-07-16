@@ -46,6 +46,10 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("nested-destructured-assignment-generate.ts.fixture");
     expect(result.stderr).toContain("opaque-wrapped-generate.ts.fixture");
     expect(result.stderr).toContain("rest-parameter-generate.ts.fixture");
+    expect(result.stderr).toContain("parameter-shadow-generate.ts.fixture");
+    expect(result.stderr).toContain("uninitialized-shadow-generate.ts.fixture");
+    expect(result.stderr).toContain("compound-assignment-generate.ts.fixture");
+    expect(result.stderr).toContain("iteration-write-generate.ts.fixture");
     expect(result.stderr).toContain("apps/api/src/packages/ai-routing/escape.ts");
     expect(result.stderr).toContain("environment-provider-url.ts.fixture");
     expect(result.stderr).toContain("restricted-composition.ts.fixture");

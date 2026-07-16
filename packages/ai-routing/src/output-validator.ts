@@ -71,7 +71,7 @@ function forbiddenField(routeKey: string, field: string): boolean {
     /(?:recommended|suggested|predicted|performance|employee|manager|final|overall|criterion)rating/iu.test(
       normalized,
     );
-  const globalRankingTerm = hasAny(GLOBAL_RANKING_TERMS);
+  const globalRankingTerm = GLOBAL_RANKING_TERMS.some((term) => normalized.includes(term));
   const employeeRanking = globalRankingTerm && !EXACT_NEUTRAL_RANKING_FIELDS.has(normalized);
   const performanceScore = tokens.has("performance") && hasAny(["score", "grade"]);
   const suggestedPerformanceLevel =

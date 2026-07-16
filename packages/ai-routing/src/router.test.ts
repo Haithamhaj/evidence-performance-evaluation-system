@@ -705,6 +705,29 @@ describe("AI router output safety", () => {
   });
 
   it.each([
+    "staffpriorityrank",
+    "STAFFPRIORITYRANK",
+    "candidateranking",
+    "CANDIDATERANKING",
+    "candidateRanking2",
+    "staffdisplayorder",
+    "employeeleaderboardtitle",
+  ])(
+    "rejects normalized, concatenated, cased, and suffixed ranking or order shape: %s",
+    (field) => {
+      const schema = z.object({ [field]: z.string() });
+
+      expect(() => validateAiOutputSchema("document.analyze", schema)).toThrowError(
+        expect.objectContaining({ code: "AI_OUTPUT_SCHEMA_FORBIDDEN" }),
+      );
+      expect(validateAiOutput("document.analyze", schema, { [field]: "unsafe" })).toMatchObject({
+        valid: false,
+        issueCodes: ["forbidden_performance_field"],
+      });
+    },
+  );
+
+  it.each([
     "searchRanking",
     "priorityRanking",
     "riskRanking",

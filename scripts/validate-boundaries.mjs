@@ -3,7 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
-import { parseSync } from "@babel/core";
+import { parseSync, traverse } from "@babel/core";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let scanRoot = repositoryRoot;
@@ -236,7 +236,12 @@ function unwrapTransparentExpression(node) {
   return current;
 }
 
-function isDirectLocalGeneratorExpression(node, localGeneratorClasses, bindings) {
+function lexicalBinding(node, pathByNode) {
+  if (node?.type !== "Identifier") return undefined;
+  return pathByNode.get(node)?.scope.getBinding(node.name);
+}
+
+function isDirectLocalGeneratorExpression(node, localGeneratorClasses, bindings, pathByNode) {
   const expression = unwrapTransparentExpression(node);
   if (expression?.type === "ObjectExpression") {
     return expression.properties.some((property) => {
@@ -251,7 +256,7 @@ function isDirectLocalGeneratorExpression(node, localGeneratorClasses, bindings)
   return (
     expression?.type === "NewExpression" &&
     expression.callee?.type === "Identifier" &&
-    localGeneratorClasses.has(expression.callee.name)
+    localGeneratorClasses.has(lexicalBinding(expression.callee, pathByNode))
   );
 }
 
@@ -260,37 +265,80 @@ function isLocalGeneratorExpression(
   neutralGeneratorBindings,
   localGeneratorClasses,
   bindings,
+  pathByNode,
 ) {
   const expression = unwrapTransparentExpression(node);
   if (expression?.type === "Identifier") {
-    return neutralGeneratorBindings.has(expression.name);
+    return neutralGeneratorBindings.has(lexicalBinding(expression, pathByNode));
   }
-  return isDirectLocalGeneratorExpression(expression, localGeneratorClasses, bindings);
+  return isDirectLocalGeneratorExpression(expression, localGeneratorClasses, bindings, pathByNode);
 }
 
-function addGeneratorWrite(writes, name, expression) {
-  const existing = writes.get(name);
+function addGeneratorWrite(writes, binding, expression) {
+  if (binding === undefined) return;
+  const existing = writes.get(binding);
   if (existing) existing.push(expression);
-  else writes.set(name, [expression]);
+  else writes.set(binding, [expression]);
 }
 
-function collectRestGeneratorWrites(pattern, source, writes, bindings, nested = false) {
+function collectRestGeneratorWrites(pattern, source, writes, bindings, pathByNode, nested = false) {
   if (pattern?.type === "AssignmentPattern") {
-    collectRestGeneratorWrites(pattern.left, source, writes, bindings, nested);
+    collectRestGeneratorWrites(pattern.left, source, writes, bindings, pathByNode, nested);
     return;
   }
   if (pattern?.type !== "ObjectPattern") return;
   for (const property of pattern.properties) {
     if (property.type === "RestElement") {
       if (property.argument?.type === "Identifier") {
-        addGeneratorWrite(writes, property.argument.name, nested ? undefined : source);
+        addGeneratorWrite(
+          writes,
+          lexicalBinding(property.argument, pathByNode),
+          nested ? undefined : source,
+        );
       } else {
-        collectRestGeneratorWrites(property.argument, undefined, writes, bindings, true);
+        collectRestGeneratorWrites(
+          property.argument,
+          undefined,
+          writes,
+          bindings,
+          pathByNode,
+          true,
+        );
       }
       continue;
     }
     if (property.type === "ObjectProperty") {
-      collectRestGeneratorWrites(property.value, undefined, writes, bindings, true);
+      collectRestGeneratorWrites(property.value, undefined, writes, bindings, pathByNode, true);
+    }
+  }
+}
+
+function collectOpaquePatternWrites(pattern, writes, pathByNode) {
+  if (pattern?.type === "Identifier") {
+    addGeneratorWrite(writes, lexicalBinding(pattern, pathByNode), undefined);
+    return;
+  }
+  if (pattern?.type === "AssignmentPattern") {
+    collectOpaquePatternWrites(pattern.left, writes, pathByNode);
+    return;
+  }
+  if (pattern?.type === "RestElement") {
+    collectOpaquePatternWrites(pattern.argument, writes, pathByNode);
+    return;
+  }
+  if (pattern?.type === "ObjectPattern") {
+    for (const property of pattern.properties) {
+      collectOpaquePatternWrites(
+        property.type === "RestElement" ? property.argument : property.value,
+        writes,
+        pathByNode,
+      );
+    }
+    return;
+  }
+  if (pattern?.type === "ArrayPattern") {
+    for (const element of pattern.elements) {
+      if (element) collectOpaquePatternWrites(element, writes, pathByNode);
     }
   }
 }
@@ -370,20 +418,58 @@ function inspectAst(filePath, source) {
   const taintedBindings = new Set();
   const neutralGeneratorBindings = new Set();
   const localGeneratorClasses = new Set();
+  const pathByNode = new WeakMap();
+  const allBindings = new Set();
   const declarations = [];
   const assignments = [];
+  const iterationWrites = [];
+  const updateWrites = [];
+  const opaqueBindingPatterns = [];
+  const localGeneratorClassNodes = [];
 
-  walk(sourceFile, (node) => {
-    if (node.type === "VariableDeclarator") declarations.push(node);
-    if (node.type === "AssignmentExpression" && node.operator === "=") assignments.push(node);
-    if (
-      (node.type === "ClassDeclaration" || node.type === "ClassExpression") &&
-      node.id?.type === "Identifier" &&
-      classDefinesLocalGenerate(node, bindings)
-    ) {
-      localGeneratorClasses.add(node.id.name);
-    }
+  traverse(sourceFile, {
+    enter(nodePath) {
+      pathByNode.set(nodePath.node, nodePath);
+      if (nodePath.isIdentifier()) {
+        const binding = nodePath.scope.getBinding(nodePath.node.name);
+        if (binding) allBindings.add(binding);
+      }
+      const { node } = nodePath;
+      if (node.type === "VariableDeclarator") declarations.push(node);
+      if (node.type === "AssignmentExpression") assignments.push(node);
+      if (node.type === "ForOfStatement" || node.type === "ForInStatement") {
+        iterationWrites.push(node.left);
+      }
+      if (node.type === "UpdateExpression") updateWrites.push(node.argument);
+      if (
+        (node.type === "ClassDeclaration" || node.type === "ClassExpression") &&
+        node.id?.type === "Identifier" &&
+        classDefinesLocalGenerate(node, bindings)
+      ) {
+        localGeneratorClassNodes.push(node.id);
+      }
+      if (
+        [
+          "FunctionDeclaration",
+          "FunctionExpression",
+          "ArrowFunctionExpression",
+          "ObjectMethod",
+          "ClassMethod",
+          "ClassPrivateMethod",
+        ].includes(node.type)
+      ) {
+        opaqueBindingPatterns.push(...node.params);
+      }
+      if (node.type === "CatchClause" && node.param) {
+        opaqueBindingPatterns.push(node.param);
+      }
+    },
   });
+
+  for (const classNode of localGeneratorClassNodes) {
+    const binding = lexicalBinding(classNode, pathByNode);
+    if (binding) localGeneratorClasses.add(binding);
+  }
 
   for (let pass = 0; pass < declarations.length + 1; pass += 1) {
     let changed = false;
@@ -411,32 +497,87 @@ function inspectAst(filePath, source) {
   for (const declaration of declarations) {
     if (!declaration.init) continue;
     if (declaration.id?.type === "Identifier") {
-      addGeneratorWrite(generatorWrites, declaration.id.name, declaration.init);
+      addGeneratorWrite(
+        generatorWrites,
+        lexicalBinding(declaration.id, pathByNode),
+        declaration.init,
+      );
     } else {
-      collectRestGeneratorWrites(declaration.id, declaration.init, generatorWrites, bindings);
+      collectRestGeneratorWrites(
+        declaration.id,
+        declaration.init,
+        generatorWrites,
+        bindings,
+        pathByNode,
+      );
     }
   }
   for (const assignment of assignments) {
     if (assignment.left?.type === "Identifier") {
-      addGeneratorWrite(generatorWrites, assignment.left.name, assignment.right);
+      addGeneratorWrite(
+        generatorWrites,
+        lexicalBinding(assignment.left, pathByNode),
+        assignment.operator === "=" ? assignment.right : undefined,
+      );
+    } else if (assignment.operator === "=") {
+      collectRestGeneratorWrites(
+        assignment.left,
+        assignment.right,
+        generatorWrites,
+        bindings,
+        pathByNode,
+      );
     } else {
-      collectRestGeneratorWrites(assignment.left, assignment.right, generatorWrites, bindings);
+      collectOpaquePatternWrites(assignment.left, generatorWrites, pathByNode);
+    }
+  }
+  for (const pattern of opaqueBindingPatterns) {
+    collectOpaquePatternWrites(pattern, generatorWrites, pathByNode);
+  }
+  for (const pattern of iterationWrites) {
+    if (pattern.type === "VariableDeclaration") {
+      for (const declaration of pattern.declarations) {
+        collectOpaquePatternWrites(declaration.id, generatorWrites, pathByNode);
+      }
+    } else {
+      collectOpaquePatternWrites(pattern, generatorWrites, pathByNode);
+    }
+  }
+  for (const pattern of updateWrites) {
+    collectOpaquePatternWrites(pattern, generatorWrites, pathByNode);
+  }
+  for (const binding of allBindings) {
+    for (const violation of binding.constantViolations) {
+      if (
+        !["AssignmentExpression", "UpdateExpression", "ForOfStatement", "ForInStatement"].includes(
+          violation.node.type,
+        )
+      ) {
+        addGeneratorWrite(generatorWrites, binding, undefined);
+      }
     }
   }
 
   for (let pass = 0; pass < generatorWrites.size + 1; pass += 1) {
     let changed = false;
-    for (const [name, writes] of generatorWrites) {
-      if (neutralGeneratorBindings.has(name)) continue;
+    for (const [binding, writes] of generatorWrites) {
+      if (neutralGeneratorBindings.has(binding)) continue;
       const everyWriteIsLocal = writes.every((write) => {
+        if (write === undefined) return false;
         const expression = unwrapTransparentExpression(write);
         return (
-          isDirectLocalGeneratorExpression(expression, localGeneratorClasses, bindings) ||
-          (expression?.type === "Identifier" && neutralGeneratorBindings.has(expression.name))
+          isDirectLocalGeneratorExpression(
+            expression,
+            localGeneratorClasses,
+            bindings,
+            pathByNode,
+          ) ||
+          (expression?.type === "Identifier" &&
+            neutralGeneratorBindings.has(lexicalBinding(expression, pathByNode)))
         );
       });
       if (everyWriteIsLocal) {
-        neutralGeneratorBindings.add(name);
+        neutralGeneratorBindings.add(binding);
         changed = true;
       }
     }
@@ -463,6 +604,7 @@ function inspectAst(filePath, source) {
         neutralGeneratorBindings,
         localGeneratorClasses,
         bindings,
+        pathByNode,
       )
     ) {
       findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
@@ -476,6 +618,7 @@ function inspectAst(filePath, source) {
         neutralGeneratorBindings,
         localGeneratorClasses,
         bindings,
+        pathByNode,
       )
     ) {
       findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
@@ -489,6 +632,7 @@ function inspectAst(filePath, source) {
         neutralGeneratorBindings,
         localGeneratorClasses,
         bindings,
+        pathByNode,
       )
     ) {
       findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
@@ -524,6 +668,7 @@ function inspectAst(filePath, source) {
           neutralGeneratorBindings,
           localGeneratorClasses,
           bindings,
+          pathByNode,
         )
       ) {
         findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
@@ -536,6 +681,7 @@ function inspectAst(filePath, source) {
           neutralGeneratorBindings,
           localGeneratorClasses,
           bindings,
+          pathByNode,
         )
       ) {
         findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:adapter.generate`);

@@ -23,3 +23,13 @@ export const sequenced = (0, local).generate();
 export const asserted = (local as Generator).generate();
 export const nonNull = local!.generate();
 export const satisfied = (local satisfies Generator).generate();
+
+export function firstScope() {
+  const client: Generator = { generate: () => "first" };
+  return client.generate();
+}
+
+export function secondScope() {
+  const client: Generator = { generate: () => "second" };
+  return client.generate();
+}
