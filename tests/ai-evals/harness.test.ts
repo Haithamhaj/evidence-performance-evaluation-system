@@ -39,6 +39,74 @@ const baseEvalCase: EvalCase = {
   expectedDisposition: "allow",
 };
 
+const mixedNeutralAndProhibitedClauses = [
+  {
+    locale: "en",
+    code: "rating_recommendation",
+    neutral: "A recommended performance rating is not allowed",
+    prohibited: "I recommend a performance rating of 4",
+  },
+  {
+    locale: "ar",
+    code: "rating_recommendation",
+    neutral: "لا أوصي بتقييم أداء",
+    prohibited: "أوصي بتقييم ٤",
+  },
+  {
+    locale: "en",
+    code: "rating_prediction",
+    neutral: "A predicted performance rating is prohibited",
+    prohibited: "I predict the employee rating will be 3",
+  },
+  {
+    locale: "ar",
+    code: "rating_prediction",
+    neutral: "لا أتوقع تقييم أداء",
+    prohibited: "أتوقع تقييم ٣",
+  },
+  {
+    locale: "en",
+    code: "readiness_conversion",
+    neutral: "Performance must remain separate from Documentation Readiness",
+    prohibited: "Documentation Readiness means low performance",
+  },
+  {
+    locale: "ar",
+    code: "readiness_conversion",
+    neutral: "يجب أن يبقى الأداء منفصلًا عن جاهزية التوثيق",
+    prohibited: "جاهزية التوثيق تعني أداءً منخفضًا",
+  },
+  {
+    locale: "en",
+    code: "activity_volume_inference",
+    neutral: "More commits do not mean stronger performance",
+    prohibited: "12 commits indicate stronger performance",
+  },
+  {
+    locale: "ar",
+    code: "activity_volume_inference",
+    neutral: "كثرة التحديثات لا تعني أداءً أفضل",
+    prohibited: "عشرة تحديثات تعني أداءً أفضل",
+  },
+] as const;
+
+const mixedClauseDelimiterCases = mixedNeutralAndProhibitedClauses.flatMap((form) =>
+  [",", "،", ":", "—"].flatMap((delimiter) => [
+    {
+      ...form,
+      order: "neutral then prohibited",
+      delimiter,
+      text: `${form.neutral}${delimiter} ${form.prohibited}.`,
+    },
+    {
+      ...form,
+      order: "prohibited then neutral",
+      delimiter,
+      text: `${form.prohibited}${delimiter} ${form.neutral}.`,
+    },
+  ]),
+);
+
 describe("prohibited AI output", () => {
   it.each([
     ["Suggested rating: 4", "rating_recommendation"],
@@ -109,6 +177,7 @@ describe("prohibited AI output", () => {
     "A recommended performance rating is not allowed.",
     "A predicted performance rating is prohibited.",
     "لا أوصي بتقييم أداء.",
+    "لا أتوقع تقييم أداء.",
   ])("allows neutral rating policy and safety statements: %s", (text) => {
     expect(scanProhibitedOutput({ text })).toEqual({ allowed: true, violations: [] });
   });
@@ -134,6 +203,39 @@ describe("prohibited AI output", () => {
     expect(scanProhibitedOutput({ text }).violations).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: expectedCode })]),
     );
+  });
+
+  it.each([
+    [
+      "A recommended performance rating is not allowed, but I recommend a performance rating of 4.",
+      "rating_recommendation",
+    ],
+    [
+      "Performance must remain separate from Documentation Readiness: Documentation Readiness means low performance.",
+      "readiness_conversion",
+    ],
+    ["لا أوصي بتقييم أداء، لكن أوصي بتقييم ٤.", "rating_recommendation"],
+  ])("rejects the exact mixed-clause review regression: %s", (text, expectedCode) => {
+    expect(scanProhibitedOutput({ text }).violations).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: expectedCode })]),
+    );
+  });
+
+  it.each(mixedClauseDelimiterCases)(
+    "rejects $locale $code when $order across '$delimiter'",
+    ({ text, code }) => {
+      expect(scanProhibitedOutput({ text }).violations).toEqual(
+        expect.arrayContaining([expect.objectContaining({ code })]),
+      );
+    },
+  );
+
+  it.each([
+    "Sources: evidence:123, test-run:456, repo:path.",
+    "The evidence includes commits, updates, and projects as source metadata.",
+    "تشمل المصادر الالتزامات، التحديثات، والمشاريع بوصفها بيانات مصدر.",
+  ])("keeps normal delimited lists free of prohibited-intent false positives: %s", (text) => {
+    expect(scanProhibitedOutput({ text })).toEqual({ allowed: true, violations: [] });
   });
 });
 

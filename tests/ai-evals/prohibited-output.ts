@@ -134,8 +134,10 @@ function isNeutralPolicyClause(text: string, code: ProhibitedConceptCode): boole
     );
   }
   if (code === "rating_prediction") {
-    return /\b(?:predicted|expected|forecast)\s+(?:performance\s+)?rating\s+(?:is\s+)?(?:not\s+allowed|prohibited|forbidden|disallowed)\b/iu.test(
-      text,
+    return (
+      /\b(?:predicted|expected|forecast)\s+(?:performance\s+)?rating\s+(?:is\s+)?(?:not\s+allowed|prohibited|forbidden|disallowed)\b/iu.test(
+        text,
+      ) || /(?:لا|لن)\s+(?:اتوقع|نتوقع|نتنبا).{0,16}(?:تقييم|درجة)/iu.test(text)
     );
   }
   if (code === "activity_volume_inference") {
@@ -163,7 +165,7 @@ function isNeutralPolicyClause(text: string, code: ProhibitedConceptCode): boole
 
 function splitClauses(text: string): string[] {
   return text
-    .split(/[.!?؟؛;\r\n]+/u)
+    .split(/[.!?؟؛;,:،—\r\n]+/u)
     .map((clause) => clause.trim())
     .filter(Boolean);
 }
