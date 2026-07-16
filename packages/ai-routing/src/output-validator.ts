@@ -58,12 +58,16 @@ function forbiddenField(routeKey: string, field: string): boolean {
       normalized,
     );
   const employeeRanking =
-    (hasAny(["employee", "team", "member", "worker", "person"]) &&
+    (hasAny(["employee", "team", "member", "worker", "person", "staff", "contributor"]) &&
       hasAny(["rank", "ranked", "ranking", "order", "leaderboard"])) ||
     normalized === "employeerank" ||
     normalized === "employeeranking" ||
     /(?:employee.*rank|rank.*employee)/iu.test(normalized);
   const performanceScore = tokens.has("performance") && hasAny(["score", "grade"]);
+  const suggestedPerformanceLevel =
+    tokens.has("performance") &&
+    tokens.has("level") &&
+    hasAny(["suggested", "recommended", "predicted"]);
   const productivityScore = tokens.has("productivity") || normalized.includes("productivity");
   const activityNoun =
     hasAny([
@@ -85,6 +89,7 @@ function forbiddenField(routeKey: string, field: string): boolean {
     ALWAYS_FORBIDDEN.has(normalized) ||
     ratingOutput ||
     performanceScore ||
+    suggestedPerformanceLevel ||
     employeeRanking ||
     productivityScore ||
     (PERFORMANCE_ROUTE.test(routeKey) &&

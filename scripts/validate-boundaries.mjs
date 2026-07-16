@@ -2,7 +2,7 @@ import console from "node:console";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 import { parseSync } from "@babel/core";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -20,8 +20,6 @@ const webForbiddenPackages = [
   "@google/generative-ai",
   "@google/genai",
 ];
-const importPattern =
-  /(?:\b(?:import|export)\s+(?:[^"'`;]*?\s+from\s+)?|\bimport\s*\(|\brequire\s*\()\s*["']([^"']+)["']/gu;
 const aiProviderPackages = [
   "openai",
   "@anthropic-ai/sdk",
@@ -31,10 +29,6 @@ const aiProviderPackages = [
   "cohere-ai",
 ];
 const directProviderRoutePattern = /(?:\/chat\/completions|\/v1\/responses|\/v1\/messages)/u;
-const splitProviderRoutePattern =
-  /(?:["']chat["'][\s\S]{0,100}["']completions["']|["']v1["'][\s\S]{0,100}["'](?:responses|messages)["'])/u;
-const directAdapterGeneratePattern = /\.\s*generate\s*\(/u;
-const publicAdapterPattern = /\b(?:FakeAiProviderAdapter|OpenAiCompatibleAdapter)\b/u;
 const restrictedAiComposition = "@evaluation/ai-routing/admin-composition";
 const protectedAiCompositionFile = "apps/api/src/ai-routing/ai-routing.module.ts";
 const providerEnvironmentPattern =
@@ -73,6 +67,15 @@ function inspectImport(filePath, specifier) {
 
   if (specifier === restrictedAiComposition) {
     return normalizedFile === protectedAiCompositionFile
+      ? undefined
+      : `BOUNDARY_RESTRICTED_AI_COMPOSITION:${relativeFile}:${specifier}`;
+  }
+
+  if (/(?:^|\/)ai-routing\/(?:admin-composition|route-config)(?:\.[cm]?[jt]s)?$/u.test(specifier)) {
+    const allowedFile = specifier.includes("route-config")
+      ? "apps/api/src/ai-routing/admin-composition.ts"
+      : protectedAiCompositionFile;
+    return normalizedFile === allowedFile
       ? undefined
       : `BOUNDARY_RESTRICTED_AI_COMPOSITION:${relativeFile}:${specifier}`;
   }
@@ -149,6 +152,41 @@ function propertyName(expression, bindings) {
   return staticString(expression.property, bindings);
 }
 
+function identifierTokens(name) {
+  return name
+    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/gu);
+}
+
+function isProviderBinding(node) {
+  if (node?.type !== "Identifier") return false;
+  const tokens = identifierTokens(node.name);
+  return tokens.some((token) =>
+    ["adapter", "provider", "openai", "anthropic", "cohere"].includes(token),
+  );
+}
+
+function staticUrl(node, bindings) {
+  const direct = staticString(node, bindings);
+  if (direct !== undefined) return direct;
+  if (
+    node?.type === "NewExpression" &&
+    node.callee?.type === "Identifier" &&
+    node.callee.name === "URL"
+  ) {
+    const relative = node.arguments[0] ? staticString(node.arguments[0], bindings) : undefined;
+    const base = node.arguments[1] ? staticString(node.arguments[1], bindings) : undefined;
+    if (relative === undefined || base === undefined) return undefined;
+    try {
+      return new URL(relative, base).toString();
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 function memberPath(node) {
   if (node?.type === "Identifier") return node.name;
   if (node?.type !== "MemberExpression") return undefined;
@@ -192,7 +230,7 @@ function containsProviderEnvironment(node, taintedBindings) {
 
 function inspectAst(filePath, source) {
   const relativeFile = path.relative(repositoryRoot, filePath);
-  if (isAiRoutingFile(relativeFile)) return [];
+  const aiRoutingFile = isAiRoutingFile(relativeFile);
   const sourceFile = parseSync(source, {
     filename: filePath,
     configFile: false,
@@ -212,24 +250,40 @@ function inspectAst(filePath, source) {
   for (let pass = 0; pass < declarations.length + 1; pass += 1) {
     let changed = false;
     for (const declaration of declarations) {
-      if (declaration.id?.type !== "Identifier" || !declaration.init) continue;
-      const value = staticString(declaration.init, bindings);
-      if (value !== undefined && bindings.get(declaration.id.name) !== value) {
-        bindings.set(declaration.id.name, value);
-        changed = true;
-      }
-      if (
-        containsProviderEnvironment(declaration.init, taintedBindings) &&
-        !taintedBindings.has(declaration.id.name)
-      ) {
-        taintedBindings.add(declaration.id.name);
-        changed = true;
-      }
-      if (
-        declaration.init.type === "MemberExpression" &&
-        propertyName(declaration.init, bindings) === "generate"
-      ) {
-        generateAliases.add(declaration.id.name);
+      if (!declaration.init) continue;
+      if (declaration.id?.type === "Identifier") {
+        const value = staticString(declaration.init, bindings);
+        if (value !== undefined && bindings.get(declaration.id.name) !== value) {
+          bindings.set(declaration.id.name, value);
+          changed = true;
+        }
+        if (
+          containsProviderEnvironment(declaration.init, taintedBindings) &&
+          !taintedBindings.has(declaration.id.name)
+        ) {
+          taintedBindings.add(declaration.id.name);
+          changed = true;
+        }
+        if (
+          declaration.init.type === "MemberExpression" &&
+          propertyName(declaration.init, bindings) === "generate" &&
+          isProviderBinding(declaration.init.object)
+        ) {
+          generateAliases.add(declaration.id.name);
+        }
+      } else if (declaration.id?.type === "ObjectPattern" && isProviderBinding(declaration.init)) {
+        for (const property of declaration.id.properties) {
+          if (
+            property.type === "ObjectProperty" &&
+            propertyName(
+              { type: "MemberExpression", computed: property.computed, property: property.key },
+              bindings,
+            ) === "generate" &&
+            property.value.type === "Identifier"
+          ) {
+            generateAliases.add(property.value.name);
+          }
+        }
       }
     }
     if (!changed) break;
@@ -237,6 +291,15 @@ function inspectAst(filePath, source) {
 
   const findings = [];
   const visit = (node) => {
+    if (
+      (node.type === "ImportDeclaration" ||
+        node.type === "ExportNamedDeclaration" ||
+        node.type === "ExportAllDeclaration") &&
+      node.source?.type === "StringLiteral"
+    ) {
+      const violation = inspectImport(filePath, node.source.value);
+      if (violation) findings.push(violation);
+    }
     if (node.type === "CallExpression" || node.type === "ImportExpression") {
       const callee = node.type === "CallExpression" ? node.callee : undefined;
       const arguments_ = node.type === "CallExpression" ? node.arguments : [node.source];
@@ -245,30 +308,42 @@ function inspectAst(filePath, source) {
       const directRequire = callee?.type === "Identifier" && callee.name === "require";
       if (directImport || directRequire) {
         const specifier = arguments_[0] ? staticString(arguments_[0], bindings) : undefined;
-        if (
-          specifier !== undefined &&
-          aiProviderPackages.some(
-            (packageName) => specifier === packageName || specifier.startsWith(`${packageName}/`),
-          )
-        ) {
-          findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:${specifier}`);
+        if (specifier !== undefined) {
+          const violation = inspectImport(filePath, specifier);
+          if (violation) findings.push(violation);
         }
       }
       if (
-        calledName === "generate" ||
-        (callee?.type === "Identifier" && generateAliases.has(callee.name))
+        (!aiRoutingFile && calledName === "generate" && isProviderBinding(callee?.object)) ||
+        (!aiRoutingFile && callee?.type === "Identifier" && generateAliases.has(callee.name))
       ) {
         findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:adapter.generate`);
       }
-      if (callee?.type === "Identifier" && callee.name === "fetch") {
+      if (!aiRoutingFile && callee?.type === "Identifier" && callee.name === "fetch") {
         const target = arguments_[0];
-        const staticTarget = target ? staticString(target, bindings) : undefined;
+        const staticTarget = target ? staticUrl(target, bindings) : undefined;
         if (
           target &&
           (containsProviderEnvironment(target, taintedBindings) ||
             (staticTarget !== undefined && directProviderRoutePattern.test(staticTarget)))
         ) {
-          findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:dynamic-provider-http`);
+          findings.push(
+            `BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:${staticTarget ?? "dynamic-provider-http"}`,
+          );
+        }
+      }
+    }
+    if (!aiRoutingFile && node.type === "ImportDeclaration") {
+      for (const specifier of node.specifiers) {
+        const imported = specifier.type === "ImportSpecifier" ? specifier.imported : undefined;
+        const importedName =
+          imported?.type === "Identifier"
+            ? imported.name
+            : imported?.type === "StringLiteral"
+              ? imported.value
+              : undefined;
+        if (["FakeAiProviderAdapter", "OpenAiCompatibleAdapter"].includes(importedName)) {
+          findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:public-adapter`);
         }
       }
     }
@@ -302,29 +377,7 @@ const violations = [];
 
 for (const filePath of files) {
   const source = await readFile(filePath, "utf8");
-  for (const match of source.matchAll(importPattern)) {
-    const specifier = match[1];
-    if (!specifier) {
-      continue;
-    }
-
-    const violation = inspectImport(filePath, specifier);
-    if (violation) {
-      violations.push(violation);
-    }
-  }
   violations.push(...inspectAst(filePath, source));
-  if (
-    !isAiRoutingFile(path.relative(repositoryRoot, filePath)) &&
-    (directProviderRoutePattern.test(source) ||
-      splitProviderRoutePattern.test(source) ||
-      directAdapterGeneratePattern.test(source) ||
-      publicAdapterPattern.test(source))
-  ) {
-    violations.push(
-      `BOUNDARY_DIRECT_AI_PROVIDER:${path.relative(repositoryRoot, filePath)}:chat/completions`,
-    );
-  }
 }
 
 if (violations.length > 0) {

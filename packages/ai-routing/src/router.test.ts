@@ -38,6 +38,7 @@ function repositoryFor(
     findActiveRoute,
     findOutputSchemaArtifact: async (query) => ({
       id: "00000000-0000-4000-8000-000000000020",
+      routeKey: query.routeKey,
       version: query.version,
       schemaHash: query.schemaHash,
     }),
@@ -345,10 +346,15 @@ describe("AI router output safety", () => {
       ],
     };
     const repository = {
-      findOutputSchemaArtifact: async (query: { version: string; schemaHash: string }) => {
+      findOutputSchemaArtifact: async (query: {
+        routeKey: string;
+        version: string;
+        schemaHash: string;
+      }) => {
         await delay(25);
         return {
           id: "00000000-0000-4000-8000-000000000020",
+          routeKey: query.routeKey,
           version: query.version,
           schemaHash: query.schemaHash,
         };
@@ -399,6 +405,51 @@ describe("AI router output safety", () => {
     expect(traces[0]).toMatchObject({ state: "failed", errorCategory: "timeout" });
   });
 
+  it("bounds atomic persistence and prevents a late callback from committing success", async () => {
+    const delay = (milliseconds: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+    const adapter = new FakeAiProviderAdapter("fake", "local", { supported: true });
+    const committedFeatureOutputs: string[] = [];
+    const traces: import("./contracts.js").AiRunTrace[] = [];
+    const router = new AiRouter(
+      repositoryFor(async () => resolvedRoute),
+      {
+        appendRunTrace: async (trace) => {
+          traces.push(trace);
+          return { id: `run-${traces.length}` };
+        },
+        commitSucceededRun: async (input) => {
+          const stagedFeatureOutputs: string[] = [];
+          const persisted = await input.persistValidatedOutput(stagedFeatureOutputs, input.output);
+          const signal = (input as typeof input & { signal?: AbortSignal }).signal;
+          if (signal?.aborted) throw new AiProviderError("timeout");
+          committedFeatureOutputs.push(...stagedFeatureOutputs);
+          const outputReference = OpaqueReferenceSchema.parse(persisted.outputReference);
+          const trace = input.buildTrace(outputReference);
+          traces.push(trace);
+          return { id: `run-${traces.length}`, outputReference };
+        },
+      },
+      [adapter],
+    );
+    const started = performance.now();
+
+    await expect(
+      router.run(
+        { ...request(z.object({ supported: z.boolean() }).strict()), timeoutMs: 25 },
+        async (transaction) => {
+          await delay(80);
+          (transaction as string[]).push("feature-output");
+          return { outputReference: "analysis:792" };
+        },
+      ),
+    ).rejects.toMatchObject({ code: "AI_RUN_PERSISTENCE_FAILED" });
+    expect(performance.now() - started).toBeLessThan(70);
+    await delay(90);
+    expect(committedFeatureOutputs).toEqual([]);
+    expect(traces).not.toContainEqual(expect.objectContaining({ state: "succeeded" }));
+  });
+
   it("validates authoritative invocation scope types before any provider side effect", async () => {
     const adapter = new FakeAiProviderAdapter("fake", "local", { supported: true });
     const repository = {
@@ -428,6 +479,29 @@ describe("AI router output safety", () => {
       ),
     ).rejects.toMatchObject({ code: "AI_RUN_SCOPE_INVALID" });
     expect(repository.validateInvocationScope).toHaveBeenCalledOnce();
+    expect(adapter.requests).toHaveLength(0);
+  });
+
+  it("rejects a schema artifact whose authoritative route key contradicts the request", async () => {
+    const adapter = new FakeAiProviderAdapter("fake", "local", { supported: true });
+    const repository = {
+      ...repositoryFor(async () => resolvedRoute),
+      findOutputSchemaArtifact: async (query: { version: string; schemaHash: string }) => ({
+        id: "00000000-0000-4000-8000-000000000020",
+        routeKey: "different.route",
+        version: query.version,
+        schemaHash: query.schemaHash,
+      }),
+    };
+    const router = new AiRouter(
+      repository,
+      { appendRunTrace: vi.fn(), commitSucceededRun: vi.fn() },
+      [adapter],
+    );
+
+    await expect(
+      router.run(request(z.object({ supported: z.boolean() }).strict()), vi.fn()),
+    ).rejects.toMatchObject({ code: "AI_SCHEMA_ARTIFACT_ROUTE_MISMATCH" });
     expect(adapter.requests).toHaveLength(0);
   });
 
@@ -513,6 +587,9 @@ describe("AI router output safety", () => {
     "rankedTeamMemberIds",
     "workerRanking",
     "personLeaderboardPosition",
+    "suggestedPerformanceLevel",
+    "staffRanking",
+    "contributorRank",
     "commitTotal",
     "numberOfCommits",
     "numUpdates",
@@ -537,6 +614,9 @@ describe("AI router output safety", () => {
     "projectStatus",
     "outputFormat",
     "leaderboardTitle",
+    "performanceLevelDescription",
+    "staffDirectory",
+    "contributorRole",
   ])("allows neutral field that contains only one protected token family: %s", (field) => {
     expect(() =>
       validateAiOutputSchema("evaluation.prepare", z.object({ [field]: z.string() })),
@@ -551,6 +631,9 @@ describe("AI router output safety", () => {
     { details: { rankedTeamMemberIds: ["employee:1"] } },
     { details: { numberOfCommits: 12 } },
     { details: { totalActivities: 20 } },
+    { details: { suggestedPerformanceLevel: "high" } },
+    { details: { staffRanking: 1 } },
+    { details: { contributorRank: 2 } },
   ])("quarantines protected compound fields inside dynamic output", async (output) => {
     const adapter = new FakeAiProviderAdapter("fake", "local", output);
     const { router } = harness(adapter);

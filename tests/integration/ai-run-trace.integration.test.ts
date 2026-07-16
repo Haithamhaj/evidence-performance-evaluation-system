@@ -71,7 +71,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
         reason: "Trust loopback for durable run trace tests",
         correlationId: crypto.randomUUID(),
       },
-      databaseWriter,
     );
     localTrustPolicy = { ...policy, allowedIp: "127.0.0.1" };
   });
@@ -96,7 +95,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
         reason: `Register ${modelKey} for durable trace verification`,
         correlationId: crypto.randomUUID(),
       },
-      databaseWriter,
     );
     await registerAuthorizedAiOutputSchema(
       client,
@@ -110,7 +108,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
         evaluationEvidenceReferences: ["ai-eval:00000000-0000-4000-8000-000000000303"],
         correlationId: crypto.randomUUID(),
       },
-      databaseWriter,
     );
     return changeAuthorizedAiRoute(
       client,
@@ -123,7 +120,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
         correlationId: crypto.randomUUID(),
         providers: [{ providerConfigId: provider.id }],
       },
-      databaseWriter,
     );
   }
 
@@ -331,6 +327,49 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
     ).resolves.toMatchObject({ state: "failed", errorCategory: "persistence" });
   });
 
+  it("times out atomic persistence and prevents late feature output or success trace commits", async () => {
+    const routeKey = `test.persistence-timeout.${crypto.randomUUID()}`;
+    await configure(routeKey, "model-persistence-timeout");
+    const repository = new PrismaAiRoutingRepository(client);
+    const router = new AiRouter(repository, repository, [
+      fakeAdapter({ summary: "validated but must roll back" }),
+    ]);
+    const correlationId = crypto.randomUUID();
+    const featureCorrelationId = crypto.randomUUID();
+    const delay = (milliseconds: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+    const started = performance.now();
+
+    await expect(
+      router.run(
+        { ...request(routeKey, correlationId), timeoutMs: 50 },
+        async (transaction: DatabaseTransaction) => {
+          await appendAuditEvent(transaction, {
+            eventType: "ai.feature.persisted",
+            actor: { kind: "human", id: administratorId },
+            effectiveSubjectId: administratorId,
+            scopeType: "system",
+            scopeId: systemScopeId,
+            targetType: "ai_feature_output",
+            targetId: administratorId,
+            correlationId: featureCorrelationId,
+            source: "worker",
+          });
+          await delay(150);
+          return { outputReference: "analysis:1005" };
+        },
+      ),
+    ).rejects.toMatchObject({ code: "AI_RUN_PERSISTENCE_FAILED" });
+    expect(performance.now() - started).toBeLessThan(110);
+    await delay(180);
+    await expect(
+      client.auditEvent.count({ where: { correlationId: featureCorrelationId } }),
+    ).resolves.toBe(0);
+    await expect(
+      client.aiRun.count({ where: { correlationId, state: "succeeded" } }),
+    ).resolves.toBe(0);
+  });
+
   it("allows multiple durable runs to share one request correlation ID", async () => {
     const routeKey = `test.shared-correlation.${crypto.randomUUID()}`;
     await configure(routeKey, "model-shared-correlation");
@@ -399,6 +438,40 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("durable AI run traces", () => {
         data: {
           ...copy,
           routeKey: "contradictory.route",
+          correlationId: crypto.randomUUID(),
+        } as never,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects an AiRun bound to an output-schema artifact from another route", async () => {
+    const routeKey = `test.schema-route-a.${crypto.randomUUID()}`;
+    const otherRouteKey = `test.schema-route-b.${crypto.randomUUID()}`;
+    await configure(routeKey, "model-schema-route-a");
+    await configure(otherRouteKey, "model-schema-route-b");
+    const repository = new PrismaAiRoutingRepository(client);
+    const router = new AiRouter(repository, repository, [
+      fakeAdapter({ summary: "schema route identity" }),
+    ]);
+    const correlationId = crypto.randomUUID();
+    await router.run(request(routeKey, correlationId), async () => ({
+      outputReference: "analysis:1006",
+    }));
+    const existing = await client.aiRun.findFirstOrThrow({ where: { correlationId } });
+    const otherArtifact = await client.aiOutputSchemaArtifact.findUniqueOrThrow({
+      where: { routeKey_version: { routeKey: otherRouteKey, version: "trace-output.v1" } },
+    });
+    const copy = { ...existing } as Partial<typeof existing>;
+    delete copy.id;
+    delete copy.createdAt;
+
+    await expect(
+      client.aiRun.create({
+        data: {
+          ...copy,
+          outputSchemaArtifactId: otherArtifact.id,
+          outputSchemaVersion: otherArtifact.version,
+          outputSchemaHash: otherArtifact.schemaHash,
           correlationId: crypto.randomUUID(),
         } as never,
       }),

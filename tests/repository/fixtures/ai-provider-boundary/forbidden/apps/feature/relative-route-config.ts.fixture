@@ -1,0 +1,3 @@
+import { changeAiRouteWithAudit } from "../../ai-routing/route-config.js";
+
+export const forbiddenRouteMutation = changeAiRouteWithAudit;

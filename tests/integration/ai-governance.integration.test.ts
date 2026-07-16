@@ -15,19 +15,16 @@ type GovernanceApi = Readonly<{
     client: DatabaseClient,
     principal: Principal,
     input: unknown,
-    writer?: AuditWriter,
   ): Promise<Readonly<{ id: string; policyKey: string; version: number }>>;
   registerAuthorizedAiProviderConfig(
     client: DatabaseClient,
     principal: Principal,
     input: unknown,
-    writer?: AuditWriter,
   ): Promise<Readonly<{ id: string; version: number }>>;
   registerAuthorizedAiOutputSchema(
     client: DatabaseClient,
     principal: Principal,
     input: unknown,
-    writer?: AuditWriter,
   ): Promise<Readonly<{ id: string; schemaHash: string }>>;
 }>;
 
@@ -77,6 +74,56 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
     correlationId: crypto.randomUUID(),
   });
 
+  async function withRejectedDurableAudit<T>(
+    correlationId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const suffix = correlationId.replaceAll("-", "");
+    const functionName = `reject_ai_governance_audit_${suffix}`;
+    const triggerName = `reject_ai_governance_audit_${suffix}`;
+    await client.$executeRawUnsafe(`
+      CREATE FUNCTION "${functionName}"() RETURNS trigger
+      LANGUAGE plpgsql AS $$
+      BEGIN
+        RAISE EXCEPTION 'test durable audit rejection';
+      END;
+      $$;
+      CREATE TRIGGER "${triggerName}"
+      BEFORE INSERT ON "AuditEvent"
+      FOR EACH ROW WHEN (NEW."correlationId" = '${correlationId}'::uuid)
+      EXECUTE FUNCTION "${functionName}"();
+    `);
+    try {
+      return await operation();
+    } finally {
+      await client.$executeRawUnsafe(`DROP TRIGGER "${triggerName}" ON "AuditEvent";`);
+      await client.$executeRawUnsafe(`DROP FUNCTION "${functionName}"();`);
+    }
+  }
+
+  it("cannot replace the protected composition's durable audit writer", async () => {
+    const input = policyInput(
+      `writer-injection-${crypto.randomUUID()}`,
+      "Ignore caller attempts to replace durable governance auditing",
+    );
+    const injectedWriter: AuditWriter = {
+      append: vi.fn().mockRejectedValue(new Error("caller-controlled audit writer executed")),
+    };
+
+    await expect(
+      Reflect.apply(governance.registerAuthorizedAiLocalTrustPolicy, undefined, [
+        client,
+        { userId: administratorId, active: true },
+        input,
+        injectedWriter,
+      ]),
+    ).resolves.toMatchObject({ policyKey: input.policyKey });
+    expect(injectedWriter.append).not.toHaveBeenCalled();
+    await expect(
+      client.auditEvent.count({ where: { correlationId: input.correlationId } }),
+    ).resolves.toBe(1);
+  });
+
   it("denies inactive and non-administrator policy registration before state or audit", async () => {
     const managerAttempt = policyInput(
       `manager-policy-${crypto.randomUUID()}`,
@@ -92,7 +139,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
         client,
         { userId: managerId, active: true },
         managerAttempt,
-        databaseWriter,
       ),
     ).rejects.toMatchObject({ code: "AUTHZ_ROLE_REQUIRED" });
     await expect(
@@ -100,7 +146,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
         client,
         { userId: administratorId, active: false },
         inactiveAttempt,
-        databaseWriter,
       ),
     ).rejects.toMatchObject({ code: "AUTHZ_INACTIVE" });
     await expect(
@@ -129,13 +174,11 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
         client,
         { userId: administratorId, active: true },
         first,
-        databaseWriter,
       ),
       governance.registerAuthorizedAiLocalTrustPolicy(
         client,
         { userId: administratorId, active: true },
         second,
-        databaseWriter,
       ),
     ]);
     const policies = await client.aiLocalTrustPolicy.findMany({
@@ -166,18 +209,15 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
   it("rolls back policy registration when its audit append fails", async () => {
     const policyKey = `rollback-policy-${crypto.randomUUID()}`;
     const input = policyInput(policyKey, "Policy registration must be inseparable from audit");
-    const failingWriter: AuditWriter = {
-      append: vi.fn().mockRejectedValue(new Error("audit unavailable")),
-    };
-
     await expect(
-      governance.registerAuthorizedAiLocalTrustPolicy(
-        client,
-        { userId: administratorId, active: true },
-        input,
-        failingWriter,
+      withRejectedDurableAudit(input.correlationId, () =>
+        governance.registerAuthorizedAiLocalTrustPolicy(
+          client,
+          { userId: administratorId, active: true },
+          input,
+        ),
       ),
-    ).rejects.toThrow("audit unavailable");
+    ).rejects.toThrow("test durable audit rejection");
     await expect(client.aiLocalTrustPolicy.count({ where: { policyKey } })).resolves.toBe(0);
   });
 
@@ -188,7 +228,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
       policyInput(`provider-policy-${crypto.randomUUID()}`, "Approve one on-prem provider host", [
         "10.20.30.40",
       ]),
-      databaseWriter,
     );
     const base = {
       providerKey: `provider-${crypto.randomUUID()}`,
@@ -207,14 +246,12 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
         client,
         { userId: administratorId, active: true },
         { ...base, endpoint: "http://10.20.30.40:8080/v1/" },
-        databaseWriter,
       ),
     ).rejects.toMatchObject({ code: "AI_ADAPTER_URL_INVALID" });
     const registered = await governance.registerAuthorizedAiProviderConfig(
       client,
       { userId: administratorId, active: true },
       { ...base, endpoint: "https://10.20.30.40:8443/v1/" },
-      databaseWriter,
     );
     const stored = await client.aiProviderConfig.findUniqueOrThrow({
       where: { id: registered.id },
@@ -235,7 +272,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
       policyInput(`constraint-policy-${crypto.randomUUID()}`, "Approve a DB constraint fixture", [
         "10.20.30.40",
       ]),
-      databaseWriter,
     );
 
     await expect(
@@ -277,13 +313,11 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
         client,
         { userId: administratorId, active: true },
         input,
-        databaseWriter,
       ),
       governance.registerAuthorizedAiOutputSchema(
         client,
         { userId: administratorId, active: true },
         secondInput,
-        databaseWriter,
       ),
     ]);
     expect(first.id).toBe(second.id);
@@ -313,25 +347,21 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("audited AI governance compositi
       evaluationEvidenceReferences: ["ai-eval:00000000-0000-4000-8000-000000000302"],
       correlationId: crypto.randomUUID(),
     };
-    const failingWriter: AuditWriter = {
-      append: vi.fn().mockRejectedValue(new Error("audit unavailable")),
-    };
-
     await expect(
-      governance.registerAuthorizedAiOutputSchema(
-        client,
-        { userId: administratorId, active: true },
-        base,
-        failingWriter,
+      withRejectedDurableAudit(base.correlationId, () =>
+        governance.registerAuthorizedAiOutputSchema(
+          client,
+          { userId: administratorId, active: true },
+          base,
+        ),
       ),
-    ).rejects.toThrow("audit unavailable");
+    ).rejects.toThrow("test durable audit rejection");
     await expect(client.aiOutputSchemaArtifact.count({ where: { routeKey } })).resolves.toBe(0);
     await expect(
       governance.registerAuthorizedAiOutputSchema(
         client,
         { userId: administratorId, active: true },
         { ...base, evaluationEvidenceReferences: [] },
-        databaseWriter,
       ),
     ).rejects.toThrow();
   });

@@ -49,12 +49,15 @@ export class AiRouter<TTransaction = unknown> {
     deadline: WholeRunDeadline,
     startedAt: Date,
   ): Promise<import("./contracts.js").ValidatedAiResult<TOutput>> {
+    deadline.assertActive();
     validateAiOutputSchema(input.routeKey, input.outputSchema);
+    deadline.assertActive();
     const schemaDescriptor = outputSchemaDescriptor(
       input.routeKey,
       input.outputSchemaVersion,
       input.outputSchema,
     );
+    deadline.assertActive();
     const schemaArtifact = await deadline.race(() =>
       this.routes.findOutputSchemaArtifact({
         routeKey: input.routeKey,
@@ -64,6 +67,13 @@ export class AiRouter<TTransaction = unknown> {
     );
     if (schemaArtifact === null) {
       throw new AppError("AI_SCHEMA_ARTIFACT_NOT_FOUND", "errors.ai.schemaArtifactNotFound", 500);
+    }
+    if (schemaArtifact.routeKey !== input.routeKey) {
+      throw new AppError(
+        "AI_SCHEMA_ARTIFACT_ROUTE_MISMATCH",
+        "errors.ai.schemaArtifactRouteMismatch",
+        500,
+      );
     }
     const invocationScope = {
       ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
@@ -148,7 +158,9 @@ export class AiRouter<TTransaction = unknown> {
         continue;
       }
 
-      const validation = validateAiOutput(input.routeKey, input.outputSchema, result.output);
+      const validation = await deadline.race(async () =>
+        validateAiOutput(input.routeKey, input.outputSchema, result.output),
+      );
       if (!validation.valid) {
         fallbackChain.push({
           providerKey: provider.providerKey,
@@ -182,54 +194,62 @@ export class AiRouter<TTransaction = unknown> {
         outputReference: import("./contracts.js").OpaqueReference;
       }>;
       try {
-        run = await this.traces.commitSucceededRun({
-          output: validation.output,
-          persistValidatedOutput: async (transaction, output) => {
-            const persisted = await persistValidatedOutput(transaction, output);
-            const parsed = OpaqueReferenceSchema.safeParse(persisted.outputReference);
-            if (!parsed.success) {
-              throw new AppError(
-                "AI_OUTPUT_REFERENCE_INVALID",
-                "errors.ai.outputReferenceInvalid",
-                500,
-              );
-            }
-            return { outputReference: parsed.data };
-          },
-          buildTrace: (outputReference) =>
-            this.createTrace(
-              input,
-              schemaArtifact,
-              route,
-              provider,
-              startedAt,
-              fallbackChain,
-              "succeeded",
-              null,
-              outputReference,
-              sanitizeUsage(result.usage),
-              sanitizeCost(result.costUsd),
-              [],
-            ),
-        });
+        run = await deadline.race(() =>
+          this.traces.commitSucceededRun({
+            output: validation.output,
+            persistValidatedOutput: async (transaction, output) => {
+              const persisted = await persistValidatedOutput(transaction, output);
+              const parsed = OpaqueReferenceSchema.safeParse(persisted.outputReference);
+              if (!parsed.success) {
+                throw new AppError(
+                  "AI_OUTPUT_REFERENCE_INVALID",
+                  "errors.ai.outputReferenceInvalid",
+                  500,
+                );
+              }
+              return { outputReference: parsed.data };
+            },
+            buildTrace: (outputReference) =>
+              this.createTrace(
+                input,
+                schemaArtifact,
+                route,
+                provider,
+                startedAt,
+                fallbackChain,
+                "succeeded",
+                null,
+                outputReference,
+                sanitizeUsage(result.usage),
+                sanitizeCost(result.costUsd),
+                [],
+              ),
+            signal: deadline.signal,
+            timeoutMs: deadline.remainingMs(),
+          }),
+        );
       } catch (error) {
-        try {
-          await this.appendTrace(
-            input,
-            schemaArtifact,
-            route,
-            provider,
-            startedAt,
-            fallbackChain,
-            "failed",
-            "persistence",
-            null,
-            null,
-            null,
-            [],
-          );
-        } catch {
-          // Durable storage is unavailable; return only a sanitized application error.
+        if (!deadline.signal.aborted) {
+          try {
+            await deadline.race(() =>
+              this.appendTrace(
+                input,
+                schemaArtifact,
+                route,
+                provider,
+                startedAt,
+                fallbackChain,
+                "failed",
+                "persistence",
+                null,
+                null,
+                null,
+                [],
+              ),
+            );
+          } catch {
+            // The success transaction rolled back; return only a sanitized application error.
+          }
         }
         if (error instanceof AppError && error.code === "AI_OUTPUT_REFERENCE_INVALID") throw error;
         throw new AppError("AI_RUN_PERSISTENCE_FAILED", "errors.ai.runPersistenceFailed", 500);
@@ -247,7 +267,7 @@ export class AiRouter<TTransaction = unknown> {
 
   private async failRun<TInput, TOutput>(
     input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
-    schemaArtifact: Readonly<{ id: string; version: string; schemaHash: string }>,
+    schemaArtifact: Readonly<{ id: string; routeKey: string; version: string; schemaHash: string }>,
     route: import("./contracts.js").ResolvedRoute,
     provider: import("./contracts.js").ResolvedRoute["providers"][number],
     startedAt: Date,
@@ -273,7 +293,7 @@ export class AiRouter<TTransaction = unknown> {
 
   private appendTrace<TInput, TOutput>(
     input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
-    schemaArtifact: Readonly<{ id: string; version: string; schemaHash: string }>,
+    schemaArtifact: Readonly<{ id: string; routeKey: string; version: string; schemaHash: string }>,
     route: import("./contracts.js").ResolvedRoute,
     provider: import("./contracts.js").ResolvedRoute["providers"][number],
     startedAt: Date,
@@ -305,7 +325,7 @@ export class AiRouter<TTransaction = unknown> {
 
   private createTrace<TInput, TOutput>(
     input: import("./contracts.js").AiRunRequest<TInput, TOutput>,
-    schemaArtifact: Readonly<{ id: string; version: string; schemaHash: string }>,
+    schemaArtifact: Readonly<{ id: string; routeKey: string; version: string; schemaHash: string }>,
     route: import("./contracts.js").ResolvedRoute,
     provider: import("./contracts.js").ResolvedRoute["providers"][number],
     startedAt: Date,
@@ -383,7 +403,9 @@ class WholeRunDeadline {
       timeout = setTimeout(() => this.abort(), remaining);
     });
     try {
-      return await Promise.race([operation, expired]);
+      const result = await Promise.race([operation, expired]);
+      this.assertActive();
+      return result;
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);
       if (abortListener !== undefined) this.signal.removeEventListener("abort", abortListener);
@@ -393,6 +415,18 @@ class WholeRunDeadline {
 
   dispose(): void {
     this.abort();
+  }
+
+  remainingMs(): number {
+    this.assertActive();
+    return Math.max(1, Math.ceil(this.expiresAt - performance.now()));
+  }
+
+  assertActive(): void {
+    if (this.expiresAt - performance.now() <= 0 || this.signal.aborted) {
+      this.abort();
+      throw new AiProviderError("timeout");
+    }
   }
 
   private abort(): void {

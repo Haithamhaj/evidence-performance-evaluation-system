@@ -311,7 +311,7 @@ CREATE INDEX "AiProviderConfig_providerKey_version_idx" ON "AiProviderConfig"("p
 CREATE INDEX "AiProviderConfig_createdById_createdAt_idx" ON "AiProviderConfig"("createdById", "createdAt");
 CREATE INDEX "AiProviderConfig_localTrustPolicyId_localTrustPolicyVersion_idx" ON "AiProviderConfig"("localTrustPolicyId", "localTrustPolicyVersion", "localTrustAllowedIp");
 CREATE UNIQUE INDEX "AiOutputSchemaArtifact_routeKey_version_key" ON "AiOutputSchemaArtifact"("routeKey", "version");
-CREATE UNIQUE INDEX "AiOutputSchemaArtifact_id_version_schemaHash_key" ON "AiOutputSchemaArtifact"("id", "version", "schemaHash");
+CREATE UNIQUE INDEX "AiOutputSchemaArtifact_id_routeKey_version_schemaHash_key" ON "AiOutputSchemaArtifact"("id", "routeKey", "version", "schemaHash");
 CREATE INDEX "AiOutputSchemaArtifact_schemaHash_idx" ON "AiOutputSchemaArtifact"("schemaHash");
 CREATE INDEX "AiOutputSchemaArtifact_createdById_createdAt_idx" ON "AiOutputSchemaArtifact"("createdById", "createdAt");
 CREATE UNIQUE INDEX "AiRoute_routeKey_level_scopeId_key" ON "AiRoute"("routeKey", "level", "scopeId");
@@ -362,9 +362,9 @@ ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_projectScopeId_projectScopeType_fkey"
 FOREIGN KEY ("projectScopeId", "projectScopeType") REFERENCES "AuthorizationScope"("id", "scopeType") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_departmentScopeId_departmentScopeType_fkey"
 FOREIGN KEY ("departmentScopeId", "departmentScopeType") REFERENCES "AuthorizationScope"("id", "scopeType") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_outputSchemaArtifactId_outputSchemaVersion_outputSch_fkey"
-FOREIGN KEY ("outputSchemaArtifactId", "outputSchemaVersion", "outputSchemaHash")
-REFERENCES "AiOutputSchemaArtifact"("id", "version", "schemaHash") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_outputSchemaArtifactId_routeKey_outputSchemaVersion__fkey"
+FOREIGN KEY ("outputSchemaArtifactId", "routeKey", "outputSchemaVersion", "outputSchemaHash")
+REFERENCES "AiOutputSchemaArtifact"("id", "routeKey", "version", "schemaHash") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "AiOutputSchemaArtifact" ADD CONSTRAINT "AiOutputSchemaArtifact_createdById_fkey"
 FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 

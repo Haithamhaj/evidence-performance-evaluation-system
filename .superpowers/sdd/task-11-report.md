@@ -11,7 +11,61 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Required commit subject: `feat: implement provider-neutral ai router`
 - Review remediation commit subject: `fix: harden ai router security boundaries`
 - Fresh re-review remediation commit subject: `fix: close ai router governance gaps`
+- Final review remediation commit subject: `fix: complete ai router safety boundaries`
 - Push: prohibited and not attempted
+
+## Final review remediation
+
+The final review at `.superpowers/sdd/task-11-final-review.md` identified one critical and four important issues. Each behavioral gap was reproduced before implementation changes.
+
+### Final review RED evidence
+
+1. Protected output aliases
+   - AI-routing package: 104 tests executed; 6 failed and 98 passed.
+   - The failures reproduced static and recursive `suggestedPerformanceLevel`, `staffRanking`, and `contributorRank` bypasses while retaining neutral-field controls.
+
+2. Governance mutation reachability and audit ownership
+   - Governance integration: 10 tests executed; 1 failed and 9 passed.
+   - A malicious fourth argument could replace the durable audit writer and execute caller-controlled logic.
+   - Repository-boundary tests both failed while reproducing relative imports of the raw governance composition/configuration modules and scanner false positives for unrelated generators.
+
+3. Whole-run deadline
+   - AI-routing package: 105 tests executed; 1 failed and 104 passed because a slow persistence callback returned success after the deadline.
+   - Live database verification: 1 test failed because a callback could write feature state, wait beyond the deadline, and still commit with a succeeded run trace.
+
+4. Route-bound schema identity
+   - AI-routing package: 106 tests executed; 1 failed and 105 passed because a repository could return an artifact owned by a different route and provider execution still began.
+   - Live database verification: 1 test failed because an `AiRun` could bind one route to another route's otherwise valid schema artifact.
+
+5. AST provider boundary precision
+   - The prohibited-fixture case failed because destructured provider `generate` calls were missed, while the allowed-fixture case failed because unrelated `.generate()` calls and provider-like comments were treated as production calls.
+   - A final focused RED case confirmed that a commented-out provider import was also incorrectly treated as a real import.
+
+### Final review changes
+
+- Expanded protected output-name detection to token-aware performance-level suggestions and staff/contributor ranking aliases in both schema inspection and recursive runtime validation.
+- Removed caller injection of governance audit writers. Protected API operations now construct one fixed database-backed writer, derive the live principal server-side, and expose only `(client, principal, input)` helper signatures.
+- Folded raw route/schema mutation logic into the protected governance composition, deleted the separately importable route-config module, and added AST-enforced restrictions on both package and relative imports of governance internals.
+- Extended the one whole-run deadline through response validation and the authoritative feature-persistence/success-trace transaction. The repository receives the abort signal and remaining budget, uses a bounded interactive transaction, and checks cancellation before state writes and before returning success.
+- Bound every run to an output artifact owned by the same route in both runtime validation and the database composite foreign key.
+- Reworked provider enforcement to use parsed imports/calls instead of raw-source import matching. It detects destructured and aliased provider generation while accepting neutral generators and ignoring comments that resemble calls, URLs, or imports.
+
+### Final review GREEN evidence
+
+1. Focused router, governance, and boundary verification
+   - AI-routing package: 106/106 tests passed.
+   - Final provider-boundary focused run: 2/2 tests passed.
+   - Governance, route audit, run trace, protected API composition, and repository boundaries: 10 files and 175/175 tests passed.
+
+2. Full integration verification
+   - `pnpm test:integration`: 15 files and 117/117 tests passed.
+
+3. Migration verification
+   - `pnpm db:verify`: empty database, previous 0005 snapshot upgrade, drift detection, and rebuild equivalence all passed; the included database integration set passed 12/12.
+
+4. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 229 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 250/250 tests; forced build 14/14.
 
 ## Fresh re-review remediation
 
@@ -213,7 +267,7 @@ The tests also cover project > department > system precedence, no lower-scope by
 - Live provider credentials and deployment-specific endpoints are deliberately not configured in this task; the adapter contract and security boundary are tested with controlled HTTP doubles.
 - Deployment must register and audit an immutable local trust policy before a local provider can be configured; non-loopback local endpoints still require HTTPS.
 - T012 remains responsible for model-quality evaluation fixtures, including Arabic and dialect behavior. T011 enforces structural and protected-output policy, not model quality.
-- Independent re-review of the remediation is still required before merge.
+- Independent verification of the final remediation commit is still required before merge.
 
 ## Project-state effect
 

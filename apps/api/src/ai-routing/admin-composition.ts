@@ -5,22 +5,16 @@ import {
   outputSchemaDescriptor,
   safeEndpoint,
 } from "@evaluation/ai-routing";
+import { databaseAuditWriter } from "@evaluation/audit";
 import { AppError } from "@evaluation/contracts";
 import { decide } from "@evaluation/permissions";
 import { z } from "zod";
-
-import {
-  AiRouteChangeSchema,
-  changeAiRouteWithAudit,
-  type AiRouteChangeRequest,
-} from "./route-config.js";
 
 type DatabaseClient = ReturnType<typeof import("@evaluation/database").createDatabaseClient>;
 type DatabaseTransaction = Parameters<Parameters<DatabaseClient["$transaction"]>[0]>[0];
 type AuditWriter = import("@evaluation/contracts").AuditWriter<DatabaseTransaction>;
 
 export type AiGovernancePrincipal = Readonly<{ userId: string; active: boolean }>;
-export type { AiRouteChangeRequest };
 
 export type AiGovernanceComposition = Readonly<{
   registerLocalTrustPolicy(
@@ -53,6 +47,31 @@ const key = z
   .max(100)
   .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/u)
   .refine((value) => value === value.trim());
+
+const AiRouteChangeSchema = z
+  .object({
+    routeKey: z
+      .string()
+      .min(1)
+      .max(200)
+      .regex(/^[a-z0-9]+(?:[.-][a-z0-9-]+)*$/u),
+    level: z.enum(["project", "department", "system"]),
+    scopeId: z.string().uuid(),
+    reason: trimmedReason,
+    correlationId,
+    providers: z
+      .array(z.object({ providerConfigId: z.string().uuid() }).strict())
+      .min(1)
+      .max(10)
+      .refine(
+        (providers) =>
+          new Set(providers.map(({ providerConfigId }) => providerConfigId)).size ===
+          providers.length,
+      ),
+  })
+  .strict();
+
+type AiRouteChangeRequest = Readonly<z.infer<typeof AiRouteChangeSchema>>;
 
 const LocalTrustPolicySchema = z
   .object({
@@ -127,10 +146,8 @@ const OutputSchemaRegistrationSchema = z
   })
   .strict();
 
-export function createAiGovernanceComposition(
-  client: DatabaseClient,
-  writer: AuditWriter,
-): AiGovernanceComposition {
+export function createAiGovernanceComposition(client: DatabaseClient): AiGovernanceComposition {
+  const writer = databaseAuditWriter as AuditWriter;
   return {
     registerLocalTrustPolicy: (principal: AiGovernancePrincipal, input: unknown) =>
       registerLocalTrustPolicy(client, writer, principal, input),
@@ -341,18 +358,110 @@ async function changeRoute(
   principal: AiGovernancePrincipal,
   input: unknown,
 ) {
-  return changeAiRouteWithAudit(
-    client,
-    input,
-    { actorId: principal.userId, effectiveSubjectId: principal.userId, source: "api" },
-    writer,
-    async (transaction, parsed) => {
-      await authorizeSystemAdministrator(transaction, principal);
-      if (parsed.actorId !== principal.userId || parsed.effectiveSubjectId !== principal.userId) {
-        throw authorizationError("SCOPE_MISMATCH");
-      }
+  const parsed = AiRouteChangeSchema.parse(input);
+  return serializable(client, async (transaction) => {
+    await authorizeSystemAdministrator(transaction, principal);
+    return changeRouteInTransaction(transaction, writer, principal.userId, parsed);
+  });
+}
+
+async function changeRouteInTransaction(
+  transaction: DatabaseTransaction,
+  writer: AuditWriter,
+  administratorId: string,
+  input: AiRouteChangeRequest,
+) {
+  const scope = await transaction.authorizationScope.findUnique({
+    where: { id_scopeType: { id: input.scopeId, scopeType: input.level } },
+    select: { id: true },
+  });
+  if (scope === null) {
+    throw new AppError("AI_ROUTE_SCOPE_INVALID", "errors.ai.routeScopeInvalid", 400);
+  }
+  const providerConfigs = await transaction.aiProviderConfig.findMany({
+    where: { id: { in: input.providers.map(({ providerConfigId }) => providerConfigId) } },
+  });
+  const providersById = new Map(providerConfigs.map((provider) => [provider.id, provider]));
+  const orderedProviders = input.providers.map(({ providerConfigId }) => {
+    const provider = providersById.get(providerConfigId);
+    if (provider === undefined) {
+      throw new AppError("AI_PROVIDER_CONFIG_INVALID", "errors.ai.providerConfigInvalid", 400);
+    }
+    return provider;
+  });
+
+  let route = await transaction.aiRoute.findUnique({
+    where: {
+      routeKey_level_scopeId: {
+        routeKey: input.routeKey,
+        level: input.level,
+        scopeId: input.scopeId,
+      },
     },
-  );
+    select: { id: true },
+  });
+  route ??= await transaction.aiRoute.create({
+    data: { routeKey: input.routeKey, level: input.level, scopeId: input.scopeId },
+    select: { id: true },
+  });
+  const previous = await transaction.aiRouteConfig.findFirst({
+    where: { routeId: route.id },
+    orderBy: { version: "desc" },
+    include: { providers: { orderBy: { position: "asc" }, include: { providerConfig: true } } },
+  });
+  const version = (previous?.version ?? 0) + 1;
+  const config = await transaction.aiRouteConfig.create({
+    data: {
+      routeId: route.id,
+      version,
+      reason: input.reason,
+      createdById: administratorId,
+      providers: {
+        create: orderedProviders.map((provider, position) => ({
+          position,
+          providerConfigId: provider.id,
+          providerConfigVersion: provider.version,
+        })),
+      },
+    },
+    include: { providers: { orderBy: { position: "asc" }, include: { providerConfig: true } } },
+  });
+  const snapshot = (value: typeof config | typeof previous) =>
+    value === null
+      ? null
+      : {
+          configId: value.id,
+          version: value.version,
+          providers: value.providers.map(({ providerConfig }) => ({
+            providerConfigId: providerConfig.id,
+            providerConfigVersion: providerConfig.version,
+            providerKey: providerConfig.providerKey,
+            modelKey: providerConfig.modelKey,
+            locality: providerConfig.locality,
+          })),
+        };
+  await writer.append(transaction, {
+    eventType: "ai.route.changed",
+    actor: { kind: "human", id: administratorId },
+    effectiveSubjectId: administratorId,
+    scopeType: input.level,
+    scopeId: input.scopeId,
+    targetType: "ai_route_config",
+    targetId: config.id,
+    reason: input.reason,
+    safeDiff: {
+      routeKey: input.routeKey,
+      routeLevel: input.level,
+      affectedDataType: input.routeKey.split(".")[0] ?? input.routeKey,
+      administratorId,
+      effectiveAt: config.createdAt.toISOString(),
+      previous: snapshot(previous),
+      next: snapshot(config),
+    },
+    correlationId: input.correlationId,
+    source: "api",
+  });
+  return { routeId: route.id, configId: config.id, configVersion: version };
 }
 
 async function authorizeSystemAdministrator(

@@ -1,7 +1,12 @@
 import { AppError } from "@evaluation/contracts";
 import { z } from "zod";
 
-import { OpaqueReferenceSchema, RouteKeySchema, VersionReferenceSchema } from "./contracts.js";
+import {
+  AiProviderError,
+  OpaqueReferenceSchema,
+  RouteKeySchema,
+  VersionReferenceSchema,
+} from "./contracts.js";
 
 type DatabaseClient = ReturnType<typeof import("@evaluation/database").createDatabaseClient>;
 type DatabaseTransaction = Parameters<Parameters<DatabaseClient["$transaction"]>[0]>[0];
@@ -105,7 +110,7 @@ export class PrismaAiRoutingRepository {
     return this.client.aiOutputSchemaArtifact
       .findUnique({
         where: { routeKey_version: { routeKey: query.routeKey, version: query.version } },
-        select: { id: true, version: true, schemaHash: true },
+        select: { id: true, routeKey: true, version: true, schemaHash: true },
       })
       .then((artifact) => (artifact?.schemaHash === query.schemaHash ? artifact : null));
   }
@@ -126,15 +131,28 @@ export class PrismaAiRoutingRepository {
       buildTrace(
         outputReference: import("./contracts.js").OpaqueReference,
       ): import("./contracts.js").AiRunTrace;
+      signal: AbortSignal;
+      timeoutMs: number;
     }>,
   ): Promise<Readonly<{ id: string; outputReference: import("./contracts.js").OpaqueReference }>> {
-    return this.client.$transaction(async (transaction) => {
-      const persisted = await input.persistValidatedOutput(transaction, input.output);
-      const outputReference = OpaqueReferenceSchema.parse(persisted.outputReference);
-      const run = await appendRunTrace(transaction, input.buildTrace(outputReference));
-      return { id: run.id, outputReference };
-    });
+    assertNotAborted(input.signal);
+    return this.client.$transaction(
+      async (transaction) => {
+        assertNotAborted(input.signal);
+        const persisted = await input.persistValidatedOutput(transaction, input.output);
+        assertNotAborted(input.signal);
+        const outputReference = OpaqueReferenceSchema.parse(persisted.outputReference);
+        const run = await appendRunTrace(transaction, input.buildTrace(outputReference));
+        assertNotAborted(input.signal);
+        return { id: run.id, outputReference };
+      },
+      { timeout: Math.max(1, Math.ceil(input.timeoutMs)) },
+    );
   }
+}
+
+function assertNotAborted(signal: AbortSignal): void {
+  if (signal.aborted) throw new AiProviderError("timeout");
 }
 
 interface RunPersistence {

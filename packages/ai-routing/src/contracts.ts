@@ -83,7 +83,12 @@ export interface RouteRepository {
       version: string;
       schemaHash: string;
     }>,
-  ): Promise<Readonly<{ id: string; version: string; schemaHash: string }> | null>;
+  ): Promise<Readonly<{
+    id: string;
+    routeKey: string;
+    version: string;
+    schemaHash: string;
+  }> | null>;
 }
 
 export type ProviderRequest = Readonly<{
@@ -189,6 +194,8 @@ export interface RunTraceRepository<TTransaction = unknown> {
       output: T;
       persistValidatedOutput: PersistValidatedOutput<T, TTransaction>;
       buildTrace(outputReference: OpaqueReference): AiRunTrace;
+      signal: AbortSignal;
+      timeoutMs: number;
     }>,
   ): Promise<Readonly<{ id: string; outputReference: OpaqueReference }>>;
 }

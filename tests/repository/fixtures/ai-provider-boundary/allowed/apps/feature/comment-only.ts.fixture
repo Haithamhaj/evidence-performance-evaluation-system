@@ -1,0 +1,4 @@
+// A review note may mention adapter.generate({ protected: true }) without executing it.
+// It may also mention https://provider.invalid/v1/chat/completions as plain documentation.
+// import OpenAI from "openai" is an example of an import that is not actually present.
+export const note = "No provider execution occurs here";

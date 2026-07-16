@@ -373,7 +373,7 @@ model AiOutputSchemaArtifact {
   createdAt                    DateTime @default(now()) @db.Timestamptz(6)
 
   @@unique([routeKey, version])
-  @@unique([id, version, schemaHash])
+  @@unique([id, routeKey, version, schemaHash])
   @@index([schemaHash])
   @@index([createdById, createdAt])
 }
@@ -404,7 +404,7 @@ model AiRun {
   outputSchemaVersion    String
   outputSchemaArtifactId String                 @db.Uuid
   outputSchemaHash       String
-  outputSchemaArtifact   AiOutputSchemaArtifact @relation(fields: [outputSchemaArtifactId, outputSchemaVersion, outputSchemaHash], references: [id, version, schemaHash], onDelete: Restrict)
+  outputSchemaArtifact   AiOutputSchemaArtifact @relation(fields: [outputSchemaArtifactId, routeKey, outputSchemaVersion, outputSchemaHash], references: [id, routeKey, version, schemaHash], onDelete: Restrict)
   promptTemplateVersion  String
   sourceReferences       Json
   outputReference        String?

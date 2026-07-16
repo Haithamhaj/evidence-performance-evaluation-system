@@ -6,7 +6,7 @@ import {
   registerAuthorizedAiLocalTrustPolicy,
   registerAuthorizedAiProviderConfig,
 } from "../../apps/api/src/ai-routing/ai-routing.module.js";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 type DatabaseClient = ReturnType<typeof createDatabaseClient>;
 type DatabaseTransaction = Parameters<Parameters<DatabaseClient["$transaction"]>[0]>[0];
@@ -51,7 +51,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
         reason: "Trust loopback for route integration tests",
         correlationId: crypto.randomUUID(),
       },
-      databaseWriter,
     );
     localProviderConfigId = (
       await registerAuthorizedAiProviderConfig(
@@ -69,7 +68,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
           reason: "Register local integration-test provider",
           correlationId: crypto.randomUUID(),
         },
-        databaseWriter,
       )
     ).id;
     externalProviderConfigId = (
@@ -85,7 +83,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
           reason: "Register external integration-test provider",
           correlationId: crypto.randomUUID(),
         },
-        databaseWriter,
       )
     ).id;
   });
@@ -108,13 +105,35 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     };
   }
 
-  function applyChange(input: unknown, writer: AuditWriter<DatabaseTransaction> = databaseWriter) {
-    return changeAuthorizedAiRoute(
-      client,
-      { userId: administratorId, active: true },
-      input,
-      writer,
-    );
+  function applyChange(input: unknown) {
+    return changeAuthorizedAiRoute(client, { userId: administratorId, active: true }, input);
+  }
+
+  async function withRejectedDurableAudit<T>(
+    correlationId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const suffix = correlationId.replaceAll("-", "");
+    const functionName = `reject_ai_route_audit_${suffix}`;
+    const triggerName = `reject_ai_route_audit_${suffix}`;
+    await client.$executeRawUnsafe(`
+      CREATE FUNCTION "${functionName}"() RETURNS trigger
+      LANGUAGE plpgsql AS $$
+      BEGIN
+        RAISE EXCEPTION 'test durable audit rejection';
+      END;
+      $$;
+      CREATE TRIGGER "${triggerName}"
+      BEFORE INSERT ON "AuditEvent"
+      FOR EACH ROW WHEN (NEW."correlationId" = '${correlationId}'::uuid)
+      EXECUTE FUNCTION "${functionName}"();
+    `);
+    try {
+      return await operation();
+    } finally {
+      await client.$executeRawUnsafe(`DROP TRIGGER "${triggerName}" ON "AuditEvent";`);
+      await client.$executeRawUnsafe(`DROP FUNCTION "${functionName}"();`);
+    }
   }
 
   it.each(["", "  ", "ab", ` ${"a".repeat(3)}`, `${"a".repeat(3)} `, "a".repeat(501)])(
@@ -166,11 +185,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
   it("rolls back both a new route and configuration version when audit append fails", async () => {
     const routeKey = `test.atomic-failure.${crypto.randomUUID()}`;
     const request = change(routeKey, "Route change with unavailable audit writer");
-    const failingWriter: AuditWriter<DatabaseTransaction> = {
-      append: vi.fn().mockRejectedValue(new Error("audit unavailable")),
-    };
-
-    await expect(applyChange(request, failingWriter)).rejects.toThrow("audit unavailable");
+    await expect(
+      withRejectedDurableAudit(request.correlationId, () => applyChange(request)),
+    ).rejects.toThrow("test durable audit rejection");
     await expect(client.aiRoute.count({ where: { routeKey } })).resolves.toBe(0);
     await expect(
       client.auditEvent.count({ where: { correlationId: request.correlationId } }),
@@ -180,13 +197,11 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
   it("rolls back only the attempted next version when audit append fails", async () => {
     const routeKey = `test.version-rollback.${crypto.randomUUID()}`;
     await applyChange(change(routeKey, "Initial safe route configuration"));
-    const failingWriter: AuditWriter<DatabaseTransaction> = {
-      append: vi.fn().mockRejectedValue(new Error("audit unavailable")),
-    };
+    const attempted = change(routeKey, "Attempted second route configuration");
 
     await expect(
-      applyChange(change(routeKey, "Attempted second route configuration"), failingWriter),
-    ).rejects.toThrow("audit unavailable");
+      withRejectedDurableAudit(attempted.correlationId, () => applyChange(attempted)),
+    ).rejects.toThrow("test durable audit rejection");
 
     const route = await client.aiRoute.findFirstOrThrow({ where: { routeKey } });
     await expect(
@@ -269,7 +284,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
           reason: "Attempt to mislabel remote provider as local",
           correlationId: crypto.randomUUID(),
         },
-        databaseWriter,
       ),
     ).rejects.toMatchObject({ code: "AI_ADAPTER_URL_INVALID" });
     await expect(client.aiProviderConfig.count({ where: { providerKey } })).resolves.toBe(0);
@@ -280,7 +294,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
     const request = change(routeKey, "Unauthorized manager route change attempt");
 
     await expect(
-      changeAuthorizedAiRoute(client, { userId: managerId, active: true }, request, databaseWriter),
+      changeAuthorizedAiRoute(client, { userId: managerId, active: true }, request),
     ).rejects.toMatchObject({ code: "AUTHZ_ROLE_REQUIRED", status: 403 });
     await expect(client.aiRoute.count({ where: { routeKey } })).resolves.toBe(0);
     await expect(
@@ -297,7 +311,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("transactionally audited AI rout
       client,
       { userId: administratorId, active: true },
       clientInput,
-      databaseWriter,
     );
     const audit = await client.auditEvent.findFirstOrThrow({
       where: { targetId: result.configId },

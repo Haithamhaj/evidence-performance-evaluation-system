@@ -1,6 +1,5 @@
 import { Body, Controller, Inject, Injectable, Module, Post, Req, UseGuards } from "@nestjs/common";
 
-import { databaseAuditWriter } from "@evaluation/audit";
 import type { AuthenticatedPrincipal } from "@evaluation/auth";
 import { AppError } from "@evaluation/contracts";
 import { createDatabaseClient } from "@evaluation/database";
@@ -10,7 +9,6 @@ import { AuthModule } from "../auth/auth.module.js";
 import { createAiGovernanceComposition } from "./admin-composition.js";
 
 type DatabaseClient = ReturnType<typeof createDatabaseClient>;
-type DatabaseTransaction = Parameters<Parameters<DatabaseClient["$transaction"]>[0]>[0];
 type RoutePrincipal = Pick<AuthenticatedPrincipal, "active" | "userId">;
 
 export const AI_ROUTING_DATABASE = Symbol("AI_ROUTING_DATABASE");
@@ -27,36 +25,32 @@ export async function changeAuthorizedAiRoute(
   client: DatabaseClient,
   principal: RoutePrincipal,
   input: unknown,
-  writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
 ) {
-  return createAiGovernanceComposition(client, writer).changeRoute(principal, input);
+  return createAiGovernanceComposition(client).changeRoute(principal, input);
 }
 
 export function registerAuthorizedAiLocalTrustPolicy(
   client: DatabaseClient,
   principal: RoutePrincipal,
   input: unknown,
-  writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
 ) {
-  return createAiGovernanceComposition(client, writer).registerLocalTrustPolicy(principal, input);
+  return createAiGovernanceComposition(client).registerLocalTrustPolicy(principal, input);
 }
 
 export function registerAuthorizedAiProviderConfig(
   client: DatabaseClient,
   principal: RoutePrincipal,
   input: unknown,
-  writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
 ) {
-  return createAiGovernanceComposition(client, writer).registerProviderConfig(principal, input);
+  return createAiGovernanceComposition(client).registerProviderConfig(principal, input);
 }
 
 export function registerAuthorizedAiOutputSchema(
   client: DatabaseClient,
   principal: RoutePrincipal,
   input: unknown,
-  writer: import("@evaluation/contracts").AuditWriter<DatabaseTransaction> = databaseAuditWriter,
 ) {
-  return createAiGovernanceComposition(client, writer).registerOutputSchema(principal, input);
+  return createAiGovernanceComposition(client).registerOutputSchema(principal, input);
 }
 
 export class ManagedAiRoutingDatabase {
