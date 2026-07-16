@@ -18,7 +18,49 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Seventh review remediation commit subject: `fix: close final ai router review gaps`
 - Eighth review remediation commit subject: `fix: close ai router destructuring gap`
 - Ninth review remediation commit subject: `fix: bind ai boundary values lexically`
+- Tenth review remediation commit subject: `fix: track ai boundary value writes`
 - Push: prohibited and not attempted
+
+## Tenth review remediation
+
+The tenth review at `.superpowers/sdd/task-11-tenth-review.md` identified one critical position-sensitive data-flow issue. The boundary validator keyed declaration values to exact Babel bindings, but did not update static strings or provider-environment provenance after later writes.
+
+### Tenth review RED evidence
+
+- Provider-boundary suite: 2/2 tests failed for the expected reasons.
+- The prohibited-fixture case missed all six later-write paths: computed `generate`, alias/template/join `generate`, computed provider `import()`, computed provider `require()`, an assigned provider-environment URL, and a later provider-environment alias.
+- The allowed-fixture case rejected both sequential safe overwrites: `generate` to `health`, and a provider-environment value to `/health`.
+
+### Tenth review changes
+
+- Replaced declaration-only fixed-point values with ordered write histories keyed by exact Babel `Binding` identity.
+- Resolve every identifier from the latest applicable preceding declaration initializer or simple `=` assignment for that binding. Alias, concatenation, template, and array-join chains resolve recursively at their own reference positions with cycle protection.
+- Treat unknown, destructuring, compound, update, iteration, conditional/loop/try/logical, and cross-function writes as uncertain so they cannot reuse a stale known value or leak across scopes.
+- Resolve provider-environment provenance through the same position-sensitive write history instead of a monotonic taint set. A later safe value clears earlier provider-environment provenance, while a later provider-environment write or alias is detected.
+- Added six prohibited later-assignment fixtures and two safe reassignment controls while preserving all existing declaration-order, same-name scope, and local-generator provenance cases.
+
+### Tenth review GREEN evidence
+
+1. Focused remediation verification
+   - Provider-boundary suite: 2/2 tests passed.
+   - AI-routing package: 3 files and 167/167 tests passed.
+   - Provider, import, and workspace boundary set: 3 files and 29/29 tests passed.
+   - Production boundary validation inspected 124 source files.
+
+2. Combined T011 verification
+   - Router, adapters, governance, audit, run trace, workspace/import, and provider boundaries: 12 files and 253/253 tests passed.
+
+3. Migration verification
+   - `pnpm db:verify`: all six migrations passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; database integration passed 12/12.
+   - No migration or schema delta was required.
+
+4. Full integration verification
+   - `pnpm test:integration --passWithNoTests`: 15 files and 120/120 tests passed after deploying the existing migrations to the isolated test database.
+
+5. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 276 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 311/311 tests; forced build 14/14.
+   - `git diff --check` passed, and no database, approved product, rubric, implementation-plan, task, or agent-governance file changed.
 
 ## Ninth review remediation
 
