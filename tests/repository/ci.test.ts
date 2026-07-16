@@ -128,6 +128,10 @@ describe("CI contract", () => {
     expect(integrationJob).toContain("pnpm test:integration --passWithNoTests");
     expect(integrationJob).toContain("pnpm test:ai --passWithNoTests");
     expect(integrationJob).toContain("pnpm test:e2e --pass-with-no-tests");
+    expect(integrationJob).toContain("pnpm exec playwright install --with-deps chromium");
+    expect(
+      integrationJob.indexOf("pnpm exec playwright install --with-deps chromium"),
+    ).toBeLessThan(integrationJob.indexOf("pnpm test:e2e --pass-with-no-tests"));
     for (const [name, value] of [
       ["KEYCLOAK_ADMIN_USERNAME", "local-admin"],
       ["KEYCLOAK_ADMIN_PASSWORD", "local-keycloak-admin-password"],
@@ -154,6 +158,31 @@ describe("CI contract", () => {
     expect(manifest.scripts?.verify).toContain("pnpm validate:task-graph");
     expect(manifest.scripts?.verify).toContain("pnpm format:check");
     expect(manifest.scripts?.verify).toContain("pnpm scan:secrets");
+  });
+
+  it("keeps browser verification on production-generated Next types", async () => {
+    const [playwrightConfiguration, webTypeScriptConfiguration, nextEnvironment] =
+      await Promise.all([
+        readFile("playwright.config.ts", "utf8"),
+        readFile("apps/web/tsconfig.json", "utf8"),
+        readFile("apps/web/next-env.d.ts", "utf8"),
+      ]);
+
+    expect(playwrightConfiguration).toContain("pnpm --filter @evaluation/web build");
+    expect(playwrightConfiguration).toContain("pnpm --filter @evaluation/web start");
+    expect(playwrightConfiguration).not.toContain("@evaluation/web dev");
+    expect(webTypeScriptConfiguration).not.toContain(".next/dev");
+    expect(nextEnvironment).toBe(
+      [
+        '/// <reference types="next" />',
+        '/// <reference types="next/image-types/global" />',
+        'import "./.next/types/routes.d.ts";',
+        "",
+        "// NOTE: This file should not be edited",
+        "// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.",
+        "",
+      ].join("\n"),
+    );
   });
 
   it("pins only the hosted release-age exceptions while retaining pnpm 11 protection", async () => {

@@ -91,6 +91,7 @@ jobs:
       - run: pnpm db:deploy
       - run: pnpm test:integration --passWithNoTests
       - run: pnpm test:ai --passWithNoTests
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e --pass-with-no-tests
       - if: always()
         run: >-

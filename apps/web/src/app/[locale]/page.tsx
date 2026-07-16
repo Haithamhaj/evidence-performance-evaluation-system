@@ -63,34 +63,54 @@ export default async function HomePage({ params }: HomePageProperties) {
           <h2>{catalog["mixed.heading"]}</h2>
           <dl className="technicalGrid">
             <dt>{catalog["mixed.userTextLabel"]}</dt>
-            <dd>{createElement(BidiText, { kind: "auto-isolate", children: "تحديث API جاهز" })}</dd>
+            <dd>
+              {createElement(BidiText, {
+                kind: "auto-isolate",
+                children: catalog["mixed.userTextSample"],
+              })}
+            </dd>
             <dt>{catalog["mixed.codeLabel"]}</dt>
-            <dd>{createElement(BidiText, { kind: "code", children: "const rating = null;" })}</dd>
+            <dd>
+              {createElement(BidiText, {
+                kind: "code",
+                children: catalog["mixed.codeSample"],
+              })}
+            </dd>
             <dt>{catalog["mixed.urlLabel"]}</dt>
             <dd>
               {createElement(BidiText, {
                 kind: "url",
-                children: "https://example.test/evaluations/42",
+                children: catalog["mixed.urlSample"],
               })}
             </dd>
             <dt>{catalog["mixed.emailLabel"]}</dt>
-            <dd>{createElement(BidiText, { kind: "email", children: "reviewer@example.test" })}</dd>
+            <dd>
+              {createElement(BidiText, {
+                kind: "email",
+                children: catalog["mixed.emailSample"],
+              })}
+            </dd>
             <dt>{catalog["mixed.modelLabel"]}</dt>
             <dd>
               {createElement(BidiText, {
                 kind: "model",
-                children: "openai-compatible/local-model-v1",
+                children: catalog["mixed.modelSample"],
               })}
             </dd>
             <dt>{catalog["mixed.pathLabel"]}</dt>
             <dd>
               {createElement(BidiText, {
                 kind: "path",
-                children: "packages/ai-routing/src/router.ts",
+                children: catalog["mixed.pathSample"],
               })}
             </dd>
             <dt>{catalog["mixed.hashLabel"]}</dt>
-            <dd>{createElement(BidiText, { kind: "hash", children: "a18f6c9b4e217d8a" })}</dd>
+            <dd>
+              {createElement(BidiText, {
+                kind: "hash",
+                children: catalog["mixed.hashSample"],
+              })}
+            </dd>
           </dl>
         </section>
       </main>

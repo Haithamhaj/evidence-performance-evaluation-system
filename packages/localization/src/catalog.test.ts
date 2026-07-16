@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getCatalog } from "./catalog.js";
+import { assertCatalogCompatibility, getCatalog } from "./catalog.js";
 import { defaultLocale, localeMetadata } from "./locales.js";
 
 const forbiddenIdentifiedNoticeTerms = [
@@ -50,5 +50,30 @@ describe("localization catalogs", () => {
         expect(normalized).not.toContain(forbiddenTerm);
       }
     }
+  });
+
+  it("requires identical placeholder parameters for every localized key", () => {
+    expect(() =>
+      assertCatalogCompatibility({ greeting: "مرحباً {name}" }, { greeting: "Hello {person}" }),
+    ).toThrowError("LOCALIZATION_CATALOG_PLACEHOLDER_MISMATCH:greeting");
+  });
+
+  it("compares ICU-style top-level parameter names", () => {
+    expect(() =>
+      assertCatalogCompatibility(
+        { count: "{count, plural, one {عنصر} other {# عناصر}}" },
+        { count: "{total, plural, one {item} other {# items}}" },
+      ),
+    ).toThrowError("LOCALIZATION_CATALOG_PLACEHOLDER_MISMATCH:count");
+  });
+
+  it.each([
+    ["duplicate", "Hello {name} {name}"],
+    ["unclosed", "Hello {name"],
+    ["malformed", "Hello {not valid}"],
+  ])("rejects %s placeholders", (_label, value) => {
+    expect(() => assertCatalogCompatibility({ greeting: value }, { greeting: value })).toThrowError(
+      "LOCALIZATION_CATALOG_PLACEHOLDER_INVALID:greeting",
+    );
   });
 });

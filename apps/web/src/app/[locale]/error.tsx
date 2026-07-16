@@ -1,7 +1,9 @@
 "use client";
 
 import { getCatalogSync, isLocale } from "@evaluation/localization";
+import { BidiText } from "@evaluation/ui";
 import { useParams } from "next/navigation";
+import { createElement } from "react";
 
 interface ErrorBoundaryProperties {
   readonly error: Error & { readonly correlationId?: unknown };
@@ -25,7 +27,9 @@ export default function ErrorBoundary({ error, reset }: ErrorBoundaryProperties)
   return (
     <main role="alert" data-error-code="INTERNAL_ERROR">
       <h1 data-message-key="errors.internal">{catalog["errors.internal"]}</h1>
-      {correlationId === undefined ? null : <code>{correlationId}</code>}
+      {correlationId === undefined ? null : (
+        <code>{createElement(BidiText, { kind: "hash", children: correlationId })}</code>
+      )}
       <button type="button" data-message-key="actions.retry" onClick={reset}>
         {catalog["actions.retry"]}
       </button>

@@ -12,9 +12,10 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm --filter @evaluation/web dev --hostname 127.0.0.1 --port 3000",
+    command:
+      "pnpm --filter @evaluation/web build && pnpm --filter @evaluation/web start --hostname 127.0.0.1 --port 3000",
     url: "http://127.0.0.1:3000/ar",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 180_000,
   },
 });

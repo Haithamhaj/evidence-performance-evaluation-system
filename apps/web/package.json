@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit && next build --experimental-build-mode generate",
+    "start": "next start",
     "lint": "eslint src",
     "typecheck": "next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit",
     "test": "vitest run --root ../.. apps/web/src"

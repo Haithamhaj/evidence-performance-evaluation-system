@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
 import { getSafeErrorCorrelationId } from "../app/[locale]/error.js";
 
 describe("Web error correlation display", () => {
@@ -14,4 +17,14 @@ describe("Web error correlation display", () => {
     );
     expect(getSafeErrorCorrelationId({})).toBeUndefined();
   });
+});
+
+it("renders a safe correlation UUID as explicitly LTR semantic code", async () => {
+  const source = await readFile(
+    path.resolve(import.meta.dirname, "../app/[locale]/error.tsx"),
+    "utf8",
+  );
+
+  expect(source).toContain("<code>");
+  expect(source).toContain('createElement(BidiText, { kind: "hash", children: correlationId })');
 });

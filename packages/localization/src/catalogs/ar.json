@@ -30,6 +30,13 @@
   "mixed.modelLabel": "النموذج",
   "mixed.pathLabel": "مسار المستودع",
   "mixed.hashLabel": "بصمة المصدر",
+  "mixed.userTextSample": "تحديث API جاهز",
+  "mixed.codeSample": "const rating = null;",
+  "mixed.urlSample": "https://example.test/evaluations/42",
+  "mixed.emailSample": "reviewer@example.test",
+  "mixed.modelSample": "openai-compatible/local-model-v1",
+  "mixed.pathSample": "packages/ai-routing/src/router.ts",
+  "mixed.hashSample": "a18f6c9b4e217d8a",
   "locale.switchToArabic": "العربية",
   "locale.switchToEnglish": "English"
 }

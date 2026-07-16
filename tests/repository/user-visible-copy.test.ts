@@ -54,6 +54,60 @@ describe("user-visible copy checker", () => {
     ]);
   });
 
+  it("rejects a no-expression template literal rendered in JSX", async () => {
+    const root = await makeFeatureFile(
+      "export default function Page() { return <h1>{`Hardcoded template`}</h1>; }",
+    );
+
+    await expect(findHardcodedUserVisibleCopy(root)).resolves.toEqual([
+      expect.objectContaining({ text: "Hardcoded template" }),
+    ]);
+  });
+
+  it("rejects static local const copy rendered in JSX", async () => {
+    const root = await makeFeatureFile(
+      'export default function Page() { const label = "Hardcoded local"; return <h1>{label}</h1>; }',
+    );
+
+    await expect(findHardcodedUserVisibleCopy(root)).resolves.toEqual([
+      expect.objectContaining({ text: "Hardcoded local" }),
+    ]);
+  });
+
+  it("rejects literal and static local copy passed to createElement", async () => {
+    const root = await makeFeatureFile(
+      [
+        'import React, { createElement } from "react";',
+        "export default function Page() {",
+        '  const description = "Hardcoded description";',
+        '  return React.createElement("section", { "aria-description": description },',
+        '    createElement("h1", null, "Hardcoded element"));',
+        "}",
+      ].join("\n"),
+    );
+
+    await expect(findHardcodedUserVisibleCopy(root)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: "Hardcoded description" }),
+        expect.objectContaining({ text: "Hardcoded element" }),
+      ]),
+    );
+  });
+
+  it("rejects additional user-visible ARIA attributes without flagging technical attributes", async () => {
+    const root = await makeFeatureFile(
+      [
+        "export default function Page() {",
+        '  return <input aria-valuetext="Current score" className="technical-class" id="field-id" />;',
+        "}",
+      ].join("\n"),
+    );
+
+    await expect(findHardcodedUserVisibleCopy(root)).resolves.toEqual([
+      expect.objectContaining({ text: "Current score" }),
+    ]);
+  });
+
   it("does not flag imported catalog values or non-feature source", async () => {
     const root = await makeFeatureFile(
       "export default function Page({ catalog }) { return <h1>{catalog['shell.title']}</h1>; }",
