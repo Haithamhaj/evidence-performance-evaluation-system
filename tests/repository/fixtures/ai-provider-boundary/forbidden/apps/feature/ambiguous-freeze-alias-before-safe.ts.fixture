@@ -1,0 +1,8 @@
+declare const condition: boolean;
+declare const unknownContainer: <T>(value: T) => T;
+
+let providerPackage = "openai";
+let retain = Object.freeze;
+if (condition) retain = unknownContainer;
+retain({ handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

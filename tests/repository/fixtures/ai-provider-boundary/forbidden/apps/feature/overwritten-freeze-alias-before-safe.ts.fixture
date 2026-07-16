@@ -1,0 +1,7 @@
+declare const unknownContainer: <T>(value: T) => T;
+
+let providerPackage = "openai";
+let retain = Object.freeze;
+retain = unknownContainer;
+retain({ handler: () => import(providerPackage) });
+providerPackage = "./safe-local-module";

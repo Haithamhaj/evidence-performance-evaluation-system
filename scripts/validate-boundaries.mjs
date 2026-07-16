@@ -1010,12 +1010,47 @@ function possibleFunctionTargets(
       return result;
     }
     if (expression.type === "NewExpression") {
-      recurse(expression.callee, { selection });
+      recurse(expression.callee, {
+        selection: [
+          {
+            computed: false,
+            key: { type: "Identifier", name: "prototype" },
+            type: "property",
+          },
+          ...selection,
+        ],
+      });
       return result;
     }
     if (["ClassDeclaration", "ClassExpression"].includes(expression.type)) {
+      const prototypeSelected = [...keys.values].some((key) => String(key) === "prototype");
+      if (prototypeSelected) {
+        if (remaining.length === 0) {
+          for (const member of expression.body.body) {
+            if (["ClassMethod", "ClassPrivateMethod"].includes(member.type) && !member.static) {
+              recurse(member);
+            }
+          }
+          return result;
+        }
+        const methodKeys = staticSelectionKeys(remaining[0], bindingWrites, pathByNode);
+        result.truncated ||= methodKeys.truncated;
+        for (const member of expression.body.body) {
+          if (!["ClassMethod", "ClassPrivateMethod"].includes(member.type) || member.static) {
+            continue;
+          }
+          const memberKey = propertyKeyName(member, bindingWrites, pathByNode);
+          if (![...methodKeys.values].some((key) => String(key) === String(memberKey))) {
+            continue;
+          }
+          recurse(member, { selection: remaining.slice(1) });
+        }
+        return result;
+      }
       for (const member of expression.body.body) {
-        if (!["ClassMethod", "ClassPrivateMethod"].includes(member.type)) continue;
+        if (!["ClassMethod", "ClassPrivateMethod"].includes(member.type) || !member.static) {
+          continue;
+        }
         const memberKey = propertyKeyName(member, bindingWrites, pathByNode);
         if (![...keys.values].some((key) => String(key) === String(memberKey))) continue;
         recurse(member, { selection: remaining });
@@ -1080,7 +1115,7 @@ function possibleFunctionTargets(
     return result;
   }
   if (
-    expression.type === "CallExpression" &&
+    ["CallExpression", "OptionalCallExpression"].includes(expression.type) &&
     ["MemberExpression", "OptionalMemberExpression"].includes(expression.callee?.type) &&
     propertyName(expression.callee, bindingWrites, pathByNode) === "bind"
   ) {
@@ -1298,7 +1333,7 @@ function possibleStaticUrls(node, bindings, pathByNode) {
 
 function memberPath(node) {
   if (node?.type === "Identifier") return node.name;
-  if (node?.type !== "MemberExpression") return undefined;
+  if (!["MemberExpression", "OptionalMemberExpression"].includes(node?.type)) return undefined;
   const parent = memberPath(node.object);
   const child = !node.computed
     ? node.property?.name
@@ -1310,19 +1345,58 @@ function memberPath(node) {
 
 // These APIs retain function-valued metadata but do not execute it. All other
 // calls remain conservatively callback-capable, including unknown callees.
-function isKnownNonInvokingFunctionContainer(callNode, metadataContainerBindings, pathByNode) {
-  const callee = unwrapTransparentExpression(callNode.callee);
+function isExactNonInvokingFunctionContainer(
+  node,
+  metadataContainerBindings,
+  bindingWrites,
+  pathByNode,
+  resolvingWrites = new Set(),
+) {
+  const callee = unwrapTransparentExpression(node);
   if (
-    callee?.type === "MemberExpression" &&
+    ["MemberExpression", "OptionalMemberExpression"].includes(callee?.type) &&
     memberPath(callee) === "Object.freeze" &&
     callee.object?.type === "Identifier" &&
     lexicalBinding(callee.object, pathByNode) === undefined
   ) {
     return true;
   }
-  return (
-    callee?.type === "Identifier" &&
-    metadataContainerBindings.has(lexicalBinding(callee, pathByNode))
+  if (callee?.type !== "Identifier") return false;
+  const binding = lexicalBinding(callee, pathByNode);
+  if (metadataContainerBindings.has(binding)) return true;
+
+  const writes = possibleBindingWrites(callee, bindingWrites, pathByNode);
+  if (writes.unknown || writes.truncated || writes.values.size === 0) return false;
+  for (const write of writes.values) {
+    if (write.expression === undefined || resolvingWrites.has(write)) return false;
+    const nextResolvingWrites = new Set(resolvingWrites);
+    nextResolvingWrites.add(write);
+    if (
+      !isExactNonInvokingFunctionContainer(
+        write.expression,
+        metadataContainerBindings,
+        bindingWrites,
+        pathByNode,
+        nextResolvingWrites,
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isKnownNonInvokingFunctionContainer(
+  callNode,
+  metadataContainerBindings,
+  bindingWrites,
+  pathByNode,
+) {
+  return isExactNonInvokingFunctionContainer(
+    callNode.callee,
+    metadataContainerBindings,
+    bindingWrites,
+    pathByNode,
   );
 }
 
@@ -1424,7 +1498,7 @@ function inspectAst(filePath, source) {
       const { node } = nodePath;
       if (node.type === "VariableDeclarator") declarations.push(node);
       if (node.type === "AssignmentExpression") assignments.push(node);
-      if (node.type === "CallExpression") callNodes.push(node);
+      if (["CallExpression", "OptionalCallExpression"].includes(node.type)) callNodes.push(node);
       if (node.type === "ImportDeclaration" && node.source.value === "@nestjs/common") {
         for (const specifier of node.specifiers) {
           if (
@@ -1585,7 +1659,14 @@ function inspectAst(filePath, source) {
     );
     truncatedFunctionTargetResolution ||= calleeTargets.truncated;
     const targets = new Set(calleeTargets.targets);
-    if (!isKnownNonInvokingFunctionContainer(callNode, metadataContainerBindings, pathByNode)) {
+    if (
+      !isKnownNonInvokingFunctionContainer(
+        callNode,
+        metadataContainerBindings,
+        bindingWrites,
+        pathByNode,
+      )
+    ) {
       for (const argument of callNode.arguments) {
         const callbackTargets = possibleFunctionTargets(
           argument?.type === "SpreadElement" ? argument.argument : argument,
@@ -1781,9 +1862,14 @@ function inspectAst(filePath, source) {
     ) {
       findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:opaque.generate`);
     }
-    if (node.type === "CallExpression" || node.type === "ImportExpression") {
-      const callee = node.type === "CallExpression" ? node.callee : undefined;
-      const arguments_ = node.type === "CallExpression" ? node.arguments : [node.source];
+    if (
+      node.type === "CallExpression" ||
+      node.type === "OptionalCallExpression" ||
+      node.type === "ImportExpression"
+    ) {
+      const callExpression = ["CallExpression", "OptionalCallExpression"].includes(node.type);
+      const callee = callExpression ? node.callee : undefined;
+      const arguments_ = callExpression ? node.arguments : [node.source];
       const directImport = node.type === "ImportExpression" || callee?.type === "Import";
       const directRequire = callee?.type === "Identifier" && callee.name === "require";
       if (directImport || directRequire) {

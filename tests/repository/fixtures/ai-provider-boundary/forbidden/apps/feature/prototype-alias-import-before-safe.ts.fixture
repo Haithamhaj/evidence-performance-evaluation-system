@@ -1,0 +1,11 @@
+let providerPackage = "openai";
+
+class Runner {
+  execute() {
+    return import(providerPackage);
+  }
+}
+
+const execute = Runner.prototype.execute;
+void execute();
+providerPackage = "./safe-local-module";
