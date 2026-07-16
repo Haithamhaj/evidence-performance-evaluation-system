@@ -16,19 +16,21 @@ model SystemMetadata {
 }
 
 model User {
-  id                String                   @id @default(uuid()) @db.Uuid
-  pilotKey          String?                  @unique
-  email             String                   @unique
-  displayName       String
-  active            Boolean                  @default(true)
-  identities        OidcIdentity[]
-  roleAssignments   RoleAssignment[]
-  aiRouteConfigs    AiRouteConfig[]
-  aiProviderConfigs AiProviderConfig[]
-  aiTrustPolicies   AiLocalTrustPolicy[]
-  aiSchemaArtifacts AiOutputSchemaArtifact[]
-  createdAt         DateTime                 @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime                 @updatedAt @db.Timestamptz(6)
+  id                      String                   @id @default(uuid()) @db.Uuid
+  pilotKey                String?                  @unique
+  email                   String                   @unique
+  displayName             String
+  active                  Boolean                  @default(true)
+  identities              OidcIdentity[]
+  roleAssignments         RoleAssignment[]
+  aiRouteConfigs          AiRouteConfig[]
+  aiProviderConfigs       AiProviderConfig[]
+  aiTrustPolicies         AiLocalTrustPolicy[]
+  aiSchemaArtifacts       AiOutputSchemaArtifact[]
+  managedEvaluationCycles EvaluationCycle[]        @relation("EvaluationCycleManager")
+  eligibilityEntries      EligibilityEntry[]       @relation("EligibilityEmployee")
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime                 @updatedAt @db.Timestamptz(6)
 }
 
 model OidcIdentity {
@@ -124,10 +126,85 @@ model Department {
   organizationId      String               @db.Uuid
   organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   authorizationScopes AuthorizationScope[]
+  evaluationCycles    EvaluationCycle[]
   createdAt           DateTime             @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
 
   @@index([organizationId])
+}
+
+enum FeedbackVisibilityMode {
+  identified
+  manager_blinded
+  anonymous_aggregated
+}
+
+enum EligibilityState {
+  active
+  excluded
+  approved_leave
+  pending
+}
+
+model EvaluationCycle {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  departmentId       String                 @db.Uuid
+  department         Department             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  managerId          String                 @db.Uuid
+  manager            User                   @relation("EvaluationCycleManager", fields: [managerId], references: [id], onDelete: Restrict)
+  version            Int
+  visibilityMode     FeedbackVisibilityMode
+  sourceReason       String
+  effectiveFrom      DateTime               @db.Timestamptz(6)
+  effectiveTo        DateTime               @db.Timestamptz(6)
+  openedAt           DateTime?              @db.Timestamptz(6)
+  closedAt           DateTime?              @db.Timestamptz(6)
+  snapshot           EligibilitySnapshot?
+  eligibilityEntries EligibilityEntry[]
+  createdAt          DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([departmentId, version])
+  @@index([managerId, openedAt])
+  @@index([departmentId, openedAt])
+}
+
+model EligibilitySnapshot {
+  id             String                 @id @default(uuid()) @db.Uuid
+  cycleId        String                 @unique @db.Uuid
+  cycle          EvaluationCycle        @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  version        Int
+  visibilityMode FeedbackVisibilityMode
+  sourceReason   String
+  effectiveFrom  DateTime               @db.Timestamptz(6)
+  effectiveTo    DateTime               @db.Timestamptz(6)
+  entries        EligibilityEntry[]
+  createdAt      DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, cycleId])
+}
+
+model EligibilityEntry {
+  id            String              @id @default(uuid()) @db.Uuid
+  cycleId       String              @db.Uuid
+  cycle         EvaluationCycle     @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  snapshotId    String              @db.Uuid
+  snapshot      EligibilitySnapshot @relation(fields: [snapshotId, cycleId], references: [id, cycleId], onDelete: Restrict)
+  employeeId    String              @db.Uuid
+  employee      User                @relation("EligibilityEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  position      Int
+  version       Int                 @default(1)
+  state         EligibilityState
+  sourceReason  String
+  effectiveFrom DateTime            @db.Timestamptz(6)
+  effectiveTo   DateTime            @db.Timestamptz(6)
+  submittedAt   DateTime?           @db.Timestamptz(6)
+  createdAt     DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(6)
+
+  @@unique([cycleId, employeeId])
+  @@unique([snapshotId, position])
+  @@index([employeeId, cycleId])
+  @@index([cycleId, state])
 }
 
 model AuthorizationScope {

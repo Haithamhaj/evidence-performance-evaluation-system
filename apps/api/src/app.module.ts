@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { AuditModule } from "./audit/audit.module.js";
 import { AiRoutingModule } from "./ai-routing/ai-routing.module.js";
 import { PermissionsModule } from "./permissions/permissions.module.js";
+import { EvaluationEligibilityModule } from "./evaluation-eligibility/evaluation-eligibility.module.js";
 import { CorrelationMiddleware } from "./platform/correlation.middleware.js";
 import {
   createEnvironmentReadinessProbes,
@@ -17,7 +18,7 @@ export class AppModule {
 }
 
 Module({
-  imports: [AiRoutingModule, AuditModule, PermissionsModule],
+  imports: [AiRoutingModule, AuditModule, EvaluationEligibilityModule, PermissionsModule],
   controllers: [HealthController],
   providers: [{ provide: READINESS_PROBES, useFactory: createEnvironmentReadinessProbes }],
 })(AppModule);
