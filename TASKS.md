@@ -1,12 +1,12 @@
 # TASKS.md
 
-## Execution Task File — Revision 1.1
+## Execution Task File — Revision 1.2
 
 **Status:** Ready for implementation  
 **Task order:** Dependency-driven and phase-valid  
 **Completion rule:** A task is complete only after required verification passes  
 **Pilot feedback mode:** Identified  
-**Pilot language:** Arabic-first with English support  
+**Pilot language:** English-only use permitted; Arabic employee use requires approved Arabic rubric content and semantic review
 **Cycle 1:** Calibration — Non-Baseline
 
 Legend:
@@ -147,14 +147,15 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 **Priority:** P0  
 **Dependencies:** T001  
-**Purpose:** Make Arabic the pilot default and prevent late retrofitting of RTL.  
+**Purpose:** Preserve Arabic localization and RTL foundations without permitting Arabic employee use before rubric approval.
 **Expected output:** Locale routing, translation catalogs, RTL tokens/components, mixed-direction utilities, Arabic typography and date/number handling.  
 **Likely areas:** web shell, shared UI, contracts, localization package  
 **Verification:** Arabic and English app shells render; keyboard/focus order works in RTL; code, URLs, model names, and repository paths display correctly; UTC values render with locale-aware dates and numbers in the user timezone with `Asia/Riyadh` as the default; Identified-mode catalogs disclose manager visibility and reject anonymity/confidentiality promises.
 
 ## T016 — Translate and Approve the Arabic Evaluation Rubric
 
-**Priority:** P0  
+**Priority:** APPROVAL
+**Status:** Deferred, draft, and inactive; future Arabic employee-release gate, not a Phase 0 or engineering-phase blocker.
 **Dependencies:** T010, T015  
 **Purpose:** Provide employee-ready Arabic meaning for the complete Version 1 rubric before rollout.  
 **Expected output:** Approved Arabic translations of 12 criteria, 60 employee anchors, Project Contribution anchors, five manager criteria, 25 manager anchors, examples, prompts, and bias guidance.  
@@ -370,7 +371,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 ## T044 — Expand Arabic and Dialect AI Fixtures
 
 **Priority:** P1  
-**Dependencies:** T012, T032, T016  
+**Dependencies:** T012, T032
 **Purpose:** Validate AI behavior on the language actually used by the pilot team.  
 **Expected output:** Fusha, Gulf, Levantine, mixed Arabic/English, Arabic PDF/DOCX, STT, update extraction, evidence, and report fixtures.  
 **Likely areas:** AI evaluation datasets, STT tests, document processing tests  
@@ -624,16 +625,16 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 ## T076 — Pilot Dry Run
 
 **Priority:** P0  
-**Dependencies:** T001–T075  
-**Purpose:** Run one full `Calibration — Non-Baseline` simulated quarter with Arabic and English test users and realistic projects.  
-**Verification:** all critical workflows pass; identified manager-feedback behavior is understood; monthly readiness and Fact View are reviewed; issues logged and resolved.
+**Dependencies:** T001–T015, T017–T075
+**Purpose:** Run one full `Calibration — Non-Baseline` simulated quarter with English test users and realistic projects; include Arabic test users only after T016 approval.
+**Verification:** all English critical workflows pass; identified manager-feedback behavior is understood; monthly readiness and Fact View are reviewed; issues logged and resolved. Arabic release validation remains conditional on T016 approval.
 
 ## T077 — Production Pilot Launch
 
 **Priority:** P0  
 **Dependencies:** T076  
 **Purpose:** Deploy approved pilot.  
-**Verification:** production checklist, monitoring, backups, Arabic rubric approval, RTL validation, identified-feedback notice, onboarding, and rollback plan.
+**Verification:** production checklist, monitoring, backups, identified-feedback notice, onboarding, and rollback plan. Arabic rubric approval and RTL release validation are required only before Arabic employee use.
 ---
 
 # Approval-Blocked Changes
@@ -642,7 +643,7 @@ The following are not normal tasks and require explicit approval:
 
 - Change protected product rules.
 - Change Version 1 rubric, anchors, or weights.
-- Release employee evaluation before the Arabic rubric is approved.
+- Release Arabic employee evaluation before the Arabic rubric is approved and semantically reviewed; English-only employee evaluation is permitted.
 - Allow AI ratings or rating recommendations.
 - Change the pilot upward manager evaluation from `Identified`.
 - Claim anonymity while the active mode is Identified.

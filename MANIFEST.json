@@ -1,27 +1,27 @@
 {
   "package": "Evidence-Based Performance Evaluation System - AI Implementation Starter Pack",
-  "revision": "1.1",
-  "generated_at": "2026-07-13",
+  "revision": "1.2",
+  "generated_at": "2026-07-17",
   "pilot_feedback_mode": "Identified",
-  "pilot_language": "Arabic-first with English support",
+  "pilot_language": "English-only use permitted; Arabic employee use requires approved Arabic rubric content and semantic review",
   "cycle_1": "Calibration — Non-Baseline",
   "task_count": 77,
   "validation": "PASS",
   "files": [
     {
       "path": "AGENTS.md",
-      "bytes": 12682,
-      "sha256": "04d924b929ee01a020e1e0dfe831a691ecdb81a933c79eac83e8a2704ae37e74"
+      "bytes": 12964,
+      "sha256": "4b23b7b9acbdb7ecbc4f32e1fa4e2229939f53ac23f532d3d187e946c8b9eab7"
     },
     {
       "path": "README.md",
-      "bytes": 3275,
-      "sha256": "cba1a9f538bc7e34aa9600a45ca548eb0d20010956b796bfe9feecef44321587"
+      "bytes": 3635,
+      "sha256": "7d8936b13646050154ade6f4a9e519cf275fe60d302947a6e02c9365a29c06d7"
     },
     {
       "path": "TASKS.md",
-      "bytes": 28712,
-      "sha256": "06dd881ed7ae5809fc2682d6364e21a8ddefc7393a312563bbae8af43a311e9e"
+      "bytes": 30460,
+      "sha256": "3c1a412a3cc5af1d0fe512566d2e352ff85d79770bc08d9e151fced7143bd873"
     },
     {
       "path": "docs/EVALUATION_RUBRIC.md",
@@ -30,38 +30,38 @@
     },
     {
       "path": "docs/IMPLEMENTATION_PLAN.md",
-      "bytes": 35484,
-      "sha256": "4fca9015da5df22c0a1926aba74d219b8b73471423575db431a9536d94b37b5f"
+      "bytes": 36312,
+      "sha256": "872a5b6372a7b33830d4074cb5c631de4734ae1f96b7da26354d1c9b6d2ab71a"
     },
     {
       "path": "docs/PROJECT_REFERENCE.md",
-      "bytes": 65183,
-      "sha256": "790d3d84840f55920c7a80641a1685025fe2f8fb74af873206234b9cfcac964c"
+      "bytes": 66098,
+      "sha256": "427acaf0f6aed5a0c29315f8d67162e3770bfea8abf93f595fd6a6432d87811c"
     },
     {
       "path": "docs/REVIEW_RESOLUTION.md",
-      "bytes": 5170,
-      "sha256": "323148f4f8e8d5143110833be7dc2470fb15ec7352d8a4b99fca3aa4b41c05de"
+      "bytes": 5862,
+      "sha256": "d8cec0737a4576877ce5d1f94267333cdd59411167285296fc32ab36aab5366a"
     },
     {
       "path": "docs/VALIDATION_REPORT.md",
-      "bytes": 4928,
-      "sha256": "5aa4fd6f9ca819220d6a8bf50f9f51fc3101dcbabdd13defd1da29fbf75675bc"
+      "bytes": 5110,
+      "sha256": "3adfeb0e5de78b605849b2477925c28243beb2a61303517d2e3ef7b3414fb018"
     },
     {
       "path": "project-state/PROJECT_STATE.md",
-      "bytes": 3676,
-      "sha256": "9d863bb32ff3c99ed8b2c4e6509eddd093a28d817a138a3b1d6dea3dcbf624bc"
+      "bytes": 7974,
+      "sha256": "cd57ebdd50caca5250c558c9d939f4392d9008e2eced3ea63f639a326be863a4"
     },
     {
       "path": "project-state/SYSTEM_MAP.html",
-      "bytes": 21210,
-      "sha256": "9252ea523e63fd491831893e7ec72516309c16b7da9a17afe0b2f276f1f8718e"
+      "bytes": 19234,
+      "sha256": "074c8409aef9ccd239917e18cf96d1868cb489f66c58ef7e1b723317d67f75f1"
     },
     {
       "path": "scripts/validate_task_graph.py",
-      "bytes": 4027,
-      "sha256": "ed6424f160d4f7a653a1dcc120b5a04f8e761a1fdf05dc2ac97302bcb473f2aa"
+      "bytes": 4595,
+      "sha256": "8031f191deb8ae2e50d1c8cb6fe654f6d5aab0d780ba87c4c6e6e41320f3d7cd"
     },
     {
       "path": "source/MASTER_PRODUCT_DEFINITION.md",

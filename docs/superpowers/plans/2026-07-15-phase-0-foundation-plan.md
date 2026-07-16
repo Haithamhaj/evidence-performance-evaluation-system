@@ -8,6 +8,8 @@
 
 **Tech Stack:** Node.js 24.18.0 LTS, pnpm 11.13.0, Turborepo 2.10.5, TypeScript 7.0.2, Next.js 16.2.10, React 19.2.7, NestJS 11.1.28, PostgreSQL 17.10, Prisma 7.8.0, Redis 8.2.7, BullMQ 5.80.3, MinIO `RELEASE.2025-09-07T16-13-09Z`, Keycloak 26.7.0, Zod 4.4.3, Vitest 4.1.10, and Playwright 1.61.1.
 
+> **Superseding completion decision — 2026-07-17:** The technical steps and evidence below remain historical implementation guidance, but T016 approval no longer blocks Phase 0 or later engineering phases. English-only pilot use is permitted. The complete inactive T016 draft is preserved on `deferred/arabic-rubric-v1`; Arabic employee use remains blocked until both direct human semantic-review gates and activation conditions pass.
+
 ## Global Constraints
 
 - Implement only Phase 0 Tasks T001–T017. Do not add project, document, evidence, employee-evaluation, manager-evaluation, coaching, continuity, deployment, or GitHub-ingestion product features.
@@ -20,7 +22,7 @@
 - The Pilot manager-evaluation mode is `Identified`. Each submitted response is visible immediately to the authorized manager with employee identity, ratings, comments, and timestamp; incomplete or approved-leave employees do not block other responses.
 - AI never assigns, predicts, recommends, or implies an employee rating or ranking. Documentation Readiness never becomes a performance input.
 - All provider access goes through `@evaluation/ai-routing`; local-only data never falls back to an external provider.
-- Arabic is the default locale, English is supported, and RTL, mixed-direction content, keyboard order, and self-hosted fonts are release gates.
+- The implemented Arabic-default locale foundation and English support remain. English-only pilot use is permitted; RTL, mixed-direction content, keyboard order, self-hosted fonts, and T016 semantic approval gate Arabic employee release only.
 - Typography uses self-hosted Noto Sans Arabic and Inter assets with committed license records and no runtime public-font request.
 - English rubric Version 1 is the approved source. Arabic content stays inactive until explicit semantic approval for T016 is recorded.
 - Logs, traces, audits, and test artifacts exclude credentials, tokens, raw private feedback, raw protected prompts, and uploaded content.
@@ -1933,7 +1935,7 @@ Do not report Phase 0 complete until all of the following evidence exists in the
 - Queue retry, non-retryable failure, duplicate idempotency, retained failure, trace propagation, and graceful shutdown pass.
 - Eligibility and visibility snapshots freeze correctly; approved leave does not hide other responses.
 - Arabic/English catalog parity, Identified-mode visibility notices, prohibition of anonymity/confidentiality promises, `Asia/Riyadh` default date/time behavior, locale-aware numbers, RTL focus order, mixed-direction isolation, self-hosted fonts, and user-visible-copy scan pass.
-- T016 has separate explicit Arabic subject-matter and employee-comprehension approvals plus audited activation; without either direct human disposition, report Phase 0 as blocked at that approval gate rather than complete.
+- T016 is preserved as a complete inactive draft on `deferred/arabic-rubric-v1`; its separate Arabic subject-matter and employee-comprehension approvals plus audited activation gate Arabic employee release only and do not block Phase 0 completion.
 - Task graph reports exactly 77 valid tasks and every negative fixture fails for the intended reason.
 - GitHub Actions passes on the implementation branch, including proof that an intentional assertion failure is detected and the restored branch returns green.
 

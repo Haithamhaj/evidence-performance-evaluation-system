@@ -1,8 +1,8 @@
 # VALIDATION_REPORT.md
 
-## Starter Pack Revision 1.1
+## Starter Pack Revision 1.2
 
-**Validation date:** 2026-07-13  
+**Validation date:** 2026-07-17
 **Result:** PASS
 
 ---
@@ -16,7 +16,8 @@
 - Rubric: 12 employee criteria, 60 employee anchors, 5 manager criteria, 25 manager anchors, and 5 Project Contribution anchors.
 - Pilot manager feedback: Identified.
 - Cycle 1: Calibration — Non-Baseline.
-- Pilot language: Arabic-first with English support.
+- Pilot language: English-only use permitted; Arabic employee use requires approved Arabic rubric content and semantic review.
+- Phase 0 Foundation: complete; T016 is deferred, draft, and inactive and gates Arabic employee release only.
 
 # Check Results
 

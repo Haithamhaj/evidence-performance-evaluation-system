@@ -49,7 +49,7 @@ These rules may not be weakened without explicit approval:
 19. Historical project, evidence, and evaluation records are preserved after account deactivation.
 20. Employee ranking is prohibited.
 21. Cycle 1 is `Calibration — Non-Baseline`.
-22. Arabic is the pilot default language, with approved English support and RTL.
+22. English-only pilot use is permitted. Arabic employee use requires approved Arabic rubric content and semantic review; existing localization and RTL foundations remain required.
 23. Monthly Evaluation Readiness is a non-scoring aid and must not impose evidence quotas.
 24. Evaluation Fact View must distinguish source-supported facts from employee interpretation.
 
@@ -228,9 +228,9 @@ Prompt or output-schema changes require:
 
 # 9. Localization Rules
 
-1. Arabic is the default pilot locale.
-2. Every critical screen must work in RTL before being considered complete.
-3. English remains supported.
+1. English-only pilot use is permitted.
+2. Arabic employee use requires approved Arabic rubric content and semantic review.
+3. Existing Arabic localization and RTL foundations must remain in the codebase and every Arabic critical screen must work in RTL before Arabic release.
 4. Criteria, anchors, examples, and manager prompts are versioned by locale under the same rubric version.
 5. A translation that changes meaning requires a new rubric version.
 6. Mixed Arabic/English technical text, code, URLs, model names, and repository paths must render correctly.
@@ -356,7 +356,7 @@ Explicit approval is required before:
 - Adding employee ranking.
 - Exposing individual Documentation Readiness percentages or rankings to the manager.
 - Removing Calibration — Non-Baseline status from Cycle 1.
-- Releasing an employee-facing rubric without approved Arabic content.
+- Releasing Arabic employee use or an Arabic employee-facing rubric without approved Arabic content and semantic review.
 - Introducing microservices.
 - Replacing the primary database.
 - Deleting historical records.
