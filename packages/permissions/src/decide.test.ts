@@ -3,7 +3,45 @@ import { describe, expect, it } from "vitest";
 import { decide } from "./decide.js";
 
 const now = "2026-07-15T12:00:00.000Z";
-const baseContext: import("./model.js").PolicyContext = { now };
+const baseContext: import("./model.js").PolicyContext = {
+  now,
+  responsibilityWindows: [
+    {
+      subjectId: "owner-1",
+      scopeType: "project",
+      scopeId: "project-1",
+      responsibilityType: "permanent",
+      startsAt: "2026-07-15T08:00:00.000Z",
+      endsAt: null,
+    },
+    {
+      subjectId: "workstream-owner-1",
+      scopeType: "workstream",
+      scopeId: "workstream-1",
+      projectId: "project-1",
+      responsibilityType: "permanent",
+      startsAt: "2026-07-15T08:00:00.000Z",
+      endsAt: null,
+    },
+    {
+      subjectId: "contributor-1",
+      scopeType: "project",
+      scopeId: "project-1",
+      responsibilityType: "contributor",
+      startsAt: "2026-07-15T08:00:00.000Z",
+      endsAt: null,
+    },
+    {
+      subjectId: "workstream-contributor-1",
+      scopeType: "workstream",
+      scopeId: "workstream-1",
+      projectId: "project-1",
+      responsibilityType: "contributor",
+      startsAt: "2026-07-15T08:00:00.000Z",
+      endsAt: null,
+    },
+  ],
+};
 
 function subject(
   subjectId: string,
@@ -114,13 +152,26 @@ describe("authorization decision contract", () => {
   });
 
   it.each([
-    [projectOwner, "project.manage", { kind: "project", projectId: "project-1" }],
+    [
+      projectOwner,
+      "project.manage",
+      { kind: "project", projectId: "project-1", departmentId: "department-ai" },
+    ],
     [
       workstreamOwner,
       "workstream.manage",
-      { kind: "workstream", workstreamId: "workstream-1", projectId: "project-1" },
+      {
+        kind: "workstream",
+        workstreamId: "workstream-1",
+        projectId: "project-1",
+        departmentId: "department-ai",
+      },
     ],
-    [contributor, "resource.contribute", { kind: "project", projectId: "project-1" }],
+    [
+      contributor,
+      "resource.contribute",
+      { kind: "project", projectId: "project-1", departmentId: "department-ai" },
+    ],
     [manager, "department.manage", { kind: "department", departmentId: "department-ai" }],
     [administrator, "system.configure", { kind: "system", systemId: "evaluation-system" }],
   ] as const)("allows the approved scoped role %#", (policySubject, action, resource) => {
@@ -128,16 +179,114 @@ describe("authorization decision contract", () => {
   });
 
   it.each([
-    [projectOwner, "project.manage", { kind: "project", projectId: "project-2" }],
+    [
+      projectOwner,
+      "project.manage",
+      { kind: "project", projectId: "project-2", departmentId: "department-ai" },
+    ],
     [
       workstreamOwner,
       "workstream.manage",
-      { kind: "workstream", workstreamId: "workstream-2", projectId: "project-1" },
+      {
+        kind: "workstream",
+        workstreamId: "workstream-2",
+        projectId: "project-1",
+        departmentId: "department-ai",
+      },
     ],
-    [contributor, "resource.contribute", { kind: "project", projectId: "project-2" }],
+    [
+      contributor,
+      "resource.contribute",
+      { kind: "project", projectId: "project-2", departmentId: "department-ai" },
+    ],
     [manager, "department.manage", { kind: "department", departmentId: "department-other" }],
   ] as const)("denies an approved role outside its scope %#", (policySubject, action, resource) => {
     expect(decide(policySubject, action, resource, baseContext)).toEqual({
+      allowed: false,
+      reasonCode: "SCOPE_MISMATCH",
+    });
+  });
+
+  it("allows only the matching department manager to create and transfer", () => {
+    const department = { kind: "department", departmentId: "department-ai" } as const;
+    const project = {
+      kind: "project",
+      projectId: "project-1",
+      departmentId: "department-ai",
+    } as const;
+
+    expect(decide(manager, "project.create", department, baseContext)).toEqual({ allowed: true });
+    expect(decide(otherManager, "project.create", department, baseContext)).toEqual({
+      allowed: false,
+      reasonCode: "SCOPE_MISMATCH",
+    });
+    expect(decide(manager, "responsibility.transfer", project, baseContext)).toEqual({
+      allowed: true,
+    });
+    expect(decide(administrator, "responsibility.transfer", project, baseContext)).toEqual({
+      allowed: false,
+      reasonCode: "ROLE_REQUIRED",
+    });
+  });
+
+  it("requires an active responsibility window even when a scoped role remains", () => {
+    const project = {
+      kind: "project",
+      projectId: "project-1",
+      departmentId: "department-ai",
+    } as const;
+    const expired = {
+      now,
+      responsibilityWindows: [
+        {
+          subjectId: projectOwner.subjectId,
+          scopeType: "project",
+          scopeId: "project-1",
+          responsibilityType: "permanent",
+          startsAt: "2026-07-14T08:00:00.000Z",
+          endsAt: now,
+        },
+      ],
+    } satisfies import("./model.js").PolicyContext;
+
+    expect(decide(projectOwner, "project.manage", project, expired)).toEqual({
+      allowed: false,
+      reasonCode: "RESOURCE_STATE",
+    });
+    expect(decide(contributor, "resource.contribute", project, expired)).toEqual({
+      allowed: false,
+      reasonCode: "RESOURCE_STATE",
+    });
+  });
+
+  it("enforces the project and workstream read matrix", () => {
+    const project = {
+      kind: "project",
+      projectId: "project-1",
+      departmentId: "department-ai",
+    } as const;
+    const workstream = {
+      kind: "workstream",
+      workstreamId: "workstream-1",
+      projectId: "project-1",
+      departmentId: "department-ai",
+    } as const;
+
+    expect(decide(manager, "resource.read", project, baseContext)).toEqual({ allowed: true });
+    expect(decide(projectOwner, "resource.read", workstream, baseContext)).toEqual({
+      allowed: true,
+    });
+    expect(decide(workstreamOwner, "resource.read", project, baseContext)).toEqual({
+      allowed: true,
+    });
+    expect(decide(workstreamContributor, "resource.read", workstream, baseContext)).toEqual({
+      allowed: true,
+    });
+    expect(decide(otherEmployee, "resource.read", project, baseContext)).toEqual({
+      allowed: false,
+      reasonCode: "SCOPE_MISMATCH",
+    });
+    expect(decide(otherManager, "resource.read", project, baseContext)).toEqual({
       allowed: false,
       reasonCode: "SCOPE_MISMATCH",
     });
@@ -166,14 +315,15 @@ describe("authorization decision contract", () => {
       decide(
         actingOwner,
         "project.manage",
-        { kind: "project", projectId: "project-1" },
+        { kind: "project", projectId: "project-1", departmentId: "department-ai" },
         {
           now,
-          actingOwnerWindows: [
+          responsibilityWindows: [
             {
               subjectId: actingOwner.subjectId,
               scopeType: "project",
               scopeId: "project-1",
+              responsibilityType: "acting",
               startsAt: "2026-07-15T08:00:00.000Z",
               endsAt: "2026-07-15T16:00:00.000Z",
             },
@@ -188,14 +338,15 @@ describe("authorization decision contract", () => {
       decide(
         actingOwner,
         "project.manage",
-        { kind: "project", projectId: "project-1" },
+        { kind: "project", projectId: "project-1", departmentId: "department-ai" },
         {
           now,
-          actingOwnerWindows: [
+          responsibilityWindows: [
             {
               subjectId: actingOwner.subjectId,
               scopeType: "project",
               scopeId: "project-1",
+              responsibilityType: "acting",
               startsAt: "2026-07-14T08:00:00.000Z",
               endsAt: "2026-07-15T12:00:00.000Z",
             },
@@ -210,14 +361,15 @@ describe("authorization decision contract", () => {
       decide(
         actingOwner,
         "project.manage",
-        { kind: "project", projectId: "project-2" },
+        { kind: "project", projectId: "project-2", departmentId: "department-ai" },
         {
           now,
-          actingOwnerWindows: [
+          responsibilityWindows: [
             {
               subjectId: actingOwner.subjectId,
               scopeType: "project",
               scopeId: "project-1",
+              responsibilityType: "acting",
               startsAt: "2026-07-15T08:00:00.000Z",
               endsAt: "2026-07-15T16:00:00.000Z",
             },
@@ -232,7 +384,12 @@ describe("authorization decision contract", () => {
       decide(
         workstreamContributor,
         "resource.contribute",
-        { kind: "workstream", workstreamId: "workstream-1", projectId: "project-1" },
+        {
+          kind: "workstream",
+          workstreamId: "workstream-1",
+          projectId: "project-1",
+          departmentId: "department-ai",
+        },
         baseContext,
       ),
     ).toEqual({ allowed: true });
@@ -243,7 +400,12 @@ describe("authorization decision contract", () => {
       decide(
         workstreamContributor,
         "resource.contribute",
-        { kind: "workstream", workstreamId: "workstream-2", projectId: "project-1" },
+        {
+          kind: "workstream",
+          workstreamId: "workstream-2",
+          projectId: "project-1",
+          departmentId: "department-ai",
+        },
         baseContext,
       ),
     ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
@@ -254,14 +416,21 @@ describe("authorization decision contract", () => {
       decide(
         workstreamActingOwner,
         "workstream.manage",
-        { kind: "workstream", workstreamId: "workstream-1", projectId: "project-1" },
+        {
+          kind: "workstream",
+          workstreamId: "workstream-1",
+          projectId: "project-1",
+          departmentId: "department-ai",
+        },
         {
           now,
-          actingOwnerWindows: [
+          responsibilityWindows: [
             {
               subjectId: workstreamActingOwner.subjectId,
               scopeType: "workstream",
               scopeId: "workstream-1",
+              projectId: "project-1",
+              responsibilityType: "acting",
               startsAt: "2026-07-15T08:00:00.000Z",
               endsAt: "2026-07-15T16:00:00.000Z",
             },
@@ -276,14 +445,21 @@ describe("authorization decision contract", () => {
       decide(
         workstreamActingOwner,
         "workstream.manage",
-        { kind: "workstream", workstreamId: "workstream-1", projectId: "project-1" },
+        {
+          kind: "workstream",
+          workstreamId: "workstream-1",
+          projectId: "project-1",
+          departmentId: "department-ai",
+        },
         {
           now,
-          actingOwnerWindows: [
+          responsibilityWindows: [
             {
               subjectId: workstreamActingOwner.subjectId,
               scopeType: "workstream",
               scopeId: "workstream-1",
+              projectId: "project-1",
+              responsibilityType: "acting",
               startsAt: "2026-07-14T08:00:00.000Z",
               endsAt: "2026-07-15T12:00:00.000Z",
             },
@@ -298,14 +474,21 @@ describe("authorization decision contract", () => {
       decide(
         workstreamActingOwner,
         "workstream.manage",
-        { kind: "workstream", workstreamId: "workstream-2", projectId: "project-1" },
+        {
+          kind: "workstream",
+          workstreamId: "workstream-2",
+          projectId: "project-1",
+          departmentId: "department-ai",
+        },
         {
           now,
-          actingOwnerWindows: [
+          responsibilityWindows: [
             {
               subjectId: workstreamActingOwner.subjectId,
               scopeType: "workstream",
               scopeId: "workstream-1",
+              projectId: "project-1",
+              responsibilityType: "acting",
               startsAt: "2026-07-15T08:00:00.000Z",
               endsAt: "2026-07-15T16:00:00.000Z",
             },
