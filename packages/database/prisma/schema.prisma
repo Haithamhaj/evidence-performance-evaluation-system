@@ -66,9 +66,41 @@ model Organization {
   key            String          @unique
   name           String
   departments    Department[]
+  operations     Operation[]
   rubricVersions RubricVersion[]
   createdAt      DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+}
+
+enum OperationStatus {
+  pending
+  running
+  succeeded
+  failed
+}
+
+model Operation {
+  id              String          @id @db.Uuid
+  organizationId  String          @db.Uuid
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  jobType         String
+  jobVersion      Int
+  idempotencyKey  String          @unique
+  correlationId   String          @db.Uuid
+  payloadHash     String
+  status          OperationStatus @default(pending)
+  attemptCount    Int             @default(0)
+  errorCode       String?
+  resultReference String?
+  startedAt       DateTime?       @db.Timestamptz(6)
+  completedAt     DateTime?       @db.Timestamptz(6)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+
+  @@index([organizationId, status, createdAt])
+  @@index([jobType, jobVersion, status, createdAt])
+  @@index([status, createdAt])
+  @@index([correlationId])
 }
 
 model Department {

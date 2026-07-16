@@ -5,7 +5,7 @@ const forbiddenSafeField =
 
 export const AuditEventInputSchema = z
   .object({
-    eventType: z.string().regex(/^[a-z]+(?:\.[a-z]+)+$/u),
+    eventType: z.string().regex(/^[a-z]+(?:_[a-z]+)*(?:\.[a-z]+(?:_[a-z]+)*)+$/u),
     actor: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("human"), id: z.string().uuid() }).strict(),
       z.object({ kind: z.literal("service"), id: z.enum(["bootstrap"]) }).strict(),

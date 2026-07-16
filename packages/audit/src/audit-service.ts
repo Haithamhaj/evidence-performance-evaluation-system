@@ -35,7 +35,7 @@ export const AuditQuerySchema = z
   .object({
     eventType: z
       .string()
-      .regex(/^[a-z]+(?:\.[a-z]+)+$/u)
+      .regex(/^[a-z]+(?:_[a-z]+)*(?:\.[a-z]+(?:_[a-z]+)*)+$/u)
       .optional(),
     actorKind: z.enum(["human", "service"]).optional(),
     actorId: z.string().min(1).optional(),

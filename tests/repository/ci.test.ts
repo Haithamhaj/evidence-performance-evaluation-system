@@ -195,6 +195,7 @@ describe("CI contract", () => {
         "allowBuilds:",
         '  "@prisma/engines": true',
         "  esbuild: true",
+        "  msgpackr-extract: false",
         "  prisma: true",
         "  sharp: true",
       ].join("\n"),
