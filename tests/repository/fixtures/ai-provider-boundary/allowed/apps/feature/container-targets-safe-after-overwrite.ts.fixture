@@ -1,0 +1,33 @@
+declare const opaque: Record<string, () => unknown>;
+
+let key = "generate";
+let providerPackage = "openai";
+let providerUrl = process.env.OPENAI_BASE_URL;
+
+const executeGenerate = () => opaque[key]();
+async function executeProvider() {
+  await import(providerPackage);
+  return fetch(providerUrl);
+}
+function invokeContained(callbacks: { nested: [() => unknown] }) {
+  return callbacks.nested[0]();
+}
+
+const bound = executeGenerate.bind(undefined);
+const objectCallbacks = { execute: executeGenerate };
+const { execute: selected } = objectCallbacks;
+const arrayCallbacks = [executeGenerate];
+const providerCallbacks = { nested: [executeProvider] };
+
+key = "health";
+providerPackage = "./local-module";
+providerUrl = "/health";
+
+export const controls = [
+  bound(),
+  objectCallbacks.execute(),
+  selected(),
+  arrayCallbacks[0](),
+  invokeContained({ nested: [executeGenerate] }),
+  providerCallbacks.nested[0](),
+];

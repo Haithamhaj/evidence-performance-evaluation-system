@@ -21,7 +21,41 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Tenth review remediation commit subject: `fix: track ai boundary value writes`
 - Eleventh review remediation commit subject: `fix: model possible ai boundary values`
 - Twelfth review remediation commit subject: `fix: propagate ai boundary invocation positions`
+- Thirteenth review remediation commit subject: `fix: resolve ai boundary container targets`
 - Push: prohibited and not attempted
+
+## Thirteenth review remediation
+
+The thirteenth review at `.superpowers/sdd/task-11-thirteenth-review.md` identified one critical invocation-graph gap: function targets hidden by `.bind`, object properties, destructuring, array elements, or callback containers were not connected to the outer runtime call position.
+
+### Thirteenth review RED evidence
+
+- Provider-boundary suite: 2 tests executed; the forbidden case failed for the expected missing container-target findings while the existing allowed controls passed.
+- The missing findings reproduced bound execution, a computed object-property call, a destructured property alias, an array-element call, and a nested container callback before a later safe overwrite, plus computed provider import and provider-environment analogs.
+
+### Thirteenth review changes
+
+- Added bounded recursive function-target resolution across `.bind`, object properties, array elements, static/computed member selection, lexical aliases, and nested callback containers.
+- Binding write histories now retain exact destructuring selections for object and array declarations or assignments, allowing the selected function value to flow to the correct lexical binding without trusting same-name bindings.
+- Container members and callback arguments feed their possible function targets into the existing transitive invocation-position graph. Definite later safe overwrites, cross-function observations, cycles, and the 32-value cap retain the prior semantics; target-resolution cap or cycle exhaustion fails closed.
+- Added seven forbidden regression fixtures and one consolidated allowed safe-after-overwrite fixture. The controls cover all five invocation forms and the protected computed-import and provider-environment paths.
+- No database, protected product rule, approved rubric, implementation-plan, task, or project-state behavior changed.
+
+### Thirteenth review GREEN evidence
+
+1. Focused remediation verification
+   - Provider-boundary suite: 2/2 tests passed.
+   - Production boundary validation inspected 124 source files.
+   - Changed validator and test passed ESLint; repository formatting passed.
+
+2. Migration and integration verification
+   - `pnpm db:verify`: all six migrations passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; database integration passed 12/12.
+   - Full integration verification passed 15 files and 120/120 tests after deploying the existing migrations to the isolated test database.
+   - No migration or schema delta was required.
+
+3. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 305 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 311/311 tests; forced build 14/14.
 
 ## Twelfth review remediation
 

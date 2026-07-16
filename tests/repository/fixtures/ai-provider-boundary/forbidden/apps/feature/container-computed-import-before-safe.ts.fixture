@@ -1,0 +1,8 @@
+let providerPackage = "openai";
+async function execute() {
+  return import(providerPackage);
+}
+const callbacks = { nested: [execute] };
+
+export const result = callbacks.nested[0]();
+providerPackage = "./local-module";
