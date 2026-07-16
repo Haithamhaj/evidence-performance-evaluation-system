@@ -84,12 +84,56 @@ describe("prohibited AI output", () => {
   });
 
   it.each([
+    ["The performance rating I recommend is 4.", "rating_recommendation"],
+    ["The expected performance rating is 4.", "rating_prediction"],
+    ["The performance rating we predict is 3.", "rating_prediction"],
+    ["التقييم الذي أوصي به هو ٤.", "rating_recommendation"],
+    ["التقييم الذي أتوقعه هو ٣.", "rating_prediction"],
+    ["مؤشر الإنتاجية ٩١.", "productivity_score"],
+  ])("rejects common noun-first and relative-clause forms: %s", (text, expectedCode) => {
+    expect(scanProhibitedOutput({ text }).violations).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: expectedCode })]),
+    );
+  });
+
+  it.each([
     "Performance must remain separate from Documentation Readiness.",
     "More commits do not mean stronger performance.",
     "يجب أن يبقى الأداء منفصلًا عن جاهزية التوثيق.",
     "كثرة التحديثات لا تعني أداءً أفضل.",
   ])("allows bilingual policy negation/separation: %s", (text) => {
     expect(scanProhibitedOutput({ text })).toEqual({ allowed: true, violations: [] });
+  });
+
+  it.each([
+    "A recommended performance rating is not allowed.",
+    "A predicted performance rating is prohibited.",
+    "لا أوصي بتقييم أداء.",
+  ])("allows neutral rating policy and safety statements: %s", (text) => {
+    expect(scanProhibitedOutput({ text })).toEqual({ allowed: true, violations: [] });
+  });
+
+  it.each([
+    [
+      "Performance must remain separate from Documentation Readiness. Documentation Readiness means high performance.",
+      "readiness_conversion",
+    ],
+    [
+      "جاهزية التوثيق تعني أداءً مرتفعًا.\nيجب أن يبقى الأداء منفصلًا عن جاهزية التوثيق.",
+      "readiness_conversion",
+    ],
+    [
+      "More commits do not mean stronger performance; 12 commits indicate stronger performance.",
+      "activity_volume_inference",
+    ],
+    [
+      "كثرة التحديثات لا تعني أداءً أفضل.\nعشرة تحديثات تعني أداءً أفضل.",
+      "activity_volume_inference",
+    ],
+  ])("does not let a neutral clause hide a prohibited clause: %s", (text, expectedCode) => {
+    expect(scanProhibitedOutput({ text }).violations).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: expectedCode })]),
+    );
   });
 });
 

@@ -26,7 +26,9 @@ const TEXT_PATTERNS: ReadonlyArray<readonly [ProhibitedConceptCode, readonly Reg
       /\b(?:suggested|recommended|proposed)\s+(?:performance\s+)?rating\b/iu,
       /\b(?:i|we)\s+(?:recommend|suggest|propose)\s+(?:an?\s+)?(?:performance\s+)?rating\b/iu,
       /\b(?:performance\s+)?rating\s+(?:suggestion|recommendation)\b/iu,
+      /\b(?:performance\s+)?rating\s+(?:(?:that|which)\s+)?(?:i|we)\s+(?:recommend|suggest|propose)\b/iu,
       /(?:التقييم|تقييم\s+الاداء|درجة\s+الاداء).{0,24}(?:المقترح|الموصي\s+به)/iu,
+      /(?:التقييم|تقييم\s+الاداء|درجة\s+الاداء).{0,16}(?:الذي|التي).{0,8}(?:اوصي|نوصي|اقترح)/iu,
       /(?:اقترح|اوصي\s+بـ?).{0,24}(?:تقييم|درجة)/iu,
       /(?:نوصي|اوصي).{0,12}(?:ب?تقييم|ب?درجة)/iu,
     ],
@@ -35,9 +37,12 @@ const TEXT_PATTERNS: ReadonlyArray<readonly [ProhibitedConceptCode, readonly Reg
     "rating_prediction",
     [
       /\bpredicted\s+(?:performance\s+)?rating\b/iu,
+      /\b(?:expected|anticipated|forecast)\s+(?:performance\s+)?rating\b/iu,
       /\b(?:i|we)\s+predict.{0,24}\b(?:employee\s+)?rating\b/iu,
       /\b(?:performance\s+)?rating\s+(?:is\s+)?predicted\b/iu,
+      /\b(?:performance\s+)?rating\s+(?:(?:that|which)\s+)?(?:i|we)\s+(?:predict|expect|forecast)\b/iu,
       /(?:التقييم|تقييم\s+الاداء|درجة\s+الاداء).{0,24}(?:المتوقع|المتنبا\s+به)/iu,
+      /(?:التقييم|تقييم\s+الاداء|درجة\s+الاداء).{0,16}(?:الذي|التي).{0,8}(?:اتوقعه?|نتوقعه?|نتنبا)/iu,
       /(?:اتوقع|نتوقع).{0,24}(?:تقييم|درجة)/iu,
     ],
   ],
@@ -54,8 +59,8 @@ const TEXT_PATTERNS: ReadonlyArray<readonly [ProhibitedConceptCode, readonly Reg
     "productivity_score",
     [
       /\bproductivity\s+(?:score|grade|index|rating)\b/iu,
-      /(?:درجة|مؤشر|تقييم).{0,20}(?:الانتاجية)/iu,
-      /(?:الانتاجية).{0,20}(?:درجة|مؤشر|تقييم)/iu,
+      /(?:درجة|موشر|تقييم).{0,20}(?:الانتاجية)/iu,
+      /(?:الانتاجية).{0,20}(?:درجة|موشر|تقييم)/iu,
       /(?:الانتاجية).{0,8}[0-9٠-٩]+\s*(?:من|\/|٪|%)/iu,
     ],
   ],
@@ -99,10 +104,13 @@ const KEY_PATTERNS: ReadonlyArray<readonly [ProhibitedConceptCode, RegExp]> = [
 export function scanProhibitedOutput(input: ScanInput): ProhibitedOutputScan {
   const violations: ProhibitedOutputViolation[] = [];
   const normalizedText = normalizeText(input.text ?? "");
+  const clauses = splitClauses(normalizedText);
 
   for (const [code, patterns] of TEXT_PATTERNS) {
-    if (isNeutralPolicyStatement(normalizedText, code)) continue;
-    const match = patterns.map((pattern) => normalizedText.match(pattern)).find(Boolean);
+    const match = clauses
+      .filter((clause) => !isNeutralPolicyClause(clause, code))
+      .flatMap((clause) => patterns.map((pattern) => clause.match(pattern)))
+      .find(Boolean);
     if (match?.[0] !== undefined) violations.push({ code, source: "text", match: match[0] });
   }
 
@@ -117,7 +125,19 @@ export function scanProhibitedOutput(input: ScanInput): ProhibitedOutputScan {
   return { allowed: violations.length === 0, violations };
 }
 
-function isNeutralPolicyStatement(text: string, code: ProhibitedConceptCode): boolean {
+function isNeutralPolicyClause(text: string, code: ProhibitedConceptCode): boolean {
+  if (code === "rating_recommendation") {
+    return (
+      /\b(?:recommended|suggested|proposed)\s+(?:performance\s+)?rating\s+(?:is\s+)?(?:not\s+allowed|prohibited|forbidden|disallowed)\b/iu.test(
+        text,
+      ) || /(?:لا|لن)\s+(?:اوصي|نوصي|اقترح).{0,16}(?:تقييم|درجة)/iu.test(text)
+    );
+  }
+  if (code === "rating_prediction") {
+    return /\b(?:predicted|expected|forecast)\s+(?:performance\s+)?rating\s+(?:is\s+)?(?:not\s+allowed|prohibited|forbidden|disallowed)\b/iu.test(
+      text,
+    );
+  }
   if (code === "activity_volume_inference") {
     return (
       /\b(?:more|fewer)\s+(?:commits?|updates?|activities|projects?|tasks?|pull\s+requests?)\s+(?:do|does)\s+not\s+(?:mean|indicate|prove).{0,32}\b(?:performance|productivity)\b/iu.test(
@@ -139,6 +159,13 @@ function isNeutralPolicyStatement(text: string, code: ProhibitedConceptCode): bo
     );
   }
   return false;
+}
+
+function splitClauses(text: string): string[] {
+  return text
+    .split(/[.!?؟؛;\r\n]+/u)
+    .map((clause) => clause.trim())
+    .filter(Boolean);
 }
 
 function normalizeText(value: string): string {
