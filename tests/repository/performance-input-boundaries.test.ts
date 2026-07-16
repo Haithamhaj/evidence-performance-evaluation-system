@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -44,5 +45,20 @@ describe("performance input boundary scanner", () => {
     expect(result.stderr).toContain("evaluation/input.ts.fixture:projectCount");
     expect(result.stderr).toContain("contracts/input.ts.fixture:taskCount");
     expect(result.stderr).not.toContain("operations/counters.ts.fixture:taskCount");
+  });
+
+  it("rejects forbidden raw counts from an AI input/output schema fixture", () => {
+    const result = scan("tests/repository/fixtures/ai-schema-bad.ts.fixture");
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("ai-schema-bad.ts.fixture:commitCount");
+  });
+
+  it("keeps the maintained T012 schema path in the default scan and CI", () => {
+    const scannerSource = readFileSync(scanner, "utf8");
+    const ciWorkflow = readFileSync(path.join(repositoryRoot, ".github/workflows/ci.yml"), "utf8");
+
+    expect(scannerSource).toContain('"tests/ai-evals/schemas.ts"');
+    expect(ciWorkflow).toContain("pnpm scan:performance-inputs");
   });
 });

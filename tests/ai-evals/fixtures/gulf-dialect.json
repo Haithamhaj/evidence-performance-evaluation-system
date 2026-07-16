@@ -8,11 +8,19 @@
     "provenance": "synthetic authored Gulf Arabic fixture; no employee data",
     "input": {
       "sourceContent": "جرّبنا الربط وطلع الاختبار ناجح، بس أثره على باقي النظام للحين مو واضح.",
-      "sourceReferences": ["evidence:1002"]
+      "sourceReferences": ["evidence:1002"],
+      "criterionId": "PPB-01"
     },
     "expectedSchemaVersion": "ai-eval-output.v1",
     "requiredSourceReferences": ["evidence:1002"],
-    "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+    "forbiddenConcepts": [
+      "rating_recommendation",
+      "rating_prediction",
+      "employee_ranking",
+      "productivity_score",
+      "activity_volume_inference",
+      "readiness_conversion"
+    ],
     "expectedDisposition": "allow"
   },
   "adapterOutput": {

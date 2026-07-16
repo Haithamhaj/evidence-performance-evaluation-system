@@ -6,15 +6,23 @@
       "locale": "en",
       "dialect": "none",
       "classification": "confidential",
-      "provenance": "synthetic Identified pilot fixture; no employee data",
+      "provenance": "synthetic visibility-contract fixtures; no employee data",
       "input": {
         "sourceContent": "Pilot response with synthetic identity.",
         "sourceReferences": ["manager-submission:1006"],
+        "criterionId": "PPB-01",
         "pilotRoute": "manager-feedback.identified"
       },
       "expectedSchemaVersion": "ai-eval-output.v1",
       "requiredSourceReferences": ["manager-submission:1006"],
-      "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+      "forbiddenConcepts": [
+        "rating_recommendation",
+        "rating_prediction",
+        "employee_ranking",
+        "productivity_score",
+        "activity_volume_inference",
+        "readiness_conversion"
+      ],
       "expectedDisposition": "allow"
     },
     "adapterOutput": {
@@ -24,7 +32,7 @@
         "mode": "Identified",
         "pilotRoute": "manager-feedback.identified",
         "submitterIdentity": "synthetic-user:1001",
-        "managerVisibleFields": ["identity", "status", "ratings", "comments", "timestamp"]
+        "managerVisibleFields": ["identity", "status", "ratings", "comments", "timestamps"]
       }
     }
   },
@@ -35,15 +43,23 @@
       "locale": "en",
       "dialect": "none",
       "classification": "confidential",
-      "provenance": "synthetic future Manager-Blinded contract fixture; no employee data",
+      "provenance": "synthetic visibility-contract fixtures; no employee data",
       "input": {
         "sourceContent": "Future-mode contract check; the pilot route remains unchanged.",
         "sourceReferences": ["manager-submission:1006"],
+        "criterionId": "PPB-01",
         "pilotRoute": "manager-feedback.identified"
       },
       "expectedSchemaVersion": "ai-eval-output.v1",
       "requiredSourceReferences": ["manager-submission:1006"],
-      "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+      "forbiddenConcepts": [
+        "rating_recommendation",
+        "rating_prediction",
+        "employee_ranking",
+        "productivity_score",
+        "activity_volume_inference",
+        "readiness_conversion"
+      ],
       "expectedDisposition": "allow"
     },
     "adapterOutput": {
@@ -52,7 +68,7 @@
       "visibility": {
         "mode": "Manager-Blinded",
         "pilotRoute": "manager-feedback.identified",
-        "managerVisibleFields": ["status", "content"]
+        "managerVisibleFields": ["status", "summary"]
       }
     }
   },
@@ -63,15 +79,23 @@
       "locale": "en",
       "dialect": "none",
       "classification": "confidential",
-      "provenance": "synthetic future Anonymous Aggregated contract fixture; no employee data",
+      "provenance": "synthetic visibility-contract fixtures; no employee data",
       "input": {
         "sourceContent": "Future-mode contract check; the pilot route remains unchanged.",
         "sourceReferences": ["manager-submission:1006"],
+        "criterionId": "PPB-01",
         "pilotRoute": "manager-feedback.identified"
       },
       "expectedSchemaVersion": "ai-eval-output.v1",
       "requiredSourceReferences": ["manager-submission:1006"],
-      "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+      "forbiddenConcepts": [
+        "rating_recommendation",
+        "rating_prediction",
+        "employee_ranking",
+        "productivity_score",
+        "activity_volume_inference",
+        "readiness_conversion"
+      ],
       "expectedDisposition": "allow"
     },
     "adapterOutput": {

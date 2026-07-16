@@ -24,15 +24,18 @@ const TEXT_PATTERNS: ReadonlyArray<readonly [ProhibitedConceptCode, readonly Reg
     "rating_recommendation",
     [
       /\b(?:suggested|recommended|proposed)\s+(?:performance\s+)?rating\b/iu,
+      /\b(?:i|we)\s+(?:recommend|suggest|propose)\s+(?:an?\s+)?(?:performance\s+)?rating\b/iu,
       /\b(?:performance\s+)?rating\s+(?:suggestion|recommendation)\b/iu,
       /(?:التقييم|تقييم\s+الاداء|درجة\s+الاداء).{0,24}(?:المقترح|الموصي\s+به)/iu,
       /(?:اقترح|اوصي\s+بـ?).{0,24}(?:تقييم|درجة)/iu,
+      /(?:نوصي|اوصي).{0,12}(?:ب?تقييم|ب?درجة)/iu,
     ],
   ],
   [
     "rating_prediction",
     [
       /\bpredicted\s+(?:performance\s+)?rating\b/iu,
+      /\b(?:i|we)\s+predict.{0,24}\b(?:employee\s+)?rating\b/iu,
       /\b(?:performance\s+)?rating\s+(?:is\s+)?predicted\b/iu,
       /(?:التقييم|تقييم\s+الاداء|درجة\s+الاداء).{0,24}(?:المتوقع|المتنبا\s+به)/iu,
       /(?:اتوقع|نتوقع).{0,24}(?:تقييم|درجة)/iu,
@@ -53,6 +56,7 @@ const TEXT_PATTERNS: ReadonlyArray<readonly [ProhibitedConceptCode, readonly Reg
       /\bproductivity\s+(?:score|grade|index|rating)\b/iu,
       /(?:درجة|مؤشر|تقييم).{0,20}(?:الانتاجية)/iu,
       /(?:الانتاجية).{0,20}(?:درجة|مؤشر|تقييم)/iu,
+      /(?:الانتاجية).{0,8}[0-9٠-٩]+\s*(?:من|\/|٪|%)/iu,
     ],
   ],
   [
@@ -97,6 +101,7 @@ export function scanProhibitedOutput(input: ScanInput): ProhibitedOutputScan {
   const normalizedText = normalizeText(input.text ?? "");
 
   for (const [code, patterns] of TEXT_PATTERNS) {
+    if (isNeutralPolicyStatement(normalizedText, code)) continue;
     const match = patterns.map((pattern) => normalizedText.match(pattern)).find(Boolean);
     if (match?.[0] !== undefined) violations.push({ code, source: "text", match: match[0] });
   }
@@ -110,6 +115,30 @@ export function scanProhibitedOutput(input: ScanInput): ProhibitedOutputScan {
   }
 
   return { allowed: violations.length === 0, violations };
+}
+
+function isNeutralPolicyStatement(text: string, code: ProhibitedConceptCode): boolean {
+  if (code === "activity_volume_inference") {
+    return (
+      /\b(?:more|fewer)\s+(?:commits?|updates?|activities|projects?|tasks?|pull\s+requests?)\s+(?:do|does)\s+not\s+(?:mean|indicate|prove).{0,32}\b(?:performance|productivity)\b/iu.test(
+        text,
+      ) ||
+      /(?:كثرة|عدد|حجم).{0,24}(?:التحديثات|الالتزامات|المشاريع|المهام|الانشطة).{0,16}(?:لا|ليس|ليست)\s+(?:تعني|تدل|تثبت).{0,24}(?:اداء|انتاجية)/iu.test(
+        text,
+      )
+    );
+  }
+  if (code === "readiness_conversion") {
+    return (
+      /\bperformance\s+(?:must|should)\s+remain\s+separate\s+from\s+documentation\s+readiness\b/iu.test(
+        text,
+      ) ||
+      /(?:اداء|تقييم).{0,20}(?:منفصل|منفصلا|منفصلة).{0,20}(?:جاهزية|اكتمال).{0,16}(?:التوثيق|الوثائق)/iu.test(
+        text,
+      )
+    );
+  }
+  return false;
 }
 
 function normalizeText(value: string): string {

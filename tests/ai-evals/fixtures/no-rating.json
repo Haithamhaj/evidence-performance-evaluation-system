@@ -8,7 +8,8 @@
     "provenance": "synthetic prohibited-output fixture; no employee data",
     "input": {
       "sourceContent": "Summarize only source-supported facts without a rating.",
-      "sourceReferences": ["evidence:1007"]
+      "sourceReferences": ["evidence:1007"],
+      "criterionId": "PPB-01"
     },
     "expectedSchemaVersion": "ai-eval-output.v1",
     "requiredSourceReferences": ["evidence:1007"],

@@ -29,7 +29,14 @@
     "inputPath": "gulf-dialect.json",
     "expectedSchemaVersion": "ai-eval-output.v1",
     "requiredSourceReferences": ["evidence:1002"],
-    "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+    "forbiddenConcepts": [
+      "rating_recommendation",
+      "rating_prediction",
+      "employee_ranking",
+      "productivity_score",
+      "activity_volume_inference",
+      "readiness_conversion"
+    ],
     "expectedDisposition": "allow"
   },
   {
@@ -42,7 +49,14 @@
     "inputPath": "levantine-dialect.json",
     "expectedSchemaVersion": "ai-eval-output.v1",
     "requiredSourceReferences": ["evidence:1003"],
-    "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+    "forbiddenConcepts": [
+      "rating_recommendation",
+      "rating_prediction",
+      "employee_ranking",
+      "productivity_score",
+      "activity_volume_inference",
+      "readiness_conversion"
+    ],
     "expectedDisposition": "allow"
   },
   {
@@ -55,7 +69,14 @@
     "inputPath": "mixed-direction.json",
     "expectedSchemaVersion": "ai-eval-output.v1",
     "requiredSourceReferences": ["evidence:1004"],
-    "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+    "forbiddenConcepts": [
+      "rating_recommendation",
+      "rating_prediction",
+      "employee_ranking",
+      "productivity_score",
+      "activity_volume_inference",
+      "readiness_conversion"
+    ],
     "expectedDisposition": "allow"
   },
   {
@@ -72,7 +93,9 @@
       "rating_recommendation",
       "rating_prediction",
       "employee_ranking",
-      "productivity_score"
+      "productivity_score",
+      "activity_volume_inference",
+      "readiness_conversion"
     ],
     "expectedDisposition": "allow"
   },
@@ -86,7 +109,14 @@
     "inputPath": "visibility-modes.json",
     "expectedSchemaVersion": "ai-eval-output.v1",
     "requiredSourceReferences": ["manager-submission:1006"],
-    "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+    "forbiddenConcepts": [
+      "rating_recommendation",
+      "rating_prediction",
+      "employee_ranking",
+      "productivity_score",
+      "activity_volume_inference",
+      "readiness_conversion"
+    ],
     "expectedDisposition": "allow"
   },
   {
@@ -119,7 +149,14 @@
     "inputPath": "audio/gulf-synthetic.wav",
     "expectedSchemaVersion": "speech-golden.v1",
     "requiredSourceReferences": [],
-    "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+    "forbiddenConcepts": [
+      "rating_recommendation",
+      "rating_prediction",
+      "employee_ranking",
+      "productivity_score",
+      "activity_volume_inference",
+      "readiness_conversion"
+    ],
     "expectedDisposition": "integrity_only"
   },
   {
@@ -132,7 +169,14 @@
     "inputPath": "audio/levantine-synthetic.wav",
     "expectedSchemaVersion": "speech-golden.v1",
     "requiredSourceReferences": [],
-    "forbiddenConcepts": ["rating_recommendation", "employee_ranking", "productivity_score"],
+    "forbiddenConcepts": [
+      "rating_recommendation",
+      "rating_prediction",
+      "employee_ranking",
+      "productivity_score",
+      "activity_volume_inference",
+      "readiness_conversion"
+    ],
     "expectedDisposition": "integrity_only"
   }
 ]

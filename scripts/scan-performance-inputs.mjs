@@ -20,6 +20,7 @@ const forbiddenFields = [
 ];
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".mjs", ".fixture"]);
 const ignoredDirectories = new Set([".next", ".turbo", "dist", "generated", "node_modules"]);
+const maintainedSchemaPaths = ["tests/ai-evals/schemas.ts"];
 
 async function collect(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -48,7 +49,10 @@ async function main() {
   const files =
     explicit.length > 0
       ? explicit
-      : (await Promise.all(scanRoots.map((root) => collect(root)))).flat();
+      : [
+          ...(await Promise.all(scanRoots.map((root) => collect(root)))).flat(),
+          ...maintainedSchemaPaths.map((entry) => path.resolve(repositoryRoot, entry)),
+        ];
   const violations = [];
   for (const file of files) {
     const content = await readFile(file, "utf8");
