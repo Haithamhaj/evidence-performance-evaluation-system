@@ -1,0 +1,10 @@
+declare const opaque: Record<string, () => unknown>;
+
+let key = "generate";
+try {
+  key = "health";
+} catch {
+  // A failed write cannot erase the known protected key.
+}
+
+export const result = opaque[key]();

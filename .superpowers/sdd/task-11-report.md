@@ -19,7 +19,44 @@ DONE — implementation, independent-review remediation, and repository-wide ver
 - Eighth review remediation commit subject: `fix: close ai router destructuring gap`
 - Ninth review remediation commit subject: `fix: bind ai boundary values lexically`
 - Tenth review remediation commit subject: `fix: track ai boundary value writes`
+- Eleventh review remediation commit subject: `fix: model possible ai boundary values`
 - Push: prohibited and not attempted
+
+## Eleventh review remediation
+
+The eleventh review at `.superpowers/sdd/task-11-eleventh-review.md` identified two critical flow-analysis issues: ambiguous writes erased known-dangerous values, and nested references were resolved by function source position instead of possible invocation order.
+
+### Eleventh review RED evidence
+
+- Provider-boundary suite: 2/2 tests failed for the expected reasons. The forbidden scan missed conditional, loop, try, logical, compound, and uninitialized-redeclaration masking paths plus later outer provider values; the allowed scan falsely rejected later definite safe overwrites before invocation.
+- A separate bounded-expansion probe failed because a dangerous value after more than 32 possible writes could be dropped.
+- A definite-safe-after-expansion control then failed while proving that a later certain write must also clear a prior truncation state.
+
+### Eleventh review changes
+
+- Replaced single latest-write resolution with bounded possible-write sets keyed by exact Babel lexical bindings and execution boundaries.
+- Within one execution boundary, definite sequential writes dominate prior state; conditional, loop, try, logical, compound, and other ambiguous writes add possible values or uncertainty without erasing a known-dangerous value. Uninitialized `var` redeclarations create no runtime write.
+- Nested references resolve outer state at direct local invocation positions plus the end of the owner boundary, representing later or external invocation after initialization. This bounded rule catches a call between dangerous and later safe writes, accepts a safe overwrite before the only call, and conservatively unions mutations from other execution boundaries.
+- Static-string, computed-property, dynamic import/require, provider-route URL, and provider-environment analysis now consume every possible value. Recursive alias/string construction retains cycle guards and caps expansion at 32 values; truncation is tracked separately and fails closed at provider security boundaries, while a later definite write resets prior truncated state.
+- Added forbidden fixtures for the six ambiguous-write classes, provider environment/import analogs, both cross-function dangerous directions, other-boundary mutation, immediate call-between-writes, and cap exhaustion. Added allowed controls for safe cross-function overwrites and a definite safe overwrite after cap exhaustion.
+
+### Eleventh review GREEN evidence
+
+1. Focused remediation verification
+   - Provider-boundary suite: 2/2 tests passed.
+   - AI-routing package: 3 files and 167/167 tests passed.
+   - Repository boundary set: 2 files and 5/5 tests passed.
+   - Production boundary validation inspected 124 source files.
+
+2. Migration and integration verification
+   - `pnpm db:verify`: all six migrations passed from an empty database and the previous 0005 snapshot, with no drift and equivalent rebuilt schemas; database integration passed 12/12.
+   - The isolated test database initially had no schema; after deploying the existing six migrations to `TEST_DATABASE_URL`, the full integration suite passed 15 files and 120/120 tests.
+   - No migration or schema delta was required.
+
+3. Full forced repository verification
+   - `TURBO_FORCE=true pnpm verify` exited 0.
+   - Task graph 77; secret scan 291 files; performance scan 95 files; format; forced lint 14/14; boundaries 124 source files; forced typecheck 14/14; unit coverage 28 files and 311/311 tests; forced build 14/14.
+   - `git diff --check` passed, and no database, approved product, rubric, implementation-plan, task, or agent-governance file changed.
 
 ## Tenth review remediation
 

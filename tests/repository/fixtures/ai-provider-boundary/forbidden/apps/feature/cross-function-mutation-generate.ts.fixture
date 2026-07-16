@@ -1,0 +1,11 @@
+declare const opaque: Record<string, () => unknown>;
+
+let key = "health";
+function mutate() {
+  key = "generate";
+}
+function execute() {
+  return opaque[key]();
+}
+
+export const controls = [mutate, execute];

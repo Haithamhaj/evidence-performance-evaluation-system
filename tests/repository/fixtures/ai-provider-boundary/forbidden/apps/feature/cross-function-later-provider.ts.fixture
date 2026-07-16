@@ -1,0 +1,11 @@
+let providerPackage = "./local-module";
+let providerUrl = "/health";
+
+async function execute() {
+  await import(providerPackage);
+  return fetch(providerUrl);
+}
+
+providerPackage = "openai";
+providerUrl = process.env.OPENAI_BASE_URL;
+export const result = execute();

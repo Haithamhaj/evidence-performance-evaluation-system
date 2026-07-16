@@ -34,6 +34,8 @@ const restrictedAiComposition = "@evaluation/ai-routing/admin-composition";
 const protectedAiCompositionFile = "apps/api/src/ai-routing/ai-routing.module.ts";
 const providerEnvironmentPattern =
   /(?:^|_)(?:AI|OPENAI|ANTHROPIC|AZURE_OPENAI|COHERE|MODEL_PROVIDER)(?:_|$)/u;
+const maxResolvedValues = 32;
+const invocationPositionsByBindingWrites = new WeakMap();
 
 async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -202,11 +204,12 @@ function crossesExecutionBoundary(binding, writeNode, pathByNode) {
 function addBindingWrite(writes, binding, writeNode, expression, pathByNode) {
   if (binding === undefined) return;
   const write = {
-    expression:
+    ambiguous:
       hasAmbiguousControlFlow(writeNode, pathByNode) ||
-      crossesExecutionBoundary(binding, writeNode, pathByNode)
-        ? undefined
-        : expression,
+      (writeNode?.type === "AssignmentExpression" && writeNode.operator !== "=") ||
+      crossesExecutionBoundary(binding, writeNode, pathByNode),
+    boundary: executionBoundary(pathByNode.get(writeNode)),
+    expression,
     position: bindingWritePosition(writeNode),
   };
   const existing = writes.get(binding);
@@ -245,46 +248,155 @@ function collectUnknownBindingWrites(pattern, writeNode, writes, pathByNode) {
   }
 }
 
-function latestBindingWrite(identifier, bindingWrites, pathByNode) {
-  const binding = lexicalBinding(identifier, pathByNode);
-  if (binding === undefined) return undefined;
-  const referencePosition = identifier?.start ?? Number.POSITIVE_INFINITY;
-  return bindingWrites
-    .get(binding)
-    ?.filter((write) => write.position <= referencePosition)
-    .at(-1);
+function addBounded(target, value) {
+  if (target.has(value)) return true;
+  if (target.size >= maxResolvedValues) return false;
+  target.add(value);
+  return true;
 }
 
-function staticString(node, bindingWrites, pathByNode, resolvingWrites = new Set()) {
-  if (node?.type === "StringLiteral") return node.value;
+function unionResolved(target, source) {
+  for (const value of source.values) {
+    if (target.values.size >= maxResolvedValues && !target.values.has(value)) {
+      target.truncated = true;
+    } else target.values.add(value);
+  }
+  target.unknown ||= source.unknown;
+  target.truncated ||= source.truncated;
+  return target;
+}
+
+function bindingStateAt(binding, ownerBoundary, position, bindingWrites) {
+  const state = { values: new Set(), unknown: false, truncated: false };
+  const writes = bindingWrites.get(binding) ?? [];
+
+  for (const write of writes) {
+    if (write.boundary !== ownerBoundary || write.position > position) continue;
+    if (!write.ambiguous) {
+      state.values.clear();
+      state.unknown = write.expression === undefined;
+      state.truncated = false;
+    }
+    if (write.expression === undefined) state.unknown = true;
+    else if (!addBounded(state.values, write)) state.truncated = true;
+  }
+
+  // Mutations from another execution boundary may run before any nested reference.
+  // They never dominate the owner boundary's definite state, but remain possible.
+  for (const write of writes) {
+    if (write.boundary === ownerBoundary) continue;
+    if (write.expression === undefined) state.unknown = true;
+    else if (!addBounded(state.values, write)) state.truncated = true;
+  }
+
+  return state;
+}
+
+function possibleBindingWrites(identifier, bindingWrites, pathByNode) {
+  const binding = lexicalBinding(identifier, pathByNode);
+  if (binding === undefined) return { values: new Set(), unknown: true, truncated: false };
+  const ownerBoundary = executionBoundary(binding.path);
+  const referenceBoundary = executionBoundary(pathByNode.get(identifier));
+  if (ownerBoundary === undefined || referenceBoundary === undefined) {
+    return { values: new Set(), unknown: true, truncated: false };
+  }
+
+  if (ownerBoundary === referenceBoundary) {
+    return bindingStateAt(
+      binding,
+      ownerBoundary,
+      identifier?.start ?? Number.POSITIVE_INFINITY,
+      bindingWrites,
+    );
+  }
+
+  // A nested reference observes outer state when its function is invoked, not when
+  // the function body appears in source. Direct local calls cover reviewed runtime
+  // order; end-of-owner-boundary represents later/external invocation after init.
+  const invocationPositions = invocationPositionsByBindingWrites
+    .get(bindingWrites)
+    ?.get(referenceBoundary)
+    ?.get(ownerBoundary);
+  const observationPositions = [...(invocationPositions ?? []), Number.POSITIVE_INFINITY];
+  const result = { values: new Set(), unknown: false, truncated: false };
+  for (const position of observationPositions) {
+    unionResolved(result, bindingStateAt(binding, ownerBoundary, position, bindingWrites));
+  }
+  return result;
+}
+
+function possibleStaticStrings(node, bindingWrites, pathByNode, resolvingWrites = new Set()) {
+  if (node?.type === "StringLiteral") {
+    return { values: new Set([node.value]), unknown: false, truncated: false };
+  }
   if (node?.type === "Identifier") {
-    const write = latestBindingWrite(node, bindingWrites, pathByNode);
-    if (write?.expression === undefined || resolvingWrites.has(write)) return undefined;
-    const nextResolvingWrites = new Set(resolvingWrites);
-    nextResolvingWrites.add(write);
-    return staticString(write.expression, bindingWrites, pathByNode, nextResolvingWrites);
+    const possibleWrites = possibleBindingWrites(node, bindingWrites, pathByNode);
+    const result = {
+      values: new Set(),
+      unknown: possibleWrites.unknown,
+      truncated: possibleWrites.truncated,
+    };
+    for (const write of possibleWrites.values) {
+      if (write.expression === undefined || resolvingWrites.has(write)) {
+        result.unknown = true;
+        continue;
+      }
+      const nextResolvingWrites = new Set(resolvingWrites);
+      nextResolvingWrites.add(write);
+      unionResolved(
+        result,
+        possibleStaticStrings(write.expression, bindingWrites, pathByNode, nextResolvingWrites),
+      );
+    }
+    return result;
   }
   if (node?.type === "ParenthesizedExpression") {
-    return staticString(node.expression, bindingWrites, pathByNode, resolvingWrites);
+    return possibleStaticStrings(node.expression, bindingWrites, pathByNode, resolvingWrites);
   }
   if (node?.type === "BinaryExpression" && node.operator === "+") {
-    const left = staticString(node.left, bindingWrites, pathByNode, resolvingWrites);
-    const right = staticString(node.right, bindingWrites, pathByNode, resolvingWrites);
-    return left === undefined || right === undefined ? undefined : `${left}${right}`;
+    const left = possibleStaticStrings(node.left, bindingWrites, pathByNode, resolvingWrites);
+    const right = possibleStaticStrings(node.right, bindingWrites, pathByNode, resolvingWrites);
+    const result = {
+      values: new Set(),
+      unknown: left.unknown || right.unknown,
+      truncated: left.truncated || right.truncated,
+    };
+    for (const leftValue of left.values) {
+      for (const rightValue of right.values) {
+        if (!addBounded(result.values, `${leftValue}${rightValue}`)) result.truncated = true;
+      }
+    }
+    if (left.values.size * right.values.size > maxResolvedValues) result.unknown = true;
+    return result;
   }
   if (node?.type === "TemplateLiteral") {
-    let value = node.quasis[0]?.value.cooked ?? "";
+    let result = {
+      values: new Set([node.quasis[0]?.value.cooked ?? ""]),
+      unknown: false,
+      truncated: false,
+    };
     for (let index = 0; index < node.expressions.length; index += 1) {
-      const expression = staticString(
+      const expression = possibleStaticStrings(
         node.expressions[index],
         bindingWrites,
         pathByNode,
         resolvingWrites,
       );
-      if (expression === undefined) return undefined;
-      value += expression + (node.quasis[index + 1]?.value.cooked ?? "");
+      const suffix = node.quasis[index + 1]?.value.cooked ?? "";
+      const next = {
+        values: new Set(),
+        unknown: result.unknown || expression.unknown,
+        truncated: result.truncated || expression.truncated,
+      };
+      for (const prefix of result.values) {
+        for (const value of expression.values) {
+          if (!addBounded(next.values, `${prefix}${value}${suffix}`)) next.truncated = true;
+        }
+      }
+      if (result.values.size * expression.values.size > maxResolvedValues) next.unknown = true;
+      result = next;
     }
-    return value;
+    return result;
   }
   if (
     node?.type === "CallExpression" &&
@@ -293,15 +405,51 @@ function staticString(node, bindingWrites, pathByNode, resolvingWrites = new Set
     node.callee.object?.type === "ArrayExpression"
   ) {
     const separator = node.arguments[0]
-      ? staticString(node.arguments[0], bindingWrites, pathByNode, resolvingWrites)
-      : ",";
-    const items = node.callee.object.elements.map((element) =>
-      staticString(element, bindingWrites, pathByNode, resolvingWrites),
-    );
-    if (separator === undefined || items.some((item) => item === undefined)) return undefined;
-    return items.join(separator);
+      ? possibleStaticStrings(node.arguments[0], bindingWrites, pathByNode, resolvingWrites)
+      : { values: new Set([","]), unknown: false, truncated: false };
+    let joined = {
+      values: new Set([""]),
+      unknown: separator.unknown,
+      truncated: separator.truncated,
+    };
+    for (const element of node.callee.object.elements) {
+      const item = possibleStaticStrings(element, bindingWrites, pathByNode, resolvingWrites);
+      const next = {
+        values: new Set(),
+        unknown: joined.unknown || item.unknown,
+        truncated: joined.truncated || item.truncated,
+      };
+      for (const prefix of joined.values) {
+        for (const itemValue of item.values) {
+          for (const separatorValue of separator.values) {
+            if (
+              !addBounded(
+                next.values,
+                prefix === "" ? itemValue : `${prefix}${separatorValue}${itemValue}`,
+              )
+            ) {
+              next.truncated = true;
+            }
+          }
+        }
+      }
+      joined = next;
+    }
+    return joined;
   }
-  return undefined;
+  return { values: new Set(), unknown: true, truncated: false };
+}
+
+function staticString(node, bindingWrites, pathByNode, resolvingWrites = new Set()) {
+  const resolved = possibleStaticStrings(node, bindingWrites, pathByNode, resolvingWrites);
+  return !resolved.unknown && !resolved.truncated && resolved.values.size === 1
+    ? [...resolved.values][0]
+    : undefined;
+}
+
+function hasPossibleStaticString(node, expected, bindingWrites, pathByNode) {
+  const resolved = possibleStaticStrings(node, bindingWrites, pathByNode);
+  return resolved.values.has(expected) || resolved.truncated;
 }
 
 function propertyName(expression, bindings, pathByNode) {
@@ -312,6 +460,15 @@ function propertyName(expression, bindings, pathByNode) {
     return expression.property.name;
   }
   return staticString(expression.property, bindings, pathByNode);
+}
+
+function hasPossiblePropertyName(expression, expected, bindings, pathByNode) {
+  if (!["MemberExpression", "OptionalMemberExpression"].includes(expression?.type)) return false;
+  if (!expression.computed && expression.property?.type === "Identifier") {
+    return expression.property.name === expected;
+  }
+  const resolved = possibleStaticStrings(expression.property, bindings, pathByNode);
+  return resolved.values.has(expected) || resolved.truncated;
 }
 
 function patternExtractsGenerate(pattern, bindings, pathByNode) {
@@ -328,7 +485,9 @@ function patternExtractsGenerate(pattern, bindings, pathByNode) {
     }
     if (property.type !== "ObjectProperty") return false;
     return (
-      propertyKeyName(property, bindings, pathByNode) === "generate" ||
+      (property.computed
+        ? hasPossibleStaticString(property.key, "generate", bindings, pathByNode)
+        : propertyKeyName(property, bindings, pathByNode) === "generate") ||
       patternExtractsGenerate(property.value, bindings, pathByNode)
     );
   });
@@ -491,28 +650,39 @@ function collectOpaquePatternWrites(pattern, writes, pathByNode) {
   }
 }
 
-function staticUrl(node, bindings, pathByNode) {
-  const direct = staticString(node, bindings, pathByNode);
-  if (direct !== undefined) return direct;
+function possibleStaticUrls(node, bindings, pathByNode) {
+  const direct = possibleStaticStrings(node, bindings, pathByNode);
+  if (direct.values.size > 0) return direct;
   if (
     node?.type === "NewExpression" &&
     node.callee?.type === "Identifier" &&
     node.callee.name === "URL"
   ) {
-    const relative = node.arguments[0]
-      ? staticString(node.arguments[0], bindings, pathByNode)
-      : undefined;
-    const base = node.arguments[1]
-      ? staticString(node.arguments[1], bindings, pathByNode)
-      : undefined;
-    if (relative === undefined || base === undefined) return undefined;
-    try {
-      return new URL(relative, base).toString();
-    } catch {
-      return undefined;
+    const relatives = node.arguments[0]
+      ? possibleStaticStrings(node.arguments[0], bindings, pathByNode)
+      : { values: new Set(), unknown: true, truncated: false };
+    const bases = node.arguments[1]
+      ? possibleStaticStrings(node.arguments[1], bindings, pathByNode)
+      : { values: new Set(), unknown: true, truncated: false };
+    const result = {
+      values: new Set(),
+      unknown: relatives.unknown || bases.unknown,
+      truncated: relatives.truncated || bases.truncated,
+    };
+    for (const relative of relatives.values) {
+      for (const base of bases.values) {
+        try {
+          if (!addBounded(result.values, new URL(relative, base).toString())) {
+            result.truncated = true;
+          }
+        } catch {
+          result.unknown = true;
+        }
+      }
     }
+    return result;
   }
-  return undefined;
+  return { values: new Set(), unknown: true, truncated: false };
 }
 
 function memberPath(node) {
@@ -547,8 +717,10 @@ function containsProviderEnvironment(node, bindingWrites, pathByNode, resolvingW
   let found = false;
   walk(node, (candidate) => {
     if (candidate.type === "Identifier") {
-      const write = latestBindingWrite(candidate, bindingWrites, pathByNode);
-      if (write?.expression !== undefined && !resolvingWrites.has(write)) {
+      const possibleWrites = possibleBindingWrites(candidate, bindingWrites, pathByNode);
+      if (possibleWrites.truncated) found = true;
+      for (const write of possibleWrites.values) {
+        if (write.expression === undefined || resolvingWrites.has(write)) continue;
         const nextResolvingWrites = new Set(resolvingWrites);
         nextResolvingWrites.add(write);
         if (
@@ -593,6 +765,8 @@ function inspectAst(filePath, source) {
   const updateWrites = [];
   const opaqueBindingPatterns = [];
   const localGeneratorClassNodes = [];
+  const functionNodes = [];
+  const callNodes = [];
 
   traverse(sourceFile, {
     enter(nodePath) {
@@ -604,6 +778,7 @@ function inspectAst(filePath, source) {
       const { node } = nodePath;
       if (node.type === "VariableDeclarator") declarations.push(node);
       if (node.type === "AssignmentExpression") assignments.push(node);
+      if (node.type === "CallExpression") callNodes.push(node);
       if (node.type === "ForOfStatement" || node.type === "ForInStatement") {
         iterationWrites.push(node.left);
       }
@@ -625,6 +800,7 @@ function inspectAst(filePath, source) {
         ].includes(node.type)
       ) {
         opaqueBindingPatterns.push(...node.params);
+        functionNodes.push(node);
       }
       if (node.type === "CatchClause" && node.param) {
         opaqueBindingPatterns.push(node.param);
@@ -632,8 +808,41 @@ function inspectAst(filePath, source) {
     },
   });
 
+  const functionByBinding = new Map();
+  for (const functionNode of functionNodes) {
+    let identifier;
+    if (functionNode.type === "FunctionDeclaration") identifier = functionNode.id;
+    else {
+      const parent = pathByNode.get(functionNode)?.parentPath?.node;
+      if (parent?.type === "VariableDeclarator" && parent.id?.type === "Identifier") {
+        identifier = parent.id;
+      }
+    }
+    const binding = lexicalBinding(identifier, pathByNode);
+    if (binding) functionByBinding.set(binding, functionNode);
+  }
+  const invocationPositions = new Map();
+  for (const callNode of callNodes) {
+    const callee = unwrapTransparentExpression(callNode.callee);
+    if (callee?.type !== "Identifier") continue;
+    const functionNode = functionByBinding.get(lexicalBinding(callee, pathByNode));
+    const callerBoundary = executionBoundary(pathByNode.get(callNode));
+    if (functionNode === undefined || callerBoundary === undefined) continue;
+    let byCaller = invocationPositions.get(functionNode);
+    if (byCaller === undefined) {
+      byCaller = new Map();
+      invocationPositions.set(functionNode, byCaller);
+    }
+    const positions = byCaller.get(callerBoundary) ?? [];
+    positions.push(bindingWritePosition(callNode));
+    byCaller.set(callerBoundary, positions);
+  }
+  invocationPositionsByBindingWrites.set(bindingWrites, invocationPositions);
+
   for (const declaration of declarations) {
     if (declaration.id?.type === "Identifier") {
+      // `var name;` is not a runtime write and must not erase a prior initializer.
+      if (declaration.init === null) continue;
       addBindingWrite(
         bindingWrites,
         lexicalBinding(declaration.id, pathByNode),
@@ -651,7 +860,9 @@ function inspectAst(filePath, source) {
         bindingWrites,
         lexicalBinding(assignment.left, pathByNode),
         assignment,
-        assignment.operator === "=" ? assignment.right : undefined,
+        assignment.operator === "=" || ["&&=", "||=", "??="].includes(assignment.operator)
+          ? assignment.right
+          : undefined,
         pathByNode,
       );
     } else {
@@ -778,7 +989,7 @@ function inspectAst(filePath, source) {
     if (
       !aiRoutingFile &&
       ["MemberExpression", "OptionalMemberExpression"].includes(node.type) &&
-      propertyName(node, bindingWrites, pathByNode) === "generate" &&
+      hasPossiblePropertyName(node, "generate", bindingWrites, pathByNode) &&
       !isLocalGeneratorExpression(
         node.object,
         neutralGeneratorBindings,
@@ -827,16 +1038,18 @@ function inspectAst(filePath, source) {
     if (node.type === "CallExpression" || node.type === "ImportExpression") {
       const callee = node.type === "CallExpression" ? node.callee : undefined;
       const arguments_ = node.type === "CallExpression" ? node.arguments : [node.source];
-      const calledName = propertyName(callee, bindingWrites, pathByNode);
       const directImport = node.type === "ImportExpression" || callee?.type === "Import";
       const directRequire = callee?.type === "Identifier" && callee.name === "require";
       if (directImport || directRequire) {
-        const specifier = arguments_[0]
-          ? staticString(arguments_[0], bindingWrites, pathByNode)
-          : undefined;
-        if (specifier !== undefined) {
+        const resolvedSpecifiers = arguments_[0]
+          ? possibleStaticStrings(arguments_[0], bindingWrites, pathByNode)
+          : { values: new Set(), unknown: true, truncated: false };
+        for (const specifier of resolvedSpecifiers.values) {
           const violation = inspectImport(filePath, specifier);
           if (violation) findings.push(violation);
+        }
+        if (!aiRoutingFile && resolvedSpecifiers.truncated) {
+          findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:dynamic-provider-import`);
         }
       }
       if (
@@ -844,7 +1057,7 @@ function inspectAst(filePath, source) {
         callee?.type === "MemberExpression" &&
         memberPath(callee) === "Reflect.get" &&
         arguments_[1] !== undefined &&
-        staticString(arguments_[1], bindingWrites, pathByNode) === "generate" &&
+        hasPossibleStaticString(arguments_[1], "generate", bindingWrites, pathByNode) &&
         !isLocalGeneratorExpression(
           arguments_[0],
           neutralGeneratorBindings,
@@ -857,7 +1070,7 @@ function inspectAst(filePath, source) {
       }
       if (
         !aiRoutingFile &&
-        calledName === "generate" &&
+        hasPossiblePropertyName(callee, "generate", bindingWrites, pathByNode) &&
         !isLocalGeneratorExpression(
           callee?.object,
           neutralGeneratorBindings,
@@ -870,14 +1083,20 @@ function inspectAst(filePath, source) {
       }
       if (!aiRoutingFile && callee?.type === "Identifier" && callee.name === "fetch") {
         const target = arguments_[0];
-        const staticTarget = target ? staticUrl(target, bindingWrites, pathByNode) : undefined;
+        const resolvedTargets = target
+          ? possibleStaticUrls(target, bindingWrites, pathByNode)
+          : { values: new Set(), unknown: true, truncated: false };
+        const providerTarget = [...resolvedTargets.values].find((value) =>
+          directProviderRoutePattern.test(value),
+        );
         if (
           target &&
           (containsProviderEnvironment(target, bindingWrites, pathByNode) ||
-            (staticTarget !== undefined && directProviderRoutePattern.test(staticTarget)))
+            providerTarget !== undefined ||
+            resolvedTargets.truncated)
         ) {
           findings.push(
-            `BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:${staticTarget ?? "dynamic-provider-http"}`,
+            `BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:${providerTarget ?? "dynamic-provider-http"}`,
           );
         }
       }
