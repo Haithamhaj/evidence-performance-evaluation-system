@@ -5,7 +5,7 @@ export type CatalogKey = keyof typeof enCatalog;
 export type Catalog = Readonly<Record<CatalogKey, string>>;
 
 const placeholderNamePattern = /^[A-Za-z][A-Za-z0-9_.-]*$/u;
-const icuTypePattern = /^[A-Za-z][A-Za-z0-9_-]*$/u;
+const supportedPlaceholderTypes = new Set(["date", "number", "time"]);
 
 function placeholderNames(value: string, key: string) {
   const names = new Set<string>();
@@ -16,33 +16,29 @@ function placeholderNames(value: string, key: string) {
     }
     if (value[index] !== "{") continue;
 
-    let depth = 1;
-    let end = index + 1;
-    for (; end < value.length && depth > 0; end += 1) {
-      if (value[end] === "{") depth += 1;
-      if (value[end] === "}") depth -= 1;
-    }
-    if (depth !== 0) {
+    const end = value.indexOf("}", index + 1);
+    const nestedStart = value.indexOf("{", index + 1);
+    if (end === -1 || (nestedStart !== -1 && nestedStart < end)) {
       throw new Error(`LOCALIZATION_CATALOG_PLACEHOLDER_INVALID:${key}`);
     }
 
-    const content = value.slice(index + 1, end - 1);
-    const [rawName, rawType] = content.split(",", 2);
-    const name = rawName?.trim() ?? "";
-    const type = rawType?.trim();
-    const isSimple = rawType === undefined && placeholderNamePattern.test(name);
-    const isIcu =
-      rawType !== undefined &&
+    const parts = value
+      .slice(index + 1, end)
+      .split(",")
+      .map((part) => part.trim());
+    const name = parts[0] ?? "";
+    const isSimple = parts.length === 1 && placeholderNamePattern.test(name);
+    const isSupportedTyped =
+      parts.length === 2 &&
       placeholderNamePattern.test(name) &&
-      type !== undefined &&
-      icuTypePattern.test(type);
+      supportedPlaceholderTypes.has(parts[1] ?? "");
 
-    if ((!isSimple && !isIcu) || names.has(name)) {
+    if ((!isSimple && !isSupportedTyped) || names.has(name)) {
       throw new Error(`LOCALIZATION_CATALOG_PLACEHOLDER_INVALID:${key}`);
     }
 
     names.add(name);
-    index = end - 1;
+    index = end;
   }
 
   return [...names].sort();

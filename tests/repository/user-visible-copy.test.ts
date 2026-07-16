@@ -74,6 +74,80 @@ describe("user-visible copy checker", () => {
     ]);
   });
 
+  it("resolves same-named static copy independently in ordinary function scopes", async () => {
+    const root = await makeFeatureFile(
+      [
+        'function First() { const label = "Hardcoded first"; return <p>{label}</p>; }',
+        'function Second() { const label = "Hardcoded second"; return <p>{label}</p>; }',
+        "export default function Page() { return <><First /><Second /></>; }",
+      ].join("\n"),
+    );
+
+    await expect(findHardcodedUserVisibleCopy(root)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: "Hardcoded first" }),
+        expect.objectContaining({ text: "Hardcoded second" }),
+      ]),
+    );
+    await expect(findHardcodedUserVisibleCopy(root)).resolves.toHaveLength(2);
+  });
+
+  it("uses the nearest static binding when an inner block shadows an outer binding", async () => {
+    const root = await makeFeatureFile(
+      [
+        'const label = "Hardcoded outer";',
+        "export default function Page() {",
+        '  { const label = "Hardcoded inner"; return <p>{label}</p>; }',
+        "}",
+      ].join("\n"),
+    );
+
+    await expect(findHardcodedUserVisibleCopy(root)).resolves.toEqual([
+      expect.objectContaining({ text: "Hardcoded inner" }),
+    ]);
+  });
+
+  it.each([
+    [
+      "parameter",
+      [
+        'const label = "Hardcoded outer";',
+        "export default function Page({ label }) { return <p>{label}</p>; }",
+      ].join("\n"),
+    ],
+    [
+      "local",
+      [
+        'const label = "Hardcoded outer";',
+        "export default function Page({ catalog }) {",
+        '  const label = catalog["shell.title"];',
+        "  return <p>{label}</p>;",
+        "}",
+      ].join("\n"),
+    ],
+  ])(
+    "does not fall through a dynamic %s shadow to an outer static binding",
+    async (_kind, source) => {
+      const root = await makeFeatureFile(source);
+
+      await expect(findHardcodedUserVisibleCopy(root)).resolves.toEqual([]);
+    },
+  );
+
+  it("resolves a static binding declared in a nested block", async () => {
+    const root = await makeFeatureFile(
+      [
+        "export default function Page() {",
+        '  { const nestedLabel = "Hardcoded nested"; return <p>{nestedLabel}</p>; }',
+        "}",
+      ].join("\n"),
+    );
+
+    await expect(findHardcodedUserVisibleCopy(root)).resolves.toEqual([
+      expect.objectContaining({ text: "Hardcoded nested" }),
+    ]);
+  });
+
   it("rejects literal and static local copy passed to createElement", async () => {
     const root = await makeFeatureFile(
       [

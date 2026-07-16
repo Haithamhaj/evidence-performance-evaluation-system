@@ -58,13 +58,20 @@ describe("localization catalogs", () => {
     ).toThrowError("LOCALIZATION_CATALOG_PLACEHOLDER_MISMATCH:greeting");
   });
 
-  it("compares ICU-style top-level parameter names", () => {
+  it("compares supported typed placeholder parameter names", () => {
     expect(() =>
-      assertCatalogCompatibility(
-        { count: "{count, plural, one {عنصر} other {# عناصر}}" },
-        { count: "{total, plural, one {item} other {# items}}" },
-      ),
+      assertCatalogCompatibility({ count: "{count, number}" }, { count: "{total, number}" }),
     ).toThrowError("LOCALIZATION_CATALOG_PLACEHOLDER_MISMATCH:count");
+  });
+
+  it.each([
+    ["unknown typed", "{count, wat}"],
+    ["incomplete complex ICU", "{count, plural}"],
+    ["unsupported complex ICU", "{count, plural, one {item} other {items}}"],
+  ])("rejects %s placeholders", (_label, value) => {
+    expect(() => assertCatalogCompatibility({ count: value }, { count: value })).toThrowError(
+      "LOCALIZATION_CATALOG_PLACEHOLDER_INVALID:count",
+    );
   });
 
   it.each([

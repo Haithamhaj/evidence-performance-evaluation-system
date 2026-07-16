@@ -161,16 +161,19 @@ describe("CI contract", () => {
   });
 
   it("keeps browser verification on production-generated Next types", async () => {
-    const [playwrightConfiguration, webTypeScriptConfiguration, nextEnvironment] =
+    const [playwrightConfiguration, webTypeScriptConfiguration, nextEnvironment, gitIgnore] =
       await Promise.all([
         readFile("playwright.config.ts", "utf8"),
         readFile("apps/web/tsconfig.json", "utf8"),
         readFile("apps/web/next-env.d.ts", "utf8"),
+        readFile(".gitignore", "utf8"),
       ]);
 
     expect(playwrightConfiguration).toContain("pnpm --filter @evaluation/web build");
     expect(playwrightConfiguration).toContain("pnpm --filter @evaluation/web start");
     expect(playwrightConfiguration).not.toContain("@evaluation/web dev");
+    expect(playwrightConfiguration).toContain('outputDir: "tmp/playwright/test-results"');
+    expect(gitIgnore).toMatch(/^tmp\/$/mu);
     expect(webTypeScriptConfiguration).not.toContain(".next/dev");
     expect(nextEnvironment).toBe(
       [

@@ -46,7 +46,6 @@ function lineAndColumn(source, position) {
 
 function inspectFile(source, filePath) {
   const findings = [];
-  const staticBindings = new Map();
 
   function report(position, value) {
     const text = normalizeVisibleText(value);
@@ -87,40 +86,106 @@ function inspectFile(source, filePath) {
     return undefined;
   }
 
-  function collectStaticBindings(node) {
-    if (node === null || typeof node !== "object") {
+  const scopeByNode = new WeakMap();
+
+  function createScope(parent, kind) {
+    return { bindings: new Map(), kind, parent };
+  }
+
+  const programScope = createScope(undefined, "program");
+  scopeByNode.set(program, programScope);
+
+  function isFunction(node) {
+    return ["ArrowFunctionExpression", "FunctionDeclaration", "FunctionExpression"].includes(
+      node?.type,
+    );
+  }
+
+  function declarePattern(pattern, scope, value) {
+    if (pattern?.type === "Identifier") {
+      scope.bindings.set(pattern.name, { value });
       return;
     }
-
-    if (node.type === "VariableDeclaration" && node.kind === "const") {
-      for (const declaration of node.declarations) {
-        if (declaration.id?.type !== "Identifier") continue;
-        const value = directStaticString(declaration.init);
-        if (value === undefined) continue;
-        const existing = staticBindings.get(declaration.id.name);
-        staticBindings.set(
-          declaration.id.name,
-          existing === undefined ? { position: declaration.init?.start ?? 0, value } : null,
-        );
+    if (pattern?.type === "AssignmentPattern") {
+      declarePattern(pattern.left, scope, value);
+      return;
+    }
+    if (pattern?.type === "RestElement") {
+      declarePattern(pattern.argument, scope, value);
+      return;
+    }
+    if (pattern?.type === "ArrayPattern") {
+      for (const element of pattern.elements) declarePattern(element, scope, value);
+      return;
+    }
+    if (pattern?.type === "ObjectPattern") {
+      for (const property of pattern.properties) {
+        if (property.type === "RestElement") {
+          declarePattern(property.argument, scope, value);
+        } else {
+          declarePattern(property.value, scope, value);
+        }
       }
+    }
+  }
+
+  function nearestFunctionOrProgramScope(scope) {
+    let current = scope;
+    while (current.kind === "block") current = current.parent;
+    return current;
+  }
+
+  function collectBindings(node, inheritedScope) {
+    if (node === null || typeof node !== "object") return;
+
+    let scope = inheritedScope;
+    if (node !== program && isFunction(node)) {
+      if (node.type === "FunctionDeclaration") {
+        declarePattern(node.id, scope, undefined);
+      }
+      scope = createScope(scope, "function");
+      scopeByNode.set(node, scope);
+      if (node.type === "FunctionExpression") declarePattern(node.id, scope, undefined);
+      for (const parameter of node.params) declarePattern(parameter, scope, undefined);
+    } else if (node.type === "BlockStatement") {
+      scope = createScope(scope, "block");
+      scopeByNode.set(node, scope);
+    }
+
+    if (node.type === "VariableDeclaration") {
+      const declarationScope = node.kind === "var" ? nearestFunctionOrProgramScope(scope) : scope;
+      for (const declaration of node.declarations) {
+        const value = node.kind === "const" ? directStaticString(declaration.init) : undefined;
+        declarePattern(declaration.id, declarationScope, value);
+      }
+    } else if (node.type === "ClassDeclaration") {
+      declarePattern(node.id, scope, undefined);
+    } else if (node.type === "ImportDeclaration") {
+      for (const specifier of node.specifiers) declarePattern(specifier.local, scope, undefined);
     }
 
     for (const [key, value] of Object.entries(node)) {
       if (["comments", "errors", "loc", "tokens"].includes(key)) continue;
       if (Array.isArray(value)) {
-        for (const child of value) collectStaticBindings(child);
+        for (const child of value) collectBindings(child, scope);
       } else if (value !== null && typeof value === "object" && "type" in value) {
-        collectStaticBindings(value);
+        collectBindings(value, scope);
       }
     }
   }
 
-  collectStaticBindings(program);
+  collectBindings(program, programScope);
 
-  function staticString(node) {
+  function staticString(node, scope) {
     const direct = directStaticString(node);
     if (direct !== undefined) return direct;
-    if (node?.type === "Identifier") return staticBindings.get(node.name)?.value;
+    if (node?.type === "Identifier") {
+      let current = scope;
+      while (current !== undefined) {
+        if (current.bindings.has(node.name)) return current.bindings.get(node.name).value;
+        current = current.parent;
+      }
+    }
     return undefined;
   }
 
@@ -142,23 +207,25 @@ function inspectFile(source, filePath) {
     );
   }
 
-  function visit(node, parent) {
+  function visit(node, parent, inheritedScope) {
     if (node === null || typeof node !== "object") {
       return;
     }
 
+    const scope = scopeByNode.get(node) ?? inheritedScope;
+
     if (node.type === "JSXText") {
       report(node.start ?? 0, node.value ?? "");
     } else if (node.type === "JSXExpressionContainer" && parent?.type !== "JSXAttribute") {
-      const value = staticString(node.expression);
+      const value = staticString(node.expression, scope);
       if (value !== undefined) {
         report(node.start ?? 0, value);
       }
     } else if (node.type === "JSXAttribute" && accessibleStringAttributes.has(node.name?.name)) {
       const value =
         node.value?.type === "JSXExpressionContainer"
-          ? staticString(node.value.expression)
-          : staticString(node.value);
+          ? staticString(node.value.expression, scope)
+          : staticString(node.value, scope);
       if (value !== undefined) {
         report(node.start ?? 0, value);
       }
@@ -169,12 +236,12 @@ function inspectFile(source, filePath) {
         if (property.type !== "ObjectProperty" && property.type !== "Property") continue;
         const name = propertyName(property);
         if (name !== "children" && !accessibleStringAttributes.has(name)) continue;
-        const value = staticString(property.value);
+        const value = staticString(property.value, scope);
         if (value !== undefined) report(property.start ?? node.start ?? 0, value);
       }
 
       for (const child of node.arguments.slice(2)) {
-        const value = staticString(child);
+        const value = staticString(child, scope);
         if (value !== undefined) report(child.start ?? node.start ?? 0, value);
       }
     }
@@ -185,15 +252,15 @@ function inspectFile(source, filePath) {
       }
       if (Array.isArray(value)) {
         for (const child of value) {
-          visit(child, node);
+          visit(child, node, scope);
         }
       } else if (value !== null && typeof value === "object" && "type" in value) {
-        visit(value, node);
+        visit(value, node, scope);
       }
     }
   }
 
-  visit(program, undefined);
+  visit(program, undefined, programScope);
   return findings;
 }
 
