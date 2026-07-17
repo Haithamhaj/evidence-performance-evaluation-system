@@ -275,7 +275,11 @@ function decideKnownAction(
     case "document.template.manage":
       if (resource.kind === "organizationTemplate") {
         if (!hasRole(subject, "system_administrator")) return deny("ROLE_REQUIRED");
-        if (roleAssignments(subject, "system_administrator").some((role) => role.scopeType === "system")) {
+        if (
+          roleAssignments(subject, "system_administrator").some(
+            (role) => role.scopeType === "system",
+          )
+        ) {
           return allow;
         }
         return hasScopedRole(

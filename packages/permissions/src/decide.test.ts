@@ -287,9 +287,9 @@ describe("authorization decision contract", () => {
     expect(decide(projectOwner, "document.version.create", project, baseContext)).toEqual({
       allowed: true,
     });
-    expect(
-      decide(workstreamOwner, "document.version.create", workstream, baseContext),
-    ).toEqual({ allowed: true });
+    expect(decide(workstreamOwner, "document.version.create", workstream, baseContext)).toEqual({
+      allowed: true,
+    });
     expect(decide(contributor, "document.version.create", project, baseContext)).toEqual({
       allowed: false,
       reasonCode: "ROLE_REQUIRED",

@@ -44,6 +44,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  clamav:
+    image: clamav/clamav:1.4_base@sha256:c24cbe1b4b33399be35a7febda674f5f852b6d20173c4c348e570b41de276889
+    ports: ["127.0.0.1:3310:3310"]
+    volumes: ["clamav-data:/var/lib/clamav"]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.0@sha256:2eb3cd316835c990e69e26ade292ffa78f6fb0db7d5fc6377463c162e1979ac0
     command: ["start-dev", "--import-realm", "--health-enabled=true"]
@@ -72,3 +82,4 @@ volumes:
   postgres-data:
   redis-data:
   minio-data:
+  clamav-data:

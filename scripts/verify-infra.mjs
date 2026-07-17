@@ -1,12 +1,16 @@
+import { Buffer } from "node:buffer";
 import console from "node:console";
 import { execFile } from "node:child_process";
 import { access } from "node:fs/promises";
+import { connect } from "node:net";
 import process from "node:process";
+import { clearTimeout, setTimeout } from "node:timers";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 
 import {
   CreateBucketCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -14,7 +18,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 const composeFile = "infra/docker/compose.yml";
-const environmentFile = ".env.local";
+const environmentFile = process.env.INFRA_ENV_FILE?.trim() || ".env.local";
 const persistenceBucket = "evaluation-infra-verification";
 const persistenceKey = "persistence/marker.txt";
 const persistenceValue = "local-infrastructure-persistence-v1";
@@ -28,10 +32,17 @@ const expectedImages = {
     "minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
   keycloak:
     "quay.io/keycloak/keycloak:26.7.0@sha256:2eb3cd316835c990e69e26ade292ffa78f6fb0db7d5fc6377463c162e1979ac0",
+  clamav:
+    "clamav/clamav:1.4_base@sha256:c24cbe1b4b33399be35a7febda674f5f852b6d20173c4c348e570b41de276889",
 };
 
+const composePlugin = await execFileAsync("docker", ["compose", "version"]).then(
+  () => true,
+  () => false,
+);
+
 await access(environmentFile).catch(() => {
-  throw new Error("Missing .env.local. Copy .env.example to .env.local before verification.");
+  throw new Error(`Missing infrastructure environment file: ${environmentFile}`);
 });
 process.loadEnvFile(environmentFile);
 
@@ -44,9 +55,11 @@ function environment(name) {
 }
 
 async function dockerCompose(arguments_, options = {}) {
+  const executable = composePlugin ? "docker" : "docker-compose";
+  const prefix = composePlugin ? ["compose"] : [];
   return execFileAsync(
-    "docker",
-    ["compose", "--env-file", environmentFile, "-f", composeFile, ...arguments_],
+    executable,
+    [...prefix, "--env-file", environmentFile, "-f", composeFile, ...arguments_],
     { maxBuffer: 10 * 1024 * 1024, ...options },
   );
 }
@@ -93,7 +106,9 @@ async function verifyServices() {
     }
   }
 
-  console.log("SERVICES OK: PostgreSQL, Redis, MinIO, and Keycloak are healthy on pinned images.");
+  console.log(
+    "SERVICES OK: PostgreSQL, Redis, MinIO, ClamAV, and Keycloak are healthy on pinned images.",
+  );
 }
 
 async function databaseConnection(username, password, database) {
@@ -205,8 +220,8 @@ async function verifyMinio() {
 
   const client = new S3Client({
     credentials: {
-      accessKeyId: environment("MINIO_ROOT_USER"),
-      secretAccessKey: environment("MINIO_ROOT_PASSWORD"),
+      accessKeyId: environment("S3_ACCESS_KEY_ID"),
+      secretAccessKey: environment("S3_SECRET_ACCESS_KEY"),
     },
     endpoint,
     forcePathStyle: true,
@@ -215,6 +230,17 @@ async function verifyMinio() {
 
   let markerState = "retained";
   try {
+    const documentBucket = environment("DOCUMENT_STORAGE_BUCKET");
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: documentBucket }));
+    } catch (error) {
+      if (error?.$metadata?.httpStatusCode !== 404 && error?.name !== "NoSuchBucket") throw error;
+      await client.send(new CreateBucketCommand({ Bucket: documentBucket }));
+    }
+    const anonymous = await globalThis.fetch(`${endpoint}/${documentBucket}/private-check`);
+    if (anonymous.status !== 403) {
+      throw new Error(`Document bucket anonymous access returned HTTP ${anonymous.status}.`);
+    }
     await client.send(new HeadObjectCommand({ Bucket: persistenceBucket, Key: persistenceKey }));
   } catch (error) {
     const statusCode = error?.$metadata?.httpStatusCode;
@@ -241,7 +267,40 @@ async function verifyMinio() {
     client.destroy();
   }
 
-  console.log(`MINIO OK: liveness is HTTP 200; persistence marker ${markerState}.`);
+  console.log(`MINIO OK: private document bucket enforced; persistence marker ${markerState}.`);
+}
+
+async function verifyClamav() {
+  const signature = Buffer.from(
+    ["X5O!P%@AP[4\\PZX54(P^)", "7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"].join(""),
+  );
+  const response = await new Promise((resolve, reject) => {
+    const socket = connect({
+      host: environment("CLAMAV_HOST"),
+      port: Number(environment("CLAMAV_PORT")),
+    });
+    const timeout = setTimeout(() => reject(new Error("ClamAV verification timed out.")), 30_000);
+    const chunks = [];
+    socket.once("connect", () => {
+      socket.write("zINSTREAM\0");
+      const length = Buffer.alloc(4);
+      length.writeUInt32BE(signature.length);
+      socket.write(length);
+      socket.write(signature);
+      socket.end(Buffer.alloc(4));
+    });
+    socket.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    socket.once("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    socket.once("close", () => {
+      clearTimeout(timeout);
+      resolve(Buffer.concat(chunks).toString("utf8"));
+    });
+  });
+  if (!response.includes("FOUND")) throw new Error("ClamAV did not reject the safety fixture.");
+  console.log("CLAMAV OK: streamed malware fixture rejected.");
 }
 
 async function verifyOidc() {
@@ -261,5 +320,6 @@ await verifyServices();
 await verifyDatabaseIsolation();
 await verifyRedis();
 await verifyMinio();
+await verifyClamav();
 await verifyOidc();
 console.log("INFRASTRUCTURE VERIFIED");

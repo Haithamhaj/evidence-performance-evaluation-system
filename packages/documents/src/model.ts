@@ -8,12 +8,14 @@ export type DocumentResourceIdentityReader =
 export type DocumentClock = () => Date;
 
 export interface PrivateObjectStorage {
-  put(input: Readonly<{
-    key: string;
-    path: string;
-    contentType: string;
-    byteSize: number;
-  }>): Promise<void>;
+  put(
+    input: Readonly<{
+      key: string;
+      path: string;
+      contentType: string;
+      byteSize: number;
+    }>,
+  ): Promise<void>;
   delete(key: string): Promise<void>;
   signGet(input: Readonly<{ key: string; expiresInSeconds: number }>): Promise<string>;
 }

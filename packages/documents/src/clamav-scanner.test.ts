@@ -10,7 +10,11 @@ const servers: import("node:net").Server[] = [];
 const directories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
+  await Promise.all(
+    servers
+      .splice(0)
+      .map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
+  );
   await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true })));
 });
 

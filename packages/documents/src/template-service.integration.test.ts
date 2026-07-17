@@ -83,10 +83,7 @@ function service() {
   return new TemplateService(client, databaseAuditWriter as never, () => now);
 }
 
-function command(
-  actorId: string,
-  input: Record<string, unknown>,
-) {
+function command(actorId: string, input: Record<string, unknown>) {
   return { actor: { userId: actorId, active: true }, correlationId: crypto.randomUUID(), input };
 }
 

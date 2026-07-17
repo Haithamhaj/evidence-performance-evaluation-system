@@ -16,9 +16,13 @@ export class ClamAvScanner implements ScannerPort {
   constructor(config: ClamAvConfig) {
     if (
       config.host.trim().length === 0 ||
-      !Number.isInteger(config.port) || config.port < 1 || config.port > 65_535 ||
-      !Number.isInteger(config.timeoutMilliseconds) || config.timeoutMilliseconds < 1
-    ) throw new Error("ClamAV configuration is invalid");
+      !Number.isInteger(config.port) ||
+      config.port < 1 ||
+      config.port > 65_535 ||
+      !Number.isInteger(config.timeoutMilliseconds) ||
+      config.timeoutMilliseconds < 1
+    )
+      throw new Error("ClamAV configuration is invalid");
     this.config = config;
   }
 
@@ -66,7 +70,10 @@ function drain(socket: import("node:net").Socket): Promise<void> {
   });
 }
 
-function readReply(socket: import("node:net").Socket, timeoutMilliseconds: number): Promise<string> {
+function readReply(
+  socket: import("node:net").Socket,
+  timeoutMilliseconds: number,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;

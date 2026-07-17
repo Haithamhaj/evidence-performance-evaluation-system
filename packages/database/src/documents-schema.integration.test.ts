@@ -181,9 +181,9 @@ describe("documents schema", () => {
     await expect(
       client.documentTemplate.delete({ where: { id: graph.templateId } }),
     ).rejects.toSatisfy(databaseConstraint);
-    await expect(
-      client.documentRecord.delete({ where: { id: document.id } }),
-    ).rejects.toSatisfy(databaseConstraint);
+    await expect(client.documentRecord.delete({ where: { id: document.id } })).rejects.toSatisfy(
+      databaseConstraint,
+    );
   });
 
   it("retains every document version and source row", async () => {
@@ -247,12 +247,12 @@ describe("documents schema", () => {
     await expect(
       client.documentVersionSource.delete({ where: { id: version.sources[0]!.id } }),
     ).rejects.toSatisfy(databaseConstraint);
-    await expect(
-      client.documentVersion.delete({ where: { id: version.id } }),
-    ).rejects.toSatisfy(databaseConstraint);
-    await expect(
-      client.uploadedSource.delete({ where: { id: uploaded.id } }),
-    ).rejects.toSatisfy(databaseConstraint);
+    await expect(client.documentVersion.delete({ where: { id: version.id } })).rejects.toSatisfy(
+      databaseConstraint,
+    );
+    await expect(client.uploadedSource.delete({ where: { id: uploaded.id } })).rejects.toSatisfy(
+      databaseConstraint,
+    );
     await expect(
       client.documentTemplateVersion.delete({ where: { id: graph.templateVersionId } }),
     ).rejects.toSatisfy(databaseConstraint);

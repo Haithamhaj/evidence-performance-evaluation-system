@@ -44,9 +44,9 @@ describe("DocumentTemplatesController", () => {
       correlationId: request.correlationId,
       input: templateInput(),
     });
-    expect(() => controller.createVersion(request, { ...templateInput(), unknown: true })).toThrowError(
-      expect.objectContaining({ code: "DOCUMENT_INPUT_INVALID" }),
-    );
+    expect(() =>
+      controller.createVersion(request, { ...templateInput(), unknown: true }),
+    ).toThrowError(expect.objectContaining({ code: "DOCUMENT_INPUT_INVALID" }));
   });
 
   it("declares authentication and policy guards on the REST surface", () => {
@@ -65,10 +65,12 @@ describe("DocumentTemplatesController", () => {
   it("rejects malformed activation identifiers before calling the service", () => {
     const service = { createVersion: vi.fn(), activate: vi.fn() };
     const controller = new DocumentTemplatesController(service as never);
-    expect(() => controller.activate(request, "bad", crypto.randomUUID(), {
-      expectedVersion: 1,
-      reason: "Approved",
-    })).toThrowError(expect.objectContaining({ code: "DOCUMENT_INPUT_INVALID" }));
+    expect(() =>
+      controller.activate(request, "bad", crypto.randomUUID(), {
+        expectedVersion: 1,
+        reason: "Approved",
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DOCUMENT_INPUT_INVALID" }));
     expect(service.activate).not.toHaveBeenCalled();
   });
 });

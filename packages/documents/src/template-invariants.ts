@@ -33,9 +33,5 @@ export function assertActivatableTemplate(
 }
 
 function invalidTemplate(): AppError {
-  return new AppError(
-    "DOCUMENT_TEMPLATE_INVALID",
-    "errors.documents.templateInvalid",
-    400,
-  );
+  return new AppError("DOCUMENT_TEMPLATE_INVALID", "errors.documents.templateInvalid", 400);
 }

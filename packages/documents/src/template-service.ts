@@ -48,7 +48,9 @@ export class TemplateService {
     this.clock = clock;
   }
 
-  async createVersion(command: unknown): Promise<import("@evaluation/contracts").DocumentTemplateVersion> {
+  async createVersion(
+    command: unknown,
+  ): Promise<import("@evaluation/contracts").DocumentTemplateVersion> {
     const parsed = CreateCommandSchema.parse(command);
     validNow(this.clock());
     return serializable(this.database, async (transaction) => {
@@ -129,7 +131,9 @@ export class TemplateService {
     });
   }
 
-  async activate(command: unknown): Promise<import("@evaluation/contracts").DocumentTemplateVersion> {
+  async activate(
+    command: unknown,
+  ): Promise<import("@evaluation/contracts").DocumentTemplateVersion> {
     const parsed = ActivateCommandSchema.parse(command);
     const now = validNow(this.clock());
     return serializable(this.database, async (transaction) => {
@@ -181,11 +185,13 @@ export class TemplateService {
     });
   }
 
-  async resolveActive(input: Readonly<{
-    organizationId: string;
-    departmentId: string;
-    kind: "project" | "workstream";
-  }>): Promise<ResolvedActiveTemplate | null> {
+  async resolveActive(
+    input: Readonly<{
+      organizationId: string;
+      departmentId: string;
+      kind: "project" | "workstream";
+    }>,
+  ): Promise<ResolvedActiveTemplate | null> {
     const departmentVersion = await this.database.documentTemplateVersion.findFirst({
       where: {
         status: "active",
@@ -198,18 +204,20 @@ export class TemplateService {
       },
       include: { template: true, sections: { orderBy: { position: "asc" } } },
     });
-    const version = departmentVersion ?? await this.database.documentTemplateVersion.findFirst({
-      where: {
-        status: "active",
-        template: {
-          organizationId: input.organizationId,
-          kind: input.kind,
-          scopeType: "organization",
-          departmentId: null,
+    const version =
+      departmentVersion ??
+      (await this.database.documentTemplateVersion.findFirst({
+        where: {
+          status: "active",
+          template: {
+            organizationId: input.organizationId,
+            kind: input.kind,
+            scopeType: "organization",
+            departmentId: null,
+          },
         },
-      },
-      include: { template: true, sections: { orderBy: { position: "asc" } } },
-    });
+        include: { template: true, sections: { orderBy: { position: "asc" } } },
+      }));
     if (version === null) return null;
     return {
       id: version.id,
@@ -242,15 +250,19 @@ async function authorizeTemplateMutation(
     scopeType: "organization" | "department";
   }>,
 ): Promise<void> {
-  const user = await transaction.user.findUnique({ where: { id: actor.userId }, select: { active: true } });
+  const user = await transaction.user.findUnique({
+    where: { id: actor.userId },
+    select: { active: true },
+  });
   if (user === null || !user.active || !actor.active) throw authorizationError("INACTIVE");
   const roles = await transaction.roleAssignment.findMany({
     where: { userId: actor.userId },
     select: { role: true, scopeType: true, scopeId: true },
   });
-  const resource = scope.scopeType === "organization"
-    ? ({ kind: "organizationTemplate", organizationId: scope.organizationId } as const)
-    : await departmentTemplateResource(transaction, scope.organizationId, scope.departmentId);
+  const resource =
+    scope.scopeType === "organization"
+      ? ({ kind: "organizationTemplate", organizationId: scope.organizationId } as const)
+      : await departmentTemplateResource(transaction, scope.organizationId, scope.departmentId);
   const decision = decide(
     { subjectId: actor.userId, active: true, roles },
     "document.template.manage",
@@ -268,7 +280,9 @@ async function departmentTemplateResource(
   if (departmentId === null || departmentId === undefined) throw notFound();
   const department = await transaction.department.findFirst({
     where: { id: departmentId, organizationId },
-    select: { authorizationScopes: { where: { scopeType: "department" }, select: { id: true }, take: 1 } },
+    select: {
+      authorizationScopes: { where: { scopeType: "department" }, select: { id: true }, take: 1 },
+    },
   });
   const scopeId = department?.authorizationScopes[0]?.id;
   if (scopeId === undefined) throw notFound();
@@ -276,7 +290,12 @@ async function departmentTemplateResource(
 }
 
 function sameTemplateScope(
-  template: Readonly<{ organizationId: string; departmentId: string | null; scopeType: string; kind: string }>,
+  template: Readonly<{
+    organizationId: string;
+    departmentId: string | null;
+    scopeType: string;
+    kind: string;
+  }>,
   input: Readonly<{
     organizationId: string;
     departmentId?: string | undefined;
@@ -284,18 +303,28 @@ function sameTemplateScope(
     kind: string;
   }>,
 ): boolean {
-  return template.organizationId === input.organizationId &&
+  return (
+    template.organizationId === input.organizationId &&
     template.departmentId === (input.departmentId ?? null) &&
-    template.scopeType === input.scopeType && template.kind === input.kind;
+    template.scopeType === input.scopeType &&
+    template.kind === input.kind
+  );
 }
 
-function toSectionInput(section: Readonly<{
-  key: string; position: number; display: unknown; required: boolean; protected: boolean;
-}>) {
+function toSectionInput(
+  section: Readonly<{
+    key: string;
+    position: number;
+    display: unknown;
+    required: boolean;
+    protected: boolean;
+  }>,
+) {
   return {
     key: section.key,
     position: section.position,
-    display: section.display as import("@evaluation/contracts").DocumentTemplateSectionInput["display"],
+    display:
+      section.display as import("@evaluation/contracts").DocumentTemplateSectionInput["display"],
     required: section.required,
     protected: section.protected,
   };
@@ -305,9 +334,20 @@ function parseVersion(
   kind: "project" | "workstream",
   aggregateVersion: number,
   version: Readonly<{
-    id: string; templateId: string; version: number; status: "draft" | "active" | "retired";
-    createdAt: Date; activatedAt: Date | null; retiredAt: Date | null;
-    sections: ReadonlyArray<{ key: string; position: number; display: unknown; required: boolean; protected: boolean }>;
+    id: string;
+    templateId: string;
+    version: number;
+    status: "draft" | "active" | "retired";
+    createdAt: Date;
+    activatedAt: Date | null;
+    retiredAt: Date | null;
+    sections: ReadonlyArray<{
+      key: string;
+      position: number;
+      display: unknown;
+      required: boolean;
+      protected: boolean;
+    }>;
   }>,
 ) {
   return DocumentTemplateVersionSchema.parse({
@@ -328,9 +368,14 @@ async function appendAudit(
   transaction: Transaction,
   audit: AuditWriter,
   input: Readonly<{
-    actorId: string; correlationId: string; eventType: string;
-    scopeType: import("@evaluation/contracts").AuditScopeType; scopeId: string;
-    targetId: string; reason: string; safeDiff: Record<string, unknown>;
+    actorId: string;
+    correlationId: string;
+    eventType: string;
+    scopeType: import("@evaluation/contracts").AuditScopeType;
+    scopeId: string;
+    targetId: string;
+    reason: string;
+    safeDiff: Record<string, unknown>;
   }>,
 ) {
   await audit.append(transaction, {
@@ -348,7 +393,10 @@ async function appendAudit(
   });
 }
 
-async function serializable<T>(database: DatabaseClient, operation: (transaction: Transaction) => Promise<T>): Promise<T> {
+async function serializable<T>(
+  database: DatabaseClient,
+  operation: (transaction: Transaction) => Promise<T>,
+): Promise<T> {
   try {
     return await database.$transaction(operation, { isolationLevel: "Serializable" });
   } catch (error) {
@@ -362,12 +410,23 @@ function hasCode(error: unknown, code: string): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
 function validNow(now: Date): Date {
-  if (!Number.isFinite(now.getTime())) throw new AppError("DOCUMENT_CLOCK_INVALID", "errors.documents.clockInvalid", 500);
+  if (!Number.isFinite(now.getTime()))
+    throw new AppError("DOCUMENT_CLOCK_INVALID", "errors.documents.clockInvalid", 500);
   return now;
 }
-function versionConflict() { return new AppError("VERSION_CONFLICT", "errors.documents.versionConflict", 409); }
-function notFound() { return new AppError("RESOURCE_NOT_FOUND", "errors.documents.resourceNotFound", 404); }
-function invalidState() { return new AppError("RESOURCE_STATE_INVALID", "errors.documents.resourceStateInvalid", 409); }
+function versionConflict() {
+  return new AppError("VERSION_CONFLICT", "errors.documents.versionConflict", 409);
+}
+function notFound() {
+  return new AppError("RESOURCE_NOT_FOUND", "errors.documents.resourceNotFound", 404);
+}
+function invalidState() {
+  return new AppError("RESOURCE_STATE_INVALID", "errors.documents.resourceStateInvalid", 409);
+}
 function authorizationError(reason: import("@evaluation/permissions").DenialReason) {
-  return new AppError(`AUTHZ_${reason}`, "errors.authorization.denied", reason === "UNAUTHENTICATED" ? 401 : 403);
+  return new AppError(
+    `AUTHZ_${reason}`,
+    "errors.authorization.denied",
+    reason === "UNAUTHENTICATED" ? 401 : 403,
+  );
 }

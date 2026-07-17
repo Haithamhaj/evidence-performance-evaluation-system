@@ -148,10 +148,7 @@ export const AppendDocumentVersionSchema = z
 const approvedUploadPairs = new Map<string, ReadonlySet<string>>([
   ["md", new Set(["text/markdown", "text/plain"])],
   ["txt", new Set(["text/plain"])],
-  [
-    "docx",
-    new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
-  ],
+  ["docx", new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document"])],
   ["pdf", new Set(["application/pdf"])],
   ["png", new Set(["image/png"])],
   ["jpg", new Set(["image/jpeg"])],

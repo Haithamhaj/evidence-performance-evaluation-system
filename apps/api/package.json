@@ -11,8 +11,9 @@
     "test": "vitest run --root ../.. apps/api/src"
   },
   "dependencies": {
-    "@evaluation/audit": "workspace:*",
+    "@aws-sdk/client-s3": "3.1087.0",
     "@evaluation/ai-routing": "workspace:*",
+    "@evaluation/audit": "workspace:*",
     "@evaluation/auth": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",

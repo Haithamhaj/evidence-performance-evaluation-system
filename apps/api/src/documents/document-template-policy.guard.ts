@@ -27,9 +27,10 @@ export class DocumentTemplatePolicyGuard {
       where: { userId: principal.userId },
       select: { role: true, scopeType: true, scopeId: true },
     });
-    const resource = request.params?.templateId === undefined
-      ? await this.fromCreateBody(request.body)
-      : await this.fromTemplateId(String(request.params.templateId));
+    const resource =
+      request.params?.templateId === undefined
+        ? await this.fromCreateBody(request.body)
+        : await this.fromTemplateId(String(request.params.templateId));
     const decision = decide(
       { subjectId: principal.userId, active: true, roles },
       "document.template.manage",

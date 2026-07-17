@@ -16,6 +16,10 @@ describe("local infrastructure", () => {
     expect(compose).toContain(
       "quay.io/keycloak/keycloak:26.7.0@sha256:2eb3cd316835c990e69e26ade292ffa78f6fb0db7d5fc6377463c162e1979ac0",
     );
+    expect(compose).toContain(
+      "clamav/clamav:1.4_base@sha256:c24cbe1b4b33399be35a7febda674f5f852b6d20173c4c348e570b41de276889",
+    );
+    expect(compose).toContain("127.0.0.1:3310:3310");
     expect(compose).not.toMatch(/image:\s+\S+:latest(?:\s|$)/);
   });
 

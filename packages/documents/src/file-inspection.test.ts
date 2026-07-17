@@ -61,10 +61,13 @@ describe("file inspection", () => {
   it.each([
     ["traversal", [{ name: "../escape.xml", data: Buffer.from("bad") }]],
     ["absolute", [{ name: "/escape.xml", data: Buffer.from("bad") }]],
-    ["duplicate", [
-      { name: "word/document.xml", data: Buffer.from("one") },
-      { name: "word/document.xml", data: Buffer.from("two") },
-    ]],
+    [
+      "duplicate",
+      [
+        { name: "word/document.xml", data: Buffer.from("one") },
+        { name: "word/document.xml", data: Buffer.from("two") },
+      ],
+    ],
   ])("rejects unsafe DOCX %s entries", async (_case, entries) => {
     const target = await fixture("unsafe.docx", zip(entries));
     await expect(
@@ -143,7 +146,10 @@ function zip(entries: readonly ZipEntry[], forgeFirstSize = false): Buffer {
     directory.writeUInt16LE(8, 10);
     directory.writeUInt32LE(checksum, 16);
     directory.writeUInt32LE(compressed.length, 20);
-    directory.writeUInt32LE(forgeFirstSize && index === 0 ? entry.data.length + 1 : entry.data.length, 24);
+    directory.writeUInt32LE(
+      forgeFirstSize && index === 0 ? entry.data.length + 1 : entry.data.length,
+      24,
+    );
     directory.writeUInt16LE(name.length, 28);
     directory.writeUInt32LE(offset, 42);
     central.push(directory, name);
