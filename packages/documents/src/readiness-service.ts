@@ -521,10 +521,6 @@ async function persistReadiness(
       },
     });
     if (prior !== null && prior.lifecycleTransitions[0]?.toState !== "superseded") {
-      await transaction.documentReadinessCheck.update({
-        where: { id: prior.id },
-        data: { stale: true },
-      });
       await transaction.documentReadinessLifecycleTransition.create({
         data: {
           readinessCheckId: prior.id,
