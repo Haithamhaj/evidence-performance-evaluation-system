@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { ProjectService } from "@evaluation/projects";
 
-import { AuthGuard } from "../auth/auth.guard.js";
 import { ProjectPolicyGuard } from "./project-policy-loaders.js";
+import { ProjectsAuthenticationGuard } from "./projects-authentication.guard.js";
 import { ProjectsController } from "./projects.controller.js";
 
 const GUARDS_METADATA = "__guards__";
@@ -57,7 +57,9 @@ describe("ProjectsController", () => {
 
   it("declares the protected REST surface", () => {
     expect(Reflect.getMetadata(PATH_METADATA, ProjectsController)).toBe("api/v1/projects");
-    expect(Reflect.getMetadata(GUARDS_METADATA, ProjectsController)).toContain(AuthGuard);
+    expect(Reflect.getMetadata(GUARDS_METADATA, ProjectsController)).toContain(
+      ProjectsAuthenticationGuard,
+    );
     expect(Reflect.getMetadata(PATH_METADATA, ProjectsController.prototype.create)).toBe("/");
     expect(Reflect.getMetadata(METHOD_METADATA, ProjectsController.prototype.create)).toBe(1);
     expect(Reflect.getMetadata(GUARDS_METADATA, ProjectsController.prototype.create)).toContain(

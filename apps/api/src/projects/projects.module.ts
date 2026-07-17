@@ -12,6 +12,7 @@ import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
 import { PROJECTS_POLICY_DATABASE, ProjectPolicyGuard } from "./project-policy-loaders.js";
+import { ProjectsAuthenticationGuard } from "./projects-authentication.guard.js";
 import { ProjectsController } from "./projects.controller.js";
 import { ResponsibilitiesController } from "./responsibilities.controller.js";
 import { WorkstreamsController } from "./workstreams.controller.js";
@@ -65,6 +66,7 @@ Module({
         createResponsibilityService(client, databaseAuditWriter as never),
       inject: [PROJECTS_DATABASE],
     },
+    ProjectsAuthenticationGuard,
     ProjectPolicyGuard,
   ],
 })(ProjectsModule);

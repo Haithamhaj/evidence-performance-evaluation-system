@@ -14,8 +14,8 @@ import {
 } from "@nestjs/common";
 import { z } from "zod";
 
-import { AuthGuard } from "../auth/auth.guard.js";
 import { PROJECT_POLICY_ACTION, ProjectPolicyGuard } from "./project-policy-loaders.js";
+import { ProjectsAuthenticationGuard } from "./projects-authentication.guard.js";
 
 type ProjectRequest = Readonly<{
   principal: import("@evaluation/auth").AuthenticatedPrincipal;
@@ -116,7 +116,7 @@ function parseInput<T>(schema: { parse(value: unknown): T }, value: unknown): T 
 }
 
 Controller("api/v1/projects/:projectId")(ResponsibilitiesController);
-UseGuards(AuthGuard)(ResponsibilitiesController);
+UseGuards(ProjectsAuthenticationGuard)(ResponsibilitiesController);
 Inject(ResponsibilityService)(ResponsibilitiesController, undefined, 0);
 
 function protect(

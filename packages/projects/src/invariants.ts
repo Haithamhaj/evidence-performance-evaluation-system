@@ -1,19 +1,11 @@
 import { AppError } from "@evaluation/contracts";
-import type { ProjectStatus, ResponsibilityType } from "@evaluation/contracts";
+import type { ResponsibilityType } from "@evaluation/contracts";
 
 export const ownerResponsibilityTypes = [
   "original",
   "acting",
   "permanent",
 ] as const satisfies ReadonlyArray<ResponsibilityType>;
-
-const allowedLifecycleTransitions = Object.freeze({
-  draft: ["active", "archived"],
-  active: ["paused", "completed", "archived"],
-  paused: ["active", "completed", "archived"],
-  completed: ["archived"],
-  archived: [],
-} as const satisfies Readonly<Record<ProjectStatus, ReadonlyArray<ProjectStatus>>>);
 
 type ResponsibilityWindowInput = Readonly<{
   responsibilityType: ResponsibilityType;
@@ -40,13 +32,31 @@ function isOwnerType(type: ResponsibilityType): boolean {
   return ownerResponsibilityTypes.includes(type as (typeof ownerResponsibilityTypes)[number]);
 }
 
+function isLifecycleTransitionAllowed(
+  from: import("@evaluation/contracts").ProjectStatus,
+  to: import("@evaluation/contracts").ProjectStatus,
+): boolean {
+  switch (from) {
+    case "draft":
+      return to === "active" || to === "archived";
+    case "active":
+      return to === "paused" || to === "completed" || to === "archived";
+    case "paused":
+      return to === "active" || to === "completed" || to === "archived";
+    case "completed":
+      return to === "archived";
+    case "archived":
+      return false;
+  }
+}
+
 export function assertLifecycleTransition(
-  from: ProjectStatus,
-  to: ProjectStatus,
+  from: import("@evaluation/contracts").ProjectStatus,
+  to: import("@evaluation/contracts").ProjectStatus,
   hasPrimaryOwner: boolean,
 ): void {
   if (to === "active" && !hasPrimaryOwner) fail("PRIMARY_OWNER_REQUIRED");
-  if (!(allowedLifecycleTransitions[from] as ReadonlyArray<ProjectStatus>).includes(to)) {
+  if (!isLifecycleTransitionAllowed(from, to)) {
     fail("LIFECYCLE_TRANSITION_INVALID");
   }
 }

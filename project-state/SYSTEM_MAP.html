@@ -1,222 +1,909 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Evidence-Based Performance Evaluation System — System Map</title>
-<style>
-:root {
-  --bg:#f5f7fb; --panel:#ffffff; --ink:#172033; --muted:#5e6a7f; --line:#d8dfeb;
-  --accent:#3659d9; --accent2:#0f8a73; --warn:#b66a00; --danger:#b33a3a; --soft:#eef2ff;
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Arial,sans-serif;line-height:1.45}
-header{padding:42px 28px 26px;background:linear-gradient(135deg,#18244b,#3659d9);color:white}
-header .wrap,main{max-width:1200px;margin:auto}
-h1{margin:0 0 8px;font-size:clamp(28px,4vw,46px);line-height:1.08}
-header p{margin:0;max-width:850px;color:#dbe3ff;font-size:17px}
-nav{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-nav .wrap{max-width:1200px;margin:auto;display:flex;gap:8px;overflow:auto;padding:10px 18px}
-nav a{white-space:nowrap;text-decoration:none;color:var(--ink);padding:8px 12px;border-radius:999px;font-size:14px}
-nav a:hover{background:var(--soft);color:var(--accent)}
-main{padding:28px 18px 70px}
-section{scroll-margin-top:70px;margin:0 0 26px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 8px 24px rgba(21,35,76,.06)}
-h2{font-size:26px;margin:0 0 16px}
-h3{font-size:18px;margin:0 0 8px}
-.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
-.card{grid-column:span 4;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}
-.card.wide{grid-column:span 6}.card.full{grid-column:1/-1}
-.card p{color:var(--muted);margin:6px 0 0;font-size:14px}
-.tag{display:inline-block;padding:3px 8px;border-radius:999px;background:var(--soft);color:var(--accent);font-size:12px;font-weight:700}
-.flow{display:flex;align-items:stretch;gap:10px;overflow:auto;padding:6px 0 10px}
-.node{min-width:165px;flex:1;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
-.arrow{display:flex;align-items:center;color:var(--accent);font-size:24px}
-.node strong{display:block;margin-bottom:5px}.node span{color:var(--muted);font-size:13px}
-.matrix{width:100%;border-collapse:collapse;font-size:14px}
-.matrix th,.matrix td{border:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}
-.matrix th{background:#f0f3fa}
-.yes{color:var(--accent2);font-weight:700}.no{color:var(--danger);font-weight:700}.limited{color:var(--warn);font-weight:700}
-.legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:8px 0 0}
-.phase{border-left:4px solid var(--accent);padding:0 0 0 14px;margin:14px 0}
-.phase b{display:block}.phase span{color:var(--muted);font-size:14px}
-svg{width:100%;height:auto;background:#fbfcff;border:1px solid var(--line);border-radius:14px}
-footer{color:var(--muted);text-align:center;padding:18px}
-@media(max-width:850px){.card,.card.wide{grid-column:1/-1}.flow{flex-direction:column}.arrow{justify-content:center;transform:rotate(90deg)}}
-@media print{nav{display:none}body{background:white}.panel,.card{box-shadow:none;break-inside:avoid}header{background:white;color:black;border-bottom:2px solid #333}header p{color:#333}}
-</style>
-</head>
-<body>
-<header><div class="wrap">
-<h1>Evidence-Based Performance Evaluation System</h1>
-<p>Visual operating map for projects, workstreams, evidence, evaluation, coaching, identified manager feedback, localization, AI routing, and implementation.</p>
-</div></header>
-<nav><div class="wrap">
-<a href="#product">Product</a><a href="#operating">Operating Model</a><a href="#evaluation">Evaluation</a>
-<a href="#architecture">Architecture</a><a href="#roles">Roles</a><a href="#privacy">Manager Feedback</a>
-<a href="#ai">AI Routing</a><a href="#phases">Build Phases</a><a href="#readiness">Readiness</a>
-</div></nav>
-<main>
-<section id="product" class="panel">
-<h2>1. Product Logic</h2>
-<div class="flow">
-<div class="node"><strong>Define Work</strong><span>Project and Workstream documents establish problem, scope, outcome, and success.</span></div>
-<div class="arrow">→</div>
-<div class="node"><strong>Observe Work</strong><span>Updates, evidence, decisions, responsibility windows, and Thursday check-ins.</span></div>
-<div class="arrow">→</div>
-<div class="node"><strong>Prepare Evaluation</strong><span>AI organizes sources and gaps without assigning ratings.</span></div>
-<div class="arrow">→</div>
-<div class="node"><strong>Human Decision</strong><span>Employee self-assesses; manager evaluates, discusses, and finalizes.</span></div>
-<div class="arrow">→</div>
-<div class="node"><strong>Develop</strong><span>Coaching insights and formal development plans feed the next cycle.</span></div>
-</div>
-</section>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Evidence-Based Performance Evaluation System — System Map</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --ink: #172033;
+        --muted: #5e6a7f;
+        --line: #d8dfeb;
+        --accent: #3659d9;
+        --accent2: #0f8a73;
+        --warn: #b66a00;
+        --danger: #b33a3a;
+        --soft: #eef2ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Arial,
+          sans-serif;
+        line-height: 1.45;
+      }
+      header {
+        padding: 42px 28px 26px;
+        background: linear-gradient(135deg, #18244b, #3659d9);
+        color: white;
+      }
+      header .wrap,
+      main {
+        max-width: 1200px;
+        margin: auto;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(28px, 4vw, 46px);
+        line-height: 1.08;
+      }
+      header p {
+        margin: 0;
+        max-width: 850px;
+        color: #dbe3ff;
+        font-size: 17px;
+      }
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
+      nav .wrap {
+        max-width: 1200px;
+        margin: auto;
+        display: flex;
+        gap: 8px;
+        overflow: auto;
+        padding: 10px 18px;
+      }
+      nav a {
+        white-space: nowrap;
+        text-decoration: none;
+        color: var(--ink);
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 14px;
+      }
+      nav a:hover {
+        background: var(--soft);
+        color: var(--accent);
+      }
+      main {
+        padding: 28px 18px 70px;
+      }
+      section {
+        scroll-margin-top: 70px;
+        margin: 0 0 26px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: 0 8px 24px rgba(21, 35, 76, 0.06);
+      }
+      h2 {
+        font-size: 26px;
+        margin: 0 0 16px;
+      }
+      h3 {
+        font-size: 18px;
+        margin: 0 0 8px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 14px;
+      }
+      .card {
+        grid-column: span 4;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px;
+      }
+      .card.wide {
+        grid-column: span 6;
+      }
+      .card.full {
+        grid-column: 1/-1;
+      }
+      .card p {
+        color: var(--muted);
+        margin: 6px 0 0;
+        font-size: 14px;
+      }
+      .tag {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: var(--soft);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .flow {
+        display: flex;
+        align-items: stretch;
+        gap: 10px;
+        overflow: auto;
+        padding: 6px 0 10px;
+      }
+      .node {
+        min-width: 165px;
+        flex: 1;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .arrow {
+        display: flex;
+        align-items: center;
+        color: var(--accent);
+        font-size: 24px;
+      }
+      .node strong {
+        display: block;
+        margin-bottom: 5px;
+      }
+      .node span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .matrix {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      .matrix th,
+      .matrix td {
+        border: 1px solid var(--line);
+        padding: 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+      .matrix th {
+        background: #f0f3fa;
+      }
+      .yes {
+        color: var(--accent2);
+        font-weight: 700;
+      }
+      .no {
+        color: var(--danger);
+        font-weight: 700;
+      }
+      .limited {
+        color: var(--warn);
+        font-weight: 700;
+      }
+      .legend {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 13px;
+        margin: 8px 0 0;
+      }
+      .phase {
+        border-left: 4px solid var(--accent);
+        padding: 0 0 0 14px;
+        margin: 14px 0;
+      }
+      .phase b {
+        display: block;
+      }
+      .phase span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      svg {
+        width: 100%;
+        height: auto;
+        background: #fbfcff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+      footer {
+        color: var(--muted);
+        text-align: center;
+        padding: 18px;
+      }
+      @media (max-width: 850px) {
+        .card,
+        .card.wide {
+          grid-column: 1/-1;
+        }
+        .flow {
+          flex-direction: column;
+        }
+        .arrow {
+          justify-content: center;
+          transform: rotate(90deg);
+        }
+      }
+      @media print {
+        nav {
+          display: none;
+        }
+        body {
+          background: white;
+        }
+        .panel,
+        .card {
+          box-shadow: none;
+          break-inside: avoid;
+        }
+        header {
+          background: white;
+          color: black;
+          border-bottom: 2px solid #333;
+        }
+        header p {
+          color: #333;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <h1>Evidence-Based Performance Evaluation System</h1>
+        <p>
+          Visual operating map for projects, workstreams, evidence, evaluation, coaching, identified
+          manager feedback, localization, AI routing, and implementation.
+        </p>
+      </div>
+    </header>
+    <nav>
+      <div class="wrap">
+        <a href="#product">Product</a><a href="#operating">Operating Model</a
+        ><a href="#evaluation">Evaluation</a> <a href="#architecture">Architecture</a
+        ><a href="#roles">Roles</a><a href="#privacy">Manager Feedback</a>
+        <a href="#ai">AI Routing</a><a href="#phases">Build Phases</a
+        ><a href="#readiness">Readiness</a>
+      </div>
+    </nav>
+    <main>
+      <section id="product" class="panel">
+        <h2>1. Product Logic</h2>
+        <div class="flow">
+          <div class="node">
+            <strong>Define Work</strong
+            ><span
+              >Project and Workstream documents establish problem, scope, outcome, and
+              success.</span
+            >
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Observe Work</strong
+            ><span
+              >Updates, evidence, decisions, responsibility windows, and Thursday check-ins.</span
+            >
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Prepare Evaluation</strong
+            ><span>AI organizes sources and gaps without assigning ratings.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Human Decision</strong
+            ><span>Employee self-assesses; manager evaluates, discusses, and finalizes.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Develop</strong
+            ><span>Coaching insights and formal development plans feed the next cycle.</span>
+          </div>
+        </div>
+      </section>
 
-<section id="operating" class="panel">
-<h2>2. Project and Workstream Operating Model</h2>
-<svg viewBox="0 0 1100 500" role="img" aria-label="Project and workstream hierarchy">
-<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3659d9"/></marker></defs>
-<rect x="390" y="30" width="320" height="72" rx="14" fill="#eef2ff" stroke="#3659d9" stroke-width="2"/>
-<text x="550" y="58" text-anchor="middle" font-size="20" font-weight="700" fill="#172033">Project</text>
-<text x="550" y="82" text-anchor="middle" font-size="13" fill="#5e6a7f">Primary Owner · Master Document · 1–3 Criteria</text>
-<line x1="550" y1="102" x2="190" y2="170" stroke="#3659d9" stroke-width="2" marker-end="url(#a)"/>
-<line x1="550" y1="102" x2="550" y2="170" stroke="#3659d9" stroke-width="2" marker-end="url(#a)"/>
-<line x1="550" y1="102" x2="910" y2="170" stroke="#3659d9" stroke-width="2" marker-end="url(#a)"/>
-<g>
-<rect x="45" y="175" width="290" height="92" rx="14" fill="#fff" stroke="#0f8a73" stroke-width="2"/>
-<text x="190" y="205" text-anchor="middle" font-size="18" font-weight="700">Workstream A</text>
-<text x="190" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">Owner · Shared Document · 2–3 Criteria</text>
-<text x="190" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">Contributors · Updates · Evidence</text>
-</g>
-<g>
-<rect x="405" y="175" width="290" height="92" rx="14" fill="#fff" stroke="#0f8a73" stroke-width="2"/>
-<text x="550" y="205" text-anchor="middle" font-size="18" font-weight="700">Workstream B</text>
-<text x="550" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">Owner · Shared Document · 2–3 Criteria</text>
-<text x="550" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">Contributors · Updates · Evidence</text>
-</g>
-<g>
-<rect x="765" y="175" width="290" height="92" rx="14" fill="#fff" stroke="#0f8a73" stroke-width="2"/>
-<text x="910" y="205" text-anchor="middle" font-size="18" font-weight="700">Workstream C</text>
-<text x="910" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">Owner · Shared Document · 2–3 Criteria</text>
-<text x="910" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">Contributors · Updates · Evidence</text>
-</g>
-<line x1="190" y1="267" x2="190" y2="330" stroke="#3659d9" stroke-width="2" marker-end="url(#a)"/>
-<line x1="550" y1="267" x2="550" y2="330" stroke="#3659d9" stroke-width="2" marker-end="url(#a)"/>
-<line x1="910" y1="267" x2="910" y2="330" stroke="#3659d9" stroke-width="2" marker-end="url(#a)"/>
-<rect x="75" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb"/>
-<rect x="435" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb"/>
-<rect x="795" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb"/>
-<text x="190" y="370" text-anchor="middle" font-size="15" font-weight="700">Responsibility Windows</text>
-<text x="190" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">Original · Acting · Contributor</text>
-<text x="190" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">Attribution follows time and scope</text>
-<text x="550" y="370" text-anchor="middle" font-size="15" font-weight="700">Thursday Check-in</text>
-<text x="550" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">Only when no substantive update exists</text>
-<text x="550" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">Project summary aggregates workstreams</text>
-<text x="910" y="370" text-anchor="middle" font-size="15" font-weight="700">Evidence and Attribution</text>
-<text x="910" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">Verified · Team · Self-reported</text>
-<text x="910" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">Disputes remain visible</text>
-</svg>
-</section>
+      <section id="operating" class="panel">
+        <h2>2. Project and Workstream Operating Model</h2>
+        <svg viewBox="0 0 1100 500" role="img" aria-label="Project and workstream hierarchy">
+          <defs>
+            <marker
+              id="a"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#3659d9" />
+            </marker>
+          </defs>
+          <rect
+            x="390"
+            y="30"
+            width="320"
+            height="72"
+            rx="14"
+            fill="#eef2ff"
+            stroke="#3659d9"
+            stroke-width="2"
+          />
+          <text x="550" y="58" text-anchor="middle" font-size="20" font-weight="700" fill="#172033">
+            Project
+          </text>
+          <text x="550" y="82" text-anchor="middle" font-size="13" fill="#5e6a7f">
+            Primary Owner · Master Document · 1–3 Criteria
+          </text>
+          <line
+            x1="550"
+            y1="102"
+            x2="190"
+            y2="170"
+            stroke="#3659d9"
+            stroke-width="2"
+            marker-end="url(#a)"
+          />
+          <line
+            x1="550"
+            y1="102"
+            x2="550"
+            y2="170"
+            stroke="#3659d9"
+            stroke-width="2"
+            marker-end="url(#a)"
+          />
+          <line
+            x1="550"
+            y1="102"
+            x2="910"
+            y2="170"
+            stroke="#3659d9"
+            stroke-width="2"
+            marker-end="url(#a)"
+          />
+          <g>
+            <rect
+              x="45"
+              y="175"
+              width="290"
+              height="92"
+              rx="14"
+              fill="#fff"
+              stroke="#0f8a73"
+              stroke-width="2"
+            />
+            <text x="190" y="205" text-anchor="middle" font-size="18" font-weight="700">
+              Workstream A
+            </text>
+            <text x="190" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">
+              Owner · Shared Document · 2–3 Criteria
+            </text>
+            <text x="190" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">
+              Contributors · Updates · Evidence
+            </text>
+          </g>
+          <g>
+            <rect
+              x="405"
+              y="175"
+              width="290"
+              height="92"
+              rx="14"
+              fill="#fff"
+              stroke="#0f8a73"
+              stroke-width="2"
+            />
+            <text x="550" y="205" text-anchor="middle" font-size="18" font-weight="700">
+              Workstream B
+            </text>
+            <text x="550" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">
+              Owner · Shared Document · 2–3 Criteria
+            </text>
+            <text x="550" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">
+              Contributors · Updates · Evidence
+            </text>
+          </g>
+          <g>
+            <rect
+              x="765"
+              y="175"
+              width="290"
+              height="92"
+              rx="14"
+              fill="#fff"
+              stroke="#0f8a73"
+              stroke-width="2"
+            />
+            <text x="910" y="205" text-anchor="middle" font-size="18" font-weight="700">
+              Workstream C
+            </text>
+            <text x="910" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">
+              Owner · Shared Document · 2–3 Criteria
+            </text>
+            <text x="910" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">
+              Contributors · Updates · Evidence
+            </text>
+          </g>
+          <line
+            x1="190"
+            y1="267"
+            x2="190"
+            y2="330"
+            stroke="#3659d9"
+            stroke-width="2"
+            marker-end="url(#a)"
+          />
+          <line
+            x1="550"
+            y1="267"
+            x2="550"
+            y2="330"
+            stroke="#3659d9"
+            stroke-width="2"
+            marker-end="url(#a)"
+          />
+          <line
+            x1="910"
+            y1="267"
+            x2="910"
+            y2="330"
+            stroke="#3659d9"
+            stroke-width="2"
+            marker-end="url(#a)"
+          />
+          <rect x="75" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb" />
+          <rect x="435" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb" />
+          <rect x="795" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb" />
+          <text x="190" y="370" text-anchor="middle" font-size="15" font-weight="700">
+            Responsibility Windows
+          </text>
+          <text x="190" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">
+            Original · Acting · Contributor
+          </text>
+          <text x="190" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">
+            Attribution follows time and scope
+          </text>
+          <text x="550" y="370" text-anchor="middle" font-size="15" font-weight="700">
+            Thursday Check-in
+          </text>
+          <text x="550" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">
+            Only when no substantive update exists
+          </text>
+          <text x="550" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">
+            Project summary aggregates workstreams
+          </text>
+          <text x="910" y="370" text-anchor="middle" font-size="15" font-weight="700">
+            Evidence and Attribution
+          </text>
+          <text x="910" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">
+            Verified · Team · Self-reported
+          </text>
+          <text x="910" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">
+            Disputes remain visible
+          </text>
+        </svg>
+      </section>
 
-<section id="evaluation" class="panel">
-<h2>3. Evaluation Model</h2>
-<div class="grid">
-<div class="card"><span class="tag">20%</span><h3>Professional Behavior</h3><p>Responsibility, collaboration, communication, initiative.</p></div>
-<div class="card"><span class="tag">25%</span><h3>AI Research & Learning</h3><p>Framing, research, experiments, insight and applied learning.</p></div>
-<div class="card"><span class="tag">30%</span><h3>Engineering & Execution</h3><p>Design, agent oversight, testing, integration, documentation.</p></div>
-<div class="card wide"><span class="tag">25%</span><h3>Project Contribution</h3><p>One human rating informed by project/workstream criteria and actual responsibility. No automatic project average.</p></div>
-<div class="card wide"><span class="tag">Separate</span><h3>Manager Upward Evaluation</h3><p>Five leadership criteria, identified responses in the pilot, visible completion, individual comments, and optional aggregation.</p></div>
-</div>
-<div class="flow" style="margin-top:16px">
-<div class="node"><strong>Self-Assessment</strong><span>Same anchors and sources.</span></div><div class="arrow">→</div>
-<div class="node"><strong>Independent Manager Draft</strong><span>Self-rating hidden initially.</span></div><div class="arrow">→</div>
-<div class="node"><strong>Comparison</strong><span>Gaps, evidence, contribution, context.</span></div><div class="arrow">→</div>
-<div class="node"><strong>Discussion</strong><span>Clarification, not automated compromise.</span></div><div class="arrow">→</div>
-<div class="node"><strong>Final Rating</strong><span>Manager decision; reservation allowed.</span></div>
-</div>
-</section>
+      <section id="evaluation" class="panel">
+        <h2>3. Evaluation Model</h2>
+        <div class="grid">
+          <div class="card">
+            <span class="tag">20%</span>
+            <h3>Professional Behavior</h3>
+            <p>Responsibility, collaboration, communication, initiative.</p>
+          </div>
+          <div class="card">
+            <span class="tag">25%</span>
+            <h3>AI Research & Learning</h3>
+            <p>Framing, research, experiments, insight and applied learning.</p>
+          </div>
+          <div class="card">
+            <span class="tag">30%</span>
+            <h3>Engineering & Execution</h3>
+            <p>Design, agent oversight, testing, integration, documentation.</p>
+          </div>
+          <div class="card wide">
+            <span class="tag">25%</span>
+            <h3>Project Contribution</h3>
+            <p>
+              One human rating informed by project/workstream criteria and actual responsibility. No
+              automatic project average.
+            </p>
+          </div>
+          <div class="card wide">
+            <span class="tag">Separate</span>
+            <h3>Manager Upward Evaluation</h3>
+            <p>
+              Five leadership criteria, identified responses in the pilot, visible completion,
+              individual comments, and optional aggregation.
+            </p>
+          </div>
+        </div>
+        <div class="flow" style="margin-top: 16px">
+          <div class="node">
+            <strong>Self-Assessment</strong><span>Same anchors and sources.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Independent Manager Draft</strong><span>Self-rating hidden initially.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Comparison</strong><span>Gaps, evidence, contribution, context.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Discussion</strong><span>Clarification, not automated compromise.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Final Rating</strong><span>Manager decision; reservation allowed.</span>
+          </div>
+        </div>
+      </section>
 
-<section id="architecture" class="panel">
-<h2>4. Technical Architecture</h2>
-<div class="flow" aria-label="Implemented Phase 0 request and asynchronous job flow">
-<div class="node"><span class="tag">Implemented</span><strong>Next.js Web</strong><span>Arabic-first shell, OIDC session, correlation carrier.</span></div><div class="arrow">→</div>
-<div class="node"><span class="tag">Implemented</span><strong>NestJS Modular API</strong><span>Authentication, scoped authorization, transactions, eligibility.</span></div><div class="arrow">→</div>
-<div class="node"><span class="tag">Durable</span><strong>Redis / BullMQ Queue</strong><span>Versioned envelopes, retry state, idempotency and trace context.</span></div><div class="arrow">→</div>
-<div class="node"><span class="tag">Implemented</span><strong>Worker</strong><span>Lifecycle-managed consumers and graceful draining.</span></div>
-</div>
-<div class="grid">
-<div class="card"><h3>PostgreSQL Authority</h3><p>API and Worker persist authoritative, historical, operation, receipt, and append-only audit records through owned boundaries.</p></div>
-<div class="card"><h3>OIDC / Keycloak</h3><p>Web sign-in and server-side token validation enforce identity, expiry, audience, synchronization, and deactivation.</p></div>
-<div class="card"><h3>Append-only Audit</h3><p>Protected actions write same-transaction audit evidence; database controls reject mutation.</p></div>
-<div class="card"><h3>AI Router Boundary</h3><p>Feature modules cannot call provider SDKs directly. Routes resolve Project → Department → System and retain trace evidence.</p></div>
-<div class="card"><h3>Localization Boundary</h3><p>Arabic is the default shell locale with English support, RTL, mixed-direction isolation, and Asia/Riyadh rendering.</p></div>
-<div class="card"><h3>Private Object Storage</h3><p>MinIO provides the Phase 0 S3-compatible infrastructure boundary; product upload workflows remain later-phase work.</p></div>
-</div>
-</section>
+      <section id="architecture" class="panel">
+        <h2>4. Technical Architecture</h2>
+        <div class="flow" aria-label="Implemented Phase 0 request and asynchronous job flow">
+          <div class="node">
+            <span class="tag">Implemented</span><strong>Next.js Web</strong
+            ><span>Arabic-first shell, OIDC session, correlation carrier.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <span class="tag">Implemented</span><strong>NestJS Modular API</strong
+            ><span
+              >Authentication, scoped authorization, projects, workstreams, responsibility, and
+              eligibility.</span
+            >
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <span class="tag">Durable</span><strong>Redis / BullMQ Queue</strong
+            ><span>Versioned envelopes, retry state, idempotency and trace context.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <span class="tag">Implemented</span><strong>Worker</strong
+            ><span>Lifecycle-managed consumers and graceful draining.</span>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>PostgreSQL Authority</h3>
+            <p>
+              API and Worker persist authoritative, historical, operation, receipt, and append-only
+              audit records through owned boundaries.
+            </p>
+          </div>
+          <div class="card">
+            <h3>OIDC / Keycloak</h3>
+            <p>
+              Web sign-in and server-side token validation enforce identity, expiry, audience,
+              synchronization, and deactivation.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Append-only Audit</h3>
+            <p>
+              Protected actions write same-transaction audit evidence; database controls reject
+              mutation.
+            </p>
+          </div>
+          <div class="card">
+            <h3>AI Router Boundary</h3>
+            <p>
+              Feature modules cannot call provider SDKs directly. Routes resolve Project →
+              Department → System and retain trace evidence.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Localization Boundary</h3>
+            <p>
+              Arabic is the default shell locale with English support, RTL, mixed-direction
+              isolation, and Asia/Riyadh rendering.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Private Object Storage</h3>
+            <p>
+              MinIO provides the Phase 0 S3-compatible infrastructure boundary; product upload
+              workflows remain later-phase work.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tag">Bundle A complete</span>
+            <h3>Project Responsibility</h3>
+            <p>
+              Manager-governed projects and workstreams use historical membership, atomic owner
+              transfers, half-open UTC responsibility windows, scoped reads, and same-transaction
+              audit.
+            </p>
+          </div>
+        </div>
+      </section>
 
-<section id="roles" class="panel">
-<h2>5. Role Boundaries</h2>
-<table class="matrix">
-<thead><tr><th>Capability</th><th>Employee</th><th>Manager</th><th>System Administrator</th><th>Project / Workstream Owner</th></tr></thead>
-<tbody>
-<tr><td>Add updates and evidence</td><td class="yes">Yes</td><td class="limited">When contributor</td><td class="no">No operational role</td><td class="yes">Yes</td></tr>
-<tr><td>Final employee rating</td><td class="no">No</td><td class="yes">Yes</td><td class="no">No</td><td class="no">No</td></tr>
-<tr><td>Department rubric versions</td><td class="no">No</td><td class="yes">Future cycles</td><td class="limited">Global governance</td><td class="no">No</td></tr>
-<tr><td>AI model routing</td><td class="no">No</td><td class="no">No</td><td class="yes">Full control + reason</td><td class="no">No</td></tr>
-<tr><td>Pilot upward feedback</td><td class="limited">Own submission</td><td class="yes">Identity, ratings, comments, status</td><td class="limited">Technical governance</td><td class="no">No</td></tr>
-<tr><td>Project reassignment</td><td class="no">No</td><td class="yes">Yes</td><td class="no">Deactivate only</td><td class="no">No</td></tr>
-<tr><td>Weekly coordination</td><td class="limited">Own contributions</td><td class="limited">Oversight</td><td class="no">No</td><td class="yes">Responsible</td></tr>
-</tbody>
-</table>
-</section>
+      <section id="roles" class="panel">
+        <h2>5. Role Boundaries</h2>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>Employee</th>
+              <th>Manager</th>
+              <th>System Administrator</th>
+              <th>Project / Workstream Owner</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Add updates and evidence</td>
+              <td class="yes">Yes</td>
+              <td class="limited">When contributor</td>
+              <td class="no">No operational role</td>
+              <td class="yes">Yes</td>
+            </tr>
+            <tr>
+              <td>Final employee rating</td>
+              <td class="no">No</td>
+              <td class="yes">Yes</td>
+              <td class="no">No</td>
+              <td class="no">No</td>
+            </tr>
+            <tr>
+              <td>Department rubric versions</td>
+              <td class="no">No</td>
+              <td class="yes">Future cycles</td>
+              <td class="limited">Global governance</td>
+              <td class="no">No</td>
+            </tr>
+            <tr>
+              <td>AI model routing</td>
+              <td class="no">No</td>
+              <td class="no">No</td>
+              <td class="yes">Full control + reason</td>
+              <td class="no">No</td>
+            </tr>
+            <tr>
+              <td>Pilot upward feedback</td>
+              <td class="limited">Own submission</td>
+              <td class="yes">Identity, ratings, comments, status</td>
+              <td class="limited">Technical governance</td>
+              <td class="no">No</td>
+            </tr>
+            <tr>
+              <td>Project reassignment</td>
+              <td class="no">No</td>
+              <td class="yes">Yes</td>
+              <td class="no">Deactivate only</td>
+              <td class="no">No</td>
+            </tr>
+            <tr>
+              <td>Weekly coordination</td>
+              <td class="limited">Own contributions</td>
+              <td class="limited">Oversight</td>
+              <td class="no">No</td>
+              <td class="yes">Responsible</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-<section id="privacy" class="panel">
-<h2>6. Pilot Manager Feedback — Identified</h2>
-<div class="flow">
-<div class="node"><strong>Eligible Employees</strong><span>Each employee has a visible submitted, pending, or approved-leave status.</span></div><div class="arrow">→</div>
-<div class="node"><strong>Identified Submission</strong><span>Name, criterion ratings, comments, and timestamp are stored.</span></div><div class="arrow">→</div>
-<div class="node"><strong>Manager View</strong><span>The manager sees who submitted, who did not, and each response.</span></div><div class="arrow">→</div>
-<div class="node"><strong>Optional AI Summary</strong><span>Aggregates and trends supplement, but do not replace, individual responses.</span></div>
-</div>
-<div class="legend"><span>Future product modes may be Manager-Blinded or Anonymous Aggregated. The selected mode is frozen per cycle.</span></div>
-</section>
+      <section id="privacy" class="panel">
+        <h2>6. Pilot Manager Feedback — Identified</h2>
+        <div class="flow">
+          <div class="node">
+            <strong>Eligible Employees</strong
+            ><span>Each employee has a visible submitted, pending, or approved-leave status.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Identified Submission</strong
+            ><span>Name, criterion ratings, comments, and timestamp are stored.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Manager View</strong
+            ><span>The manager sees who submitted, who did not, and each response.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Optional AI Summary</strong
+            ><span
+              >Aggregates and trends supplement, but do not replace, individual responses.</span
+            >
+          </div>
+        </div>
+        <div class="legend">
+          <span
+            >Future product modes may be Manager-Blinded or Anonymous Aggregated. The selected mode
+            is frozen per cycle.</span
+          >
+        </div>
+      </section>
 
-<section id="ai" class="panel">
-<h2>7. AI Boundaries and Routing</h2>
-<div class="grid">
-<div class="card"><h3>AI Can</h3><p>Analyze documents, suggest criteria, structure updates, analyze evidence, prepare comparisons, generate coaching, aggregate feedback.</p></div>
-<div class="card"><h3>AI Cannot</h3><p>Assign or recommend ratings, rank employees, resolve attribution as fact, publish unsafe manager feedback, change final evaluations.</p></div>
-<div class="card"><h3>Routing</h3><p>Project override → Department override → System default. Administrator controls every route and records override reason.</p></div>
-<div class="card wide"><h3>Human Approval Gates</h3><p>Document correction, criteria approval, evidence confirmation, rating selection, justification approval, coaching acceptance, final rating.</p></div>
-<div class="card wide"><h3>Traceability</h3><p>Every AI run stores route, model configuration, source references, prompt/schema version, output, latency, usage, and fallback state.</p></div>
-</div>
-</section>
+      <section id="ai" class="panel">
+        <h2>7. AI Boundaries and Routing</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>AI Can</h3>
+            <p>
+              Analyze documents, suggest criteria, structure updates, analyze evidence, prepare
+              comparisons, generate coaching, aggregate feedback.
+            </p>
+          </div>
+          <div class="card">
+            <h3>AI Cannot</h3>
+            <p>
+              Assign or recommend ratings, rank employees, resolve attribution as fact, publish
+              unsafe manager feedback, change final evaluations.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Routing</h3>
+            <p>
+              Project override → Department override → System default. Administrator controls every
+              route and records override reason.
+            </p>
+          </div>
+          <div class="card wide">
+            <h3>Human Approval Gates</h3>
+            <p>
+              Document correction, criteria approval, evidence confirmation, rating selection,
+              justification approval, coaching acceptance, final rating.
+            </p>
+          </div>
+          <div class="card wide">
+            <h3>Traceability</h3>
+            <p>
+              Every AI run stores route, model configuration, source references, prompt/schema
+              version, output, latency, usage, and fallback state.
+            </p>
+          </div>
+        </div>
+      </section>
 
-<section id="phases" class="panel">
-<h2>8. Implementation Order</h2>
-<div class="phase"><b>Phase 0 — Governance, AI & Localization Foundations</b><span>Complete: repository, identity, permissions, audit, AI Router, worker, eligibility, Arabic/English RTL foundations, and DAG validation. T016 is deferred outside the engineering gate.</span></div>
-<div class="phase"><b>Phase 1 — Projects and Documents</b><span>Projects, workstreams, responsibility, templates, versions, dynamic criteria.</span></div>
-<div class="phase"><b>Phase 2 — Updates, Evidence & Readiness</b><span>Text, voice, images, GitHub, attribution, Thursday check-ins, monthly readiness, Arabic fixtures.</span></div>
-<div class="phase"><b>Phase 3 — Employee Evaluation</b><span>Templates, Calibration Cycle, Fact View, self/manager assessment, discussion, finalization.</span></div>
-<div class="phase"><b>Phase 4 — Identified Manager Evaluation & Coaching</b><span>Named responses, visible completion, optional aggregation, coaching, development actions, future privacy-mode foundation.</span></div>
-<div class="phase"><b>Phase 5 — Continuity and Hardening</b><span>Leave, delegation, handover, offboarding, privacy, recovery, pilot launch.</span></div>
-</section>
+      <section id="phases" class="panel">
+        <h2>8. Implementation Order</h2>
+        <div class="phase">
+          <b>Phase 0 — Governance, AI & Localization Foundations</b
+          ><span
+            >Complete: repository, identity, permissions, audit, AI Router, worker, eligibility,
+            Arabic/English RTL foundations, and DAG validation. T016 is deferred outside the
+            engineering gate.</span
+          >
+        </div>
+        <div class="phase">
+          <b>Phase 1 — Projects and Documents</b
+          ><span
+            >Bundle A complete: projects, workstreams, and responsibility (T018–T020). Bundle B
+            next: protected templates, safe uploads, and immutable document versions
+            (T021–T023).</span
+          >
+        </div>
+        <div class="phase">
+          <b>Phase 2 — Updates, Evidence & Readiness</b
+          ><span
+            >Text, voice, images, GitHub, attribution, Thursday check-ins, monthly readiness, Arabic
+            fixtures.</span
+          >
+        </div>
+        <div class="phase">
+          <b>Phase 3 — Employee Evaluation</b
+          ><span
+            >Templates, Calibration Cycle, Fact View, self/manager assessment, discussion,
+            finalization.</span
+          >
+        </div>
+        <div class="phase">
+          <b>Phase 4 — Identified Manager Evaluation & Coaching</b
+          ><span
+            >Named responses, visible completion, optional aggregation, coaching, development
+            actions, future privacy-mode foundation.</span
+          >
+        </div>
+        <div class="phase">
+          <b>Phase 5 — Continuity and Hardening</b
+          ><span>Leave, delegation, handover, offboarding, privacy, recovery, pilot launch.</span>
+        </div>
+      </section>
 
-<section id="readiness" class="panel">
-<h2>9. Readiness</h2>
-<div class="grid">
-<div class="card"><span class="tag">Approved</span><h3>Product Reference</h3><p>Purpose, workflows, roles, privacy, and configuration.</p></div>
-<div class="card"><span class="tag">Approved</span><h3>Evaluation Rubric</h3><p>12 criteria, 60 anchors, manager rubric, weights.</p></div>
-<div class="card"><span class="tag">Ready</span><h3>Implementation Plan</h3><p>Architecture, corrected dependencies, modules, data, phases, tests.</p></div>
-<div class="card"><span class="tag">Complete</span><h3>Phase 0 Foundation</h3><p>Tasks T001–T015 and T017 are implemented and technically verified. English Pilot Readiness is available.</p></div>
-<div class="card wide"><span class="tag">Protected</span><h3>Do Not Drift</h3><p>No AI ratings, no ranking, no activity-volume scoring, no retroactive criteria, no mutation of closed evaluations, no anonymity claim in Identified mode, no manager access to readiness percentages.</p></div>
-<div class="card"><span class="tag">English ready</span><h3>Localization</h3><p>English-only pilot use is permitted. Arabic/RTL foundations remain verified, while Arabic employee use waits for the inactive T016 draft's two separate human reviews.</p></div>
-<div class="card"><span class="tag">Calibration</span><h3>Cycle 1</h3><p>Complete workflow stored as Calibration — Non-Baseline; official longitudinal baseline begins from Cycle 2.</p></div>
-<div class="card"><span class="tag">Monthly</span><h3>Evidence Readiness</h3><p>Thin records are surfaced before quarter-end without quotas, scoring, or automatic penalties.</p></div>
-<div class="card wide"><span class="tag">Deferred</span><h3>Not in First Build</h3><p>Billing, full self-service multi-tenancy, HRIS, Google Drive auto-sync, formal appeal workflow, microservices, automated salary/promotion decisions. Private manager-feedback modes are foundations, not pilot operating rules.</p></div>
-</div>
-</section>
-</main>
-<footer>Evidence-Based Performance Evaluation System · Operational state updated 2026-07-17 · Phase 0 complete · Arabic rubric remains inactive pending human approval</footer>
-</body>
+      <section id="readiness" class="panel">
+        <h2>9. Readiness</h2>
+        <div class="grid">
+          <div class="card">
+            <span class="tag">Approved</span>
+            <h3>Product Reference</h3>
+            <p>Purpose, workflows, roles, privacy, and configuration.</p>
+          </div>
+          <div class="card">
+            <span class="tag">Approved</span>
+            <h3>Evaluation Rubric</h3>
+            <p>12 criteria, 60 anchors, manager rubric, weights.</p>
+          </div>
+          <div class="card">
+            <span class="tag">Ready</span>
+            <h3>Implementation Plan</h3>
+            <p>Architecture, corrected dependencies, modules, data, phases, tests.</p>
+          </div>
+          <div class="card">
+            <span class="tag">Complete</span>
+            <h3>Phase 0 Foundation</h3>
+            <p>
+              Tasks T001–T015 and T017 are implemented and technically verified. English Pilot
+              Readiness is available.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tag">Verified</span>
+            <h3>Phase 1 Bundle A</h3>
+            <p>
+              T018–T020 passed the complete repository, migration, integration, AI-evaluation,
+              browser, and independent-review gates with no P0/P1 blocker.
+            </p>
+          </div>
+          <div class="card wide">
+            <span class="tag">Protected</span>
+            <h3>Do Not Drift</h3>
+            <p>
+              No AI ratings, no ranking, no activity-volume scoring, no retroactive criteria, no
+              mutation of closed evaluations, no anonymity claim in Identified mode, no manager
+              access to readiness percentages.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tag">English ready</span>
+            <h3>Localization</h3>
+            <p>
+              English-only pilot use is permitted. Arabic/RTL foundations remain verified, while
+              Arabic employee use waits for the inactive T016 draft's two separate human reviews.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tag">Calibration</span>
+            <h3>Cycle 1</h3>
+            <p>
+              Complete workflow stored as Calibration — Non-Baseline; official longitudinal baseline
+              begins from Cycle 2.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tag">Monthly</span>
+            <h3>Evidence Readiness</h3>
+            <p>
+              Thin records are surfaced before quarter-end without quotas, scoring, or automatic
+              penalties.
+            </p>
+          </div>
+          <div class="card wide">
+            <span class="tag">Deferred</span>
+            <h3>Not in First Build</h3>
+            <p>
+              Billing, full self-service multi-tenancy, HRIS, Google Drive auto-sync, formal appeal
+              workflow, microservices, automated salary/promotion decisions. Private
+              manager-feedback modes are foundations, not pilot operating rules.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      Evidence-Based Performance Evaluation System · Operational state updated 2026-07-17 · Phase 0
+      and Phase 1 Bundle A complete · Arabic rubric remains inactive pending human approval
+    </footer>
+  </body>
 </html>

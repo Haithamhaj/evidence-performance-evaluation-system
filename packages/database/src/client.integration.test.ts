@@ -7,6 +7,12 @@ const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 afterAll(async () => client.$disconnect());
 
 describe("database foundation", () => {
+  it("pins every database session to UTC", async () => {
+    const rows = await client.$queryRaw<Array<{ TimeZone: string }>>`SHOW TIMEZONE`;
+
+    expect(rows).toEqual([{ TimeZone: "UTC" }]);
+  });
+
   it("uses PostgreSQL and persists UTC system metadata", async () => {
     const row = await client.systemMetadata.create({
       data: { key: `integration:${crypto.randomUUID()}`, value: "phase-0" },

@@ -9,6 +9,9 @@ Execute Phase 1 — Projects, Workstreams, Documents, and Criteria — in bounde
 - Phase 0 was squash-merged through Pull Request #1 to `main` at `04c42c5`; hosted CI run `29540996315` passed integrity, quality, build, and integration on the merged commit.
 - Phase 1 work is isolated on `codex/phase-1-projects-workstreams-documents` in `.worktrees/phase-1-projects-workstreams-documents`.
 - The bounded Phase 1 design is `docs/superpowers/specs/2026-07-17-phase-1-projects-workstreams-documents-design.md` and covers T018–T029 through four dependency-ordered bundles.
+- Bundle A is complete: T018–T020 implement governed projects, workstreams, membership/contributor periods, atomic permanent and acting owner transfers, half-open responsibility history, terminal-state controls, scoped API authorization, same-transaction audit, and UTC database sessions.
+- Bundle A task commits are `ac496ee`, `4677af8`, and `46ba63e`. One bounded final independent review approved the combined implementation with no P0/P1 blockers.
+- Fresh verification passed: 411 unit/coverage tests, 200 integration tests, 30 migration-foundation tests across empty/previous/rebuild paths, 133 AI evaluations with one intentional skip, 11 browser tests, full lint/typecheck/build, boundary, secret, performance-input, copy, formatting, and task-graph gates.
 - T016 remains draft and inactive on `deferred/arabic-rubric-v1` at `3ebbe54`, tracked by GitHub issue #2. It is an Arabic employee-release gate, not an engineering-phase dependency.
 
 ## Active Decisions
@@ -23,7 +26,6 @@ Execute Phase 1 — Projects, Workstreams, Documents, and Criteria — in bounde
 
 ## Active Risks
 
-- Ownership transfer requires transactional locking and database uniqueness; application-only checks are insufficient.
 - Uploaded content is untrusted and must fail closed on type, size, archive, or malware-safety failure.
 - AI readiness and criteria output must retain source references, route traces, schema versions, and human gates.
 - Arabic employee release remains blocked at T016's protected human semantic-review gate.
@@ -37,7 +39,7 @@ Execute Phase 1 — Projects, Workstreams, Documents, and Criteria — in bounde
 
 ## Next Recommended Action
 
-Complete independent review of the Phase 1 design, commit it, write and review the Bundle A implementation plan for T018–T020, then execute the bundle with TDD, migration verification, authorization tests, and fresh CI evidence.
+Write the bounded Bundle B implementation plan, then execute T021–T023 for protected templates, safe uploads, and immutable project/workstream document versions.
 
 ## Critical References
 
@@ -47,4 +49,5 @@ Complete independent review of the Phase 1 design, commit it, write and review t
 - `docs/EVALUATION_RUBRIC.md`
 - `docs/IMPLEMENTATION_PLAN.md`
 - `docs/superpowers/specs/2026-07-17-phase-1-projects-workstreams-documents-design.md`
+- `docs/superpowers/plans/2026-07-17-phase-1-bundle-a-project-responsibility.md`
 - GitHub issue #2 and `deferred/arabic-rubric-v1`

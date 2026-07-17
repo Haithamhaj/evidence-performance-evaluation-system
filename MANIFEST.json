@@ -50,13 +50,13 @@
     },
     {
       "path": "project-state/PROJECT_STATE.md",
-      "bytes": 3513,
-      "sha256": "b4cbbfa4881cbc88e5e449359511f22e28059e7e5015046973d81b7687604dee"
+      "bytes": 4174,
+      "sha256": "cd71377702d58459226313fed1eedeb7f8dadda7ceefbb19e4d68692bbde2175"
     },
     {
       "path": "project-state/SYSTEM_MAP.html",
-      "bytes": 19234,
-      "sha256": "074c8409aef9ccd239917e18cf96d1868cb489f66c58ef7e1b723317d67f75f1"
+      "bytes": 29754,
+      "sha256": "4a7ddbd0ab47c15ecfe10450c862d4b30e401ea057c2b1643a5b0a929bbd1730"
     },
     {
       "path": "scripts/validate_task_graph.py",

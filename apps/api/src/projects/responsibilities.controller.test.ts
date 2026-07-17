@@ -1,8 +1,8 @@
 import { ResponsibilityService } from "@evaluation/projects";
 import { describe, expect, it, vi } from "vitest";
 
-import { AuthGuard } from "../auth/auth.guard.js";
 import { ProjectPolicyGuard } from "./project-policy-loaders.js";
+import { ProjectsAuthenticationGuard } from "./projects-authentication.guard.js";
 import { ResponsibilitiesController } from "./responsibilities.controller.js";
 
 const GUARDS_METADATA = "__guards__";
@@ -59,7 +59,9 @@ describe("ResponsibilitiesController", () => {
     expect(Reflect.getMetadata(PATH_METADATA, ResponsibilitiesController)).toBe(
       "api/v1/projects/:projectId",
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, ResponsibilitiesController)).toContain(AuthGuard);
+    expect(Reflect.getMetadata(GUARDS_METADATA, ResponsibilitiesController)).toContain(
+      ProjectsAuthenticationGuard,
+    );
     expect(
       Reflect.getMetadata(GUARDS_METADATA, ResponsibilitiesController.prototype.transferProject),
     ).toContain(ProjectPolicyGuard);

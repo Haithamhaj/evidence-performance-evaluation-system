@@ -1,8 +1,8 @@
 import { WorkstreamService } from "@evaluation/projects";
 import { describe, expect, it, vi } from "vitest";
 
-import { AuthGuard } from "../auth/auth.guard.js";
 import { ProjectPolicyGuard } from "./project-policy-loaders.js";
+import { ProjectsAuthenticationGuard } from "./projects-authentication.guard.js";
 import { WorkstreamsController } from "./workstreams.controller.js";
 
 const GUARDS_METADATA = "__guards__";
@@ -60,7 +60,9 @@ describe("WorkstreamsController", () => {
     expect(Reflect.getMetadata(PATH_METADATA, WorkstreamsController)).toBe(
       "api/v1/projects/:projectId/workstreams",
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, WorkstreamsController)).toContain(AuthGuard);
+    expect(Reflect.getMetadata(GUARDS_METADATA, WorkstreamsController)).toContain(
+      ProjectsAuthenticationGuard,
+    );
     expect(Reflect.getMetadata(PATH_METADATA, WorkstreamsController.prototype.create)).toBe("/");
     expect(Reflect.getMetadata(METHOD_METADATA, WorkstreamsController.prototype.create)).toBe(1);
     expect(Reflect.getMetadata(GUARDS_METADATA, WorkstreamsController.prototype.create)).toContain(

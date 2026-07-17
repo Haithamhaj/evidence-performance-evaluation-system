@@ -101,6 +101,8 @@ describe("local database reset guard", () => {
     expect(publicEntry).toBe(
       [
         'export { createDatabaseClient } from "./client.js";',
+        'export type DatabaseClient = import("./generated/prisma/client.js").PrismaClient;',
+        'export type DatabaseTransaction = import("./generated/prisma/client.js").Prisma.TransactionClient;',
         "export {",
         "  PILOT_SEED_ISSUER,",
         "  seedPilot,",
@@ -111,7 +113,6 @@ describe("local database reset guard", () => {
         "",
       ].join("\n"),
     );
-    expect(publicEntry).not.toContain("generated");
     expect(vitestWorkspace).toContain(
       'exclude: ["**/node_modules/**", "**/*.integration.test.ts"]',
     );
