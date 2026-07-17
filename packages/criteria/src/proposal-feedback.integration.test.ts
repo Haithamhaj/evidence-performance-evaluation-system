@@ -156,8 +156,10 @@ function requestHarness(input: Readonly<{ material: boolean }>) {
     comparisonReviewId,
     currentDocumentVersionId,
     database,
+    documentId,
     identity,
     ownerFeedback,
+    priorDocumentVersionId,
     priorProposalId,
     prerequisites,
     service,
@@ -166,6 +168,95 @@ function requestHarness(input: Readonly<{ material: boolean }>) {
     transitionId,
     getCapturedPayload: () => capturedPayload,
   };
+}
+
+function workerHarness(
+  harness: ReturnType<typeof requestHarness>,
+  overrides: Readonly<{
+    sourceMissing?: boolean;
+    transitionProposalId?: string;
+    comparisonBeforeVersionId?: string;
+  }> = {},
+) {
+  const sourceLoader = {
+    load: vi.fn(async () => harness.sourceLoader.load()),
+  };
+  const aiRouter = { run: vi.fn() };
+  const transaction = {
+    documentVersion: {
+      findUnique: vi.fn(async () => ({
+        id: harness.currentDocumentVersionId,
+        documentId: harness.documentId,
+        document: {
+          projectId: harness.identity.projectId,
+          workstreamId: null,
+        },
+      })),
+    },
+    dynamicCriteriaProposal: {
+      findUnique: vi.fn(async () => ({
+        id: harness.priorProposalId,
+        kind: "project",
+        projectId: harness.identity.projectId,
+        workstreamId: null,
+        sourceDocumentVersionId: harness.priorDocumentVersionId,
+        state: "superseded",
+        transitions: [
+          {
+            id: harness.transitionId,
+            fromState: "owner_review",
+            toState: "superseded",
+          },
+        ],
+      })),
+    },
+    dynamicCriteriaProposalTransition: {
+      findUnique: vi.fn(async () =>
+        overrides.sourceMissing
+          ? null
+          : {
+              id: harness.transitionId,
+              proposalId: overrides.transitionProposalId ?? harness.priorProposalId,
+              fromState: "owner_review",
+              toState: "superseded",
+              reason: harness.ownerFeedback,
+            },
+      ),
+    },
+    documentComparisonReview: {
+      findUnique: vi.fn(async () =>
+        overrides.sourceMissing
+          ? null
+          : {
+              id: harness.comparisonReviewId,
+              effectiveClassification: "material_scope_or_goal_change",
+              reason: harness.ownerFeedback,
+              comparison: {
+                documentId: harness.documentId,
+                beforeVersionId:
+                  overrides.comparisonBeforeVersionId ?? harness.priorDocumentVersionId,
+                afterVersionId: harness.currentDocumentVersionId,
+              },
+            },
+      ),
+    },
+  };
+  const service = new ProposalService(
+    {
+      $transaction: vi.fn(async (callback: (value: typeof transaction) => Promise<unknown>) =>
+        callback(transaction),
+      ),
+    } as never,
+    {} as never,
+    {} as never,
+    sourceLoader,
+    aiRouter,
+    {} as never,
+    {} as never,
+    {} as never,
+    { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => now },
+  );
+  return { aiRouter, service, sourceLoader };
 }
 
 describe("ProposalService durable owner feedback", () => {
@@ -191,38 +282,10 @@ describe("ProposalService durable owner feedback", () => {
     });
     expect(JSON.stringify(payload)).not.toContain(harness.ownerFeedback);
 
-    const freshService = new ProposalService(
-      {
-        $transaction: vi.fn(
-          async (
-            callback: (transaction: {
-              dynamicCriteriaProposalTransition: {
-                findUnique: ReturnType<typeof vi.fn>;
-              };
-            }) => Promise<unknown>,
-          ) =>
-            callback({
-              dynamicCriteriaProposalTransition: {
-                findUnique: vi.fn(async () => ({
-                  id: harness.transitionId,
-                  reason: harness.ownerFeedback,
-                })),
-              },
-            }),
-        ),
-      } as never,
-      {} as never,
-      {} as never,
-      harness.sourceLoader,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => now },
-    );
+    const worker = workerHarness(harness);
 
     await expect(
-      freshService.prepareGeneration({
+      worker.service.prepareGeneration({
         job: payload as never,
         readinessSourceReferences: harness.prerequisites.sourceReferences,
       }),
@@ -253,39 +316,10 @@ describe("ProposalService durable owner feedback", () => {
       if (failure === "tampered") {
         Object.assign(payload.ownerFeedbackSource as object, { sha256: "f".repeat(64) });
       }
-      const worker = new ProposalService(
-        {
-          $transaction: vi.fn(
-            async (
-              callback: (transaction: {
-                dynamicCriteriaProposalTransition: {
-                  findUnique: ReturnType<typeof vi.fn>;
-                };
-              }) => Promise<unknown>,
-            ) =>
-              callback({
-                dynamicCriteriaProposalTransition: {
-                  findUnique: vi.fn(async () =>
-                    failure === "missing"
-                      ? null
-                      : { id: harness.transitionId, reason: harness.ownerFeedback },
-                  ),
-                },
-              }),
-          ),
-        } as never,
-        {} as never,
-        {} as never,
-        harness.sourceLoader,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => now },
-      );
+      const worker = workerHarness(harness, { sourceMissing: failure === "missing" });
 
       await expect(
-        worker.prepareGeneration({
+        worker.service.prepareGeneration({
           job: payload as never,
           readinessSourceReferences: harness.prerequisites.sourceReferences,
         }),
@@ -313,6 +347,88 @@ describe("ProposalService durable owner feedback", () => {
         kind: "comparison_review",
         referenceId: harness.comparisonReviewId,
         sha256: feedbackHash(harness.ownerFeedback),
+      },
+    });
+  });
+
+  it("rejects a correctly hashed correction transition from another proposal before prompt work", async () => {
+    const harness = requestHarness({ material: false });
+    await harness.service.requestGeneration({
+      actor: { userId: harness.identity.primaryOwnerId, active: true },
+      correlationId: crypto.randomUUID(),
+      kind: "project",
+      resourceId: harness.identity.projectId,
+      documentVersionId: harness.currentDocumentVersionId,
+      idempotencyKey: crypto.randomUUID(),
+      replacesProposalId: harness.priorProposalId,
+      ownerFeedback: harness.ownerFeedback,
+    });
+    const worker = workerHarness(harness, {
+      transitionProposalId: crypto.randomUUID(),
+    });
+
+    await expect(
+      worker.service.prepareGeneration({
+        job: harness.getCapturedPayload() as never,
+        readinessSourceReferences: harness.prerequisites.sourceReferences,
+      }),
+    ).rejects.toMatchObject({ code: "CRITERIA_REPLACEMENT_INVALID" });
+    expect(worker.sourceLoader.load).not.toHaveBeenCalled();
+    expect(worker.aiRouter.run).not.toHaveBeenCalled();
+  });
+
+  it("rejects a correctly hashed material review with wrong document lineage before prompt work", async () => {
+    const harness = requestHarness({ material: true });
+    await harness.service.requestGeneration({
+      actor: { userId: harness.identity.primaryOwnerId, active: true },
+      correlationId: crypto.randomUUID(),
+      kind: "project",
+      resourceId: harness.identity.projectId,
+      documentVersionId: harness.currentDocumentVersionId,
+      idempotencyKey: crypto.randomUUID(),
+      replacesProposalId: harness.priorProposalId,
+      ownerFeedback: harness.ownerFeedback,
+      materialComparisonReviewId: harness.comparisonReviewId,
+    });
+    const worker = workerHarness(harness, {
+      comparisonBeforeVersionId: crypto.randomUUID(),
+    });
+
+    await expect(
+      worker.service.prepareGeneration({
+        job: harness.getCapturedPayload() as never,
+        readinessSourceReferences: harness.prerequisites.sourceReferences,
+      }),
+    ).rejects.toMatchObject({ code: "CRITERIA_REPLACEMENT_INVALID" });
+    expect(worker.sourceLoader.load).not.toHaveBeenCalled();
+    expect(worker.aiRouter.run).not.toHaveBeenCalled();
+  });
+
+  it("reconstructs reviewed material feedback in a fresh worker instance", async () => {
+    const harness = requestHarness({ material: true });
+    await harness.service.requestGeneration({
+      actor: { userId: harness.identity.primaryOwnerId, active: true },
+      correlationId: crypto.randomUUID(),
+      kind: "project",
+      resourceId: harness.identity.projectId,
+      documentVersionId: harness.currentDocumentVersionId,
+      idempotencyKey: crypto.randomUUID(),
+      replacesProposalId: harness.priorProposalId,
+      ownerFeedback: harness.ownerFeedback,
+      materialComparisonReviewId: harness.comparisonReviewId,
+    });
+    const worker = workerHarness(harness);
+
+    await expect(
+      worker.service.prepareGeneration({
+        job: harness.getCapturedPayload() as never,
+        readinessSourceReferences: harness.prerequisites.sourceReferences,
+      }),
+    ).resolves.toMatchObject({
+      input: {
+        untrustedOwnerFeedback: {
+          value: harness.ownerFeedback,
+        },
       },
     });
   });

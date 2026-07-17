@@ -77,6 +77,15 @@ function persistenceHarness(kind: "project" | "workstream", count: number) {
     documentRecord: {
       findUnique: vi.fn(async () => ({ currentVersion: 2 })),
     },
+    documentVersion: {
+      findUnique: vi.fn(async () => ({
+        documentId: request.documentId,
+        document: {
+          projectId,
+          workstreamId: kind === "workstream" ? resourceId : null,
+        },
+      })),
+    },
     documentReadinessCheck: {
       findUnique: vi.fn(async () => ({
         id: readinessCheckId,
@@ -261,6 +270,21 @@ describe("ProposalService persisted generation", () => {
           failure === "missing" ? null : { id: transitionId, reason },
         ),
       });
+      harness.current.dynamicCriteriaProposal.findUnique.mockResolvedValueOnce({
+        id: replacesProposalId,
+        kind: "project",
+        projectId: harness.request.resourceId,
+        workstreamId: null,
+        sourceDocumentVersionId: harness.request.documentVersionId,
+        state: "superseded",
+        transitions: [
+          {
+            id: transitionId,
+            fromState: "owner_review",
+            toState: "superseded",
+          },
+        ],
+      } as never);
       harness.current.documentAnalysisRequest.findUnique.mockResolvedValueOnce({
         kind: "criteria_project",
         routeKey: "criteria.generate.project",

@@ -455,13 +455,15 @@ export class ProposalService {
   ) {
     const parsed = AnalysisCriteriaJobPayloadSchema.parse(input.job);
     if (parsed.type !== "criteria.generate.v1") throw replacementInvalid();
-    const ownerFeedbackSource = parsed.ownerFeedbackSource;
-    const ownerFeedback =
-      ownerFeedbackSource === null
-        ? undefined
-        : await this.database.$transaction((transaction) =>
-            loadOwnerFeedbackSource(transaction, ownerFeedbackSource),
-          );
+    const ownerFeedback = await this.database.$transaction((transaction) =>
+      validateOwnerFeedbackLineage(transaction, {
+        kind: parsed.kind,
+        documentVersionId: parsed.documentVersionId,
+        replacesProposalId: parsed.replacesProposalId ?? null,
+        materialComparisonReviewId: parsed.materialComparisonReviewId ?? null,
+        ownerFeedbackSource: parsed.ownerFeedbackSource,
+      }),
+    );
     const document = await this.sourceLoader.load({
       documentVersionId: parsed.documentVersionId,
     });
@@ -904,56 +906,130 @@ async function validatePinnedReplacementPins(
   request: CriteriaGenerationRequestSnapshot,
   prerequisites: CriteriaDocumentPrerequisites,
 ): Promise<void> {
-  if (request.replacesProposalId === null) {
-    if (request.ownerFeedbackSource !== null || request.materialComparisonReviewId !== null) {
-      throw replacementInvalid();
-    }
-    return;
-  }
-  if (request.ownerFeedbackSource === null) throw replacementInvalid();
-  const ownerFeedback = await loadOwnerFeedbackSource(transaction, request.ownerFeedbackSource);
-  const currentSource = await validateReplacementPins(
-    transaction,
-    {
-      kind: request.kind,
-      resourceId: request.resourceId,
-      documentVersionId: request.documentVersionId,
-      replacesProposalId: request.replacesProposalId,
-      ownerFeedback,
-      ...(request.materialComparisonReviewId === null
-        ? {}
-        : { materialComparisonReviewId: request.materialComparisonReviewId }),
-    },
-    prerequisites,
-  );
+  await validateOwnerFeedbackLineage(transaction, {
+    kind: request.kind,
+    documentVersionId: request.documentVersionId,
+    replacesProposalId: request.replacesProposalId,
+    materialComparisonReviewId: request.materialComparisonReviewId,
+    ownerFeedbackSource: request.ownerFeedbackSource,
+    expectedResourceId: request.resourceId,
+  });
   if (
-    currentSource === null ||
-    currentSource.kind !== request.ownerFeedbackSource.kind ||
-    currentSource.referenceId !== request.ownerFeedbackSource.referenceId ||
-    currentSource.sha256 !== request.ownerFeedbackSource.sha256
+    (request.materialComparisonReviewId === null &&
+      prerequisites.lifecycleState !== "ready_for_criteria_generation") ||
+    (request.materialComparisonReviewId !== null &&
+      prerequisites.lifecycleState !== "revision_required")
   ) {
     throw replacementInvalid();
   }
 }
 
-async function loadOwnerFeedbackSource(
+async function validateOwnerFeedbackLineage(
   transaction: import("./model.js").CriteriaTransaction,
-  source: OwnerFeedbackSource,
-): Promise<string> {
-  const row =
-    source.kind === "proposal_transition"
-      ? await transaction.dynamicCriteriaProposalTransition.findUnique({
-          where: { id: source.referenceId },
-          select: { reason: true },
-        })
-      : await transaction.documentComparisonReview.findUnique({
-          where: { id: source.referenceId },
-          select: { reason: true },
-        });
-  if (row === null || sha256Text(row.reason) !== source.sha256) {
+  pins: Readonly<{
+    kind: CriteriaKind;
+    documentVersionId: string;
+    replacesProposalId: string | null;
+    materialComparisonReviewId: string | null;
+    ownerFeedbackSource: OwnerFeedbackSource | null;
+    expectedResourceId?: string;
+  }>,
+): Promise<string | undefined> {
+  if (pins.replacesProposalId === null) {
+    if (pins.ownerFeedbackSource !== null || pins.materialComparisonReviewId !== null) {
+      throw replacementInvalid();
+    }
+    return undefined;
+  }
+  if (pins.ownerFeedbackSource === null) throw replacementInvalid();
+  const [documentVersion, prior] = await Promise.all([
+    transaction.documentVersion.findUnique({
+      where: { id: pins.documentVersionId },
+      select: {
+        documentId: true,
+        document: { select: { projectId: true, workstreamId: true } },
+      },
+    }),
+    transaction.dynamicCriteriaProposal.findUnique({
+      where: { id: pins.replacesProposalId },
+      include: {
+        transitions: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        },
+      },
+    }),
+  ]);
+  const currentResourceId =
+    pins.kind === "project"
+      ? documentVersion?.document.projectId
+      : documentVersion?.document.workstreamId;
+  const priorResourceId = prior?.kind === "project" ? prior.projectId : prior?.workstreamId;
+  const hasCorrectionTransition = prior?.transitions.some(
+    ({ fromState, toState }) => fromState === "owner_review" && toState === "superseded",
+  );
+  if (
+    documentVersion === null ||
+    currentResourceId === null ||
+    currentResourceId === undefined ||
+    (pins.expectedResourceId !== undefined && currentResourceId !== pins.expectedResourceId) ||
+    prior === null ||
+    prior.kind !== pins.kind ||
+    priorResourceId !== currentResourceId ||
+    prior.state !== "superseded" ||
+    !hasCorrectionTransition
+  ) {
     throw replacementInvalid();
   }
-  return row.reason;
+
+  const source = pins.ownerFeedbackSource;
+  if (source.kind === "proposal_transition") {
+    const transition = await transaction.dynamicCriteriaProposalTransition.findUnique({
+      where: { id: source.referenceId },
+      select: {
+        proposalId: true,
+        fromState: true,
+        toState: true,
+        reason: true,
+      },
+    });
+    if (
+      pins.materialComparisonReviewId !== null ||
+      prior.sourceDocumentVersionId !== pins.documentVersionId ||
+      transition === null ||
+      transition.proposalId !== pins.replacesProposalId ||
+      transition.fromState !== "owner_review" ||
+      transition.toState !== "superseded" ||
+      sha256Text(transition.reason) !== source.sha256
+    ) {
+      throw replacementInvalid();
+    }
+    return transition.reason;
+  }
+
+  const review = await transaction.documentComparisonReview.findUnique({
+    where: { id: source.referenceId },
+    include: {
+      comparison: {
+        select: {
+          documentId: true,
+          beforeVersionId: true,
+          afterVersionId: true,
+        },
+      },
+    },
+  });
+  if (
+    pins.materialComparisonReviewId !== source.referenceId ||
+    review === null ||
+    review.effectiveClassification !== "material_scope_or_goal_change" ||
+    review.comparison.documentId !== documentVersion.documentId ||
+    review.comparison.beforeVersionId !== prior.sourceDocumentVersionId ||
+    review.comparison.afterVersionId !== pins.documentVersionId ||
+    sha256Text(review.reason) !== source.sha256
+  ) {
+    throw replacementInvalid();
+  }
+  return review.reason;
 }
 
 function sha256Text(value: string): string {
