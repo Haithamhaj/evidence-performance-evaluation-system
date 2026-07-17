@@ -29,7 +29,9 @@ describe("safe analysis extraction", () => {
       mediaType: "text/markdown",
       sha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
     });
-    expect(Buffer.from(result.sources[0]!.contentBase64!, "base64").toString()).toContain("# Scope");
+    expect(Buffer.from(result.sources[0]!.contentBase64!, "base64").toString()).toContain(
+      "# Scope",
+    );
   });
 
   it.each([

@@ -70,9 +70,7 @@ export type DocumentComparisonReview = Readonly<{
   createdAt: string;
 }>;
 
-export type AnalysisJobEnqueuer = (
-  receipt: DocumentAnalysisRequestReceipt,
-) => Promise<unknown>;
+export type AnalysisJobEnqueuer = (receipt: DocumentAnalysisRequestReceipt) => Promise<unknown>;
 
 export interface DocumentAnalysisAiRouter {
   run<TInput, TOutput>(

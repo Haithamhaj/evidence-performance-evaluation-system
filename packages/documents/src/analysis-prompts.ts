@@ -28,11 +28,7 @@ function instruction(prompt: z.infer<typeof PromptSchema>, version: string) {
   return { artifactId: prompt.artifactId, version, sha256: prompt.sha256 };
 }
 
-function delimited(
-  sources: readonly z.infer<typeof SourceSchema>[],
-  begin: string,
-  end: string,
-) {
+function delimited(sources: readonly z.infer<typeof SourceSchema>[], begin: string, end: string) {
   return {
     begin,
     sources: sources.map((source) => ({ ...source })),
@@ -56,11 +52,7 @@ export function buildReadinessRequest(input: unknown) {
     trustedInstruction: instruction(parsed.prompt, READINESS_PROMPT_VERSION),
     untrustedContent: {
       templateSections: parsed.templateSections.map((section) => ({ ...section })),
-      document: delimited(
-        parsed.sources,
-        "BEGIN_UNTRUSTED_DOCUMENT",
-        "END_UNTRUSTED_DOCUMENT",
-      ),
+      document: delimited(parsed.sources, "BEGIN_UNTRUSTED_DOCUMENT", "END_UNTRUSTED_DOCUMENT"),
     },
   } as const;
 }

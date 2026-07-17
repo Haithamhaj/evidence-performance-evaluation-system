@@ -60,10 +60,7 @@ export class DocumentAnalysisSourceLoader {
       return {
         reference,
         sourceType: source.sourceType,
-        mediaType:
-          source.sourceType === "github"
-            ? "application/vnd.github+json"
-            : "text/uri-list",
+        mediaType: source.sourceType === "github" ? "application/vnd.github+json" : "text/uri-list",
       };
     });
     return {

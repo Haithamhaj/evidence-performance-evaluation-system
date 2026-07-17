@@ -83,7 +83,9 @@ export class S3PrivateStorage implements StoragePort {
       result.ContentLength !== undefined &&
       (!Number.isSafeInteger(result.ContentLength) || result.ContentLength > input.maxBytes)
     ) {
-      result.Body?.transformToWebStream().cancel().catch(() => undefined);
+      result.Body?.transformToWebStream()
+        .cancel()
+        .catch(() => undefined);
       throw new Error("Private object exceeds read limit");
     }
     if (!(result.Body instanceof Readable)) throw new Error("Private object stream is unavailable");

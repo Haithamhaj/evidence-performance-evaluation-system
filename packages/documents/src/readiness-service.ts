@@ -11,6 +11,12 @@ import {
   READINESS_INPUT_SCHEMA_VERSION,
   READINESS_OUTPUT_SCHEMA_VERSION,
 } from "./analysis-model.js";
+import {
+  claimAnalysisRequest,
+  completeAnalysisOperation,
+  recordAnalysisEffect,
+  recordAnalysisFailure,
+} from "./analysis-execution.js";
 import { buildReadinessRequest, READINESS_PROMPT_VERSION } from "./analysis-prompts.js";
 import { authorizeDocument } from "./document-authorization.js";
 import { extractSafeSources } from "./safe-source-extraction.js";
@@ -33,6 +39,7 @@ export class ReadinessService {
       maxArchiveUncompressedBytes: number;
       maxArchiveCompressionRatio: number;
     };
+    execution: import("./analysis-execution.js").AnalysisExecutionOptions;
     now?: () => Date;
   }>;
 
@@ -52,6 +59,7 @@ export class ReadinessService {
         maxArchiveUncompressedBytes: number;
         maxArchiveCompressionRatio: number;
       };
+      execution: import("./analysis-execution.js").AnalysisExecutionOptions;
       now?: () => Date;
     }>,
   ) {
@@ -64,12 +72,14 @@ export class ReadinessService {
     this.options = options;
   }
 
-  async request(command: Readonly<{
-    actor: Actor;
-    correlationId: string;
-    documentId: string;
-    idempotencyKey: string;
-  }>): Promise<import("./analysis-model.js").DocumentAnalysisRequestReceipt> {
+  async request(
+    command: Readonly<{
+      actor: Actor;
+      correlationId: string;
+      documentId: string;
+      idempotencyKey: string;
+    }>,
+  ): Promise<import("./analysis-model.js").DocumentAnalysisRequestReceipt> {
     const now = this.options.now?.() ?? new Date();
     const preview = await this.database.documentRecord.findUnique({
       where: { id: command.documentId },
@@ -81,13 +91,7 @@ export class ReadinessService {
     const receipt = await this.database.$transaction(
       async (transaction) => {
         await transaction.$queryRaw`SELECT id FROM "DocumentRecord" WHERE id = ${command.documentId}::uuid FOR UPDATE`;
-        await authorizeDocument(
-          transaction,
-          command.actor,
-          identity,
-          "document.analysis.run",
-          now,
-        );
+        await authorizeDocument(transaction, command.actor, identity, "document.analysis.run", now);
         const document = await transaction.documentRecord.findUnique({
           where: { id: command.documentId },
         });
@@ -141,7 +145,8 @@ export class ReadinessService {
           orderBy: { createdAt: "desc" },
         });
         if (existingVersion !== null) return receiptOf(existingVersion);
-        const operationId = randomUUID();
+        const requestId = randomUUID();
+        const operationId = requestId;
         await transaction.operation.create({
           data: {
             id: operationId,
@@ -156,6 +161,7 @@ export class ReadinessService {
         });
         const created = await transaction.documentAnalysisRequest.create({
           data: {
+            id: requestId,
             kind: "readiness",
             idempotencyKey: command.idempotencyKey,
             payloadHash,
@@ -194,113 +200,118 @@ export class ReadinessService {
     return receipt;
   }
 
-  async process(
-    requestId: string,
-    actorId: string,
-    correlationId: string,
-  ): Promise<string> {
-    const request = await this.database.$transaction(async (transaction) => {
-      await transaction.$queryRaw`SELECT id FROM "DocumentAnalysisRequest" WHERE id = ${requestId}::uuid FOR UPDATE`;
-      const row = await transaction.documentAnalysisRequest.findUnique({ where: { id: requestId } });
-      if (row === null || row.kind !== "readiness" || row.currentDocumentVersionId === null)
-        throw notFound();
-      if (row.state === "succeeded" && row.resultReference !== null) return row;
-      if (row.state === "running") return row;
-      if (row.state === "superseded") {
-        const result = await transaction.documentReadinessCheck.findUnique({
-          where: { requestId: row.id },
-          select: { outputReference: true },
-        });
-        if (result !== null) return { ...row, resultReference: result.outputReference };
-        throw invalidState();
-      }
-      return transaction.documentAnalysisRequest.update({
-        where: { id: row.id },
-        data: { state: "running", startedAt: row.startedAt ?? new Date() },
-      });
+  async process(requestId: string, actorId: string, correlationId: string): Promise<string> {
+    const now = this.options.now?.() ?? new Date();
+    const request = await claimAnalysisRequest(this.database, {
+      requestId,
+      kind: "readiness",
+      now,
+      execution: this.options.execution,
     });
-    if (request.resultReference !== null) return request.resultReference;
-    const source = await this.sourceLoader.load({
-      documentVersionId: request.currentDocumentVersionId!,
-    });
-    const extraction = await extractSafeSources({
-      policy: this.options.extractionPolicy,
-      sources: source.sources,
-    });
-    if (!readinessAllowedByExtraction(extraction)) {
-      const output = extractionMissingOutput(source);
-      return this.database.$transaction(async (transaction) =>
-        persistReadiness(
-          transaction,
-          request,
-          source,
-          output,
-          extraction.coverage,
-          actorId,
-          true,
-        ),
-      );
+    const recorded = await recordedReadinessReference(this.database, request);
+    if (recorded !== null) {
+      await completeAnalysisOperation(this.database, request, recorded, now);
+      return recorded;
     }
-    const prompt = {
-      artifactId: request.promptArtifactId,
-      version: request.promptVersion,
-      sha256: request.promptHash,
-    };
-    const built = buildReadinessRequest({
-      prompt: { artifactId: prompt.artifactId, sha256: prompt.sha256 },
-      templateSections: source.templateSections,
-      sources: extraction.sources.flatMap((item) =>
-        item.contentBase64 === undefined
-          ? []
-          : [
-              {
-                reference: item.reference,
-                mediaType: item.mediaType,
-                contentBase64: item.contentBase64,
-              },
-            ],
-      ),
-    });
-    const result = await this.aiRouter.run(
-      {
-        routeKey: "document.analyze",
-        projectId: source.identity.projectId,
-        departmentId: source.identity.departmentId,
-        systemId: this.options.systemId,
-        input: {
-          trustedInstruction: built.trustedInstruction,
-          untrustedContent: built.untrustedContent,
-        },
-        inputReference: `document-version:${source.documentVersionId}`,
-        inputSchemaVersion: READINESS_INPUT_SCHEMA_VERSION,
-        outputSchemaVersion: READINESS_OUTPUT_SCHEMA_VERSION,
-        promptTemplateVersion: READINESS_PROMPT_VERSION,
-        outputSchema: ReadinessAnalysisOutputSchema,
-        sourceReferences: source.sourceReferences,
-        classification: "confidential",
-        timeoutMs: this.options.timeoutMs,
-        requiresHumanApproval: false,
-        correlationId,
-      },
-      async (transaction, output) => ({
-        outputReference: await persistReadiness(
-          transaction,
-          request,
-          source,
-          output,
-          extraction.coverage,
-          actorId,
-          false,
+    if (request.currentDocumentVersionId === null) throw notFound();
+
+    try {
+      const source = await this.sourceLoader.load({
+        documentVersionId: request.currentDocumentVersionId,
+      });
+      const extraction = await extractSafeSources({
+        policy: this.options.extractionPolicy,
+        sources: source.sources,
+      });
+      if (!readinessAllowedByExtraction(extraction)) {
+        const output = extractionMissingOutput(source);
+        const outputReference = await this.database.$transaction(async (transaction) =>
+          persistReadiness(
+            transaction,
+            request,
+            source,
+            output,
+            extraction.coverage,
+            actorId,
+            true,
+          ),
+        );
+        await completeAnalysisOperation(this.database, request, outputReference, new Date());
+        return outputReference;
+      }
+      const prompt = {
+        artifactId: request.promptArtifactId,
+        version: request.promptVersion,
+        sha256: request.promptHash,
+      };
+      const built = buildReadinessRequest({
+        prompt: { artifactId: prompt.artifactId, sha256: prompt.sha256 },
+        templateSections: source.templateSections,
+        sources: extraction.sources.flatMap((item) =>
+          item.contentBase64 === undefined
+            ? []
+            : [
+                {
+                  reference: item.reference,
+                  mediaType: item.mediaType,
+                  contentBase64: item.contentBase64,
+                },
+              ],
         ),
-      }),
-    );
-    return result.outputReference;
+      });
+      const result = await this.aiRouter.run(
+        {
+          routeKey: "document.analyze",
+          projectId: source.identity.projectId,
+          departmentId: source.identity.departmentId,
+          systemId: this.options.systemId,
+          input: {
+            trustedInstruction: built.trustedInstruction,
+            untrustedContent: built.untrustedContent,
+          },
+          inputReference: `document-version:${source.documentVersionId}`,
+          inputSchemaVersion: READINESS_INPUT_SCHEMA_VERSION,
+          outputSchemaVersion: READINESS_OUTPUT_SCHEMA_VERSION,
+          promptTemplateVersion: READINESS_PROMPT_VERSION,
+          outputSchema: ReadinessAnalysisOutputSchema,
+          sourceReferences: source.sourceReferences,
+          classification: "confidential",
+          timeoutMs: this.options.timeoutMs,
+          requiresHumanApproval: false,
+          correlationId,
+        },
+        async (transaction, output) => ({
+          outputReference: await persistReadiness(
+            transaction,
+            request,
+            source,
+            output,
+            extraction.coverage,
+            actorId,
+            false,
+          ),
+        }),
+      );
+      await completeAnalysisOperation(this.database, request, result.outputReference, new Date());
+      return result.outputReference;
+    } catch (error) {
+      await recordAnalysisFailure(
+        this.database,
+        request,
+        error,
+        new Date(),
+        this.options.execution,
+      );
+      throw error;
+    }
   }
 
-  async getParticipantDetail(command: Readonly<{
-    actor: Actor;
-    documentId: string;
-  }>): Promise<import("@evaluation/contracts").ReadinessParticipantDetail> {
+  async getParticipantDetail(
+    command: Readonly<{
+      actor: Actor;
+      documentId: string;
+    }>,
+  ): Promise<import("@evaluation/contracts").ReadinessParticipantDetail> {
     const context = await resolveIdentity(this.database, this.reader, command.documentId);
     await authorizeDocument(
       this.database,
@@ -312,7 +323,9 @@ export class ReadinessService {
     const row = await this.database.documentReadinessCheck.findFirst({
       where: { documentId: command.documentId, stale: false },
       orderBy: { createdAt: "desc" },
-      include: { lifecycleTransitions: { orderBy: [{ effectiveAt: "desc" }, { id: "desc" }], take: 1 } },
+      include: {
+        lifecycleTransitions: { orderBy: [{ effectiveAt: "desc" }, { id: "desc" }], take: 1 },
+      },
     });
     if (row === null || row.lifecycleTransitions[0] === undefined) throw notFound();
     const output = ReadinessAnalysisOutputSchema.parse(row.output);
@@ -326,10 +339,12 @@ export class ReadinessService {
     });
   }
 
-  async getOperationalSummary(command: Readonly<{
-    actor: Actor;
-    documentId: string;
-  }>): Promise<import("@evaluation/contracts").ManagerReadinessSummary> {
+  async getOperationalSummary(
+    command: Readonly<{
+      actor: Actor;
+      documentId: string;
+    }>,
+  ): Promise<import("@evaluation/contracts").ManagerReadinessSummary> {
     const context = await resolveIdentity(this.database, this.reader, command.documentId);
     await authorizeDocument(
       this.database,
@@ -368,26 +383,44 @@ export function readinessAllowedByExtraction(
 export function mapManagerReadiness(
   state: "incomplete" | "ready_for_criteria_generation",
   missingItems: readonly Readonly<{ templateSectionKey: string }>[],
+  templateSections: readonly import("./analysis-model.js").AnalysisTemplateSection[],
   extractionComplete: boolean,
 ) {
-  if (state === "ready_for_criteria_generation" && extractionComplete) return { state: "ready" } as const;
-  if (
-    !extractionComplete ||
-    missingItems.some((item) => item.templateSectionKey !== "general_attention")
-  )
+  if (state === "ready_for_criteria_generation" && extractionComplete)
+    return { state: "ready" } as const;
+  const criticalKeys = new Set(
+    templateSections
+      .filter((section) => section.required || section.protected)
+      .map((section) => section.key),
+  );
+  if (missingItems.some((item) => criticalKeys.has(item.templateSectionKey)))
     return { state: "missing_critical_information" } as const;
   return { state: "needs_attention" } as const;
 }
 
 async function persistReadiness(
   transaction: import("./model.js").DocumentTransaction,
-  request: any,
+  request: import("./analysis-execution.js").AnalysisRequestSnapshot,
   source: import("./analysis-model.js").CanonicalAnalysisSources,
   rawOutput: import("@evaluation/contracts").ReadinessAnalysisOutput,
   extractionCoverage: "complete" | "unsupported" | "failed",
   actorId: string,
   forceIncomplete: boolean,
 ): Promise<string> {
+  await transaction.$queryRaw`SELECT id FROM "DocumentAnalysisRequest" WHERE id = ${request.id}::uuid FOR UPDATE`;
+  const existing = await transaction.documentAnalysisRequest.findUnique({
+    where: { id: request.id },
+    select: { state: true, resultReference: true },
+  });
+  if (existing?.state === "succeeded" && existing.resultReference !== null)
+    return existing.resultReference;
+  if (existing?.state === "superseded") {
+    const stale = await transaction.documentReadinessCheck.findUnique({
+      where: { requestId: request.id },
+      select: { outputReference: true },
+    });
+    if (stale !== null) return stale.outputReference;
+  }
   const parsed = ReadinessAnalysisOutputSchema.parse(rawOutput);
   assertBoundSourceReferences(parsed, source.sourceReferences);
   await transaction.$queryRaw`SELECT id FROM "DocumentRecord" WHERE id = ${source.documentId}::uuid FOR UPDATE`;
@@ -403,6 +436,7 @@ async function persistReadiness(
   const manager = mapManagerReadiness(
     analyzedState,
     parsed.missingItems,
+    source.templateSections,
     extractionCoverage === "complete",
   );
   const id = randomUUID();
@@ -463,7 +497,9 @@ async function persistReadiness(
     const prior = await transaction.documentReadinessCheck.findFirst({
       where: { documentId: source.documentId, id: { not: row.id }, stale: false },
       orderBy: { createdAt: "desc" },
-      include: { lifecycleTransitions: { orderBy: [{ effectiveAt: "desc" }, { id: "desc" }], take: 1 } },
+      include: {
+        lifecycleTransitions: { orderBy: [{ effectiveAt: "desc" }, { id: "desc" }], take: 1 },
+      },
     });
     if (prior !== null && prior.lifecycleTransitions[0]?.toState !== "superseded") {
       await transaction.documentReadinessCheck.update({
@@ -491,7 +527,23 @@ async function persistReadiness(
       completedAt: new Date(),
     },
   });
+  await recordAnalysisEffect(transaction, request, outputReference);
   return outputReference;
+}
+
+async function recordedReadinessReference(
+  database: import("./model.js").DocumentDatabase,
+  request: import("./analysis-execution.js").AnalysisRequestSnapshot,
+) {
+  if (request.state === "succeeded" && request.resultReference !== null)
+    return request.resultReference;
+  if (request.state !== "superseded") return null;
+  const result = await database.documentReadinessCheck.findUnique({
+    where: { requestId: request.id },
+    select: { outputReference: true },
+  });
+  if (result === null) throw invalidState();
+  return result.outputReference;
 }
 
 function extractionMissingOutput(source: import("./analysis-model.js").CanonicalAnalysisSources) {

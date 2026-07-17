@@ -18,9 +18,11 @@ export class CriteriaDocumentReader {
     this.database = database;
   }
 
-  async getPrerequisites(input: Readonly<{
-    documentVersionId: string;
-  }>): Promise<CriteriaDocumentPrerequisites | null> {
+  async getPrerequisites(
+    input: Readonly<{
+      documentVersionId: string;
+    }>,
+  ): Promise<CriteriaDocumentPrerequisites | null> {
     const readiness = await this.database.documentReadinessCheck.findFirst({
       where: {
         documentVersionId: input.documentVersionId,

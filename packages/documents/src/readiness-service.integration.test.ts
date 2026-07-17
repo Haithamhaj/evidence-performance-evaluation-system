@@ -1,49 +1,446 @@
+import { AppError } from "@evaluation/contracts";
+import { Readable } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 
-import { mapManagerReadiness, readinessAllowedByExtraction } from "./readiness-service.js";
+import { ReadinessService, mapManagerReadiness } from "./readiness-service.js";
 
-describe("ReadinessService rules", () => {
-  it("requires fully extracted original text before criteria readiness", () => {
-    expect(
-      readinessAllowedByExtraction({
-        coverage: "complete",
+const requestId = "00000000-0000-4000-8000-000000000001";
+const versionId = "00000000-0000-4000-8000-000000000002";
+const documentId = "00000000-0000-4000-8000-000000000003";
+const actorId = "00000000-0000-4000-8000-000000000004";
+const correlationId = "00000000-0000-4000-8000-000000000005";
+const operationId = "00000000-0000-4000-8000-000000000006";
+const now = new Date("2026-07-17T12:00:00.000Z");
+
+function processHarness(
+  options: {
+    loaderError?: Error;
+    routerError?: Error;
+    initialRequest?: Partial<Record<string, any>>;
+    initialOperation?: Partial<Record<string, any>>;
+  } = {},
+) {
+  let inTransaction = false;
+  const row: Record<string, any> = {
+    id: requestId,
+    kind: "readiness",
+    state: "queued",
+    operationId,
+    resultReference: null,
+    documentId,
+    currentDocumentVersionId: versionId,
+    beforeVersionId: null,
+    afterVersionId: null,
+    expectedAggregateVersion: 1,
+    promptArtifactId: crypto.randomUUID(),
+    promptVersion: "document-readiness.v1",
+    promptHash: "a".repeat(64),
+    ...options.initialRequest,
+  };
+  const operation: Record<string, any> = {
+    id: operationId,
+    status: "pending",
+    attemptCount: 0,
+    startedAt: null,
+    completedAt: null,
+    errorCode: null,
+    resultReference: null,
+    ...options.initialOperation,
+  };
+  const transaction = {
+    $queryRaw: vi.fn(async () => []),
+    documentAnalysisRequest: {
+      updateMany: vi.fn(async ({ where, data }: any) => {
+        if (where.state !== undefined && row.state !== where.state) return { count: 0 };
+        Object.assign(row, data);
+        return { count: 1 };
+      }),
+      findUnique: vi.fn(async () => ({ ...row })),
+      update: vi.fn(async ({ data }: any) => Object.assign(row, data)),
+    },
+    operation: {
+      findUnique: vi.fn(async () => ({ ...operation })),
+      updateMany: vi.fn(async ({ where, data }: any) => {
+        const statuses =
+          where.status?.in ?? (where.status === undefined ? undefined : [where.status]);
+        if (statuses !== undefined && !statuses.includes(operation.status)) return { count: 0 };
+        if (where.attemptCount?.lt !== undefined && operation.attemptCount >= where.attemptCount.lt)
+          return { count: 0 };
+        if (where.OR !== undefined) {
+          const claimable = where.OR.some((candidate: any) => {
+            if (candidate.status?.in?.includes(operation.status)) return true;
+            return (
+              candidate.status === operation.status &&
+              candidate.startedAt?.lte !== undefined &&
+              operation.startedAt <= candidate.startedAt.lte
+            );
+          });
+          if (!claimable) return { count: 0 };
+        }
+        if (data.attemptCount?.increment !== undefined)
+          operation.attemptCount += data.attemptCount.increment;
+        Object.assign(operation, { ...data, attemptCount: operation.attemptCount });
+        return { count: 1 };
+      }),
+    },
+    operationEffectReceipt: { create: vi.fn() },
+    documentReadinessCheck: {
+      findUnique: vi.fn(async () => null),
+    },
+  };
+  const database = {
+    ...transaction,
+    $transaction: vi.fn(async (callback: (tx: any) => Promise<any>) => {
+      inTransaction = true;
+      try {
+        return await callback(transaction);
+      } finally {
+        inTransaction = false;
+      }
+    }),
+  };
+  let releaseLoader!: () => void;
+  const loaderGate = new Promise<void>((resolve) => {
+    releaseLoader = resolve;
+  });
+  const sourceLoader = {
+    load: vi.fn(async () => {
+      await loaderGate;
+      if (options.loaderError !== undefined) throw options.loaderError;
+      return {
+        identity: {
+          kind: "project",
+          resourceId: crypto.randomUUID(),
+          projectId: crypto.randomUUID(),
+          organizationId: crypto.randomUUID(),
+          departmentId: crypto.randomUUID(),
+          status: "active",
+        },
+        documentId,
+        documentVersionId: versionId,
+        documentVersion: 1,
+        currentVersion: 1,
+        templateVersionId: crypto.randomUUID(),
+        templateSections: [{ key: "scope", required: true, protected: true }],
         sources: [
           {
             reference: `document-source:${crypto.randomUUID()}`,
+            sourceType: "upload",
             mediaType: "text/markdown",
-            coverage: "complete",
-            sha256: "a".repeat(64),
-            contentBase64: "YQ==",
+            openStream: async () => Readable.from(["scope"]),
           },
         ],
-      }),
-    ).toBe(true);
-    expect(
-      readinessAllowedByExtraction({
-        coverage: "unsupported",
-        sources: [
-          {
-            reference: `document-source:${crypto.randomUUID()}`,
-            mediaType: "text/uri-list",
-            coverage: "unsupported",
-            reason: "not_fetched",
-          },
-        ],
-      }),
-    ).toBe(false);
+        sourceReferences: [`document-source:${crypto.randomUUID()}`],
+      };
+    }),
+  };
+  const router = {
+    run: vi.fn(async () => {
+      expect(inTransaction).toBe(false);
+      if (options.routerError !== undefined) throw options.routerError;
+      return {
+        runId: crypto.randomUUID(),
+        output: {},
+        outputReference: `document-readiness:${crypto.randomUUID()}`,
+        requiresHumanApproval: false,
+      };
+    }),
+  };
+  const service = new ReadinessService(
+    database as never,
+    {} as never,
+    sourceLoader as never,
+    router as never,
+    {} as never,
+    vi.fn(),
+    {
+      systemId: crypto.randomUUID(),
+      timeoutMs: 1_000,
+      extractionPolicy: {
+        maxSourceBytes: 1_000,
+        maxArchiveEntries: 10,
+        maxArchiveUncompressedBytes: 5_000,
+        maxArchiveCompressionRatio: 20,
+      },
+      execution: { leaseMs: 60_000, maxAttempts: 3 },
+      now: () => now,
+    },
+  );
+  return { database, operation, releaseLoader, router, row, service, sourceLoader };
+}
+
+function managerReadHarness() {
+  const projectId = crypto.randomUUID();
+  const departmentId = crypto.randomUUID();
+  const findFirst = vi.fn(async ({ select }: any) =>
+    select?.managerState === true
+      ? { managerState: "needs_attention" }
+      : {
+          id: crypto.randomUUID(),
+          documentVersionId: versionId,
+          output: {},
+          createdAt: now,
+          lifecycleTransitions: [],
+        },
+  );
+  const database = {
+    documentRecord: {
+      findUnique: vi.fn(async () => ({ projectId, workstreamId: null })),
+    },
+    user: { findUnique: vi.fn(async () => ({ active: true })) },
+    roleAssignment: {
+      findMany: vi.fn(async () => [
+        { role: "manager", scopeType: "department", scopeId: departmentId },
+      ]),
+    },
+    authorizationScope: { findFirst: vi.fn(async () => ({ id: departmentId })) },
+    responsibilityWindow: { findMany: vi.fn(async () => []) },
+    documentReadinessCheck: { findFirst },
+  };
+  const service = new ReadinessService(
+    database as never,
+    {
+      read: vi.fn(async () => ({
+        kind: "project" as const,
+        resourceId: projectId,
+        projectId,
+        organizationId: crypto.randomUUID(),
+        departmentId,
+        status: "active" as const,
+      })),
+    },
+    {} as never,
+    {} as never,
+    {} as never,
+    vi.fn(),
+    {
+      systemId: crypto.randomUUID(),
+      timeoutMs: 1_000,
+      extractionPolicy: {
+        maxSourceBytes: 1,
+        maxArchiveEntries: 1,
+        maxArchiveUncompressedBytes: 1,
+        maxArchiveCompressionRatio: 1,
+      },
+      execution: { leaseMs: 60_000, maxAttempts: 3 },
+    },
+  );
+  return { findFirst, service };
+}
+
+function requestHarness() {
+  const projectId = crypto.randomUUID();
+  const departmentId = crypto.randomUUID();
+  const prompt = {
+    id: crypto.randomUUID(),
+    bodyHash: "a".repeat(64),
+  };
+  const schema = {
+    id: crypto.randomUUID(),
+    schemaHash: "b".repeat(64),
+  };
+  let createdRequest: Record<string, any> | null = null;
+  const operationCreate = vi.fn(async () => ({}));
+  const requestCreate = vi.fn(async ({ data }: any) => {
+    createdRequest = { id: crypto.randomUUID(), ...data };
+    return createdRequest;
+  });
+  const transaction = {
+    $queryRaw: vi.fn(async () => []),
+    user: { findUnique: vi.fn(async () => ({ active: true })) },
+    roleAssignment: {
+      findMany: vi.fn(async () => [
+        { role: "project_owner", scopeType: "project", scopeId: projectId },
+      ]),
+    },
+    authorizationScope: { findFirst: vi.fn(async () => ({ id: departmentId })) },
+    responsibilityWindow: {
+      findMany: vi.fn(async () => [
+        {
+          projectId,
+          workstreamId: null,
+          responsibilityType: "original",
+          startsAt: new Date("2026-01-01T00:00:00.000Z"),
+          endsAt: null,
+        },
+      ]),
+    },
+    documentRecord: {
+      findUnique: vi.fn(async () => ({ id: documentId, currentVersion: 1 })),
+    },
+    documentVersion: { findUnique: vi.fn(async () => ({ id: versionId })) },
+    analysisPromptArtifact: { findUnique: vi.fn(async () => prompt) },
+    aiOutputSchemaArtifact: { findUnique: vi.fn(async () => schema) },
+    operation: { create: operationCreate },
+    documentAnalysisRequest: {
+      findUnique: vi.fn(async () => createdRequest),
+      findFirst: vi.fn(async () => null),
+      create: requestCreate,
+    },
+  };
+  const database = {
+    documentRecord: {
+      findUnique: vi.fn(async () => ({ projectId, workstreamId: null })),
+    },
+    $transaction: vi.fn(async (callback: (tx: any) => Promise<any>) => callback(transaction)),
+  };
+  const enqueue = vi.fn();
+  const audit = { append: vi.fn() };
+  const service = new ReadinessService(
+    database as never,
+    {
+      read: vi.fn(async () => ({
+        kind: "project" as const,
+        resourceId: projectId,
+        projectId,
+        organizationId: crypto.randomUUID(),
+        departmentId,
+        status: "active" as const,
+      })),
+    },
+    {} as never,
+    {} as never,
+    audit as never,
+    enqueue,
+    {
+      systemId: crypto.randomUUID(),
+      timeoutMs: 1_000,
+      extractionPolicy: {
+        maxSourceBytes: 1,
+        maxArchiveEntries: 1,
+        maxArchiveUncompressedBytes: 1,
+        maxArchiveCompressionRatio: 1,
+      },
+      execution: { leaseMs: 60_000, maxAttempts: 3 },
+      now: () => now,
+    },
+  );
+  return { audit, enqueue, operationCreate, prompt, requestCreate, service };
+}
+
+describe("ReadinessService", () => {
+  it("claims once atomically and never performs a second Router call for a running request", async () => {
+    const test = processHarness();
+    const first = test.service.process(requestId, actorId, correlationId);
+    await vi.waitFor(() => expect(test.row.state).toBe("running"));
+    const second = test.service.process(requestId, actorId, correlationId);
+    await expect(second).rejects.toMatchObject({ code: "ANALYSIS_REQUEST_RUNNING" });
+    test.releaseLoader();
+    await first;
+    expect(test.router.run).toHaveBeenCalledOnce();
+    expect(test.sourceLoader.load).toHaveBeenCalledOnce();
   });
 
-  it("projects manager state without details or scoring values", () => {
-    expect(mapManagerReadiness("ready_for_criteria_generation", [], true)).toEqual({
-      state: "ready",
+  it("retries transient failures with the stable operation and terminalizes after exhaustion", async () => {
+    const test = processHarness({ loaderError: new Error("storage unavailable") });
+    test.releaseLoader();
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await expect(test.service.process(requestId, actorId, correlationId)).rejects.toBeDefined();
+      expect(test.operation).toMatchObject({
+        id: operationId,
+        status: "failed",
+        attemptCount: attempt,
+        errorCode: "ANALYSIS_RETRYABLE_FAILED",
+      });
+      expect(test.row.state).toBe(attempt === 3 ? "failed" : "running");
+    }
+    expect(test.row.errorCode).toBe("ANALYSIS_RETRIES_EXHAUSTED");
+    expect(test.router.run).not.toHaveBeenCalled();
+  });
+
+  it("terminalizes invalid Router output without consuming retry attempts", async () => {
+    const test = processHarness({
+      routerError: new AppError("AI_OUTPUT_QUARANTINED", "errors.ai.outputQuarantined", 502),
     });
-    expect(mapManagerReadiness("incomplete", [{ templateSectionKey: "scope" }], true)).toEqual({
-      state: "missing_critical_information",
+    const processing = test.service.process(requestId, actorId, correlationId);
+    test.releaseLoader();
+    await expect(processing).rejects.toMatchObject({ code: "AI_OUTPUT_QUARANTINED" });
+    expect(test.operation).toMatchObject({
+      status: "failed",
+      attemptCount: 1,
+      errorCode: "ANALYSIS_TERMINAL_FAILED",
     });
-    expect(mapManagerReadiness("incomplete", [], true)).toEqual({ state: "needs_attention" });
-    expect(JSON.stringify(mapManagerReadiness("incomplete", [], false))).not.toMatch(
-      /percentage|rank|rating|missingItems/u,
+    expect(test.row).toMatchObject({
+      state: "failed",
+      errorCode: "ANALYSIS_TERMINAL_FAILED",
+    });
+  });
+
+  it("recovers a crash after the validated effect without loading or calling the Router again", async () => {
+    const resultReference = `document-readiness:${crypto.randomUUID()}`;
+    const test = processHarness({
+      initialRequest: { state: "succeeded", resultReference },
+      initialOperation: { status: "running", attemptCount: 1, startedAt: now },
+    });
+    await expect(test.service.process(requestId, actorId, correlationId)).resolves.toBe(
+      resultReference,
     );
-    expect(vi.fn()).not.toHaveBeenCalled();
+    expect(test.operation).toMatchObject({ status: "succeeded", resultReference });
+    expect(test.sourceLoader.load).not.toHaveBeenCalled();
+    expect(test.router.run).not.toHaveBeenCalled();
+  });
+
+  it("uses pinned required/protected metadata for manager mapping without leaking detail", () => {
+    const sections = [
+      { key: "required_scope", required: true, protected: false },
+      { key: "protected_context", required: false, protected: true },
+      { key: "optional_notes", required: false, protected: false },
+    ];
+    expect(
+      mapManagerReadiness("incomplete", [{ templateSectionKey: "optional_notes" }], sections, true),
+    ).toEqual({ state: "needs_attention" });
+    for (const key of ["required_scope", "protected_context"]) {
+      expect(
+        mapManagerReadiness("incomplete", [{ templateSectionKey: key }], sections, true),
+      ).toEqual({ state: "missing_critical_information" });
+    }
+    expect(
+      JSON.stringify(
+        mapManagerReadiness(
+          "incomplete",
+          [{ templateSectionKey: "optional_notes" }],
+          sections,
+          true,
+        ),
+      ),
+    ).not.toMatch(/percentage|rank|rating|missingItems/u);
+  });
+
+  it("selects only the safe manager state and denies the manager participant detail", async () => {
+    const test = managerReadHarness();
+    const actor = { userId: actorId, active: true };
+    await expect(test.service.getOperationalSummary({ actor, documentId })).resolves.toEqual({
+      state: "needs_attention",
+    });
+    expect(test.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ select: { managerState: true } }),
+    );
+    await expect(test.service.getParticipantDetail({ actor, documentId })).rejects.toMatchObject({
+      code: "AUTHZ_ROLE_REQUIRED",
+    });
+    expect(test.findFirst).toHaveBeenCalledOnce();
+  });
+
+  it("returns the same request for the same idempotency payload and rejects key reuse", async () => {
+    const test = requestHarness();
+    const command = {
+      actor: { userId: actorId, active: true },
+      correlationId,
+      documentId,
+      idempotencyKey: "readiness-stable-key",
+    };
+    const first = await test.service.request(command);
+    await expect(test.service.request(command)).resolves.toEqual(first);
+    expect(test.operationCreate).toHaveBeenCalledOnce();
+    expect(test.requestCreate).toHaveBeenCalledOnce();
+    expect(test.audit.append).toHaveBeenCalledOnce();
+    expect(test.enqueue).toHaveBeenCalledTimes(2);
+
+    test.prompt.bodyHash = "c".repeat(64);
+    await expect(test.service.request(command)).rejects.toMatchObject({
+      code: "IDEMPOTENCY_CONFLICT",
+    });
+    expect(test.operationCreate).toHaveBeenCalledOnce();
+    expect(test.requestCreate).toHaveBeenCalledOnce();
   });
 });

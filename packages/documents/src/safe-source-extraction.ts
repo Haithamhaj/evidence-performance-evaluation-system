@@ -19,7 +19,9 @@ type Input = Readonly<{
 export async function extractSafeSources(
   input: Input,
 ): Promise<import("./analysis-model.js").ExtractionBundle> {
-  const sources = await Promise.all(input.sources.map((source) => extractOne(source, input.policy)));
+  const sources = await Promise.all(
+    input.sources.map((source) => extractOne(source, input.policy)),
+  );
   const coverage = sources.every((source) => source.coverage === "complete")
     ? "complete"
     : sources.some((source) => source.coverage === "failed")
@@ -120,6 +122,5 @@ function isText(mediaType: string) {
   return mediaType === "text/plain" || mediaType === "text/markdown";
 }
 function isDocx(mediaType: string) {
-  return mediaType ===
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  return mediaType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 }
