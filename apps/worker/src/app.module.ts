@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { AnalysisCriteriaWorkerModule } from "./analysis-criteria/analysis-criteria.module.js";
 import {
   createWorkerEnvironmentReadinessProbes,
   WorkerHealthController,
@@ -10,7 +11,7 @@ import { QueueModule } from "./queue/queue.module.js";
 export class AppModule {}
 
 Module({
-  imports: [QueueModule],
+  imports: [AnalysisCriteriaWorkerModule, QueueModule],
   controllers: [WorkerHealthController],
   providers: [
     { provide: WORKER_READINESS_PROBES, useFactory: createWorkerEnvironmentReadinessProbes },

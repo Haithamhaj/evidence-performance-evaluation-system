@@ -247,15 +247,19 @@ function configuredJobVersion(rawValue: string | undefined): number {
   return value;
 }
 
-export function createQueueRuntimeConfiguration(): QueueRuntimeConfiguration | undefined {
-  const databaseUrl = process.env.DATABASE_URL;
-  const redisUrl = process.env.REDIS_URL;
+export function createQueueRuntimeConfiguration(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): QueueRuntimeConfiguration | undefined {
+  const databaseUrl = environment.DATABASE_URL;
+  const redisUrl = environment.REDIS_URL;
   if (databaseUrl === undefined || redisUrl === undefined) return undefined;
+  const jobType = environment.WORKER_JOB_TYPE ?? "system.test";
+  if (jobType === "analysis-criteria.process") return undefined;
   return {
     databaseUrl,
     redisUrl,
-    jobType: process.env.WORKER_JOB_TYPE ?? "system.test",
-    jobVersion: configuredJobVersion(process.env.WORKER_JOB_VERSION),
+    jobType,
+    jobVersion: configuredJobVersion(environment.WORKER_JOB_VERSION),
   };
 }
 
