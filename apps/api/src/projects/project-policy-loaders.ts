@@ -9,7 +9,12 @@ export const PROJECT_POLICY_ACTION = Symbol("PROJECT_POLICY_ACTION");
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type ProjectPolicyAction =
-  "project.create" | "project.manage" | "workstream.create" | "workstream.manage" | "resource.read";
+  | "project.create"
+  | "project.manage"
+  | "workstream.create"
+  | "workstream.manage"
+  | "responsibility.transfer"
+  | "resource.read";
 
 type ProjectPolicyRequest = Readonly<{
   principal?: import("@evaluation/auth").AuthenticatedPrincipal;

@@ -242,4 +242,44 @@ describe("ProjectPolicyGuard", () => {
       true,
     );
   });
+
+  it("allows only the matching department manager through the workstream transfer guard", async () => {
+    const projectId = "00000000-0000-4000-8000-000000000040";
+    const workstreamId = "00000000-0000-4000-8000-000000000041";
+    const departmentScopeId = "00000000-0000-4000-8000-000000000042";
+    const reflector = { get: vi.fn(() => "responsibility.transfer") };
+    const roles = [{ role: "manager", scopeType: "department", scopeId: departmentScopeId }];
+    const database = {
+      roleAssignment: { findMany: vi.fn(async () => roles) },
+      workstream: {
+        findFirst: vi.fn(async () => ({
+          projectId,
+          project: { departmentId: "00000000-0000-4000-8000-000000000043" },
+        })),
+      },
+      authorizationScope: { findFirst: vi.fn(async () => ({ id: departmentScopeId })) },
+      responsibilityWindow: { findMany: vi.fn(async () => []) },
+    };
+    const guard = new ProjectPolicyGuard(reflector as never, database as never);
+
+    await expect(
+      guard.canActivate(context({ principal, params: { projectId, workstreamId } })),
+    ).resolves.toBe(true);
+    roles.splice(0, 1, {
+      role: "system_administrator",
+      scopeType: "system",
+      scopeId: crypto.randomUUID(),
+    });
+    await expect(
+      guard.canActivate(context({ principal, params: { projectId, workstreamId } })),
+    ).rejects.toMatchObject({ code: "AUTHZ_ROLE_REQUIRED" });
+    roles.splice(0, 1, {
+      role: "workstream_owner",
+      scopeType: "workstream",
+      scopeId: workstreamId,
+    });
+    await expect(
+      guard.canActivate(context({ principal, params: { projectId, workstreamId } })),
+    ).rejects.toMatchObject({ code: "AUTHZ_ROLE_REQUIRED" });
+  });
 });
