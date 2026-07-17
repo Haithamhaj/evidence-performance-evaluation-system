@@ -267,6 +267,7 @@ function requestHarness() {
   };
   let createdRequest: Record<string, any> | null = null;
   const operationCreate = vi.fn(async () => ({}));
+  const outboxCreate = vi.fn(async () => ({}));
   const requestCreate = vi.fn(async ({ data }: any) => {
     createdRequest = { id: crypto.randomUUID(), ...data };
     return createdRequest;
@@ -298,6 +299,7 @@ function requestHarness() {
     analysisPromptArtifact: { findUnique: vi.fn(async () => prompt) },
     aiOutputSchemaArtifact: { findUnique: vi.fn(async () => schema) },
     operation: { create: operationCreate },
+    operationEffectReceipt: { create: outboxCreate },
     documentAnalysisRequest: {
       findUnique: vi.fn(async () => createdRequest),
       findFirst: vi.fn(async () => null),
@@ -341,7 +343,7 @@ function requestHarness() {
       now: () => now,
     },
   );
-  return { audit, enqueue, operationCreate, prompt, requestCreate, service };
+  return { audit, enqueue, operationCreate, outboxCreate, prompt, requestCreate, service };
 }
 
 describe("ReadinessService", () => {
@@ -585,6 +587,13 @@ describe("ReadinessService", () => {
       }),
     });
     expect(test.requestCreate).toHaveBeenCalledOnce();
+    expect(test.outboxCreate).toHaveBeenCalledOnce();
+    expect(test.outboxCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        effectName: "outbox-enqueued",
+        idempotencyKey: "outbox:readiness-stable-key",
+      }),
+    });
     expect(test.audit.append).toHaveBeenCalledOnce();
     expect(test.enqueue).toHaveBeenCalledTimes(2);
 

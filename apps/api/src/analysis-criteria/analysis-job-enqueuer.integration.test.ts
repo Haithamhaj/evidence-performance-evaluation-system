@@ -10,6 +10,7 @@ describe("AnalysisJobEnqueuer", () => {
     const correlationId = crypto.randomUUID();
     const payloadHash = "a".repeat(64);
     const enqueue = vi.fn(async () => "analysis-job-1");
+    const markDelivered = vi.fn(async () => ({ receiptReference: "analysis-job-1" }));
     const database = {
       documentAnalysisRequest: {
         findUnique: vi.fn(async () => ({
@@ -24,6 +25,7 @@ describe("AnalysisJobEnqueuer", () => {
           },
         })),
       },
+      operationEffectReceipt: { upsert: markDelivered },
     };
     const service = new AnalysisJobEnqueuer(database as never, { enqueue });
 
@@ -47,6 +49,21 @@ describe("AnalysisJobEnqueuer", () => {
         domainIdempotencyKey: "readiness-v1",
       },
     });
+    expect(markDelivered).toHaveBeenCalledWith({
+      where: {
+        operationId_effectName: {
+          operationId,
+          effectName: "outbox-dispatched",
+        },
+      },
+      create: {
+        operationId,
+        effectName: "outbox-dispatched",
+        idempotencyKey: `outbox-dispatched:${operationId}`,
+        receiptReference: "analysis-job-1",
+      },
+      update: {},
+    });
   });
 
   it("leaves the committed request retryable when queue delivery fails", async () => {
@@ -65,6 +82,9 @@ describe("AnalysisJobEnqueuer", () => {
     };
     const database = {
       documentAnalysisRequest: { findUnique: vi.fn(async () => row) },
+      operationEffectReceipt: {
+        upsert: vi.fn(async () => ({ receiptReference: "analysis-job-recovered" })),
+      },
     };
     const enqueue = vi
       .fn<() => Promise<string>>()
@@ -77,6 +97,7 @@ describe("AnalysisJobEnqueuer", () => {
     } as const;
 
     await expect(service.enqueueAfterCommit(receipt)).rejects.toThrow("redis unavailable");
+    expect(database.operationEffectReceipt.upsert).not.toHaveBeenCalled();
     await expect(service.enqueueAfterCommit(receipt)).resolves.toBe("analysis-job-recovered");
     expect(database.documentAnalysisRequest.findUnique).toHaveBeenCalledTimes(2);
     expect(enqueue).toHaveBeenCalledTimes(2);
@@ -85,7 +106,10 @@ describe("AnalysisJobEnqueuer", () => {
   it("refuses to enqueue before the durable request is visible", async () => {
     const enqueue = vi.fn();
     const service = new AnalysisJobEnqueuer(
-      { documentAnalysisRequest: { findUnique: vi.fn(async () => null) } } as never,
+      {
+        documentAnalysisRequest: { findUnique: vi.fn(async () => null) },
+        operationEffectReceipt: { upsert: vi.fn() },
+      } as never,
       { enqueue },
     );
 
@@ -96,5 +120,39 @@ describe("AnalysisJobEnqueuer", () => {
       }),
     ).rejects.toMatchObject({ code: "ANALYSIS_REQUEST_NOT_COMMITTED", status: 409 });
     expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("rejects a conflicting immutable delivery receipt", async () => {
+    const requestId = crypto.randomUUID();
+    const operationId = crypto.randomUUID();
+    const enqueue = vi.fn(async () => "analysis-job-new");
+    const service = new AnalysisJobEnqueuer(
+      {
+        documentAnalysisRequest: {
+          findUnique: vi.fn(async () => ({
+            id: requestId,
+            operationId,
+            payloadHash: "c".repeat(64),
+            idempotencyKey: "readiness-conflict",
+            operation: {
+              organizationId: crypto.randomUUID(),
+              correlationId: crypto.randomUUID(),
+              idempotencyKey: "analysis:readiness-conflict",
+            },
+          })),
+        },
+        operationEffectReceipt: {
+          upsert: vi.fn(async () => ({ receiptReference: "analysis-job-original" })),
+        },
+      } as never,
+      { enqueue },
+    );
+
+    await expect(
+      service.enqueueAfterCommit({ requestId, operationId }),
+    ).rejects.toMatchObject({
+      code: "ANALYSIS_QUEUE_RECEIPT_CONFLICT",
+      status: 409,
+    });
   });
 });

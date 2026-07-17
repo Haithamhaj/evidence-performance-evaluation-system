@@ -17,6 +17,7 @@ function requestHarness() {
   const beforeVersionId = crypto.randomUUID();
   const afterVersionId = crypto.randomUUID();
   const operationCreate = vi.fn(async () => ({}));
+  const outboxCreate = vi.fn(async () => ({}));
   const requestCreate = vi.fn(async ({ data }: any) => ({ id: operationId, ...data }));
   const transaction = {
     $queryRaw: vi.fn(async () => []),
@@ -56,6 +57,7 @@ function requestHarness() {
       create: requestCreate,
     },
     operation: { create: operationCreate },
+    operationEffectReceipt: { create: outboxCreate },
   };
   const database = {
     documentRecord: {
@@ -94,7 +96,7 @@ function requestHarness() {
       now: () => now,
     },
   );
-  return { afterVersionId, beforeVersionId, operationCreate, service };
+  return { afterVersionId, beforeVersionId, operationCreate, outboxCreate, service };
 }
 
 function processHarness(loaderError?: Error) {
@@ -323,6 +325,12 @@ describe("ComparisonService", () => {
       data: expect.objectContaining({
         jobType: "analysis-criteria.process",
         jobVersion: 1,
+      }),
+    });
+    expect(test.outboxCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        effectName: "outbox-enqueued",
+        idempotencyKey: "outbox:comparison-stable-key",
       }),
     });
   });

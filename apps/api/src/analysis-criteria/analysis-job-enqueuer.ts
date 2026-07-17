@@ -19,6 +19,9 @@ type Database = Readonly<{
       }>;
     }> | null>;
   };
+  operationEffectReceipt: {
+    upsert(input: unknown): Promise<Readonly<{ receiptReference: string }>>;
+  };
 }>;
 
 type QueuePort = Readonly<{
@@ -71,6 +74,29 @@ export class AnalysisJobEnqueuer {
         domainIdempotencyKey: request.idempotencyKey,
       },
     });
-    return this.queue.enqueue(envelope);
+    const jobReference = await this.queue.enqueue(envelope);
+    const delivered = await this.database.operationEffectReceipt.upsert({
+      where: {
+        operationId_effectName: {
+          operationId: request.operationId,
+          effectName: "outbox-dispatched",
+        },
+      },
+      create: {
+        operationId: request.operationId,
+        effectName: "outbox-dispatched",
+        idempotencyKey: `outbox-dispatched:${request.operationId}`,
+        receiptReference: jobReference,
+      },
+      update: {},
+    });
+    if (delivered.receiptReference !== jobReference) {
+      throw new AppError(
+        "ANALYSIS_QUEUE_RECEIPT_CONFLICT",
+        "errors.analysisCriteria.queueReceiptConflict",
+        409,
+      );
+    }
+    return jobReference;
   }
 }

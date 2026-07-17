@@ -20,6 +20,11 @@ import {
 } from "./analysis-criteria-policy.guard.js";
 import { createAnalysisQueueProducer } from "./analysis-queue-producer.js";
 import { AnalysisJobEnqueuer } from "./analysis-job-enqueuer.js";
+import {
+  AnalysisOutboxDispatcher,
+  AnalysisOutboxDispatcherLifecycle,
+  analysisOutboxReconcileInterval,
+} from "./analysis-outbox-dispatcher.js";
 import { CriteriaController } from "./criteria.controller.js";
 import { DocumentAnalysisController } from "./document-analysis.controller.js";
 
@@ -125,6 +130,7 @@ export function createAnalysisCriteriaApiServices(
   const criteriaDocumentReader = new CriteriaDocumentReader(database);
   const criteriaReviewReader = new CriteriaReviewReader(database);
   const jobs = new AnalysisJobEnqueuer(database as never, queue);
+  const dispatcher = new AnalysisOutboxDispatcher(database as never, jobs);
   const enqueue = (receipt: Readonly<{ requestId: string; operationId: string }>) =>
     jobs.enqueueAfterCommit(receipt);
   const processingOnly = {
@@ -141,6 +147,7 @@ export function createAnalysisCriteriaApiServices(
   const outbox = createTransactionalAnalysisOutbox();
   return {
     jobs,
+    dispatcher,
     readiness: new ReadinessService(
       database,
       documentReader,
@@ -188,6 +195,28 @@ export function createAnalysisCriteriaApiServices(
   };
 }
 
+export function createAnalysisCriteriaApiLifecycle(
+  database: Pick<Database, "$disconnect">,
+  queue: Pick<AnalysisQueue, "close">,
+  dispatcher: Pick<AnalysisOutboxDispatcher, "scanOnce">,
+  intervalMs = analysisOutboxReconcileInterval(),
+  timers?: import("./analysis-outbox-dispatcher.js").TimerPort,
+) {
+  const reconciliation = new AnalysisOutboxDispatcherLifecycle(
+    dispatcher,
+    intervalMs,
+    timers,
+  );
+  return {
+    onApplicationBootstrap: () => reconciliation.onApplicationBootstrap(),
+    async onApplicationShutdown() {
+      reconciliation.onApplicationShutdown();
+      await queue.close();
+      await database.$disconnect();
+    },
+  };
+}
+
 const ANALYSIS_CRITERIA_SERVICES = Symbol("ANALYSIS_CRITERIA_SERVICES");
 
 export class AnalysisCriteriaModule {}
@@ -216,6 +245,7 @@ Module({
       inject: [ANALYSIS_CRITERIA_DATABASE, ANALYSIS_CRITERIA_QUEUE],
     },
     serviceProvider(AnalysisJobEnqueuer, "jobs"),
+    serviceProvider(AnalysisOutboxDispatcher, "dispatcher"),
     serviceProvider(ReadinessService, "readiness"),
     serviceProvider(ComparisonService, "comparisons"),
     serviceProvider(ProposalService, "proposals"),
@@ -225,13 +255,16 @@ Module({
     serviceProvider(CriteriaVersionResolver, "versions"),
     {
       provide: ANALYSIS_CRITERIA_LIFECYCLE,
-      useFactory: (database: Database, queue: AnalysisQueue) => ({
-        async onModuleDestroy() {
-          await queue.close();
-          await database.$disconnect();
-        },
-      }),
-      inject: [ANALYSIS_CRITERIA_DATABASE, ANALYSIS_CRITERIA_QUEUE],
+      useFactory: (
+        database: Database,
+        queue: AnalysisQueue,
+        dispatcher: AnalysisOutboxDispatcher,
+      ) => createAnalysisCriteriaApiLifecycle(database, queue, dispatcher),
+      inject: [
+        ANALYSIS_CRITERIA_DATABASE,
+        ANALYSIS_CRITERIA_QUEUE,
+        AnalysisOutboxDispatcher,
+      ],
     },
     AnalysisCriteriaAuthenticationGuard,
     AnalysisCriteriaPolicyGuard,

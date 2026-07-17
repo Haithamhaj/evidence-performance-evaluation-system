@@ -254,6 +254,24 @@ export async function recordAnalysisEffect(
   });
 }
 
+export async function recordAnalysisOutbox(
+  transaction: import("./model.js").DocumentTransaction,
+  input: Readonly<{
+    operationId: string;
+    idempotencyKey: string;
+    jobType: "analysis-criteria.process";
+  }>,
+): Promise<void> {
+  await transaction.operationEffectReceipt.create({
+    data: {
+      operationId: input.operationId,
+      effectName: "outbox-enqueued",
+      idempotencyKey: `outbox:${input.idempotencyKey}`,
+      receiptReference: `${input.jobType}:${input.operationId}`,
+    },
+  });
+}
+
 export function isRetryableAnalysisFailure(error: unknown): boolean {
   if (!(error instanceof AppError)) return true;
   return !new Set([

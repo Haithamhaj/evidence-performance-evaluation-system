@@ -14,6 +14,7 @@ import {
   assertAnalysisFence,
   claimAnalysisRequest,
   completeAnalysisOperation,
+  recordAnalysisOutbox,
   recordAnalysisEffect,
   recordAnalysisFailure,
   validateAnalysisExecutionTiming,
@@ -189,6 +190,11 @@ export class ComparisonService {
             state: "queued",
             operationId,
           },
+        });
+        await recordAnalysisOutbox(transaction, {
+          operationId,
+          idempotencyKey: command.idempotencyKey,
+          jobType: "analysis-criteria.process",
         });
         await this.audit.append(transaction, {
           eventType: "document.comparison_requested",

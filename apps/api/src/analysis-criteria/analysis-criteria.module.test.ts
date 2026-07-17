@@ -12,10 +12,12 @@ import { ComparisonService, ReadinessService } from "@evaluation/documents";
 
 import {
   AnalysisCriteriaModule,
+  createAnalysisCriteriaApiLifecycle,
   createAnalysisCriteriaApiServices,
   createTransactionalAnalysisOutbox,
 } from "./analysis-criteria.module.js";
 import { AnalysisJobEnqueuer } from "./analysis-job-enqueuer.js";
+import { AnalysisOutboxDispatcher } from "./analysis-outbox-dispatcher.js";
 import { CriteriaController } from "./criteria.controller.js";
 import { DocumentAnalysisController } from "./document-analysis.controller.js";
 
@@ -26,6 +28,7 @@ describe("AnalysisCriteriaModule", () => {
     });
 
     expect(services.jobs).toBeInstanceOf(AnalysisJobEnqueuer);
+    expect(services.dispatcher).toBeInstanceOf(AnalysisOutboxDispatcher);
     expect(services.readiness).toBeInstanceOf(ReadinessService);
     expect(services.comparisons).toBeInstanceOf(ComparisonService);
     expect(services.proposals).toBeInstanceOf(ProposalService);
@@ -37,6 +40,29 @@ describe("AnalysisCriteriaModule", () => {
       DocumentAnalysisController,
       CriteriaController,
     ]);
+  });
+
+  it("starts outbox reconciliation and closes shared dependencies on shutdown", async () => {
+    const scanOnce = vi.fn(async () => ({ attempted: 0, delivered: 0, failed: 0 }));
+    const closeQueue = vi.fn(async () => undefined);
+    const disconnectDatabase = vi.fn(async () => undefined);
+    const lifecycle = createAnalysisCriteriaApiLifecycle(
+      { $disconnect: disconnectDatabase },
+      { close: closeQueue },
+      { scanOnce },
+      20_000,
+      {
+        setInterval: vi.fn(() => ({ unref: vi.fn() })),
+        clearInterval: vi.fn(),
+      },
+    );
+
+    await lifecycle.onApplicationBootstrap();
+    expect(scanOnce).toHaveBeenCalledOnce();
+
+    await lifecycle.onApplicationShutdown();
+    expect(closeQueue).toHaveBeenCalledOnce();
+    expect(disconnectDatabase).toHaveBeenCalledOnce();
   });
 
   it("writes the enqueue receipt through the caller's transaction so rollback removes it", async () => {
