@@ -7,8 +7,10 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@evaluation/audit": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",
+    "@evaluation/permissions": "workspace:*",
     "zod": "4.4.3"
   },
   "scripts": {

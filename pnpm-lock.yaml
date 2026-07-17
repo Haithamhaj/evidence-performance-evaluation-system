@@ -105,6 +105,9 @@ importers:
       '@evaluation/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:../../packages/projects
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -301,12 +304,18 @@ importers:
 
   packages/projects:
     dependencies:
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@evaluation/database':
         specifier: workspace:*
         version: link:../database
+      '@evaluation/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       zod:
         specifier: 4.4.3
         version: 4.4.3
