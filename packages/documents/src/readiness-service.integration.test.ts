@@ -578,6 +578,12 @@ describe("ReadinessService", () => {
     const first = await test.service.request(command);
     await expect(test.service.request(command)).resolves.toEqual(first);
     expect(test.operationCreate).toHaveBeenCalledOnce();
+    expect(test.operationCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        jobType: "analysis-criteria.process",
+        jobVersion: 1,
+      }),
+    });
     expect(test.requestCreate).toHaveBeenCalledOnce();
     expect(test.audit.append).toHaveBeenCalledOnce();
     expect(test.enqueue).toHaveBeenCalledTimes(2);

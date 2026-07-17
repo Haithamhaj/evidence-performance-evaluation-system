@@ -161,7 +161,7 @@ export class ComparisonService {
           data: {
             id: operationId,
             organizationId: identity.organizationId,
-            jobType: "document.comparison",
+            jobType: "analysis-criteria.process",
             jobVersion: 1,
             idempotencyKey: `analysis:${command.idempotencyKey}`,
             correlationId: command.correlationId,

@@ -7,7 +7,95 @@ const comparisonId = "00000000-0000-4000-8000-000000000011";
 const documentId = "00000000-0000-4000-8000-000000000012";
 const actorId = "00000000-0000-4000-8000-000000000013";
 const operationId = "00000000-0000-4000-8000-000000000014";
+const correlationId = "00000000-0000-4000-8000-000000000015";
 const now = new Date("2026-07-17T12:00:00.000Z");
+
+function requestHarness() {
+  const projectId = crypto.randomUUID();
+  const departmentId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  const beforeVersionId = crypto.randomUUID();
+  const afterVersionId = crypto.randomUUID();
+  const operationCreate = vi.fn(async () => ({}));
+  const requestCreate = vi.fn(async ({ data }: any) => ({ id: operationId, ...data }));
+  const transaction = {
+    $queryRaw: vi.fn(async () => []),
+    user: { findUnique: vi.fn(async () => ({ active: true })) },
+    roleAssignment: {
+      findMany: vi.fn(async () => [
+        { role: "project_owner", scopeType: "project", scopeId: projectId },
+      ]),
+    },
+    authorizationScope: { findFirst: vi.fn(async () => ({ id: departmentId })) },
+    responsibilityWindow: {
+      findMany: vi.fn(async () => [
+        {
+          projectId,
+          workstreamId: null,
+          responsibilityType: "original",
+          startsAt: new Date("2026-01-01T00:00:00.000Z"),
+          endsAt: null,
+        },
+      ]),
+    },
+    documentVersion: {
+      findMany: vi.fn(async () => [
+        { id: beforeVersionId, version: 1 },
+        { id: afterVersionId, version: 2 },
+      ]),
+    },
+    analysisPromptArtifact: {
+      findUnique: vi.fn(async () => ({ id: crypto.randomUUID(), bodyHash: "a".repeat(64) })),
+    },
+    aiOutputSchemaArtifact: {
+      findUnique: vi.fn(async () => ({ id: crypto.randomUUID(), schemaHash: "b".repeat(64) })),
+    },
+    documentAnalysisRequest: {
+      findUnique: vi.fn(async () => null),
+      findFirst: vi.fn(async () => null),
+      create: requestCreate,
+    },
+    operation: { create: operationCreate },
+  };
+  const database = {
+    documentRecord: {
+      findUnique: vi.fn(async () => ({ projectId, workstreamId: null })),
+    },
+    $transaction: vi.fn(async (work: (value: typeof transaction) => Promise<unknown>) =>
+      work(transaction),
+    ),
+  };
+  const service = new ComparisonService(
+    database as never,
+    {
+      read: vi.fn(async () => ({
+        kind: "project" as const,
+        resourceId: projectId,
+        projectId,
+        organizationId,
+        departmentId,
+        status: "active" as const,
+      })),
+    },
+    {} as never,
+    {} as never,
+    { append: vi.fn() } as never,
+    vi.fn(),
+    {
+      systemId: crypto.randomUUID(),
+      timeoutMs: 1_000,
+      extractionPolicy: {
+        maxSourceBytes: 1,
+        maxArchiveEntries: 1,
+        maxArchiveUncompressedBytes: 1,
+        maxArchiveCompressionRatio: 1,
+      },
+      execution: { heartbeatMs: 10_000, leaseMs: 60_000, maxAttempts: 3 },
+      now: () => now,
+    },
+  );
+  return { afterVersionId, beforeVersionId, operationCreate, service };
+}
 
 function processHarness(loaderError?: Error) {
   const row: Record<string, any> = {
@@ -221,6 +309,24 @@ function reviewHarness(currentVersion: number, afterVersion: number) {
 }
 
 describe("ComparisonService", () => {
+  it("creates the common analysis worker Operation identity", async () => {
+    const test = requestHarness();
+    await test.service.request({
+      actor: { userId: actorId, active: true },
+      correlationId,
+      documentId,
+      beforeDocumentVersionId: test.beforeVersionId,
+      afterDocumentVersionId: test.afterVersionId,
+      idempotencyKey: "comparison-stable-key",
+    });
+    expect(test.operationCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        jobType: "analysis-criteria.process",
+        jobVersion: 1,
+      }),
+    });
+  });
+
   it("claims once and records a retryable loader failure without a second Router call", async () => {
     const test = processHarness(new Error("storage unavailable"));
     const first = test.service.process(test.row.id, actorId, crypto.randomUUID());

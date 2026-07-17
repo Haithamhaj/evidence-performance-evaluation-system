@@ -154,7 +154,7 @@ export class ReadinessService {
           data: {
             id: operationId,
             organizationId: identity.organizationId,
-            jobType: "document.readiness",
+            jobType: "analysis-criteria.process",
             jobVersion: 1,
             idempotencyKey: `analysis:${command.idempotencyKey}`,
             correlationId: command.correlationId,
