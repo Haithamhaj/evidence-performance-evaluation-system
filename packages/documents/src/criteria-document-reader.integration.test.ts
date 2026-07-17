@@ -5,6 +5,38 @@ import { CriteriaDocumentReader } from "./criteria-document-reader.js";
 const documentVersionId = "00000000-0000-4000-8000-000000000031";
 
 describe("CriteriaDocumentReader", () => {
+  it("locks the stable document and reports whether a version is still current", async () => {
+    const documentId = crypto.randomUUID();
+    const queryRaw = vi.fn(async () => [{ id: documentId }]);
+    const findUnique = vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: documentVersionId,
+        documentId,
+        version: 2,
+        document: { currentVersion: 2 },
+      })
+      .mockResolvedValueOnce({
+        id: documentVersionId,
+        documentId,
+        version: 2,
+        document: { currentVersion: 3 },
+      });
+    const transaction = {
+      $queryRaw: queryRaw,
+      documentVersion: { findUnique },
+    } as never;
+    const reader = new CriteriaDocumentReader({} as never);
+
+    await expect(reader.lockVersionIdentityIn(transaction, { documentVersionId })).resolves.toEqual(
+      { documentId, documentVersionId, isCurrent: true },
+    );
+    await expect(reader.lockVersionIdentityIn(transaction, { documentVersionId })).resolves.toEqual(
+      { documentId, documentVersionId, isCurrent: false },
+    );
+    expect(queryRaw).toHaveBeenCalledTimes(2);
+  });
+
   it("returns only current ready prerequisites from the document-owned read port", async () => {
     const readiness = {
       id: crypto.randomUUID(),

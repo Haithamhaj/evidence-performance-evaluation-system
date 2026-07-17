@@ -29,6 +29,17 @@ type PolicyAuthorizer = Readonly<{
   ): boolean | Promise<boolean>;
 }>;
 
+type CriteriaDocumentVersionReader = Readonly<{
+  lockVersionIdentityIn(
+    transaction: import("./model.js").CriteriaTransaction,
+    input: Readonly<{ documentVersionId: string }>,
+  ): Promise<Readonly<{
+    documentId: string;
+    documentVersionId: string;
+    isCurrent: boolean;
+  }> | null>;
+}>;
+
 type PublishInput = Readonly<{
   proposal: Readonly<Record<string, unknown>>;
   identity: CriteriaReviewIdentity;
@@ -60,17 +71,20 @@ export class WorkstreamReviewService {
   private readonly database: import("./model.js").CriteriaDatabase;
   private readonly audit: import("./model.js").CriteriaAuditWriter;
   private readonly policy: PolicyAuthorizer;
+  private readonly documentReader: CriteriaDocumentVersionReader;
   private readonly options: Readonly<{ now?: () => Date }>;
 
   constructor(
     database: import("./model.js").CriteriaDatabase,
     audit: import("./model.js").CriteriaAuditWriter,
     policy: PolicyAuthorizer,
+    documentReader: CriteriaDocumentVersionReader,
     options: Readonly<{ now?: () => Date }> = {},
   ) {
     this.database = database;
     this.audit = audit;
     this.policy = policy;
+    this.documentReader = documentReader;
     this.options = options;
   }
 
@@ -80,6 +94,7 @@ export class WorkstreamReviewService {
   ): Promise<import("./proposal-service.js").DynamicCriteriaProposalDetail> {
     const proposalId = field(input.proposal, "id");
     const workstreamId = nullableField(input.proposal, "workstreamId");
+    const sourceDocumentVersionId = field(input.proposal, "sourceDocumentVersionId");
     const state = field(input.proposal, "state");
     const version = numberField(input.proposal, "version");
     if (
@@ -90,6 +105,16 @@ export class WorkstreamReviewService {
       state !== "owner_review"
     ) {
       throw invalidState();
+    }
+    const documentIdentity = await this.documentReader.lockVersionIdentityIn(transaction, {
+      documentVersionId: sourceDocumentVersionId,
+    });
+    if (
+      documentIdentity === null ||
+      documentIdentity.documentVersionId !== sourceDocumentVersionId ||
+      !documentIdentity.isCurrent
+    ) {
+      throw invalidPrerequisites();
     }
     const contributorIds = sortedDistinct(input.identity.contributorIds);
     if (contributorIds.includes(input.actorId)) throw invalidState();
@@ -531,6 +556,14 @@ function forbidden(): AppError {
 
 function invalidState(): AppError {
   return new AppError("CRITERIA_TRANSITION_INVALID", "errors.criteria.transitionInvalid", 409);
+}
+
+function invalidPrerequisites(): AppError {
+  return new AppError(
+    "CRITERIA_PREREQUISITES_INVALID",
+    "errors.criteria.prerequisitesInvalid",
+    409,
+  );
 }
 
 function notEligible(): AppError {

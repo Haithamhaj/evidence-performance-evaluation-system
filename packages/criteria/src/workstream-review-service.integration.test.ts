@@ -181,7 +181,14 @@ function createHarness(contributorIds = [crypto.randomUUID(), crypto.randomUUID(
       createdAt: now.toISOString(),
     })),
   };
-  const service = new WorkstreamReviewService(database as never, audit, policy, {
+  const documentReader = {
+    lockVersionIdentityIn: vi.fn(async () => ({
+      documentId: crypto.randomUUID(),
+      documentVersionId: proposal.sourceDocumentVersionId,
+      isCurrent: true,
+    })),
+  };
+  const service = new WorkstreamReviewService(database as never, audit, policy, documentReader, {
     now: () => now,
   });
   const identity = {
@@ -209,6 +216,7 @@ function createHarness(contributorIds = [crypto.randomUUID(), crypto.randomUUID(
     audit,
     contributorIds: identity.contributorIds,
     deniedActorIds,
+    documentReader,
     eligibility,
     identity,
     itemUpdateMany,
@@ -229,6 +237,26 @@ function createHarness(contributorIds = [crypto.randomUUID(), crypto.randomUUID(
 }
 
 describe("WorkstreamReviewService", () => {
+  it("rejects a stale source document before freezing publication eligibility", async () => {
+    const harness = createHarness([]);
+    harness.documentReader.lockVersionIdentityIn.mockResolvedValueOnce({
+      documentId: crypto.randomUUID(),
+      documentVersionId: harness.proposal.sourceDocumentVersionId,
+      isCurrent: false,
+    });
+
+    await expect(harness.publish()).rejects.toMatchObject({
+      code: "CRITERIA_PREREQUISITES_INVALID",
+    });
+    expect(harness.documentReader.lockVersionIdentityIn).toHaveBeenCalledWith(harness.transaction, {
+      documentVersionId: harness.proposal.sourceDocumentVersionId,
+    });
+    expect(harness.getSnapshot()).toBeNull();
+    expect(harness.eligibility).toEqual([]);
+    expect(harness.transitions).toEqual([]);
+    expect(harness.proposal).toMatchObject({ state: "owner_review", version: 1 });
+  });
+
   it("freezes the publication owner and sorted active contributors for all later responses", async () => {
     const newContributorId = crypto.randomUUID();
     const harness = createHarness();

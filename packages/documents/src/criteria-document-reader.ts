@@ -14,6 +14,12 @@ export type CriteriaDocumentPrerequisites = Readonly<{
   sourceReferences: readonly string[];
 }>;
 
+export type CriteriaDocumentVersionIdentity = Readonly<{
+  documentId: string;
+  documentVersionId: string;
+  isCurrent: boolean;
+}>;
+
 export class CriteriaDocumentReader {
   private readonly database: DocumentModel.DocumentDatabase;
 
@@ -43,6 +49,35 @@ export class CriteriaDocumentReader {
       FOR UPDATE
     `;
     return this.getPrerequisitesUsing(transaction, input);
+  }
+
+  async lockVersionIdentityIn(
+    transaction: DocumentModel.DocumentTransaction,
+    input: Readonly<{ documentVersionId: string }>,
+  ): Promise<CriteriaDocumentVersionIdentity | null> {
+    await transaction.$queryRaw`
+      SELECT document.id
+      FROM "DocumentRecord" document
+      INNER JOIN "DocumentVersion" version
+        ON version."documentId" = document.id
+      WHERE version.id = ${input.documentVersionId}::uuid
+      FOR UPDATE OF document
+    `;
+    const version = await transaction.documentVersion.findUnique({
+      where: { id: input.documentVersionId },
+      select: {
+        id: true,
+        documentId: true,
+        version: true,
+        document: { select: { currentVersion: true } },
+      },
+    });
+    if (version === null) return null;
+    return {
+      documentId: version.documentId,
+      documentVersionId: version.id,
+      isCurrent: version.version === version.document.currentVersion,
+    };
   }
 
   private async getPrerequisitesUsing(

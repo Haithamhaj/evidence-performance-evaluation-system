@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { createDatabaseClient } from "@evaluation/database";
+import { CriteriaDocumentReader } from "@evaluation/documents";
 
 import { ProposalService } from "./proposal-service.js";
 import { WorkstreamReviewService } from "./workstream-review-service.js";
@@ -152,62 +153,14 @@ describe.runIf(safeDatabase)("ProposalService PostgreSQL trigger protocol", () =
     } as const;
     const audit = postgresAuditWriter();
     const outputReference = `criteria-proposal:${crypto.randomUUID()}`;
-    const proposal = await database.$transaction(async (transaction) => {
-      const created = await transaction.dynamicCriteriaProposal.create({
-        data: {
-          requestId: fixture.criteriaRequestId,
-          kind: "workstream",
-          projectId: null,
-          workstreamId: fixture.workstreamId!,
-          sourceDocumentVersionId: fixture.documentVersionId,
-          readinessCheckId: fixture.readinessCheckId,
-          proposalNumber: 1,
-          version: 1,
-          state: "owner_review",
-          outputReference,
-          outputSchemaVersion: fixture.criteriaSchemaVersion,
-          promptVersion: fixture.criteriaPromptVersion,
-          promptHash: fixture.criteriaPromptHash,
-          createdById: fixture.ownerId,
-        },
-      });
-      const sourceReferences = JSON.stringify([`document-version:${fixture.documentVersionId}`]);
-      await transaction.$executeRaw`
-        INSERT INTO "DynamicCriteriaProposalItem" (
-          "id", "proposalId", "position", "name", "selectionReason", "successLink",
-          "expectedBehaviorOrResult", "evaluationMethod", "suggestedEvidence",
-          "sourceReferences"
-        ) VALUES
-        (
-          ${crypto.randomUUID()}::uuid, ${created.id}::uuid, 1, 'Integrated result',
-          'Matches the documented success definition.', 'Definition of success',
-          'The integrated output meets the acceptance condition.',
-          'Review the documented acceptance result.', '["Acceptance record"]'::jsonb,
-          ${sourceReferences}::jsonb
-        ),
-        (
-          ${crypto.randomUUID()}::uuid, ${created.id}::uuid, 2, 'Dependency resolution',
-          'Makes the documented dependency explicit.', 'Dependency outcome',
-          'The dependency is resolved before delivery.',
-          'Review the dependency decision record.', '["Dependency record"]'::jsonb,
-          ${sourceReferences}::jsonb
-        )
-      `;
-      await transaction.documentAnalysisRequest.update({
-        where: { id: fixture.criteriaRequestId },
-        data: {
-          state: "succeeded",
-          resultReference: outputReference,
-          completedAt: new Date(),
-        },
-      });
-      return created;
-    });
+    const proposal = await createWorkstreamProposal(fixture, outputReference);
     const proposalId = String(proposal.id);
+    const documentReader = new CriteriaDocumentReader(database);
     const reviewService = new WorkstreamReviewService(
       database,
       audit,
       { authorize: vi.fn(async () => true) },
+      documentReader,
       { now: () => new Date() },
     );
     const concurrentDatabase = createDatabaseClient(testDatabaseUrl);
@@ -215,6 +168,7 @@ describe.runIf(safeDatabase)("ProposalService PostgreSQL trigger protocol", () =
       concurrentDatabase,
       postgresAuditWriter(),
       { authorize: vi.fn(async () => true) },
+      new CriteriaDocumentReader(concurrentDatabase),
       { now: () => new Date() },
     );
     const publishedAt = new Date();
@@ -346,7 +300,153 @@ describe.runIf(safeDatabase)("ProposalService PostgreSQL trigger protocol", () =
       { fromState: "manager_resolution", toState: "approved", resultingVersion: 4 },
     ]);
   });
+
+  it("rejects owner approval when a newer document version exists without changing review state", async () => {
+    const fixture = await seedProposalFixture("workstream");
+    const identity = {
+      kind: "workstream",
+      resourceId: fixture.workstreamId!,
+      projectId: fixture.projectId,
+      organizationId: fixture.organizationId,
+      departmentId: fixture.departmentId,
+      primaryOwnerId: fixture.ownerId,
+      contributorIds: [fixture.contributorAId],
+    } as const;
+    const proposal = await createWorkstreamProposal(
+      fixture,
+      `criteria-proposal:${crypto.randomUUID()}`,
+    );
+    const proposalId = String(proposal.id);
+    const document = await database.documentRecord.findUniqueOrThrow({
+      where: { id: fixture.documentId },
+      select: { templateVersionId: true },
+    });
+    await database.$transaction(async (transaction) => {
+      await transaction.documentVersion.create({
+        data: {
+          documentId: fixture.documentId,
+          version: 2,
+          templateVersionId: document.templateVersionId,
+          createdById: fixture.ownerId,
+          reason: "Advance the workstream document after proposal generation.",
+        },
+      });
+      await transaction.documentRecord.update({
+        where: { id: fixture.documentId },
+        data: { currentVersion: 2 },
+      });
+    });
+
+    const documentReader = new CriteriaDocumentReader(database);
+    const audit = postgresAuditWriter();
+    const publisher = new WorkstreamReviewService(
+      database,
+      audit,
+      { authorize: vi.fn(async () => true) },
+      documentReader,
+      { now: () => new Date() },
+    );
+    const proposalService = new ProposalService(
+      database,
+      documentReader,
+      {
+        snapshot: vi.fn(async () => identity),
+        snapshotIn: vi.fn(async () => identity),
+      },
+      {} as never,
+      {} as never,
+      audit,
+      { append: vi.fn() },
+      publisher,
+      { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => new Date() },
+    );
+
+    await expect(
+      proposalService.reviewByOwner({
+        actor: { userId: fixture.ownerId, active: true },
+        correlationId: crypto.randomUUID(),
+        proposalId,
+        review: {
+          action: "approve",
+          reason: "Attempt approval against the superseded source document.",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "CRITERIA_PREREQUISITES_INVALID" });
+    await expect(
+      database.dynamicCriteriaProposal.findUniqueOrThrow({
+        where: { id: proposalId },
+        select: { state: true, version: true, approvedAt: true },
+      }),
+    ).resolves.toEqual({ state: "owner_review", version: 1, approvedAt: null });
+    await expect(database.criteriaReviewSnapshot.count({ where: { proposalId } })).resolves.toBe(0);
+    await expect(
+      database.criteriaReviewEligibility.count({
+        where: { snapshot: { proposalId } },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      database.dynamicCriteriaProposalTransition.count({ where: { proposalId } }),
+    ).resolves.toBe(0);
+  });
 });
+
+async function createWorkstreamProposal(
+  fixture: Awaited<ReturnType<typeof seedProposalFixture>>,
+  outputReference: string,
+) {
+  if (fixture.workstreamId === null) throw new Error("Workstream fixture required");
+  return database.$transaction(async (transaction) => {
+    const created = await transaction.dynamicCriteriaProposal.create({
+      data: {
+        requestId: fixture.criteriaRequestId,
+        kind: "workstream",
+        projectId: null,
+        workstreamId: fixture.workstreamId,
+        sourceDocumentVersionId: fixture.documentVersionId,
+        readinessCheckId: fixture.readinessCheckId,
+        proposalNumber: 1,
+        version: 1,
+        state: "owner_review",
+        outputReference,
+        outputSchemaVersion: fixture.criteriaSchemaVersion,
+        promptVersion: fixture.criteriaPromptVersion,
+        promptHash: fixture.criteriaPromptHash,
+        createdById: fixture.ownerId,
+      },
+    });
+    const sourceReferences = JSON.stringify([`document-version:${fixture.documentVersionId}`]);
+    await transaction.$executeRaw`
+      INSERT INTO "DynamicCriteriaProposalItem" (
+        "id", "proposalId", "position", "name", "selectionReason", "successLink",
+        "expectedBehaviorOrResult", "evaluationMethod", "suggestedEvidence",
+        "sourceReferences"
+      ) VALUES
+      (
+        ${crypto.randomUUID()}::uuid, ${created.id}::uuid, 1, 'Integrated result',
+        'Matches the documented success definition.', 'Definition of success',
+        'The integrated output meets the acceptance condition.',
+        'Review the documented acceptance result.', '["Acceptance record"]'::jsonb,
+        ${sourceReferences}::jsonb
+      ),
+      (
+        ${crypto.randomUUID()}::uuid, ${created.id}::uuid, 2, 'Dependency resolution',
+        'Makes the documented dependency explicit.', 'Dependency outcome',
+        'The dependency is resolved before delivery.',
+        'Review the dependency decision record.', '["Dependency record"]'::jsonb,
+        ${sourceReferences}::jsonb
+      )
+    `;
+    await transaction.documentAnalysisRequest.update({
+      where: { id: fixture.criteriaRequestId },
+      data: {
+        state: "succeeded",
+        resultReference: outputReference,
+        completedAt: new Date(),
+      },
+    });
+    return created;
+  });
+}
 
 async function seedProposalFixture(kind: "project" | "workstream" = "project") {
   const suffix = crypto.randomUUID();
