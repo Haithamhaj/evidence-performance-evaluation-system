@@ -306,6 +306,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: 3.1087.0
         version: 3.1087.0
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
       '@evaluation/audit':
         specifier: workspace:*
         version: link:../audit

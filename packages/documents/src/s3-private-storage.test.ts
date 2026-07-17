@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { Readable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { S3PrivateStorage } from "./s3-private-storage.js";
@@ -64,6 +65,25 @@ describe("S3PrivateStorage", () => {
     const storage = new S3PrivateStorage({ send } as never, "private-documents", vi.fn());
     await storage.delete("documents/org/project/id/object");
     expect(commands[0]).toBeInstanceOf(DeleteObjectCommand);
+  });
+
+  it("reads an internal bounded stream without creating a signed URL or whole buffer", async () => {
+    const body = Readable.from(["private"]);
+    const send = vi.fn(async (_command: unknown) => ({ Body: body, ContentLength: 7 }));
+    const signer = vi.fn();
+    const storage = new S3PrivateStorage({ send } as never, "private-documents", signer);
+    const stream = await storage.readStream({
+      key: "documents/org/project/id/object",
+      maxBytes: 8,
+    });
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(chunk as Buffer);
+    expect(Buffer.concat(chunks)).toEqual(Buffer.from("private"));
+    expect((send.mock.calls[0]![0] as GetObjectCommand).input).toMatchObject({
+      Bucket: "private-documents",
+      Key: "documents/org/project/id/object",
+    });
+    expect(signer).not.toHaveBeenCalled();
   });
 
   it("rejects invalid bucket, object key, and expiry before contacting S3", async () => {

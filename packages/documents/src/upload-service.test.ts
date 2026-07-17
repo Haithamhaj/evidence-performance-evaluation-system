@@ -74,6 +74,7 @@ async function harness(
       events.push("delete");
     }),
     signGet: vi.fn(async () => "http://127.0.0.1/private-signed-read"),
+    readStream: vi.fn(async () => Readable.from([])),
   };
   const scanner = {
     scan: vi.fn(async () => {

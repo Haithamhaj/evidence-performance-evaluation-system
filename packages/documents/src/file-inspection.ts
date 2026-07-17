@@ -76,7 +76,7 @@ export async function inspectFile(input: InspectionInput): Promise<InspectedFile
     };
   }
   if (extension === "docx") {
-    await inspectDocx(input.path, input.policy);
+    await inspectDocxArchive(input.path, input.policy);
     return {
       detectedType: "docx",
       detectedMime: input.declaredMime,
@@ -106,7 +106,10 @@ async function assertUtf8(path: string): Promise<void> {
   }
 }
 
-async function inspectDocx(path: string, policy: InspectionInput["policy"]): Promise<void> {
+export async function inspectDocxArchive(
+  path: string,
+  policy: InspectionInput["policy"],
+): Promise<void> {
   let file: OpenFile | undefined;
   try {
     file = await openFile(path, "r");
@@ -191,6 +194,62 @@ async function inspectDocx(path: string, policy: InspectionInput["policy"]): Pro
     throw safetyRejected();
   } finally {
     await file?.close().catch(() => undefined);
+  }
+}
+
+export async function extractValidatedDocxText(
+  path: string,
+  policy: InspectionInput["policy"],
+): Promise<string> {
+  await inspectDocxArchive(path, policy);
+  const zip = await openZip(path);
+  try {
+    const xml = await new Promise<Buffer>((resolve, reject) => {
+      let settled = false;
+      const fail = (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        zip.close();
+        reject(error);
+      };
+      zip.on("error", fail);
+      zip.on("end", () => fail(safetyRejected()));
+      zip.on("entry", (entry: yauzl.Entry) => {
+        void (async () => {
+          if (entry.fileName !== "word/document.xml") {
+            zip.readEntry();
+            return;
+          }
+          const chunks: Buffer[] = [];
+          let total = 0;
+          for await (const raw of await openEntry(zip, entry)) {
+            const chunk = raw as Buffer;
+            total += chunk.length;
+            if (total > policy.maxArchiveUncompressedBytes) throw safetyRejected();
+            chunks.push(chunk);
+          }
+          settled = true;
+          zip.close();
+          resolve(Buffer.concat(chunks, total));
+        })().catch(fail);
+      });
+      zip.readEntry();
+    });
+    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(xml);
+    return decoded
+      .replace(/<w:tab\b[^>]*\/>/gu, "\t")
+      .replace(/<w:(?:br|cr)\b[^>]*\/>/gu, "\n")
+      .replace(/<\/w:p>/gu, "\n")
+      .replace(/<[^>]+>/gu, "")
+      .replace(/&lt;/gu, "<")
+      .replace(/&gt;/gu, ">")
+      .replace(/&amp;/gu, "&")
+      .replace(/&quot;/gu, '"')
+      .replace(/&apos;/gu, "'")
+      .trim();
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw safetyRejected();
   }
 }
 

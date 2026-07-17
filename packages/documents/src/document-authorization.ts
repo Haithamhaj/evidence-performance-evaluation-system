@@ -8,7 +8,13 @@ export async function authorizeDocument(
   database: Database,
   actor: Readonly<{ userId: string; active: boolean }>,
   identity: Identity,
-  action: "document.read" | "document.version.create",
+  action:
+    | "document.read"
+    | "document.version.create"
+    | "document.analysis.run"
+    | "document.readiness.detail.read"
+    | "document.readiness.summary.read"
+    | "document.comparison.review",
   now: Date,
 ): Promise<void> {
   const [user, roles, departmentScope, windows] = await Promise.all([

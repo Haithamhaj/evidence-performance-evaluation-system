@@ -1,3 +1,5 @@
+import type { Readable } from "node:stream";
+
 export type DocumentDatabase = import("@evaluation/database").DatabaseClient;
 export type DocumentTransaction = import("@evaluation/database").DatabaseTransaction;
 export type DocumentAuditWriter = import("@evaluation/contracts").AuditWriter<DocumentTransaction>;
@@ -18,6 +20,7 @@ export interface PrivateObjectStorage {
   ): Promise<void>;
   delete(key: string): Promise<void>;
   signGet(input: Readonly<{ key: string; expiresInSeconds: number }>): Promise<string>;
+  readStream(input: Readonly<{ key: string; maxBytes: number }>): Promise<Readable>;
 }
 
 export interface MalwareScanner {
