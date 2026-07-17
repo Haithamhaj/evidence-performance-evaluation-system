@@ -16,38 +16,50 @@ model SystemMetadata {
 }
 
 model User {
-  id                       String                       @id @default(uuid()) @db.Uuid
-  pilotKey                 String?                      @unique
-  email                    String                       @unique
-  displayName              String
-  active                   Boolean                      @default(true)
-  identities               OidcIdentity[]
-  roleAssignments          RoleAssignment[]
-  aiRouteConfigs           AiRouteConfig[]
-  aiProviderConfigs        AiProviderConfig[]
-  aiTrustPolicies          AiLocalTrustPolicy[]
-  aiSchemaArtifacts        AiOutputSchemaArtifact[]
-  managedEvaluationCycles  EvaluationCycle[]            @relation("EvaluationCycleManager")
-  eligibilityEntries       EligibilityEntry[]           @relation("EligibilityEmployee")
-  createdProjects          Project[]                    @relation("ProjectCreatedBy")
-  createdWorkstreams       Workstream[]                 @relation("WorkstreamCreatedBy")
-  projectMemberships       ProjectMember[]              @relation("ProjectMemberEmployee")
-  createdProjectMembers    ProjectMember[]              @relation("ProjectMemberCreatedBy")
-  workstreamMemberships    WorkstreamMember[]           @relation("WorkstreamMemberEmployee")
-  createdWorkstreamMembers WorkstreamMember[]           @relation("WorkstreamMemberCreatedBy")
-  responsibilities         ResponsibilityWindow[]       @relation("ResponsibilityEmployee")
-  responsibilityDecisions  ResponsibilityWindow[]       @relation("ResponsibilityDecisionBy")
-  createdResponsibilities  ResponsibilityWindow[]       @relation("ResponsibilityCreatedBy")
-  projectStatusChanges     ProjectStatusTransition[]    @relation("ProjectStatusActor")
-  workstreamStatusChanges  WorkstreamStatusTransition[] @relation("WorkstreamStatusActor")
-  ownershipTransfers       OwnershipTransfer[]          @relation("OwnershipTransferDecisionBy")
-  createdDocumentTemplates DocumentTemplate[]           @relation("DocumentTemplateCreatedBy")
-  createdTemplateVersions  DocumentTemplateVersion[]    @relation("DocumentTemplateVersionCreatedBy")
-  createdUploadedSources   UploadedSource[]             @relation("UploadedSourceCreatedBy")
-  createdDocumentRecords   DocumentRecord[]             @relation("DocumentRecordCreatedBy")
-  createdDocumentVersions  DocumentVersion[]            @relation("DocumentVersionCreatedBy")
-  createdAt                DateTime                     @default(now()) @db.Timestamptz(6)
-  updatedAt                DateTime                     @updatedAt @db.Timestamptz(6)
+  id                        String                                 @id @default(uuid()) @db.Uuid
+  pilotKey                  String?                                @unique
+  email                     String                                 @unique
+  displayName               String
+  active                    Boolean                                @default(true)
+  identities                OidcIdentity[]
+  roleAssignments           RoleAssignment[]
+  aiRouteConfigs            AiRouteConfig[]
+  aiProviderConfigs         AiProviderConfig[]
+  aiTrustPolicies           AiLocalTrustPolicy[]
+  aiSchemaArtifacts         AiOutputSchemaArtifact[]
+  managedEvaluationCycles   EvaluationCycle[]                      @relation("EvaluationCycleManager")
+  eligibilityEntries        EligibilityEntry[]                     @relation("EligibilityEmployee")
+  createdProjects           Project[]                              @relation("ProjectCreatedBy")
+  createdWorkstreams        Workstream[]                           @relation("WorkstreamCreatedBy")
+  projectMemberships        ProjectMember[]                        @relation("ProjectMemberEmployee")
+  createdProjectMembers     ProjectMember[]                        @relation("ProjectMemberCreatedBy")
+  workstreamMemberships     WorkstreamMember[]                     @relation("WorkstreamMemberEmployee")
+  createdWorkstreamMembers  WorkstreamMember[]                     @relation("WorkstreamMemberCreatedBy")
+  responsibilities          ResponsibilityWindow[]                 @relation("ResponsibilityEmployee")
+  responsibilityDecisions   ResponsibilityWindow[]                 @relation("ResponsibilityDecisionBy")
+  createdResponsibilities   ResponsibilityWindow[]                 @relation("ResponsibilityCreatedBy")
+  projectStatusChanges      ProjectStatusTransition[]              @relation("ProjectStatusActor")
+  workstreamStatusChanges   WorkstreamStatusTransition[]           @relation("WorkstreamStatusActor")
+  ownershipTransfers        OwnershipTransfer[]                    @relation("OwnershipTransferDecisionBy")
+  createdDocumentTemplates  DocumentTemplate[]                     @relation("DocumentTemplateCreatedBy")
+  createdTemplateVersions   DocumentTemplateVersion[]              @relation("DocumentTemplateVersionCreatedBy")
+  createdUploadedSources    UploadedSource[]                       @relation("UploadedSourceCreatedBy")
+  createdDocumentRecords    DocumentRecord[]                       @relation("DocumentRecordCreatedBy")
+  createdDocumentVersions   DocumentVersion[]                      @relation("DocumentVersionCreatedBy")
+  registeredPromptArtifacts AnalysisPromptArtifact[]               @relation("AnalysisPromptArtifactRegisteredBy")
+  createdReadinessChecks    DocumentReadinessCheck[]               @relation("DocumentReadinessCheckCreatedBy")
+  readinessTransitions      DocumentReadinessLifecycleTransition[] @relation("ReadinessTransitionActor")
+  createdComparisons        DocumentComparison[]                   @relation("DocumentComparisonCreatedBy")
+  comparisonReviews         DocumentComparisonReview[]             @relation("DocumentComparisonReviewer")
+  createdCriteriaProposals  DynamicCriteriaProposal[]              @relation("DynamicCriteriaProposalCreatedBy")
+  criteriaTransitions       DynamicCriteriaProposalTransition[]    @relation("CriteriaProposalTransitionActor")
+  ownedCriteriaSnapshots    CriteriaReviewSnapshot[]               @relation("CriteriaReviewSnapshotOwner")
+  criteriaEligibility       CriteriaReviewEligibility[]            @relation("CriteriaReviewEligibilityEmployee")
+  criteriaResponses         CriteriaContributorResponse[]          @relation("CriteriaContributorResponseEmployee")
+  criteriaResolutions       CriteriaManagerResolution[]            @relation("CriteriaManagerResolutionActor")
+  criteriaSetTransitions    DynamicCriteriaSetTransition[]         @relation("DynamicCriteriaSetTransitionActor")
+  createdAt                 DateTime                               @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime                               @updatedAt @db.Timestamptz(6)
 }
 
 model OidcIdentity {
@@ -120,6 +132,7 @@ model Operation {
   createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime                 @updatedAt @db.Timestamptz(6)
   effectReceipts  OperationEffectReceipt[]
+  analysisRequest DocumentAnalysisRequest?
 
   @@index([organizationId, status, createdAt])
   @@index([jobType, jobVersion, status, createdAt])
@@ -303,6 +316,8 @@ model Project {
   statusTransitions      ProjectStatusTransition[]
   uploadedSources        UploadedSource[]
   documentRecord         DocumentRecord?
+  criteriaProposals      DynamicCriteriaProposal[]
+  criteriaSets           DynamicCriteriaSet[]
   createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
 
@@ -368,6 +383,8 @@ model Workstream {
   statusTransitions      WorkstreamStatusTransition[]
   uploadedSources        UploadedSource[]
   documentRecord         DocumentRecord?
+  criteriaProposals      DynamicCriteriaProposal[]
+  criteriaSets           DynamicCriteriaSet[]
   createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
 
@@ -524,6 +541,7 @@ model DocumentTemplateVersion {
   sections         DocumentTemplateSection[]
   pinnedDocuments  DocumentRecord[]              @relation("DocumentRecordPinnedTemplate")
   documentVersions DocumentVersion[]             @relation("DocumentVersionTemplate")
+  readinessChecks  DocumentReadinessCheck[]
   createdAt        DateTime                      @default(now()) @db.Timestamptz(6)
 
   @@unique([templateId, version])
@@ -576,39 +594,51 @@ model UploadedSource {
 }
 
 model DocumentRecord {
-  id                String                  @id @default(uuid()) @db.Uuid
-  organizationId    String                  @db.Uuid
-  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  departmentId      String                  @db.Uuid
-  department        Department              @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  projectId         String?                 @unique @db.Uuid
-  project           Project?                @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId      String?                 @unique @db.Uuid
-  workstream        Workstream?             @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
-  templateVersionId String                  @db.Uuid
-  templateVersion   DocumentTemplateVersion @relation("DocumentRecordPinnedTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
-  currentVersion    Int                     @default(0)
-  createdById       String                  @db.Uuid
-  createdBy         User                    @relation("DocumentRecordCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  id                String                    @id @default(uuid()) @db.Uuid
+  organizationId    String                    @db.Uuid
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId      String                    @db.Uuid
+  department        Department                @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  projectId         String?                   @unique @db.Uuid
+  project           Project?                  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId      String?                   @unique @db.Uuid
+  workstream        Workstream?               @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  templateVersionId String                    @db.Uuid
+  templateVersion   DocumentTemplateVersion   @relation("DocumentRecordPinnedTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
+  currentVersion    Int                       @default(0)
+  createdById       String                    @db.Uuid
+  createdBy         User                      @relation("DocumentRecordCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   versions          DocumentVersion[]
-  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+  analysisRequests  DocumentAnalysisRequest[]
+  readinessChecks   DocumentReadinessCheck[]
+  comparisons       DocumentComparison[]
+  createdAt         DateTime                  @default(now()) @db.Timestamptz(6)
 
   @@index([departmentId, createdAt])
   @@index([createdById, createdAt])
 }
 
 model DocumentVersion {
-  id                String                  @id @default(uuid()) @db.Uuid
-  documentId        String                  @db.Uuid
-  document          DocumentRecord          @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  version           Int
-  templateVersionId String                  @db.Uuid
-  templateVersion   DocumentTemplateVersion @relation("DocumentVersionTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
-  createdById       String                  @db.Uuid
-  createdBy         User                    @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  reason            String
-  sources           DocumentVersionSource[]
-  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+  id                      String                                 @id @default(uuid()) @db.Uuid
+  documentId              String                                 @db.Uuid
+  document                DocumentRecord                         @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version                 Int
+  templateVersionId       String                                 @db.Uuid
+  templateVersion         DocumentTemplateVersion                @relation("DocumentVersionTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
+  createdById             String                                 @db.Uuid
+  createdBy               User                                   @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reason                  String
+  sources                 DocumentVersionSource[]
+  currentAnalysisRequests DocumentAnalysisRequest[]              @relation("AnalysisCurrentVersion")
+  beforeAnalysisRequests  DocumentAnalysisRequest[]              @relation("AnalysisBeforeVersion")
+  afterAnalysisRequests   DocumentAnalysisRequest[]              @relation("AnalysisAfterVersion")
+  readinessChecks         DocumentReadinessCheck[]
+  readinessTransitions    DocumentReadinessLifecycleTransition[]
+  comparisonsBefore       DocumentComparison[]                   @relation("ComparisonBeforeVersion")
+  comparisonsAfter        DocumentComparison[]                   @relation("ComparisonAfterVersion")
+  criteriaProposals       DynamicCriteriaProposal[]
+  criteriaSets            DynamicCriteriaSet[]
+  createdAt               DateTime                               @default(now()) @db.Timestamptz(6)
 
   @@unique([documentId, version])
   @@index([createdById, createdAt])
@@ -629,6 +659,478 @@ model DocumentVersionSource {
 
   @@unique([documentVersionId, position])
   @@index([sourceType])
+}
+
+enum DocumentAnalysisKind {
+  readiness
+  comparison
+  criteria_project
+  criteria_workstream
+}
+
+enum DocumentAnalysisRequestState {
+  queued
+  running
+  succeeded
+  failed
+  superseded
+}
+
+enum DocumentReadinessAnalysisState {
+  incomplete
+  ready_for_criteria_generation
+}
+
+enum DocumentReadinessLifecycleState {
+  draft
+  incomplete
+  ready_for_criteria_generation
+  criteria_approved
+  revision_required
+  superseded
+}
+
+enum ManagerReadinessState {
+  ready
+  needs_attention
+  missing_critical_information
+}
+
+enum ExtractionCoverage {
+  complete
+  partial
+  unsupported
+  failed
+}
+
+enum AnalysisValidationOutcome {
+  valid
+  invalid
+}
+
+enum MaterialChangeClassification {
+  editorial
+  routine_execution_update
+  material_scope_or_goal_change
+}
+
+enum DynamicCriteriaKind {
+  project
+  workstream
+}
+
+enum DynamicCriteriaProposalState {
+  owner_review
+  contributor_review
+  manager_resolution
+  approved
+  rejected
+  superseded
+  activated
+}
+
+enum CriteriaReviewRole {
+  owner
+  contributor
+}
+
+enum CriteriaContributorResponseKind {
+  acknowledge
+  object
+}
+
+enum CriteriaManagerDecision {
+  request_revision
+  accept_with_objections
+}
+
+enum DynamicCriteriaSetTransitionKind {
+  activated
+  retired
+}
+
+model AnalysisPromptArtifact {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  routeKey           String
+  version            String
+  bodyHash           String
+  trustedBody        String
+  expectedBehavior   String
+  registeredById     String                    @db.Uuid
+  registeredBy       User                      @relation("AnalysisPromptArtifactRegisteredBy", fields: [registeredById], references: [id], onDelete: Restrict)
+  registrationReason String
+  requests           DocumentAnalysisRequest[]
+  createdAt          DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@unique([routeKey, version])
+  @@unique([id, routeKey, version, bodyHash])
+  @@index([bodyHash])
+  @@index([registeredById, createdAt])
+}
+
+model DocumentAnalysisRequest {
+  id                       String                       @id @default(uuid()) @db.Uuid
+  kind                     DocumentAnalysisKind
+  idempotencyKey           String                       @unique
+  payloadHash              String
+  routeKey                 String
+  documentId               String                       @db.Uuid
+  document                 DocumentRecord               @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  currentDocumentVersionId String?                      @db.Uuid
+  currentDocumentVersion   DocumentVersion?             @relation("AnalysisCurrentVersion", fields: [currentDocumentVersionId], references: [id], onDelete: Restrict)
+  beforeVersionId          String?                      @db.Uuid
+  beforeVersion            DocumentVersion?             @relation("AnalysisBeforeVersion", fields: [beforeVersionId], references: [id], onDelete: Restrict)
+  afterVersionId           String?                      @db.Uuid
+  afterVersion             DocumentVersion?             @relation("AnalysisAfterVersion", fields: [afterVersionId], references: [id], onDelete: Restrict)
+  pinnedReadinessCheckId   String?                      @db.Uuid
+  pinnedReadinessCheck     DocumentReadinessCheck?      @relation("PinnedReadinessCheck", fields: [pinnedReadinessCheckId], references: [id], onDelete: Restrict)
+  pinnedProposalId         String?                      @db.Uuid
+  pinnedProposal           DynamicCriteriaProposal?     @relation("PinnedCriteriaProposal", fields: [pinnedProposalId], references: [id], onDelete: Restrict)
+  expectedAggregateVersion Int
+  outputSchemaArtifactId   String                       @db.Uuid
+  outputSchemaVersion      String
+  outputSchemaHash         String
+  outputSchemaArtifact     AiOutputSchemaArtifact       @relation(fields: [outputSchemaArtifactId, routeKey, outputSchemaVersion, outputSchemaHash], references: [id, routeKey, version, schemaHash], onDelete: Restrict)
+  promptArtifactId         String                       @db.Uuid
+  promptVersion            String
+  promptHash               String
+  promptArtifact           AnalysisPromptArtifact       @relation(fields: [promptArtifactId, routeKey, promptVersion, promptHash], references: [id, routeKey, version, bodyHash], onDelete: Restrict)
+  state                    DocumentAnalysisRequestState @default(queued)
+  operationId              String                       @unique @db.Uuid
+  operation                Operation                    @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  resultReference          String?
+  errorCode                String?
+  readinessCheck           DocumentReadinessCheck?
+  comparison               DocumentComparison?
+  criteriaProposal         DynamicCriteriaProposal?     @relation("GeneratedCriteriaProposal")
+  createdAt                DateTime                     @default(now()) @db.Timestamptz(6)
+  startedAt                DateTime?                    @db.Timestamptz(6)
+  completedAt              DateTime?                    @db.Timestamptz(6)
+  updatedAt                DateTime                     @updatedAt @db.Timestamptz(6)
+
+  @@index([documentId, kind, state, createdAt])
+  @@index([state, createdAt])
+  @@index([currentDocumentVersionId])
+  @@index([beforeVersionId, afterVersionId])
+  @@index([pinnedReadinessCheckId])
+  @@index([pinnedProposalId])
+}
+
+model DocumentReadinessCheck {
+  id                   String                                 @id @default(uuid()) @db.Uuid
+  requestId            String                                 @unique @db.Uuid
+  request              DocumentAnalysisRequest                @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  documentId           String                                 @db.Uuid
+  document             DocumentRecord                         @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  documentVersionId    String                                 @db.Uuid
+  documentVersion      DocumentVersion                        @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
+  templateVersionId    String                                 @db.Uuid
+  templateVersion      DocumentTemplateVersion                @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  analyzedState        DocumentReadinessAnalysisState
+  managerState         ManagerReadinessState
+  extractionCoverage   ExtractionCoverage
+  output               Json
+  outputReference      String                                 @unique
+  inputSchemaVersion   String
+  outputSchemaVersion  String
+  promptVersion        String
+  promptHash           String
+  validationOutcome    AnalysisValidationOutcome
+  stale                Boolean                                @default(false)
+  sourceReferences     Json
+  createdById          String                                 @db.Uuid
+  createdBy            User                                   @relation("DocumentReadinessCheckCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lifecycleTransitions DocumentReadinessLifecycleTransition[]
+  proposals            DynamicCriteriaProposal[]
+  pinnedByRequests     DocumentAnalysisRequest[]              @relation("PinnedReadinessCheck")
+  createdAt            DateTime                               @default(now()) @db.Timestamptz(6)
+
+  @@index([documentId, documentVersionId, createdAt(sort: Desc)])
+  @@index([documentVersionId, stale, createdAt(sort: Desc)])
+  @@index([analyzedState, stale, createdAt])
+}
+
+model DocumentReadinessLifecycleTransition {
+  id                 String                          @id @default(uuid()) @db.Uuid
+  readinessCheckId   String                          @db.Uuid
+  readinessCheck     DocumentReadinessCheck          @relation(fields: [readinessCheckId], references: [id], onDelete: Restrict)
+  documentVersionId  String                          @db.Uuid
+  documentVersion    DocumentVersion                 @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
+  fromState          DocumentReadinessLifecycleState
+  toState            DocumentReadinessLifecycleState
+  actorId            String                          @db.Uuid
+  actor              User                            @relation("ReadinessTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason             String
+  effectiveAt        DateTime                        @db.Timestamptz(6)
+  criteriaSetId      String?                         @db.Uuid
+  criteriaSet        DynamicCriteriaSet?             @relation(fields: [criteriaSetId], references: [id], onDelete: Restrict)
+  comparisonReviewId String?                         @db.Uuid
+  comparisonReview   DocumentComparisonReview?       @relation(fields: [comparisonReviewId], references: [id], onDelete: Restrict)
+  createdAt          DateTime                        @default(now()) @db.Timestamptz(6)
+
+  @@index([documentVersionId, effectiveAt, id])
+  @@index([readinessCheckId, effectiveAt, id])
+  @@index([criteriaSetId])
+  @@index([comparisonReviewId])
+}
+
+model DocumentComparison {
+  id                  String                       @id @default(uuid()) @db.Uuid
+  requestId           String                       @unique @db.Uuid
+  request             DocumentAnalysisRequest      @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  documentId          String                       @db.Uuid
+  document            DocumentRecord               @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  beforeVersionId     String                       @db.Uuid
+  beforeVersion       DocumentVersion              @relation("ComparisonBeforeVersion", fields: [beforeVersionId], references: [id], onDelete: Restrict)
+  afterVersionId      String                       @db.Uuid
+  afterVersion        DocumentVersion              @relation("ComparisonAfterVersion", fields: [afterVersionId], references: [id], onDelete: Restrict)
+  aiClassification    MaterialChangeClassification
+  output              Json
+  outputReference     String                       @unique
+  inputSchemaVersion  String
+  outputSchemaVersion String
+  promptVersion       String
+  promptHash          String
+  validationOutcome   AnalysisValidationOutcome
+  stale               Boolean                      @default(false)
+  sourceReferences    Json
+  createdById         String                       @db.Uuid
+  createdBy           User                         @relation("DocumentComparisonCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviews             DocumentComparisonReview[]
+  createdAt           DateTime                     @default(now()) @db.Timestamptz(6)
+
+  @@unique([documentId, beforeVersionId, afterVersionId, promptVersion, outputSchemaVersion])
+  @@index([documentId, afterVersionId, createdAt(sort: Desc)])
+  @@index([beforeVersionId, afterVersionId])
+}
+
+model DocumentComparisonReview {
+  id                      String                                 @id @default(uuid()) @db.Uuid
+  comparisonId            String                                 @db.Uuid
+  comparison              DocumentComparison                     @relation(fields: [comparisonId], references: [id], onDelete: Restrict)
+  effectiveClassification MaterialChangeClassification
+  reviewerId              String                                 @db.Uuid
+  reviewer                User                                   @relation("DocumentComparisonReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  reason                  String
+  proposals               DynamicCriteriaProposal[]
+  readinessTransitions    DocumentReadinessLifecycleTransition[]
+  createdAt               DateTime                               @default(now()) @db.Timestamptz(6)
+
+  @@unique([comparisonId])
+  @@index([reviewerId, createdAt])
+}
+
+model DynamicCriteriaProposal {
+  id                         String                              @id @default(uuid()) @db.Uuid
+  requestId                  String                              @unique @db.Uuid
+  request                    DocumentAnalysisRequest             @relation("GeneratedCriteriaProposal", fields: [requestId], references: [id], onDelete: Restrict)
+  kind                       DynamicCriteriaKind
+  projectId                  String?                             @db.Uuid
+  project                    Project?                            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId               String?                             @db.Uuid
+  workstream                 Workstream?                         @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  sourceDocumentVersionId    String                              @db.Uuid
+  sourceDocumentVersion      DocumentVersion                     @relation(fields: [sourceDocumentVersionId], references: [id], onDelete: Restrict)
+  readinessCheckId           String                              @db.Uuid
+  readinessCheck             DocumentReadinessCheck              @relation(fields: [readinessCheckId], references: [id], onDelete: Restrict)
+  materialComparisonReviewId String?                             @db.Uuid
+  materialComparisonReview   DocumentComparisonReview?           @relation(fields: [materialComparisonReviewId], references: [id], onDelete: Restrict)
+  priorSetId                 String?                             @db.Uuid
+  priorSet                   DynamicCriteriaSet?                 @relation("ProposalPriorSet", fields: [priorSetId], references: [id], onDelete: Restrict)
+  replacesProposalId         String?                             @db.Uuid
+  replacesProposal           DynamicCriteriaProposal?            @relation("ProposalReplacement", fields: [replacesProposalId], references: [id], onDelete: Restrict)
+  replacementProposals       DynamicCriteriaProposal[]           @relation("ProposalReplacement")
+  proposalNumber             Int
+  version                    Int
+  state                      DynamicCriteriaProposalState        @default(owner_review)
+  outputReference            String                              @unique
+  outputSchemaVersion        String
+  promptVersion              String
+  promptHash                 String
+  createdById                String                              @db.Uuid
+  createdBy                  User                                @relation("DynamicCriteriaProposalCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedAt                 DateTime?                           @db.Timestamptz(6)
+  items                      DynamicCriteriaProposalItem[]
+  transitions                DynamicCriteriaProposalTransition[]
+  reviewSnapshot             CriteriaReviewSnapshot?
+  responses                  CriteriaContributorResponse[]
+  managerResolution          CriteriaManagerResolution?
+  activatedSet               DynamicCriteriaSet?
+  pinnedByRequests           DocumentAnalysisRequest[]           @relation("PinnedCriteriaProposal")
+  createdAt                  DateTime                            @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                            @updatedAt @db.Timestamptz(6)
+
+  @@unique([projectId, proposalNumber])
+  @@unique([workstreamId, proposalNumber])
+  @@index([projectId, state, createdAt(sort: Desc)])
+  @@index([workstreamId, state, createdAt(sort: Desc)])
+  @@index([sourceDocumentVersionId])
+  @@index([priorSetId])
+  @@index([replacesProposalId])
+}
+
+model DynamicCriteriaProposalItem {
+  id                       String                  @id @default(uuid()) @db.Uuid
+  proposalId               String                  @db.Uuid
+  proposal                 DynamicCriteriaProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  position                 Int
+  name                     String
+  selectionReason          String
+  successLink              String
+  expectedBehaviorOrResult String
+  evaluationMethod         String
+  suggestedEvidence        Json
+  sourceReferences         Json
+  createdAt                DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@unique([proposalId, position])
+}
+
+model DynamicCriteriaProposalTransition {
+  id               String                       @id @default(uuid()) @db.Uuid
+  proposalId       String                       @db.Uuid
+  proposal         DynamicCriteriaProposal      @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  fromState        DynamicCriteriaProposalState
+  toState          DynamicCriteriaProposalState
+  actorId          String                       @db.Uuid
+  actor            User                         @relation("CriteriaProposalTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason           String
+  resultingVersion Int
+  createdAt        DateTime                     @default(now()) @db.Timestamptz(6)
+
+  @@unique([proposalId, resultingVersion])
+  @@index([proposalId, createdAt, id])
+  @@index([actorId, createdAt])
+}
+
+model CriteriaReviewSnapshot {
+  id               String                        @id @default(uuid()) @db.Uuid
+  proposalId       String                        @unique @db.Uuid
+  proposal         DynamicCriteriaProposal       @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  primaryOwnerId   String                        @db.Uuid
+  primaryOwner     User                          @relation("CriteriaReviewSnapshotOwner", fields: [primaryOwnerId], references: [id], onDelete: Restrict)
+  responsibilityAt DateTime                      @db.Timestamptz(6)
+  publishedAt      DateTime                      @db.Timestamptz(6)
+  eligibility      CriteriaReviewEligibility[]
+  responses        CriteriaContributorResponse[]
+  createdAt        DateTime                      @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, proposalId])
+  @@index([primaryOwnerId, publishedAt])
+}
+
+model CriteriaReviewEligibility {
+  id               String                        @id @default(uuid()) @db.Uuid
+  snapshotId       String                        @db.Uuid
+  snapshot         CriteriaReviewSnapshot        @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  employeeId       String                        @db.Uuid
+  employee         User                          @relation("CriteriaReviewEligibilityEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  role             CriteriaReviewRole
+  responseRequired Boolean
+  responses        CriteriaContributorResponse[] @relation("ResponseEligibility")
+  createdAt        DateTime                      @default(now()) @db.Timestamptz(6)
+
+  @@unique([snapshotId, employeeId])
+  @@unique([snapshotId, employeeId, responseRequired])
+  @@index([snapshotId, responseRequired, employeeId])
+  @@index([employeeId, createdAt])
+}
+
+model CriteriaContributorResponse {
+  id               String                          @id @default(uuid()) @db.Uuid
+  proposalId       String                          @db.Uuid
+  proposal         DynamicCriteriaProposal         @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  snapshotId       String                          @db.Uuid
+  snapshot         CriteriaReviewSnapshot          @relation(fields: [snapshotId, proposalId], references: [id, proposalId], onDelete: Restrict, map: "CriteriaContributorResponse_snapshot_proposal_fkey")
+  employeeId       String                          @db.Uuid
+  employee         User                            @relation("CriteriaContributorResponseEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  responseRequired Boolean                         @default(true)
+  eligibility      CriteriaReviewEligibility       @relation("ResponseEligibility", fields: [snapshotId, employeeId, responseRequired], references: [snapshotId, employeeId, responseRequired], onDelete: Restrict, map: "CriteriaContributorResponse_eligibility_fkey")
+  response         CriteriaContributorResponseKind
+  reason           String?
+  createdAt        DateTime                        @default(now()) @db.Timestamptz(6)
+
+  @@unique([snapshotId, employeeId])
+  @@index([proposalId, response, createdAt])
+  @@index([employeeId, createdAt])
+}
+
+model CriteriaManagerResolution {
+  id         String                  @id @default(uuid()) @db.Uuid
+  proposalId String                  @unique @db.Uuid
+  proposal   DynamicCriteriaProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  decision   CriteriaManagerDecision
+  reason     String
+  actorId    String                  @db.Uuid
+  actor      User                    @relation("CriteriaManagerResolutionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt  DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@index([actorId, createdAt])
+}
+
+model DynamicCriteriaSet {
+  id                      String                                 @id @default(uuid()) @db.Uuid
+  kind                    DynamicCriteriaKind
+  projectId               String?                                @db.Uuid
+  project                 Project?                               @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId            String?                                @db.Uuid
+  workstream              Workstream?                            @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  version                 Int
+  sourceDocumentVersionId String                                 @db.Uuid
+  sourceDocumentVersion   DocumentVersion                        @relation(fields: [sourceDocumentVersionId], references: [id], onDelete: Restrict)
+  proposalId              String                                 @unique @db.Uuid
+  proposal                DynamicCriteriaProposal                @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  priorSetId              String?                                @db.Uuid
+  priorSet                DynamicCriteriaSet?                    @relation("DynamicCriteriaSetHistory", fields: [priorSetId], references: [id], onDelete: Restrict)
+  nextSets                DynamicCriteriaSet[]                   @relation("DynamicCriteriaSetHistory")
+  sourceProposals         DynamicCriteriaProposal[]              @relation("ProposalPriorSet")
+  approvedAt              DateTime                               @db.Timestamptz(6)
+  effectiveFrom           DateTime                               @db.Timestamptz(6)
+  effectiveTo             DateTime?                              @db.Timestamptz(6)
+  criteria                DynamicCriterion[]
+  transitions             DynamicCriteriaSetTransition[]
+  readinessTransitions    DocumentReadinessLifecycleTransition[]
+  createdAt               DateTime                               @default(now()) @db.Timestamptz(6)
+
+  @@unique([projectId, version])
+  @@unique([workstreamId, version])
+  @@index([projectId, effectiveFrom, effectiveTo])
+  @@index([workstreamId, effectiveFrom, effectiveTo])
+  @@index([sourceDocumentVersionId])
+  @@index([priorSetId])
+}
+
+model DynamicCriterion {
+  id                       String             @id @default(uuid()) @db.Uuid
+  criteriaSetId            String             @db.Uuid
+  criteriaSet              DynamicCriteriaSet @relation(fields: [criteriaSetId], references: [id], onDelete: Restrict)
+  position                 Int
+  name                     String
+  selectionReason          String
+  successLink              String
+  expectedBehaviorOrResult String
+  evaluationMethod         String
+  suggestedEvidence        Json
+  sourceReferences         Json
+  createdAt                DateTime           @default(now()) @db.Timestamptz(6)
+
+  @@unique([criteriaSetId, position])
+}
+
+model DynamicCriteriaSetTransition {
+  id            String                           @id @default(uuid()) @db.Uuid
+  criteriaSetId String                           @db.Uuid
+  criteriaSet   DynamicCriteriaSet               @relation(fields: [criteriaSetId], references: [id], onDelete: Restrict)
+  kind          DynamicCriteriaSetTransitionKind
+  effectiveAt   DateTime                         @db.Timestamptz(6)
+  actorId       String                           @db.Uuid
+  actor         User                             @relation("DynamicCriteriaSetTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason        String
+  createdAt     DateTime                         @default(now()) @db.Timestamptz(6)
+
+  @@unique([criteriaSetId, kind])
+  @@index([criteriaSetId, effectiveAt, id])
+  @@index([actorId, createdAt])
 }
 
 model RoleAssignment {
@@ -888,7 +1390,7 @@ model AiRouteConfigProvider {
 }
 
 model AiOutputSchemaArtifact {
-  id                           String   @id @default(uuid()) @db.Uuid
+  id                           String                    @id @default(uuid()) @db.Uuid
   routeKey                     String
   version                      String
   schemaHash                   String
@@ -897,10 +1399,11 @@ model AiOutputSchemaArtifact {
   expectedBehavior             String
   evaluationEvidenceReferences Json
   humanApprovalPolicy          String
-  createdById                  String   @db.Uuid
-  createdBy                    User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdById                  String                    @db.Uuid
+  createdBy                    User                      @relation(fields: [createdById], references: [id], onDelete: Restrict)
   runs                         AiRun[]
-  createdAt                    DateTime @default(now()) @db.Timestamptz(6)
+  analysisRequests             DocumentAnalysisRequest[]
+  createdAt                    DateTime                  @default(now()) @db.Timestamptz(6)
 
   @@unique([routeKey, version])
   @@unique([id, routeKey, version, schemaHash])
