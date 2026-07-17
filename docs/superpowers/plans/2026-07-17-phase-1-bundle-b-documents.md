@@ -245,7 +245,7 @@ git commit -m "feat: define document contracts and policies"
 
 **Interfaces:**
 - Consumes: `ProjectDatabase` and approved project/workstream lifecycle values.
-- Produces: `DocumentResourceReader.get(input): Promise<DocumentResourceIdentity | null>`, `assertActivatableTemplate(kind, sections): void`, and all package ports used by Tasks 4–6.
+- Produces: `DocumentResourceReader.read(input): Promise<DocumentResourceIdentity | null>`, `assertActivatableTemplate(kind, sections): void`, and all package ports used by Tasks 4–6.
 
 - [ ] **Step 1: Write failing reader and invariant tests**
 
