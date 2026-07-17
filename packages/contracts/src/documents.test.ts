@@ -6,6 +6,7 @@ import {
   CreateDocumentSchema,
   CreateDocumentTemplateVersionSchema,
   DOCUMENT_ERROR_CODES,
+  DocumentDetailSchema,
   PROJECT_PROTECTED_SECTION_KEYS,
   StageUploadMetadataSchema,
   WORKSTREAM_REQUIRED_SECTION_KEYS,
@@ -142,5 +143,42 @@ describe("document contracts", () => {
         "UPLOAD_SAFETY_REJECTED",
       ]),
     );
+  });
+
+  it("returns immutable version history without private object keys", () => {
+    const detail = {
+      id: "00000000-0000-4000-8000-000000000001",
+      kind: "project",
+      resourceId: "00000000-0000-4000-8000-000000000002",
+      templateVersionId: "00000000-0000-4000-8000-000000000003",
+      currentVersion: 1,
+      createdAt: "2026-07-17T12:00:00.000Z",
+      versions: [
+        {
+          id: "00000000-0000-4000-8000-000000000004",
+          documentId: "00000000-0000-4000-8000-000000000001",
+          version: 1,
+          templateVersionId: "00000000-0000-4000-8000-000000000003",
+          createdById: "00000000-0000-4000-8000-000000000005",
+          reason: "Initial document",
+          createdAt: "2026-07-17T12:00:00.000Z",
+          sources: [
+            {
+              id: "00000000-0000-4000-8000-000000000006",
+              position: 1,
+              sourceType: "external_link",
+              url: "https://example.invalid/source",
+            },
+          ],
+        },
+      ],
+    };
+    expect(DocumentDetailSchema.parse(detail)).toMatchObject({ currentVersion: 1 });
+    expect(() =>
+      DocumentDetailSchema.parse({
+        ...detail,
+        versions: [{ ...detail.versions[0], objectKey: "documents/private" }],
+      }),
+    ).toThrow();
   });
 });

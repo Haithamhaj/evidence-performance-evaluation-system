@@ -1,8 +1,9 @@
-import { databaseAuditWriter } from "@evaluation/audit";
 import { S3Client } from "@aws-sdk/client-s3";
+import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
 import {
   ClamAvScanner,
+  DocumentService,
   parseDocumentRuntimeConfig,
   S3PrivateStorage,
   TemplateService,
@@ -18,6 +19,7 @@ import {
 } from "./document-template-policy.guard.js";
 import { DocumentTemplatesController } from "./document-templates.controller.js";
 import { DocumentsAuthenticationGuard } from "./documents-authentication.guard.js";
+import { DocumentsController } from "./documents.controller.js";
 import { UploadsController } from "./uploads.controller.js";
 
 const DOCUMENTS_DATABASE = Symbol("DOCUMENTS_DATABASE");
@@ -36,7 +38,7 @@ export class DocumentsModule {}
 
 Module({
   imports: [AuthModule],
-  controllers: [DocumentTemplatesController, UploadsController],
+  controllers: [DocumentTemplatesController, DocumentsController, UploadsController],
   providers: [
     { provide: DOCUMENTS_DATABASE, useFactory: () => createDatabaseClient(databaseUrl()) },
     {
@@ -122,6 +124,14 @@ Module({
         ClamAvScanner,
         DOCUMENTS_RUNTIME_CONFIG,
       ],
+    },
+    {
+      provide: DocumentService,
+      useFactory: (
+        database: ReturnType<typeof createDatabaseClient>,
+        reader: DocumentResourceReader,
+      ) => new DocumentService(database, reader, databaseAuditWriter as never),
+      inject: [DOCUMENTS_DATABASE, DocumentResourceReader],
     },
     DocumentsAuthenticationGuard,
     DocumentTemplatePolicyGuard,

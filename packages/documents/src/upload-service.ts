@@ -5,9 +5,9 @@ import path from "node:path";
 
 import { databaseAuditWriter } from "@evaluation/audit";
 import { AppError, StageUploadMetadataSchema, UploadedSourceSchema } from "@evaluation/contracts";
-import { decide } from "@evaluation/permissions";
 import { z } from "zod";
 
+import { authorizeDocument } from "./document-authorization.js";
 import { inspectFile } from "./file-inspection.js";
 
 type Database = import("./model.js").DocumentDatabase;
@@ -81,7 +81,13 @@ export class UploadService {
     });
     if (identity === null) throw resourceNotFound();
     if (["completed", "archived"].includes(identity.status)) throw resourceStateInvalid();
-    await authorizeDocument(this.database, parsed.actor, identity, "document.version.create");
+    await authorizeDocument(
+      this.database,
+      parsed.actor,
+      identity,
+      "document.version.create",
+      this.now(),
+    );
 
     const mediaClass = classForFilename(parsed.metadata.filename);
     const directory = await mkdtemp(path.join(this.temporaryRoot, "document-upload-"));
@@ -187,7 +193,7 @@ export class UploadService {
     if (resourceId === null) throw resourceNotFound();
     const identity = await this.reader.read({ kind, resourceId });
     if (identity === null) throw resourceNotFound();
-    await authorizeDocument(this.database, parsed.actor, identity, "document.read");
+    await authorizeDocument(this.database, parsed.actor, identity, "document.read", this.now());
 
     const url = await this.storage.signGet({
       key: source.objectKey,
@@ -217,66 +223,6 @@ export class UploadService {
       ).toISOString(),
     };
   }
-}
-
-async function authorizeDocument(
-  database: Database,
-  actor: Readonly<{ userId: string; active: boolean }>,
-  identity: import("./model.js").DocumentResourceIdentity,
-  action: "document.read" | "document.version.create",
-): Promise<void> {
-  const [user, roles, departmentScope, windows] = await Promise.all([
-    database.user.findUnique({ where: { id: actor.userId }, select: { active: true } }),
-    database.roleAssignment.findMany({
-      where: { userId: actor.userId },
-      select: { role: true, scopeType: true, scopeId: true },
-    }),
-    database.authorizationScope.findFirst({
-      where: { departmentId: identity.departmentId, scopeType: "department" },
-      select: { id: true },
-    }),
-    database.responsibilityWindow.findMany({
-      where: {
-        employeeId: actor.userId,
-        OR: [{ projectId: identity.projectId }, { workstreamId: identity.resourceId }],
-      },
-      select: {
-        projectId: true,
-        workstreamId: true,
-        responsibilityType: true,
-        startsAt: true,
-        endsAt: true,
-      },
-    }),
-  ]);
-  if (user === null || !user.active || !actor.active) throw authorizationError("INACTIVE");
-  if (departmentScope === null) throw authorizationError("SCOPE_MISMATCH");
-  const resource =
-    identity.kind === "project"
-      ? {
-          kind: "project" as const,
-          projectId: identity.resourceId,
-          departmentId: departmentScope.id,
-        }
-      : {
-          kind: "workstream" as const,
-          workstreamId: identity.resourceId,
-          projectId: identity.projectId,
-          departmentId: departmentScope.id,
-        };
-  const decision = decide({ subjectId: actor.userId, active: true, roles }, action, resource, {
-    now: new Date().toISOString(),
-    responsibilityWindows: windows.map((window) => ({
-      subjectId: actor.userId,
-      scopeType: window.workstreamId === null ? ("project" as const) : ("workstream" as const),
-      scopeId: window.workstreamId ?? window.projectId!,
-      ...(window.workstreamId === null ? {} : { projectId: identity.projectId }),
-      responsibilityType: window.responsibilityType,
-      startsAt: window.startsAt.toISOString(),
-      endsAt: window.endsAt?.toISOString() ?? null,
-    })),
-  });
-  if (!decision.allowed) throw authorizationError(decision.reasonCode);
 }
 
 async function stageStream(
@@ -333,11 +279,4 @@ function resourceNotFound() {
 }
 function resourceStateInvalid() {
   return new AppError("RESOURCE_STATE_INVALID", "errors.documents.resourceStateInvalid", 409);
-}
-function authorizationError(reason: import("@evaluation/permissions").DenialReason) {
-  return new AppError(
-    `AUTHZ_${reason}`,
-    "errors.authorization.denied",
-    reason === "UNAUTHENTICATED" ? 401 : 403,
-  );
 }

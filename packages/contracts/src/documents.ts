@@ -219,6 +219,51 @@ export const DocumentRecordSchema = z
   })
   .strict();
 
+export const DocumentVersionSourceSchema = z.discriminatedUnion("sourceType", [
+  z
+    .object({
+      id: UuidSchema,
+      position: PositiveVersionSchema,
+      sourceType: z.literal("upload"),
+      uploadedSource: UploadedSourceSchema,
+    })
+    .strict(),
+  z
+    .object({
+      id: UuidSchema,
+      position: PositiveVersionSchema,
+      sourceType: z.literal("external_link"),
+      url: z.url(),
+    })
+    .strict(),
+  z
+    .object({
+      id: UuidSchema,
+      position: PositiveVersionSchema,
+      sourceType: z.literal("github"),
+      url: z.url(),
+      sourceId: z.string().trim().min(1).max(300),
+    })
+    .strict(),
+]);
+
+export const DocumentVersionSchema = z
+  .object({
+    id: UuidSchema,
+    documentId: UuidSchema,
+    version: PositiveVersionSchema,
+    templateVersionId: UuidSchema,
+    createdById: UuidSchema,
+    reason: ReasonSchema,
+    sources: z.array(DocumentVersionSourceSchema).min(1).max(100),
+    createdAt: UtcInstantSchema,
+  })
+  .strict();
+
+export const DocumentDetailSchema = DocumentRecordSchema.extend({
+  versions: z.array(DocumentVersionSchema),
+}).strict();
+
 export type DocumentKind = z.infer<typeof DocumentKindSchema>;
 export type TemplateScopeType = z.infer<typeof TemplateScopeTypeSchema>;
 export type DocumentTemplateSectionInput = z.infer<typeof DocumentTemplateSectionInputSchema>;
@@ -235,3 +280,6 @@ export type AppendDocumentVersionInput = z.infer<typeof AppendDocumentVersionSch
 export type DocumentTemplateVersion = z.infer<typeof DocumentTemplateVersionSchema>;
 export type UploadedSource = z.infer<typeof UploadedSourceSchema>;
 export type DocumentRecord = z.infer<typeof DocumentRecordSchema>;
+export type DocumentVersionSource = z.infer<typeof DocumentVersionSourceSchema>;
+export type DocumentVersion = z.infer<typeof DocumentVersionSchema>;
+export type DocumentDetail = z.infer<typeof DocumentDetailSchema>;

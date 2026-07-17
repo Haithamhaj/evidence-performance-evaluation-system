@@ -1,5 +1,6 @@
 export * from "./clamav-scanner.js";
 export * from "./document-config.js";
+export * from "./document-service.js";
 export * from "./file-inspection.js";
 export * from "./model.js";
 export * from "./s3-private-storage.js";
