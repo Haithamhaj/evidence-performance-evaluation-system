@@ -37,6 +37,16 @@ export type PolicyAction =
   | "document.template.manage"
   | "document.read"
   | "document.version.create"
+  | "document.analysis.run"
+  | "document.readiness.detail.read"
+  | "document.readiness.summary.read"
+  | "document.comparison.review"
+  | "criteria.generate"
+  | "criteria.owner.review"
+  | "criteria.contributor.respond"
+  | "criteria.manager.resolve"
+  | "criteria.activate"
+  | "criteria.read"
   | "resource.contribute"
   | "resource.read";
 
@@ -52,6 +62,13 @@ export type PolicyResource =
   | Readonly<{ kind: "project"; projectId: string; departmentId: string }>
   | Readonly<{
       kind: "workstream";
+      workstreamId: string;
+      projectId: string;
+      departmentId: string;
+    }>
+  | Readonly<{
+      kind: "criteriaReviewSnapshot";
+      reviewSnapshotId: string;
       workstreamId: string;
       projectId: string;
       departmentId: string;

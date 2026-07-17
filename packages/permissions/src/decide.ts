@@ -154,6 +154,96 @@ function decideContribution(
     : deny("RESOURCE_STATE");
 }
 
+function decideCurrentOwner(
+  subject: import("./model.js").PolicyInput,
+  resource: import("./model.js").PolicyResource,
+  context: import("./model.js").PolicyContext,
+): import("./model.js").Decision {
+  if (resource.kind === "project") {
+    const hasPermanentScope = hasScopedRole(
+      subject,
+      "project_owner",
+      "project",
+      resource.projectId,
+    );
+    const hasActingScope = hasScopedRole(subject, "acting_owner", "project", resource.projectId);
+    if (!hasPermanentScope && !hasActingScope) {
+      return hasRole(subject, "project_owner") || hasRole(subject, "acting_owner")
+        ? deny("SCOPE_MISMATCH")
+        : deny("ROLE_REQUIRED");
+    }
+    const permanentIsActive =
+      hasPermanentScope &&
+      activeResponsibility(subject, context, "project", resource.projectId, [
+        "original",
+        "permanent",
+      ]);
+    const actingIsActive =
+      hasActingScope &&
+      activeResponsibility(subject, context, "project", resource.projectId, ["acting"]);
+    return permanentIsActive || actingIsActive ? allow : deny("RESOURCE_STATE");
+  }
+  if (resource.kind === "workstream") {
+    const hasPermanentScope = hasScopedRole(
+      subject,
+      "workstream_owner",
+      "workstream",
+      resource.workstreamId,
+    );
+    const hasActingScope = hasScopedRole(
+      subject,
+      "acting_owner",
+      "workstream",
+      resource.workstreamId,
+    );
+    if (!hasPermanentScope && !hasActingScope) {
+      return hasRole(subject, "workstream_owner") || hasRole(subject, "acting_owner")
+        ? deny("SCOPE_MISMATCH")
+        : deny("ROLE_REQUIRED");
+    }
+    const permanentIsActive =
+      hasPermanentScope &&
+      activeResponsibility(subject, context, "workstream", resource.workstreamId, [
+        "original",
+        "permanent",
+      ]);
+    const actingIsActive =
+      hasActingScope &&
+      activeResponsibility(subject, context, "workstream", resource.workstreamId, ["acting"]);
+    return permanentIsActive || actingIsActive ? allow : deny("RESOURCE_STATE");
+  }
+  return deny("RESOURCE_STATE");
+}
+
+function decideReadinessDetail(
+  subject: import("./model.js").PolicyInput,
+  resource: import("./model.js").PolicyResource,
+  context: import("./model.js").PolicyContext,
+): import("./model.js").Decision {
+  if (hasRole(subject, "manager")) return deny("ROLE_REQUIRED");
+  if (resource.kind !== "project" && resource.kind !== "workstream") {
+    return deny("RESOURCE_STATE");
+  }
+  const ownerDecision = decideCurrentOwner(subject, resource, context);
+  if (ownerDecision.allowed) return ownerDecision;
+  if (hasRole(subject, "contributor")) {
+    return decideContribution(subject, resource, context);
+  }
+  return ownerDecision;
+}
+
+function decideFrozenContributorResponse(
+  subject: import("./model.js").PolicyInput,
+  resource: import("./model.js").PolicyResource,
+): import("./model.js").Decision {
+  if (resource.kind !== "criteriaReviewSnapshot") return deny("RESOURCE_STATE");
+  // The criteria service matches subjectId against the immutable published snapshot.
+  // This policy intentionally avoids re-checking mutable current contributor scope.
+  return hasRole(subject, "employee") || hasRole(subject, "contributor")
+    ? allow
+    : deny("ROLE_REQUIRED");
+}
+
 function roleMatchesWindow(
   subject: import("./model.js").PolicyInput,
   window: import("./model.js").ResponsibilityAccessWindow,
@@ -300,6 +390,25 @@ function decideKnownAction(
       return deny("RESOURCE_STATE");
     case "document.read":
       return decideResourceRead(subject, resource, context);
+    case "document.readiness.summary.read":
+    case "criteria.read":
+      return decideResourceRead(subject, resource, context);
+    case "document.readiness.detail.read":
+      return decideReadinessDetail(subject, resource, context);
+    case "document.analysis.run":
+    case "document.comparison.review":
+    case "criteria.generate":
+    case "criteria.owner.review":
+    case "criteria.activate":
+      return decideCurrentOwner(subject, resource, context);
+    case "criteria.contributor.respond":
+      return decideFrozenContributorResponse(subject, resource);
+    case "criteria.manager.resolve":
+      if (!hasRole(subject, "manager")) return deny("ROLE_REQUIRED");
+      if (resource.kind !== "workstream") return deny("RESOURCE_STATE");
+      return managerCanAccessDepartment(subject, resource.departmentId)
+        ? allow
+        : deny("SCOPE_MISMATCH");
     case "document.version.create":
       if (resource.kind === "project") {
         return decideOwnerManagement(
