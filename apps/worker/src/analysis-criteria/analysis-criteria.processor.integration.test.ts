@@ -44,6 +44,7 @@ function fixture(
     domainIdempotencyKey: string;
     payloadHash: string;
     audit: null | { actorKind: string; actorId: string; correlationId: string };
+    effectReference: string | null;
   }> = {},
 ) {
   const resultReference = overrides.requestResult ?? null;
@@ -71,11 +72,17 @@ function fixture(
     overrides.audit === undefined
       ? { actorKind: "human", actorId: ids.actorId, correlationId: ids.correlationId }
       : overrides.audit;
+  const effectReference = overrides.effectReference ?? null;
   let openTransactions = 0;
   const transaction = {
     $queryRaw: vi.fn(async () => []),
     documentAnalysisRequest: { findUnique: vi.fn(async () => row) },
     auditEvent: { findFirst: vi.fn(async () => audit) },
+    operationEffectReceipt: {
+      findUnique: vi.fn(async () =>
+        effectReference === null ? null : { receiptReference: effectReference },
+      ),
+    },
   };
   const database = {
     $transaction: vi.fn(async (work: (value: typeof transaction) => Promise<unknown>) => {
@@ -192,6 +199,50 @@ describe("AnalysisCriteriaProcessor", () => {
     });
     await expect(harness.processor.process(envelope())).resolves.toBe(resultReference);
     expect(harness.handlers.readiness.process).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a committed request effect so its running Operation can be finalized", async () => {
+    const resultReference = `document-readiness:${ids.requestId}`;
+    const harness = fixture({
+      requestState: "succeeded",
+      requestResult: resultReference,
+      operationState: "running",
+      operationResult: null,
+    });
+    await expect(harness.processor.process(envelope())).resolves.toBe(
+      `analysis-result:${ids.requestId}`,
+    );
+    expect(harness.handlers.readiness.process).toHaveBeenCalledOnce();
+  });
+
+  it("replays a superseded criteria effect only when the durable receipt and Operation agree", async () => {
+    const resultReference = `criteria-superseded-request:${ids.requestId}`;
+    const harness = fixture({
+      kind: "criteria_project",
+      requestState: "superseded",
+      requestResult: null,
+      operationState: "succeeded",
+      operationResult: resultReference,
+      effectReference: resultReference,
+    });
+    await expect(harness.processor.process(envelope())).resolves.toBe(resultReference);
+    expect(harness.handlers.criteria.process).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a superseded criteria effect while its Operation still needs finalization", async () => {
+    const resultReference = `criteria-superseded-request:${ids.requestId}`;
+    const harness = fixture({
+      kind: "criteria_workstream",
+      requestState: "superseded",
+      requestResult: null,
+      operationState: "running",
+      operationResult: null,
+      effectReference: resultReference,
+    });
+    await expect(harness.processor.process(envelope())).resolves.toBe(
+      `analysis-result:${ids.requestId}`,
+    );
+    expect(harness.handlers.criteria.process).toHaveBeenCalledOnce();
   });
 
   it.each([

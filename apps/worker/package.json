@@ -12,9 +12,13 @@
   },
   "dependencies": {
     "@evaluation/audit": "workspace:*",
+    "@evaluation/ai-routing": "workspace:*",
     "@evaluation/contracts": "workspace:*",
+    "@evaluation/criteria": "workspace:*",
     "@evaluation/database": "workspace:*",
+    "@evaluation/documents": "workspace:*",
     "@evaluation/observability": "workspace:*",
+    "@evaluation/projects": "workspace:*",
     "@nestjs/common": "11.1.28",
     "@nestjs/core": "11.1.28",
     "@nestjs/platform-express": "11.1.28",

@@ -76,16 +76,16 @@ export class AnalysisCriteriaProcessor {
       ) {
         throw new NonRetryableJobError("ANALYSIS_JOB_ACTOR_INVALID");
       }
-      const requestSucceeded =
-        request.state === "succeeded" && request.resultReference !== null;
+      const requestTerminal =
+        ["succeeded", "superseded"].includes(request.state) &&
+        request.resultReference !== null;
       const operationSucceeded =
         request.operation.status === "succeeded" &&
         request.operation.resultReference !== null;
-      if (requestSucceeded || operationSucceeded) {
+      if (requestTerminal) {
         const requestReference = request.resultReference;
         const operationReference = request.operation.resultReference;
         if (
-          requestSucceeded &&
           operationSucceeded &&
           requestReference !== null &&
           operationReference !== null &&
@@ -93,15 +93,40 @@ export class AnalysisCriteriaProcessor {
         ) {
           return { kind: "replay" as const, resultReference: requestReference };
         }
+        if (request.operation.status === "running" && operationReference === null) {
+          return dispatchOf(request, audit.actorId, envelope.correlationId);
+        }
         throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
       }
-      return {
-        kind: "dispatch" as const,
-        requestKind: request.kind,
-        requestId: request.id,
-        actorId: audit.actorId,
-        correlationId: envelope.correlationId,
-      };
+      if (request.state === "superseded") {
+        if (!["criteria_project", "criteria_workstream"].includes(request.kind)) {
+          throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
+        }
+        const effect = await transaction.operationEffectReceipt.findUnique({
+          where: { idempotencyKey: `analysis:${request.id}:validated-result` },
+          select: { receiptReference: true },
+        });
+        if (effect === null) {
+          throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
+        }
+        if (
+          operationSucceeded &&
+          request.operation.resultReference === effect.receiptReference
+        ) {
+          return { kind: "replay" as const, resultReference: effect.receiptReference };
+        }
+        if (
+          request.operation.status === "running" &&
+          request.operation.resultReference === null
+        ) {
+          return dispatchOf(request, audit.actorId, envelope.correlationId);
+        }
+        throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
+      }
+      if (operationSucceeded) {
+        throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
+      }
+      return dispatchOf(request, audit.actorId, envelope.correlationId);
     });
     if (validated.kind === "replay") return validated.resultReference;
     const handler =
@@ -116,6 +141,23 @@ export class AnalysisCriteriaProcessor {
       validated.correlationId,
     );
   }
+}
+
+function dispatchOf(
+  request: Readonly<{
+    id: string;
+    kind: "readiness" | "comparison" | "criteria_project" | "criteria_workstream";
+  }>,
+  actorId: string,
+  correlationId: string,
+) {
+  return {
+    kind: "dispatch" as const,
+    requestKind: request.kind,
+    requestId: request.id,
+    actorId,
+    correlationId,
+  };
 }
 
 function parseEnvelope(value: unknown): import("@evaluation/contracts").JobEnvelope {
