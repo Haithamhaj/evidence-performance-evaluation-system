@@ -1,9 +1,9 @@
 import type { Readable } from "node:stream";
 
-export const READINESS_INPUT_SCHEMA_VERSION = "document-analysis-input.v1";
-export const READINESS_OUTPUT_SCHEMA_VERSION = "document-readiness-output.v1";
-export const COMPARISON_INPUT_SCHEMA_VERSION = "document-comparison-input.v1";
-export const COMPARISON_OUTPUT_SCHEMA_VERSION = "document-comparison-output.v1";
+export const READINESS_INPUT_SCHEMA_VERSION = "document-analysis-input.v2";
+export const READINESS_OUTPUT_SCHEMA_VERSION = "document-readiness-output.v2";
+export const COMPARISON_INPUT_SCHEMA_VERSION = "document-comparison-input.v2";
+export const COMPARISON_OUTPUT_SCHEMA_VERSION = "document-comparison-output.v2";
 
 export type RegisteredPromptReference = Readonly<{
   artifactId: string;

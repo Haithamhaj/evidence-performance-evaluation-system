@@ -21,7 +21,7 @@ function processHarness(loaderError?: Error) {
     afterVersionId: crypto.randomUUID(),
     expectedAggregateVersion: 2,
     promptArtifactId: crypto.randomUUID(),
-    promptVersion: "document-comparison.v1",
+    promptVersion: "document-comparison.v2",
     promptHash: "a".repeat(64),
   };
   const operation: Record<string, any> = {

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-export const CRITERIA_GENERATION_INPUT_SCHEMA_VERSION = "criteria-generation-input.v1";
-export const CRITERIA_GENERATION_OUTPUT_SCHEMA_VERSION = "criteria-generation-output.v1";
-export const CRITERIA_GENERATION_PROMPT_VERSION = "criteria-generation.v1";
+export const CRITERIA_GENERATION_INPUT_SCHEMA_VERSION = "criteria-generation-input.v2";
+export const CRITERIA_GENERATION_OUTPUT_SCHEMA_VERSION = "criteria-generation-output.v2";
+export const CRITERIA_GENERATION_PROMPT_VERSION = "criteria-generation.v2";
 
 const PromptSchema = z
   .object({

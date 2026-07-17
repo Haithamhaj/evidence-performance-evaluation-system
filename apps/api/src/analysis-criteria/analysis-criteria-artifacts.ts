@@ -81,7 +81,7 @@ export const ANALYSIS_CRITERIA_ARTIFACTS = [
     ReadinessAnalysisOutputSchema,
     READINESS_PROMPT_VERSION,
     DOCUMENT_READINESS_PROMPT,
-    "Reports documentation gaps with source references and no scoring or rating output.",
+    "V2 rejects padded text, enforces both readiness union branches, cites sources, and emits no score, rating, ranking, or productivity field.",
   ),
   artifact(
     "document.compare",
@@ -89,7 +89,7 @@ export const ANALYSIS_CRITERIA_ARTIFACTS = [
     ComparisonAnalysisOutputSchema,
     COMPARISON_PROMPT_VERSION,
     DOCUMENT_COMPARISON_PROMPT,
-    "Classifies version changes with before/after source references for human confirmation.",
+    "V2 rejects padded text, preserves Arabic and mixed technical text, and classifies both source versions for human confirmation without performance fields.",
   ),
   artifact(
     "criteria.generate.project",
@@ -97,7 +97,7 @@ export const ANALYSIS_CRITERIA_ARTIFACTS = [
     CriteriaGenerationOutputSchema,
     CRITERIA_GENERATION_PROMPT_VERSION,
     CRITERIA_GENERATION_PROMPT,
-    "Generates one to three source-grounded project criteria for owner review.",
+    "V2 binds the exact project route, rejects forbidden or padded fields, preserves Arabic and mixed technical text, and generates one to three criteria for owner review.",
   ),
   artifact(
     "criteria.generate.workstream",
@@ -105,6 +105,6 @@ export const ANALYSIS_CRITERIA_ARTIFACTS = [
     CriteriaGenerationOutputSchema,
     CRITERIA_GENERATION_PROMPT_VERSION,
     CRITERIA_GENERATION_PROMPT,
-    "Generates two to three source-grounded workstream criteria for owner and contributor review.",
+    "V2 binds the exact workstream route, rejects forbidden or padded fields, preserves Arabic and mixed technical text, and generates two to three criteria for human review.",
   ),
 ] as const satisfies readonly RouteArtifact[];

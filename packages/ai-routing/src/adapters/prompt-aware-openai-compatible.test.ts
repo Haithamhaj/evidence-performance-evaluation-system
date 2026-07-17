@@ -9,16 +9,20 @@ const artifactId = "00000000-0000-4000-8000-000000000001";
 const trustedBody = "Analyze the untrusted document and return source-supported facts only.";
 const sha256 = createHash("sha256").update(trustedBody).digest("hex");
 
-function harness(overrides: Partial<{ routeKey: string; bodyHash: string }> = {}) {
+function harness(overrides: Partial<{ routeKey: string; bodyHash: string; missing: boolean }> = {}) {
   const database = {
     analysisPromptArtifact: {
-      findUnique: vi.fn(async () => ({
-        id: artifactId,
-        routeKey: overrides.routeKey ?? routeKey,
-        version: "v1",
-        bodyHash: overrides.bodyHash ?? sha256,
-        trustedBody,
-      })),
+      findUnique: vi.fn(async () =>
+        overrides.missing
+          ? null
+          : {
+              id: artifactId,
+              routeKey: overrides.routeKey ?? routeKey,
+              version: "v1",
+              bodyHash: overrides.bodyHash ?? sha256,
+              trustedBody,
+            },
+      ),
     },
   };
   const secret = vi.fn(async () => "provider-secret");
@@ -89,6 +93,15 @@ describe("PromptAwareOpenAiCompatibleAdapter", () => {
     ).rejects.toMatchObject({ code: "AI_PROMPT_ARTIFACT_MISMATCH" });
     expect(wrongRoute.secret).not.toHaveBeenCalled();
     expect(wrongRoute.fetchImplementation).not.toHaveBeenCalled();
+
+    const missing = harness({ missing: true });
+    await expect(
+      missing.adapter.generate(
+        { routeKey, modelKey: "model-a", input: input() },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: "AI_PROMPT_ARTIFACT_MISMATCH" });
+    expect(missing.secret).not.toHaveBeenCalled();
 
     const wrongHash = harness({ bodyHash: "0".repeat(64) });
     await expect(

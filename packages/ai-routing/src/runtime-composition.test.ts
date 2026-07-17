@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { AiRouter } from "./router.js";
@@ -10,6 +12,7 @@ describe("createRuntimeAiRouter", () => {
       aiRoute: {
         findMany: vi.fn(async () => [
           {
+            routeKey: "document.analyze",
             configs: [
               { providers: [{ providerConfig: selected }] },
               { providers: [{ providerConfig: provider("retired-provider", 1) }] },
@@ -17,6 +20,7 @@ describe("createRuntimeAiRouter", () => {
           },
         ]),
       },
+      ...artifacts(),
     };
     const secretResolver = { get: vi.fn(async () => "secret") };
 
@@ -40,10 +44,17 @@ describe("createRuntimeAiRouter", () => {
     const database = {
       aiRoute: {
         findMany: vi.fn(async () => [
-          { configs: [{ providers: [{ providerConfig: provider("provider-a", 1) }] }] },
-          { configs: [{ providers: [{ providerConfig: provider("provider-a", 2) }] }] },
+          {
+            routeKey: "document.analyze",
+            configs: [{ providers: [{ providerConfig: provider("provider-a", 1) }] }],
+          },
+          {
+            routeKey: "document.compare",
+            configs: [{ providers: [{ providerConfig: provider("provider-a", 2) }] }],
+          },
         ]),
       },
+      ...artifacts(),
     };
     await expect(
       createRuntimeAiRouter({
@@ -51,6 +62,49 @@ describe("createRuntimeAiRouter", () => {
         secretResolver: { get: vi.fn() },
       }),
     ).rejects.toMatchObject({ code: "AI_PROVIDER_CONFIGURATION_CONFLICT" });
+  });
+
+  it.each([
+    ["missing prompt", { prompt: null }, "AI_PROMPT_ARTIFACT_NOT_FOUND"],
+    [
+      "wrong prompt route",
+      { prompt: { ...promptArtifact(), routeKey: "document.compare" } },
+      "AI_PROMPT_ARTIFACT_MISMATCH",
+    ],
+    [
+      "bad prompt hash",
+      { prompt: { ...promptArtifact(), bodyHash: "0".repeat(64) } },
+      "AI_PROMPT_ARTIFACT_MISMATCH",
+    ],
+    ["missing schema", { schema: null }, "AI_SCHEMA_ARTIFACT_NOT_FOUND"],
+    [
+      "wrong schema route",
+      { schema: { ...schemaArtifact(), routeKey: "document.compare" } },
+      "AI_SCHEMA_ARTIFACT_MISMATCH",
+    ],
+    [
+      "bad schema hash",
+      { schema: { ...schemaArtifact(), schemaHash: "0".repeat(64) } },
+      "AI_SCHEMA_ARTIFACT_MISMATCH",
+    ],
+  ])("fails closed for %s", async (_label, overrides, code) => {
+    const database = {
+      aiRoute: {
+        findMany: vi.fn(async () => [
+          {
+            routeKey: "document.analyze",
+            configs: [{ providers: [{ providerConfig: provider("provider-a", 1) }] }],
+          },
+        ]),
+      },
+      ...artifacts(overrides),
+    };
+    await expect(
+      createRuntimeAiRouter({
+        database: database as never,
+        secretResolver: { get: vi.fn() },
+      }),
+    ).rejects.toMatchObject({ code });
   });
 });
 
@@ -67,4 +121,52 @@ function provider(providerKey: string, version: number) {
     localTrustPolicyVersion: null,
     localTrustAllowedIp: null,
   } as const;
+}
+
+function promptArtifact() {
+  const trustedBody = "Trusted route-bound instruction";
+  return {
+    id: "00000000-0000-4000-8000-000000000020",
+    routeKey: "document.analyze",
+    version: "document-readiness.v2",
+    trustedBody,
+    bodyHash: createHash("sha256").update(trustedBody).digest("hex"),
+  };
+}
+
+function schemaArtifact() {
+  const schemaArtifact = { properties: { state: { type: "string" } }, type: "object" };
+  return {
+    id: "00000000-0000-4000-8000-000000000021",
+    routeKey: "document.analyze",
+    version: "document-readiness-output.v2",
+    schemaArtifact,
+    schemaHash: createHash("sha256")
+      .update(JSON.stringify(schemaArtifact))
+      .digest("hex"),
+  };
+}
+
+function artifacts(
+  overrides: Partial<{
+    prompt: ReturnType<typeof promptArtifact> | null;
+    schema: ReturnType<typeof schemaArtifact> | null;
+  }> = {},
+) {
+  return {
+    analysisPromptArtifact: {
+      findFirst: vi.fn(async () =>
+        Object.prototype.hasOwnProperty.call(overrides, "prompt")
+          ? (overrides.prompt ?? null)
+          : promptArtifact(),
+      ),
+    },
+    aiOutputSchemaArtifact: {
+      findFirst: vi.fn(async () =>
+        Object.prototype.hasOwnProperty.call(overrides, "schema")
+          ? (overrides.schema ?? null)
+          : schemaArtifact(),
+      ),
+    },
+  };
 }

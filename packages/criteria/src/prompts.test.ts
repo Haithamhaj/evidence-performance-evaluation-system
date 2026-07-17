@@ -8,6 +8,12 @@ import {
 } from "./prompts.js";
 
 describe("criteria generation prompt", () => {
+  it("versions the changed route-bound input, output, and prompt contracts", () => {
+    expect(CRITERIA_GENERATION_INPUT_SCHEMA_VERSION).toBe("criteria-generation-input.v2");
+    expect(CRITERIA_GENERATION_OUTPUT_SCHEMA_VERSION).toBe("criteria-generation-output.v2");
+    expect(CRITERIA_GENERATION_PROMPT_VERSION).toBe("criteria-generation.v2");
+  });
+
   it("keeps the registered prompt trusted and separately delimits every untrusted input", () => {
     const request = buildCriteriaGenerationRequest({
       kind: "workstream",

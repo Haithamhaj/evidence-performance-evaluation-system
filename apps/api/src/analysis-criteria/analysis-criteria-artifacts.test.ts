@@ -11,6 +11,8 @@ describe("analysis criteria AI artifacts", () => {
       "criteria.generate.workstream",
     ]);
     for (const artifact of ANALYSIS_CRITERIA_ARTIFACTS) {
+      expect(artifact.outputSchemaVersion).toMatch(/\.v2$/u);
+      expect(artifact.prompt.version).toMatch(/\.v2$/u);
       expect(artifact.outputSchemaDescriptor.routeKey).toBe(artifact.routeKey);
       expect(artifact.outputSchemaDescriptor.schemaHash).toMatch(/^[a-f0-9]{64}$/u);
       expect(artifact.prompt.sha256).toMatch(/^[a-f0-9]{64}$/u);

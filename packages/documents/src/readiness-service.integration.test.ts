@@ -42,7 +42,7 @@ function processHarness(
     afterVersionId: null,
     expectedAggregateVersion: 1,
     promptArtifactId: crypto.randomUUID(),
-    promptVersion: "document-readiness.v1",
+    promptVersion: "document-readiness.v2",
     promptHash: "a".repeat(64),
     ...options.initialRequest,
   };
@@ -415,7 +415,7 @@ describe("ReadinessService", () => {
       afterVersionId: null,
       expectedAggregateVersion: 1,
       promptArtifactId: crypto.randomUUID(),
-      promptVersion: "document-readiness.v1",
+      promptVersion: "document-readiness.v2",
       promptHash: "a".repeat(64),
       attemptCount: 1,
     } as const;

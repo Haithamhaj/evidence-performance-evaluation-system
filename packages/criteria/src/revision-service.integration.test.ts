@@ -57,7 +57,7 @@ function createHarness() {
     aiOutputSchemaArtifact: {
       findUnique: vi.fn(async () => ({
         id: schemaArtifactId,
-        version: "criteria-generation-output.v1",
+        version: "criteria-generation-output.v2",
         schemaHash: "schema-hash",
       })),
     },

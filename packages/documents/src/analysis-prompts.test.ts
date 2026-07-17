@@ -18,6 +18,11 @@ const source = {
 };
 
 describe("analysis prompt boundaries", () => {
+  it("versions the route-bound prompt envelopes independently", () => {
+    expect(READINESS_PROMPT_VERSION).toBe("document-readiness.v2");
+    expect(COMPARISON_PROMPT_VERSION).toBe("document-comparison.v2");
+  });
+
   it("keeps readiness instructions registered and document bytes explicitly untrusted", () => {
     const built = buildReadinessRequest({
       prompt,

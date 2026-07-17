@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-export const READINESS_PROMPT_VERSION = "document-readiness.v1";
-export const COMPARISON_PROMPT_VERSION = "document-comparison.v1";
+export const READINESS_PROMPT_VERSION = "document-readiness.v2";
+export const COMPARISON_PROMPT_VERSION = "document-comparison.v2";
 
 const PromptSchema = z
   .object({

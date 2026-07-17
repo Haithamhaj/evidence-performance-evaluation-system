@@ -1,4 +1,5 @@
 import { AppError } from "@evaluation/contracts";
+import { createHash } from "node:crypto";
 
 import { PromptAwareOpenAiCompatibleAdapter } from "./adapters/prompt-aware-openai-compatible.js";
 import { PrismaAiRoutingRepository } from "./prisma-repository.js";
@@ -30,9 +31,11 @@ export async function createRuntimeAiRouter(input: {
     string,
     (typeof routes)[number]["configs"][number]["providers"][number]["providerConfig"]
   >();
+  const selectedRouteKeys = new Set<string>();
   for (const route of routes) {
     const activeConfig = route.configs[0];
     if (activeConfig === undefined) continue;
+    selectedRouteKeys.add(route.routeKey);
     for (const { providerConfig } of activeConfig.providers) {
       const existing = activeProviders.get(providerConfig.providerKey);
       if (existing !== undefined && existing.id !== providerConfig.id) {
@@ -45,6 +48,11 @@ export async function createRuntimeAiRouter(input: {
       activeProviders.set(providerConfig.providerKey, providerConfig);
     }
   }
+  await Promise.all(
+    [...selectedRouteKeys].map((routeKey) =>
+      requireRouteArtifacts(input.database, routeKey),
+    ),
+  );
   const adapters = [...activeProviders.values()].map((provider) => {
     if (provider.adapterKey !== "openai-compatible") {
       throw new AppError(
@@ -75,4 +83,86 @@ export async function createRuntimeAiRouter(input: {
   });
   const repository = new PrismaAiRoutingRepository(input.database);
   return new AiRouter(repository, repository, adapters);
+}
+
+async function requireRouteArtifacts(
+  database: import("@evaluation/database").DatabaseClient,
+  routeKey: string,
+): Promise<void> {
+  const [prompt, schema] = await Promise.all([
+    database.analysisPromptArtifact.findFirst({
+      where: { routeKey },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        routeKey: true,
+        version: true,
+        bodyHash: true,
+        trustedBody: true,
+      },
+    }),
+    database.aiOutputSchemaArtifact.findFirst({
+      where: { routeKey },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        routeKey: true,
+        version: true,
+        schemaHash: true,
+        schemaArtifact: true,
+      },
+    }),
+  ]);
+  if (prompt === null) {
+    throw new AppError(
+      "AI_PROMPT_ARTIFACT_NOT_FOUND",
+      "errors.ai.promptArtifactNotFound",
+      500,
+    );
+  }
+  if (
+    prompt.routeKey !== routeKey ||
+    prompt.version.length === 0 ||
+    !/^[a-f0-9]{64}$/u.test(prompt.bodyHash) ||
+    sha256(prompt.trustedBody) !== prompt.bodyHash
+  ) {
+    throw new AppError(
+      "AI_PROMPT_ARTIFACT_MISMATCH",
+      "errors.ai.promptArtifactMismatch",
+      500,
+    );
+  }
+  if (schema === null) {
+    throw new AppError(
+      "AI_SCHEMA_ARTIFACT_NOT_FOUND",
+      "errors.ai.schemaArtifactNotFound",
+      500,
+    );
+  }
+  if (
+    schema.routeKey !== routeKey ||
+    schema.version.length === 0 ||
+    !/^[a-f0-9]{64}$/u.test(schema.schemaHash) ||
+    sha256(canonicalJson(schema.schemaArtifact)) !== schema.schemaHash
+  ) {
+    throw new AppError(
+      "AI_SCHEMA_ARTIFACT_MISMATCH",
+      "errors.ai.schemaArtifactMismatch",
+      500,
+    );
+  }
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+    .join(",")}}`;
 }

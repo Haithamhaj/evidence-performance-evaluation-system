@@ -59,7 +59,8 @@ export async function registerAnalysisCriteriaAiArtifacts(
         schema: artifact.outputSchema,
         reason: parsed.reason,
         expectedBehavior: artifact.prompt.expectedBehavior,
-        evaluationEvidenceReferences: ["ai-eval:analysis-criteria-v1"],
+        // Task 7B materializes this exact deterministic fixture/test reference before closure.
+        evaluationEvidenceReferences: ["ai-eval:analysis-criteria-v2"],
         correlationId: parsed.correlationId,
       });
       await database.$transaction(async (transaction) => {
