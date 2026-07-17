@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { open as openFile, stat } from "node:fs/promises";
 import { TextDecoder } from "node:util";
 
 import { AppError } from "@evaluation/contracts";
@@ -107,10 +107,15 @@ async function assertUtf8(path: string): Promise<void> {
 }
 
 async function inspectDocx(path: string, policy: InspectionInput["policy"]): Promise<void> {
+  let file: OpenFile | undefined;
   try {
+    file = await openFile(path, "r");
+    const archiveFile = file;
     const zip = await openZip(path);
+    const centralDirectoryStart = zip.readEntryCursor as unknown as number;
     await new Promise<void>((resolve, reject) => {
       const names = new Set<string>();
+      const localRanges: ArchiveRange[] = [];
       let entries = 0;
       let actualTotal = 0;
       let settled = false;
@@ -122,13 +127,21 @@ async function inspectDocx(path: string, policy: InspectionInput["policy"]): Pro
       };
       zip.on("error", fail);
       zip.on("end", () => {
-        if (settled) return;
-        settled = true;
-        if (!names.has("[Content_Types].xml") || !names.has("word/document.xml")) {
-          reject(safetyRejected());
-          return;
-        }
-        resolve();
+        void (async () => {
+          if (settled) return;
+          if (!names.has("[Content_Types].xml") || !names.has("word/document.xml"))
+            throw safetyRejected();
+          await assertArchiveLayout({
+            file: archiveFile,
+            fileSize: zip.fileSize,
+            entryCount: entries,
+            centralDirectoryStart,
+            centralDirectoryEnd: zip.readEntryCursor as unknown as number,
+            localRanges,
+          });
+          settled = true;
+          resolve();
+        })().catch(fail);
       });
       zip.on("entry", (entry: yauzl.Entry) => {
         void (async () => {
@@ -144,6 +157,9 @@ async function inspectDocx(path: string, policy: InspectionInput["policy"]): Pro
           )
             throw safetyRejected();
           names.add(entry.fileName);
+          localRanges.push(
+            ...(await inspectLocalRecord(archiveFile, zip, entry, centralDirectoryStart)),
+          );
           if (entry.fileName.endsWith("/")) {
             zip.readEntry();
             return;
@@ -173,7 +189,147 @@ async function inspectDocx(path: string, policy: InspectionInput["policy"]): Pro
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw safetyRejected();
+  } finally {
+    await file?.close().catch(() => undefined);
   }
+}
+
+type ArchiveRange = Readonly<{ start: number; end: number }>;
+type OpenFile = Awaited<ReturnType<typeof openFile>>;
+
+async function inspectLocalRecord(
+  file: OpenFile,
+  zip: yauzl.ZipFile,
+  entry: yauzl.Entry,
+  centralDirectoryStart: number,
+): Promise<ArchiveRange[]> {
+  const local = await readLocalHeader(zip, entry);
+  if (
+    !local.fileName.equals(entry.fileNameRaw) ||
+    local.generalPurposeBitFlag !== entry.generalPurposeBitFlag ||
+    local.compressionMethod !== entry.compressionMethod
+  )
+    throw safetyRejected();
+
+  const usesDescriptor = (entry.generalPurposeBitFlag & 8) !== 0;
+  if (usesDescriptor) {
+    if (local.crc32 !== 0 || local.compressedSize !== 0 || local.uncompressedSize !== 0)
+      throw safetyRejected();
+  } else if (
+    local.crc32 !== entry.crc32 ||
+    local.compressedSize !== entry.compressedSize ||
+    local.uncompressedSize !== entry.uncompressedSize
+  ) {
+    throw safetyRejected();
+  }
+
+  const fileDataEnd = local.fileDataStart + entry.compressedSize;
+  if (
+    !Number.isSafeInteger(entry.relativeOffsetOfLocalHeader) ||
+    !Number.isSafeInteger(local.fileDataStart) ||
+    !Number.isSafeInteger(fileDataEnd) ||
+    entry.relativeOffsetOfLocalHeader < 0 ||
+    local.fileDataStart <= entry.relativeOffsetOfLocalHeader ||
+    fileDataEnd < local.fileDataStart ||
+    fileDataEnd > centralDirectoryStart
+  )
+    throw safetyRejected();
+
+  const ranges: ArchiveRange[] = [
+    { start: entry.relativeOffsetOfLocalHeader, end: local.fileDataStart },
+  ];
+  if (fileDataEnd > local.fileDataStart)
+    ranges.push({ start: local.fileDataStart, end: fileDataEnd });
+  if (usesDescriptor)
+    ranges.push(await inspectDataDescriptor(file, fileDataEnd, entry, centralDirectoryStart));
+  return ranges;
+}
+
+function readLocalHeader(zip: yauzl.ZipFile, entry: yauzl.Entry): Promise<yauzl.LocalFileHeader> {
+  return new Promise((resolve, reject) => {
+    zip.readLocalFileHeader(entry, (error, header) => {
+      if (error) reject(error);
+      else resolve(header);
+    });
+  });
+}
+
+async function inspectDataDescriptor(
+  file: OpenFile,
+  start: number,
+  entry: yauzl.Entry,
+  centralDirectoryStart: number,
+): Promise<ArchiveRange> {
+  const prefix = await readExactly(file, 4, start, centralDirectoryStart);
+  const hasSignature = prefix.readUInt32LE(0) === 0x08074b50;
+  const remainderLength = hasSignature ? 12 : 8;
+  const remainder = await readExactly(file, remainderLength, start + 4, centralDirectoryStart);
+  const crc = hasSignature ? remainder.readUInt32LE(0) : prefix.readUInt32LE(0);
+  const compressedSize = remainder.readUInt32LE(hasSignature ? 4 : 0);
+  const uncompressedSize = remainder.readUInt32LE(hasSignature ? 8 : 4);
+  if (
+    crc !== entry.crc32 ||
+    compressedSize !== entry.compressedSize ||
+    uncompressedSize !== entry.uncompressedSize
+  )
+    throw safetyRejected();
+  return { start, end: start + 4 + remainderLength };
+}
+
+async function assertArchiveLayout(input: {
+  file: OpenFile;
+  fileSize: number;
+  entryCount: number;
+  centralDirectoryStart: number;
+  centralDirectoryEnd: number;
+  localRanges: readonly ArchiveRange[];
+}): Promise<void> {
+  const ranges = [...input.localRanges].sort((left, right) => left.start - right.start);
+  let cursor = 0;
+  for (const range of ranges) {
+    if (
+      !Number.isSafeInteger(range.start) ||
+      !Number.isSafeInteger(range.end) ||
+      range.start !== cursor ||
+      range.end <= range.start
+    )
+      throw safetyRejected();
+    cursor = range.end;
+  }
+  if (
+    cursor !== input.centralDirectoryStart ||
+    !Number.isSafeInteger(input.centralDirectoryEnd) ||
+    input.centralDirectoryEnd < input.centralDirectoryStart ||
+    input.fileSize !== input.centralDirectoryEnd + 22
+  )
+    throw safetyRejected();
+
+  const end = await readExactly(input.file, 22, input.centralDirectoryEnd, input.fileSize);
+  if (
+    end.readUInt32LE(0) !== 0x06054b50 ||
+    end.readUInt16LE(4) !== 0 ||
+    end.readUInt16LE(6) !== 0 ||
+    end.readUInt16LE(8) !== input.entryCount ||
+    end.readUInt16LE(10) !== input.entryCount ||
+    end.readUInt32LE(12) !== input.centralDirectoryEnd - input.centralDirectoryStart ||
+    end.readUInt32LE(16) !== input.centralDirectoryStart ||
+    end.readUInt16LE(20) !== 0
+  )
+    throw safetyRejected();
+}
+
+async function readExactly(
+  file: OpenFile,
+  length: number,
+  position: number,
+  upperBound: number,
+): Promise<Buffer> {
+  if (!Number.isSafeInteger(position) || position < 0 || position + length > upperBound)
+    throw safetyRejected();
+  const bytes = Buffer.alloc(length);
+  const { bytesRead } = await file.read(bytes, 0, length, position);
+  if (bytesRead !== length) throw safetyRejected();
+  return bytes;
 }
 
 function openZip(path: string): Promise<yauzl.ZipFile> {

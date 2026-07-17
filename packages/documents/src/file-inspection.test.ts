@@ -117,9 +117,97 @@ describe("file inspection", () => {
       }),
     ).rejects.toMatchObject({ code: "UPLOAD_SAFETY_REJECTED" });
   });
+
+  it("rejects a local filename that differs from the central directory", async () => {
+    const mismatched = zip([
+      { name: "[Content_Types].xml", data: Buffer.from("<Types></Types>") },
+      { name: "word/document.xml", data: Buffer.from("<document />") },
+    ]);
+    mismatched[30] = "X".charCodeAt(0);
+    const target = await fixture("mismatched-name.docx", mismatched);
+
+    await expect(
+      inspectFile({
+        path: target,
+        filename: "mismatched-name.docx",
+        declaredMime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        policy,
+      }),
+    ).rejects.toMatchObject({ code: "UPLOAD_SAFETY_REJECTED" });
+  });
+
+  it.each([
+    ["flags", 6, 1],
+    ["compression method", 8, 0],
+    ["CRC-32", 14, 1],
+    ["compressed size", 18, 1],
+    ["uncompressed size", 22, 1],
+  ])("rejects mismatched local %s", async (_field, offset, value) => {
+    const mismatched = zip([
+      { name: "[Content_Types].xml", data: Buffer.from("<Types></Types>") },
+      { name: "word/document.xml", data: Buffer.from("<document />") },
+    ]);
+    if (offset === 6 || offset === 8) mismatched.writeUInt16LE(value, offset);
+    else mismatched.writeUInt32LE(value, offset);
+    const target = await fixture("mismatched-field.docx", mismatched);
+
+    await expect(
+      inspectFile({
+        path: target,
+        filename: "mismatched-field.docx",
+        declaredMime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        policy,
+      }),
+    ).rejects.toMatchObject({ code: "UPLOAD_SAFETY_REJECTED" });
+  });
+
+  it("rejects unexpected bytes between local entries and the central directory", async () => {
+    const archive = zip([
+      { name: "[Content_Types].xml", data: Buffer.from("<Types></Types>") },
+      { name: "word/document.xml", data: Buffer.from("<document />") },
+    ]);
+    const withGap = insertBeforeCentralDirectory(archive, Buffer.from([0]));
+    const target = await fixture("unexpected-structure.docx", withGap);
+
+    await expect(
+      inspectFile({
+        path: target,
+        filename: "unexpected-structure.docx",
+        declaredMime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        policy,
+      }),
+    ).rejects.toMatchObject({ code: "UPLOAD_SAFETY_REJECTED" });
+  });
+
+  it("accepts entries that use a matching data descriptor", async () => {
+    const target = await fixture(
+      "descriptor.docx",
+      zip([
+        {
+          name: "[Content_Types].xml",
+          data: Buffer.from("<Types></Types>"),
+          dataDescriptor: true,
+        },
+        {
+          name: "word/document.xml",
+          data: Buffer.from("<document />"),
+          dataDescriptor: true,
+        },
+      ]),
+    );
+
+    await expect(
+      inspectFile({
+        path: target,
+        filename: "descriptor.docx",
+        declaredMime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        policy,
+      }),
+    ).resolves.toMatchObject({ detectedType: "docx" });
+  });
 });
 
-type ZipEntry = Readonly<{ name: string; data: Buffer }>;
+type ZipEntry = Readonly<{ name: string; data: Buffer; dataDescriptor?: boolean }>;
 
 function zip(entries: readonly ZipEntry[], forgeFirstSize = false): Buffer {
   const locals: Buffer[] = [];
@@ -132,17 +220,26 @@ function zip(entries: readonly ZipEntry[], forgeFirstSize = false): Buffer {
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(entry.dataDescriptor === true ? 8 : 0, 6);
     local.writeUInt16LE(8, 8);
-    local.writeUInt32LE(checksum, 14);
-    local.writeUInt32LE(compressed.length, 18);
-    local.writeUInt32LE(entry.data.length, 22);
+    local.writeUInt32LE(entry.dataDescriptor === true ? 0 : checksum, 14);
+    local.writeUInt32LE(entry.dataDescriptor === true ? 0 : compressed.length, 18);
+    local.writeUInt32LE(entry.dataDescriptor === true ? 0 : entry.data.length, 22);
     local.writeUInt16LE(name.length, 26);
-    locals.push(local, name, compressed);
+    const descriptor = Buffer.alloc(entry.dataDescriptor === true ? 16 : 0);
+    if (entry.dataDescriptor === true) {
+      descriptor.writeUInt32LE(0x08074b50, 0);
+      descriptor.writeUInt32LE(checksum, 4);
+      descriptor.writeUInt32LE(compressed.length, 8);
+      descriptor.writeUInt32LE(entry.data.length, 12);
+    }
+    locals.push(local, name, compressed, descriptor);
 
     const directory = Buffer.alloc(46);
     directory.writeUInt32LE(0x02014b50, 0);
     directory.writeUInt16LE(20, 4);
     directory.writeUInt16LE(20, 6);
+    directory.writeUInt16LE(entry.dataDescriptor === true ? 8 : 0, 8);
     directory.writeUInt16LE(8, 10);
     directory.writeUInt32LE(checksum, 16);
     directory.writeUInt32LE(compressed.length, 20);
@@ -153,7 +250,7 @@ function zip(entries: readonly ZipEntry[], forgeFirstSize = false): Buffer {
     directory.writeUInt16LE(name.length, 28);
     directory.writeUInt32LE(offset, 42);
     central.push(directory, name);
-    offset += local.length + name.length + compressed.length;
+    offset += local.length + name.length + compressed.length + descriptor.length;
   }
   const centralBytes = Buffer.concat(central);
   const end = Buffer.alloc(22);
@@ -163,6 +260,18 @@ function zip(entries: readonly ZipEntry[], forgeFirstSize = false): Buffer {
   end.writeUInt32LE(centralBytes.length, 12);
   end.writeUInt32LE(offset, 16);
   return Buffer.concat([...locals, centralBytes, end]);
+}
+
+function insertBeforeCentralDirectory(archive: Buffer, bytes: Buffer): Buffer {
+  const endOffset = archive.length - 22;
+  const centralOffset = archive.readUInt32LE(endOffset + 16);
+  const changed = Buffer.concat([
+    archive.subarray(0, centralOffset),
+    bytes,
+    archive.subarray(centralOffset),
+  ]);
+  changed.writeUInt32LE(centralOffset + bytes.length, endOffset + bytes.length + 16);
+  return changed;
 }
 
 function crc32(bytes: Uint8Array): number {
