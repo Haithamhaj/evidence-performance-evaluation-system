@@ -1,11 +1,17 @@
 import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
-import { createProjectService, ProjectService } from "@evaluation/projects";
+import {
+  createProjectService,
+  createWorkstreamService,
+  ProjectService,
+  WorkstreamService,
+} from "@evaluation/projects";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
 import { PROJECTS_POLICY_DATABASE, ProjectPolicyGuard } from "./project-policy-loaders.js";
 import { ProjectsController } from "./projects.controller.js";
+import { WorkstreamsController } from "./workstreams.controller.js";
 
 const PROJECTS_DATABASE = Symbol("PROJECTS_DATABASE");
 const PROJECTS_DATABASE_LIFECYCLE = Symbol("PROJECTS_DATABASE_LIFECYCLE");
@@ -20,7 +26,7 @@ export class ProjectsModule {}
 
 Module({
   imports: [AuthModule],
-  controllers: [ProjectsController],
+  controllers: [ProjectsController, WorkstreamsController],
   providers: [
     {
       provide: PROJECTS_DATABASE,
@@ -42,6 +48,12 @@ Module({
       provide: ProjectService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
         createProjectService(client, databaseAuditWriter as never),
+      inject: [PROJECTS_DATABASE],
+    },
+    {
+      provide: WorkstreamService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        createWorkstreamService(client, databaseAuditWriter as never),
       inject: [PROJECTS_DATABASE],
     },
     ProjectPolicyGuard,

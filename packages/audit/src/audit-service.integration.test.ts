@@ -77,6 +77,14 @@ describe("append-only audit persistence", () => {
     ).toThrow();
   });
 
+  it("accepts the shared governed-reason range without rejecting valid domain commands", () => {
+    expect(() => AuditEventInputSchema.parse(eventInput({ reason: "x" }))).not.toThrow();
+    expect(() =>
+      AuditEventInputSchema.parse(eventInput({ reason: "x".repeat(1_000) })),
+    ).not.toThrow();
+    expect(() => AuditEventInputSchema.parse(eventInput({ reason: "x".repeat(1_001) }))).toThrow();
+  });
+
   it.each([
     { token: "value" },
     { nested: { secretValue: "value" } },

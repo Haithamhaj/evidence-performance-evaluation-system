@@ -125,4 +125,121 @@ describe("ProjectPolicyGuard", () => {
       guard.canActivate(context({ principal, params: { projectId } })),
     ).rejects.toMatchObject({ code: "AUTHZ_RESOURCE_STATE" });
   });
+
+  it("authorizes an active workstream owner only for the matching parent and workstream", async () => {
+    const projectId = "00000000-0000-4000-8000-000000000010";
+    const workstreamId = "00000000-0000-4000-8000-000000000011";
+    const reflector = { get: vi.fn(() => "workstream.manage") };
+    const database = {
+      roleAssignment: {
+        findMany: vi.fn(async () => [
+          { role: "workstream_owner", scopeType: "workstream", scopeId: workstreamId },
+        ]),
+      },
+      workstream: {
+        findFirst: vi.fn(async () => ({
+          projectId,
+          project: { departmentId: "00000000-0000-4000-8000-000000000012" },
+        })),
+      },
+      authorizationScope: {
+        findFirst: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000013" })),
+      },
+      responsibilityWindow: {
+        findMany: vi.fn(async () => [
+          {
+            projectId: null,
+            workstreamId,
+            responsibilityType: "original",
+            startsAt: new Date("2020-01-01T00:00:00Z"),
+            endsAt: null,
+          },
+        ]),
+      },
+    };
+    const guard = new ProjectPolicyGuard(reflector as never, database as never);
+
+    await expect(
+      guard.canActivate(context({ principal, params: { projectId, workstreamId } })),
+    ).resolves.toBe(true);
+    expect(database.workstream.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: workstreamId, projectId } }),
+    );
+  });
+
+  it("allows an active project owner to read a matching child workstream", async () => {
+    const projectId = "00000000-0000-4000-8000-000000000020";
+    const workstreamId = "00000000-0000-4000-8000-000000000021";
+    const reflector = { get: vi.fn(() => "resource.read") };
+    const database = {
+      roleAssignment: {
+        findMany: vi.fn(async () => [
+          { role: "project_owner", scopeType: "project", scopeId: projectId },
+        ]),
+      },
+      workstream: {
+        findFirst: vi.fn(async () => ({
+          projectId,
+          project: { departmentId: "00000000-0000-4000-8000-000000000022" },
+        })),
+      },
+      authorizationScope: {
+        findFirst: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000023" })),
+      },
+      responsibilityWindow: {
+        findMany: vi.fn(async () => [
+          {
+            projectId,
+            workstreamId: null,
+            responsibilityType: "original",
+            startsAt: new Date("2020-01-01T00:00:00Z"),
+            endsAt: null,
+          },
+        ]),
+      },
+    };
+    const guard = new ProjectPolicyGuard(reflector as never, database as never);
+
+    await expect(
+      guard.canActivate(context({ principal, params: { projectId, workstreamId } })),
+    ).resolves.toBe(true);
+  });
+
+  it("allows an active workstream contributor to read the parent project summary", async () => {
+    const projectId = "00000000-0000-4000-8000-000000000030";
+    const workstreamId = "00000000-0000-4000-8000-000000000031";
+    const reflector = { get: vi.fn(() => "resource.read") };
+    const database = {
+      roleAssignment: {
+        findMany: vi.fn(async () => [
+          { role: "contributor", scopeType: "workstream", scopeId: workstreamId },
+        ]),
+      },
+      project: {
+        findUnique: vi.fn(async () => ({
+          departmentId: "00000000-0000-4000-8000-000000000032",
+        })),
+      },
+      authorizationScope: {
+        findFirst: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000033" })),
+      },
+      responsibilityWindow: {
+        findMany: vi.fn(async () => [
+          {
+            projectId: null,
+            workstreamId,
+            workstream: { projectId },
+            responsibilityType: "contributor",
+            startsAt: new Date("2020-01-01T00:00:00Z"),
+            endsAt: null,
+          },
+        ]),
+      },
+    };
+    const guard = new ProjectPolicyGuard(reflector as never, database as never);
+
+    await expect(guard.canActivate(context({ principal, params: { projectId } }))).resolves.toBe(
+      true,
+    );
+  });
 });

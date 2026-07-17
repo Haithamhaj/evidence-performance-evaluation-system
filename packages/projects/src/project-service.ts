@@ -706,13 +706,25 @@ async function loadProjectReadScope(
     },
     select: { projectId: true },
   });
+  const workstreamResponsibilities = await transaction.responsibilityWindow.findMany({
+    where: {
+      employeeId: actor.userId,
+      workstreamId: { not: null },
+      startsAt: { lte: now },
+      OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+    },
+    select: { workstream: { select: { projectId: true } } },
+  });
   return {
     departmentIds: departmentScopes.flatMap(({ departmentId }) =>
       departmentId === null ? [] : [departmentId],
     ),
-    projectIds: responsibilities.flatMap(({ projectId }) =>
-      projectId === null ? [] : [projectId],
-    ),
+    projectIds: [
+      ...responsibilities.flatMap(({ projectId }) => (projectId === null ? [] : [projectId])),
+      ...workstreamResponsibilities.flatMap(({ workstream }) =>
+        workstream === null ? [] : [workstream.projectId],
+      ),
+    ],
   };
 }
 
