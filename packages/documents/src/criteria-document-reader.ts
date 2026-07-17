@@ -1,20 +1,23 @@
 import { AppError } from "@evaluation/contracts";
+import type { ReadinessLifecycleState } from "@evaluation/contracts";
+
+import type * as DocumentModel from "./model.js";
 
 export type CriteriaDocumentPrerequisites = Readonly<{
   documentId: string;
   documentVersionId: string;
   documentVersion: number;
   readinessCheckId: string;
-  lifecycleState: import("@evaluation/contracts").ReadinessLifecycleState;
+  lifecycleState: ReadinessLifecycleState;
   projectId: string;
   workstreamId: string | null;
   sourceReferences: readonly string[];
 }>;
 
 export class CriteriaDocumentReader {
-  private readonly database: import("./model.js").DocumentDatabase;
+  private readonly database: DocumentModel.DocumentDatabase;
 
-  constructor(database: import("./model.js").DocumentDatabase) {
+  constructor(database: DocumentModel.DocumentDatabase) {
     this.database = database;
   }
 
@@ -23,11 +26,11 @@ export class CriteriaDocumentReader {
       documentVersionId: string;
     }>,
   ): Promise<CriteriaDocumentPrerequisites | null> {
-    return this.getPrerequisitesUsing(this.database, input);
+    return this.getPrerequisitesUsing(this.database as DocumentModel.DocumentDatabase, input);
   }
 
   async getPrerequisitesIn(
-    transaction: import("./model.js").DocumentTransaction,
+    transaction: DocumentModel.DocumentTransaction,
     input: Readonly<{ documentVersionId: string }>,
   ): Promise<CriteriaDocumentPrerequisites | null> {
     await transaction.$queryRaw`
@@ -43,7 +46,7 @@ export class CriteriaDocumentReader {
   }
 
   private async getPrerequisitesUsing(
-    database: Pick<import("./model.js").DocumentDatabase, "documentReadinessCheck">,
+    database: Pick<DocumentModel.DocumentDatabase, "documentReadinessCheck">,
     input: Readonly<{ documentVersionId: string }>,
   ): Promise<CriteriaDocumentPrerequisites | null> {
     const readiness = await database.documentReadinessCheck.findFirst({
@@ -85,12 +88,12 @@ export class CriteriaDocumentReader {
   }
 
   async appendLifecycleTransition(
-    transaction: import("./model.js").DocumentTransaction,
+    transaction: DocumentModel.DocumentTransaction,
     input: Readonly<{
       readinessCheckId: string;
       documentVersionId: string;
-      fromState: import("@evaluation/contracts").ReadinessLifecycleState;
-      toState: import("@evaluation/contracts").ReadinessLifecycleState;
+      fromState: ReadinessLifecycleState;
+      toState: ReadinessLifecycleState;
       actorId: string;
       reason: string;
       effectiveAt: Date;
@@ -106,18 +109,22 @@ export class CriteriaDocumentReader {
 }
 
 export function assertReadinessLifecycleTransition(
-  from: import("@evaluation/contracts").ReadinessLifecycleState,
-  to: import("@evaluation/contracts").ReadinessLifecycleState,
+  from: ReadinessLifecycleState,
+  to: ReadinessLifecycleState,
 ) {
-  const allowed: Readonly<Record<string, readonly string[]>> = {
-    draft: ["incomplete", "ready_for_criteria_generation"],
-    incomplete: ["superseded"],
-    ready_for_criteria_generation: ["revision_required", "criteria_approved", "superseded"],
-    revision_required: ["criteria_approved", "superseded"],
-    criteria_approved: ["revision_required", "superseded"],
-    superseded: [],
-  };
-  if (!allowed[from]?.includes(to)) {
+  const allowed =
+    from === "draft"
+      ? ["incomplete", "ready_for_criteria_generation"]
+      : from === "incomplete"
+        ? ["superseded"]
+        : from === "ready_for_criteria_generation"
+          ? ["revision_required", "criteria_approved", "superseded"]
+          : from === "revision_required"
+            ? ["criteria_approved", "superseded"]
+            : from === "criteria_approved"
+              ? ["revision_required", "superseded"]
+              : [];
+  if (!(allowed as readonly ReadinessLifecycleState[]).includes(to)) {
     throw new AppError(
       "READINESS_LIFECYCLE_INVALID",
       "errors.documents.readinessLifecycleInvalid",

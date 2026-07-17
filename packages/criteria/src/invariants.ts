@@ -1,25 +1,12 @@
 import { AppError } from "@evaluation/contracts";
 
-const proposalTransitions: Readonly<
-  Record<
-    import("./model.js").CriteriaProposalState,
-    ReadonlySet<import("./model.js").CriteriaProposalState>
-  >
-> = {
-  owner_review: new Set(["contributor_review", "approved", "rejected", "superseded"]),
-  contributor_review: new Set(["approved", "manager_resolution", "superseded"]),
-  manager_resolution: new Set(["approved", "superseded"]),
-  approved: new Set(["activated", "superseded"]),
-  rejected: new Set(),
-  superseded: new Set(),
-  activated: new Set(),
-};
+import type * as CriteriaModel from "./model.js";
 
 function criteriaError(code: string): AppError {
   return new AppError(code, `errors.criteria.${code.toLowerCase()}`, 422);
 }
 
-export function assertCriterionCount(kind: import("./model.js").CriteriaKind, count: number): void {
+export function assertCriterionCount(kind: CriteriaModel.CriteriaKind, count: number): void {
   const valid = Number.isInteger(count) && (kind === "project" ? count >= 1 : count >= 2);
   if (!valid || count > 3) throw criteriaError("CRITERIA_COUNT_INVALID");
 }
@@ -28,14 +15,13 @@ export function assertCollectionComplete(
   eligibility: readonly Readonly<{ employeeId: string; responseRequired: boolean }>[],
   responses: readonly Readonly<{
     employeeId: string;
-    response: import("./model.js").ContributorResponse;
+    response: CriteriaModel.ContributorResponse;
   }>[],
 ): Readonly<{ complete: boolean; objectionCount: number }> {
-  const required = new Set(
-    eligibility
-      .filter(({ responseRequired }) => responseRequired)
-      .map(({ employeeId }) => employeeId),
-  );
+  const required = new Set<string>();
+  for (const entry of eligibility) {
+    if (entry.responseRequired) required.add(entry.employeeId);
+  }
   const seen = new Set<string>();
   let objectionCount = 0;
   for (const response of responses) {
@@ -50,8 +36,8 @@ export function assertCollectionComplete(
 
 export function assertManagerResolution(
   objectionCount: number,
-  resolution: Readonly<{ decision: import("./model.js").ManagerResolution; reason: string }>,
-): Readonly<{ decision: import("./model.js").ManagerResolution; reason: string }> {
+  resolution: Readonly<{ decision: CriteriaModel.ManagerResolution; reason: string }>,
+): Readonly<{ decision: CriteriaModel.ManagerResolution; reason: string }> {
   if (!Number.isInteger(objectionCount) || objectionCount < 1 || resolution.reason.trim() === "") {
     throw criteriaError("CRITERIA_RESOLUTION_INVALID");
   }
@@ -75,10 +61,20 @@ export function assertProspectiveEffectiveFrom(
 }
 
 export function assertProposalTransition(
-  fromState: import("./model.js").CriteriaProposalState,
-  toState: import("./model.js").CriteriaProposalState,
+  fromState: CriteriaModel.CriteriaProposalState,
+  toState: CriteriaModel.CriteriaProposalState,
 ): void {
-  if (!proposalTransitions[fromState].has(toState)) {
+  const allowed =
+    fromState === "owner_review"
+      ? ["contributor_review", "approved", "rejected", "superseded"]
+      : fromState === "contributor_review"
+        ? ["approved", "manager_resolution", "superseded"]
+        : fromState === "manager_resolution"
+          ? ["approved", "superseded"]
+          : fromState === "approved"
+            ? ["activated", "superseded"]
+            : [];
+  if (!(allowed as readonly CriteriaModel.CriteriaProposalState[]).includes(toState)) {
     throw criteriaError("CRITERIA_TRANSITION_INVALID");
   }
 }
