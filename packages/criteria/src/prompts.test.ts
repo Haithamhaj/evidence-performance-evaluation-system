@@ -30,13 +30,16 @@ describe("criteria generation prompt", () => {
     expect(request.inputSchemaVersion).toBe(CRITERIA_GENERATION_INPUT_SCHEMA_VERSION);
     expect(request.outputSchemaVersion).toBe(CRITERIA_GENERATION_OUTPUT_SCHEMA_VERSION);
     expect(request.promptTemplateVersion).toBe(CRITERIA_GENERATION_PROMPT_VERSION);
-    expect(request.input.untrustedDocument.begin).toBe("BEGIN_UNTRUSTED_DOCUMENT");
-    expect(request.input.untrustedDocument.end).toBe("END_UNTRUSTED_DOCUMENT");
-    expect(request.input.untrustedReadiness.begin).toBe("BEGIN_UNTRUSTED_READINESS");
-    expect(request.input.untrustedReadiness.end).toBe("END_UNTRUSTED_READINESS");
-    expect(request.input.untrustedOwnerFeedback.begin).toBe("BEGIN_UNTRUSTED_OWNER_FEEDBACK");
-    expect(request.input.untrustedOwnerFeedback.end).toBe("END_UNTRUSTED_OWNER_FEEDBACK");
+    expect(request.input.untrustedContent.document.begin).toBe("BEGIN_UNTRUSTED_DOCUMENT");
+    expect(request.input.untrustedContent.document.end).toBe("END_UNTRUSTED_DOCUMENT");
+    expect(request.input.untrustedContent.readiness.begin).toBe("BEGIN_UNTRUSTED_READINESS");
+    expect(request.input.untrustedContent.readiness.end).toBe("END_UNTRUSTED_READINESS");
+    expect(request.input.untrustedContent.ownerFeedback.begin).toBe(
+      "BEGIN_UNTRUSTED_OWNER_FEEDBACK",
+    );
+    expect(request.input.untrustedContent.ownerFeedback.end).toBe("END_UNTRUSTED_OWNER_FEEDBACK");
     expect(request.input.trustedInstruction).toEqual({
+      routeKey: "criteria.generate.workstream",
       artifactId: request.input.trustedInstruction.artifactId,
       version: CRITERIA_GENERATION_PROMPT_VERSION,
       sha256: "a".repeat(64),
@@ -54,6 +57,6 @@ describe("criteria generation prompt", () => {
       readinessSourceReferences: [],
     });
     expect(request.routeKey).toBe("criteria.generate.project");
-    expect(request.input.untrustedOwnerFeedback.value).toBeNull();
+    expect(request.input.untrustedContent.ownerFeedback.value).toBeNull();
   });
 });

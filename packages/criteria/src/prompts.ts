@@ -34,34 +34,38 @@ export function buildCriteriaGenerationRequest(input: unknown) {
     .strict()
     .parse(input);
 
+  const routeKey = `criteria.generate.${parsed.kind}` as const;
   return {
-    routeKey: `criteria.generate.${parsed.kind}` as const,
+    routeKey,
     inputSchemaVersion: CRITERIA_GENERATION_INPUT_SCHEMA_VERSION,
     outputSchemaVersion: CRITERIA_GENERATION_OUTPUT_SCHEMA_VERSION,
     promptTemplateVersion: CRITERIA_GENERATION_PROMPT_VERSION,
     input: {
       trustedInstruction: {
+        routeKey,
         artifactId: parsed.prompt.artifactId,
         version: CRITERIA_GENERATION_PROMPT_VERSION,
         sha256: parsed.prompt.sha256,
       },
-      untrustedDocument: {
-        begin: "BEGIN_UNTRUSTED_DOCUMENT",
-        sources: parsed.documentSources.map((source) => ({ ...source })),
-        end: "END_UNTRUSTED_DOCUMENT",
-        handling,
-      },
-      untrustedReadiness: {
-        begin: "BEGIN_UNTRUSTED_READINESS",
-        sourceReferences: [...parsed.readinessSourceReferences],
-        end: "END_UNTRUSTED_READINESS",
-        handling,
-      },
-      untrustedOwnerFeedback: {
-        begin: "BEGIN_UNTRUSTED_OWNER_FEEDBACK",
-        value: parsed.ownerFeedback ?? null,
-        end: "END_UNTRUSTED_OWNER_FEEDBACK",
-        handling,
+      untrustedContent: {
+        document: {
+          begin: "BEGIN_UNTRUSTED_DOCUMENT",
+          sources: parsed.documentSources.map((source) => ({ ...source })),
+          end: "END_UNTRUSTED_DOCUMENT",
+          handling,
+        },
+        readiness: {
+          begin: "BEGIN_UNTRUSTED_READINESS",
+          sourceReferences: [...parsed.readinessSourceReferences],
+          end: "END_UNTRUSTED_READINESS",
+          handling,
+        },
+        ownerFeedback: {
+          begin: "BEGIN_UNTRUSTED_OWNER_FEEDBACK",
+          value: parsed.ownerFeedback ?? null,
+          end: "END_UNTRUSTED_OWNER_FEEDBACK",
+          handling,
+        },
       },
     },
   };

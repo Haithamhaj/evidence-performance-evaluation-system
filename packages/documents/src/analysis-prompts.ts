@@ -24,8 +24,12 @@ const SectionSchema = z
   })
   .passthrough();
 
-function instruction(prompt: z.infer<typeof PromptSchema>, version: string) {
-  return { artifactId: prompt.artifactId, version, sha256: prompt.sha256 };
+function instruction(
+  routeKey: "document.analyze" | "document.compare",
+  prompt: z.infer<typeof PromptSchema>,
+  version: string,
+) {
+  return { routeKey, artifactId: prompt.artifactId, version, sha256: prompt.sha256 };
 }
 
 function delimited(sources: readonly z.infer<typeof SourceSchema>[], begin: string, end: string) {
@@ -49,7 +53,7 @@ export function buildReadinessRequest(input: unknown) {
     .parse(input);
   return {
     promptTemplateVersion: READINESS_PROMPT_VERSION,
-    trustedInstruction: instruction(parsed.prompt, READINESS_PROMPT_VERSION),
+    trustedInstruction: instruction("document.analyze", parsed.prompt, READINESS_PROMPT_VERSION),
     untrustedContent: {
       templateSections: parsed.templateSections.map((section) => ({ ...section })),
       document: delimited(parsed.sources, "BEGIN_UNTRUSTED_DOCUMENT", "END_UNTRUSTED_DOCUMENT"),
@@ -67,7 +71,7 @@ export function buildComparisonRequest(input: unknown) {
     .parse(input);
   return {
     promptTemplateVersion: COMPARISON_PROMPT_VERSION,
-    trustedInstruction: instruction(parsed.prompt, COMPARISON_PROMPT_VERSION),
+    trustedInstruction: instruction("document.compare", parsed.prompt, COMPARISON_PROMPT_VERSION),
     untrustedContent: {
       beforeDocumentVersionId: parsed.before.documentVersionId,
       before: delimited(

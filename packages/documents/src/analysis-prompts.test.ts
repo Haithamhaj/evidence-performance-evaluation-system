@@ -26,6 +26,7 @@ describe("analysis prompt boundaries", () => {
     });
     expect(built.promptTemplateVersion).toBe(READINESS_PROMPT_VERSION);
     expect(built.trustedInstruction).toEqual({
+      routeKey: "document.analyze",
       artifactId: prompt.artifactId,
       version: READINESS_PROMPT_VERSION,
       sha256: prompt.sha256,
@@ -51,6 +52,7 @@ describe("analysis prompt boundaries", () => {
       },
     });
     expect(built.promptTemplateVersion).toBe(COMPARISON_PROMPT_VERSION);
+    expect(built.trustedInstruction.routeKey).toBe("document.compare");
     expect(built.untrustedContent.before.begin).toBe("BEGIN_UNTRUSTED_DOCUMENT_BEFORE");
     expect(built.untrustedContent.before.end).toBe("END_UNTRUSTED_DOCUMENT_BEFORE");
     expect(built.untrustedContent.after.begin).toBe("BEGIN_UNTRUSTED_DOCUMENT_AFTER");
