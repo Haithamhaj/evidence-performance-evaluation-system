@@ -4,7 +4,6 @@ import {
   OwnerReviewCriteriaSchema,
   RespondToCriteriaSchema,
   ResolveCriteriaObjectionsSchema,
-  ReviseCriteriaSchema,
 } from "@evaluation/contracts";
 import {
   ActivationService,
@@ -62,13 +61,25 @@ type AnalysisRequest = Readonly<{
 }>;
 
 export class CriteriaController {
+  private readonly proposals: ProposalService;
+  private readonly reviews: WorkstreamReviewService;
+  private readonly activation: ActivationService;
+  private readonly revisions: RevisionService;
+  private readonly versions: CriteriaVersionResolver;
+
   constructor(
-    private readonly proposals: ProposalService,
-    private readonly reviews: WorkstreamReviewService,
-    private readonly activation: ActivationService,
-    private readonly revisions: RevisionService,
-    private readonly versions: CriteriaVersionResolver,
-  ) {}
+    proposals: ProposalService,
+    reviews: WorkstreamReviewService,
+    activation: ActivationService,
+    revisions: RevisionService,
+    versions: CriteriaVersionResolver,
+  ) {
+    this.proposals = proposals;
+    this.reviews = reviews;
+    this.activation = activation;
+    this.revisions = revisions;
+    this.versions = versions;
+  }
 
   createProposal(request: AnalysisRequest, body: unknown) {
     const input = parse(ProposalRequestSchema, body);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AnalysisSourceReferenceSchema,
   ComparisonAnalysisOutputSchema,
   ManagerReadinessSummarySchema,
   ReadinessAnalysisOutputSchema,
@@ -12,6 +13,24 @@ import {
 const sourceReference = "document-version:00000000-0000-4000-8000-000000000001";
 
 describe("document analysis contracts", () => {
+  it("keeps opaque source references portable without accepting URLs or secret labels", () => {
+    for (const accepted of [
+      "document-version:00000000-0000-4000-8000-000000000001",
+      "mytoken:123",
+      "source_name:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    ]) {
+      expect(AnalysisSourceReferenceSchema.parse(accepted)).toBe(accepted);
+    }
+    for (const rejected of [
+      "https:123",
+      "api-key:123",
+      "source-token:123",
+      "credential:00000000-0000-4000-8000-000000000001",
+    ]) {
+      expect(() => AnalysisSourceReferenceSchema.parse(rejected)).toThrow();
+    }
+  });
+
   it("publishes only the approved readiness lifecycle states", () => {
     expect(ReadinessLifecycleStateSchema.options).toEqual([
       "draft",
@@ -78,6 +97,28 @@ describe("document analysis contracts", () => {
         sourceReferences: ["https://example.invalid/private"],
       }),
     ).toThrow();
+    expect(() =>
+      ReadinessAnalysisOutputSchema.parse({
+        state: "incomplete",
+        missingItems: [],
+        sourceReferences: [sourceReference],
+      }),
+    ).toThrow();
+    expect(() =>
+      ReadinessAnalysisOutputSchema.parse({
+        state: "ready_for_criteria_generation",
+        missingItems: [
+          {
+            templateSectionKey: "scope",
+            missingItem: "Scope",
+            whyItMatters: "Grounding",
+            correctionInstruction: "Add scope",
+            sourceReferences: [sourceReference],
+          },
+        ],
+        sourceReferences: [sourceReference],
+      }),
+    ).toThrow();
   });
 
   it("retains both sides of a material comparison", () => {
@@ -89,6 +130,22 @@ describe("document analysis contracts", () => {
         afterSourceReferences: ["document-version:00000000-0000-4000-8000-000000000005"],
       }),
     ).toMatchObject({ classification: "material_scope_or_goal_change" });
+    expect(() =>
+      ComparisonAnalysisOutputSchema.parse({
+        classification: "editorial",
+        impactExplanation: " padded",
+        beforeSourceReferences: [sourceReference],
+        afterSourceReferences: [sourceReference],
+      }),
+    ).toThrow();
+    expect(
+      ComparisonAnalysisOutputSchema.parse({
+        classification: "routine_execution_update",
+        impactExplanation: "تحديث داخلي على المسار /repo/src مع بقاء النطاق",
+        beforeSourceReferences: [sourceReference],
+        afterSourceReferences: [sourceReference],
+      }),
+    ).toMatchObject({ classification: "routine_execution_update" });
   });
 
   it("requires an append-only human confirmation or correction reason", () => {

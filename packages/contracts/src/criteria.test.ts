@@ -39,6 +39,22 @@ describe("dynamic criteria contracts", () => {
         }),
       ).toThrow();
     }
+    expect(() =>
+      CriteriaGenerationOutputSchema.parse({
+        criteria: [{ ...criterion, name: `${criterion.name} ` }],
+      }),
+    ).toThrow();
+    expect(
+      CriteriaGenerationOutputSchema.parse({
+        criteria: [
+          {
+            ...criterion,
+            name: "تكامل API الداخلي",
+            expectedBehaviorOrResult: "يعمل المسار /repo/src مع توثيق English واضح",
+          },
+        ],
+      }),
+    ).toMatchObject({ criteria: [{ name: "تكامل API الداخلي" }] });
   });
 
   it("enforces the shared one-to-three output envelope", () => {

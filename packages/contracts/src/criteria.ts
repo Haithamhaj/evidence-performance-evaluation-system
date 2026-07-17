@@ -6,15 +6,21 @@ const UuidSchema = z.string().uuid();
 const UtcInstantSchema = z.iso.datetime({ offset: true });
 const ReasonSchema = z.string().trim().min(1).max(1_000);
 const FeedbackSchema = z.string().trim().min(1).max(4_000);
+const normalizedText = (max: number) =>
+  z
+    .string()
+    .min(1)
+    .max(max)
+    .regex(/^\S(?:[\s\S]*\S)?$/u);
 
 export const CriterionProposalItemSchema = z
   .object({
-    name: z.string().trim().min(1).max(300),
-    selectionReason: z.string().trim().min(1).max(2_000),
-    successLink: z.string().trim().min(1).max(2_000),
-    expectedBehaviorOrResult: z.string().trim().min(1).max(4_000),
-    evaluationMethod: z.string().trim().min(1).max(4_000),
-    suggestedEvidence: z.array(z.string().trim().min(1).max(1_000)).min(1).max(20),
+    name: normalizedText(300),
+    selectionReason: normalizedText(2_000),
+    successLink: normalizedText(2_000),
+    expectedBehaviorOrResult: normalizedText(4_000),
+    evaluationMethod: normalizedText(4_000),
+    suggestedEvidence: z.array(normalizedText(1_000)).min(1).max(20),
     sourceReferences: z.array(AnalysisSourceReferenceSchema).min(1).max(50),
   })
   .strict();
