@@ -12,7 +12,12 @@
     "@evaluation/database": "workspace:*",
     "@evaluation/permissions": "workspace:*",
     "@evaluation/projects": "workspace:*",
+    "file-type": "21.3.4",
+    "yauzl": "3.4.0",
     "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/yauzl": "3.4.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
