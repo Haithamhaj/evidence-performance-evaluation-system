@@ -383,7 +383,7 @@ describe("ProposalService request and owner review", () => {
       documentVersion: 1,
       readinessCheckId,
       lifecycleState: "ready_for_criteria_generation",
-      projectId,
+      projectId: null,
       workstreamId: resourceId,
       sourceReferences: [`document-source:${crypto.randomUUID()}`],
     } as const;

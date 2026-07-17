@@ -9,7 +9,7 @@ export type CriteriaDocumentPrerequisites = Readonly<{
   documentVersion: number;
   readinessCheckId: string;
   lifecycleState: ReadinessLifecycleState;
-  projectId: string;
+  projectId: string | null;
   workstreamId: string | null;
   sourceReferences: readonly string[];
 }>;
@@ -18,6 +18,18 @@ export type CriteriaDocumentVersionIdentity = Readonly<{
   documentId: string;
   documentVersionId: string;
   isCurrent: boolean;
+}>;
+
+export type ReviewedMaterialCriteriaRevision = Readonly<{
+  comparisonReviewId: string;
+  documentId: string;
+  beforeDocumentVersionId: string;
+  afterDocumentVersionId: string;
+  effectiveClassification:
+    "editorial" | "routine_execution_update" | "material_scope_or_goal_change";
+  reviewReason: string;
+  isLatestReview: boolean;
+  isCurrentAfterVersion: boolean;
 }>;
 
 export class CriteriaDocumentReader {
@@ -69,19 +81,88 @@ export class CriteriaDocumentReader {
         id: true,
         documentId: true,
         version: true,
-        document: { select: { currentVersion: true } },
       },
     });
     if (version === null) return null;
+    const document = await transaction.documentRecord.findUnique({
+      where: { id: version.documentId },
+      select: { currentVersion: true },
+    });
+    if (document === null) return null;
     return {
       documentId: version.documentId,
       documentVersionId: version.id,
-      isCurrent: version.version === version.document.currentVersion,
+      isCurrent: version.version === document.currentVersion,
+    };
+  }
+
+  async lockReviewedMaterialRevisionIn(
+    transaction: DocumentModel.DocumentTransaction,
+    input: Readonly<{ comparisonReviewId: string }>,
+  ): Promise<ReviewedMaterialCriteriaRevision | null> {
+    await transaction.$queryRaw`
+      SELECT review.id
+      FROM "DocumentComparisonReview" review
+      INNER JOIN "DocumentComparison" comparison
+        ON comparison.id = review."comparisonId"
+      INNER JOIN "DocumentRecord" document
+        ON document.id = comparison."documentId"
+      WHERE review.id = ${input.comparisonReviewId}::uuid
+      FOR UPDATE OF review, comparison, document
+    `;
+    const review = await transaction.documentComparisonReview.findUnique({
+      where: { id: input.comparisonReviewId },
+      select: {
+        id: true,
+        comparisonId: true,
+        effectiveClassification: true,
+        reason: true,
+      },
+    });
+    if (review === null) return null;
+    const comparison = await transaction.documentComparison.findUnique({
+      where: { id: review.comparisonId },
+      select: {
+        documentId: true,
+        beforeVersionId: true,
+        afterVersionId: true,
+      },
+    });
+    if (comparison === null) return null;
+    const afterVersion = await transaction.documentVersion.findUnique({
+      where: { id: comparison.afterVersionId },
+      select: { version: true },
+    });
+    const document = await transaction.documentRecord.findUnique({
+      where: { id: comparison.documentId },
+      select: { currentVersion: true },
+    });
+    if (afterVersion === null || document === null) return null;
+    const latest = await transaction.documentComparisonReview.findFirst({
+      where: { comparison: { documentId: comparison.documentId } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    });
+    return {
+      comparisonReviewId: review.id,
+      documentId: comparison.documentId,
+      beforeDocumentVersionId: comparison.beforeVersionId,
+      afterDocumentVersionId: comparison.afterVersionId,
+      effectiveClassification: review.effectiveClassification,
+      reviewReason: review.reason,
+      isLatestReview: latest?.id === review.id,
+      isCurrentAfterVersion: afterVersion.version === document.currentVersion,
     };
   }
 
   private async getPrerequisitesUsing(
-    database: Pick<DocumentModel.DocumentDatabase, "documentReadinessCheck">,
+    database: Pick<
+      DocumentModel.DocumentDatabase,
+      | "documentReadinessCheck"
+      | "documentReadinessLifecycleTransition"
+      | "documentRecord"
+      | "documentVersion"
+    >,
     input: Readonly<{ documentVersionId: string }>,
   ): Promise<CriteriaDocumentPrerequisites | null> {
     const readiness = await database.documentReadinessCheck.findFirst({
@@ -91,31 +172,43 @@ export class CriteriaDocumentReader {
         stale: false,
       },
       orderBy: { createdAt: "desc" },
-      include: {
-        document: { select: { projectId: true, workstreamId: true } },
-        documentVersion: { select: { version: true } },
-        lifecycleTransitions: {
-          orderBy: [{ effectiveAt: "desc" }, { id: "desc" }],
-          take: 1,
-        },
+      select: {
+        id: true,
+        documentId: true,
+        documentVersionId: true,
+        sourceReferences: true,
       },
     });
-    const latest = readiness?.lifecycleTransitions[0];
+    if (readiness === null) return null;
+    const document = await database.documentRecord.findUnique({
+      where: { id: readiness.documentId },
+      select: { projectId: true, workstreamId: true },
+    });
+    const version = await database.documentVersion.findUnique({
+      where: { id: readiness.documentVersionId },
+      select: { version: true },
+    });
+    const latest = await database.documentReadinessLifecycleTransition.findFirst({
+      where: { readinessCheckId: readiness.id },
+      orderBy: [{ effectiveAt: "desc" }, { id: "desc" }],
+      select: { toState: true },
+    });
     if (
-      readiness === null ||
-      latest === undefined ||
+      document === null ||
+      version === null ||
+      latest === null ||
       !["ready_for_criteria_generation", "revision_required"].includes(latest.toState) ||
-      readiness.document.projectId === null
+      (document.projectId === null && document.workstreamId === null)
     )
       return null;
     return {
       documentId: readiness.documentId,
       documentVersionId: readiness.documentVersionId,
-      documentVersion: readiness.documentVersion.version,
+      documentVersion: version.version,
       readinessCheckId: readiness.id,
       lifecycleState: latest.toState,
-      projectId: readiness.document.projectId,
-      workstreamId: readiness.document.workstreamId,
+      projectId: document.projectId,
+      workstreamId: document.workstreamId,
       sourceReferences: Array.isArray(readiness.sourceReferences)
         ? (readiness.sourceReferences as string[])
         : [],

@@ -60,7 +60,7 @@ type CriteriaDocumentPrerequisites = Readonly<{
   documentVersion: number;
   readinessCheckId: string;
   lifecycleState: import("@evaluation/contracts").ReadinessLifecycleState;
-  projectId: string;
+  projectId: string | null;
   workstreamId: string | null;
   sourceReferences: readonly string[];
 }>;
@@ -264,7 +264,7 @@ export class ProposalService {
       prerequisites.documentVersionId !== command.documentVersionId ||
       (command.kind === "project"
         ? prerequisites.projectId !== command.resourceId || prerequisites.workstreamId !== null
-        : prerequisites.workstreamId !== command.resourceId)
+        : prerequisites.projectId !== null || prerequisites.workstreamId !== command.resourceId)
     ) {
       throw forbidden();
     }
@@ -572,6 +572,19 @@ export class ProposalService {
       workstreamId: request.kind === "workstream" ? request.resourceId : null,
       sourceReferences: [],
     });
+    const priorSet =
+      request.materialComparisonReviewId === null || request.replacesProposalId === null
+        ? null
+        : await transaction.dynamicCriteriaSet.findUnique({
+            where: { proposalId: request.replacesProposalId },
+            select: { id: true, effectiveTo: true },
+          });
+    if (
+      request.materialComparisonReviewId !== null &&
+      (priorSet === null || priorSet.effectiveTo !== null)
+    ) {
+      throw replacementInvalid();
+    }
 
     await lockCriteriaScope(transaction, request);
     const proposalNumber =
@@ -591,6 +604,7 @@ export class ProposalService {
         sourceDocumentVersionId: request.documentVersionId,
         readinessCheckId: request.readinessCheckId,
         materialComparisonReviewId: request.materialComparisonReviewId,
+        priorSetId: priorSet?.id ?? null,
         replacesProposalId: request.replacesProposalId,
         proposalNumber,
         version: 1,
@@ -974,9 +988,7 @@ async function validateOwnerFeedbackLineage(
     (pins.expectedResourceId !== undefined && currentResourceId !== pins.expectedResourceId) ||
     prior === null ||
     prior.kind !== pins.kind ||
-    priorResourceId !== currentResourceId ||
-    prior.state !== "superseded" ||
-    !hasCorrectionTransition
+    priorResourceId !== currentResourceId
   ) {
     throw replacementInvalid();
   }
@@ -994,6 +1006,8 @@ async function validateOwnerFeedbackLineage(
     });
     if (
       pins.materialComparisonReviewId !== null ||
+      prior.state !== "superseded" ||
+      !hasCorrectionTransition ||
       prior.sourceDocumentVersionId !== pins.documentVersionId ||
       transition === null ||
       transition.proposalId !== pins.replacesProposalId ||
@@ -1018,8 +1032,15 @@ async function validateOwnerFeedbackLineage(
       },
     },
   });
+  const priorSet = await transaction.dynamicCriteriaSet.findUnique({
+    where: { proposalId: pins.replacesProposalId },
+    select: { id: true, effectiveTo: true },
+  });
   if (
     pins.materialComparisonReviewId !== source.referenceId ||
+    prior.state !== "activated" ||
+    priorSet === null ||
+    priorSet.effectiveTo !== null ||
     review === null ||
     review.effectiveClassification !== "material_scope_or_goal_change" ||
     review.comparison.documentId !== documentVersion.documentId ||

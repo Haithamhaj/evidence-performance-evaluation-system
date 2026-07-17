@@ -12,7 +12,8 @@
     "@evaluation/database": "workspace:*"
   },
   "devDependencies": {
-    "@evaluation/documents": "workspace:*"
+    "@evaluation/documents": "workspace:*",
+    "@evaluation/projects": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

@@ -282,6 +282,9 @@ importers:
       '@evaluation/documents':
         specifier: workspace:*
         version: link:../documents
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:../projects
 
   packages/database:
     dependencies:
