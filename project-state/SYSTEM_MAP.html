@@ -568,7 +568,7 @@
             <span class="tag">Implemented</span><strong>NestJS Modular API</strong
             ><span
               >Authentication, scoped authorization, projects, workstreams, responsibility, and
-              eligibility.</span
+              versioned documents.</span
             >
           </div>
           <div class="arrow">→</div>
@@ -619,10 +619,11 @@
             </p>
           </div>
           <div class="card">
-            <h3>Private Object Storage</h3>
+            <span class="tag">Bundle B complete</span>
+            <h3>Private Document Storage</h3>
             <p>
-              MinIO provides the Phase 0 S3-compatible infrastructure boundary; product upload
-              workflows remain later-phase work.
+              Streamed type, size, archive, and malware checks fail closed before private MinIO
+              storage. Every short-lived read is authorized again.
             </p>
           </div>
           <div class="card">
@@ -633,6 +634,35 @@
               transfers, half-open UTC responsibility windows, scoped reads, and same-transaction
               audit.
             </p>
+          </div>
+          <div class="card">
+            <span class="tag">Bundle B complete</span>
+            <h3>Document Governance</h3>
+            <p>
+              Organization or department templates pin one immutable template version to the sole
+              project or workstream document; every change appends a source-backed version.
+            </p>
+          </div>
+        </div>
+        <div class="flow" style="margin-top: 16px" aria-label="Implemented document flow">
+          <div class="node">
+            <strong>Active Template</strong
+            ><span>Protected sections and scoped version are approved first.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Fail-Closed Upload</strong
+            ><span>Stream limits, file inspection, archive checks, and ClamAV.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Immutable Version</strong
+            ><span>One stable resource document with optimistic concurrency.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Authorized Read</strong
+            ><span>History stays intact; private sources use bounded signed URLs.</span>
           </div>
         </div>
       </section>
@@ -790,9 +820,9 @@
         <div class="phase">
           <b>Phase 1 — Projects and Documents</b
           ><span
-            >Bundle A complete: projects, workstreams, and responsibility (T018–T020). Bundle B
-            next: protected templates, safe uploads, and immutable document versions
-            (T021–T023).</span
+            >Bundles A and B complete: governed project responsibility, protected templates, safe
+            uploads, and immutable document versions (T018–T023). Bundle C readiness, comparison,
+            and criteria (T024–T028) is next and remains unimplemented.</span
           >
         </div>
         <div class="phase">
@@ -856,6 +886,14 @@
               browser, and independent-review gates with no P0/P1 blocker.
             </p>
           </div>
+          <div class="card">
+            <span class="tag">Verified</span>
+            <h3>Phase 1 Bundle B</h3>
+            <p>
+              T021–T023 passed repository, migration, upload-safety, authorization, concurrency,
+              browser, infrastructure, and independent-review gates with no protected-rule change.
+            </p>
+          </div>
           <div class="card wide">
             <span class="tag">Protected</span>
             <h3>Do Not Drift</h3>
@@ -903,7 +941,7 @@
     </main>
     <footer>
       Evidence-Based Performance Evaluation System · Operational state updated 2026-07-17 · Phase 0
-      and Phase 1 Bundle A complete · Arabic rubric remains inactive pending human approval
+      and Phase 1 Bundles A–B complete · Arabic rubric remains inactive pending human approval
     </footer>
   </body>
 </html>

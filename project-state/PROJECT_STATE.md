@@ -11,7 +11,8 @@ Execute Phase 1 — Projects, Workstreams, Documents, and Criteria — in bounde
 - The bounded Phase 1 design is `docs/superpowers/specs/2026-07-17-phase-1-projects-workstreams-documents-design.md` and covers T018–T029 through four dependency-ordered bundles.
 - Bundle A is complete: T018–T020 implement governed projects, workstreams, membership/contributor periods, atomic permanent and acting owner transfers, half-open responsibility history, terminal-state controls, scoped API authorization, same-transaction audit, and UTC database sessions.
 - Bundle A task commits are `ac496ee`, `4677af8`, and `46ba63e`. One bounded final independent review approved the combined implementation with no P0/P1 blockers.
-- Fresh verification passed: 411 unit/coverage tests, 200 integration tests, 30 migration-foundation tests across empty/previous/rebuild paths, 133 AI evaluations with one intentional skip, 11 browser tests, full lint/typecheck/build, boundary, secret, performance-input, copy, formatting, and task-graph gates.
+- Bundle B is complete: T021–T023 implement protected organization/department templates, immutable template and document history, fail-closed streamed uploads, private S3-compatible storage, ClamAV scanning, short-lived authorized reads, and one versioned document per project or workstream.
+- Bundle B task commits are `6a1760e`, `20056a6`, and `d23583b`; final DOCX archive-hardening is `1475daf`. One bounded independent review approved the combined implementation with no remaining P0/P1 blockers. Fresh verification passed the full repository gate, 217 integration tests, 34 migration tests across empty/previous/rebuild paths, 133 AI evaluations with one intentional skip, 11 browser tests, 62 targeted document tests, infrastructure verification, secret scanning, and the 234-file boundary check.
 - T016 remains draft and inactive on `deferred/arabic-rubric-v1` at `3ebbe54`, tracked by GitHub issue #2. It is an Arabic employee-release gate, not an engineering-phase dependency.
 
 ## Active Decisions
@@ -26,7 +27,7 @@ Execute Phase 1 — Projects, Workstreams, Documents, and Criteria — in bounde
 
 ## Active Risks
 
-- Uploaded content is untrusted and must fail closed on type, size, archive, or malware-safety failure.
+- Uploaded content remains untrusted; deployed size/archive policy values and ClamAV signatures require active operational maintenance.
 - AI readiness and criteria output must retain source references, route traces, schema versions, and human gates.
 - Arabic employee release remains blocked at T016's protected human semantic-review gate.
 - The known non-blocking T013 recovered-running attempt-count telemetry issue remains outside Phase 1 scope.
@@ -39,7 +40,7 @@ Execute Phase 1 — Projects, Workstreams, Documents, and Criteria — in bounde
 
 ## Next Recommended Action
 
-Write the bounded Bundle B implementation plan, then execute T021–T023 for protected templates, safe uploads, and immutable project/workstream document versions.
+Write and independently review the bounded Bundle C implementation plan, then execute T024–T028 for readiness, material-change analysis, and prospective human-approved criteria without rating or ranking output.
 
 ## Critical References
 
@@ -50,4 +51,5 @@ Write the bounded Bundle B implementation plan, then execute T021–T023 for pro
 - `docs/IMPLEMENTATION_PLAN.md`
 - `docs/superpowers/specs/2026-07-17-phase-1-projects-workstreams-documents-design.md`
 - `docs/superpowers/plans/2026-07-17-phase-1-bundle-a-project-responsibility.md`
+- `docs/superpowers/plans/2026-07-17-phase-1-bundle-b-documents.md`
 - GitHub issue #2 and `deferred/arabic-rubric-v1`

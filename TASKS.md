@@ -200,6 +200,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T021 — Implement Document Template Engine
 
+**Status:** Complete — protected activation, scoped versioning, immutable history, and optimistic concurrency verified.
 **Priority:** P1  
 **Dependencies:** T004, T007  
 **Purpose:** Support protected core sections and configurable defaults.  
@@ -208,6 +209,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T022 — Implement File Upload and Object Storage
 
+**Status:** Complete — fail-closed streaming validation, ClamAV, private storage, and authorized signed access verified.
 **Priority:** P1  
 **Dependencies:** T002, T005, T007  
 **Purpose:** Store documents, images, and audio safely.  
@@ -215,6 +217,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T023 — Implement Project and Workstream Documents
 
+**Status:** Complete — one stable document per resource, append-only versions, retained history, and stale-write rejection verified.
 **Priority:** P1  
 **Dependencies:** T021, T022  
 **Purpose:** Attach versioned documents to projects and workstreams.  
