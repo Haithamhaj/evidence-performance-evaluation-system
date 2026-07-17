@@ -67,6 +67,12 @@ const administrator = subject(
   "system",
   "evaluation-system",
 );
+const organizationAdministrator = subject(
+  "administrator-2",
+  "system_administrator",
+  "organization",
+  "organization-ai",
+);
 const projectOwner = subject("owner-1", "project_owner", "project", "project-1");
 const workstreamOwner = subject(
   "workstream-owner-1",
@@ -226,6 +232,71 @@ describe("authorization decision contract", () => {
     expect(decide(administrator, "responsibility.transfer", project, baseContext)).toEqual({
       allowed: false,
       reasonCode: "ROLE_REQUIRED",
+    });
+  });
+
+  it("enforces document template management scope", () => {
+    const organizationTemplate = {
+      kind: "organizationTemplate",
+      organizationId: "organization-ai",
+    } as const;
+    const departmentTemplate = {
+      kind: "departmentTemplate",
+      organizationId: "organization-ai",
+      departmentId: "department-ai",
+    } as const;
+
+    expect(
+      decide(
+        organizationAdministrator,
+        "document.template.manage",
+        organizationTemplate,
+        baseContext,
+      ),
+    ).toEqual({ allowed: true });
+    expect(decide(manager, "document.template.manage", departmentTemplate, baseContext)).toEqual({
+      allowed: true,
+    });
+    expect(
+      decide(otherManager, "document.template.manage", departmentTemplate, baseContext),
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
+    expect(
+      decide(projectOwner, "document.template.manage", departmentTemplate, baseContext),
+    ).toEqual({ allowed: false, reasonCode: "ROLE_REQUIRED" });
+  });
+
+  it("enforces document reads and version creation through current resource scope", () => {
+    const project = {
+      kind: "project",
+      projectId: "project-1",
+      departmentId: "department-ai",
+    } as const;
+    const workstream = {
+      kind: "workstream",
+      workstreamId: "workstream-1",
+      projectId: "project-1",
+      departmentId: "department-ai",
+    } as const;
+
+    expect(decide(manager, "document.version.create", project, baseContext)).toEqual({
+      allowed: true,
+    });
+    expect(decide(projectOwner, "document.version.create", project, baseContext)).toEqual({
+      allowed: true,
+    });
+    expect(
+      decide(workstreamOwner, "document.version.create", workstream, baseContext),
+    ).toEqual({ allowed: true });
+    expect(decide(contributor, "document.version.create", project, baseContext)).toEqual({
+      allowed: false,
+      reasonCode: "ROLE_REQUIRED",
+    });
+    expect(decide(workstreamContributor, "document.read", workstream, baseContext)).toEqual({
+      allowed: true,
+    });
+    expect(decide(otherManager, "document.read", project, baseContext)).toEqual({
+      allowed: false,
+      reasonCode: "SCOPE_MISMATCH",
     });
   });
 

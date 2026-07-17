@@ -272,6 +272,49 @@ function decideKnownAction(
       return managerCanAccessDepartment(subject, resource.departmentId)
         ? allow
         : deny("SCOPE_MISMATCH");
+    case "document.template.manage":
+      if (resource.kind === "organizationTemplate") {
+        if (!hasRole(subject, "system_administrator")) return deny("ROLE_REQUIRED");
+        return hasScopedRole(
+          subject,
+          "system_administrator",
+          "organization",
+          resource.organizationId,
+        )
+          ? allow
+          : deny("SCOPE_MISMATCH");
+      }
+      if (resource.kind === "departmentTemplate") {
+        if (!hasRole(subject, "manager")) return deny("ROLE_REQUIRED");
+        return managerCanAccessDepartment(subject, resource.departmentId)
+          ? allow
+          : deny("SCOPE_MISMATCH");
+      }
+      return deny("RESOURCE_STATE");
+    case "document.read":
+      return decideResourceRead(subject, resource, context);
+    case "document.version.create":
+      if (resource.kind === "project") {
+        return decideOwnerManagement(
+          subject,
+          resource,
+          context,
+          "project_owner",
+          "project",
+          resource.projectId,
+        );
+      }
+      if (resource.kind === "workstream") {
+        return decideOwnerManagement(
+          subject,
+          resource,
+          context,
+          "workstream_owner",
+          "workstream",
+          resource.workstreamId,
+        );
+      }
+      return deny("RESOURCE_STATE");
     case "resource.contribute":
       return decideContribution(subject, resource, context);
     case "resource.read":

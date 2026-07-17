@@ -34,12 +34,21 @@ export type PolicyAction =
   | "workstream.create"
   | "workstream.manage"
   | "responsibility.transfer"
+  | "document.template.manage"
+  | "document.read"
+  | "document.version.create"
   | "resource.contribute"
   | "resource.read";
 
 export type PolicyResource =
   | Readonly<{ kind: "system"; systemId: string }>
   | Readonly<{ kind: "department"; departmentId: string }>
+  | Readonly<{ kind: "organizationTemplate"; organizationId: string }>
+  | Readonly<{
+      kind: "departmentTemplate";
+      organizationId: string;
+      departmentId: string;
+    }>
   | Readonly<{ kind: "project"; projectId: string; departmentId: string }>
   | Readonly<{
       kind: "workstream";
