@@ -41,6 +41,11 @@ model User {
   projectStatusChanges     ProjectStatusTransition[]    @relation("ProjectStatusActor")
   workstreamStatusChanges  WorkstreamStatusTransition[] @relation("WorkstreamStatusActor")
   ownershipTransfers       OwnershipTransfer[]          @relation("OwnershipTransferDecisionBy")
+  createdDocumentTemplates DocumentTemplate[]           @relation("DocumentTemplateCreatedBy")
+  createdTemplateVersions  DocumentTemplateVersion[]    @relation("DocumentTemplateVersionCreatedBy")
+  createdUploadedSources   UploadedSource[]             @relation("UploadedSourceCreatedBy")
+  createdDocumentRecords   DocumentRecord[]             @relation("DocumentRecordCreatedBy")
+  createdDocumentVersions  DocumentVersion[]            @relation("DocumentVersionCreatedBy")
   createdAt                DateTime                     @default(now()) @db.Timestamptz(6)
   updatedAt                DateTime                     @updatedAt @db.Timestamptz(6)
 }
@@ -76,15 +81,18 @@ enum ScopeType {
 }
 
 model Organization {
-  id             String          @id @default(uuid()) @db.Uuid
-  key            String          @unique
-  name           String
-  departments    Department[]
-  operations     Operation[]
-  rubricVersions RubricVersion[]
-  projects       Project[]
-  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+  id                String             @id @default(uuid()) @db.Uuid
+  key               String             @unique
+  name              String
+  departments       Department[]
+  operations        Operation[]
+  rubricVersions    RubricVersion[]
+  projects          Project[]
+  documentTemplates DocumentTemplate[]
+  uploadedSources   UploadedSource[]
+  documentRecords   DocumentRecord[]
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
 }
 
 enum OperationStatus {
@@ -141,6 +149,9 @@ model Department {
   authorizationScopes AuthorizationScope[]
   evaluationCycles    EvaluationCycle[]
   projects            Project[]
+  documentTemplates   DocumentTemplate[]
+  uploadedSources     UploadedSource[]
+  documentRecords     DocumentRecord[]
   createdAt           DateTime             @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
 
@@ -290,6 +301,8 @@ model Project {
   responsibilities       ResponsibilityWindow[]
   ownershipTransfers     OwnershipTransfer[]
   statusTransitions      ProjectStatusTransition[]
+  uploadedSources        UploadedSource[]
+  documentRecord         DocumentRecord?
   createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
 
@@ -353,6 +366,8 @@ model Workstream {
   responsibilities       ResponsibilityWindow[]
   ownershipTransfers     OwnershipTransfer[]
   statusTransitions      WorkstreamStatusTransition[]
+  uploadedSources        UploadedSource[]
+  documentRecord         DocumentRecord?
   createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
 
@@ -452,6 +467,168 @@ model OwnershipTransfer {
   @@index([projectId, effectiveAt, id])
   @@index([workstreamId, effectiveAt, id])
   @@index([managerDecisionById, createdAt])
+}
+
+enum DocumentKind {
+  project
+  workstream
+}
+
+enum TemplateScopeType {
+  organization
+  department
+}
+
+enum DocumentTemplateVersionStatus {
+  draft
+  active
+  retired
+}
+
+enum DocumentSourceType {
+  upload
+  external_link
+  github
+}
+
+model DocumentTemplate {
+  id             String                    @id @default(uuid()) @db.Uuid
+  organizationId String                    @db.Uuid
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId   String?                   @db.Uuid
+  department     Department?               @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  scopeType      TemplateScopeType
+  kind           DocumentKind
+  lockVersion    Int                       @default(1)
+  createdById    String                    @db.Uuid
+  createdBy      User                      @relation("DocumentTemplateCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  versions       DocumentTemplateVersion[]
+  createdAt      DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@index([organizationId, scopeType, kind])
+  @@index([departmentId, kind])
+  @@index([createdById, createdAt])
+}
+
+model DocumentTemplateVersion {
+  id               String                        @id @default(uuid()) @db.Uuid
+  templateId       String                        @db.Uuid
+  template         DocumentTemplate              @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  version          Int
+  status           DocumentTemplateVersionStatus @default(draft)
+  reason           String
+  createdById      String                        @db.Uuid
+  createdBy        User                          @relation("DocumentTemplateVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  activatedAt      DateTime?                     @db.Timestamptz(6)
+  retiredAt        DateTime?                     @db.Timestamptz(6)
+  sections         DocumentTemplateSection[]
+  pinnedDocuments  DocumentRecord[]              @relation("DocumentRecordPinnedTemplate")
+  documentVersions DocumentVersion[]             @relation("DocumentVersionTemplate")
+  createdAt        DateTime                      @default(now()) @db.Timestamptz(6)
+
+  @@unique([templateId, version])
+  @@index([templateId, status])
+  @@index([createdById, createdAt])
+}
+
+model DocumentTemplateSection {
+  id                String                  @id @default(uuid()) @db.Uuid
+  templateVersionId String                  @db.Uuid
+  templateVersion   DocumentTemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  key               String
+  position          Int
+  display           Json
+  required          Boolean
+  protected         Boolean
+  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@unique([templateVersionId, key])
+  @@unique([templateVersionId, position])
+}
+
+model UploadedSource {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  organizationId        String                 @db.Uuid
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId          String                 @db.Uuid
+  department            Department             @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  projectId             String?                @db.Uuid
+  project               Project?               @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId          String?                @db.Uuid
+  workstream            Workstream?            @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  originalFilename      String
+  objectKey             String                 @unique
+  detectedType          String
+  detectedMime          String
+  byteSize              Int
+  sha256                String
+  createdById           String                 @db.Uuid
+  createdBy             User                   @relation("UploadedSourceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reason                String
+  documentVersionSource DocumentVersionSource?
+  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@index([projectId, createdAt])
+  @@index([workstreamId, createdAt])
+  @@index([departmentId, createdAt])
+  @@index([createdById, createdAt])
+  @@index([sha256])
+}
+
+model DocumentRecord {
+  id                String                  @id @default(uuid()) @db.Uuid
+  organizationId    String                  @db.Uuid
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId      String                  @db.Uuid
+  department        Department              @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  projectId         String?                 @unique @db.Uuid
+  project           Project?                @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId      String?                 @unique @db.Uuid
+  workstream        Workstream?             @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  templateVersionId String                  @db.Uuid
+  templateVersion   DocumentTemplateVersion @relation("DocumentRecordPinnedTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
+  currentVersion    Int                     @default(0)
+  createdById       String                  @db.Uuid
+  createdBy         User                    @relation("DocumentRecordCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  versions          DocumentVersion[]
+  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@index([departmentId, createdAt])
+  @@index([createdById, createdAt])
+}
+
+model DocumentVersion {
+  id                String                  @id @default(uuid()) @db.Uuid
+  documentId        String                  @db.Uuid
+  document          DocumentRecord          @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version           Int
+  templateVersionId String                  @db.Uuid
+  templateVersion   DocumentTemplateVersion @relation("DocumentVersionTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
+  createdById       String                  @db.Uuid
+  createdBy         User                    @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reason            String
+  sources           DocumentVersionSource[]
+  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@unique([documentId, version])
+  @@index([createdById, createdAt])
+  @@index([templateVersionId])
+}
+
+model DocumentVersionSource {
+  id                String             @id @default(uuid()) @db.Uuid
+  documentVersionId String             @db.Uuid
+  documentVersion   DocumentVersion    @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
+  position          Int
+  sourceType        DocumentSourceType
+  uploadedSourceId  String?            @unique @db.Uuid
+  uploadedSource    UploadedSource?    @relation(fields: [uploadedSourceId], references: [id], onDelete: Restrict)
+  url               String?
+  externalSourceId  String?
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+
+  @@unique([documentVersionId, position])
+  @@index([sourceType])
 }
 
 model RoleAssignment {
