@@ -467,7 +467,8 @@ export class ProposalService {
     const document = await this.sourceLoader.load({
       documentVersionId: parsed.documentVersionId,
     });
-    return buildCriteriaGenerationRequest({
+    return {
+      ...buildCriteriaGenerationRequest({
       kind: parsed.kind,
       prompt: {
         artifactId: parsed.promptArtifactId,
@@ -476,7 +477,14 @@ export class ProposalService {
       documentSources: document.sources,
       readinessSourceReferences: input.readinessSourceReferences,
       ...(ownerFeedback === undefined ? {} : { ownerFeedback }),
-    });
+      }),
+      sourceReferences: [
+        ...new Set([
+          ...document.sources.map(({ reference }) => reference),
+          ...input.readinessSourceReferences,
+        ]),
+      ],
+    };
   }
 
   async persistValidatedGeneration(

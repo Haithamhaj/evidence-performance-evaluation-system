@@ -57,12 +57,7 @@ export class AnalysisCriteriaProcessor {
           targetId: request.id,
           correlationId: envelope.correlationId,
           eventType: {
-            in: [
-              "document.readiness_requested",
-              "document.comparison_requested",
-              "dynamic_criteria.generation_requested",
-              "dynamic_criteria.revision_requested",
-            ],
+            in: auditEventTypes(request.kind),
           },
         },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -99,16 +94,9 @@ export class AnalysisCriteriaProcessor {
         throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
       }
       if (request.state === "superseded") {
-        if (!["criteria_project", "criteria_workstream"].includes(request.kind)) {
+        const effect = await terminalEffectReference(transaction, request);
+        if (effect === null)
           throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
-        }
-        const effect = await transaction.operationEffectReceipt.findUnique({
-          where: { idempotencyKey: `analysis:${request.id}:validated-result` },
-          select: { receiptReference: true },
-        });
-        if (effect === null) {
-          throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
-        }
         if (
           operationSucceeded &&
           request.operation.resultReference === effect.receiptReference
@@ -141,6 +129,44 @@ export class AnalysisCriteriaProcessor {
       validated.correlationId,
     );
   }
+}
+
+function auditEventTypes(
+  kind: "readiness" | "comparison" | "criteria_project" | "criteria_workstream",
+): string[] {
+  if (kind === "readiness") return ["document.readiness_requested"];
+  if (kind === "comparison") return ["document.comparison_requested"];
+  return [
+    "dynamic_criteria.generation_requested",
+    "dynamic_criteria.revision_requested",
+  ];
+}
+
+async function terminalEffectReference(
+  transaction: import("@evaluation/database").DatabaseTransaction,
+  request: Readonly<{
+    id: string;
+    kind: "readiness" | "comparison" | "criteria_project" | "criteria_workstream";
+  }>,
+): Promise<Readonly<{ receiptReference: string }> | null> {
+  if (request.kind === "criteria_project" || request.kind === "criteria_workstream") {
+    return transaction.operationEffectReceipt.findUnique({
+      where: { idempotencyKey: `analysis:${request.id}:validated-result` },
+      select: { receiptReference: true },
+    });
+  }
+  if (request.kind === "readiness") {
+    const result = await transaction.documentReadinessCheck.findUnique({
+      where: { requestId: request.id },
+      select: { outputReference: true },
+    });
+    return result === null ? null : { receiptReference: result.outputReference };
+  }
+  const result = await transaction.documentComparison.findUnique({
+    where: { requestId: request.id },
+    select: { outputReference: true },
+  });
+  return result === null ? null : { receiptReference: result.outputReference };
 }
 
 function dispatchOf(

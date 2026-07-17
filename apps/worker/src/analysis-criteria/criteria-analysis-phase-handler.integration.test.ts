@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { AppError } from "@evaluation/contracts";
 
 import { CriteriaAnalysisPhaseHandler } from "./criteria-analysis-phase-handler.js";
 
@@ -25,19 +26,24 @@ function harness(
     deferRouter?: boolean;
     execution?: { heartbeatMs: number; leaseMs: number; maxAttempts: number };
     timeoutMs?: number;
+    initialAttemptCount?: number;
+    initialOperationStatus?: "pending" | "running" | "failed" | "succeeded";
+    initialRequestState?: "queued" | "running" | "failed";
+    routerError?: Error;
+    outputSourceReference?: string;
   } = {},
 ) {
   const request: Record<string, unknown> = {
     id: ids.request,
     kind: "criteria_project",
-    state: "queued",
+    state: options.initialRequestState ?? "queued",
     operationId: ids.operation,
     resultReference: null,
   };
   const operation: Record<string, unknown> = {
     id: ids.operation,
-    status: "pending",
-    attemptCount: 0,
+    status: options.initialOperationStatus ?? "pending",
+    attemptCount: options.initialAttemptCount ?? 0,
     startedAt: null,
     resultReference: null,
   };
@@ -53,6 +59,11 @@ function harness(
     documentAnalysisRequest: {
       findUnique: vi.fn(async () => ({ ...request })),
       update: vi.fn(async ({ data }: any) => Object.assign(request, data)),
+      updateMany: vi.fn(async ({ where, data }: any) => {
+        if (where.state !== undefined && request.state !== where.state) return { count: 0 };
+        Object.assign(request, data);
+        return { count: 1 };
+      }),
     },
     operation: {
       findUnique: vi.fn(async () => ({ ...operation })),
@@ -96,9 +107,20 @@ function harness(
     operation: transaction.operation,
     operationEffectReceipt: transaction.operationEffectReceipt,
     $transaction: vi.fn(async (work: (value: typeof transaction) => Promise<unknown>) => {
+      const requestBefore = structuredClone(request);
+      const operationBefore = structuredClone(operation);
+      const effectsBefore = new Map(effects);
       transactions += 1;
       try {
         return await work(transaction);
+      } catch (error) {
+        for (const key of Object.keys(request)) delete request[key];
+        Object.assign(request, requestBefore);
+        for (const key of Object.keys(operation)) delete operation[key];
+        Object.assign(operation, operationBefore);
+        effects.clear();
+        for (const [key, value] of effectsBefore) effects.set(key, value);
+        throw error;
       } finally {
         transactions -= 1;
       }
@@ -169,6 +191,7 @@ function harness(
         },
         untrustedContent: {},
       },
+      sourceReferences: [`document-readiness:${ids.readiness}`],
     })),
     persistValidatedGeneration: vi.fn(
       async (tx: typeof transaction, phaseRequest: typeof generationRequest) => {
@@ -196,6 +219,7 @@ function harness(
       expect(transactions).toBe(0);
       if (options.deferRouter === true) await routerGate;
       if (options.loseLeaseBeforePersist === true) operation.attemptCount = 2;
+      if (options.routerError !== undefined) throw options.routerError;
       const persisted = await database.$transaction((tx) =>
         persist(tx, {
           criteria: [
@@ -206,7 +230,9 @@ function harness(
               expectedBehaviorOrResult: "Maintains current, source-linked project evidence.",
               evaluationMethod: "Human review of the cited approved project document.",
               suggestedEvidence: ["Approved project document"],
-              sourceReferences: [`document-readiness:${ids.readiness}`],
+              sourceReferences: [
+                options.outputSourceReference ?? `document-readiness:${ids.readiness}`,
+              ],
             },
           ],
         }),
@@ -290,5 +316,55 @@ describe("CriteriaAnalysisPhaseHandler", () => {
     );
     test.releaseRouter();
     await expect(processing).resolves.toBe(`criteria-proposal-request:${ids.request}`);
+  });
+
+  it("terminalizes a quarantined output instead of leaving the request running", async () => {
+    const test = harness({
+      routerError: new AppError(
+        "AI_OUTPUT_QUARANTINED",
+        "errors.ai.outputQuarantined",
+        502,
+      ),
+    });
+    await expect(
+      test.handler.process(ids.request, ids.actor, ids.correlation),
+    ).rejects.toMatchObject({ code: "AI_OUTPUT_QUARANTINED" });
+    expect(test.request).toMatchObject({
+      state: "failed",
+      errorCode: "ANALYSIS_TERMINAL_FAILED",
+    });
+  });
+
+  it("terminalizes a request after its configured retry attempts are exhausted", async () => {
+    const test = harness({
+      initialAttemptCount: 3,
+      initialOperationStatus: "failed",
+      initialRequestState: "running",
+      execution: { heartbeatMs: 10, leaseMs: 100, maxAttempts: 3 },
+      timeoutMs: 5,
+    });
+    await expect(
+      test.handler.process(ids.request, ids.actor, ids.correlation),
+    ).rejects.toMatchObject({ code: "ANALYSIS_RETRIES_EXHAUSTED" });
+    expect(test.request).toMatchObject({
+      state: "failed",
+      errorCode: "ANALYSIS_RETRIES_EXHAUSTED",
+    });
+    expect(test.router.run).not.toHaveBeenCalled();
+  });
+
+  it("rejects a fabricated criterion source before proposal persistence", async () => {
+    const test = harness({
+      outputSourceReference:
+        "document-source:40000000-0000-4000-8000-000000000099",
+    });
+    await expect(
+      test.handler.process(ids.request, ids.actor, ids.correlation),
+    ).rejects.toMatchObject({ code: "AI_SOURCE_REFERENCE_INVALID" });
+    expect(test.proposal.persistValidatedGeneration).not.toHaveBeenCalled();
+    expect(test.request).toMatchObject({
+      state: "failed",
+      errorCode: "ANALYSIS_TERMINAL_FAILED",
+    });
   });
 });

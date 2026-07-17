@@ -45,6 +45,7 @@ function fixture(
     payloadHash: string;
     audit: null | { actorKind: string; actorId: string; correlationId: string };
     effectReference: string | null;
+    domainReference: string | null;
   }> = {},
 ) {
   const resultReference = overrides.requestResult ?? null;
@@ -73,6 +74,7 @@ function fixture(
       ? { actorKind: "human", actorId: ids.actorId, correlationId: ids.correlationId }
       : overrides.audit;
   const effectReference = overrides.effectReference ?? null;
+  const domainReference = overrides.domainReference ?? null;
   let openTransactions = 0;
   const transaction = {
     $queryRaw: vi.fn(async () => []),
@@ -81,6 +83,16 @@ function fixture(
     operationEffectReceipt: {
       findUnique: vi.fn(async () =>
         effectReference === null ? null : { receiptReference: effectReference },
+      ),
+    },
+    documentReadinessCheck: {
+      findUnique: vi.fn(async () =>
+        domainReference === null ? null : { outputReference: domainReference },
+      ),
+    },
+    documentComparison: {
+      findUnique: vi.fn(async () =>
+        domainReference === null ? null : { outputReference: domainReference },
       ),
     },
   };
@@ -244,6 +256,25 @@ describe("AnalysisCriteriaProcessor", () => {
     );
     expect(harness.handlers.criteria.process).toHaveBeenCalledOnce();
   });
+
+  it.each(["readiness", "comparison"] as const)(
+    "dispatches a superseded %s domain result while its Operation still needs finalization",
+    async (kind) => {
+      const resultReference = `document-${kind}:${ids.requestId}`;
+      const harness = fixture({
+        kind,
+        requestState: "superseded",
+        requestResult: null,
+        operationState: "running",
+        operationResult: null,
+        domainReference: resultReference,
+      });
+      await expect(harness.processor.process(envelope())).resolves.toBe(
+        `analysis-result:${ids.requestId}`,
+      );
+      expect(harness.handlers[kind].process).toHaveBeenCalledOnce();
+    },
+  );
 
   it.each([
     ["operation pending", { operationState: "pending" as const, operationResult: null }],

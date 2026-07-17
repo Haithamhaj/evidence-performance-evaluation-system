@@ -19,6 +19,7 @@ type ProposalPort = Readonly<{
       outputSchemaVersion: string;
       promptTemplateVersion: string;
       input: unknown;
+      sourceReferences: readonly string[];
     }>
   >;
   persistValidatedGeneration(
@@ -123,7 +124,7 @@ export class CriteriaAnalysisPhaseHandler {
               outputSchemaVersion: prepared.outputSchemaVersion,
               promptTemplateVersion: prepared.promptTemplateVersion,
               outputSchema: CriteriaGenerationOutputSchema,
-              sourceReferences: [...claimed.snapshot.readinessSourceReferences],
+              sourceReferences: [...prepared.sourceReferences],
               classification: "confidential",
               timeoutMs: this.options.timeoutMs,
               requiresHumanApproval: true,
@@ -145,6 +146,8 @@ export class CriteriaAnalysisPhaseHandler {
                 persistedReference = recorded.receiptReference;
                 return { outputReference: recorded.receiptReference };
               }
+              const parsedOutput = CriteriaGenerationOutputSchema.parse(output);
+              assertBoundCriteriaSources(parsedOutput, prepared.sourceReferences);
               const detail = await this.proposal.persistValidatedGeneration(
                 transaction,
                 {
@@ -152,7 +155,7 @@ export class CriteriaAnalysisPhaseHandler {
                   state: "running",
                   outputReference: claimed.stableReference,
                 },
-                output,
+                parsedOutput,
               );
               persistedReference =
                 detail.state === "superseded"
@@ -175,7 +178,7 @@ export class CriteriaAnalysisPhaseHandler {
       return persistedReference;
     } catch (error) {
       if (await this.effectCommitted(requestId)) throw error;
-      await this.recordFailure(requestId, claimed.attemptCount);
+      await this.recordFailure(requestId, claimed.attemptCount, error);
       throw error;
     }
   }
@@ -184,7 +187,7 @@ export class CriteriaAnalysisPhaseHandler {
     (Claimed & { replay?: never }) | (Replay & { replay: true })
   > {
     const now = this.options.now?.() ?? new Date();
-    return this.database.$transaction(async (transaction) => {
+    const result = await this.database.$transaction(async (transaction) => {
       await transaction.$queryRaw`
         SELECT request.id
         FROM "DocumentAnalysisRequest" request
@@ -260,7 +263,43 @@ export class CriteriaAnalysisPhaseHandler {
           completedAt: null,
         },
       });
-      if (acquired.count !== 1) throw requestRunning();
+      if (acquired.count !== 1) {
+        const leaseExpired =
+          operation.status === "running" &&
+          (operation.startedAt === null || operation.startedAt <= leaseCutoff);
+        if (
+          operation.attemptCount >= this.options.execution.maxAttempts &&
+          (["pending", "failed"].includes(operation.status) || leaseExpired)
+        ) {
+          await transaction.operation.updateMany({
+            where: {
+              id: request.operationId,
+              attemptCount: operation.attemptCount,
+              OR: [
+                { status: { in: ["pending", "failed"] } },
+                { status: "running", startedAt: { lte: leaseCutoff } },
+              ],
+            },
+            data: {
+              status: "failed",
+              errorCode: "ANALYSIS_RETRYABLE_FAILED",
+              resultReference: null,
+              completedAt: now,
+              startedAt: now,
+            },
+          });
+          await transaction.documentAnalysisRequest.updateMany({
+            where: { id: request.id, state: "running" },
+            data: {
+              state: "failed",
+              errorCode: "ANALYSIS_RETRIES_EXHAUSTED",
+              completedAt: now,
+            },
+          });
+          return { terminal: true as const };
+        }
+        throw requestRunning();
+      }
       if (request.state === "queued") {
         await transaction.documentAnalysisRequest.update({
           where: { id: request.id },
@@ -280,6 +319,8 @@ export class CriteriaAnalysisPhaseHandler {
         stableReference: `criteria-proposal-request:${requestId}`,
       };
     });
+    if ("terminal" in result) throw retriesExhausted();
+    return result;
   }
 
   private async complete(
@@ -345,21 +386,41 @@ export class CriteriaAnalysisPhaseHandler {
       : request?.state === "superseded" && effect !== null;
   }
 
-  private async recordFailure(requestId: string, attemptCount: number): Promise<void> {
+  private async recordFailure(
+    requestId: string,
+    attemptCount: number,
+    error: unknown,
+  ): Promise<void> {
+    const retryable = isRetryable(error);
+    const exhausted = attemptCount >= this.options.execution.maxAttempts;
     await this.database.$transaction(async (transaction) => {
       const request = await transaction.documentAnalysisRequest.findUnique({
         where: { id: requestId },
         select: { operationId: true, state: true },
       });
       if (request === null || request.state !== "running") return;
-      await transaction.operation.updateMany({
+      const failed = await transaction.operation.updateMany({
         where: { id: request.operationId, status: "running", attemptCount },
         data: {
           status: "failed",
-          errorCode: "ANALYSIS_RETRYABLE_FAILED",
+          errorCode: retryable
+            ? "ANALYSIS_RETRYABLE_FAILED"
+            : "ANALYSIS_TERMINAL_FAILED",
           completedAt: this.options.now?.() ?? new Date(),
         },
       });
+      if (failed.count === 1 && (!retryable || exhausted)) {
+        await transaction.documentAnalysisRequest.updateMany({
+          where: { id: requestId, state: "running" },
+          data: {
+            state: "failed",
+            errorCode: exhausted
+              ? "ANALYSIS_RETRIES_EXHAUSTED"
+              : "ANALYSIS_TERMINAL_FAILED",
+            completedAt: this.options.now?.() ?? new Date(),
+          },
+        });
+      }
     });
   }
 
@@ -412,14 +473,20 @@ function validateTiming(options: Readonly<{
   execution: { heartbeatMs: number; leaseMs: number; maxAttempts: number };
 }>): void {
   if (
-    options.timeoutMs <= 0 ||
+    !Number.isInteger(options.timeoutMs) ||
+    options.timeoutMs < 1 ||
+    !Number.isInteger(options.execution.maxAttempts) ||
     options.execution.maxAttempts < 1 ||
-    options.timeoutMs + options.execution.heartbeatMs >= options.execution.leaseMs
+    !Number.isInteger(options.execution.heartbeatMs) ||
+    options.execution.heartbeatMs < 1 ||
+    !Number.isInteger(options.execution.leaseMs) ||
+    options.execution.leaseMs < 1 ||
+    options.execution.heartbeatMs * 3 > options.execution.leaseMs ||
+    options.timeoutMs + options.execution.heartbeatMs * 2 >
+      options.execution.leaseMs
   )
-    throw new AppError(
-      "ANALYSIS_EXECUTION_CONFIGURATION_INVALID",
-      "errors.analysis.executionConfigurationInvalid",
-      500,
+    throw new TypeError(
+      "Analysis lease must safely exceed the heartbeat and Router timeout",
     );
 }
 
@@ -458,4 +525,40 @@ async function assertFence(
 
 function leaseLost(): AppError {
   return new AppError("ANALYSIS_LEASE_LOST", "errors.analysis.leaseLost", 409);
+}
+
+function retriesExhausted(): AppError {
+  return new AppError(
+    "ANALYSIS_RETRIES_EXHAUSTED",
+    "errors.analysis.retriesExhausted",
+    409,
+  );
+}
+
+function isRetryable(error: unknown): boolean {
+  if (!(error instanceof AppError)) return true;
+  return !new Set([
+    "AI_OUTPUT_QUARANTINED",
+    "AI_SOURCE_REFERENCE_INVALID",
+    "DOCUMENT_EXTRACTION_INCOMPLETE",
+    "RESOURCE_NOT_FOUND",
+  ]).has(error.code);
+}
+
+function assertBoundCriteriaSources(
+  output: import("@evaluation/contracts").CriteriaGenerationOutput,
+  allowedReferences: readonly string[],
+): void {
+  const allowed = new Set(allowedReferences);
+  if (
+    output.criteria.some((criterion) =>
+      criterion.sourceReferences.some((reference) => !allowed.has(reference)),
+    )
+  ) {
+    throw new AppError(
+      "AI_SOURCE_REFERENCE_INVALID",
+      "errors.ai.sourceReferenceInvalid",
+      502,
+    );
+  }
 }

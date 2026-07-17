@@ -153,6 +153,7 @@ function requestHarness(input: Readonly<{ material: boolean }>) {
   );
 
   return {
+    material: input.material,
     comparisonReviewId,
     currentDocumentVersionId,
     database,
@@ -200,7 +201,7 @@ function workerHarness(
         projectId: harness.identity.projectId,
         workstreamId: null,
         sourceDocumentVersionId: harness.priorDocumentVersionId,
-        state: "superseded",
+        state: harness.material ? "activated" : "superseded",
         transitions: [
           {
             id: harness.transitionId,
@@ -209,6 +210,11 @@ function workerHarness(
           },
         ],
       })),
+    },
+    dynamicCriteriaSet: {
+      findUnique: vi.fn(async () =>
+        harness.material ? { id: crypto.randomUUID(), effectiveTo: null } : null,
+      ),
     },
     dynamicCriteriaProposalTransition: {
       findUnique: vi.fn(async () =>
@@ -291,8 +297,10 @@ describe("ProposalService durable owner feedback", () => {
       }),
     ).resolves.toMatchObject({
       input: {
-        untrustedOwnerFeedback: {
-          value: harness.ownerFeedback,
+        untrustedContent: {
+          ownerFeedback: {
+            value: harness.ownerFeedback,
+          },
         },
       },
     });
@@ -426,8 +434,10 @@ describe("ProposalService durable owner feedback", () => {
       }),
     ).resolves.toMatchObject({
       input: {
-        untrustedOwnerFeedback: {
-          value: harness.ownerFeedback,
+        untrustedContent: {
+          ownerFeedback: {
+            value: harness.ownerFeedback,
+          },
         },
       },
     });
