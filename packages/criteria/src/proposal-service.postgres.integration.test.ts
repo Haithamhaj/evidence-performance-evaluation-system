@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { createDatabaseClient } from "@evaluation/database";
 
 import { ProposalService } from "./proposal-service.js";
+import { WorkstreamReviewService } from "./workstream-review-service.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL ?? "";
 const safeDatabase = /\/evaluation_phase1_test(?:\?|$)/u.test(testDatabaseUrl);
@@ -137,14 +138,240 @@ describe.runIf(safeDatabase)("ProposalService PostgreSQL trigger protocol", () =
       },
     ]);
   });
+
+  it("publishes a frozen workstream review, serializes a duplicate response race, and resolves preserved objections", async () => {
+    const fixture = await seedProposalFixture("workstream");
+    const identity = {
+      kind: "workstream",
+      resourceId: fixture.workstreamId!,
+      projectId: fixture.projectId,
+      organizationId: fixture.organizationId,
+      departmentId: fixture.departmentId,
+      primaryOwnerId: fixture.ownerId,
+      contributorIds: [fixture.contributorBId, fixture.contributorAId],
+    } as const;
+    const audit = postgresAuditWriter();
+    const outputReference = `criteria-proposal:${crypto.randomUUID()}`;
+    const proposal = await database.$transaction(async (transaction) => {
+      const created = await transaction.dynamicCriteriaProposal.create({
+        data: {
+          requestId: fixture.criteriaRequestId,
+          kind: "workstream",
+          projectId: null,
+          workstreamId: fixture.workstreamId!,
+          sourceDocumentVersionId: fixture.documentVersionId,
+          readinessCheckId: fixture.readinessCheckId,
+          proposalNumber: 1,
+          version: 1,
+          state: "owner_review",
+          outputReference,
+          outputSchemaVersion: fixture.criteriaSchemaVersion,
+          promptVersion: fixture.criteriaPromptVersion,
+          promptHash: fixture.criteriaPromptHash,
+          createdById: fixture.ownerId,
+        },
+      });
+      const sourceReferences = JSON.stringify([`document-version:${fixture.documentVersionId}`]);
+      await transaction.$executeRaw`
+        INSERT INTO "DynamicCriteriaProposalItem" (
+          "id", "proposalId", "position", "name", "selectionReason", "successLink",
+          "expectedBehaviorOrResult", "evaluationMethod", "suggestedEvidence",
+          "sourceReferences"
+        ) VALUES
+        (
+          ${crypto.randomUUID()}::uuid, ${created.id}::uuid, 1, 'Integrated result',
+          'Matches the documented success definition.', 'Definition of success',
+          'The integrated output meets the acceptance condition.',
+          'Review the documented acceptance result.', '["Acceptance record"]'::jsonb,
+          ${sourceReferences}::jsonb
+        ),
+        (
+          ${crypto.randomUUID()}::uuid, ${created.id}::uuid, 2, 'Dependency resolution',
+          'Makes the documented dependency explicit.', 'Dependency outcome',
+          'The dependency is resolved before delivery.',
+          'Review the dependency decision record.', '["Dependency record"]'::jsonb,
+          ${sourceReferences}::jsonb
+        )
+      `;
+      await transaction.documentAnalysisRequest.update({
+        where: { id: fixture.criteriaRequestId },
+        data: {
+          state: "succeeded",
+          resultReference: outputReference,
+          completedAt: new Date(),
+        },
+      });
+      return created;
+    });
+    const proposalId = String(proposal.id);
+    const reviewService = new WorkstreamReviewService(
+      database,
+      audit,
+      { authorize: vi.fn(async () => true) },
+      { now: () => new Date() },
+    );
+    const concurrentDatabase = createDatabaseClient(testDatabaseUrl);
+    const concurrentReviewService = new WorkstreamReviewService(
+      concurrentDatabase,
+      postgresAuditWriter(),
+      { authorize: vi.fn(async () => true) },
+      { now: () => new Date() },
+    );
+    const publishedAt = new Date();
+    await database.$transaction((transaction) =>
+      reviewService.publish(transaction, {
+        proposal: proposal as unknown as Readonly<Record<string, unknown>>,
+        identity,
+        actorId: fixture.ownerId,
+        reason: "Owner approved the workstream criteria for contributor review.",
+        correlationId: crypto.randomUUID(),
+        publishedAt,
+      }),
+    );
+
+    await expect(
+      database.criteriaReviewEligibility.findMany({
+        where: { snapshot: { proposalId } },
+        orderBy: { employeeId: "asc" },
+        select: { employeeId: true, role: true, responseRequired: true },
+      }),
+    ).resolves.toEqual(
+      [
+        { employeeId: fixture.ownerId, role: "owner", responseRequired: false },
+        {
+          employeeId: fixture.contributorAId,
+          role: "contributor",
+          responseRequired: true,
+        },
+        {
+          employeeId: fixture.contributorBId,
+          role: "contributor",
+          responseRequired: true,
+        },
+      ].sort((left, right) => left.employeeId.localeCompare(right.employeeId)),
+    );
+
+    const duplicateRace = await Promise.allSettled([
+      reviewService.respond({
+        actor: { userId: fixture.contributorAId, active: true },
+        correlationId: crypto.randomUUID(),
+        proposalId,
+        response: { action: "acknowledge" },
+      }),
+      concurrentReviewService.respond({
+        actor: { userId: fixture.contributorAId, active: true },
+        correlationId: crypto.randomUUID(),
+        proposalId,
+        response: { action: "acknowledge" },
+      }),
+    ]);
+    await concurrentDatabase.$disconnect();
+    expect(duplicateRace.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(duplicateRace.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(duplicateRace.find((result) => result.status === "rejected")).toMatchObject({
+      status: "rejected",
+      reason: { code: "CRITERIA_RESPONSE_ALREADY_RECORDED" },
+    });
+    await expect(
+      database.criteriaContributorResponse.count({
+        where: { proposalId, employeeId: fixture.contributorAId },
+      }),
+    ).resolves.toBe(1);
+
+    const completed = await reviewService.respond({
+      actor: { userId: fixture.contributorBId, active: true },
+      correlationId: crypto.randomUUID(),
+      proposalId,
+      response: { action: "object", reason: "Dependency is unresolved." },
+    });
+    expect(completed).toMatchObject({
+      requiredResponses: 2,
+      completedResponses: 2,
+      objectionCount: 1,
+      state: "manager_resolution",
+    });
+    const itemsBeforeResolution = await database.dynamicCriteriaProposalItem.findMany({
+      where: { proposalId },
+      orderBy: { position: "asc" },
+    });
+    const resolved = await reviewService.resolve({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      proposalId,
+      resolution: {
+        decision: "accept_with_objections",
+        reason: "The objection is retained and accepted for the current criteria version.",
+      },
+    });
+    expect(resolved).toMatchObject({ state: "approved", version: 4 });
+    await expect(
+      database.dynamicCriteriaProposalItem.findMany({
+        where: { proposalId },
+        orderBy: { position: "asc" },
+      }),
+    ).resolves.toEqual(itemsBeforeResolution);
+    await expect(
+      database.criteriaContributorResponse.findMany({
+        where: { proposalId },
+        orderBy: { employeeId: "asc" },
+        select: { employeeId: true, response: true, reason: true },
+      }),
+    ).resolves.toEqual(
+      [
+        {
+          employeeId: fixture.contributorAId,
+          response: "acknowledge",
+          reason: null,
+        },
+        {
+          employeeId: fixture.contributorBId,
+          response: "object",
+          reason: "Dependency is unresolved.",
+        },
+      ].sort((left, right) => left.employeeId.localeCompare(right.employeeId)),
+    );
+    await expect(
+      database.dynamicCriteriaProposalTransition.findMany({
+        where: { proposalId },
+        orderBy: { resultingVersion: "asc" },
+        select: { fromState: true, toState: true, resultingVersion: true },
+      }),
+    ).resolves.toEqual([
+      { fromState: "owner_review", toState: "contributor_review", resultingVersion: 2 },
+      {
+        fromState: "contributor_review",
+        toState: "manager_resolution",
+        resultingVersion: 3,
+      },
+      { fromState: "manager_resolution", toState: "approved", resultingVersion: 4 },
+    ]);
+  });
 });
 
-async function seedProposalFixture() {
+async function seedProposalFixture(kind: "project" | "workstream" = "project") {
   const suffix = crypto.randomUUID();
   const owner = await database.user.create({
     data: {
       email: `criteria-owner-${suffix}@example.invalid`,
       displayName: "Criteria Owner",
+    },
+  });
+  const contributorA = await database.user.create({
+    data: {
+      email: `criteria-contributor-a-${suffix}@example.invalid`,
+      displayName: "Criteria Contributor A",
+    },
+  });
+  const contributorB = await database.user.create({
+    data: {
+      email: `criteria-contributor-b-${suffix}@example.invalid`,
+      displayName: "Criteria Contributor B",
+    },
+  });
+  const manager = await database.user.create({
+    data: {
+      email: `criteria-manager-${suffix}@example.invalid`,
+      displayName: "Criteria Manager",
     },
   });
   const organization = await database.organization.create({
@@ -179,6 +406,29 @@ async function seedProposalFixture() {
       createdById: owner.id,
     },
   });
+  const workstreamId = kind === "workstream" ? crypto.randomUUID() : null;
+  if (workstreamId !== null) {
+    await database.authorizationScope.create({
+      data: {
+        id: workstreamId,
+        key: `criteria-workstream-${suffix}`,
+        scopeType: "workstream",
+        departmentId: department.id,
+      },
+    });
+    await database.workstream.create({
+      data: {
+        id: workstreamId,
+        projectId,
+        authorizationScopeId: workstreamId,
+        authorizationScopeType: "workstream",
+        name: "Criteria Workstream",
+        description: "Workstream review trigger fixture",
+        status: "active",
+        createdById: owner.id,
+      },
+    });
+  }
   await database.responsibilityWindow.create({
     data: {
       employeeId: owner.id,
@@ -192,12 +442,27 @@ async function seedProposalFixture() {
       createdById: owner.id,
     },
   });
+  if (workstreamId !== null) {
+    await database.responsibilityWindow.create({
+      data: {
+        employeeId: owner.id,
+        workstreamId,
+        responsibilityType: "original",
+        startsAt: new Date("2026-07-01T00:00:00.000Z"),
+        reason: "Initial owner",
+        managerDecisionById: manager.id,
+        managerDecisionAt: new Date("2026-07-01T00:00:00.000Z"),
+        managerDecisionReason: "Initial workstream ownership",
+        createdById: owner.id,
+      },
+    });
+  }
   const template = await database.documentTemplate.create({
     data: {
       organizationId: organization.id,
       departmentId: department.id,
       scopeType: "department",
-      kind: "project",
+      kind,
       createdById: owner.id,
       versions: {
         create: {
@@ -215,7 +480,7 @@ async function seedProposalFixture() {
     data: {
       organizationId: organization.id,
       departmentId: department.id,
-      projectId,
+      ...(workstreamId === null ? { projectId } : { workstreamId }),
       templateVersionId: template.versions[0]!.id,
       currentVersion: 1,
       createdById: owner.id,
@@ -303,7 +568,7 @@ async function seedProposalFixture() {
   });
   const criteriaArtifacts = await createArtifacts(
     owner.id,
-    "criteria.generate.project",
+    kind === "project" ? "criteria.generate.project" : "criteria.generate.workstream",
     `criteria-${suffix}`,
   );
   const criteriaOperation = await database.operation.create({
@@ -319,10 +584,10 @@ async function seedProposalFixture() {
   });
   const criteriaRequest = await database.documentAnalysisRequest.create({
     data: {
-      kind: "criteria_project",
+      kind: kind === "project" ? "criteria_project" : "criteria_workstream",
       idempotencyKey: `criteria-request-${suffix}`,
       payloadHash: "4".repeat(64),
-      routeKey: "criteria.generate.project",
+      routeKey: kind === "project" ? "criteria.generate.project" : "criteria.generate.workstream",
       documentId: document.id,
       currentDocumentVersionId: document.versions[0]!.id,
       pinnedReadinessCheckId: readiness.id,
@@ -340,9 +605,13 @@ async function seedProposalFixture() {
   });
   return {
     ownerId: owner.id,
+    contributorAId: contributorA.id,
+    contributorBId: contributorB.id,
+    managerId: manager.id,
     organizationId: organization.id,
     departmentId: department.id,
     projectId,
+    workstreamId,
     documentId: document.id,
     documentVersionId: document.versions[0]!.id,
     readinessCheckId: readiness.id,
@@ -383,4 +652,31 @@ async function createArtifacts(actorId: string, routeKey: string, version: strin
     },
   });
   return { schema, prompt };
+}
+
+function postgresAuditWriter() {
+  return {
+    append: async (
+      transaction: import("./model.js").CriteriaTransaction,
+      input: import("@evaluation/contracts").AuditEventInput,
+    ) => {
+      const event = await transaction.auditEvent.create({
+        data: {
+          eventType: input.eventType,
+          actorKind: input.actor.kind,
+          actorId: input.actor.id,
+          effectiveSubjectId: input.effectiveSubjectId,
+          scopeType: input.scopeType,
+          scopeId: input.scopeId,
+          targetType: input.targetType,
+          targetId: input.targetId,
+          ...(input.reason === undefined ? {} : { reason: input.reason }),
+          ...(input.safeDiff === undefined ? {} : { safeDiff: input.safeDiff as never }),
+          correlationId: input.correlationId,
+          source: input.source,
+        },
+      });
+      return { id: event.id, createdAt: event.createdAt.toISOString() };
+    },
+  };
 }
