@@ -254,6 +254,9 @@ describe("authorization decision contract", () => {
         baseContext,
       ),
     ).toEqual({ allowed: true });
+    expect(
+      decide(administrator, "document.template.manage", organizationTemplate, baseContext),
+    ).toEqual({ allowed: true });
     expect(decide(manager, "document.template.manage", departmentTemplate, baseContext)).toEqual({
       allowed: true,
     });

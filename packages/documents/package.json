@@ -10,6 +10,7 @@
     "@evaluation/audit": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",
+    "@evaluation/permissions": "workspace:*",
     "@evaluation/projects": "workspace:*",
     "zod": "4.4.3"
   },

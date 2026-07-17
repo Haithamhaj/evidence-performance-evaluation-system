@@ -6,6 +6,7 @@ import { PermissionsModule } from "./permissions/permissions.module.js";
 import { ProjectsModule } from "./projects/projects.module.js";
 import { EvaluationEligibilityModule } from "./evaluation-eligibility/evaluation-eligibility.module.js";
 import { CorrelationMiddleware } from "./platform/correlation.middleware.js";
+import { DocumentsModule } from "./documents/documents.module.js";
 import {
   createEnvironmentReadinessProbes,
   HealthController,
@@ -22,6 +23,7 @@ Module({
   imports: [
     AiRoutingModule,
     AuditModule,
+    DocumentsModule,
     EvaluationEligibilityModule,
     PermissionsModule,
     ProjectsModule,

@@ -99,6 +99,9 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@evaluation/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
       '@evaluation/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -291,6 +294,9 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:../database
+      '@evaluation/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@evaluation/projects':
         specifier: workspace:*
         version: link:../projects

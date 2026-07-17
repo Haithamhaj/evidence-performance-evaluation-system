@@ -186,6 +186,7 @@ export const DocumentTemplateVersionSchema = z
   .object({
     id: UuidSchema,
     templateId: UuidSchema,
+    aggregateVersion: PositiveVersionSchema,
     version: PositiveVersionSchema,
     status: DocumentTemplateVersionStatusSchema,
     kind: DocumentKindSchema,
