@@ -16,6 +16,7 @@
     "@evaluation/audit": "workspace:*",
     "@evaluation/auth": "workspace:*",
     "@evaluation/contracts": "workspace:*",
+    "@evaluation/criteria": "workspace:*",
     "@evaluation/database": "workspace:*",
     "@evaluation/documents": "workspace:*",
     "@evaluation/observability": "workspace:*",

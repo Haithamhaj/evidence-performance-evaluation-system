@@ -99,6 +99,9 @@ importers:
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@evaluation/criteria':
+        specifier: workspace:*
+        version: link:../../packages/criteria
       '@evaluation/database':
         specifier: workspace:*
         version: link:../../packages/database
