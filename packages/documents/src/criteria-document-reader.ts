@@ -23,7 +23,30 @@ export class CriteriaDocumentReader {
       documentVersionId: string;
     }>,
   ): Promise<CriteriaDocumentPrerequisites | null> {
-    const readiness = await this.database.documentReadinessCheck.findFirst({
+    return this.getPrerequisitesUsing(this.database, input);
+  }
+
+  async getPrerequisitesIn(
+    transaction: import("./model.js").DocumentTransaction,
+    input: Readonly<{ documentVersionId: string }>,
+  ): Promise<CriteriaDocumentPrerequisites | null> {
+    await transaction.$queryRaw`
+      SELECT id FROM "DocumentReadinessCheck"
+      WHERE "documentVersionId" = ${input.documentVersionId}::uuid
+        AND "analyzedState" = 'ready_for_criteria_generation'
+        AND "stale" = false
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+      FOR UPDATE
+    `;
+    return this.getPrerequisitesUsing(transaction, input);
+  }
+
+  private async getPrerequisitesUsing(
+    database: Pick<import("./model.js").DocumentDatabase, "documentReadinessCheck">,
+    input: Readonly<{ documentVersionId: string }>,
+  ): Promise<CriteriaDocumentPrerequisites | null> {
+    const readiness = await database.documentReadinessCheck.findFirst({
       where: {
         documentVersionId: input.documentVersionId,
         analyzedState: "ready_for_criteria_generation",

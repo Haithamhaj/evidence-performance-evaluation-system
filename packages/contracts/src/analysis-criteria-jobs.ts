@@ -41,7 +41,10 @@ const CriteriaGenerationJobPayloadSchema = z
     requestId: UuidSchema,
     documentVersionId: UuidSchema,
     readinessCheckId: UuidSchema,
-    replacesProposalId: UuidSchema.optional(),
+    ownerId: UuidSchema,
+    contributorIds: z.array(UuidSchema).max(1_000),
+    replacesProposalId: UuidSchema.nullable().optional(),
+    materialComparisonReviewId: UuidSchema.nullable().optional(),
     ...ArtifactPinsShape,
   })
   .strict();

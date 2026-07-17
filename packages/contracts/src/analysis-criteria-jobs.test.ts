@@ -48,6 +48,8 @@ describe("analysis and criteria job contracts", () => {
         requestId,
         documentVersionId,
         readinessCheckId: "00000000-0000-4000-8000-000000000006",
+        ownerId: "00000000-0000-4000-8000-000000000008",
+        contributorIds: ["00000000-0000-4000-8000-000000000009"],
         replacesProposalId: "00000000-0000-4000-8000-000000000007",
         ...artifactPins,
       }),

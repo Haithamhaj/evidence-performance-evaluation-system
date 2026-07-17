@@ -18,6 +18,7 @@ describe("CriteriaReviewReader", () => {
         id: crypto.randomUUID(),
         employeeId: contributorB,
         responsibilityType: "contributor",
+        employee: { active: true },
         startsAt: new Date("2026-07-01T00:00:00.000Z"),
         endsAt: null,
       },
@@ -25,6 +26,7 @@ describe("CriteriaReviewReader", () => {
         id: crypto.randomUUID(),
         employeeId: primaryOwnerId,
         responsibilityType: "acting",
+        employee: { active: true },
         startsAt: new Date("2026-07-17T12:00:00.000Z"),
         endsAt: new Date("2026-07-18T00:00:00.000Z"),
       },
@@ -32,6 +34,7 @@ describe("CriteriaReviewReader", () => {
         id: crypto.randomUUID(),
         employeeId: contributorA,
         responsibilityType: "contributor",
+        employee: { active: true },
         startsAt: new Date("2026-07-01T00:00:00.000Z"),
         endsAt: null,
       },
@@ -39,6 +42,7 @@ describe("CriteriaReviewReader", () => {
         id: crypto.randomUUID(),
         employeeId: contributorB,
         responsibilityType: "contributor",
+        employee: { active: true },
         startsAt: new Date("2026-07-10T00:00:00.000Z"),
         endsAt: null,
       },
@@ -68,8 +72,13 @@ describe("CriteriaReviewReader", () => {
         workstreamId: resourceId,
         startsAt: { lte: at },
         OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+        employee: { active: true },
       },
-      select: { employeeId: true, responsibilityType: true },
+      select: {
+        employeeId: true,
+        responsibilityType: true,
+        employee: { select: { active: true } },
+      },
     });
   });
 
@@ -86,8 +95,16 @@ describe("CriteriaReviewReader", () => {
       project: { findUnique: vi.fn(async () => project) },
       responsibilityWindow: {
         findMany: vi.fn(async () => [
-          { employeeId: ownerA, responsibilityType: "original" },
-          { employeeId: ownerB, responsibilityType: "permanent" },
+          {
+            employeeId: ownerA,
+            responsibilityType: "original",
+            employee: { active: true },
+          },
+          {
+            employeeId: ownerB,
+            responsibilityType: "permanent",
+            employee: { active: true },
+          },
         ]),
       },
     };
@@ -102,6 +119,64 @@ describe("CriteriaReviewReader", () => {
           startsAt: { lte: at },
           OR: [{ endsAt: null }, { endsAt: { gt: at } }],
         }),
+      }),
+    );
+  });
+
+  it("excludes deactivated owners and contributors from the active identity snapshot", async () => {
+    const projectId = crypto.randomUUID();
+    const activeOwnerId = crypto.randomUUID();
+    const activeContributorId = crypto.randomUUID();
+    const transaction = {
+      $queryRaw: vi.fn(async () => []),
+      project: {
+        findUnique: vi.fn(async () => ({
+          id: projectId,
+          organizationId: crypto.randomUUID(),
+          departmentId: crypto.randomUUID(),
+        })),
+      },
+      responsibilityWindow: {
+        findMany: vi.fn(async () => [
+          {
+            employeeId: activeOwnerId,
+            responsibilityType: "permanent",
+            employee: { active: true },
+          },
+          {
+            employeeId: crypto.randomUUID(),
+            responsibilityType: "acting",
+            employee: { active: false },
+          },
+          {
+            employeeId: activeContributorId,
+            responsibilityType: "contributor",
+            employee: { active: true },
+          },
+          {
+            employeeId: crypto.randomUUID(),
+            responsibilityType: "contributor",
+            employee: { active: false },
+          },
+        ]),
+      },
+    };
+    const reader = new CriteriaReviewReader({} as never);
+
+    await expect(
+      reader.snapshotIn(transaction as never, { kind: "project", resourceId: projectId, at }),
+    ).resolves.toMatchObject({
+      primaryOwnerId: activeOwnerId,
+      contributorIds: [activeContributorId],
+    });
+    expect(transaction.responsibilityWindow.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ employee: { active: true } }),
+        select: {
+          employeeId: true,
+          responsibilityType: true,
+          employee: { select: { active: true } },
+        },
       }),
     );
   });

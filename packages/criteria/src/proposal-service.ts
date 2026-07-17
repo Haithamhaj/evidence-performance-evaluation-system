@@ -35,6 +35,14 @@ type CriteriaReviewReader = Readonly<{
       at: Date;
     }>,
   ): Promise<CriteriaReviewIdentity | null>;
+  snapshotIn(
+    transaction: import("./model.js").CriteriaTransaction,
+    input: Readonly<{
+      kind: CriteriaKind;
+      resourceId: string;
+      at: Date;
+    }>,
+  ): Promise<CriteriaReviewIdentity | null>;
 }>;
 
 type CriteriaDocumentPrerequisites = Readonly<{
@@ -53,6 +61,10 @@ type CriteriaDocumentReader = Readonly<{
     input: Readonly<{
       documentVersionId: string;
     }>,
+  ): Promise<CriteriaDocumentPrerequisites | null>;
+  getPrerequisitesIn(
+    transaction: import("./model.js").CriteriaTransaction,
+    input: Readonly<{ documentVersionId: string }>,
   ): Promise<CriteriaDocumentPrerequisites | null>;
 }>;
 
@@ -93,10 +105,14 @@ type CriteriaRequestOutbox = Readonly<{
       idempotencyKey: string;
       payload: Readonly<{
         type: "criteria.generate.v1";
+        kind: CriteriaKind;
         requestId: string;
         documentVersionId: string;
         readinessCheckId: string;
-        proposalId: string | null;
+        ownerId: string;
+        contributorIds: readonly string[];
+        replacesProposalId: string | null;
+        materialComparisonReviewId: string | null;
         schemaArtifactId: string;
         schemaArtifactHash: string;
         promptArtifactId: string;
@@ -105,6 +121,20 @@ type CriteriaRequestOutbox = Readonly<{
       }>;
     }>,
   ): Promise<unknown>;
+}>;
+
+type WorkstreamReviewPublisher = Readonly<{
+  publish(
+    transaction: import("./model.js").CriteriaTransaction,
+    input: Readonly<{
+      proposal: Readonly<Record<string, unknown>>;
+      identity: CriteriaReviewIdentity;
+      actorId: string;
+      reason: string;
+      correlationId: string;
+      publishedAt: Date;
+    }>,
+  ): Promise<DynamicCriteriaProposalDetail>;
 }>;
 
 export type CriteriaGenerationRequestSnapshot = Readonly<{
@@ -122,10 +152,13 @@ export type CriteriaGenerationRequestSnapshot = Readonly<{
   organizationId: string;
   departmentId: string;
   ownerId: string;
+  contributorIds: readonly string[];
   promptArtifactId: string;
   promptVersion: string;
   promptHash: string;
+  outputSchemaArtifactId: string;
   outputSchemaVersion: string;
+  outputSchemaHash: string;
   replacesProposalId: string | null;
   materialComparisonReviewId: string | null;
   ownerFeedback: string | null;
@@ -150,6 +183,7 @@ export class ProposalService {
   private readonly aiRouter: CriteriaRouter;
   private readonly audit: import("./model.js").CriteriaAuditWriter;
   private readonly outbox: CriteriaRequestOutbox;
+  private readonly workstreamPublisher: WorkstreamReviewPublisher;
   private readonly options: Readonly<{
     systemId: string;
     timeoutMs: number;
@@ -164,6 +198,7 @@ export class ProposalService {
     aiRouter: CriteriaRouter,
     audit: import("./model.js").CriteriaAuditWriter,
     outbox: CriteriaRequestOutbox,
+    workstreamPublisher: WorkstreamReviewPublisher,
     options: Readonly<{
       systemId: string;
       timeoutMs: number;
@@ -177,6 +212,7 @@ export class ProposalService {
     this.aiRouter = aiRouter;
     this.audit = audit;
     this.outbox = outbox;
+    this.workstreamPublisher = workstreamPublisher;
     this.options = options;
   }
 
@@ -239,16 +275,34 @@ export class ProposalService {
     const pinned = await this.database.$transaction(
       async (transaction) => {
         await transaction.$queryRaw`SELECT id FROM "DocumentRecord" WHERE id = ${prerequisites.documentId}::uuid FOR UPDATE`;
+        const currentPrerequisites = await this.documentReader.getPrerequisitesIn(transaction, {
+          documentVersionId: command.documentVersionId,
+        });
+        const currentIdentity = await this.reviewReader.snapshotIn(transaction, {
+          kind: command.kind,
+          resourceId: command.resourceId,
+          at,
+        });
+        if (
+          currentPrerequisites === null ||
+          currentIdentity === null ||
+          !samePrerequisites(prerequisites, currentPrerequisites) ||
+          !sameIdentity(identity, currentIdentity) ||
+          currentIdentity.primaryOwnerId !== command.actor.userId
+        ) {
+          throw invalidPrerequisites();
+        }
+        await validateReplacementPins(transaction, command, currentPrerequisites);
         const document = await transaction.documentRecord.findUnique({
-          where: { id: prerequisites.documentId },
+          where: { id: currentPrerequisites.documentId },
         });
         const version = await transaction.documentVersion.findUnique({
-          where: { id: prerequisites.documentVersionId },
+          where: { id: currentPrerequisites.documentVersionId },
         });
         if (
           document === null ||
           version === null ||
-          document.currentVersion !== prerequisites.documentVersion
+          document.currentVersion !== currentPrerequisites.documentVersion
         ) {
           throw invalidPrerequisites();
         }
@@ -272,9 +326,10 @@ export class ProposalService {
         const payloadHash = sha256({
           kind: command.kind,
           resourceId: command.resourceId,
-          documentVersionId: prerequisites.documentVersionId,
-          readinessCheckId: prerequisites.readinessCheckId,
-          ownerId: identity.primaryOwnerId,
+          documentVersionId: currentPrerequisites.documentVersionId,
+          readinessCheckId: currentPrerequisites.readinessCheckId,
+          ownerId: currentIdentity.primaryOwnerId,
+          contributorIds: currentIdentity.contributorIds,
           replacesProposalId: command.replacesProposalId ?? null,
           materialComparisonReviewId: command.materialComparisonReviewId ?? null,
           ownerFeedback: command.ownerFeedback ?? null,
@@ -295,7 +350,7 @@ export class ProposalService {
         await transaction.operation.create({
           data: {
             id: operationId,
-            organizationId: identity.organizationId,
+            organizationId: currentIdentity.organizationId,
             jobType: "analysis-criteria.process",
             jobVersion: 1,
             idempotencyKey: `criteria:${command.idempotencyKey}`,
@@ -311,11 +366,11 @@ export class ProposalService {
             idempotencyKey: command.idempotencyKey,
             payloadHash,
             routeKey,
-            documentId: prerequisites.documentId,
-            currentDocumentVersionId: prerequisites.documentVersionId,
-            pinnedReadinessCheckId: prerequisites.readinessCheckId,
+            documentId: currentPrerequisites.documentId,
+            currentDocumentVersionId: currentPrerequisites.documentVersionId,
+            pinnedReadinessCheckId: currentPrerequisites.readinessCheckId,
             pinnedProposalId: command.replacesProposalId ?? null,
-            expectedAggregateVersion: prerequisites.documentVersion,
+            expectedAggregateVersion: currentPrerequisites.documentVersion,
             outputSchemaArtifactId: schema.id,
             outputSchemaVersion: CRITERIA_GENERATION_OUTPUT_SCHEMA_VERSION,
             outputSchemaHash: schema.schemaHash,
@@ -331,25 +386,29 @@ export class ProposalService {
           jobVersion: 1,
           operationId: row.operationId,
           correlationId: command.correlationId,
-          organizationId: identity.organizationId,
-          departmentId: identity.departmentId,
-          projectId: identity.projectId,
+          organizationId: currentIdentity.organizationId,
+          departmentId: currentIdentity.departmentId,
+          projectId: currentIdentity.projectId,
           idempotencyKey: command.idempotencyKey,
           payload: {
             type: "criteria.generate.v1",
+            kind: command.kind,
             requestId: row.id,
-            documentVersionId: prerequisites.documentVersionId,
-            readinessCheckId: prerequisites.readinessCheckId,
-            proposalId: command.replacesProposalId ?? null,
+            documentVersionId: currentPrerequisites.documentVersionId,
+            readinessCheckId: currentPrerequisites.readinessCheckId,
+            ownerId: currentIdentity.primaryOwnerId,
+            contributorIds: [...currentIdentity.contributorIds],
+            replacesProposalId: command.replacesProposalId ?? null,
+            materialComparisonReviewId: command.materialComparisonReviewId ?? null,
             schemaArtifactId: schema.id,
             schemaArtifactHash: schema.schemaHash,
             promptArtifactId: prompt.id,
             promptArtifactHash: prompt.bodyHash,
-            expectedSnapshotVersion: prerequisites.documentVersion,
+            expectedSnapshotVersion: currentPrerequisites.documentVersion,
           },
         });
         await this.audit.append(transaction, {
-          eventType: "dynamic_criteria_generation_requested",
+          eventType: "dynamic_criteria.generation_requested",
           actor: { kind: "human", id: command.actor.userId },
           effectiveSubjectId: command.actor.userId,
           scopeType: command.kind,
@@ -358,8 +417,8 @@ export class ProposalService {
           targetId: row.id,
           reason: "Dynamic criteria generation requested",
           safeDiff: {
-            documentVersionId: prerequisites.documentVersionId,
-            readinessCheckId: prerequisites.readinessCheckId,
+            documentVersionId: currentPrerequisites.documentVersionId,
+            readinessCheckId: currentPrerequisites.readinessCheckId,
           },
           correlationId: command.correlationId,
           source: "api",
@@ -387,24 +446,29 @@ export class ProposalService {
         : Number.NaN;
     assertCriterionCount(request.kind, candidateCount);
     const parsed = CriteriaGenerationOutputSchema.parse(output);
-    const [requestRow, document, readiness, owner] = await Promise.all([
-      transaction.documentAnalysisRequest.findUnique({ where: { id: request.id } }),
-      transaction.documentRecord.findUnique({ where: { id: request.documentId } }),
-      transaction.documentReadinessCheck.findUnique({
-        where: { id: request.readinessCheckId },
-        include: {
-          lifecycleTransitions: {
-            orderBy: [{ effectiveAt: "desc" }, { id: "desc" }],
-            take: 1,
-          },
+    await transaction.$queryRaw`SELECT id FROM "DocumentAnalysisRequest" WHERE id = ${request.id}::uuid FOR UPDATE`;
+    await transaction.$queryRaw`SELECT id FROM "DocumentRecord" WHERE id = ${request.documentId}::uuid FOR UPDATE`;
+    await transaction.$queryRaw`SELECT id FROM "DocumentReadinessCheck" WHERE id = ${request.readinessCheckId}::uuid FOR UPDATE`;
+    const requestRow = await transaction.documentAnalysisRequest.findUnique({
+      where: { id: request.id },
+    });
+    const document = await transaction.documentRecord.findUnique({
+      where: { id: request.documentId },
+    });
+    const readiness = await transaction.documentReadinessCheck.findUnique({
+      where: { id: request.readinessCheckId },
+      include: {
+        lifecycleTransitions: {
+          orderBy: [{ effectiveAt: "desc" }, { id: "desc" }],
+          take: 1,
         },
-      }),
-      this.reviewReader.snapshot({
-        kind: request.kind,
-        resourceId: request.resourceId,
-        at: this.options.now?.() ?? new Date(),
-      }),
-    ]);
+      },
+    });
+    const owner = await this.reviewReader.snapshotIn(transaction, {
+      kind: request.kind,
+      resourceId: request.resourceId,
+      at: this.options.now?.() ?? new Date(),
+    });
     const latestLifecycle = readiness?.lifecycleTransitions[0]?.toState;
     if (
       requestRow === null ||
@@ -412,15 +476,33 @@ export class ProposalService {
       readiness === null ||
       owner === null ||
       requestRow.state !== "running" ||
+      requestRow.kind !==
+        (request.kind === "project" ? "criteria_project" : "criteria_workstream") ||
+      requestRow.routeKey !== request.routeKey ||
       requestRow.currentDocumentVersionId !== request.documentVersionId ||
       requestRow.pinnedReadinessCheckId !== request.readinessCheckId ||
+      requestRow.pinnedProposalId !== request.replacesProposalId ||
       requestRow.expectedAggregateVersion !== request.expectedDocumentVersion ||
+      requestRow.promptArtifactId !== request.promptArtifactId ||
+      requestRow.promptVersion !== request.promptVersion ||
+      requestRow.promptHash !== request.promptHash ||
+      requestRow.outputSchemaArtifactId !== request.outputSchemaArtifactId ||
+      requestRow.outputSchemaVersion !== request.outputSchemaVersion ||
+      requestRow.outputSchemaHash !== request.outputSchemaHash ||
       document.currentVersion !== request.expectedDocumentVersion ||
       readiness.documentVersionId !== request.documentVersionId ||
       readiness.analyzedState !== "ready_for_criteria_generation" ||
       readiness.stale ||
       !["ready_for_criteria_generation", "revision_required"].includes(latestLifecycle ?? "") ||
-      owner.primaryOwnerId !== request.ownerId
+      !sameIdentity(owner, {
+        kind: request.kind,
+        resourceId: request.resourceId,
+        projectId: request.projectId,
+        organizationId: request.organizationId,
+        departmentId: request.departmentId,
+        primaryOwnerId: request.ownerId,
+        contributorIds: request.contributorIds,
+      })
     ) {
       await transaction.documentAnalysisRequest.update({
         where: { id: request.id },
@@ -433,7 +515,33 @@ export class ProposalService {
         items: [],
       };
     }
+    await validateReplacementPins(
+      transaction,
+      {
+        kind: request.kind,
+        resourceId: request.resourceId,
+        documentVersionId: request.documentVersionId,
+        ...(request.replacesProposalId === null
+          ? {}
+          : { replacesProposalId: request.replacesProposalId }),
+        ...(request.ownerFeedback === null ? {} : { ownerFeedback: request.ownerFeedback }),
+        ...(request.materialComparisonReviewId === null
+          ? {}
+          : { materialComparisonReviewId: request.materialComparisonReviewId }),
+      },
+      {
+        documentId: request.documentId,
+        documentVersionId: request.documentVersionId,
+        documentVersion: request.expectedDocumentVersion,
+        readinessCheckId: request.readinessCheckId,
+        lifecycleState: latestLifecycle as import("@evaluation/contracts").ReadinessLifecycleState,
+        projectId: request.projectId,
+        workstreamId: request.kind === "workstream" ? request.resourceId : null,
+        sourceReferences: [],
+      },
+    );
 
+    await lockCriteriaScope(transaction, request);
     const proposalNumber =
       (await transaction.dynamicCriteriaProposal.count({
         where:
@@ -441,6 +549,7 @@ export class ProposalService {
             ? { projectId: request.resourceId }
             : { workstreamId: request.resourceId },
       })) + 1;
+    const outputReference = request.outputReference ?? `criteria-proposal:${randomUUID()}`;
     const proposal = await transaction.dynamicCriteriaProposal.create({
       data: {
         requestId: request.id,
@@ -454,7 +563,7 @@ export class ProposalService {
         proposalNumber,
         version: 1,
         state: "owner_review",
-        outputReference: request.outputReference ?? `criteria-proposal:${randomUUID()}`,
+        outputReference,
         outputSchemaVersion: request.outputSchemaVersion,
         promptVersion: request.promptVersion,
         promptHash: request.promptHash,
@@ -468,14 +577,12 @@ export class ProposalService {
         ...item,
       })),
     });
-    await transaction.dynamicCriteriaProposalTransition.create({
+    await transaction.documentAnalysisRequest.update({
+      where: { id: request.id },
       data: {
-        proposalId: proposal.id,
-        fromState: "owner_review",
-        toState: "owner_review",
-        actorId: request.createdById,
-        reason: "AI generation validated for mandatory owner review",
-        resultingVersion: 1,
+        state: "succeeded",
+        resultReference: outputReference,
+        completedAt: this.options.now?.() ?? new Date(),
       },
     });
     const detail = await transaction.dynamicCriteriaProposal.findUnique({
@@ -514,7 +621,7 @@ export class ProposalService {
         if (proposal.state !== "owner_review") throw invalidState();
         const resourceId = proposal.kind === "project" ? proposal.projectId : proposal.workstreamId;
         if (resourceId === null) throw invalidState();
-        const identity = await this.reviewReader.snapshot({
+        const identity = await this.reviewReader.snapshotIn(transaction, {
           kind: proposal.kind,
           resourceId,
           at,
@@ -522,16 +629,34 @@ export class ProposalService {
         if (identity === null || identity.primaryOwnerId !== command.actor.userId) {
           throw forbidden();
         }
+        if (review.action === "approve" && proposal.kind === "workstream") {
+          return this.workstreamPublisher.publish(transaction, {
+            proposal: proposal as unknown as Readonly<Record<string, unknown>>,
+            identity,
+            actorId: command.actor.userId,
+            reason: review.reason,
+            correlationId: command.correlationId,
+            publishedAt: at,
+          });
+        }
         const toState =
           review.action === "approve"
-            ? proposal.kind === "project"
-              ? "approved"
-              : "contributor_review"
+            ? "approved"
             : review.action === "reject"
               ? "rejected"
               : "superseded";
         assertProposalTransition(proposal.state, toState);
         const version = proposal.version + 1;
+        await transaction.dynamicCriteriaProposalTransition.create({
+          data: {
+            proposalId: proposal.id,
+            fromState: proposal.state,
+            toState,
+            actorId: command.actor.userId,
+            reason: review.reason,
+            resultingVersion: version,
+          },
+        });
         const updated = await transaction.dynamicCriteriaProposal.update({
           where: { id: proposal.id },
           data: {
@@ -544,18 +669,8 @@ export class ProposalService {
             transitions: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
           },
         });
-        await transaction.dynamicCriteriaProposalTransition.create({
-          data: {
-            proposalId: proposal.id,
-            fromState: proposal.state,
-            toState,
-            actorId: command.actor.userId,
-            reason: review.reason,
-            resultingVersion: version,
-          },
-        });
         await this.audit.append(transaction, {
-          eventType: "dynamic_criteria_owner_reviewed",
+          eventType: "dynamic_criteria.owner_reviewed",
           actor: { kind: "human", id: command.actor.userId },
           effectiveSubjectId: command.actor.userId,
           scopeType: proposal.kind,
@@ -598,6 +713,48 @@ function sha256(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+function samePrerequisites(
+  expected: CriteriaDocumentPrerequisites,
+  actual: CriteriaDocumentPrerequisites,
+): boolean {
+  return (
+    expected.documentId === actual.documentId &&
+    expected.documentVersionId === actual.documentVersionId &&
+    expected.documentVersion === actual.documentVersion &&
+    expected.readinessCheckId === actual.readinessCheckId &&
+    expected.lifecycleState === actual.lifecycleState &&
+    expected.projectId === actual.projectId &&
+    expected.workstreamId === actual.workstreamId
+  );
+}
+
+function sameIdentity(expected: CriteriaReviewIdentity, actual: CriteriaReviewIdentity): boolean {
+  return (
+    expected.kind === actual.kind &&
+    expected.resourceId === actual.resourceId &&
+    expected.projectId === actual.projectId &&
+    expected.organizationId === actual.organizationId &&
+    expected.departmentId === actual.departmentId &&
+    expected.primaryOwnerId === actual.primaryOwnerId &&
+    sameContributorIds(expected.contributorIds, actual.contributorIds)
+  );
+}
+
+function sameContributorIds(expected: readonly string[], actual: readonly string[]): boolean {
+  return expected.length === actual.length && expected.every((id, index) => id === actual[index]);
+}
+
+async function lockCriteriaScope(
+  transaction: import("./model.js").CriteriaTransaction,
+  request: CriteriaGenerationRequestSnapshot,
+): Promise<void> {
+  if (request.kind === "project") {
+    await transaction.$queryRaw`SELECT id FROM "Project" WHERE id = ${request.resourceId}::uuid FOR UPDATE`;
+    return;
+  }
+  await transaction.$queryRaw`SELECT id FROM "Workstream" WHERE id = ${request.resourceId}::uuid FOR UPDATE`;
+}
+
 function forbidden(): AppError {
   return new AppError("FORBIDDEN", "errors.authorization.forbidden", 403);
 }
@@ -624,4 +781,76 @@ function idempotencyConflict(): AppError {
 
 function invalidState(): AppError {
   return new AppError("CRITERIA_TRANSITION_INVALID", "errors.criteria.transitionInvalid", 409);
+}
+
+async function validateReplacementPins(
+  transaction: import("./model.js").CriteriaTransaction,
+  command: Readonly<{
+    kind: CriteriaKind;
+    resourceId: string;
+    documentVersionId: string;
+    replacesProposalId?: string;
+    ownerFeedback?: string;
+    materialComparisonReviewId?: string;
+  }>,
+  prerequisites: CriteriaDocumentPrerequisites,
+): Promise<void> {
+  if (command.replacesProposalId === undefined) {
+    if (command.ownerFeedback !== undefined || command.materialComparisonReviewId !== undefined) {
+      throw replacementInvalid();
+    }
+    return;
+  }
+  if (!command.ownerFeedback?.trim()) throw replacementInvalid();
+  await transaction.$queryRaw`SELECT id FROM "DynamicCriteriaProposal" WHERE id = ${command.replacesProposalId}::uuid FOR UPDATE`;
+  const prior = await transaction.dynamicCriteriaProposal.findUnique({
+    where: { id: command.replacesProposalId },
+    include: {
+      transitions: {
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      },
+    },
+  });
+  const priorResourceId = prior?.kind === "project" ? prior.projectId : prior?.workstreamId;
+  if (
+    prior === null ||
+    prior.kind !== command.kind ||
+    priorResourceId !== command.resourceId ||
+    prior.state !== "superseded" ||
+    !prior.transitions.some(
+      ({ fromState, toState }) => fromState === "owner_review" && toState === "superseded",
+    )
+  ) {
+    throw replacementInvalid();
+  }
+  if (command.materialComparisonReviewId === undefined) {
+    if (
+      prerequisites.lifecycleState !== "ready_for_criteria_generation" ||
+      prior.sourceDocumentVersionId !== command.documentVersionId
+    ) {
+      throw replacementInvalid();
+    }
+    return;
+  }
+  const materialReview = await transaction.documentComparisonReview.findUnique({
+    where: { id: command.materialComparisonReviewId },
+    include: {
+      comparison: {
+        select: { beforeVersionId: true, afterVersionId: true },
+      },
+    },
+  });
+  if (
+    prerequisites.lifecycleState !== "revision_required" ||
+    materialReview === null ||
+    materialReview.effectiveClassification !== "material_scope_or_goal_change" ||
+    materialReview.comparison.beforeVersionId !== prior.sourceDocumentVersionId ||
+    materialReview.comparison.afterVersionId !== command.documentVersionId
+  ) {
+    throw replacementInvalid();
+  }
+}
+
+function replacementInvalid(): AppError {
+  return new AppError("CRITERIA_REPLACEMENT_INVALID", "errors.criteria.replacementInvalid", 409);
 }

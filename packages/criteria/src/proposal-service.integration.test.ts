@@ -42,22 +42,35 @@ function persistenceHarness(kind: "project" | "workstream", count: number) {
     organizationId: crypto.randomUUID(),
     departmentId: crypto.randomUUID(),
     ownerId,
+    contributorIds: [],
     promptArtifactId: crypto.randomUUID(),
     promptVersion: "criteria-generation.v1",
     promptHash: "a".repeat(64),
+    outputSchemaArtifactId: crypto.randomUUID(),
     outputSchemaVersion: "criteria-generation-output.v1",
+    outputSchemaHash: "b".repeat(64),
     replacesProposalId: null,
     materialComparisonReviewId: null,
     ownerFeedback: null,
     createdById: ownerId,
   } satisfies import("./proposal-service.js").CriteriaGenerationRequestSnapshot;
   const current = {
+    $queryRaw: vi.fn(async () => []),
     documentAnalysisRequest: {
       findUnique: vi.fn(async () => ({
+        kind: kind === "project" ? "criteria_project" : "criteria_workstream",
+        routeKey: `criteria.generate.${kind}`,
         state: "running",
         currentDocumentVersionId: documentVersionId,
         pinnedReadinessCheckId: readinessCheckId,
+        pinnedProposalId: null,
         expectedAggregateVersion: 2,
+        promptArtifactId: request.promptArtifactId,
+        promptVersion: request.promptVersion,
+        promptHash: request.promptHash,
+        outputSchemaArtifactId: request.outputSchemaArtifactId,
+        outputSchemaVersion: request.outputSchemaVersion,
+        outputSchemaHash: request.outputSchemaHash,
       })),
       update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => data),
     },
@@ -108,6 +121,15 @@ function persistenceHarness(kind: "project" | "workstream", count: number) {
       primaryOwnerId: ownerId,
       contributorIds: [],
     })),
+    snapshotIn: vi.fn(async () => ({
+      kind,
+      resourceId,
+      projectId,
+      organizationId: request.organizationId,
+      departmentId: request.departmentId,
+      primaryOwnerId: ownerId,
+      contributorIds: [],
+    })),
   };
   const service = new ProposalService(
     {} as never,
@@ -117,6 +139,7 @@ function persistenceHarness(kind: "project" | "workstream", count: number) {
     {} as never,
     { append: vi.fn(async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() })) },
     { append: vi.fn(async () => undefined) },
+    { publish: vi.fn(async () => undefined) } as never,
     { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => now },
   );
   return {
@@ -126,6 +149,7 @@ function persistenceHarness(kind: "project" | "workstream", count: number) {
     current,
     output: { criteria: Array.from({ length: count }, (_, index) => criterion(index + 1)) },
     request,
+    reviewReader,
     service,
   };
 }
@@ -146,7 +170,14 @@ describe("ProposalService persisted generation", () => {
     expect(detail.state).toBe("owner_review");
     expect(detail.items).toHaveLength(count);
     expect(detail.items[0]).toMatchObject(harness.output.criteria[0]!);
-    expect(harness.createdTransitions).toHaveLength(1);
+    expect(harness.createdTransitions).toHaveLength(0);
+    expect(harness.current.documentAnalysisRequest.update).toHaveBeenCalledWith({
+      where: { id: harness.request.id },
+      data: expect.objectContaining({
+        state: "succeeded",
+        resultReference: expect.stringMatching(/^criteria-proposal:/u),
+      }),
+    });
   });
 
   it.each([
@@ -182,6 +213,28 @@ describe("ProposalService persisted generation", () => {
       harness.service.persistValidatedGeneration(
         harness.current as never,
         harness.request,
+        harness.output,
+      ),
+    ).resolves.toMatchObject({ state: "superseded", items: [] });
+    expect(harness.current.dynamicCriteriaProposal.create).not.toHaveBeenCalled();
+  });
+
+  it("suppresses proposal persistence when the frozen contributor IDs changed", async () => {
+    const harness = persistenceHarness("workstream", 2);
+    const pinnedContributorId = crypto.randomUUID();
+    harness.reviewReader.snapshotIn.mockResolvedValueOnce({
+      kind: "workstream",
+      resourceId: harness.request.resourceId,
+      projectId: harness.request.projectId,
+      organizationId: harness.request.organizationId,
+      departmentId: harness.request.departmentId,
+      primaryOwnerId: harness.request.ownerId,
+      contributorIds: [],
+    });
+    await expect(
+      harness.service.persistValidatedGeneration(
+        harness.current as never,
+        { ...harness.request, contributorIds: [pinnedContributorId] },
         harness.output,
       ),
     ).resolves.toMatchObject({ state: "superseded", items: [] });
@@ -259,20 +312,22 @@ describe("ProposalService request and owner review", () => {
       workstreamId: resourceId,
       sourceReferences: [`document-source:${crypto.randomUUID()}`],
     } as const;
-    const documentReader = { getPrerequisites: vi.fn(async () => prerequisites) };
+    const documentReader = {
+      getPrerequisites: vi.fn(async () => prerequisites),
+      getPrerequisitesIn: vi.fn(async () => prerequisites),
+    };
+    const identity = {
+      kind: "workstream",
+      resourceId,
+      projectId,
+      organizationId: crypto.randomUUID(),
+      departmentId: crypto.randomUUID(),
+      primaryOwnerId: ownerId,
+      contributorIds: [crypto.randomUUID(), crypto.randomUUID()].sort(),
+    } as const;
     const reviewReader = {
-      snapshot: vi.fn(
-        async () =>
-          ({
-            kind: "workstream",
-            resourceId,
-            projectId,
-            organizationId: crypto.randomUUID(),
-            departmentId: crypto.randomUUID(),
-            primaryOwnerId: ownerId,
-            contributorIds: [],
-          }) as const,
-      ),
+      snapshot: vi.fn(async () => identity),
+      snapshotIn: vi.fn(async () => identity),
     };
     const sourceLoader = {
       load: vi.fn(),
@@ -295,6 +350,7 @@ describe("ProposalService request and owner review", () => {
       aiRouter as never,
       { append: auditAppend } as never,
       { append: outboxAppend },
+      { publish: vi.fn(async () => undefined) } as never,
       { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => now },
     );
 
@@ -318,21 +374,64 @@ describe("ProposalService request and owner review", () => {
           requestId,
           documentVersionId,
           readinessCheckId,
+          ownerId,
+          contributorIds: identity.contributorIds,
         }),
       }),
     );
+    expect(documentReader.getPrerequisitesIn).toHaveBeenCalledWith(transaction, {
+      documentVersionId,
+    });
+    expect(reviewReader.snapshotIn).toHaveBeenCalledWith(transaction, {
+      kind: "workstream",
+      resourceId,
+      at: now,
+    });
     expect(auditAppend).toHaveBeenCalledWith(
       transaction,
-      expect.objectContaining({ eventType: "dynamic_criteria_generation_requested" }),
+      expect.objectContaining({ eventType: "dynamic_criteria.generation_requested" }),
     );
     expect(sourceLoader.load).not.toHaveBeenCalled();
     expect(aiRouter.run).not.toHaveBeenCalled();
+
+    const replacesProposalId = crypto.randomUUID();
+    Object.assign(transaction, {
+      dynamicCriteriaProposal: {
+        findUnique: vi.fn(async () => ({
+          id: replacesProposalId,
+          kind: "project",
+          projectId,
+          workstreamId: null,
+          sourceDocumentVersionId: documentVersionId,
+          state: "superseded",
+          transitions: [
+            {
+              fromState: "owner_review",
+              toState: "superseded",
+            },
+          ],
+        })),
+      },
+    });
+    await expect(
+      service.requestGeneration({
+        actor: { userId: ownerId, active: true },
+        correlationId: crypto.randomUUID(),
+        kind: "workstream",
+        resourceId,
+        documentVersionId,
+        replacesProposalId,
+        ownerFeedback: "Generate a corrected alternative.",
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: "CRITERIA_REPLACEMENT_INVALID" });
   });
 
   it("keeps stored items immutable while appending owner review history", async () => {
     const ownerId = crypto.randomUUID();
     const proposalId = crypto.randomUUID();
     const itemsUpdateMany = vi.fn();
+    const callOrder: string[] = [];
     const proposal = {
       id: proposalId,
       kind: "project",
@@ -347,13 +446,18 @@ describe("ProposalService request and owner review", () => {
       $queryRaw: vi.fn(async () => []),
       dynamicCriteriaProposal: {
         findUnique: vi.fn(async () => proposal),
-        update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
-          ...proposal,
-          ...data,
-        })),
+        update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          callOrder.push("update");
+          return { ...proposal, ...data };
+        }),
       },
       dynamicCriteriaProposalItem: { updateMany: itemsUpdateMany },
-      dynamicCriteriaProposalTransition: { create: vi.fn(async () => ({})) },
+      dynamicCriteriaProposalTransition: {
+        create: vi.fn(async () => {
+          callOrder.push("transition");
+          return {};
+        }),
+      },
     };
     const database = {
       $transaction: vi.fn(async (callback: (value: typeof transaction) => Promise<unknown>) =>
@@ -362,6 +466,18 @@ describe("ProposalService request and owner review", () => {
     };
     const reviewReader = {
       snapshot: vi.fn(
+        async () =>
+          ({
+            kind: "project",
+            resourceId: proposal.projectId,
+            projectId: proposal.projectId,
+            organizationId: crypto.randomUUID(),
+            departmentId: crypto.randomUUID(),
+            primaryOwnerId: ownerId,
+            contributorIds: [],
+          }) as const,
+      ),
+      snapshotIn: vi.fn(
         async () =>
           ({
             kind: "project",
@@ -386,6 +502,7 @@ describe("ProposalService request and owner review", () => {
       {} as never,
       { append: auditAppend } as never,
       { append: vi.fn(async () => undefined) },
+      { publish: vi.fn(async () => undefined) } as never,
       { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => now },
     );
     await expect(
@@ -398,9 +515,10 @@ describe("ProposalService request and owner review", () => {
     ).resolves.toMatchObject({ state: "approved" });
     expect(itemsUpdateMany).not.toHaveBeenCalled();
     expect(transaction.dynamicCriteriaProposalTransition.create).toHaveBeenCalledOnce();
+    expect(callOrder).toEqual(["transition", "update"]);
     expect(auditAppend).toHaveBeenCalledWith(
       transaction,
-      expect.objectContaining({ eventType: "dynamic_criteria_owner_reviewed" }),
+      expect.objectContaining({ eventType: "dynamic_criteria.owner_reviewed" }),
     );
   });
 
@@ -408,11 +526,12 @@ describe("ProposalService request and owner review", () => {
     const service = new ProposalService(
       {} as never,
       {} as never,
-      { snapshot: vi.fn(async () => null) },
+      { snapshot: vi.fn(async () => null), snapshotIn: vi.fn(async () => null) },
       {} as never,
       {} as never,
       { append: vi.fn(async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() })) },
       { append: vi.fn(async () => undefined) },
+      { publish: vi.fn(async () => undefined) } as never,
       { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => now },
     );
     await expect(
@@ -423,5 +542,77 @@ describe("ProposalService request and owner review", () => {
         review: { action: "reject", reason: "Not acceptable." },
       }),
     ).rejects.toBeInstanceOf(AppError);
+  });
+
+  it("hands workstream approval to the frozen-snapshot workflow without updating directly", async () => {
+    const ownerId = crypto.randomUUID();
+    const proposalId = crypto.randomUUID();
+    const workstreamId = crypto.randomUUID();
+    const proposal = {
+      id: proposalId,
+      kind: "workstream",
+      projectId: null,
+      workstreamId,
+      state: "owner_review",
+      version: 1,
+      items: [criterion(1), criterion(2)],
+      transitions: [],
+    } as const;
+    const transaction = {
+      $queryRaw: vi.fn(async () => []),
+      dynamicCriteriaProposal: {
+        findUnique: vi.fn(async () => proposal),
+        update: vi.fn(),
+      },
+    };
+    const database = {
+      $transaction: vi.fn(async (callback: (value: typeof transaction) => Promise<unknown>) =>
+        callback(transaction),
+      ),
+    };
+    const identity = {
+      kind: "workstream",
+      resourceId: workstreamId,
+      projectId: crypto.randomUUID(),
+      organizationId: crypto.randomUUID(),
+      departmentId: crypto.randomUUID(),
+      primaryOwnerId: ownerId,
+      contributorIds: [crypto.randomUUID()],
+    } as const;
+    const publisher = {
+      publish: vi.fn(async () => ({
+        ...proposal,
+        state: "contributor_review" as const,
+        version: 2,
+      })),
+    };
+    const service = new ProposalService(
+      database as never,
+      {} as never,
+      {
+        snapshot: vi.fn(async () => identity),
+        snapshotIn: vi.fn(async () => identity),
+      },
+      {} as never,
+      {} as never,
+      { append: vi.fn() } as never,
+      { append: vi.fn() },
+      publisher,
+      { systemId: crypto.randomUUID(), timeoutMs: 1_000, now: () => now },
+    );
+
+    await expect(
+      service.reviewByOwner({
+        actor: { userId: ownerId, active: true },
+        correlationId: crypto.randomUUID(),
+        proposalId,
+        review: { action: "approve", reason: "Publish the reviewed criteria." },
+      }),
+    ).resolves.toMatchObject({ state: "contributor_review" });
+    expect(publisher.publish).toHaveBeenCalledWith(
+      transaction,
+      expect.objectContaining({ proposal, identity, actorId: ownerId }),
+    );
+    expect(transaction.dynamicCriteriaProposal.update).not.toHaveBeenCalled();
   });
 });
