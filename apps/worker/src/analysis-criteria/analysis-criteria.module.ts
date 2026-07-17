@@ -39,6 +39,7 @@ export type AnalysisCriteriaWorkerConfiguration = Readonly<{
 export type AnalysisCriteriaWorkerComposition = Readonly<{
   start(): Promise<void>;
   close(): Promise<void>;
+  isHealthy(): boolean;
 }>;
 
 export const ANALYSIS_CRITERIA_WORKER_CONFIGURATION = Symbol(
@@ -57,7 +58,12 @@ export function createAnalysisCriteriaWorkerConfiguration(
 ): AnalysisCriteriaWorkerConfiguration | undefined {
   const databaseUrl = environment.DATABASE_URL?.trim();
   const redisUrl = environment.REDIS_URL?.trim();
-  if (!databaseUrl || !redisUrl) return undefined;
+  if (
+    !databaseUrl ||
+    !redisUrl ||
+    environment.WORKER_JOB_TYPE !== "analysis-criteria.process"
+  )
+    return undefined;
   return { databaseUrl, redisUrl, environment };
 }
 
@@ -239,6 +245,7 @@ function lifecycle(
 ): AnalysisCriteriaWorkerComposition {
   return {
     start: () => queue.start(),
+    isHealthy: () => queue.isHealthy(),
     async close() {
       await queue.close();
       s3.destroy();
@@ -293,6 +300,10 @@ export class AnalysisCriteriaWorkerLifecycle {
 
   async onApplicationShutdown(): Promise<void> {
     await this.composition?.close();
+  }
+
+  isHealthy(): boolean {
+    return this.configuration === undefined || this.composition?.isHealthy() === true;
   }
 }
 

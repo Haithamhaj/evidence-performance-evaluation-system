@@ -70,7 +70,11 @@ describe("analysis criteria dedicated queue runtime", () => {
     expect(job.discard).toHaveBeenCalledOnce();
   });
 
-  it.each(["AI_OUTPUT_QUARANTINED", "AI_SOURCE_REFERENCE_INVALID"] as const)(
+  it.each([
+    "AI_OUTPUT_QUARANTINED",
+    "AI_SOURCE_REFERENCE_INVALID",
+    "CRITERIA_COUNT_INVALID",
+  ] as const)(
     "discards terminal %s AppErrors after the request is terminalized",
     async (code) => {
       const processor = {
@@ -128,5 +132,36 @@ describe("analysis criteria dedicated queue runtime", () => {
     expect(workerClose).toHaveBeenCalledOnce();
     expect(queueClose).toHaveBeenCalledOnce();
     expect(eventsClose).toHaveBeenCalledOnce();
+  });
+
+  it("surfaces a worker-loop failure that happens after startup", async () => {
+    let rejectRun!: (error: Error) => void;
+    const runtime = createAnalysisCriteriaQueueLifecycle({
+      queue: {
+        waitUntilReady: vi.fn(async () => undefined),
+        close: vi.fn(async () => undefined),
+      },
+      queueEvents: {
+        waitUntilReady: vi.fn(async () => undefined),
+        close: vi.fn(async () => undefined),
+      },
+      worker: {
+        run: vi.fn(
+          () =>
+            new Promise<void>((_resolve, reject) => {
+              rejectRun = reject;
+            }),
+        ),
+        waitUntilReady: vi.fn(async () => undefined),
+        close: vi.fn(async () => undefined),
+      },
+    });
+
+    await expect(runtime.start()).resolves.toBeUndefined();
+    expect(runtime.isHealthy()).toBe(true);
+
+    rejectRun(new Error("consumer loop stopped"));
+    await vi.waitFor(() => expect(runtime.isHealthy()).toBe(false));
+    await expect(runtime.close()).resolves.toBeUndefined();
   });
 });

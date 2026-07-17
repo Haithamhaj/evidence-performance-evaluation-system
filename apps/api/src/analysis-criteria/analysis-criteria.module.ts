@@ -1,0 +1,250 @@
+import { databaseAuditWriter } from "@evaluation/audit";
+import {
+  ActivationService,
+  CriteriaVersionResolver,
+  ProposalService,
+  RevisionService,
+  WorkstreamReviewService,
+} from "@evaluation/criteria";
+import { createDatabaseClient } from "@evaluation/database";
+import { ComparisonService, CriteriaDocumentReader, ReadinessService } from "@evaluation/documents";
+import { decide } from "@evaluation/permissions";
+import { CriteriaReviewReader, DocumentResourceReader } from "@evaluation/projects";
+import { Module } from "@nestjs/common";
+
+import { AuthModule } from "../auth/auth.module.js";
+import { AnalysisCriteriaAuthenticationGuard } from "./analysis-criteria-authentication.guard.js";
+import {
+  ANALYSIS_CRITERIA_POLICY_DATABASE,
+  AnalysisCriteriaPolicyGuard,
+} from "./analysis-criteria-policy.guard.js";
+import { createAnalysisQueueProducer } from "./analysis-queue-producer.js";
+import { AnalysisJobEnqueuer } from "./analysis-job-enqueuer.js";
+import { CriteriaController } from "./criteria.controller.js";
+import { DocumentAnalysisController } from "./document-analysis.controller.js";
+
+export const ANALYSIS_CRITERIA_DATABASE = Symbol("ANALYSIS_CRITERIA_DATABASE");
+export const ANALYSIS_CRITERIA_QUEUE = Symbol("ANALYSIS_CRITERIA_QUEUE");
+const ANALYSIS_CRITERIA_LIFECYCLE = Symbol("ANALYSIS_CRITERIA_LIFECYCLE");
+
+type Database = ReturnType<typeof createDatabaseClient>;
+type AnalysisQueue = ReturnType<typeof createAnalysisQueueProducer>;
+
+function requiredEnvironment(name: "DATABASE_URL" | "REDIS_URL"): string {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} must be configured`);
+  return value;
+}
+
+function unavailableProcessingDependency(): never {
+  throw new Error("AI processing dependencies are available only in the worker");
+}
+
+function analysisOptions() {
+  return {
+    systemId: "00000000-0000-4000-8000-000000000000",
+    timeoutMs: 30_000,
+    extractionPolicy: {
+      maxSourceBytes: 1,
+      maxArchiveEntries: 1,
+      maxArchiveUncompressedBytes: 1,
+      maxArchiveCompressionRatio: 1,
+    },
+    execution: { heartbeatMs: 5_000, leaseMs: 90_000, maxAttempts: 3 },
+  } as const;
+}
+
+export function createTransactionalAnalysisOutbox() {
+  return {
+    append(
+      transaction: Readonly<{
+        operationEffectReceipt: {
+          create(input: unknown): Promise<unknown>;
+        };
+      }>,
+      input: Readonly<{
+        operationId: string;
+        idempotencyKey: string;
+        jobType: string;
+      }>,
+    ) {
+      return transaction.operationEffectReceipt.create({
+        data: {
+          operationId: input.operationId,
+          effectName: "outbox-enqueued",
+          idempotencyKey: `outbox:${input.idempotencyKey}`,
+          receiptReference: `${input.jobType}:${input.operationId}`,
+        },
+      });
+    },
+  };
+}
+
+class ApiCriteriaPolicyAuthorizer {
+  private readonly database: Database;
+
+  constructor(database: Database) {
+    this.database = database;
+  }
+
+  async authorize(
+    input: Readonly<{
+      actor: Readonly<{ userId: string; active: boolean }>;
+      action: "criteria.contributor.respond" | "criteria.manager.resolve";
+      resource: Readonly<Record<string, unknown>>;
+    }>,
+  ): Promise<boolean> {
+    const roles = await this.database.roleAssignment.findMany({
+      where: { userId: input.actor.userId },
+      select: { role: true, scopeType: true, scopeId: true },
+    });
+    let resource = input.resource;
+    if (input.action === "criteria.manager.resolve") {
+      const departmentId = String(input.resource.departmentId);
+      const scope = await this.database.authorizationScope.findFirst({
+        where: { departmentId, scopeType: "department" },
+        select: { id: true },
+      });
+      if (scope === null) return false;
+      resource = { ...input.resource, departmentId: scope.id };
+    }
+    return decide(
+      { subjectId: input.actor.userId, active: input.actor.active, roles },
+      input.action,
+      resource as import("@evaluation/permissions").PolicyResource,
+      { now: new Date().toISOString(), responsibilityWindows: [] },
+    ).allowed;
+  }
+}
+
+export function createAnalysisCriteriaApiServices(
+  database: Database,
+  queue: Pick<AnalysisQueue, "enqueue">,
+) {
+  const documentReader = new DocumentResourceReader(database);
+  const criteriaDocumentReader = new CriteriaDocumentReader(database);
+  const criteriaReviewReader = new CriteriaReviewReader(database);
+  const jobs = new AnalysisJobEnqueuer(database as never, queue);
+  const enqueue = (receipt: Readonly<{ requestId: string; operationId: string }>) =>
+    jobs.enqueueAfterCommit(receipt);
+  const processingOnly = {
+    load: async () => unavailableProcessingDependency(),
+    run: async () => unavailableProcessingDependency(),
+  };
+  const options = analysisOptions();
+  const reviews = new WorkstreamReviewService(
+    database,
+    databaseAuditWriter as never,
+    new ApiCriteriaPolicyAuthorizer(database),
+    criteriaDocumentReader,
+  );
+  const outbox = createTransactionalAnalysisOutbox();
+  return {
+    jobs,
+    readiness: new ReadinessService(
+      database,
+      documentReader,
+      processingOnly as never,
+      processingOnly as never,
+      databaseAuditWriter as never,
+      enqueue,
+      options,
+    ),
+    comparisons: new ComparisonService(
+      database,
+      documentReader,
+      processingOnly as never,
+      processingOnly as never,
+      databaseAuditWriter as never,
+      enqueue,
+      options,
+    ),
+    proposals: new ProposalService(
+      database,
+      criteriaDocumentReader,
+      criteriaReviewReader,
+      processingOnly as never,
+      processingOnly as never,
+      databaseAuditWriter as never,
+      outbox,
+      reviews,
+      options,
+    ),
+    reviews,
+    activation: new ActivationService(
+      database,
+      databaseAuditWriter as never,
+      criteriaDocumentReader,
+      criteriaReviewReader,
+    ),
+    revisions: new RevisionService(
+      database,
+      criteriaDocumentReader,
+      criteriaReviewReader,
+      databaseAuditWriter as never,
+      outbox,
+    ),
+    versions: new CriteriaVersionResolver(database),
+  };
+}
+
+const ANALYSIS_CRITERIA_SERVICES = Symbol("ANALYSIS_CRITERIA_SERVICES");
+
+export class AnalysisCriteriaModule {}
+
+Module({
+  imports: [AuthModule],
+  controllers: [DocumentAnalysisController, CriteriaController],
+  providers: [
+    {
+      provide: ANALYSIS_CRITERIA_DATABASE,
+      useFactory: () => createDatabaseClient(requiredEnvironment("DATABASE_URL")),
+    },
+    {
+      provide: ANALYSIS_CRITERIA_POLICY_DATABASE,
+      useFactory: (database: Database) => database,
+      inject: [ANALYSIS_CRITERIA_DATABASE],
+    },
+    {
+      provide: ANALYSIS_CRITERIA_QUEUE,
+      useFactory: () => createAnalysisQueueProducer(requiredEnvironment("REDIS_URL")),
+    },
+    {
+      provide: ANALYSIS_CRITERIA_SERVICES,
+      useFactory: (database: Database, queue: AnalysisQueue) =>
+        createAnalysisCriteriaApiServices(database, queue),
+      inject: [ANALYSIS_CRITERIA_DATABASE, ANALYSIS_CRITERIA_QUEUE],
+    },
+    serviceProvider(AnalysisJobEnqueuer, "jobs"),
+    serviceProvider(ReadinessService, "readiness"),
+    serviceProvider(ComparisonService, "comparisons"),
+    serviceProvider(ProposalService, "proposals"),
+    serviceProvider(WorkstreamReviewService, "reviews"),
+    serviceProvider(ActivationService, "activation"),
+    serviceProvider(RevisionService, "revisions"),
+    serviceProvider(CriteriaVersionResolver, "versions"),
+    {
+      provide: ANALYSIS_CRITERIA_LIFECYCLE,
+      useFactory: (database: Database, queue: AnalysisQueue) => ({
+        async onModuleDestroy() {
+          await queue.close();
+          await database.$disconnect();
+        },
+      }),
+      inject: [ANALYSIS_CRITERIA_DATABASE, ANALYSIS_CRITERIA_QUEUE],
+    },
+    AnalysisCriteriaAuthenticationGuard,
+    AnalysisCriteriaPolicyGuard,
+  ],
+})(AnalysisCriteriaModule);
+
+function serviceProvider(
+  provide: import("@nestjs/common").InjectionToken,
+  key: string,
+): import("@nestjs/common").FactoryProvider {
+  return {
+    provide,
+    useFactory: (services: Record<string, unknown>) => services[key],
+    inject: [ANALYSIS_CRITERIA_SERVICES],
+  };
+}

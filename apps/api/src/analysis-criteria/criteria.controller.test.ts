@@ -30,9 +30,17 @@ function request(roles: readonly import("@evaluation/permissions").Role[] = ["pr
 }
 
 function services() {
+  const receipt = {
+    requestId: "00000000-0000-4000-8000-000000000020",
+    operationId: "00000000-0000-4000-8000-000000000020",
+    state: "queued",
+    documentId,
+    documentVersionIds: [documentVersionId],
+  };
   return {
+    receipt,
     proposals: {
-      requestGeneration: vi.fn(async (value: unknown) => value),
+      requestGeneration: vi.fn(async () => receipt),
       reviewByOwner: vi.fn(async (value: unknown) => value),
     },
     reviews: {
@@ -40,8 +48,9 @@ function services() {
       resolve: vi.fn(async (value: unknown) => value),
     },
     activation: { activate: vi.fn(async (value: unknown) => value) },
-    revisions: { start: vi.fn(async (value: unknown) => value) },
+    revisions: { start: vi.fn(async () => receipt) },
     versions: { resolve: vi.fn(async (value: unknown) => value) },
+    jobs: { enqueueAfterCommit: vi.fn(async () => "queued-job") },
   };
 }
 
@@ -53,6 +62,7 @@ function controller(service = services()) {
       service.activation as never,
       service.revisions as never,
       service.versions as never,
+      service.jobs as never,
     ),
     service,
   };
@@ -74,9 +84,13 @@ describe("CriteriaController", () => {
       correlationId,
       ...body,
     });
-    expect(() => instance.createProposal(request(), { ...body, routeKey: "document.analyze" })).toThrowError(
-      expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID", status: 400 }),
-    );
+    expect(service.jobs.enqueueAfterCommit).toHaveBeenCalledWith(service.receipt);
+    await expect(
+      instance.createProposal(request(), { ...body, routeKey: "document.analyze" }),
+    ).rejects.toMatchObject({
+      code: "ANALYSIS_CRITERIA_INPUT_INVALID",
+      status: 400,
+    });
   });
 
   it("keeps owner review and publication as separate strict actions", async () => {
@@ -177,6 +191,34 @@ describe("CriteriaController", () => {
         reason: "Material change confirmed",
       },
     });
+    expect(service.jobs.enqueueAfterCommit).toHaveBeenCalledWith(service.receipt);
+  });
+
+  it("never enqueues a proposal or revision whose transaction failed", async () => {
+    const service = services();
+    service.proposals.requestGeneration.mockRejectedValueOnce(
+      new Error("proposal transaction rolled back"),
+    );
+    service.revisions.start.mockRejectedValueOnce(new Error("revision transaction rolled back"));
+    const { instance } = controller(service);
+    await expect(
+      instance.createProposal(request(), {
+        kind: "project",
+        resourceId,
+        documentVersionId,
+        idempotencyKey: "proposal-failure",
+      }),
+    ).rejects.toThrow(/rolled back/u);
+    await expect(
+      instance.revise(request(), {
+        kind: "project",
+        resourceId,
+        idempotencyKey: "revision-failure",
+        comparisonReviewId,
+        reason: "Material change confirmed",
+      }),
+    ).rejects.toThrow(/rolled back/u);
+    expect(service.jobs.enqueueAfterCommit).not.toHaveBeenCalled();
   });
 
   it("resolves active criteria at an explicitly parsed timestamp", async () => {
@@ -280,9 +322,9 @@ describe("AnalysisCriteriaPolicyGuard resource boundaries", () => {
     ).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH", status: 403 });
 
     database.authorizationScope.findFirst.mockResolvedValueOnce({ id: departmentScopeId });
-    await expect(
-      guard.canActivate(context(request(["manager"]), { proposalId })),
-    ).resolves.toBe(true);
+    await expect(guard.canActivate(context(request(["manager"]), { proposalId }))).resolves.toBe(
+      true,
+    );
   });
 
   it("denies owner-role manager resolution and a manager detail read even with body/query manipulation", async () => {

@@ -31,9 +31,6 @@ describe("AnalysisJobEnqueuer", () => {
       service.enqueueAfterCommit({
         requestId,
         operationId,
-        state: "queued",
-        documentId: crypto.randomUUID(),
-        documentVersionIds: [],
       }),
     ).resolves.toBe("analysis-job-1");
 
@@ -77,9 +74,6 @@ describe("AnalysisJobEnqueuer", () => {
     const receipt = {
       requestId,
       operationId,
-      state: "queued",
-      documentId: crypto.randomUUID(),
-      documentVersionIds: [],
     } as const;
 
     await expect(service.enqueueAfterCommit(receipt)).rejects.toThrow("redis unavailable");

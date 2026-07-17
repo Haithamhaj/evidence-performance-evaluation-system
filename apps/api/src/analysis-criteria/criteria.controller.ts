@@ -21,6 +21,7 @@ import {
   AnalysisCriteriaPolicy,
   AnalysisCriteriaPolicyGuard,
 } from "./analysis-criteria-policy.guard.js";
+import { AnalysisJobEnqueuer } from "./analysis-job-enqueuer.js";
 
 const UuidSchema = z.string().uuid();
 const KindSchema = z.enum(["project", "workstream"]);
@@ -66,6 +67,7 @@ export class CriteriaController {
   private readonly activation: ActivationService;
   private readonly revisions: RevisionService;
   private readonly versions: CriteriaVersionResolver;
+  private readonly jobs: AnalysisJobEnqueuer;
 
   constructor(
     proposals: ProposalService,
@@ -73,21 +75,25 @@ export class CriteriaController {
     activation: ActivationService,
     revisions: RevisionService,
     versions: CriteriaVersionResolver,
+    jobs: AnalysisJobEnqueuer,
   ) {
     this.proposals = proposals;
     this.reviews = reviews;
     this.activation = activation;
     this.revisions = revisions;
     this.versions = versions;
+    this.jobs = jobs;
   }
 
-  createProposal(request: AnalysisRequest, body: unknown) {
+  async createProposal(request: AnalysisRequest, body: unknown) {
     const input = parse(ProposalRequestSchema, body);
-    return this.proposals.requestGeneration({
+    const receipt = await this.proposals.requestGeneration({
       actor: actor(request),
       correlationId: correlation(request),
       ...input,
     });
+    await this.jobs.enqueueAfterCommit(receipt);
+    return receipt;
   }
 
   reviewByOwner(request: AnalysisRequest, proposalId: string, body: unknown) {
@@ -136,9 +142,9 @@ export class CriteriaController {
     });
   }
 
-  revise(request: AnalysisRequest, body: unknown) {
+  async revise(request: AnalysisRequest, body: unknown) {
     const input = parse(RevisionRequestSchema, body);
-    return this.revisions.start({
+    const receipt = await this.revisions.start({
       actor: actor(request),
       correlationId: correlation(request),
       kind: input.kind,
@@ -149,6 +155,8 @@ export class CriteriaController {
         reason: input.reason,
       },
     });
+    await this.jobs.enqueueAfterCommit(receipt);
+    return receipt;
   }
 
   getActive(_request: AnalysisRequest, query: unknown) {
@@ -194,6 +202,7 @@ Inject(WorkstreamReviewService)(CriteriaController, undefined, 1);
 Inject(ActivationService)(CriteriaController, undefined, 2);
 Inject(RevisionService)(CriteriaController, undefined, 3);
 Inject(CriteriaVersionResolver)(CriteriaController, undefined, 4);
+Inject(AnalysisJobEnqueuer)(CriteriaController, undefined, 5);
 
 type RouteMethod =
   | "createProposal"

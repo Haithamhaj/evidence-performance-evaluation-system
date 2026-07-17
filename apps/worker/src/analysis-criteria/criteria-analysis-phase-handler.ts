@@ -540,6 +540,7 @@ function isRetryable(error: unknown): boolean {
   return !new Set([
     "AI_OUTPUT_QUARANTINED",
     "AI_SOURCE_REFERENCE_INVALID",
+    "CRITERIA_COUNT_INVALID",
     "DOCUMENT_EXTRACTION_INCOMPLETE",
     "RESOURCE_NOT_FOUND",
   ]).has(error.code);

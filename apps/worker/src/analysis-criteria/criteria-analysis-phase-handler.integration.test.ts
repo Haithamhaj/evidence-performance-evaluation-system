@@ -335,6 +335,24 @@ describe("CriteriaAnalysisPhaseHandler", () => {
     });
   });
 
+  it("terminalizes an invalid criteria count without repeating the model attempt", async () => {
+    const test = harness({
+      routerError: new AppError(
+        "CRITERIA_COUNT_INVALID",
+        "errors.criteria.countInvalid",
+        422,
+      ),
+    });
+    await expect(
+      test.handler.process(ids.request, ids.actor, ids.correlation),
+    ).rejects.toMatchObject({ code: "CRITERIA_COUNT_INVALID" });
+    expect(test.request).toMatchObject({
+      state: "failed",
+      errorCode: "ANALYSIS_TERMINAL_FAILED",
+    });
+    expect(test.router.run).toHaveBeenCalledOnce();
+  });
+
   it("terminalizes a request after its configured retry attempts are exhausted", async () => {
     const test = harness({
       initialAttemptCount: 3,

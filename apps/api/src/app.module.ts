@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 
 import { AuditModule } from "./audit/audit.module.js";
+import { AnalysisCriteriaModule } from "./analysis-criteria/analysis-criteria.module.js";
 import { AiRoutingModule } from "./ai-routing/ai-routing.module.js";
 import { PermissionsModule } from "./permissions/permissions.module.js";
 import { ProjectsModule } from "./projects/projects.module.js";
@@ -21,6 +22,7 @@ export class AppModule {
 
 Module({
   imports: [
+    AnalysisCriteriaModule,
     AiRoutingModule,
     AuditModule,
     DocumentsModule,

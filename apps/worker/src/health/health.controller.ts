@@ -22,14 +22,17 @@ function hasAllowedProtocol(value: string | undefined, protocols: ReadonlySet<st
   }
 }
 
-export function createWorkerEnvironmentReadinessProbes(): ReadinessProbes {
-  const databaseUrl = process.env.DATABASE_URL;
-  const redisUrl = process.env.REDIS_URL;
+export function createWorkerEnvironmentReadinessProbes(
+  analysisRuntime: Readonly<{ isHealthy(): boolean }> = { isHealthy: () => true },
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): ReadinessProbes {
+  const databaseUrl = environment.DATABASE_URL;
+  const redisUrl = environment.REDIS_URL;
   const postgresConfigured = hasAllowedProtocol(databaseUrl, new Set(["postgres:", "postgresql:"]));
   const redisConfigured = hasAllowedProtocol(redisUrl, new Set(["redis:", "rediss:"]));
 
   return {
-    configuration: () => postgresConfigured && redisConfigured,
+    configuration: () => postgresConfigured && redisConfigured && analysisRuntime.isHealthy(),
     postgres: async () => {
       if (!postgresConfigured || databaseUrl === undefined) return false;
       const database = createDatabaseClient(databaseUrl);

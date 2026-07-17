@@ -26,10 +26,13 @@ type QueuePort = Readonly<{
 }>;
 
 export class AnalysisJobEnqueuer {
-  constructor(
-    private readonly database: Database,
-    private readonly queue: QueuePort,
-  ) {}
+  private readonly database: Database;
+  private readonly queue: QueuePort;
+
+  constructor(database: Database, queue: QueuePort) {
+    this.database = database;
+    this.queue = queue;
+  }
 
   async enqueueAfterCommit(receipt: Receipt): Promise<string> {
     const request = await this.database.documentAnalysisRequest.findUnique({

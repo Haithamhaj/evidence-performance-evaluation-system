@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 
-import { AnalysisCriteriaWorkerModule } from "./analysis-criteria/analysis-criteria.module.js";
+import {
+  AnalysisCriteriaWorkerLifecycle,
+  AnalysisCriteriaWorkerModule,
+} from "./analysis-criteria/analysis-criteria.module.js";
 import {
   createWorkerEnvironmentReadinessProbes,
   WorkerHealthController,
@@ -14,6 +17,10 @@ Module({
   imports: [AnalysisCriteriaWorkerModule, QueueModule],
   controllers: [WorkerHealthController],
   providers: [
-    { provide: WORKER_READINESS_PROBES, useFactory: createWorkerEnvironmentReadinessProbes },
+    {
+      provide: WORKER_READINESS_PROBES,
+      inject: [AnalysisCriteriaWorkerLifecycle],
+      useFactory: createWorkerEnvironmentReadinessProbes,
+    },
   ],
 })(AppModule);

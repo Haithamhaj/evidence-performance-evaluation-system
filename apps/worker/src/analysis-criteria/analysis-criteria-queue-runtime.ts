@@ -47,6 +47,7 @@ export async function processAnalysisCriteriaQueueJob(
 export type AnalysisCriteriaQueueRuntime = Readonly<{
   start(): Promise<void>;
   close(): Promise<void>;
+  isHealthy(): boolean;
 }>;
 
 export function createAnalysisCriteriaQueueRuntime(input: Readonly<{
@@ -93,18 +94,32 @@ export function createAnalysisCriteriaQueueLifecycle(components: Readonly<{
 }>): AnalysisCriteriaQueueRuntime {
   let runPromise: Promise<void> | undefined;
   let closePromise: Promise<void> | undefined;
+  let runFailure: unknown;
+  let closing = false;
   return {
     async start() {
-      runPromise ??= components.worker.run();
-      void runPromise.catch(() => undefined);
-      await Promise.all([
+      runPromise ??= components.worker
+        .run()
+        .then(() => {
+          if (!closing) throw new Error("Analysis criteria worker loop stopped");
+        })
+        .catch((error: unknown) => {
+          runFailure = error;
+          throw error;
+        });
+      const ready = Promise.all([
         components.queue.waitUntilReady(),
         components.queueEvents.waitUntilReady(),
         components.worker.waitUntilReady(),
       ]);
+      await Promise.race([ready, runPromise]);
+    },
+    isHealthy() {
+      return runFailure === undefined;
     },
     close() {
       closePromise ??= (async () => {
+        closing = true;
         await components.worker.close();
         await Promise.all([
           components.queueEvents.close(),
@@ -136,6 +151,7 @@ function isNonRetryable(
   return new Set([
     "AI_OUTPUT_QUARANTINED",
     "AI_SOURCE_REFERENCE_INVALID",
+    "CRITERIA_COUNT_INVALID",
     "DOCUMENT_EXTRACTION_INCOMPLETE",
     "RESOURCE_NOT_FOUND",
     "ANALYSIS_REQUEST_FAILED",

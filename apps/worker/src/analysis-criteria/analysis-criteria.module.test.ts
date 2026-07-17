@@ -6,10 +6,31 @@ import {
   ANALYSIS_CRITERIA_WORKER_FACTORY,
   AnalysisCriteriaWorkerLifecycle,
   AnalysisCriteriaWorkerModule,
+  createAnalysisCriteriaWorkerConfiguration,
 } from "./analysis-criteria.module.js";
 import { createQueueRuntimeConfiguration } from "../queue/queue.module.js";
 
 describe("AnalysisCriteriaWorkerModule", () => {
+  it("does not activate the dedicated runtime for a different configured job type", () => {
+    expect(
+      createAnalysisCriteriaWorkerConfiguration({
+        DATABASE_URL: "postgresql://unit.invalid/analysis",
+        REDIS_URL: "redis://unit.invalid:6379",
+        WORKER_JOB_TYPE: "system.test",
+      }),
+    ).toBeUndefined();
+    expect(
+      createAnalysisCriteriaWorkerConfiguration({
+        DATABASE_URL: "postgresql://unit.invalid/analysis",
+        REDIS_URL: "redis://unit.invalid:6379",
+        WORKER_JOB_TYPE: "analysis-criteria.process",
+      }),
+    ).toMatchObject({
+      databaseUrl: "postgresql://unit.invalid/analysis",
+      redisUrl: "redis://unit.invalid:6379",
+    });
+  });
+
   it("prevents the generic transactional runtime from binding the dedicated queue", () => {
     expect(
       createQueueRuntimeConfiguration({
@@ -23,7 +44,7 @@ describe("AnalysisCriteriaWorkerModule", () => {
   it("starts and closes the same dedicated composition", async () => {
     const start = vi.fn(async () => undefined);
     const close = vi.fn(async () => undefined);
-    const create = vi.fn(async () => ({ start, close }));
+    const create = vi.fn(async () => ({ start, close, isHealthy: () => true }));
     const configuration = {
       databaseUrl: "postgresql://unit.invalid/analysis",
       redisUrl: "redis://unit.invalid:6379",
