@@ -131,7 +131,7 @@ function processHarness(loaderError?: Error) {
         maxArchiveUncompressedBytes: 5_000,
         maxArchiveCompressionRatio: 20,
       },
-      execution: { leaseMs: 60_000, maxAttempts: 3 },
+      execution: { heartbeatMs: 10_000, leaseMs: 60_000, maxAttempts: 3 },
       now: () => now,
     },
   );
@@ -213,7 +213,7 @@ function reviewHarness(currentVersion: number, afterVersion: number) {
         maxArchiveUncompressedBytes: 1,
         maxArchiveCompressionRatio: 1,
       },
-      execution: { leaseMs: 60_000, maxAttempts: 3 },
+      execution: { heartbeatMs: 10_000, leaseMs: 60_000, maxAttempts: 3 },
       now: () => now,
     },
   );

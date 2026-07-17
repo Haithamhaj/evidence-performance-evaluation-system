@@ -12,10 +12,13 @@ import {
   READINESS_OUTPUT_SCHEMA_VERSION,
 } from "./analysis-model.js";
 import {
+  assertAnalysisFence,
   claimAnalysisRequest,
   completeAnalysisOperation,
   recordAnalysisEffect,
   recordAnalysisFailure,
+  validateAnalysisExecutionTiming,
+  withAnalysisHeartbeat,
 } from "./analysis-execution.js";
 import { buildReadinessRequest, READINESS_PROMPT_VERSION } from "./analysis-prompts.js";
 import { authorizeDocument } from "./document-authorization.js";
@@ -201,6 +204,7 @@ export class ReadinessService {
   }
 
   async process(requestId: string, actorId: string, correlationId: string): Promise<string> {
+    validateAnalysisExecutionTiming(this.options.execution, this.options.timeoutMs);
     const now = this.options.now?.() ?? new Date();
     const request = await claimAnalysisRequest(this.database, {
       requestId,
@@ -216,84 +220,91 @@ export class ReadinessService {
     if (request.currentDocumentVersionId === null) throw notFound();
 
     try {
-      const source = await this.sourceLoader.load({
-        documentVersionId: request.currentDocumentVersionId,
-      });
-      const extraction = await extractSafeSources({
-        policy: this.options.extractionPolicy,
-        sources: source.sources,
-      });
-      if (!readinessAllowedByExtraction(extraction)) {
-        const output = extractionMissingOutput(source);
-        const outputReference = await this.database.$transaction(async (transaction) =>
-          persistReadiness(
-            transaction,
-            request,
-            source,
-            output,
-            extraction.coverage,
-            actorId,
-            true,
-          ),
-        );
-        await completeAnalysisOperation(this.database, request, outputReference, new Date());
-        return outputReference;
-      }
-      const prompt = {
-        artifactId: request.promptArtifactId,
-        version: request.promptVersion,
-        sha256: request.promptHash,
-      };
-      const built = buildReadinessRequest({
-        prompt: { artifactId: prompt.artifactId, sha256: prompt.sha256 },
-        templateSections: source.templateSections,
-        sources: extraction.sources.flatMap((item) =>
-          item.contentBase64 === undefined
-            ? []
-            : [
-                {
-                  reference: item.reference,
-                  mediaType: item.mediaType,
-                  contentBase64: item.contentBase64,
-                },
-              ],
-        ),
-      });
-      const result = await this.aiRouter.run(
-        {
-          routeKey: "document.analyze",
-          projectId: source.identity.projectId,
-          departmentId: source.identity.departmentId,
-          systemId: this.options.systemId,
-          input: {
-            trustedInstruction: built.trustedInstruction,
-            untrustedContent: built.untrustedContent,
-          },
-          inputReference: `document-version:${source.documentVersionId}`,
-          inputSchemaVersion: READINESS_INPUT_SCHEMA_VERSION,
-          outputSchemaVersion: READINESS_OUTPUT_SCHEMA_VERSION,
-          promptTemplateVersion: READINESS_PROMPT_VERSION,
-          outputSchema: ReadinessAnalysisOutputSchema,
-          sourceReferences: source.sourceReferences,
-          classification: "confidential",
-          timeoutMs: this.options.timeoutMs,
-          requiresHumanApproval: false,
-          correlationId,
+      const outputReference = await withAnalysisHeartbeat(
+        this.database,
+        request,
+        this.options.execution,
+        () => this.options.now?.() ?? new Date(),
+        async () => {
+          const source = await this.sourceLoader.load({
+            documentVersionId: request.currentDocumentVersionId!,
+          });
+          const extraction = await extractSafeSources({
+            policy: this.options.extractionPolicy,
+            sources: source.sources,
+          });
+          if (!readinessAllowedByExtraction(extraction)) {
+            const output = extractionMissingOutput(source);
+            return this.database.$transaction(async (transaction) =>
+              persistReadiness(
+                transaction,
+                request,
+                source,
+                output,
+                extraction.coverage,
+                actorId,
+                true,
+              ),
+            );
+          }
+          const prompt = {
+            artifactId: request.promptArtifactId,
+            version: request.promptVersion,
+            sha256: request.promptHash,
+          };
+          const built = buildReadinessRequest({
+            prompt: { artifactId: prompt.artifactId, sha256: prompt.sha256 },
+            templateSections: source.templateSections,
+            sources: extraction.sources.flatMap((item) =>
+              item.contentBase64 === undefined
+                ? []
+                : [
+                    {
+                      reference: item.reference,
+                      mediaType: item.mediaType,
+                      contentBase64: item.contentBase64,
+                    },
+                  ],
+            ),
+          });
+          const result = await this.aiRouter.run(
+            {
+              routeKey: "document.analyze",
+              projectId: source.identity.projectId,
+              departmentId: source.identity.departmentId,
+              systemId: this.options.systemId,
+              input: {
+                trustedInstruction: built.trustedInstruction,
+                untrustedContent: built.untrustedContent,
+              },
+              inputReference: `document-version:${source.documentVersionId}`,
+              inputSchemaVersion: READINESS_INPUT_SCHEMA_VERSION,
+              outputSchemaVersion: READINESS_OUTPUT_SCHEMA_VERSION,
+              promptTemplateVersion: READINESS_PROMPT_VERSION,
+              outputSchema: ReadinessAnalysisOutputSchema,
+              sourceReferences: source.sourceReferences,
+              classification: "confidential",
+              timeoutMs: this.options.timeoutMs,
+              requiresHumanApproval: false,
+              correlationId,
+            },
+            async (transaction, output) => ({
+              outputReference: await persistReadiness(
+                transaction,
+                request,
+                source,
+                output,
+                extraction.coverage,
+                actorId,
+                false,
+              ),
+            }),
+          );
+          return result.outputReference;
         },
-        async (transaction, output) => ({
-          outputReference: await persistReadiness(
-            transaction,
-            request,
-            source,
-            output,
-            extraction.coverage,
-            actorId,
-            false,
-          ),
-        }),
       );
-      await completeAnalysisOperation(this.database, request, result.outputReference, new Date());
-      return result.outputReference;
+      await completeAnalysisOperation(this.database, request, outputReference, new Date());
+      return outputReference;
     } catch (error) {
       await recordAnalysisFailure(
         this.database,
@@ -388,6 +399,7 @@ export function mapManagerReadiness(
 ) {
   if (state === "ready_for_criteria_generation" && extractionComplete)
     return { state: "ready" } as const;
+  if (!extractionComplete) return { state: "missing_critical_information" } as const;
   const criticalKeys = new Set(
     templateSections
       .filter((section) => section.required || section.protected)
@@ -408,6 +420,7 @@ async function persistReadiness(
   forceIncomplete: boolean,
 ): Promise<string> {
   await transaction.$queryRaw`SELECT id FROM "DocumentAnalysisRequest" WHERE id = ${request.id}::uuid FOR UPDATE`;
+  await assertAnalysisFence(transaction, request, new Date());
   const existing = await transaction.documentAnalysisRequest.findUnique({
     where: { id: request.id },
     select: { state: true, resultReference: true },

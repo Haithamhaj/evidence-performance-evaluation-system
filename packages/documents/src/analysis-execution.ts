@@ -3,6 +3,7 @@ import { AppError } from "@evaluation/contracts";
 type DocumentDatabase = import("./model.js").DocumentDatabase;
 
 export type AnalysisExecutionOptions = Readonly<{
+  heartbeatMs: number;
   leaseMs: number;
   maxAttempts: number;
 }>;
@@ -89,8 +90,20 @@ export async function claimAnalysisRequest(
       },
     });
     if (acquired.count === 0) {
+      const runningLeaseExpired =
+        operation.status === "running" &&
+        (operation.startedAt === null || operation.startedAt <= leaseCutoff);
+      if (operation.status === "running" && !runningLeaseExpired) throw requestRunning();
       if (operation.attemptCount >= input.execution.maxAttempts) {
-        await terminalizeExhaustedRequest(transaction, request.id, request.operationId, input.now);
+        const terminalized = await terminalizeExhaustedRequest(
+          transaction,
+          request.id,
+          request.operationId,
+          operation.attemptCount,
+          leaseCutoff,
+          input.now,
+        );
+        if (!terminalized) throw requestRunning();
         throw retriesExhausted();
       }
       throw requestRunning();
@@ -125,8 +138,12 @@ export async function recordAnalysisFailure(
     });
     if (current?.state === "succeeded" || current?.state === "superseded") return;
 
-    await transaction.operation.updateMany({
-      where: { id: request.operationId, status: "running" },
+    const fenced = await transaction.operation.updateMany({
+      where: {
+        id: request.operationId,
+        status: "running",
+        attemptCount: request.attemptCount,
+      },
       data: {
         status: "failed",
         errorCode: operationErrorCode,
@@ -134,6 +151,7 @@ export async function recordAnalysisFailure(
         completedAt: now,
       },
     });
+    if (fenced.count === 0) return;
     if ((!retryable || exhausted) && current?.state === "running") {
       await transaction.documentAnalysisRequest.update({
         where: { id: request.id },
@@ -156,23 +174,76 @@ export async function completeAnalysisOperation(
   await database.operation.updateMany({
     where: {
       id: request.operationId,
-      status: { in: ["pending", "running", "failed"] },
+      status: "running",
+      attemptCount: request.attemptCount,
     },
     data: {
       status: "succeeded",
       errorCode: null,
       resultReference,
       completedAt: now,
-      startedAt: now,
     },
   });
 }
 
+export async function withAnalysisHeartbeat<T>(
+  database: DocumentDatabase,
+  request: AnalysisRequestSnapshot,
+  execution: AnalysisExecutionOptions,
+  now: () => Date,
+  work: () => Promise<T>,
+): Promise<T> {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let pendingHeartbeat: Promise<void> = Promise.resolve();
+  let heartbeatFailure: unknown;
+
+  const schedule = () => {
+    if (stopped) return;
+    timer = setTimeout(() => {
+      pendingHeartbeat = heartbeatAnalysisOperation(database, request, now())
+        .catch((error: unknown) => {
+          heartbeatFailure = error;
+        })
+        .finally(schedule);
+    }, execution.heartbeatMs);
+    timer.unref?.();
+  };
+
+  schedule();
+  try {
+    const result = await work();
+    return result;
+  } finally {
+    stopped = true;
+    if (timer !== undefined) clearTimeout(timer);
+    await pendingHeartbeat;
+    if (heartbeatFailure !== undefined) throw heartbeatFailure;
+  }
+}
+
+export async function assertAnalysisFence(
+  transaction: import("./model.js").DocumentTransaction,
+  request: Pick<AnalysisRequestSnapshot, "operationId" | "attemptCount">,
+  now: Date,
+): Promise<void> {
+  const fenced = await transaction.operation.updateMany({
+    where: {
+      id: request.operationId,
+      status: "running",
+      attemptCount: request.attemptCount,
+    },
+    data: { startedAt: now },
+  });
+  if (fenced.count === 0) throw leaseLost();
+}
+
 export async function recordAnalysisEffect(
   transaction: import("./model.js").DocumentTransaction,
-  request: Pick<AnalysisRequestSnapshot, "id" | "operationId">,
+  request: Pick<AnalysisRequestSnapshot, "id" | "operationId" | "attemptCount">,
   resultReference: string,
 ): Promise<void> {
+  await assertAnalysisFence(transaction, request, new Date());
   await transaction.operationEffectReceipt.create({
     data: {
       operationId: request.operationId,
@@ -193,14 +264,52 @@ export function isRetryableAnalysisFailure(error: unknown): boolean {
   ]).has(error.code);
 }
 
+export function validateAnalysisExecutionTiming(
+  execution: AnalysisExecutionOptions,
+  timeoutMs: number,
+): void {
+  validateExecutionOptions(execution);
+  if (
+    execution.heartbeatMs * 3 > execution.leaseMs ||
+    timeoutMs + execution.heartbeatMs * 2 > execution.leaseMs
+  ) {
+    throw new TypeError("Analysis lease must safely exceed the heartbeat and Router timeout");
+  }
+}
+
+async function heartbeatAnalysisOperation(
+  database: DocumentDatabase,
+  request: Pick<AnalysisRequestSnapshot, "operationId" | "attemptCount">,
+  now: Date,
+) {
+  const heartbeat = await database.operation.updateMany({
+    where: {
+      id: request.operationId,
+      status: "running",
+      attemptCount: request.attemptCount,
+    },
+    data: { startedAt: now },
+  });
+  if (heartbeat.count === 0) throw leaseLost();
+}
+
 async function terminalizeExhaustedRequest(
   transaction: import("./model.js").DocumentTransaction,
   requestId: string,
   operationId: string,
+  attemptCount: number,
+  leaseCutoff: Date,
   now: Date,
 ) {
-  await transaction.operation.updateMany({
-    where: { id: operationId, status: { in: ["pending", "running", "failed"] } },
+  const fenced = await transaction.operation.updateMany({
+    where: {
+      id: operationId,
+      attemptCount,
+      OR: [
+        { status: { in: ["pending", "failed"] } },
+        { status: "running", startedAt: { lte: leaseCutoff } },
+      ],
+    },
     data: {
       status: "failed",
       errorCode: "ANALYSIS_RETRYABLE_FAILED",
@@ -209,6 +318,7 @@ async function terminalizeExhaustedRequest(
       startedAt: now,
     },
   });
+  if (fenced.count === 0) return false;
   await transaction.documentAnalysisRequest.updateMany({
     where: { id: requestId, state: "running" },
     data: {
@@ -217,6 +327,7 @@ async function terminalizeExhaustedRequest(
       completedAt: now,
     },
   });
+  return true;
 }
 
 function validateExecutionOptions(options: AnalysisExecutionOptions) {
@@ -225,6 +336,9 @@ function validateExecutionOptions(options: AnalysisExecutionOptions) {
   }
   if (!Number.isInteger(options.leaseMs) || options.leaseMs < 1) {
     throw new TypeError("Analysis leaseMs must be a positive integer");
+  }
+  if (!Number.isInteger(options.heartbeatMs) || options.heartbeatMs < 1) {
+    throw new TypeError("Analysis heartbeatMs must be a positive integer");
   }
 }
 
@@ -243,4 +357,7 @@ function retriesExhausted() {
     "errors.documents.analysisRetriesExhausted",
     409,
   );
+}
+function leaseLost() {
+  return new AppError("ANALYSIS_LEASE_LOST", "errors.documents.analysisLeaseLost", 409);
 }

@@ -11,10 +11,13 @@ import {
   COMPARISON_OUTPUT_SCHEMA_VERSION,
 } from "./analysis-model.js";
 import {
+  assertAnalysisFence,
   claimAnalysisRequest,
   completeAnalysisOperation,
   recordAnalysisEffect,
   recordAnalysisFailure,
+  validateAnalysisExecutionTiming,
+  withAnalysisHeartbeat,
 } from "./analysis-execution.js";
 import { buildComparisonRequest, COMPARISON_PROMPT_VERSION } from "./analysis-prompts.js";
 import { authorizeDocument } from "./document-authorization.js";
@@ -209,6 +212,7 @@ export class ComparisonService {
   }
 
   async process(requestId: string, actorId: string, correlationId: string): Promise<string> {
+    validateAnalysisExecutionTiming(this.options.execution, this.options.timeoutMs);
     const now = this.options.now?.() ?? new Date();
     const request = await claimAnalysisRequest(this.database, {
       requestId,
@@ -224,108 +228,122 @@ export class ComparisonService {
     if (request.beforeVersionId === null || request.afterVersionId === null) throw notFound();
 
     try {
-      const [before, after] = await Promise.all([
-        this.sourceLoader.load({ documentVersionId: request.beforeVersionId }),
-        this.sourceLoader.load({ documentVersionId: request.afterVersionId }),
-      ]);
-      const [beforeExtraction, afterExtraction] = await Promise.all([
-        extractSafeSources({ policy: this.options.extractionPolicy, sources: before.sources }),
-        extractSafeSources({ policy: this.options.extractionPolicy, sources: after.sources }),
-      ]);
-      if (beforeExtraction.coverage !== "complete" || afterExtraction.coverage !== "complete")
-        throw extractionFailed();
-      const built = buildComparisonRequest({
-        prompt: { artifactId: request.promptArtifactId, sha256: request.promptHash },
-        before: {
-          documentVersionId: before.documentVersionId,
-          sources: extractedInputs(beforeExtraction),
-        },
-        after: {
-          documentVersionId: after.documentVersionId,
-          sources: extractedInputs(afterExtraction),
-        },
-      });
-      const sourceReferences = [...before.sourceReferences, ...after.sourceReferences];
-      const result = await this.aiRouter.run(
-        {
-          routeKey: "document.compare",
-          projectId: after.identity.projectId,
-          departmentId: after.identity.departmentId,
-          systemId: this.options.systemId,
-          input: {
-            trustedInstruction: built.trustedInstruction,
-            untrustedContent: built.untrustedContent,
-          },
-          inputReference: `document-version:${after.documentVersionId}`,
-          inputSchemaVersion: COMPARISON_INPUT_SCHEMA_VERSION,
-          outputSchemaVersion: COMPARISON_OUTPUT_SCHEMA_VERSION,
-          promptTemplateVersion: COMPARISON_PROMPT_VERSION,
-          outputSchema: ComparisonAnalysisOutputSchema,
-          sourceReferences,
-          classification: "confidential",
-          timeoutMs: this.options.timeoutMs,
-          requiresHumanApproval: true,
-          correlationId,
-        },
-        async (transaction, rawOutput) => {
-          await transaction.$queryRaw`SELECT id FROM "DocumentAnalysisRequest" WHERE id = ${request.id}::uuid FOR UPDATE`;
-          const existing = await transaction.documentAnalysisRequest.findUnique({
-            where: { id: request.id },
-            select: { state: true, resultReference: true },
+      const outputReference = await withAnalysisHeartbeat(
+        this.database,
+        request,
+        this.options.execution,
+        () => this.options.now?.() ?? new Date(),
+        async () => {
+          const [before, after] = await Promise.all([
+            this.sourceLoader.load({ documentVersionId: request.beforeVersionId! }),
+            this.sourceLoader.load({ documentVersionId: request.afterVersionId! }),
+          ]);
+          const [beforeExtraction, afterExtraction] = await Promise.all([
+            extractSafeSources({ policy: this.options.extractionPolicy, sources: before.sources }),
+            extractSafeSources({ policy: this.options.extractionPolicy, sources: after.sources }),
+          ]);
+          if (beforeExtraction.coverage !== "complete" || afterExtraction.coverage !== "complete")
+            throw extractionFailed();
+          const built = buildComparisonRequest({
+            prompt: { artifactId: request.promptArtifactId, sha256: request.promptHash },
+            before: {
+              documentVersionId: before.documentVersionId,
+              sources: extractedInputs(beforeExtraction),
+            },
+            after: {
+              documentVersionId: after.documentVersionId,
+              sources: extractedInputs(afterExtraction),
+            },
           });
-          if (existing?.state === "succeeded" && existing.resultReference !== null)
-            return { outputReference: existing.resultReference };
-          if (existing?.state === "superseded") {
-            const staleResult = await transaction.documentComparison.findUnique({
-              where: { requestId: request.id },
-              select: { outputReference: true },
-            });
-            if (staleResult !== null) return { outputReference: staleResult.outputReference };
-          }
-          const output = ComparisonAnalysisOutputSchema.parse(rawOutput);
-          assertBoundComparisonReferences(output, before.sourceReferences, after.sourceReferences);
-          await transaction.$queryRaw`SELECT id FROM "DocumentRecord" WHERE id = ${request.documentId}::uuid FOR UPDATE`;
-          const current = await transaction.documentRecord.findUnique({
-            where: { id: request.documentId },
-            select: { currentVersion: true },
-          });
-          const stale = current?.currentVersion !== request.expectedAggregateVersion;
-          const id = randomUUID();
-          const outputReference = `document-comparison:${id}`;
-          await transaction.documentComparison.create({
-            data: {
-              id,
-              requestId: request.id,
-              documentId: request.documentId,
-              beforeVersionId: before.documentVersionId,
-              afterVersionId: after.documentVersionId,
-              aiClassification: output.classification,
-              output,
-              outputReference,
+          const sourceReferences = [...before.sourceReferences, ...after.sourceReferences];
+          const result = await this.aiRouter.run(
+            {
+              routeKey: "document.compare",
+              projectId: after.identity.projectId,
+              departmentId: after.identity.departmentId,
+              systemId: this.options.systemId,
+              input: {
+                trustedInstruction: built.trustedInstruction,
+                untrustedContent: built.untrustedContent,
+              },
+              inputReference: `document-version:${after.documentVersionId}`,
               inputSchemaVersion: COMPARISON_INPUT_SCHEMA_VERSION,
               outputSchemaVersion: COMPARISON_OUTPUT_SCHEMA_VERSION,
-              promptVersion: request.promptVersion,
-              promptHash: request.promptHash,
-              validationOutcome: "valid",
-              stale,
+              promptTemplateVersion: COMPARISON_PROMPT_VERSION,
+              outputSchema: ComparisonAnalysisOutputSchema,
               sourceReferences,
-              createdById: actorId,
+              classification: "confidential",
+              timeoutMs: this.options.timeoutMs,
+              requiresHumanApproval: true,
+              correlationId,
             },
-          });
-          await transaction.documentAnalysisRequest.update({
-            where: { id: request.id },
-            data: {
-              state: stale ? "superseded" : "succeeded",
-              resultReference: stale ? null : outputReference,
-              completedAt: new Date(),
+            async (transaction, rawOutput) => {
+              await transaction.$queryRaw`SELECT id FROM "DocumentAnalysisRequest" WHERE id = ${request.id}::uuid FOR UPDATE`;
+              await assertAnalysisFence(transaction, request, new Date());
+              const existing = await transaction.documentAnalysisRequest.findUnique({
+                where: { id: request.id },
+                select: { state: true, resultReference: true },
+              });
+              if (existing?.state === "succeeded" && existing.resultReference !== null)
+                return { outputReference: existing.resultReference };
+              if (existing?.state === "superseded") {
+                const staleResult = await transaction.documentComparison.findUnique({
+                  where: { requestId: request.id },
+                  select: { outputReference: true },
+                });
+                if (staleResult !== null) return { outputReference: staleResult.outputReference };
+              }
+              const output = ComparisonAnalysisOutputSchema.parse(rawOutput);
+              assertBoundComparisonReferences(
+                output,
+                before.sourceReferences,
+                after.sourceReferences,
+              );
+              await transaction.$queryRaw`SELECT id FROM "DocumentRecord" WHERE id = ${request.documentId}::uuid FOR UPDATE`;
+              const current = await transaction.documentRecord.findUnique({
+                where: { id: request.documentId },
+                select: { currentVersion: true },
+              });
+              const stale = current?.currentVersion !== request.expectedAggregateVersion;
+              const id = randomUUID();
+              const persistedReference = `document-comparison:${id}`;
+              await transaction.documentComparison.create({
+                data: {
+                  id,
+                  requestId: request.id,
+                  documentId: request.documentId,
+                  beforeVersionId: before.documentVersionId,
+                  afterVersionId: after.documentVersionId,
+                  aiClassification: output.classification,
+                  output,
+                  outputReference: persistedReference,
+                  inputSchemaVersion: COMPARISON_INPUT_SCHEMA_VERSION,
+                  outputSchemaVersion: COMPARISON_OUTPUT_SCHEMA_VERSION,
+                  promptVersion: request.promptVersion,
+                  promptHash: request.promptHash,
+                  validationOutcome: "valid",
+                  stale,
+                  sourceReferences,
+                  createdById: actorId,
+                },
+              });
+              await transaction.documentAnalysisRequest.update({
+                where: { id: request.id },
+                data: {
+                  state: stale ? "superseded" : "succeeded",
+                  resultReference: stale ? null : persistedReference,
+                  completedAt: new Date(),
+                },
+              });
+              await recordAnalysisEffect(transaction, request, persistedReference);
+              return { outputReference: persistedReference };
             },
-          });
-          await recordAnalysisEffect(transaction, request, outputReference);
-          return { outputReference };
+          );
+          return result.outputReference;
         },
       );
-      await completeAnalysisOperation(this.database, request, result.outputReference, new Date());
-      return result.outputReference;
+      await completeAnalysisOperation(this.database, request, outputReference, new Date());
+      return outputReference;
     } catch (error) {
       await recordAnalysisFailure(
         this.database,

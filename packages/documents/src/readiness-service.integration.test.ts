@@ -2,6 +2,11 @@ import { AppError } from "@evaluation/contracts";
 import { Readable } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  completeAnalysisOperation,
+  recordAnalysisEffect,
+  recordAnalysisFailure,
+} from "./analysis-execution.js";
 import { ReadinessService, mapManagerReadiness } from "./readiness-service.js";
 
 const requestId = "00000000-0000-4000-8000-000000000001";
@@ -18,6 +23,10 @@ function processHarness(
     routerError?: Error;
     initialRequest?: Partial<Record<string, any>>;
     initialOperation?: Partial<Record<string, any>>;
+    deferRouter?: boolean;
+    clock?: { value: Date };
+    execution?: { heartbeatMs: number; leaseMs: number; maxAttempts: number };
+    timeoutMs?: number;
   } = {},
 ) {
   let inTransaction = false;
@@ -64,6 +73,8 @@ function processHarness(
         const statuses =
           where.status?.in ?? (where.status === undefined ? undefined : [where.status]);
         if (statuses !== undefined && !statuses.includes(operation.status)) return { count: 0 };
+        if (typeof where.attemptCount === "number" && operation.attemptCount !== where.attemptCount)
+          return { count: 0 };
         if (where.attemptCount?.lt !== undefined && operation.attemptCount >= where.attemptCount.lt)
           return { count: 0 };
         if (where.OR !== undefined) {
@@ -134,9 +145,14 @@ function processHarness(
       };
     }),
   };
+  let releaseRouter!: () => void;
+  const routerGate = new Promise<void>((resolve) => {
+    releaseRouter = resolve;
+  });
   const router = {
     run: vi.fn(async () => {
       expect(inTransaction).toBe(false);
+      if (options.deferRouter === true) await routerGate;
       if (options.routerError !== undefined) throw options.routerError;
       return {
         runId: crypto.randomUUID(),
@@ -155,18 +171,28 @@ function processHarness(
     vi.fn(),
     {
       systemId: crypto.randomUUID(),
-      timeoutMs: 1_000,
+      timeoutMs: options.timeoutMs ?? 1_000,
       extractionPolicy: {
         maxSourceBytes: 1_000,
         maxArchiveEntries: 10,
         maxArchiveUncompressedBytes: 5_000,
         maxArchiveCompressionRatio: 20,
       },
-      execution: { leaseMs: 60_000, maxAttempts: 3 },
-      now: () => now,
+      execution: options.execution ?? { heartbeatMs: 10_000, leaseMs: 60_000, maxAttempts: 3 },
+      now: () => options.clock?.value ?? now,
     },
   );
-  return { database, operation, releaseLoader, router, row, service, sourceLoader };
+  return {
+    database,
+    operation,
+    releaseLoader,
+    releaseRouter,
+    router,
+    row,
+    service,
+    sourceLoader,
+    transaction,
+  };
 }
 
 function managerReadHarness() {
@@ -222,7 +248,7 @@ function managerReadHarness() {
         maxArchiveUncompressedBytes: 1,
         maxArchiveCompressionRatio: 1,
       },
-      execution: { leaseMs: 60_000, maxAttempts: 3 },
+      execution: { heartbeatMs: 10_000, leaseMs: 60_000, maxAttempts: 3 },
     },
   );
   return { findFirst, service };
@@ -311,7 +337,7 @@ function requestHarness() {
         maxArchiveUncompressedBytes: 1,
         maxArchiveCompressionRatio: 1,
       },
-      execution: { leaseMs: 60_000, maxAttempts: 3 },
+      execution: { heartbeatMs: 10_000, leaseMs: 60_000, maxAttempts: 3 },
       now: () => now,
     },
   );
@@ -329,6 +355,118 @@ describe("ReadinessService", () => {
     await first;
     expect(test.router.run).toHaveBeenCalledOnce();
     expect(test.sourceLoader.load).toHaveBeenCalledOnce();
+  });
+
+  it("heartbeats a deferred Router attempt so it cannot be reclaimed after the original lease", async () => {
+    const clock = { value: now };
+    const test = processHarness({
+      clock,
+      deferRouter: true,
+      execution: { heartbeatMs: 10, leaseMs: 40, maxAttempts: 1 },
+      timeoutMs: 5,
+    });
+    const first = test.service.process(requestId, actorId, correlationId);
+    test.releaseLoader();
+    await vi.waitFor(() => expect(test.router.run).toHaveBeenCalledOnce());
+    clock.value = new Date(now.getTime() + 100);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const second = test.service.process(requestId, actorId, correlationId);
+    const outcome = await Promise.race([
+      second.then(
+        () => "resolved",
+        (error: AppError) => error.code,
+      ),
+      new Promise<string>((resolve) => setTimeout(() => resolve("pending"), 30)),
+    ]);
+    test.releaseRouter();
+    await Promise.allSettled([first, second]);
+    expect(outcome).toBe("ANALYSIS_REQUEST_RUNNING");
+    expect(test.router.run).toHaveBeenCalledOnce();
+  });
+
+  it("reclaims an abandoned running attempt after its heartbeat lease expires", async () => {
+    const clock = { value: new Date(now.getTime() + 100) };
+    const test = processHarness({
+      clock,
+      initialRequest: { state: "running" },
+      initialOperation: { status: "running", attemptCount: 1, startedAt: now },
+      execution: { heartbeatMs: 10, leaseMs: 40, maxAttempts: 3 },
+      timeoutMs: 5,
+    });
+    test.releaseLoader();
+    await expect(test.service.process(requestId, actorId, correlationId)).resolves.toMatch(
+      /^document-readiness:/u,
+    );
+    expect(test.operation).toMatchObject({ status: "succeeded", attemptCount: 2 });
+    expect(test.router.run).toHaveBeenCalledOnce();
+  });
+
+  it("fences stale failure, completion, and effect writes after another attempt takes over", async () => {
+    const staleRequest = {
+      id: requestId,
+      kind: "readiness",
+      state: "running",
+      operationId,
+      resultReference: null,
+      documentId,
+      currentDocumentVersionId: versionId,
+      beforeVersionId: null,
+      afterVersionId: null,
+      expectedAggregateVersion: 1,
+      promptArtifactId: crypto.randomUUID(),
+      promptVersion: "document-readiness.v1",
+      promptHash: "a".repeat(64),
+      attemptCount: 1,
+    } as const;
+
+    const failure = processHarness({
+      initialRequest: { state: "running" },
+      initialOperation: { status: "running", attemptCount: 2, startedAt: now },
+    });
+    await recordAnalysisFailure(
+      failure.database as never,
+      staleRequest,
+      new Error("stale worker"),
+      now,
+      { heartbeatMs: 10_000, leaseMs: 60_000, maxAttempts: 3 },
+    );
+    expect(failure.operation).toMatchObject({ status: "running", attemptCount: 2 });
+
+    const completion = processHarness({
+      initialRequest: { state: "running" },
+      initialOperation: { status: "running", attemptCount: 2, startedAt: now },
+    });
+    await completeAnalysisOperation(
+      completion.database as never,
+      staleRequest,
+      `document-readiness:${crypto.randomUUID()}`,
+      now,
+    );
+    expect(completion.operation).toMatchObject({ status: "running", attemptCount: 2 });
+
+    const effect = processHarness({
+      initialRequest: { state: "running" },
+      initialOperation: { status: "running", attemptCount: 2, startedAt: now },
+    });
+    await expect(
+      recordAnalysisEffect(
+        effect.transaction as never,
+        staleRequest,
+        `document-readiness:${crypto.randomUUID()}`,
+      ),
+    ).rejects.toMatchObject({ code: "ANALYSIS_LEASE_LOST" });
+    expect(effect.transaction.operationEffectReceipt.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects execution timing that could silently outlive its lease", async () => {
+    const test = processHarness({
+      execution: { heartbeatMs: 20, leaseMs: 40, maxAttempts: 3 },
+      timeoutMs: 100,
+    });
+    test.releaseLoader();
+    await expect(test.service.process(requestId, actorId, correlationId)).rejects.toThrow(/lease/u);
+    expect(test.sourceLoader.load).not.toHaveBeenCalled();
   });
 
   it("retries transient failures with the stable operation and terminalizes after exhaustion", async () => {
@@ -389,6 +527,14 @@ describe("ReadinessService", () => {
     expect(
       mapManagerReadiness("incomplete", [{ templateSectionKey: "optional_notes" }], sections, true),
     ).toEqual({ state: "needs_attention" });
+    expect(
+      mapManagerReadiness(
+        "incomplete",
+        [{ templateSectionKey: "optional_notes" }],
+        sections,
+        false,
+      ),
+    ).toEqual({ state: "missing_critical_information" });
     for (const key of ["required_scope", "protected_context"]) {
       expect(
         mapManagerReadiness("incomplete", [{ templateSectionKey: key }], sections, true),
