@@ -15,7 +15,7 @@
     "lint": "eslint src --ignore-pattern src/generated",
     "prisma": "prisma",
     "test": "vitest run",
-    "test:integration": "prisma generate && vitest run --root ../.. packages/database/src/client.integration.test.ts packages/database/src/seed-pilot.integration.test.ts",
+    "test:integration": "prisma generate && vitest run --root ../.. packages/database/src/client.integration.test.ts packages/database/src/seed-pilot.integration.test.ts packages/database/src/projects-schema.integration.test.ts",
     "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

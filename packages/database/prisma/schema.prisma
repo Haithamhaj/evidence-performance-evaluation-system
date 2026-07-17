@@ -16,21 +16,33 @@ model SystemMetadata {
 }
 
 model User {
-  id                      String                   @id @default(uuid()) @db.Uuid
-  pilotKey                String?                  @unique
-  email                   String                   @unique
-  displayName             String
-  active                  Boolean                  @default(true)
-  identities              OidcIdentity[]
-  roleAssignments         RoleAssignment[]
-  aiRouteConfigs          AiRouteConfig[]
-  aiProviderConfigs       AiProviderConfig[]
-  aiTrustPolicies         AiLocalTrustPolicy[]
-  aiSchemaArtifacts       AiOutputSchemaArtifact[]
-  managedEvaluationCycles EvaluationCycle[]        @relation("EvaluationCycleManager")
-  eligibilityEntries      EligibilityEntry[]       @relation("EligibilityEmployee")
-  createdAt               DateTime                 @default(now()) @db.Timestamptz(6)
-  updatedAt               DateTime                 @updatedAt @db.Timestamptz(6)
+  id                       String                       @id @default(uuid()) @db.Uuid
+  pilotKey                 String?                      @unique
+  email                    String                       @unique
+  displayName              String
+  active                   Boolean                      @default(true)
+  identities               OidcIdentity[]
+  roleAssignments          RoleAssignment[]
+  aiRouteConfigs           AiRouteConfig[]
+  aiProviderConfigs        AiProviderConfig[]
+  aiTrustPolicies          AiLocalTrustPolicy[]
+  aiSchemaArtifacts        AiOutputSchemaArtifact[]
+  managedEvaluationCycles  EvaluationCycle[]            @relation("EvaluationCycleManager")
+  eligibilityEntries       EligibilityEntry[]           @relation("EligibilityEmployee")
+  createdProjects          Project[]                    @relation("ProjectCreatedBy")
+  createdWorkstreams       Workstream[]                 @relation("WorkstreamCreatedBy")
+  projectMemberships       ProjectMember[]              @relation("ProjectMemberEmployee")
+  createdProjectMembers    ProjectMember[]              @relation("ProjectMemberCreatedBy")
+  workstreamMemberships    WorkstreamMember[]           @relation("WorkstreamMemberEmployee")
+  createdWorkstreamMembers WorkstreamMember[]           @relation("WorkstreamMemberCreatedBy")
+  responsibilities         ResponsibilityWindow[]       @relation("ResponsibilityEmployee")
+  responsibilityDecisions  ResponsibilityWindow[]       @relation("ResponsibilityDecisionBy")
+  createdResponsibilities  ResponsibilityWindow[]       @relation("ResponsibilityCreatedBy")
+  projectStatusChanges     ProjectStatusTransition[]    @relation("ProjectStatusActor")
+  workstreamStatusChanges  WorkstreamStatusTransition[] @relation("WorkstreamStatusActor")
+  ownershipTransfers       OwnershipTransfer[]          @relation("OwnershipTransferDecisionBy")
+  createdAt                DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime                     @updatedAt @db.Timestamptz(6)
 }
 
 model OidcIdentity {
@@ -70,6 +82,7 @@ model Organization {
   departments    Department[]
   operations     Operation[]
   rubricVersions RubricVersion[]
+  projects       Project[]
   createdAt      DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
 }
@@ -127,9 +140,11 @@ model Department {
   organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   authorizationScopes AuthorizationScope[]
   evaluationCycles    EvaluationCycle[]
+  projects            Project[]
   createdAt           DateTime             @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
 
+  @@unique([id, organizationId])
   @@index([organizationId])
 }
 
@@ -217,11 +232,226 @@ model AuthorizationScope {
   aiRoutes              AiRoute[]
   aiRunProjectScopes    AiRun[]          @relation("AiRunProjectScope")
   aiRunDepartmentScopes AiRun[]          @relation("AiRunDepartmentScope")
+  project               Project?         @relation("ProjectAuthorizationScope")
+  workstream            Workstream?      @relation("WorkstreamAuthorizationScope")
   createdAt             DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt             DateTime         @updatedAt @db.Timestamptz(6)
 
   @@unique([id, scopeType])
+  @@unique([id, scopeType, departmentId])
   @@index([departmentId])
+}
+
+enum ProjectStatus {
+  draft
+  active
+  paused
+  completed
+  archived
+}
+
+enum WorkstreamStatus {
+  draft
+  active
+  paused
+  completed
+  archived
+}
+
+enum ResponsibilityType {
+  original
+  acting
+  permanent
+  contributor
+}
+
+enum OwnershipTransferKind {
+  acting
+  permanent
+}
+
+model Project {
+  id                     String                    @id @default(uuid()) @db.Uuid
+  organizationId         String                    @db.Uuid
+  organization           Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId           String                    @db.Uuid
+  department             Department                @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  authorizationScopeId   String                    @unique @db.Uuid
+  authorizationScopeType ScopeType                 @default(project)
+  authorizationScope     AuthorizationScope        @relation("ProjectAuthorizationScope", fields: [authorizationScopeId, authorizationScopeType, departmentId], references: [id, scopeType, departmentId], onDelete: Restrict)
+  name                   String
+  description            String
+  status                 ProjectStatus             @default(draft)
+  version                Int                       @default(1)
+  createdById            String                    @db.Uuid
+  createdBy              User                      @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  workstreams            Workstream[]
+  members                ProjectMember[]
+  responsibilities       ResponsibilityWindow[]
+  ownershipTransfers     OwnershipTransfer[]
+  statusTransitions      ProjectStatusTransition[]
+  createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
+
+  @@unique([authorizationScopeId, authorizationScopeType])
+  @@unique([authorizationScopeId, authorizationScopeType, departmentId])
+  @@index([organizationId, departmentId, status])
+  @@index([departmentId, status, createdAt])
+  @@index([createdById, createdAt])
+}
+
+model ProjectStatusTransition {
+  id               String        @id @default(uuid()) @db.Uuid
+  projectId        String        @db.Uuid
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  fromStatus       ProjectStatus
+  toStatus         ProjectStatus
+  effectiveAt      DateTime      @db.Timestamptz(6)
+  actorId          String        @db.Uuid
+  actor            User          @relation("ProjectStatusActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason           String
+  resultingVersion Int
+  createdAt        DateTime      @default(now()) @db.Timestamptz(6)
+
+  @@unique([projectId, resultingVersion])
+  @@index([projectId, effectiveAt, id])
+  @@index([actorId, createdAt])
+}
+
+model ProjectMember {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @db.Uuid
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  employeeId  String    @db.Uuid
+  employee    User      @relation("ProjectMemberEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  startsAt    DateTime  @db.Timestamptz(6)
+  endsAt      DateTime? @db.Timestamptz(6)
+  reason      String
+  createdById String    @db.Uuid
+  createdBy   User      @relation("ProjectMemberCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([projectId, employeeId, startsAt, endsAt])
+  @@index([employeeId, startsAt, endsAt])
+  @@index([createdById, createdAt])
+}
+
+model Workstream {
+  id                     String                       @id @default(uuid()) @db.Uuid
+  projectId              String                       @db.Uuid
+  project                Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  authorizationScopeId   String                       @unique @db.Uuid
+  authorizationScopeType ScopeType                    @default(workstream)
+  authorizationScope     AuthorizationScope           @relation("WorkstreamAuthorizationScope", fields: [authorizationScopeId, authorizationScopeType], references: [id, scopeType], onDelete: Restrict)
+  name                   String
+  description            String
+  status                 WorkstreamStatus             @default(draft)
+  version                Int                          @default(1)
+  createdById            String                       @db.Uuid
+  createdBy              User                         @relation("WorkstreamCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  members                WorkstreamMember[]
+  responsibilities       ResponsibilityWindow[]
+  ownershipTransfers     OwnershipTransfer[]
+  statusTransitions      WorkstreamStatusTransition[]
+  createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
+
+  @@unique([authorizationScopeId, authorizationScopeType])
+  @@index([projectId, status, createdAt])
+  @@index([createdById, createdAt])
+}
+
+model WorkstreamStatusTransition {
+  id               String           @id @default(uuid()) @db.Uuid
+  workstreamId     String           @db.Uuid
+  workstream       Workstream       @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  fromStatus       WorkstreamStatus
+  toStatus         WorkstreamStatus
+  effectiveAt      DateTime         @db.Timestamptz(6)
+  actorId          String           @db.Uuid
+  actor            User             @relation("WorkstreamStatusActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason           String
+  resultingVersion Int
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+
+  @@unique([workstreamId, resultingVersion])
+  @@index([workstreamId, effectiveAt, id])
+  @@index([actorId, createdAt])
+}
+
+model WorkstreamMember {
+  id           String     @id @default(uuid()) @db.Uuid
+  workstreamId String     @db.Uuid
+  workstream   Workstream @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  employeeId   String     @db.Uuid
+  employee     User       @relation("WorkstreamMemberEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  startsAt     DateTime   @db.Timestamptz(6)
+  endsAt       DateTime?  @db.Timestamptz(6)
+  reason       String
+  createdById  String     @db.Uuid
+  createdBy    User       @relation("WorkstreamMemberCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@index([workstreamId, employeeId, startsAt, endsAt])
+  @@index([employeeId, startsAt, endsAt])
+  @@index([createdById, createdAt])
+}
+
+model ResponsibilityWindow {
+  id                       String             @id @default(uuid()) @db.Uuid
+  employeeId               String             @db.Uuid
+  employee                 User               @relation("ResponsibilityEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  projectId                String?            @db.Uuid
+  project                  Project?           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId             String?            @db.Uuid
+  workstream               Workstream?        @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  responsibilityType       ResponsibilityType
+  startsAt                 DateTime           @db.Timestamptz(6)
+  endsAt                   DateTime?          @db.Timestamptz(6)
+  reason                   String
+  managerDecisionById      String?            @db.Uuid
+  managerDecisionBy        User?              @relation("ResponsibilityDecisionBy", fields: [managerDecisionById], references: [id], onDelete: Restrict)
+  managerDecisionAt        DateTime?          @db.Timestamptz(6)
+  managerDecisionReason    String?
+  relatedHandoverReference String?
+  delegationType           String?
+  createdById              String             @db.Uuid
+  createdBy                User               @relation("ResponsibilityCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  closedForTransfer        OwnershipTransfer? @relation("ClosedResponsibilityWindow")
+  newForTransfer           OwnershipTransfer? @relation("NewResponsibilityWindow")
+  returnForTransfer        OwnershipTransfer? @relation("ReturnResponsibilityWindow")
+  createdAt                DateTime           @default(now()) @db.Timestamptz(6)
+
+  @@index([projectId, employeeId, startsAt, endsAt])
+  @@index([workstreamId, employeeId, startsAt, endsAt])
+  @@index([employeeId, startsAt, endsAt])
+  @@index([createdById, createdAt])
+}
+
+model OwnershipTransfer {
+  id                    String                @id @default(uuid()) @db.Uuid
+  projectId             String?               @db.Uuid
+  project               Project?              @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId          String?               @db.Uuid
+  workstream            Workstream?           @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  transferKind          OwnershipTransferKind
+  closedWindowId        String                @unique @db.Uuid
+  closedWindow          ResponsibilityWindow  @relation("ClosedResponsibilityWindow", fields: [closedWindowId], references: [id], onDelete: Restrict)
+  newOwnerWindowId      String                @unique @db.Uuid
+  newOwnerWindow        ResponsibilityWindow  @relation("NewResponsibilityWindow", fields: [newOwnerWindowId], references: [id], onDelete: Restrict)
+  returnWindowId        String?               @unique @db.Uuid
+  returnWindow          ResponsibilityWindow? @relation("ReturnResponsibilityWindow", fields: [returnWindowId], references: [id], onDelete: Restrict)
+  effectiveAt           DateTime              @db.Timestamptz(6)
+  reason                String
+  managerDecisionById   String                @db.Uuid
+  managerDecisionBy     User                  @relation("OwnershipTransferDecisionBy", fields: [managerDecisionById], references: [id], onDelete: Restrict)
+  managerDecisionAt     DateTime              @db.Timestamptz(6)
+  managerDecisionReason String
+  createdAt             DateTime              @default(now()) @db.Timestamptz(6)
+
+  @@index([projectId, effectiveAt, id])
+  @@index([workstreamId, effectiveAt, id])
+  @@index([managerDecisionById, createdAt])
 }
 
 model RoleAssignment {
