@@ -90,7 +90,7 @@ describe.runIf(safeDatabase)("ProposalService PostgreSQL trigger protocol", () =
           outputSchemaHash: fixture.criteriaSchemaHash,
           replacesProposalId: null,
           materialComparisonReviewId: null,
-          ownerFeedback: null,
+          ownerFeedbackSource: null,
           createdById: fixture.ownerId,
           outputReference,
         },

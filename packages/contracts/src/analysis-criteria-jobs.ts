@@ -2,6 +2,13 @@ import { z } from "zod";
 
 const UuidSchema = z.string().uuid();
 const Sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
+const OwnerFeedbackSourceSchema = z
+  .object({
+    kind: z.enum(["proposal_transition", "comparison_review"]),
+    referenceId: UuidSchema,
+    sha256: Sha256Schema,
+  })
+  .strict();
 
 const ArtifactPinsShape = {
   schemaArtifactId: UuidSchema,
@@ -45,6 +52,7 @@ const CriteriaGenerationJobPayloadSchema = z
     contributorIds: z.array(UuidSchema).max(1_000),
     replacesProposalId: UuidSchema.nullable().optional(),
     materialComparisonReviewId: UuidSchema.nullable().optional(),
+    ownerFeedbackSource: OwnerFeedbackSourceSchema.nullable(),
     ...ArtifactPinsShape,
   })
   .strict();

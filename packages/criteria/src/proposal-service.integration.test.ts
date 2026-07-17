@@ -51,7 +51,7 @@ function persistenceHarness(kind: "project" | "workstream", count: number) {
     outputSchemaHash: "b".repeat(64),
     replacesProposalId: null,
     materialComparisonReviewId: null,
-    ownerFeedback: null,
+    ownerFeedbackSource: null,
     createdById: ownerId,
   } satisfies import("./proposal-service.js").CriteriaGenerationRequestSnapshot;
   const current = {
@@ -63,7 +63,7 @@ function persistenceHarness(kind: "project" | "workstream", count: number) {
         state: "running",
         currentDocumentVersionId: documentVersionId,
         pinnedReadinessCheckId: readinessCheckId,
-        pinnedProposalId: null,
+        pinnedProposalId: null as string | null,
         expectedAggregateVersion: 2,
         promptArtifactId: request.promptArtifactId,
         promptVersion: request.promptVersion,
@@ -240,6 +240,57 @@ describe("ProposalService persisted generation", () => {
     ).resolves.toMatchObject({ state: "superseded", items: [] });
     expect(harness.current.dynamicCriteriaProposal.create).not.toHaveBeenCalled();
   });
+
+  it.each(["missing", "tampered"] as const)(
+    "fails closed when persisted replacement feedback is %s",
+    async (failure) => {
+      const harness = persistenceHarness("project", 1);
+      const replacesProposalId = crypto.randomUUID();
+      const transitionId = crypto.randomUUID();
+      const reason = "Generate a corrected alternative.";
+      const ownerFeedbackSource = {
+        kind: "proposal_transition" as const,
+        referenceId: transitionId,
+        sha256:
+          failure === "tampered"
+            ? "f".repeat(64)
+            : "7e6721b9cdb4ed8e5eab278a6c38e2d8d5a15f0461cc918d8e812c27f4b74fb5",
+      };
+      Object.assign(harness.current.dynamicCriteriaProposalTransition, {
+        findUnique: vi.fn(async () =>
+          failure === "missing" ? null : { id: transitionId, reason },
+        ),
+      });
+      harness.current.documentAnalysisRequest.findUnique.mockResolvedValueOnce({
+        kind: "criteria_project",
+        routeKey: "criteria.generate.project",
+        state: "running",
+        currentDocumentVersionId: harness.request.documentVersionId,
+        pinnedReadinessCheckId: harness.request.readinessCheckId,
+        pinnedProposalId: replacesProposalId,
+        expectedAggregateVersion: harness.request.expectedDocumentVersion,
+        promptArtifactId: harness.request.promptArtifactId,
+        promptVersion: harness.request.promptVersion,
+        promptHash: harness.request.promptHash,
+        outputSchemaArtifactId: harness.request.outputSchemaArtifactId,
+        outputSchemaVersion: harness.request.outputSchemaVersion,
+        outputSchemaHash: harness.request.outputSchemaHash,
+      });
+
+      await expect(
+        harness.service.persistValidatedGeneration(
+          harness.current as never,
+          {
+            ...harness.request,
+            replacesProposalId,
+            ownerFeedbackSource,
+          },
+          harness.output,
+        ),
+      ).rejects.toMatchObject({ code: "CRITERIA_REPLACEMENT_INVALID" });
+      expect(harness.current.dynamicCriteriaProposal.create).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("ProposalService request and owner review", () => {

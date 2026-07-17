@@ -1,21 +1,30 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import {
+  AnalysisCriteriaJobPayloadSchema,
   AppError,
   CriteriaGenerationOutputSchema,
   OwnerReviewCriteriaSchema,
 } from "@evaluation/contracts";
+import type { AnalysisCriteriaJobPayload } from "@evaluation/contracts";
 
 import { assertCriterionCount, assertProposalTransition } from "./invariants.js";
 import {
   CRITERIA_GENERATION_OUTPUT_SCHEMA_VERSION,
   CRITERIA_GENERATION_PROMPT_VERSION,
+  buildCriteriaGenerationRequest,
 } from "./prompts.js";
 
 type Actor = Readonly<{ userId: string; active: boolean }>;
 type CriteriaKind = import("./model.js").CriteriaKind;
 type CriteriaOutput = import("@evaluation/contracts").CriteriaGenerationOutput;
 type CriteriaItem = import("@evaluation/contracts").CriterionProposalItem;
+type CriteriaGenerationJob = Extract<AnalysisCriteriaJobPayload, { type: "criteria.generate.v1" }>;
+type OwnerFeedbackSource = Readonly<{
+  kind: "proposal_transition" | "comparison_review";
+  referenceId: string;
+  sha256: string;
+}>;
 
 type CriteriaReviewIdentity = Readonly<{
   kind: CriteriaKind;
@@ -113,6 +122,7 @@ type CriteriaRequestOutbox = Readonly<{
         contributorIds: readonly string[];
         replacesProposalId: string | null;
         materialComparisonReviewId: string | null;
+        ownerFeedbackSource: OwnerFeedbackSource | null;
         schemaArtifactId: string;
         schemaArtifactHash: string;
         promptArtifactId: string;
@@ -161,7 +171,7 @@ export type CriteriaGenerationRequestSnapshot = Readonly<{
   outputSchemaHash: string;
   replacesProposalId: string | null;
   materialComparisonReviewId: string | null;
-  ownerFeedback: string | null;
+  ownerFeedbackSource: OwnerFeedbackSource | null;
   createdById: string;
   outputReference?: string;
 }>;
@@ -292,7 +302,11 @@ export class ProposalService {
         ) {
           throw invalidPrerequisites();
         }
-        await validateReplacementPins(transaction, command, currentPrerequisites);
+        const ownerFeedbackSource = await validateReplacementPins(
+          transaction,
+          command,
+          currentPrerequisites,
+        );
         const document = await transaction.documentRecord.findUnique({
           where: { id: currentPrerequisites.documentId },
         });
@@ -332,7 +346,7 @@ export class ProposalService {
           contributorIds: currentIdentity.contributorIds,
           replacesProposalId: command.replacesProposalId ?? null,
           materialComparisonReviewId: command.materialComparisonReviewId ?? null,
-          ownerFeedback: command.ownerFeedback ?? null,
+          ownerFeedbackSource,
           promptArtifactId: prompt.id,
           promptHash: prompt.bodyHash,
           outputSchemaArtifactId: schema.id,
@@ -400,6 +414,7 @@ export class ProposalService {
             contributorIds: [...currentIdentity.contributorIds],
             replacesProposalId: command.replacesProposalId ?? null,
             materialComparisonReviewId: command.materialComparisonReviewId ?? null,
+            ownerFeedbackSource,
             schemaArtifactId: schema.id,
             schemaArtifactHash: schema.schemaHash,
             promptArtifactId: prompt.id,
@@ -430,6 +445,36 @@ export class ProposalService {
     void this.sourceLoader;
     void this.aiRouter;
     return receiptOf(pinned);
+  }
+
+  async prepareGeneration(
+    input: Readonly<{
+      job: CriteriaGenerationJob;
+      readinessSourceReferences: readonly string[];
+    }>,
+  ) {
+    const parsed = AnalysisCriteriaJobPayloadSchema.parse(input.job);
+    if (parsed.type !== "criteria.generate.v1") throw replacementInvalid();
+    const ownerFeedbackSource = parsed.ownerFeedbackSource;
+    const ownerFeedback =
+      ownerFeedbackSource === null
+        ? undefined
+        : await this.database.$transaction((transaction) =>
+            loadOwnerFeedbackSource(transaction, ownerFeedbackSource),
+          );
+    const document = await this.sourceLoader.load({
+      documentVersionId: parsed.documentVersionId,
+    });
+    return buildCriteriaGenerationRequest({
+      kind: parsed.kind,
+      prompt: {
+        artifactId: parsed.promptArtifactId,
+        sha256: parsed.promptArtifactHash,
+      },
+      documentSources: document.sources,
+      readinessSourceReferences: input.readinessSourceReferences,
+      ...(ownerFeedback === undefined ? {} : { ownerFeedback }),
+    });
   }
 
   async persistValidatedGeneration(
@@ -515,31 +560,16 @@ export class ProposalService {
         items: [],
       };
     }
-    await validateReplacementPins(
-      transaction,
-      {
-        kind: request.kind,
-        resourceId: request.resourceId,
-        documentVersionId: request.documentVersionId,
-        ...(request.replacesProposalId === null
-          ? {}
-          : { replacesProposalId: request.replacesProposalId }),
-        ...(request.ownerFeedback === null ? {} : { ownerFeedback: request.ownerFeedback }),
-        ...(request.materialComparisonReviewId === null
-          ? {}
-          : { materialComparisonReviewId: request.materialComparisonReviewId }),
-      },
-      {
-        documentId: request.documentId,
-        documentVersionId: request.documentVersionId,
-        documentVersion: request.expectedDocumentVersion,
-        readinessCheckId: request.readinessCheckId,
-        lifecycleState: latestLifecycle as import("@evaluation/contracts").ReadinessLifecycleState,
-        projectId: request.projectId,
-        workstreamId: request.kind === "workstream" ? request.resourceId : null,
-        sourceReferences: [],
-      },
-    );
+    await validatePinnedReplacementPins(transaction, request, {
+      documentId: request.documentId,
+      documentVersionId: request.documentVersionId,
+      documentVersion: request.expectedDocumentVersion,
+      readinessCheckId: request.readinessCheckId,
+      lifecycleState: latestLifecycle as import("@evaluation/contracts").ReadinessLifecycleState,
+      projectId: request.projectId,
+      workstreamId: request.kind === "workstream" ? request.resourceId : null,
+      sourceReferences: [],
+    });
 
     await lockCriteriaScope(transaction, request);
     const proposalNumber =
@@ -794,12 +824,12 @@ async function validateReplacementPins(
     materialComparisonReviewId?: string;
   }>,
   prerequisites: CriteriaDocumentPrerequisites,
-): Promise<void> {
+): Promise<OwnerFeedbackSource | null> {
   if (command.replacesProposalId === undefined) {
     if (command.ownerFeedback !== undefined || command.materialComparisonReviewId !== undefined) {
       throw replacementInvalid();
     }
-    return;
+    return null;
   }
   if (!command.ownerFeedback?.trim()) throw replacementInvalid();
   await transaction.$queryRaw`SELECT id FROM "DynamicCriteriaProposal" WHERE id = ${command.replacesProposalId}::uuid FOR UPDATE`;
@@ -812,14 +842,15 @@ async function validateReplacementPins(
     },
   });
   const priorResourceId = prior?.kind === "project" ? prior.projectId : prior?.workstreamId;
+  const ownerReviewTransition = prior?.transitions.find(
+    ({ fromState, toState }) => fromState === "owner_review" && toState === "superseded",
+  );
   if (
     prior === null ||
     prior.kind !== command.kind ||
     priorResourceId !== command.resourceId ||
     prior.state !== "superseded" ||
-    !prior.transitions.some(
-      ({ fromState, toState }) => fromState === "owner_review" && toState === "superseded",
-    )
+    ownerReviewTransition === undefined
   ) {
     throw replacementInvalid();
   }
@@ -830,7 +861,18 @@ async function validateReplacementPins(
     ) {
       throw replacementInvalid();
     }
-    return;
+    if (
+      typeof ownerReviewTransition.id !== "string" ||
+      typeof ownerReviewTransition.reason !== "string" ||
+      command.ownerFeedback !== ownerReviewTransition.reason
+    ) {
+      throw replacementInvalid();
+    }
+    return {
+      kind: "proposal_transition",
+      referenceId: ownerReviewTransition.id,
+      sha256: sha256Text(ownerReviewTransition.reason),
+    };
   }
   const materialReview = await transaction.documentComparisonReview.findUnique({
     where: { id: command.materialComparisonReviewId },
@@ -849,6 +891,73 @@ async function validateReplacementPins(
   ) {
     throw replacementInvalid();
   }
+  if (command.ownerFeedback !== materialReview.reason) throw replacementInvalid();
+  return {
+    kind: "comparison_review",
+    referenceId: materialReview.id,
+    sha256: sha256Text(materialReview.reason),
+  };
+}
+
+async function validatePinnedReplacementPins(
+  transaction: import("./model.js").CriteriaTransaction,
+  request: CriteriaGenerationRequestSnapshot,
+  prerequisites: CriteriaDocumentPrerequisites,
+): Promise<void> {
+  if (request.replacesProposalId === null) {
+    if (request.ownerFeedbackSource !== null || request.materialComparisonReviewId !== null) {
+      throw replacementInvalid();
+    }
+    return;
+  }
+  if (request.ownerFeedbackSource === null) throw replacementInvalid();
+  const ownerFeedback = await loadOwnerFeedbackSource(transaction, request.ownerFeedbackSource);
+  const currentSource = await validateReplacementPins(
+    transaction,
+    {
+      kind: request.kind,
+      resourceId: request.resourceId,
+      documentVersionId: request.documentVersionId,
+      replacesProposalId: request.replacesProposalId,
+      ownerFeedback,
+      ...(request.materialComparisonReviewId === null
+        ? {}
+        : { materialComparisonReviewId: request.materialComparisonReviewId }),
+    },
+    prerequisites,
+  );
+  if (
+    currentSource === null ||
+    currentSource.kind !== request.ownerFeedbackSource.kind ||
+    currentSource.referenceId !== request.ownerFeedbackSource.referenceId ||
+    currentSource.sha256 !== request.ownerFeedbackSource.sha256
+  ) {
+    throw replacementInvalid();
+  }
+}
+
+async function loadOwnerFeedbackSource(
+  transaction: import("./model.js").CriteriaTransaction,
+  source: OwnerFeedbackSource,
+): Promise<string> {
+  const row =
+    source.kind === "proposal_transition"
+      ? await transaction.dynamicCriteriaProposalTransition.findUnique({
+          where: { id: source.referenceId },
+          select: { reason: true },
+        })
+      : await transaction.documentComparisonReview.findUnique({
+          where: { id: source.referenceId },
+          select: { reason: true },
+        });
+  if (row === null || sha256Text(row.reason) !== source.sha256) {
+    throw replacementInvalid();
+  }
+  return row.reason;
+}
+
+function sha256Text(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 function replacementInvalid(): AppError {

@@ -51,9 +51,36 @@ describe("analysis and criteria job contracts", () => {
         ownerId: "00000000-0000-4000-8000-000000000008",
         contributorIds: ["00000000-0000-4000-8000-000000000009"],
         replacesProposalId: "00000000-0000-4000-8000-000000000007",
+        ownerFeedbackSource: {
+          kind: "proposal_transition",
+          referenceId: "00000000-0000-4000-8000-000000000010",
+          sha256: "c".repeat(64),
+        },
         ...artifactPins,
       }),
     ).toMatchObject({ type: "criteria.generate.v1", kind: "workstream" });
+  });
+
+  it("rejects raw owner feedback in a criteria generation job", () => {
+    expect(() =>
+      AnalysisCriteriaJobPayloadSchema.parse({
+        type: "criteria.generate.v1",
+        kind: "project",
+        requestId,
+        documentVersionId,
+        readinessCheckId: "00000000-0000-4000-8000-000000000006",
+        ownerId: "00000000-0000-4000-8000-000000000008",
+        contributorIds: [],
+        replacesProposalId: "00000000-0000-4000-8000-000000000007",
+        ownerFeedbackSource: {
+          kind: "proposal_transition",
+          referenceId: "00000000-0000-4000-8000-000000000010",
+          sha256: "c".repeat(64),
+        },
+        ownerFeedback: "This text must never enter the queue.",
+        ...artifactPins,
+      }),
+    ).toThrow();
   });
 
   it.each(["content", "bytes", "url", "comment", "secret", "employeeReadiness"])(
