@@ -49,6 +49,7 @@ export const ClarificationStateSchema = z.discriminatedUnion("state", [
   z
     .object({
       state: z.literal("question"),
+      sessionId: UuidSchema,
       sessionVersion: PositiveVersionSchema,
       turnId: UuidSchema,
       turnNumber: PositiveVersionSchema,
@@ -60,6 +61,7 @@ export const ClarificationStateSchema = z.discriminatedUnion("state", [
   z
     .object({
       state: z.literal("ready_for_review"),
+      sessionId: UuidSchema,
       sessionVersion: PositiveVersionSchema,
       draftRevisionId: UuidSchema,
       draftRevision: PositiveVersionSchema,
@@ -238,3 +240,24 @@ export const TimelineResponseSchema = z
     nextCursor: z.string().min(1).max(1_000).nullable(),
   })
   .strict();
+
+export const UploadedEvidenceSourceSchema = z
+  .object({
+    id: UuidSchema,
+    kind: z.enum(["project", "workstream"]),
+    resourceId: UuidSchema,
+    filename: z.string().trim().min(1).max(255),
+    detectedMime: z.string().trim().min(1).max(200),
+    detectedType: z.string().trim().min(1).max(200),
+    byteSize: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    createdAt: UtcInstantSchema,
+  })
+  .strict();
+
+export type ClarificationState = z.infer<typeof ClarificationStateSchema>;
+export type StructuredUpdateDraft = z.infer<typeof StructuredUpdateDraftSchema>;
+export type EvidenceDetail = z.infer<typeof EvidenceDetailSchema>;
+export type EvidenceReview = z.infer<typeof EvidenceReviewSchema>;
+export type TimelineResponse = z.infer<typeof TimelineResponseSchema>;
+export type TimelineItem = TimelineResponse["items"][number];

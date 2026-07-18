@@ -535,6 +535,7 @@ async function applyOutput(
     });
     return ClarificationStateSchema.parse({
       state: "question",
+      sessionId: session.id,
       sessionVersion: updated.version,
       turnId: turn.id,
       turnNumber,
@@ -589,6 +590,7 @@ async function applyOutput(
   });
   return ClarificationStateSchema.parse({
     state: "ready_for_review",
+    sessionId: session.id,
     sessionVersion: updated.version,
     draftRevisionId: draft.id,
     draftRevision: draft.revision,
@@ -619,6 +621,7 @@ async function currentState(
   if (draft !== null) {
     return ClarificationStateSchema.parse({
       state: "ready_for_review",
+      sessionId: session.id,
       sessionVersion: session.version,
       draftRevisionId: draft.id,
       draftRevision: draft.revision,
@@ -636,6 +639,7 @@ async function currentState(
   const fields = jsonArray(unresolved.unresolvedFields);
   return ClarificationStateSchema.parse({
     state: "question",
+    sessionId: session.id,
     sessionVersion: session.version,
     turnId: turn.id,
     turnNumber: turn.turnNo,

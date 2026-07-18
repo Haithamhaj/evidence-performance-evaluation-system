@@ -257,6 +257,56 @@ export async function fetchProtectedUpstream<T>(input: {
   );
 }
 
+export async function uploadProtectedSource<T>(input: {
+  readonly resourceKind: "project" | "workstream";
+  readonly resourceId: string;
+  readonly filename: string;
+  readonly declaredMime: string;
+  readonly reason: string;
+  readonly bytes: ArrayBuffer;
+  readonly schema: { parse(value: unknown): T };
+}): Promise<T> {
+  const correlationId = randomUUID();
+  assertUuid(input.resourceId, correlationId);
+  const baseUrl = internalApiBaseUrl(correlationId);
+  const settings = oidcSettings();
+  const cookieStore = await cookies();
+  let accessToken: string;
+  try {
+    accessToken = sessionAccessToken(
+      cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "",
+      settings,
+    );
+  } catch {
+    throw failure(401, "errors.unauthorized", correlationId);
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/api/v1/documents/uploads`, {
+      cache: "no-store",
+      body: new Blob([input.bytes], { type: input.declaredMime }),
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": input.declaredMime,
+        "x-correlation-id": correlationId,
+        "x-document-filename": input.filename,
+        "x-document-kind": input.resourceKind,
+        "x-document-reason": input.reason,
+        "x-document-resource-id": input.resourceId,
+      },
+      method: "POST",
+    });
+  } catch {
+    throw failure(503, "errors.internal", correlationId);
+  }
+  if (!response.ok) throw responseFailure(response.status, correlationId);
+  try {
+    return input.schema.parse(await response.json());
+  } catch {
+    throw failure(503, "errors.internal", correlationId);
+  }
+}
+
 export function safeWorkspaceError(error: unknown): SafeWorkspaceError {
   if (error instanceof WorkspaceApiError) {
     return {

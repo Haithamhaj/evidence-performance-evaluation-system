@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { authCookieOptions, openAuthCookie, sealAuthCookie, sessionAccessToken } from "./oidc.js";
+import {
+  authCookieOptions,
+  canonicalOidcCallbackUrl,
+  openAuthCookie,
+  sealAuthCookie,
+  sessionAccessToken,
+} from "./oidc.js";
 
 const secret = "local-test-session-secret-with-at-least-32-characters";
 const settings = {
@@ -14,6 +20,26 @@ const settings = {
 };
 
 describe("encrypted OIDC browser cookies", () => {
+  it("uses the configured external redirect URI when the server normalizes the request host", () => {
+    const configured = {
+      ...settings,
+      redirectUri: "http://127.0.0.1:3300/api/auth/callback",
+    };
+
+    expect(
+      canonicalOidcCallbackUrl(
+        configured,
+        new URL("http://localhost:3300/api/auth/callback?code=code&state=state"),
+      ).toString(),
+    ).toBe("http://127.0.0.1:3300/api/auth/callback?code=code&state=state");
+    expect(() =>
+      canonicalOidcCallbackUrl(
+        configured,
+        new URL("http://localhost:3300/api/auth/not-callback?code=code&state=state"),
+      ),
+    ).toThrow(expect.objectContaining({ code: "AUTH_INVALID_SESSION" }));
+  });
+
   it("encrypts state and rejects tampering", () => {
     const value = sealAuthCookie(
       { expiresAt: Date.now() + 60_000, kind: "transaction", nonce: "nonce", state: "state" },

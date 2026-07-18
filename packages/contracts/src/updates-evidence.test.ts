@@ -38,9 +38,11 @@ describe("updates and evidence contracts", () => {
   });
 
   it("versions clarification turns and returns exactly one question", () => {
+    const sessionId = crypto.randomUUID();
     expect(
       ClarificationStateSchema.parse({
         state: "question",
+        sessionId,
         sessionVersion: 2,
         turnId: crypto.randomUUID(),
         turnNumber: 2,
@@ -48,12 +50,21 @@ describe("updates and evidence contracts", () => {
         affects: ["result", "evidence"],
         remainingFieldCount: 3,
       }),
-    ).toMatchObject({ state: "question", turnNumber: 2, remainingFieldCount: 3 });
+    ).toMatchObject({ state: "question", sessionId, turnNumber: 2, remainingFieldCount: 3 });
     expect(() =>
       ClarificationStateSchema.parse({
         state: "question",
+        sessionId,
         sessionVersion: 2,
         questions: ["سؤال 1", "سؤال 2"],
+      }),
+    ).toThrow();
+    expect(() =>
+      ClarificationStateSchema.parse({
+        state: "ready_for_review",
+        sessionVersion: 3,
+        draftRevisionId: crypto.randomUUID(),
+        draftRevision: 1,
       }),
     ).toThrow();
     expect(

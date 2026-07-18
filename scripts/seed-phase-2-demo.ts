@@ -32,8 +32,9 @@ const workItemIds = Array.from(
 );
 
 async function main() {
-  if (process.argv[2] !== "--slice" || process.argv[3] !== "1")
-    throw new Error("Usage: tsx scripts/seed-phase-2-demo.ts --slice 1");
+  const slice = process.argv[3];
+  if (process.argv[2] !== "--slice" || (slice !== "1" && slice !== "2"))
+    throw new Error("Usage: tsx scripts/seed-phase-2-demo.ts --slice <1|2>");
   const databaseUrl = process.env.DATABASE_URL?.trim();
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
   const client = createDatabaseClient(databaseUrl);
@@ -112,6 +113,7 @@ async function main() {
         employee: "phase2.employee@example.invalid",
         manager: "phase2.manager@example.invalid",
         projectId: ids.projectA,
+        slice: Number(slice),
         workItems: workItemIds.length,
         workstreams: workstreamIds.length,
       })}\n`,
@@ -185,6 +187,20 @@ async function seedProjects(transaction: any) {
         name: `مسار العمل ${index + 1}`,
         description: "مسار عمل تشغيلي للعرض التجريبي.",
         status: "active",
+        createdById: ids.manager,
+      },
+    });
+    await transaction.workstreamMember.upsert({
+      where: {
+        id: `24000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      },
+      update: {},
+      create: {
+        id: `24000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+        workstreamId,
+        employeeId: ids.owner,
+        startsAt: new Date("2026-07-01T00:00:00.000Z"),
+        reason: "Phase 2 demo workstream membership",
         createdById: ids.manager,
       },
     });

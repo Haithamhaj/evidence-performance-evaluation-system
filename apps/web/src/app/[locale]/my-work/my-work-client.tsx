@@ -9,19 +9,30 @@ import {
 } from "@evaluation/localization";
 import { createElement, useState } from "react";
 
+import { UpdateComposer } from "./update-composer";
 import { WorkItemDrawer } from "./work-item-drawer";
 
 type Properties = Readonly<{
   catalog: Catalog;
   initialSelectedId: string | null;
   locale: Locale;
+  projectNames?: Readonly<Record<string, string>>;
   response: MyWorkResponse;
 }>;
 
-export function MyWorkClient({ catalog, initialSelectedId, locale, response }: Properties) {
+export function MyWorkClient({
+  catalog,
+  initialSelectedId,
+  locale,
+  projectNames = {},
+  response,
+}: Properties) {
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const allItems = response.groups.flatMap((group) => group.items);
   const selected = allItems.find((item) => item.id === selectedId) ?? null;
+  const firstUpdatable = allItems.find((item) => item.allowedActions.includes("add_update"));
+  const [composerItemId, setComposerItemId] = useState(firstUpdatable?.id ?? allItems[0]?.id ?? "");
+  const [composerOpen, setComposerOpen] = useState(false);
 
   function select(itemId: string | null) {
     setSelectedId(itemId);
@@ -38,6 +49,17 @@ export function MyWorkClient({ catalog, initialSelectedId, locale, response }: P
           <h1 id="my-work-heading">{catalog["myWork.title"]}</h1>
           <p>{catalog["myWork.subtitle"]}</p>
         </div>
+        <button
+          className="primaryAction"
+          disabled={firstUpdatable === undefined}
+          onClick={() => {
+            setComposerItemId(firstUpdatable?.id ?? "");
+            setComposerOpen(true);
+          }}
+          type="button"
+        >
+          {catalog["updates.add"]}
+        </button>
       </header>
       <div className="workGroups">
         {response.groups.map((group, index) => {
@@ -97,7 +119,23 @@ export function MyWorkClient({ catalog, initialSelectedId, locale, response }: P
             catalog,
             item: selected,
             onClose: () => select(null),
+            onAddUpdate: selected.allowedActions.includes("add_update")
+              ? () => {
+                  setComposerItemId(selected.id);
+                  setComposerOpen(true);
+                }
+              : undefined,
           })}
+      {createElement(UpdateComposer, {
+        catalog,
+        initialItemId: composerItemId,
+        items: allItems.filter((item) => item.allowedActions.includes("add_update")),
+        locale,
+        onAccepted: () => undefined,
+        onClose: () => setComposerOpen(false),
+        open: composerOpen,
+        projectNames,
+      })}
     </section>
   );
 }

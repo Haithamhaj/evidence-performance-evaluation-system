@@ -5,10 +5,12 @@ import { createElement, useEffect } from "react";
 export function WorkItemDrawer({
   catalog,
   item,
+  onAddUpdate,
   onClose,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
   item: import("@evaluation/contracts").WorkItemDetail;
+  onAddUpdate?: (() => void) | undefined;
   onClose: () => void;
 }>) {
   useEffect(() => {
@@ -42,6 +44,11 @@ export function WorkItemDrawer({
           </button>
         </header>
         <p>{item.description}</p>
+        {onAddUpdate === undefined ? null : (
+          <button className="primaryAction" onClick={onAddUpdate} type="button">
+            {catalog["updates.add"]}
+          </button>
+        )}
         {item.nextAction === null ? null : (
           <section className="drawerSection">
             <h3>{catalog["myWork.nextAction"]}</h3>

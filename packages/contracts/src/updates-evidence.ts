@@ -59,6 +59,7 @@ export const ClarificationStateSchema = z.discriminatedUnion("state", [
   z
     .object({
       state: z.literal("question"),
+      sessionId: UuidSchema,
       sessionVersion: PositiveVersionSchema,
       turnId: UuidSchema,
       turnNumber: PositiveVersionSchema,
@@ -70,6 +71,7 @@ export const ClarificationStateSchema = z.discriminatedUnion("state", [
   z
     .object({
       state: z.literal("ready_for_review"),
+      sessionId: UuidSchema,
       sessionVersion: PositiveVersionSchema,
       draftRevisionId: UuidSchema,
       draftRevision: PositiveVersionSchema,

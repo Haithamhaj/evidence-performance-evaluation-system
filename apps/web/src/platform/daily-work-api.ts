@@ -67,6 +67,27 @@ export const WebMyWorkResponseSchema: z.ZodType<import("@evaluation/contracts").
   })
   .strict();
 
+export const WebProjectPortfolioSchema = z.array(
+  z
+    .object({
+      id: UuidSchema,
+      name: z.string().trim().min(1).max(200),
+      status: z.enum(["active", "paused"]),
+      progress: z.discriminatedUnion("state", [
+        z.object({ state: z.literal("awaiting_contract") }).strict(),
+        z.object({ state: z.literal("awaiting_information") }).strict(),
+        z
+          .object({
+            state: z.literal("accepted"),
+            percent: z.number().min(0).max(100),
+            updatedAt: z.iso.datetime({ offset: true }),
+          })
+          .strict(),
+      ]),
+    })
+    .strict(),
+);
+
 export async function fetchDailyWorkUpstream<T>(input: {
   readonly route: DailyWorkRoute;
   readonly schema: { parse(value: unknown): T };

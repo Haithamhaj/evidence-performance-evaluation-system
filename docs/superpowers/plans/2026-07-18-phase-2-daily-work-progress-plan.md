@@ -394,8 +394,14 @@ export interface ConfirmedProgressSourceReader {
 }
 
 export type ClarificationState =
-  | { state: "question"; turnId: string; question: string; affects: readonly string[] }
-  | { state: "ready_for_review"; draftRevisionId: string };
+  | {
+      state: "question";
+      sessionId: string;
+      turnId: string;
+      question: string;
+      affects: readonly string[];
+    }
+  | { state: "ready_for_review"; sessionId: string; draftRevisionId: string };
 ```
 
 - [x] **Step 1: Add failing update/evidence contract and prohibited-output tests**
@@ -462,7 +468,7 @@ Implement exact routes for update draft/start, clarification answer, evidence so
 Run: `pnpm vitest run --project integration apps/api/src/updates-evidence/updates-evidence.e2e.integration.test.ts`
 Expected: PASS.
 
-- [ ] **Step 7: Implement the unified composer, evidence sheet, and Timeline**
+- [x] **Step 7: Implement the unified composer, evidence sheet, and Timeline**
 
 The UI must preserve draft state, show active Project/Workstream context, display one question at a time, allow evidence inside the flow, show previous-versus-current comparison, display official progress only after confirmation/recalculation, and move mobile focus into a visible bottom sheet.
 
@@ -476,7 +482,7 @@ pnpm --filter @evaluation/web typecheck
 
 Expected: PASS.
 
-- [ ] **Step 8: Demo, screenshots, verification, and stop**
+- [x] **Step 8: Demo, screenshots, verification, and stop**
 
 Run `pnpm tsx scripts/seed-phase-2-demo.ts --slice 2` and `pnpm test:e2e -- tests/e2e/phase-2-slice-2.spec.ts`. Capture Arabic/English desktop/mobile composer, multiple questions, evidence sheet, comparison, confirmation, and Timeline under `docs/product/screenshots/phase-2-production/slice-2/`.
 

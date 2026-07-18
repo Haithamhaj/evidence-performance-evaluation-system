@@ -18,6 +18,20 @@ const proposalId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const sourceHash = "a".repeat(64);
 const progressContractId = "e1111111-1111-4111-8111-111111111111";
 const progressSnapshotId = "e2222222-2222-4222-8222-222222222222";
+const updateSessionId = "e5555555-5555-4555-8555-555555555555";
+const updateSourceId = "e6666666-6666-4666-8666-666666666666";
+const firstTurnId = "e7777777-7777-4777-8777-777777777777";
+const secondTurnId = "e8888888-8888-4888-8888-888888888888";
+const draftRevisionId = "e9999999-9999-4999-8999-999999999999";
+const evidenceId = "ea111111-1111-4111-8111-111111111111";
+const evidenceRevisionId = "ea222222-2222-4222-8222-222222222222";
+const uploadedSourceId = "ea333333-3333-4333-8333-333333333333";
+const acceptedUpdateId = "ea444444-4444-4444-8444-444444444444";
+const acceptedEvidenceId = "ea555555-5555-4555-8555-555555555555";
+let clarificationTurn = 0;
+let updateDraftRevision = 1;
+let evidenceRevision = 1;
+const timelineItems = [];
 
 const project = {
   id: projectId,
@@ -275,6 +289,157 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === `/api/v1/daily-work/projects/${projectId}`) {
     return json(response, 200, projectProgress);
   }
+  if (request.method === "POST" && url.pathname === "/api/v1/updates/text") {
+    const body = await readJson(request);
+    if (body === null) return json(response, 400, { messageKey: "errors.validation" });
+    clarificationTurn = 1;
+    return json(response, 200, {
+      state: "question",
+      sessionId: updateSessionId,
+      sessionVersion: 2,
+      turnId: firstTurnId,
+      turnNumber: 1,
+      question: "ما النتيجة القابلة للتحقق التي تحققت؟",
+      affects: ["result", "progress_context"],
+      remainingFieldCount: 2,
+    });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/updates/${updateSessionId}/answers`
+  ) {
+    const body = await readJson(request);
+    if (body === null) return json(response, 400, { messageKey: "errors.validation" });
+    if (clarificationTurn === 1) {
+      clarificationTurn = 2;
+      return json(response, 200, {
+        state: "question",
+        sessionId: updateSessionId,
+        sessionVersion: 3,
+        turnId: secondTurnId,
+        turnNumber: 2,
+        question: "ما الدليل الذي يثبت هذه النتيجة وما الخطوة التالية؟",
+        affects: ["evidence", "next_action"],
+        remainingFieldCount: 1,
+      });
+    }
+    return json(response, 200, {
+      state: "ready_for_review",
+      sessionId: updateSessionId,
+      sessionVersion: 4,
+      draftRevisionId,
+      draftRevision: 1,
+    });
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/updates/${updateSessionId}/draft`
+  ) {
+    return json(response, 200, structuredDraft());
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/updates/${updateSessionId}/revisions`
+  ) {
+    const body = await readJson(request);
+    if (body === null) return json(response, 400, { messageKey: "errors.validation" });
+    updateDraftRevision += 1;
+    return json(response, 200, structuredDraft(body));
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/updates/${updateSessionId}/confirm`
+  ) {
+    if (!timelineItems.some((item) => item.id === acceptedUpdateId)) {
+      timelineItems.unshift({
+        id: acceptedUpdateId,
+        kind: "update",
+        projectId,
+        workstreamId,
+        workItemId: workItems[0].id,
+        employeeId: ownerId,
+        occurredAt: "2026-07-18T14:05:00.000Z",
+        title: "اكتملت رحلة التحديث والأدلة",
+        detail: "نجحت 12 من 12 حالة قبول واتُفق على خطوة الإغلاق.",
+        sourceReferences: [`update-source:${updateSourceId}`],
+      });
+    }
+    return json(response, 200, {
+      id: acceptedUpdateId,
+      updateSourceId,
+      draftRevisionId,
+      projectId,
+      workstreamId,
+      workItemId: workItems[0].id,
+      employeeId: ownerId,
+      confirmedAt: "2026-07-18T14:05:00.000Z",
+      sourceReferences: [`update-source:${updateSourceId}`],
+    });
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/documents/uploads") {
+    return json(response, 200, {
+      id: uploadedSourceId,
+      kind: "workstream",
+      resourceId: workstreamId,
+      filename: request.headers["x-document-filename"] ?? "acceptance-proof.png",
+      detectedMime: request.headers["content-type"] ?? "image/png",
+      detectedType: "png",
+      byteSize: 128,
+      sha256: "b".repeat(64),
+      createdAt: "2026-07-18T14:00:00.000Z",
+    });
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/evidence") {
+    const body = await readJson(request);
+    if (body === null) return json(response, 400, { messageKey: "errors.validation" });
+    evidenceRevision = 1;
+    return json(response, 200, evidenceDetail(body));
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/evidence/${evidenceId}/revisions`
+  ) {
+    const body = await readJson(request);
+    if (body === null) return json(response, 400, { messageKey: "errors.validation" });
+    evidenceRevision += 1;
+    return json(response, 200, evidenceDetail(body));
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/evidence/${evidenceId}/confirm`
+  ) {
+    if (!timelineItems.some((item) => item.id === acceptedEvidenceId)) {
+      timelineItems.unshift({
+        id: acceptedEvidenceId,
+        kind: "evidence",
+        projectId,
+        workstreamId,
+        workItemId: workItems[0].id,
+        employeeId: ownerId,
+        occurredAt: "2026-07-18T14:04:00.000Z",
+        title: "نجحت سيناريوهات القبول المتفق عليها",
+        detail: "نفذت السيناريوهات وراجعت سجل الاختبار.",
+        sourceReferences: [`evidence:${evidenceId}`],
+      });
+    }
+    return json(response, 200, {
+      id: acceptedEvidenceId,
+      evidenceId,
+      projectId,
+      workstreamId,
+      sourceReferences: [`evidence:${evidenceId}`],
+      confirmedAt: "2026-07-18T14:04:00.000Z",
+    });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/evidence/${evidenceId}/reject`
+  ) {
+    return json(response, 200, { ...evidenceDetail({}), state: "rejected" });
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/timeline") {
+    return json(response, 200, { items: timelineItems, nextCursor: null });
+  }
   if (request.method === "GET" && url.pathname === `/api/v1/projects/${projectId}/workspace`) {
     return json(response, 200, { project, people, workstreams: [workstream] });
   }
@@ -366,6 +531,49 @@ function json(response, status, body) {
     "cache-control": "no-store",
   });
   response.end(JSON.stringify(body));
+}
+
+function structuredDraft(overrides = {}) {
+  return {
+    id: draftRevisionId,
+    sessionId: updateSessionId,
+    revision: updateDraftRevision,
+    summary: overrides.summary ?? "اكتملت رحلة التحديث والأدلة",
+    result: overrides.result ?? "نجحت 12 من 12 حالة قبول متفق عليها.",
+    blocker: overrides.blocker ?? null,
+    nextAction: overrides.nextAction ?? "اعتماد الإغلاق مع مالك المنتج.",
+    contributionContext:
+      overrides.contributionContext ?? "نفذت السيناريوهات وراجعت النتائج.",
+    executionMode: updateDraftRevision === 1 ? "ai_assisted" : "mixed",
+    sourceReferences: [
+      `update-source:${updateSourceId}`,
+      `accepted-update-event:e4444444-4444-4444-8444-444444444444`,
+      `progress-component:e3333333-3333-4333-8333-333333333333`,
+    ],
+    evidenceIds: [],
+    comparison: {
+      previousAcceptedEventId: "e4444444-4444-4444-8444-444444444444",
+      changedFields: ["result", "nextAction"],
+      explanation: "ارتفعت النتيجة من مسودة غير مكتملة إلى 12 حالة قبول ناجحة.",
+    },
+  };
+}
+
+function evidenceDetail(overrides) {
+  return {
+    id: evidenceId,
+    revisionId: evidenceRevisionId,
+    projectId,
+    workstreamId,
+    workItemId: workItems[0].id,
+    state: "draft",
+    revision: evidenceRevision,
+    revisionKind: evidenceRevision === 1 ? "manual_draft" : "employee_edit",
+    sourceKind: "cli_snapshot",
+    supportedClaim: overrides.supportedClaim ?? "نجحت سيناريوهات القبول المتفق عليها.",
+    contributionContext: overrides.contributionContext ?? "نفذت السيناريوهات وراجعت النتيجة.",
+    executionMode: "manual",
+  };
 }
 
 async function readJson(request) {

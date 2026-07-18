@@ -294,7 +294,8 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 Execution status:
 
 - **Slice 1 complete:** production My Work, bounded Work Items, versioned document-sourced Progress Contracts, official source-linked progress snapshots, protected API composition, Arabic/English UI, local synthetic demo, and desktop/mobile screenshots.
-- **Slice 2 next:** interactive text update, live AI through the existing AI Router, append-only Timeline, and manual evidence.
+- **Slice 2 complete:** interactive Arabic/English text updates, one-question-at-a-time live AI through the existing AI Router, employee-edited drafts, private manual evidence, mandatory evidence/update confirmation, and append-only source-labelled Timeline. The runnable local demo and desktop/mobile screenshots passed the Slice 2 gate checks on 2026-07-18.
+- **Slice 3 gated next:** GitHub suggested evidence starts only after product-owner review of the Slice 2 running flow and screenshots.
 
 Mapping:
 
@@ -309,6 +310,7 @@ Mapping:
 ## T030 — Implement Activity Timeline
 
 **Planning status:** Mapped to Slice 2; implement as a source-labelled read projection, not a generic activity platform.
+**Execution status:** Complete in the bounded Slice 2 delivery; accepted updates and evidence are append-only, paginated, scope-authorized, and separately labelled.
 **Priority:** P1  
 **Dependencies:** T018, T019  
 **Purpose:** Store typed project and workstream events.  
@@ -317,6 +319,7 @@ Mapping:
 ## T031 — Implement Text Update Composer
 
 **Planning status:** Mapped to Slice 2 with dynamic multi-turn clarification, previous-state comparison, manual evidence, and employee confirmation.
+**Execution status:** Complete in Slice 2 through the AI-Router-only `update.structure` route with editable employee review and confirmation.
 **Priority:** P1  
 **Dependencies:** T030, T011  
 **Purpose:** Structure employee updates through AI and human confirmation.  
@@ -333,6 +336,7 @@ Mapping:
 ## T033 — Implement Evidence Records
 
 **Planning status:** Mapped to Slice 2 inside the bounded Updates & Evidence module.
+**Execution status:** Complete for private manual sources and AI-assisted claim drafts in Slice 2; employee editing and confirmation remain mandatory.
 **Priority:** P1  
 **Dependencies:** T022, T030  
 **Purpose:** Link files, images, links, and source metadata to claims and criteria.  
@@ -341,6 +345,7 @@ Mapping:
 ## T034 — Implement Multimodal Evidence Analysis
 
 **Planning status:** Mapped to Slice 2; analysis supports a claim but never becomes automatic proof or progress.
+**Execution status:** The bounded Slice 2 acceptance is complete: screenshots/files use the existing private upload safety path, while the reviewed update draft may prefill the claim. Direct evidence-content inference is not treated as proof and was not added as a separate platform.
 **Priority:** P1  
 **Dependencies:** T033, T011  
 **Purpose:** Analyze images and documents without treating them as automatic proof.  
@@ -349,6 +354,7 @@ Mapping:
 ## T035 — Implement Contribution Attribution
 
 **Planning status:** Mapped to Slice 2 with immutable confirmation and responsibility-period attribution.
+**Execution status:** Complete for the Slice 2 employee-confirmed contribution context and responsibility-scoped evidence lineage.
 **Priority:** P1  
 **Dependencies:** T030, T033  
 **Purpose:** Record individual/team contribution, peer acknowledgment, and objections.  

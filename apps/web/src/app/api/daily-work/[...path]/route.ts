@@ -16,6 +16,7 @@ import {
   StartTextUpdateInputSchema,
   StructuredUpdateDraftSchema,
   TimelineResponseSchema,
+  UploadedEvidenceSourceSchema,
 } from "../../../../platform/updates-evidence-contracts";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -23,6 +24,7 @@ import { z } from "zod";
 import {
   fetchProtectedUpstream,
   safeWorkspaceError,
+  uploadProtectedSource,
 } from "../../../../platform/workspace-api";
 
 type Context = { readonly params: Promise<{ readonly path: string[] }> };
@@ -36,6 +38,14 @@ const TimelineQuerySchema = z
     cursor: z.string().min(1).max(1_000).optional(),
   })
   .strict();
+const UploadMetadataSchema = z
+  .object({
+    projectId: UuidSchema,
+    workstreamId: UuidSchema.nullable(),
+    reason: z.string().trim().min(1).max(1_000),
+  })
+  .strict();
+const MAX_EVIDENCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export async function GET(request: Request, context: Context): Promise<NextResponse> {
   const path = (await context.params).path;
@@ -85,6 +95,9 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
 export async function POST(request: Request, context: Context): Promise<NextResponse> {
   const path = (await context.params).path;
   if (!safeRequestPath(request, path) || new URL(request.url).search !== "") return notFound();
+  if (path.length === 2 && path[0] === "evidence" && path[1] === "uploads") {
+    return uploadEvidence(request);
+  }
   let body: unknown;
   try {
     body = await request.json();
@@ -155,6 +168,34 @@ export async function POST(request: Request, context: Context): Promise<NextResp
     return notFound();
   } catch (error) {
     if (error instanceof z.ZodError) return invalid();
+    return safeError(error);
+  }
+}
+
+async function uploadEvidence(request: Request): Promise<NextResponse> {
+  try {
+    const form = await request.formData();
+    if ([...form.keys()].some((key) => !["file", "metadata"].includes(key))) return invalid();
+    const file = form.get("file");
+    const metadataValue = form.get("metadata");
+    if (!(file instanceof File) || typeof metadataValue !== "string") return invalid();
+    if (file.size < 1 || file.size > MAX_EVIDENCE_UPLOAD_BYTES) return invalid();
+    const metadata = UploadMetadataSchema.parse(JSON.parse(metadataValue));
+    const resourceKind = metadata.workstreamId === null ? "project" : "workstream";
+    const resourceId = metadata.workstreamId ?? metadata.projectId;
+    return json(
+      await uploadProtectedSource({
+        resourceKind,
+        resourceId,
+        filename: file.name,
+        declaredMime: file.type,
+        reason: metadata.reason,
+        bytes: await file.arrayBuffer(),
+        schema: UploadedEvidenceSourceSchema,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError || error instanceof SyntaxError) return invalid();
     return safeError(error);
   }
 }

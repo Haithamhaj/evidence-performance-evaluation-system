@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ fetchProtectedUpstream: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  fetchProtectedUpstream: vi.fn(),
+  uploadProtectedSource: vi.fn(),
+}));
 
 vi.mock("../../../../platform/workspace-api.js", () => ({
   fetchProtectedUpstream: mocks.fetchProtectedUpstream,
   safeWorkspaceError: (error: unknown) => error,
+  uploadProtectedSource: mocks.uploadProtectedSource,
 }));
 
 import { GET, POST } from "./route.js";
@@ -18,6 +22,7 @@ describe("daily-work same-origin gateway", () => {
   it("forwards a validated text update without accepting caller-controlled identity or model", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue({
       state: "question",
+      sessionId,
       sessionVersion: 1,
       turnId: "33333333-3333-4333-8333-333333333333",
       turnNumber: 1,
@@ -84,6 +89,45 @@ describe("daily-work same-origin gateway", () => {
     );
     expect(rejected.status).toBe(404);
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
+  it("derives the private upload scope and never accepts a caller object key", async () => {
+    mocks.uploadProtectedSource.mockResolvedValue({
+      id: sessionId,
+      kind: "project",
+      resourceId: projectId,
+      filename: "proof.png",
+      detectedMime: "image/png",
+      detectedType: "png",
+      byteSize: 3,
+      sha256: "a".repeat(64),
+      createdAt: "2026-07-18T12:00:00.000Z",
+    });
+    const form = new FormData();
+    form.set("file", new File([new Uint8Array([1, 2, 3])], "proof.png", { type: "image/png" }));
+    form.set(
+      "metadata",
+      JSON.stringify({
+        projectId,
+        workstreamId: null,
+        reason: "Employee attached evidence for review",
+      }),
+    );
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/evidence/uploads", {
+        method: "POST",
+        body: form,
+      }),
+      { params: Promise.resolve({ path: ["evidence", "uploads"] }) },
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.uploadProtectedSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceKind: "project",
+        resourceId: projectId,
+        filename: "proof.png",
+      }),
+    );
   });
 
   it("forwards only approved session and evidence paths", async () => {

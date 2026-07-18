@@ -211,6 +211,18 @@ function asTransaction(payload: AuthCookiePayload): TransactionCookie {
   return payload as TransactionCookie;
 }
 
+export function canonicalOidcCallbackUrl(
+  settings: OidcSettings,
+  callbackUrl: URL,
+): URL {
+  const configured = new URL(settings.redirectUri);
+  if (callbackUrl.pathname !== configured.pathname) {
+    throw new WebAuthError("AUTH_INVALID_SESSION", "errors.auth.invalidSession", 401);
+  }
+  configured.search = callbackUrl.search;
+  return configured;
+}
+
 export async function finishOidcLogin(
   settings: OidcSettings,
   callbackUrl: URL,
@@ -222,12 +234,16 @@ export async function finishOidcLogin(
   const configuration = await oidcConfiguration(settings);
   let tokens: Awaited<ReturnType<typeof authorizationCodeGrant>>;
   try {
-    tokens = await authorizationCodeGrant(configuration, callbackUrl, {
-      expectedNonce: transaction.nonce,
-      expectedState: transaction.state,
-      idTokenExpected: true,
-      pkceCodeVerifier: transaction.codeVerifier,
-    });
+    tokens = await authorizationCodeGrant(
+      configuration,
+      canonicalOidcCallbackUrl(settings, callbackUrl),
+      {
+        expectedNonce: transaction.nonce,
+        expectedState: transaction.state,
+        idTokenExpected: true,
+        pkceCodeVerifier: transaction.codeVerifier,
+      },
+    );
   } catch {
     throw new WebAuthError("AUTH_INVALID_SESSION", "errors.auth.invalidSession", 401);
   }

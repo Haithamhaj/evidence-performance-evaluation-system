@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Execute Phase 2 Slice 2: interactive text updates, live AI clarification through the existing AI Router, manual evidence, employee confirmation, and append-only Timeline.
+Hold at the Phase 2 Slice 2 product-owner gate with a runnable Arabic-first preview, verified interactive updates, evidence confirmation, and append-only Timeline.
 
 ## Current Reality
 
@@ -22,6 +22,10 @@ Execute Phase 2 Slice 2: interactive text updates, live AI clarification through
 - The active production planning artifacts are `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`, `docs/product/PHASE_2_FEATURE_MAP.md`, and `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`.
 - Phase 2 production execution is approved. Slice 1 is complete on `codex/phase-2-updates-evidence-readiness`: migrations `0012`–`0013`, bounded Work Items, versioned document-sourced Progress Contracts, append-only official progress snapshots, protected daily-work APIs, Arabic/English My Work and Project progress screens, a real-database synthetic seed, and Playwright screenshots.
 - Slice 1 progress is operational Project state only. Work Item volume and employee activity are not calculation inputs, and cross-Project contract decisions are rejected server-side.
+- Slice 2 is complete on the same branch: migration `0014`, bounded Updates & Evidence, live multi-turn AI structuring only through `update.structure`, employee-edited drafts, private manual evidence, confirmation gates, protected APIs, and source-labelled Timeline.
+- The Arabic/English production UI preserves one question at a time, prefills the evidence claim from the employee-reviewed AI draft, keeps evidence entry inside the update flow, and uses a visible mobile bottom sheet.
+- A real local Keycloak login, live GPT-5.5 clarification, evidence confirmation, update confirmation, and Timeline were exercised against PostgreSQL. The configured provider credential was neither printed, moved, nor committed.
+- Slice 2 acceptance screenshots are under `docs/product/screenshots/phase-2-production/slice-2/`; the runnable preview is `http://127.0.0.1:3300/ar/my-work`.
 
 ## Active Decisions
 
@@ -42,7 +46,7 @@ Execute Phase 2 Slice 2: interactive text updates, live AI clarification through
 - Live-model quality and production queue/storage operations still require deployment-time evaluation and monitoring; deterministic verification confirms governed contracts, not provider output quality.
 - Arabic employee release remains blocked at T016's protected human semantic-review gate.
 - The known non-blocking T013 recovered-running attempt-count telemetry issue remains outside Phase 1 scope.
-- The prototype remains reference-only. Slice 1 production data now uses PostgreSQL, while voice and update structuring remain unimplemented until their planned production slices.
+- The prototype remains reference-only. Production update structuring now uses the governed AI Router; GitHub suggestions, voice, check-ins/readiness, manager operations, and Fact View preparation remain in Slices 3–7.
 - The production plan contains multiple security-, migration-, AI-, privacy-, and immutability-critical slices. Fast Controlled Execution remains the default, with bounded critical reviews only where those boundaries are touched.
 - Local verification currently uses Node.js 24.14.0 while the repository pins 24.18.0; pnpm is the required 11.13.0 and the complete Slice 1 checks pass. CI remains the exact-runtime confirmation.
 
@@ -54,7 +58,7 @@ Execute Phase 2 Slice 2: interactive text updates, live AI clarification through
 
 ## Next Recommended Action
 
-Begin Slice 2 with RED contracts for the multi-turn update/evidence lifecycle, preserving raw input, one-question-at-a-time clarification, employee edit and confirmation, source references, and the AI-Router-only boundary.
+Product owner reviews the running Slice 2 employee journey and screenshots. After approval, begin Slice 3 GitHub suggested evidence; do not start it before this gate.
 
 ## Critical References
 
