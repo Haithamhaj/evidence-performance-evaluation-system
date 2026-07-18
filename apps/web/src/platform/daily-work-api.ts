@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { OIDC_SESSION_COOKIE, oidcSettings, sessionAccessToken } from "../auth/oidc";
@@ -97,10 +98,15 @@ export async function fetchDailyWorkUpstream<T>(input: {
   const baseUrl = internalApiBaseUrl();
   const settings = oidcSettings();
   const cookieStore = await cookies();
-  const accessToken = sessionAccessToken(
-    cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "",
-    settings,
-  );
+  let accessToken: string;
+  try {
+    accessToken = sessionAccessToken(
+      cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "",
+      settings,
+    );
+  } catch {
+    redirect("/api/auth/login");
+  }
   const response = await fetch(`${baseUrl}${path}`, {
     cache: "no-store",
     headers: {

@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   cookies: vi.fn(),
   oidcSettings: vi.fn(),
+  redirect: vi.fn(),
   sessionAccessToken: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: mocks.cookies }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("../auth/oidc", () => ({
   OIDC_SESSION_COOKIE: "evaluation_session",
   oidcSettings: mocks.oidcSettings,
@@ -24,6 +26,9 @@ beforeEach(() => {
     get: vi.fn(() => ({ value: "encrypted" })),
   });
   mocks.oidcSettings.mockReturnValue({});
+  mocks.redirect.mockImplementation(() => {
+    throw new Error("NEXT_REDIRECT");
+  });
   mocks.sessionAccessToken.mockReturnValue("access-token");
 });
 
@@ -51,6 +56,23 @@ describe("fetchDailyWorkUpstream", () => {
         schema: { parse: (value: unknown) => value },
       }),
     ).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("redirects an expired browser session to login instead of rendering a server error", async () => {
+    const request = vi.spyOn(globalThis, "fetch");
+    mocks.sessionAccessToken.mockImplementation(() => {
+      throw new Error("AUTH_INVALID_SESSION");
+    });
+
+    await expect(
+      fetchDailyWorkUpstream({
+        route: { kind: "my_work" },
+        schema: { parse: (value: unknown) => value },
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mocks.redirect).toHaveBeenCalledWith("/api/auth/login");
     expect(request).not.toHaveBeenCalled();
   });
 });
