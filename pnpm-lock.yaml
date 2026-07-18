@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:packages/ai-routing
       '@evaluation/audit':
         specifier: workspace:*
         version: link:packages/audit
@@ -20,6 +23,9 @@ importers:
       '@evaluation/localization':
         specifier: workspace:*
         version: link:packages/localization
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:packages/updates-evidence
     devDependencies:
       '@aws-sdk/client-s3':
         specifier: 3.1087.0

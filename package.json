@@ -8,10 +8,12 @@
     "pnpm": "11.13.0"
   },
   "dependencies": {
+    "@evaluation/ai-routing": "workspace:*",
     "@evaluation/audit": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",
-    "@evaluation/localization": "workspace:*"
+    "@evaluation/localization": "workspace:*",
+    "@evaluation/updates-evidence": "workspace:*"
   },
   "scripts": {
     "dev": "turbo run dev --parallel",

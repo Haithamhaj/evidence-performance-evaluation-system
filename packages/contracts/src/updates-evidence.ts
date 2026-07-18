@@ -205,13 +205,13 @@ export const AcceptedUpdateEventSchema = UpdateContextSchema.extend({
 
 const AiDraftSchema = z
   .object({
-    summary: z.string().trim().min(1).max(2_000),
-    result: z.string().trim().min(1).max(4_000),
-    blocker: z.string().trim().min(1).max(2_000).nullable(),
-    nextAction: z.string().trim().min(1).max(2_000),
-    contributionContext: z.string().trim().min(1).max(2_000),
-    evidenceClaimDrafts: z.array(z.string().trim().min(1).max(2_000)).max(20),
-    comparisonExplanation: z.string().trim().min(1).max(2_000),
+    summary: z.string().min(1).max(2_000).regex(/\S/u),
+    result: z.string().min(1).max(4_000).regex(/\S/u),
+    blocker: z.string().min(1).max(2_000).regex(/\S/u).nullable(),
+    nextAction: z.string().min(1).max(2_000).regex(/\S/u),
+    contributionContext: z.string().min(1).max(2_000).regex(/\S/u),
+    evidenceClaimDrafts: z.array(z.string().min(1).max(2_000).regex(/\S/u)).max(20),
+    comparisonExplanation: z.string().min(1).max(2_000).regex(/\S/u),
   })
   .strict();
 
@@ -222,7 +222,7 @@ export const UpdateStructureAiOutputSchema = z.discriminatedUnion("state", [
       unresolvedFields: z.array(ClarificationAffectsSchema).min(1).max(7),
       nextQuestion: z
         .object({
-          question: z.string().trim().min(1).max(1_000),
+          question: z.string().min(1).max(1_000).regex(/\S/u),
           affects: z.array(ClarificationAffectsSchema).min(1).max(7),
         })
         .strict(),

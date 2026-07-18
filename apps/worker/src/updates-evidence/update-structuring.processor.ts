@@ -4,6 +4,7 @@ import type { DatabaseTransaction } from "@evaluation/database";
 import {
   UPDATE_STRUCTURE_OUTPUT_SCHEMA_VERSION,
   UPDATE_STRUCTURE_PROMPT_VERSION,
+  UPDATE_STRUCTURE_INPUT_SCHEMA_VERSION,
   buildUpdateStructureRequest,
 } from "@evaluation/updates-evidence";
 import { z } from "zod";
@@ -85,7 +86,7 @@ export class UpdateStructuringProcessor {
         systemId: this.options.systemId,
         input: governedInput,
         inputReference: `update-source:${parsed.updateSourceId}`,
-        inputSchemaVersion: "update-structure-input.v1",
+        inputSchemaVersion: UPDATE_STRUCTURE_INPUT_SCHEMA_VERSION,
         outputSchemaVersion: UPDATE_STRUCTURE_OUTPUT_SCHEMA_VERSION,
         promptTemplateVersion: UPDATE_STRUCTURE_PROMPT_VERSION,
         outputSchema: UpdateStructureAiOutputSchema,
