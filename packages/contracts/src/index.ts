@@ -8,5 +8,7 @@ export * from "./errors.js";
 export * from "./evaluation-cycle.js";
 export * from "./jobs.js";
 export * from "./performance-rating.js";
+export * from "./progress-contracts.js";
 export * from "./projects.js";
+export * from "./work-items.js";
 export * from "./workspace.js";

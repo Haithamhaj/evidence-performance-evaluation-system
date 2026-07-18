@@ -63,13 +63,11 @@ for (const expectation of [
 }
 
 test("does not fetch fonts from an external runtime origin", async ({ page }) => {
+  const expectedOrigin = `http://127.0.0.1:${process.env.E2E_WEB_PORT ?? "3000"}`;
   const externalFontRequests: string[] = [];
   const localFontResponses = new Map<string, number>();
   page.on("request", (request) => {
-    if (
-      request.resourceType() === "font" &&
-      new URL(request.url()).origin !== "http://127.0.0.1:3000"
-    ) {
+    if (request.resourceType() === "font" && new URL(request.url()).origin !== expectedOrigin) {
       externalFontRequests.push(request.url());
     }
   });

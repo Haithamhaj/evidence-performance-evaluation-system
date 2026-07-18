@@ -58,6 +58,20 @@ model User {
   criteriaResponses         CriteriaContributorResponse[]          @relation("CriteriaContributorResponseEmployee")
   criteriaResolutions       CriteriaManagerResolution[]            @relation("CriteriaManagerResolutionActor")
   criteriaSetTransitions    DynamicCriteriaSetTransition[]         @relation("DynamicCriteriaSetTransitionActor")
+  createdWorkItems          WorkItem[]                             @relation("WorkItemCreatedBy")
+  assignedWorkItems         WorkItem[]                             @relation("WorkItemAssignee")
+  workItemParticipations    WorkItemParticipant[]                  @relation("WorkItemParticipantEmployee")
+  workItemParticipationAdds WorkItemParticipant[]                  @relation("WorkItemParticipantCreatedBy")
+  workItemStatusChanges     WorkItemStatusHistory[]                @relation("WorkItemStatusActor")
+  workItemAssignmentChanges WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentActor")
+  workItemAssignmentsFrom   WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentFrom")
+  workItemAssignmentsTo     WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentTo")
+  ownedProgressContracts    ProgressContract[]                     @relation("ProgressContractOwner")
+  approvedProgressContracts ProgressContract[]                     @relation("ProgressContractApprover")
+  createdProgressContracts  ProgressContract[]                     @relation("ProgressContractCreatedBy")
+  progressTransitions       ProgressContractTransition[]           @relation("ProgressContractTransitionActor")
+  progressConfirmations     ProgressHumanConfirmation[]            @relation("ProgressHumanConfirmationActor")
+  progressSnapshots         ProgressSnapshot[]                     @relation("ProgressSnapshotActor")
   createdAt                 DateTime                               @default(now()) @db.Timestamptz(6)
   updatedAt                 DateTime                               @updatedAt @db.Timestamptz(6)
 }
@@ -318,6 +332,8 @@ model Project {
   documentRecord         DocumentRecord?
   criteriaProposals      DynamicCriteriaProposal[]
   criteriaSets           DynamicCriteriaSet[]
+  workItems              WorkItem[]
+  progressContracts      ProgressContract[]
   createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
 
@@ -385,10 +401,13 @@ model Workstream {
   documentRecord         DocumentRecord?
   criteriaProposals      DynamicCriteriaProposal[]
   criteriaSets           DynamicCriteriaSet[]
+  workItems              WorkItem[]
+  progressContracts      ProgressContract[]
   createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
 
   @@unique([authorizationScopeId, authorizationScopeType])
+  @@unique([id, projectId])
   @@index([projectId, status, createdAt])
   @@index([createdById, createdAt])
 }
@@ -427,6 +446,305 @@ model WorkstreamMember {
   @@index([workstreamId, employeeId, startsAt, endsAt])
   @@index([employeeId, startsAt, endsAt])
   @@index([createdById, createdAt])
+}
+
+enum WorkItemStatus {
+  planned
+  ready
+  in_progress
+  blocked
+  in_review
+  done
+  cancelled
+}
+
+enum WorkItemPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+model WorkItem {
+  id                   String                      @id @default(uuid()) @db.Uuid
+  projectId            String                      @db.Uuid
+  project              Project                     @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId         String?                     @db.Uuid
+  workstream           Workstream?                 @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  title                String
+  description          String
+  status               WorkItemStatus              @default(planned)
+  priority             WorkItemPriority            @default(normal)
+  assigneeId           String?                     @db.Uuid
+  assignee             User?                       @relation("WorkItemAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  dueAt                DateTime?                   @db.Timestamptz(6)
+  requirements         Json
+  acceptanceConditions Json
+  blocker              String?
+  nextAction           String?
+  version              Int                         @default(1)
+  createdById          String                      @db.Uuid
+  createdBy            User                        @relation("WorkItemCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  participants         WorkItemParticipant[]
+  dependencies         WorkItemDependency[]        @relation("WorkItemDependencies")
+  blocks               WorkItemDependency[]        @relation("WorkItemBlocks")
+  statusHistory        WorkItemStatusHistory[]
+  assignmentHistory    WorkItemAssignmentHistory[]
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                    @updatedAt @db.Timestamptz(6)
+
+  @@index([projectId, status, createdAt])
+  @@index([workstreamId, status, createdAt])
+  @@index([assigneeId, status, dueAt])
+  @@index([createdById, createdAt])
+}
+
+model WorkItemParticipant {
+  id          String    @id @default(uuid()) @db.Uuid
+  workItemId  String    @db.Uuid
+  workItem    WorkItem  @relation(fields: [workItemId], references: [id], onDelete: Restrict)
+  employeeId  String    @db.Uuid
+  employee    User      @relation("WorkItemParticipantEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  role        String
+  startsAt    DateTime  @db.Timestamptz(6)
+  endsAt      DateTime? @db.Timestamptz(6)
+  reason      String
+  createdById String    @db.Uuid
+  createdBy   User      @relation("WorkItemParticipantCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([workItemId, employeeId, startsAt, endsAt])
+  @@index([employeeId, startsAt, endsAt])
+}
+
+model WorkItemDependency {
+  id                  String   @id @default(uuid()) @db.Uuid
+  workItemId          String   @db.Uuid
+  workItem            WorkItem @relation("WorkItemDependencies", fields: [workItemId], references: [id], onDelete: Restrict)
+  dependsOnWorkItemId String   @db.Uuid
+  dependsOnWorkItem   WorkItem @relation("WorkItemBlocks", fields: [dependsOnWorkItemId], references: [id], onDelete: Restrict)
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([workItemId, dependsOnWorkItemId])
+  @@index([dependsOnWorkItemId])
+}
+
+model WorkItemStatusHistory {
+  id               String         @id @default(uuid()) @db.Uuid
+  workItemId       String         @db.Uuid
+  workItem         WorkItem       @relation(fields: [workItemId], references: [id], onDelete: Restrict)
+  fromStatus       WorkItemStatus
+  toStatus         WorkItemStatus
+  actorId          String         @db.Uuid
+  actor            User           @relation("WorkItemStatusActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason           String
+  resultingVersion Int
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@unique([workItemId, resultingVersion])
+  @@index([actorId, createdAt])
+}
+
+model WorkItemAssignmentHistory {
+  id               String   @id @default(uuid()) @db.Uuid
+  workItemId       String   @db.Uuid
+  workItem         WorkItem @relation(fields: [workItemId], references: [id], onDelete: Restrict)
+  fromAssigneeId   String?  @db.Uuid
+  fromAssignee     User?    @relation("WorkItemAssignmentFrom", fields: [fromAssigneeId], references: [id], onDelete: Restrict)
+  toAssigneeId     String?  @db.Uuid
+  toAssignee       User?    @relation("WorkItemAssignmentTo", fields: [toAssigneeId], references: [id], onDelete: Restrict)
+  actorId          String   @db.Uuid
+  actor            User     @relation("WorkItemAssignmentActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason           String
+  resultingVersion Int
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([workItemId, resultingVersion])
+  @@index([actorId, createdAt])
+  @@index([toAssigneeId, createdAt])
+}
+
+enum ProgressScopeKind {
+  project
+  workstream
+}
+
+enum ProgressContractState {
+  draft
+  pending_approval
+  active
+  superseded
+  rejected
+}
+
+enum ProgressCalculationKind {
+  weighted
+  stage_gate
+}
+
+enum ProgressComponentKind {
+  milestone
+  deliverable
+  kpi
+  acceptance
+}
+
+enum ProgressDirection {
+  increase
+  decrease
+  maintain
+}
+
+enum ProgressConfirmationMode {
+  measured
+  human_confirmed
+}
+
+enum ProgressSourceKind {
+  document
+  update
+  evidence
+  kpi_measurement
+  human_confirmation
+}
+
+model ProgressContract {
+  id                       String                       @id @default(uuid()) @db.Uuid
+  scopeKind                ProgressScopeKind
+  projectId                String                       @db.Uuid
+  project                  Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId             String?                      @db.Uuid
+  workstream               Workstream?                  @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  sourceDocumentId         String                       @db.Uuid
+  sourceDocument           DocumentRecord               @relation(fields: [sourceDocumentId], references: [id], onDelete: Restrict)
+  sourceDocumentVersionId  String                       @db.Uuid
+  sourceDocumentVersion    DocumentVersion              @relation(fields: [sourceDocumentVersionId, sourceDocumentId], references: [id, documentId], onDelete: Restrict)
+  sourceDocumentVersionNo  Int
+  calculationKind          ProgressCalculationKind
+  calculationSchemaVersion String
+  contractVersion          Int
+  version                  Int                          @default(1)
+  state                    ProgressContractState        @default(draft)
+  ownerId                  String                       @db.Uuid
+  owner                    User                         @relation("ProgressContractOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  approverId               String?                      @db.Uuid
+  approver                 User?                        @relation("ProgressContractApprover", fields: [approverId], references: [id], onDelete: Restrict)
+  effectiveAt              DateTime                     @db.Timestamptz(6)
+  approvedAt               DateTime?                    @db.Timestamptz(6)
+  previousContractId       String?                      @unique @db.Uuid
+  previousContract         ProgressContract?            @relation("ProgressContractSuccessor", fields: [previousContractId], references: [id], onDelete: Restrict)
+  successorContract        ProgressContract?            @relation("ProgressContractSuccessor")
+  createdById              String                       @db.Uuid
+  createdBy                User                         @relation("ProgressContractCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  components               ProgressContractComponent[]
+  transitions              ProgressContractTransition[]
+  confirmations            ProgressHumanConfirmation[]
+  snapshots                ProgressSnapshot[]
+  createdAt                DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime                     @updatedAt @db.Timestamptz(6)
+
+  @@index([projectId, state, effectiveAt])
+  @@index([workstreamId, state, effectiveAt])
+  @@index([sourceDocumentVersionId])
+  @@index([ownerId, state])
+}
+
+model ProgressContractComponent {
+  id                   String                      @id @default(uuid()) @db.Uuid
+  contractId           String                      @db.Uuid
+  contract             ProgressContract            @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  position             Int
+  kind                 ProgressComponentKind
+  name                 String
+  description          String
+  weight               Decimal?                    @db.Decimal(7, 4)
+  baseline             Decimal?                    @db.Decimal(20, 6)
+  target               Decimal?                    @db.Decimal(20, 6)
+  unit                 String?
+  direction            ProgressDirection?
+  acceptanceConditions Json
+  requiredEvidence     Json
+  confirmationMode     ProgressConfirmationMode
+  confirmations        ProgressHumanConfirmation[]
+  snapshotSources      ProgressSnapshotSource[]
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
+
+  @@unique([contractId, position])
+  @@unique([id, contractId])
+  @@index([contractId, kind])
+}
+
+model ProgressContractTransition {
+  id               String                @id @default(uuid()) @db.Uuid
+  contractId       String                @db.Uuid
+  contract         ProgressContract      @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  fromState        ProgressContractState
+  toState          ProgressContractState
+  actorId          String                @db.Uuid
+  actor            User                  @relation("ProgressContractTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason           String
+  resultingVersion Int
+  createdAt        DateTime              @default(now()) @db.Timestamptz(6)
+
+  @@unique([contractId, resultingVersion])
+  @@index([actorId, createdAt])
+}
+
+model ProgressHumanConfirmation {
+  id          String                    @id @default(uuid()) @db.Uuid
+  contractId  String                    @db.Uuid
+  contract    ProgressContract          @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  componentId String                    @db.Uuid
+  component   ProgressContractComponent @relation(fields: [componentId, contractId], references: [id, contractId], onDelete: Restrict)
+  satisfied   Boolean
+  sourceRef   String
+  actorId     String                    @db.Uuid
+  actor       User                      @relation("ProgressHumanConfirmationActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason      String
+  createdAt   DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@index([contractId, componentId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model ProgressSnapshot {
+  id                       String                   @id @default(uuid()) @db.Uuid
+  contractId               String                   @db.Uuid
+  contract                 ProgressContract         @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  contractVersion          Int
+  previousPercent          Decimal                  @db.Decimal(7, 4)
+  percent                  Decimal                  @db.Decimal(7, 4)
+  componentState           Json
+  calculationSchemaVersion String
+  reason                   String
+  aiRunId                  String?                  @db.Uuid
+  correlationId            String                   @db.Uuid
+  actorId                  String                   @db.Uuid
+  actor                    User                     @relation("ProgressSnapshotActor", fields: [actorId], references: [id], onDelete: Restrict)
+  sources                  ProgressSnapshotSource[]
+  createdAt                DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@index([contractId, createdAt(sort: Desc), id])
+  @@index([actorId, createdAt])
+  @@index([correlationId])
+}
+
+model ProgressSnapshotSource {
+  id            String                    @id @default(uuid()) @db.Uuid
+  snapshotId    String                    @db.Uuid
+  snapshot      ProgressSnapshot          @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  componentId   String                    @db.Uuid
+  component     ProgressContractComponent @relation(fields: [componentId], references: [id], onDelete: Restrict)
+  sourceKind    ProgressSourceKind
+  sourceId      String                    @db.Uuid
+  sourceVersion Int
+  measuredValue Decimal?                  @db.Decimal(20, 6)
+  satisfied     Boolean?
+  observedAt    DateTime                  @db.Timestamptz(6)
+  createdAt     DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@unique([snapshotId, componentId, sourceKind, sourceId, sourceVersion])
+  @@index([sourceKind, sourceId])
 }
 
 model ResponsibilityWindow {
@@ -612,6 +930,7 @@ model DocumentRecord {
   analysisRequests  DocumentAnalysisRequest[]
   readinessChecks   DocumentReadinessCheck[]
   comparisons       DocumentComparison[]
+  progressContracts ProgressContract[]
   createdAt         DateTime                  @default(now()) @db.Timestamptz(6)
 
   @@index([departmentId, createdAt])
@@ -638,9 +957,11 @@ model DocumentVersion {
   comparisonsAfter        DocumentComparison[]                   @relation("ComparisonAfterVersion")
   criteriaProposals       DynamicCriteriaProposal[]
   criteriaSets            DynamicCriteriaSet[]
+  progressContracts       ProgressContract[]
   createdAt               DateTime                               @default(now()) @db.Timestamptz(6)
 
   @@unique([documentId, version])
+  @@unique([id, documentId])
   @@index([createdById, createdAt])
   @@index([templateVersionId])
 }

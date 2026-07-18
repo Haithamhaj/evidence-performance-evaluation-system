@@ -28,6 +28,9 @@ export function WorkspaceShell({
           <a data-focus-id="home" href={`/${locale}`}>
             {catalog["nav.home"]}
           </a>
+          <a data-focus-id="my-work" href={`/${locale}/my-work`}>
+            {catalog["nav.myWork"]}
+          </a>
           <a data-focus-id="projects" href={`/${locale}/projects`}>
             {catalog["nav.projects"]}
           </a>

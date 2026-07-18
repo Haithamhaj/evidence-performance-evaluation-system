@@ -8,6 +8,8 @@ import { ProjectsModule } from "./projects/projects.module.js";
 import { EvaluationEligibilityModule } from "./evaluation-eligibility/evaluation-eligibility.module.js";
 import { CorrelationMiddleware } from "./platform/correlation.middleware.js";
 import { DocumentsModule } from "./documents/documents.module.js";
+import { DailyWorkModule } from "./daily-work/daily-work.module.js";
+import { WorkItemsModule } from "./work-items/work-items.module.js";
 import {
   createEnvironmentReadinessProbes,
   HealthController,
@@ -26,9 +28,11 @@ Module({
     AiRoutingModule,
     AuditModule,
     DocumentsModule,
+    DailyWorkModule,
     EvaluationEligibilityModule,
     PermissionsModule,
     ProjectsModule,
+    WorkItemsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: READINESS_PROBES, useFactory: createEnvironmentReadinessProbes }],

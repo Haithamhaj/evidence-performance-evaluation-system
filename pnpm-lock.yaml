@@ -117,6 +117,9 @@ importers:
       '@evaluation/projects':
         specifier: workspace:*
         version: link:../../packages/projects
+      '@evaluation/work-items':
+        specifier: workspace:*
+        version: link:../../packages/work-items
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -462,6 +465,18 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+
+  packages/work-items:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
 packages:
 

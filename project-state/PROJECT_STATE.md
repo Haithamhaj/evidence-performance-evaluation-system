@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Present the approved final Phase 2 production specification, feature map, and implementation plan for product-owner review before any production implementation.
+Execute Phase 2 Slice 2: interactive text updates, live AI clarification through the existing AI Router, manual evidence, employee confirmation, and append-only Timeline.
 
 ## Current Reality
 
@@ -20,6 +20,8 @@ Present the approved final Phase 2 production specification, feature map, and im
 - The product owner approved the final production structure: preserve Phase 0/1; add only bounded Work Items and Updates & Evidence modules; keep versioned Progress Contracts inside Projects; compose authorized daily-work reads at the application layer; keep GitHub and voice as connectors.
 - The approved Progress Contract forbids Work Item/task/update/GitHub volume as progress inputs, has no direct percentage override, retains the previous official percentage when source coverage is insufficient, and preserves source-explained decreases through append-only snapshots.
 - The active production planning artifacts are `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`, `docs/product/PHASE_2_FEATURE_MAP.md`, and `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`.
+- Phase 2 production execution is approved. Slice 1 is complete on `codex/phase-2-updates-evidence-readiness`: migrations `0012`–`0013`, bounded Work Items, versioned document-sourced Progress Contracts, append-only official progress snapshots, protected daily-work APIs, Arabic/English My Work and Project progress screens, a real-database synthetic seed, and Playwright screenshots.
+- Slice 1 progress is operational Project state only. Work Item volume and employee activity are not calculation inputs, and cross-Project contract decisions are rejected server-side.
 
 ## Active Decisions
 
@@ -32,7 +34,7 @@ Present the approved final Phase 2 production specification, feature map, and im
 - No user can directly enter or override the official overall progress percentage. Contract-defined qualitative conditions may receive authorized human confirmation and then trigger recalculation.
 - Phase 2 stops at Evaluation Fact View preparation; the complete employee self-assessment and manager assessment workflow remains Phase 3.
 - T011 remains accepted under its product-owner-bounded direct import/call/meta-call enforcement; provider-key isolation, CI scanning, and human review cover documented static-flow limitations.
-- Phase 2 production work remains gated on product-owner review of the pushed final specification, feature map, and implementation plan.
+- Phase 2 execution proceeds autonomously through bounded slice checkpoints under Fast Controlled Execution; stop only at a protected human gate or genuine unresolved blocker.
 
 ## Active Risks
 
@@ -40,8 +42,9 @@ Present the approved final Phase 2 production specification, feature map, and im
 - Live-model quality and production queue/storage operations still require deployment-time evaluation and monitoring; deterministic verification confirms governed contracts, not provider output quality.
 - Arabic employee release remains blocked at T016's protected human semantic-review gate.
 - The known non-blocking T013 recovered-running attempt-count telemetry issue remains outside Phase 1 scope.
-- The prototype is not production storage. Its state resets on reload, voice is simulated, and its deterministic update structuring must not be promoted as a production AI provider.
+- The prototype remains reference-only. Slice 1 production data now uses PostgreSQL, while voice and update structuring remain unimplemented until their planned production slices.
 - The production plan contains multiple security-, migration-, AI-, privacy-, and immutability-critical slices. Fast Controlled Execution remains the default, with bounded critical reviews only where those boundaries are touched.
+- Local verification currently uses Node.js 24.14.0 while the repository pins 24.18.0; pnpm is the required 11.13.0 and the complete Slice 1 checks pass. CI remains the exact-runtime confirmation.
 
 ## Protected Areas
 
@@ -51,7 +54,7 @@ Present the approved final Phase 2 production specification, feature map, and im
 
 ## Next Recommended Action
 
-Product owner reviews the pushed final specification, feature map, and implementation plan and chooses **Approve Phase 2 production execution** or **Request planning changes**. Do not implement a production slice before that gate.
+Begin Slice 2 with RED contracts for the multi-turn update/evidence lifecycle, preserving raw input, one-question-at-a-time clarification, employee edit and confirmation, source references, and the AI-Router-only boundary.
 
 ## Critical References
 

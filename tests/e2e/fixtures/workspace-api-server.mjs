@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { createServer } from "node:http";
+import process from "node:process";
 import { URL } from "node:url";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
@@ -15,6 +16,8 @@ const workstreamDocumentVersionId = "99999999-9999-4999-8999-999999999999";
 const templateVersionId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const proposalId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const sourceHash = "a".repeat(64);
+const progressContractId = "e1111111-1111-4111-8111-111111111111";
+const progressSnapshotId = "e2222222-2222-4222-8222-222222222222";
 
 const project = {
   id: projectId,
@@ -144,6 +147,106 @@ const historicalWorkstreamCriteria = {
   allowedActions: [...workstreamCriteria.allowedActions],
 };
 
+function workItem(index, status, dueAt, nextAction, blocker = null) {
+  return {
+    id: `f${String(index).padStart(7, "0")}-1111-4111-8111-111111111111`,
+    projectId,
+    workstreamId: index % 2 === 0 ? workstreamId : null,
+    title: `عنصر العمل ${index}`,
+    description: `تسليم تشغيلي قابل للمراجعة رقم ${index}.`,
+    status,
+    priority: index < 4 ? "high" : "normal",
+    assigneeId: ownerId,
+    dueAt,
+    requirements: ["تنفيذ النطاق المتفق عليه", "توثيق النتيجة"],
+    acceptanceConditions: ["مراجعة النتيجة واعتمادها"],
+    blocker,
+    nextAction,
+    version: 1,
+    createdAt: "2026-07-17T08:00:00.000Z",
+    updatedAt: "2026-07-18T08:00:00.000Z",
+    allowedActions: ["edit", "transition", "assign", "add_update"],
+  };
+}
+
+const workItems = Array.from({ length: 20 }, (_, offset) => {
+  const index = offset + 1;
+  if (index <= 3)
+    return workItem(
+      index,
+      index === 3 ? "in_review" : "ready",
+      "2026-07-18T18:00:00.000Z",
+      "راجع النتيجة وأكدها",
+    );
+  if (index <= 6)
+    return workItem(index, "in_progress", "2026-07-18T20:00:00.000Z", "أكمل التحقق اليوم");
+  if (index <= 9)
+    return workItem(index, "in_progress", "2026-07-17T16:00:00.000Z", "حدّث خطة الإغلاق");
+  if (index <= 12) return workItem(index, "blocked", null, "اطلب قرار المالك", "بانتظار قرار نطاق");
+  return workItem(index, "planned", "2026-07-24T12:00:00.000Z", "حضّر التنفيذ");
+});
+
+const myWork = {
+  groups: [
+    { key: "needs_my_action", items: workItems.slice(0, 3), collapsedByDefault: false },
+    { key: "today", items: workItems.slice(3, 6), collapsedByDefault: false },
+    { key: "overdue", items: workItems.slice(6, 9), collapsedByDefault: false },
+    { key: "waiting_blocked", items: workItems.slice(9, 12), collapsedByDefault: true },
+    { key: "this_week", items: workItems.slice(12), collapsedByDefault: true },
+  ],
+  nextCursor: null,
+};
+
+const projectProgress = {
+  project: {
+    id: projectId,
+    name: project.name,
+    description: project.description,
+    status: project.status,
+  },
+  contract: {
+    id: progressContractId,
+    contractVersion: 1,
+    version: 3,
+    state: "active",
+    calculationKind: "weighted",
+    effectiveAt: "2026-07-18T09:00:00.000Z",
+    components: [
+      {
+        id: "e3333333-3333-4333-8333-333333333333",
+        kind: "kpi",
+        name: "السيناريوهات المعتمدة",
+        description: "عدد سيناريوهات رحلة العميل التي اعتمدها مالك المنتج.",
+        weight: 60,
+        baseline: 0,
+        target: 12,
+        unit: "سيناريو",
+        direction: "increase",
+        requiredEvidence: ["سجل اعتماد مالك المنتج"],
+      },
+      {
+        id: "e4444444-4444-4444-8444-444444444444",
+        kind: "milestone",
+        name: "جاهزية العرض المحلي",
+        description: "المنتج يعمل محليًا بالعربية والإنجليزية.",
+        weight: 40,
+        baseline: null,
+        target: null,
+        unit: null,
+        direction: null,
+        requiredEvidence: ["لقطات سطح المكتب والجوال", "نتيجة الاختبار التشغيلي"],
+      },
+    ],
+  },
+  progress: {
+    state: "accepted",
+    snapshotId: progressSnapshotId,
+    percent: 62.5,
+    reason: "اعتمدت خمسة من ثمانية مخرجات قابلة للقياس.",
+    updatedAt: "2026-07-18T12:00:00.000Z",
+  },
+};
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://127.0.0.1:3101");
   if (request.method === "GET" && url.pathname === "/health") {
@@ -155,6 +258,22 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "GET" && url.pathname === "/api/v1/projects") {
     return json(response, 200, [project]);
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/daily-work/my-work") {
+    return json(response, 200, myWork);
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/daily-work/projects") {
+    return json(response, 200, [
+      {
+        id: projectId,
+        name: project.name,
+        status: "active",
+        progress: { state: "accepted", percent: 62.5, updatedAt: "2026-07-18T12:00:00.000Z" },
+      },
+    ]);
+  }
+  if (request.method === "GET" && url.pathname === `/api/v1/daily-work/projects/${projectId}`) {
+    return json(response, 200, projectProgress);
   }
   if (request.method === "GET" && url.pathname === `/api/v1/projects/${projectId}/workspace`) {
     return json(response, 200, { project, people, workstreams: [workstream] });
@@ -239,7 +358,7 @@ const server = createServer(async (request, response) => {
   return json(response, 404, { messageKey: "errors.notFound" });
 });
 
-server.listen(3101, "127.0.0.1");
+server.listen(Number(process.env.E2E_API_PORT ?? "3101"), "127.0.0.1");
 
 function json(response, status, body) {
   response.writeHead(status, {

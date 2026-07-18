@@ -158,7 +158,7 @@ export type OfficialProgressResult =
   | { state: "awaiting_information"; previousPercent: number; missing: readonly string[] };
 ```
 
-- [ ] **Step 1: Add failing Work Item and Progress Contract contract tests**
+- [x] **Step 1: Add failing Work Item and Progress Contract contract tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -193,21 +193,21 @@ describe("Phase 2 slice 1 contracts", () => {
 Run: `pnpm vitest run --project unit packages/contracts/src/work-items.test.ts packages/contracts/src/progress-contracts.test.ts`
 Expected: FAIL because the schemas do not exist.
 
-- [ ] **Step 2: Implement the public Work Item and Progress Contract schemas**
+- [x] **Step 2: Implement the public Work Item and Progress Contract schemas**
 
 Implement the exact statuses, contract states, source-document identity, KPI baseline/target/unit/direction, optional weights, calculation kind, and stable error codes. Export them from `packages/contracts/src/index.ts`.
 
 Run: `pnpm vitest run --project unit packages/contracts/src/work-items.test.ts packages/contracts/src/progress-contracts.test.ts`
 Expected: PASS.
 
-- [ ] **Step 3: Add the failing migration verification**
+- [x] **Step 3: Add the failing migration verification**
 
 The integration test must assert foreign keys to existing Project, Workstream, user, document, and audit identities; same-Project Workstream enforcement; optimistic version columns; append-only history; one active contract per scope/effective instant; immutable progress snapshots; and no `manual_percent` column.
 
 Run: `pnpm db:generate && pnpm vitest run --project integration packages/database/src/work-items-progress-contract-schema.integration.test.ts`
 Expected: FAIL because migration `0012_work_items_progress_contract` does not exist.
 
-- [ ] **Step 4: Add migration 0012 and verify both migration paths**
+- [x] **Step 4: Add migrations 0012–0013 and verify both migration paths**
 
 Add tables for Work Items, participants, dependencies, status history, assignment history, Progress Contracts, contract components/KPIs/evidence requirements, approvals, human-confirmed contract conditions, and official progress snapshots/source links. Add constraints that prevent in-place mutation of history and snapshots.
 
@@ -220,7 +220,7 @@ pnpm vitest run --project integration packages/database/src/work-items-progress-
 
 Expected: PASS from an empty database and the Phase 1 snapshot.
 
-- [ ] **Step 5: Implement Work Item invariants and transactional commands with TDD**
+- [x] **Step 5: Implement Work Item invariants and transactional commands with TDD**
 
 Tests must cover Project required, same-Project Workstream, seven-state transition table, terminal-state behavior, assignment concurrency, historical responsibility, and the negative rule that `done` does not emit a progress percentage.
 
@@ -238,7 +238,7 @@ Expected: FAIL before implementation, then PASS.
 Run: `pnpm vitest run --project integration packages/work-items/src/service.integration.test.ts`
 Expected: PASS with append-only history and optimistic concurrency.
 
-- [ ] **Step 6: Implement Progress Contract proposal, approval, and calculation with TDD**
+- [x] **Step 6: Implement Progress Contract proposal, approval, and calculation with TDD**
 
 Tests must cover exact document-version lineage, `draft → pending_approval → active`, rejection, prospective supersession, weights totaling 100, stage-gate rules, contract-defined human confirmation, no direct percentage override, insufficient coverage retaining the previous percentage, and a source-explained decrease.
 
@@ -264,7 +264,7 @@ pnpm vitest run --project integration packages/projects/src/progress-contract-se
 
 Expected: PASS.
 
-- [ ] **Step 7: Add protected API composition and negative contracts**
+- [x] **Step 7: Add protected API composition and negative contracts**
 
 Implement exact routes:
 
@@ -284,7 +284,7 @@ API tests must reject actor IDs, cross-Project Workstreams, unauthorized Project
 Run: `pnpm vitest run --project integration apps/api/src/daily-work/daily-work.e2e.integration.test.ts`
 Expected: PASS.
 
-- [ ] **Step 8: Implement the production My Work and Project dashboard**
+- [x] **Step 8: Implement the production My Work and Project dashboard**
 
 Use compact rows, URL-addressable drawer state, server-provided allowed actions, and progressive disclosure. Display official progress only from `OfficialProgressResult`; display `awaiting_information` without a provisional percentage.
 
@@ -298,7 +298,7 @@ pnpm vitest run --project unit apps/web/src/app/[locale]/my-work/my-work.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 9: Run the local Slice 1 demo and capture screenshots**
+- [x] **Step 9: Run the local Slice 1 demo and capture screenshots**
 
 Seed two Projects, five Workstreams, twenty Work Items, one pending contract, one active contract, one accepted progress snapshot, and one awaiting-information state through real APIs.
 
@@ -313,7 +313,7 @@ pnpm test:e2e -- tests/e2e/phase-2-slice-1.spec.ts
 
 Expected: PASS. Save Arabic/English desktop/mobile screenshots under `docs/product/screenshots/phase-2-production/slice-1/`.
 
-- [ ] **Step 10: Verify, checkpoint, and stop**
+- [x] **Step 10: Verify, checkpoint, and stop**
 
 Run:
 
@@ -351,7 +351,7 @@ Expected: PASS. Commit `feat: add my work and progress contract foundation`, pus
 - Create: `packages/updates-evidence/src/evidence-service.integration.test.ts`
 - Create: `packages/updates-evidence/src/prompts.test.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0013_updates_evidence/migration.sql`
+- Create: `packages/database/prisma/migrations/0014_updates_evidence/migration.sql`
 - Create: `packages/database/src/updates-evidence-schema.integration.test.ts`
 - Create: `apps/api/src/updates-evidence/updates-evidence.module.ts`
 - Create: `apps/api/src/updates-evidence/updates.controller.ts`
@@ -405,7 +405,7 @@ Assert versioned clarification turns, source revisions, supported claim, Project
 Run: `pnpm vitest run --project unit packages/contracts/src/updates-evidence.test.ts packages/updates-evidence/src/prompts.test.ts`
 Expected: FAIL, then implement schemas/prompts and rerun to PASS.
 
-- [ ] **Step 2: Add migration 0013 with immutable update/evidence lineage**
+- [ ] **Step 2: Add migration 0014 with immutable update/evidence lineage**
 
 Create update source, clarification session/turn, structured-draft revision, update confirmation, evidence source/revision/link, attribution, verification, confirmation, and accepted-event tables. Add idempotency, source identity, optimistic revision, and append-only constraints.
 
@@ -495,7 +495,7 @@ Run focused package/API/worker/web tests, `pnpm test:ai`, `pnpm scan:secrets`, `
 - Create: `packages/updates-evidence/src/github-adapter.ts`
 - Create: `packages/updates-evidence/src/github-adapter.integration.test.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0014_github_suggestions/migration.sql`
+- Create: `packages/database/prisma/migrations/0015_github_suggestions/migration.sql`
 - Create: `packages/database/src/github-suggestions-schema.integration.test.ts`
 - Create: `apps/api/src/github/github.module.ts`
 - Create: `apps/api/src/github/github-installations.controller.ts`
@@ -531,7 +531,7 @@ Cover installation/repository grants, delivery identity, original source ID/URL,
 Run: `pnpm vitest run --project unit packages/contracts/src/github-evidence.test.ts`
 Expected: FAIL, then PASS after schema implementation.
 
-- [ ] **Step 2: Add and verify migration 0014**
+- [ ] **Step 2: Add and verify migration 0015**
 
 Add installation metadata without long-lived token storage, repository grants, webhook receipts, reconciliation cursors, suggestions, source links, and append-only disposition history.
 
@@ -582,7 +582,7 @@ Run focused tests, `pnpm scan:secrets`, `pnpm lint`, `pnpm typecheck`, and `git 
 - Create: `packages/updates-evidence/src/voice-service.ts`
 - Create: `packages/updates-evidence/src/voice-service.integration.test.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0015_voice_updates/migration.sql`
+- Create: `packages/database/prisma/migrations/0016_voice_updates/migration.sql`
 - Create: `packages/database/src/voice-updates-schema.integration.test.ts`
 - Create: `apps/api/src/updates-evidence/voice-updates.controller.ts`
 - Create: `apps/api/src/updates-evidence/voice-updates.controller.test.ts`
@@ -612,7 +612,7 @@ Cover private audio, media validation, raw transcript, employee-corrected transc
 Run: `pnpm vitest run --project integration packages/updates-evidence/src/voice-service.integration.test.ts`
 Expected: FAIL before migration/service.
 
-- [ ] **Step 2: Add migration 0015 and implement the dual-gate lifecycle**
+- [ ] **Step 2: Add migration 0016 and implement the dual-gate lifecycle**
 
 Reuse the existing private upload/scanner interfaces. Store audio source identity, raw transcript revision, edited transcript revision, confirmation, and STT trace separately. Do not store credentials or public object URLs.
 
@@ -667,7 +667,7 @@ Run focused tests, AI evaluations, lint, typecheck, secret scan, and `git diff -
 - Create: `packages/documents/src/monthly-readiness-composer.ts`
 - Create: `packages/documents/src/monthly-readiness-composer.integration.test.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0016_checkins_monthly_readiness/migration.sql`
+- Create: `packages/database/prisma/migrations/0017_checkins_monthly_readiness/migration.sql`
 - Create: `packages/database/src/checkins-monthly-readiness-schema.integration.test.ts`
 - Create: `apps/api/src/daily-work/checkins.controller.ts`
 - Create: `apps/api/src/daily-work/monthly-readiness.controller.ts`
@@ -699,7 +699,7 @@ Assert Thursday/timezone boundaries, one reminder per scope/window, substantive 
 Run: `pnpm vitest run --project unit packages/contracts/src/checkins-readiness.test.ts`
 Expected: FAIL, then PASS after schemas.
 
-- [ ] **Step 2: Add migration 0016 and check-in transaction rules**
+- [ ] **Step 2: Add migration 0017 and check-in transaction rules**
 
 Persist reminder/obligation, check-in, aggregation source links, monthly snapshot, and source-version identity. Preserve append-only snapshots and idempotent scheduled work.
 
@@ -803,7 +803,7 @@ Run focused API/web/E2E tests, lint, typecheck, and `git diff --check`. Commit `
 - Create: `packages/criteria/src/criteria-at-time-reader.integration.test.ts`
 - Modify: `packages/criteria/src/index.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0017_evaluation_fact_view_preparation/migration.sql`
+- Create: `packages/database/prisma/migrations/0018_evaluation_fact_view_preparation/migration.sql`
 - Create: `packages/database/src/evaluation-fact-view-schema.integration.test.ts`
 - Create: `apps/api/src/daily-work/evaluation-fact-view-query.service.ts`
 - Create: `apps/api/src/daily-work/evaluation-fact-view.controller.ts`
@@ -847,7 +847,7 @@ pnpm test:ai -- tests/ai-evals/evaluation-fact-view.test.ts
 
 Expected: FAIL, then PASS after contracts/fixtures.
 
-- [ ] **Step 2: Add migration 0017 and immutable preparation snapshot**
+- [ ] **Step 2: Add migration 0018 and immutable preparation snapshot**
 
 Persist period snapshot identity, source references, fact/interpretation classification, unclear state, responsibility, criteria version, evidence, and progress snapshot links. Add no update/delete protection after final preparation capture.
 
