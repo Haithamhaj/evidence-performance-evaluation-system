@@ -771,7 +771,7 @@ INFRA_ENV_FILE=.env.example pnpm infra:verify
 
 Expected: every command exits 0.
 
-- [ ] **Step 8: Commit, push, and update Pull Request #3**
+- [x] **Step 8: Commit, push, and update Pull Request #3**
 
 ```bash
 git add TASKS.md project-state MANIFEST.json tests/e2e
