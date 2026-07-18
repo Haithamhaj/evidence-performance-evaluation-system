@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --port 3100",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit && next build --experimental-build-mode generate",
+    "start": "next start --port 3100",
     "lint": "eslint src",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit",
     "test": "vitest run --root ../.. apps/product-reset-prototype/src"
   },
   "dependencies": {
