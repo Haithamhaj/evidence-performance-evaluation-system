@@ -20,6 +20,7 @@
     "@evaluation/documents": "workspace:*",
     "@evaluation/observability": "workspace:*",
     "@evaluation/projects": "workspace:*",
+    "@evaluation/updates-evidence": "workspace:*",
     "@nestjs/common": "11.1.28",
     "@nestjs/core": "11.1.28",
     "@nestjs/platform-express": "11.1.28",

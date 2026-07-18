@@ -264,6 +264,9 @@ importers:
       '@evaluation/projects':
         specifier: workspace:*
         version: link:../../packages/projects
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:../../packages/updates-evidence
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
