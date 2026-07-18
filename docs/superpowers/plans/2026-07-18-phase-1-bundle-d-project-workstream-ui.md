@@ -337,15 +337,15 @@ The catch-all route accepts only:
 
 Any other segment count, verb, non-UUID, URL, dot segment, encoded slash, or query-controlled upstream path returns 404 without calling `fetch`.
 
-- [ ] **Step 1: Write RED tests for session extraction**
+- [x] **Step 1: Write RED tests for session extraction**
 
 Seal a valid session and assert only the access token is returned. Expired/tampered/wrong-kind cookies return `AUTH_INVALID_SESSION`. Never return the ID token or entire payload.
 
-- [ ] **Step 2: Implement the narrow session reader**
+- [x] **Step 2: Implement the narrow session reader**
 
 Reuse `openAuthCookie`; keep `SessionCookie` private and validate `accessToken` as a non-empty string.
 
-- [ ] **Step 3: Write RED tests for upstream fetch**
+- [x] **Step 3: Write RED tests for upstream fetch**
 
 Mock `cookies()` and `fetch()` and assert:
 
@@ -364,7 +364,7 @@ expect(fetch).toHaveBeenCalledWith(
 
 Also assert the token is absent from returned bodies and safe errors, 401 deletes no cookie silently, and malformed upstream JSON fails closed with a correlation reference.
 
-- [ ] **Step 4: Implement `workspace-api.ts`**
+- [x] **Step 4: Implement `workspace-api.ts`**
 
 Mark it `server-only`. Require `INTERNAL_API_BASE_URL`, allow only `http://127.0.0.1` or `http://localhost` when `APP_ENV=local`, require HTTPS otherwise, build paths from typed IDs, set `cache: "no-store"`, parse JSON through the supplied schema, and map upstream errors to:
 
@@ -383,7 +383,7 @@ type SafeWorkspaceError = {
 
 Do not log headers, cookies, tokens, bodies, signed URLs, or provider responses.
 
-- [ ] **Step 5: Write RED route allowlist tests**
+- [x] **Step 5: Write RED route allowlist tests**
 
 Test all three approved GETs and rejection of:
 
@@ -394,7 +394,7 @@ GET /api/workspace/projects/not-a-uuid
 GET /api/workspace/projects/<uuid>/documents
 ```
 
-- [ ] **Step 6: Implement the same-origin GET gateway**
+- [x] **Step 6: Implement the same-origin GET gateway**
 
 For project and workstream details, compose only the protected upstream responses needed by the screen:
 
@@ -412,7 +412,7 @@ If `document === null`, readiness is `null`. For readiness, request participant 
 
 Never copy a detailed readiness payload into the manager branch.
 
-- [ ] **Step 7: Separate the local API port**
+- [x] **Step 7: Separate the local API port**
 
 Change API bootstrap to:
 
@@ -431,7 +431,7 @@ API_PORT=3001
 INTERNAL_API_BASE_URL=http://127.0.0.1:3001
 ```
 
-- [ ] **Step 8: Verify Task 2**
+- [x] **Step 8: Verify Task 2**
 
 Run:
 
@@ -446,7 +446,7 @@ pnpm --filter @evaluation/api typecheck
 pnpm scan:secrets
 ```
 
-- [ ] **Step 9: Run the critical bounded review and commit**
+- [x] **Step 9: Run the critical bounded review and commit**
 
 One specification review and one security/code-quality review inspect only cookie handling, path allowlisting, error redaction, manager readiness projection, and token containment. Fix confirmed P0/P1 findings once.
 

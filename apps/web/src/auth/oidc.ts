@@ -136,6 +136,18 @@ export function openAuthCookie(
   }
 }
 
+export function sessionAccessToken(encryptedSession: string, settings: OidcSettings): string {
+  const session = openAuthCookie(
+    encryptedSession,
+    settings.sessionSecret,
+    "session",
+  ) as SessionCookie;
+  if (typeof session.accessToken !== "string" || session.accessToken.trim().length === 0) {
+    throw new WebAuthError("AUTH_INVALID_SESSION", "errors.auth.invalidSession", 401);
+  }
+  return session.accessToken;
+}
+
 export function authCookieOptions(environment: string, maxAge: number) {
   return {
     httpOnly: true,

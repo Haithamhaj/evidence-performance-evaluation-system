@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { authCookieOptions, openAuthCookie, sealAuthCookie } from "./oidc.js";
+import { authCookieOptions, openAuthCookie, sealAuthCookie, sessionAccessToken } from "./oidc.js";
 
 const secret = "local-test-session-secret-with-at-least-32-characters";
+const settings = {
+  issuer: "http://127.0.0.1:8081/realms/evaluation",
+  clientId: "evaluation-web",
+  audience: "evaluation-api",
+  redirectUri: "http://localhost:3000/api/auth/callback",
+  postLogoutRedirectUri: "http://localhost:3000/ar",
+  sessionSecret: secret,
+  environment: "local",
+};
 
 describe("encrypted OIDC browser cookies", () => {
   it("encrypts state and rejects tampering", () => {
@@ -45,5 +54,71 @@ describe("encrypted OIDC browser cookies", () => {
       sameSite: "lax",
       secure: true,
     });
+  });
+
+  it("returns only the non-empty access token from a valid encrypted session", () => {
+    const encryptedSession = sealAuthCookie(
+      {
+        kind: "session",
+        expiresAt: Date.now() + 60_000,
+        accessToken: "access-token",
+        idToken: "id-token",
+      },
+      secret,
+    );
+
+    expect(sessionAccessToken(encryptedSession, settings)).toBe("access-token");
+  });
+
+  it.each([
+    {
+      name: "expired",
+      payload: {
+        kind: "session" as const,
+        expiresAt: Date.now() - 1,
+        accessToken: "access-token",
+      },
+    },
+    {
+      name: "wrong-kind",
+      payload: {
+        kind: "transaction" as const,
+        expiresAt: Date.now() + 60_000,
+        accessToken: "access-token",
+      },
+    },
+    {
+      name: "empty-token",
+      payload: {
+        kind: "session" as const,
+        expiresAt: Date.now() + 60_000,
+        accessToken: "  ",
+      },
+    },
+  ])("rejects a $name cookie without exposing its payload", ({ payload }) => {
+    const encryptedSession = sealAuthCookie(payload, secret);
+
+    expect(() => sessionAccessToken(encryptedSession, settings)).toThrow(
+      expect.objectContaining({ code: "AUTH_INVALID_SESSION" }),
+    );
+  });
+
+  it("rejects a tampered session cookie", () => {
+    const encryptedSession = sealAuthCookie(
+      {
+        kind: "session",
+        expiresAt: Date.now() + 60_000,
+        accessToken: "access-token",
+      },
+      secret,
+    );
+    const parts = encryptedSession.split(".");
+    const ciphertext = Buffer.from(parts[2] ?? "", "base64url");
+    ciphertext[0] = (ciphertext[0] ?? 0) ^ 1;
+    const tampered = [parts[0], parts[1], ciphertext.toString("base64url")].join(".");
+
+    expect(() => sessionAccessToken(tampered, settings)).toThrow(
+      expect.objectContaining({ code: "AUTH_INVALID_SESSION" }),
+    );
   });
 });
