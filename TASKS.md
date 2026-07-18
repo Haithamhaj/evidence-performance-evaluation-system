@@ -266,6 +266,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T029 — Build Project and Workstream UI
 
+**Status:** Complete — Arabic-first responsive project/workstream screens, same-origin protected actions, role-scoped controls, bilingual routing, RTL/mixed-direction handling, and core browser flows verified.
 **Priority:** P1  
 **Dependencies:** T018–T028  
 **Purpose:** Provide simple list/detail, members, documents, criteria, and status screens.  

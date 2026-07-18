@@ -285,14 +285,24 @@ const ProjectScreenSchema = z
   })
   .strict();
 
-const WorkstreamScreenSchema = z
-  .object({
-    workspace: WorkstreamWorkspaceSchema,
-    document: DocumentDetailSchema.nullable(),
-    readiness: ReadinessViewSchema,
-    criteria: CriteriaWorkspaceSchema,
-  })
-  .strict();
+const WorkstreamScreenSchema = z.union([
+  z
+    .object({
+      workspace: WorkstreamWorkspaceSchema,
+      document: DocumentDetailSchema.nullable(),
+      readiness: ReadinessViewSchema,
+      criteria: CriteriaWorkspaceSchema,
+    })
+    .strict(),
+  z
+    .object({
+      workspace: z.null(),
+      document: z.null(),
+      readiness: z.null(),
+      criteria: CriteriaWorkspaceSchema,
+    })
+    .strict(),
+]);
 
 type RouteContext = {
   readonly params: Promise<{ readonly path: readonly string[] }>;

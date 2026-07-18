@@ -25,12 +25,19 @@ export type ProjectScreenView = {
   readonly criteria: CriteriaWorkspace;
 };
 
-export type WorkstreamScreenView = {
-  readonly workspace: WorkstreamWorkspace;
-  readonly document: DocumentDetail | null;
-  readonly readiness: ReadinessParticipantDetail | ManagerReadinessView | null;
-  readonly criteria: CriteriaWorkspace;
-};
+export type WorkstreamScreenView =
+  | {
+      readonly workspace: WorkstreamWorkspace;
+      readonly document: DocumentDetail | null;
+      readonly readiness: ReadinessParticipantDetail | ManagerReadinessView | null;
+      readonly criteria: CriteriaWorkspace;
+    }
+  | {
+      readonly workspace: null;
+      readonly document: null;
+      readonly readiness: null;
+      readonly criteria: CriteriaWorkspace;
+    };
 
 type ProjectListViewProperties = {
   readonly catalog: Catalog;
@@ -98,10 +105,16 @@ export function ProjectListView({
 type ProjectDetailViewProperties = {
   readonly catalog: Catalog;
   readonly locale: Locale;
+  readonly onMutationSuccess?: () => void | Promise<void>;
   readonly screen: ProjectScreenView;
 };
 
-export function ProjectDetailView({ catalog, locale, screen }: ProjectDetailViewProperties) {
+export function ProjectDetailView({
+  catalog,
+  locale,
+  onMutationSuccess,
+  screen,
+}: ProjectDetailViewProperties) {
   const { criteria, document, readiness, workspace } = screen;
   const { project } = workspace;
   const activeCriteria = criteria.activeSet?.items ?? criteria.proposal?.items ?? [];
@@ -207,6 +220,7 @@ export function ProjectDetailView({ catalog, locale, screen }: ProjectDetailView
             allowedActions: criteria.allowedActions,
             catalog,
             context: criteriaContext(locale, "project", project.id, project.id, document, criteria),
+            ...(onMutationSuccess === undefined ? {} : { onMutationSuccess }),
           })}
         </section>
       </div>
@@ -217,11 +231,54 @@ export function ProjectDetailView({ catalog, locale, screen }: ProjectDetailView
 type WorkstreamDetailViewProperties = {
   readonly catalog: Catalog;
   readonly locale: Locale;
+  readonly onMutationSuccess?: () => void | Promise<void>;
+  readonly projectId: string;
   readonly screen: WorkstreamScreenView;
+  readonly workstreamId: string;
 };
 
-export function WorkstreamDetailView({ catalog, locale, screen }: WorkstreamDetailViewProperties) {
+export function WorkstreamDetailView({
+  catalog,
+  locale,
+  onMutationSuccess,
+  projectId,
+  screen,
+  workstreamId,
+}: WorkstreamDetailViewProperties) {
   const { criteria, document, readiness, workspace } = screen;
+  if (workspace === null) {
+    const criteriaItems = criteria.proposal?.items ?? [];
+    return (
+      <>
+        <nav className="breadcrumbs" aria-label={catalog["workspace.backToProjects"]}>
+          <a href={`/${locale}/projects`}>{catalog["workspace.backToProjects"]}</a>
+        </nav>
+        <section className="workspaceHero">
+          <div>
+            <h1>{catalog["workspace.criteria.title"]}</h1>
+            <p>{catalog["workspace.criteriaProposal"]}</p>
+          </div>
+        </section>
+        <section className="panel criteriaPanel">
+          <ol className="criteriaList">
+            {criteriaItems.map((criterion) => (
+              <li key={criterion.id}>
+                <strong>{criterion.name}</strong>
+                <p>{criterion.expectedBehaviorOrResult}</p>
+                <p>{criterion.evaluationMethod}</p>
+              </li>
+            ))}
+          </ol>
+          {createElement(CriteriaActions, {
+            allowedActions: criteria.allowedActions,
+            catalog,
+            context: criteriaContext(locale, "workstream", workstreamId, projectId, null, criteria),
+            ...(onMutationSuccess === undefined ? {} : { onMutationSuccess }),
+          })}
+        </section>
+      </>
+    );
+  }
   const { workstream } = workspace;
   const criteriaItems = criteria.activeSet?.items ?? criteria.proposal?.items ?? [];
 
@@ -335,6 +392,7 @@ export function WorkstreamDetailView({ catalog, locale, screen }: WorkstreamDeta
               document,
               criteria,
             ),
+            ...(onMutationSuccess === undefined ? {} : { onMutationSuccess }),
           })}
         </section>
       </div>

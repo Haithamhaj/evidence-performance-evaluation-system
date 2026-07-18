@@ -122,6 +122,10 @@ export async function fetchWorkspaceUpstream<T>(input: {
   }
   if (method !== "GET") throw failure(409, "errors.validation", correlationId);
   try {
+    const resourceKind = input.route.kind;
+    const resourceId =
+      input.route.kind === "project" ? input.route.projectId : input.route.workstreamId;
+    const query = new URLSearchParams({ kind: resourceKind, resourceId });
     let workspace: unknown;
     if (input.route.kind === "project") {
       const projectWorkspace = await requestJson(context, path, ProjectIdentitySchema);
@@ -130,7 +134,21 @@ export async function fetchWorkspaceUpstream<T>(input: {
       }
       workspace = projectWorkspace;
     } else {
-      const workstreamWorkspace = await requestJson(context, path, WorkstreamIdentitySchema);
+      let workstreamWorkspace: z.infer<typeof WorkstreamIdentitySchema>;
+      try {
+        workstreamWorkspace = await requestJson(context, path, WorkstreamIdentitySchema);
+      } catch (error) {
+        if (!(error instanceof WorkspaceApiError) || error.status !== 403) throw error;
+        const criteria = await requestJson(context, `/api/v1/dynamic-criteria/workspace?${query}`, {
+          parse: (value: unknown) => value,
+        });
+        return input.schema.parse({
+          workspace: null,
+          document: null,
+          readiness: null,
+          criteria,
+        });
+      }
       if (
         workstreamWorkspace.workstream.id !== input.route.workstreamId ||
         workstreamWorkspace.workstream.projectId !== input.route.projectId
@@ -140,10 +158,6 @@ export async function fetchWorkspaceUpstream<T>(input: {
       workspace = workstreamWorkspace;
     }
 
-    const resourceKind = input.route.kind;
-    const resourceId =
-      input.route.kind === "project" ? input.route.projectId : input.route.workstreamId;
-    const query = new URLSearchParams({ kind: resourceKind, resourceId });
     const document = await requestJson(
       context,
       `/api/v1/documents/resource?${query.toString()}`,

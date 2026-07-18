@@ -2,7 +2,7 @@
 
 import type { CriteriaWorkspaceAction } from "@evaluation/contracts";
 import type { Catalog, Locale } from "@evaluation/localization";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 
 import {
   activateCriteriaAction,
@@ -31,11 +31,17 @@ type CriteriaActionsProperties = {
   readonly allowedActions: readonly CriteriaWorkspaceAction[];
   readonly catalog: Catalog;
   readonly context: CriteriaActionContext;
+  readonly onMutationSuccess?: () => void | Promise<void>;
 };
 
 const initialState: import("./actions").CriteriaActionState = { status: "idle" };
 
-export function CriteriaActions({ allowedActions, catalog, context }: CriteriaActionsProperties) {
+export function CriteriaActions({
+  allowedActions,
+  catalog,
+  context,
+  onMutationSuccess,
+}: CriteriaActionsProperties) {
   const [generateState, generateAction, generatePending] = useActionState(
     generateCriteriaAction,
     initialState,
@@ -64,6 +70,19 @@ export function CriteriaActions({ allowedActions, catalog, context }: CriteriaAc
     activateCriteriaAction,
     initialState,
   );
+  const mutationSucceeded = [
+    generateState,
+    reviewState,
+    publishState,
+    acknowledgeState,
+    objectState,
+    resolveState,
+    activateState,
+  ].some((state) => state.status === "success");
+
+  useEffect(() => {
+    if (mutationSucceeded) void onMutationSuccess?.();
+  }, [mutationSucceeded, onMutationSuccess]);
 
   return (
     <div className="criteriaActions">
@@ -74,7 +93,7 @@ export function CriteriaActions({ allowedActions, catalog, context }: CriteriaAc
           <input
             name="idempotencyKey"
             type="hidden"
-            value={`criteria:${context.kind}:${context.resourceId}:${context.documentVersionId}`}
+            value={`criteria:${context.kind}:${context.resourceId}:${context.documentVersionId}:${context.proposalId ?? "initial"}`}
           />
           {context.replacementRequest === null ? null : (
             <>

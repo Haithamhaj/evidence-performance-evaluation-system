@@ -133,17 +133,23 @@ export function WorkspaceClient(properties: WorkspaceClientProperties) {
       projects: state.projects,
     });
   }
-  return state.kind === "project"
-    ? createElement(ProjectDetailView, {
-        catalog: properties.catalog,
-        locale: properties.locale,
-        screen: state.screen,
-      })
-    : createElement(WorkstreamDetailView, {
-        catalog: properties.catalog,
-        locale: properties.locale,
-        screen: state.screen,
-      });
+  if (state.kind === "project") {
+    return createElement(ProjectDetailView, {
+      catalog: properties.catalog,
+      locale: properties.locale,
+      onMutationSuccess: load,
+      screen: state.screen,
+    });
+  }
+  if (properties.mode !== "workstream") return null;
+  return createElement(WorkstreamDetailView, {
+    catalog: properties.catalog,
+    locale: properties.locale,
+    onMutationSuccess: load,
+    projectId: properties.projectId,
+    screen: state.screen,
+    workstreamId: properties.workstreamId,
+  });
 }
 
 async function loadOwnerNames(

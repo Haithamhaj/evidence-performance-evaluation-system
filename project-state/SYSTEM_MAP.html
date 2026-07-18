@@ -708,6 +708,74 @@
             ><span>Activation is atomic; old timestamps continue resolving to old versions.</span>
           </div>
         </div>
+        <div
+          class="flow"
+          style="margin-top: 16px"
+          aria-label="Implemented Phase 1 browser and protected action flow"
+        >
+          <div class="node">
+            <span class="tag">RTL verified</span><strong>Browser Workspace</strong
+            ><span
+              >Arabic-first and English screens show only role-allowed actions; Arabic employee
+              release remains gated by T016.</span
+            >
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Same-Origin Web Gateway</strong
+            ><span>The encrypted session and bearer token remain server-side.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Protected API</strong
+            ><span
+              >Every read and mutation is authenticated, scoped, validated, and audited where
+              required.</span
+            >
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>Owned Domain Boundary</strong
+            ><span
+              >Projects, documents, and criteria expose public reads/actions without cross-table
+              shortcuts.</span
+            >
+          </div>
+        </div>
+        <div
+          class="flow"
+          style="margin-top: 16px"
+          aria-label="Arabic-first project and workstream screen flow"
+        >
+          <div class="node">
+            <strong>قائمة المشاريع</strong
+            ><span>Project list and status, Arabic-first with an English switch.</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>المشروع ومسارات العمل</strong
+            ><span
+              >Current people, immutable documents, readiness, and criteria are clearly
+              separated.</span
+            >
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>مراجعة بشرية</strong
+            ><span
+              >One frozen contributor response, manager resolution, and prospective activation
+              remain explicit human actions.</span
+            >
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">
+            <strong>سجل محفوظ</strong
+            ><span
+              >No ratings, rankings, readiness percentages, or retroactive criteria are
+              introduced.</span
+            >
+          </div>
+        </div>
       </section>
 
       <section id="roles" class="panel">
@@ -863,9 +931,10 @@
         <div class="phase">
           <b>Phase 1 — Projects and Documents</b
           ><span
-            >Bundles A–C complete: governed project responsibility, protected templates, safe
-            uploads, immutable document versions, source-bound analysis, human-reviewed criteria,
-            and prospective revision (T018–T028). Bundle D interface work (T029) is next.</span
+            >Complete through Bundles A–D: governed project responsibility, protected templates,
+            safe uploads, immutable document versions, source-bound analysis, human-reviewed
+            criteria, prospective revision, and the Arabic-first bilingual workspace
+            (T018–T029).</span
           >
         </div>
         <div class="phase">
@@ -946,6 +1015,15 @@
               protected-rule change.
             </p>
           </div>
+          <div class="card">
+            <span class="tag">Verified</span>
+            <h3>Phase 1 Bundle D</h3>
+            <p>
+              T029 passed deterministic project/workstream browser flows, Arabic/English routing,
+              RTL and mixed-direction layout, role-scoped actions, manager-safe readiness, and
+              responsive keyboard-access checks with no protected-rule change.
+            </p>
+          </div>
           <div class="card wide">
             <span class="tag">Protected</span>
             <h3>Do Not Drift</h3>
@@ -992,8 +1070,8 @@
       </section>
     </main>
     <footer>
-      Evidence-Based Performance Evaluation System · Operational state updated 2026-07-17 · Phase 0
-      and Phase 1 Bundles A–C complete · Arabic rubric remains inactive pending human approval
+      Evidence-Based Performance Evaluation System · Operational state updated 2026-07-18 · Phase 0
+      and Phase 1 complete · Arabic rubric remains inactive pending human approval
     </footer>
   </body>
 </html>

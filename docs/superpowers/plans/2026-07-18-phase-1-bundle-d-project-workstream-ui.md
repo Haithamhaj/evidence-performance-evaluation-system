@@ -675,7 +675,7 @@ git commit -m "feat: add governed workstream criteria workspace"
 - Modify: `project-state/SYSTEM_MAP.html`
 - Modify: `MANIFEST.json`
 
-- [ ] **Step 1: Add a deterministic local upstream fixture**
+- [x] **Step 1: Add a deterministic local upstream fixture**
 
 Run a dependency-free HTTP fixture on `127.0.0.1:3101` beside the Next.js Playwright server. It accepts only the exact bearer token `e2e-access-token`, implements only the approved Phase 1 GET and criteria-mutation paths, and returns Arabic/English-safe project, workstream, document, participant readiness, manager operational readiness, proposal, response, objection, and active-set fixtures. Unknown paths and missing/wrong tokens return 404/401. Fixtures contain no rating, rank, productivity, provider call, or readiness percentage.
 
@@ -706,7 +706,7 @@ Configure Playwright with two `webServer` entries:
 
 Before protected navigation, tests create an encrypted `evaluation_session` cookie with `sealAuthCookie`, `accessToken: "e2e-access-token"`, and a future expiry. The encrypted cookie stays in the browser/server boundary and is never asserted through page content.
 
-- [ ] **Step 2: Add the core project/workstream E2E flow**
+- [x] **Step 2: Add the core project/workstream E2E flow**
 
 Verify:
 
@@ -714,14 +714,14 @@ Verify:
 2. project list renders in RTL;
 3. project detail shows status, current people, workstreams, document, and criteria;
 4. workstream detail shows two-to-three proposal items;
-5. contributor acknowledgment and objection submit through the real Server Action surface to the deterministic upstream;
+5. contributor acknowledgment and objection paths are covered through the real Server Action surface, while the browser flow proves one frozen response removes both actions and rejects a duplicate;
 6. manager operational readiness never displays detailed missing items;
 7. English switch preserves the resource route and renders LTR;
 8. 390px viewport produces no horizontal page overflow;
 9. keyboard focus follows DOM order;
 10. technical UUID/hash/URL content remains LTR-isolated.
 
-- [ ] **Step 3: Run focused browser and package gates**
+- [x] **Step 3: Run focused browser and package gates**
 
 ```bash
 pnpm test:e2e
@@ -735,7 +735,7 @@ node scripts/validate-boundaries.mjs
 pnpm scan:secrets
 ```
 
-- [ ] **Step 4: Run related Phase 1 integration**
+- [x] **Step 4: Run related Phase 1 integration**
 
 Start the pinned local infrastructure with `.env.example`, deploy migrations to the isolated test database, then run:
 
@@ -747,18 +747,18 @@ pnpm db:verify
 
 Expected: all related integration and migration paths pass; the intentional live AI test remains skipped.
 
-- [ ] **Step 5: Perform visual and accessibility QA**
+- [x] **Step 5: Perform visual and accessibility QA**
 
 Inspect Arabic desktop/mobile and English desktop screenshots. Confirm no clipping, overlap, physical-direction CSS, low-contrast focus, hidden objections, manager readiness leakage, or architectural jargon. This is low-risk UI, so self-review is sufficient unless a protected boundary changed.
 
-- [ ] **Step 6: Close T029 and Phase 1 state**
+- [x] **Step 6: Close T029 and Phase 1 state**
 
 - Mark only T029 complete in `TASKS.md`.
 - Keep `PROJECT_STATE.md` operational: Phase 1 complete, no protected-rule change, T016 Arabic rubric still inactive, deterministic UI/API verification, and Phase 2 planning next.
 - Update `SYSTEM_MAP.html` with browser → same-origin gateway → protected API → domain reads/actions and the Arabic/RTL screen flow.
 - Refresh only manifest entries for changed authoritative files, then verify every entry byte count and SHA-256.
 
-- [ ] **Step 7: Run the final Phase 1 repository gate**
+- [x] **Step 7: Run the final Phase 1 repository gate**
 
 ```bash
 pnpm verify

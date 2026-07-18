@@ -349,6 +349,45 @@ describe("server-only workspace upstream", () => {
     ]);
   });
 
+  it("falls back to the authorized frozen criteria snapshot without workspace or document data", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(criteria)));
+
+    const result = await fetchWorkspaceUpstream({
+      route: { kind: "workstream", projectId, workstreamId },
+      schema: projectScreenSchema,
+    });
+
+    expect(result).toEqual({
+      workspace: null,
+      document: null,
+      readiness: null,
+      criteria,
+    });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      `http://127.0.0.1:3001/api/v1/projects/${projectId}/workstreams/${workstreamId}/workspace`,
+      `http://127.0.0.1:3001/api/v1/dynamic-criteria/workspace?kind=workstream&resourceId=${workstreamId}`,
+    ]);
+  });
+
+  it("keeps the criteria-only fallback forbidden when the frozen snapshot endpoint denies access", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+      .mockResolvedValueOnce(new Response(null, { status: 403 }));
+
+    await expect(
+      fetchWorkspaceUpstream({
+        route: { kind: "workstream", projectId, workstreamId },
+        schema: projectScreenSchema,
+      }),
+    ).rejects.toMatchObject({ status: 403, messageKey: "errors.forbidden" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects a manager operational response containing participant detail", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify(projectWorkspace)))

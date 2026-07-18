@@ -194,7 +194,9 @@ describe("localized project workspace views", () => {
       createElement(WorkstreamDetailView, {
         catalog: getCatalogSync("ar"),
         locale: "ar",
+        projectId,
         screen,
+        workstreamId,
       }),
     );
 
@@ -228,5 +230,33 @@ describe("localized project workspace views", () => {
     expect(markup).toContain('value="object"');
     expect(markup).not.toContain("Resolve objections");
     expect(markup).not.toContain("Activate criteria");
+  });
+
+  it("uses proposal lineage in generation idempotency keys", () => {
+    const proposalId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const documentVersionId = "88888888-8888-4888-8888-888888888888";
+    const markup = renderToStaticMarkup(
+      createElement(CriteriaActions, {
+        allowedActions: ["generate"],
+        catalog: getCatalogSync("en"),
+        context: {
+          locale: "en",
+          kind: "workstream",
+          resourceId: workstreamId,
+          projectId,
+          proposalId,
+          proposalVersion: 3,
+          documentVersionId,
+          replacementRequest: {
+            replacesProposalId: proposalId,
+            ownerFeedback: "Generate a corrected replacement.",
+          },
+        },
+      }),
+    );
+
+    expect(markup).toContain(
+      `value="criteria:workstream:${workstreamId}:${documentVersionId}:${proposalId}"`,
+    );
   });
 });

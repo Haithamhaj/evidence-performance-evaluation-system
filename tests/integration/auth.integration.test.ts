@@ -33,7 +33,7 @@ let userId = "";
 const clientIds: string[] = [];
 let apiProcess: import("node:child_process").ChildProcessWithoutNullStreams | undefined;
 const apiOutput: string[] = [];
-const apiBaseUrl = "http://127.0.0.1:3000";
+const apiBaseUrl = "http://127.0.0.1:3001";
 let validAccessToken = "";
 let validEncryptedSession = "";
 const database = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");

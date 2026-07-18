@@ -21,16 +21,22 @@ export function WorkspaceShell({
   return (
     <div className="appShell">
       <header className="appHeader">
-        <a className="brandLink" href={`/${locale}`}>
+        <a className="brandLink" data-focus-id="brand" href={`/${locale}`}>
           {catalog["shell.title"]}
         </a>
         <nav className="appNavigation" aria-label={catalog["nav.home"]}>
-          <a href={`/${locale}`}>{catalog["nav.home"]}</a>
-          <a href={`/${locale}/projects`}>{catalog["nav.projects"]}</a>
-          <a href={localeSwitchHref} hrefLang={alternateLocale}>
+          <a data-focus-id="home" href={`/${locale}`}>
+            {catalog["nav.home"]}
+          </a>
+          <a data-focus-id="projects" href={`/${locale}/projects`}>
+            {catalog["nav.projects"]}
+          </a>
+          <a data-focus-id="locale" href={localeSwitchHref} hrefLang={alternateLocale}>
             {catalog[`locale.switchTo${alternateLocale === "ar" ? "Arabic" : "English"}`]}
           </a>
-          <a href={`/api/auth/${authAction}`}>{catalog[`actions.${authAction}`]}</a>
+          <a data-focus-id={authAction} href={`/api/auth/${authAction}`}>
+            {catalog[`actions.${authAction}`]}
+          </a>
         </nav>
       </header>
       <main className="appMain" id="main-content">
