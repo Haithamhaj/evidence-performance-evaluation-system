@@ -62,6 +62,9 @@ async function collectSourceFiles(directory) {
 function workspaceDirectory(filePath) {
   const relativePath = path.relative(scanRoot, filePath);
   const [category, workspace] = relativePath.split(path.sep);
+  if (!category || !workspace) {
+    return undefined;
+  }
   return path.join(scanRoot, category, workspace);
 }
 
@@ -128,7 +131,13 @@ function inspectImport(filePath, specifier) {
 
   if (specifier.startsWith(".")) {
     const importedPath = path.resolve(path.dirname(filePath), specifier);
-    if (workspaceDirectory(importedPath) !== workspaceDirectory(filePath)) {
+    const importedWorkspace = workspaceDirectory(importedPath);
+    const sourceWorkspace = workspaceDirectory(filePath);
+    if (
+      importedWorkspace !== undefined &&
+      sourceWorkspace !== undefined &&
+      importedWorkspace !== sourceWorkspace
+    ) {
       return `BOUNDARY_CROSS_WORKSPACE_RELATIVE:${relativeFile}:${specifier}`;
     }
   }
