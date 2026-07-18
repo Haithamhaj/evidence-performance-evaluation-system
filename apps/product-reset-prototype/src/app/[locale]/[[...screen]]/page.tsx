@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 
+import { PrototypeApp } from "../../prototype-app";
+
 type PrototypePageProperties = {
   readonly params: Promise<{
     readonly locale: string;
@@ -8,13 +10,8 @@ type PrototypePageProperties = {
 };
 
 export default async function PrototypePage({ params }: PrototypePageProperties) {
-  const { locale } = await params;
+  const { locale, screen = [] } = await params;
   if (locale !== "ar" && locale !== "en") notFound();
 
-  return (
-    <main>
-      <p>بيانات تركيبية — Synthetic data</p>
-      <h1>{locale === "ar" ? "عملي" : "My Work"}</h1>
-    </main>
-  );
+  return <PrototypeApp initialLocale={locale} initialPath={screen.join("/")} />;
 }
