@@ -40,6 +40,14 @@ const GetCommandSchema = z
     documentId: z.string().uuid(),
   })
   .strict();
+const GetByResourceCommandSchema = z
+  .object({
+    actor: ActorSchema,
+    correlationId: z.string().uuid(),
+    kind: z.enum(["project", "workstream"]),
+    resourceId: z.string().uuid(),
+  })
+  .strict();
 
 export class DocumentService {
   private readonly database: Database;
@@ -192,6 +200,24 @@ export class DocumentService {
     if (identity === null) throw notFound();
     await authorizeDocument(this.database, parsed.actor, identity, "document.read", now);
     return loadDetail(this.database, parsed.documentId);
+  }
+
+  async getByResource(
+    command: unknown,
+  ): Promise<import("@evaluation/contracts").DocumentDetail | null> {
+    const parsed = GetByResourceCommandSchema.parse(command);
+    const now = validNow(this.clock());
+    const identity = await this.reader.read({
+      kind: parsed.kind,
+      resourceId: parsed.resourceId,
+    });
+    if (identity === null) throw notFound();
+    await authorizeDocument(this.database, parsed.actor, identity, "document.read", now);
+    const record = await this.database.documentRecord.findFirst({
+      where: recordScope(identity),
+      select: { id: true },
+    });
+    return record === null ? null : loadDetail(this.database, record.id);
   }
 }
 

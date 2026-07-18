@@ -56,6 +56,14 @@ export class WorkstreamsController {
     });
   }
 
+  workspace(request: ProjectRequest, projectId: string, workstreamId: string) {
+    return this.service.getWorkspace({
+      actor: actor(request),
+      projectId: parseId(projectId),
+      workstreamId: parseId(workstreamId),
+    });
+  }
+
   addContributor(request: ProjectRequest, projectId: string, workstreamId: string, body: unknown) {
     return this.service.addContributor({
       actor: actor(request),
@@ -150,6 +158,21 @@ SetMetadata(PROJECT_POLICY_ACTION, "resource.read")(
   getDescriptor,
 );
 UseGuards(ProjectPolicyGuard)(WorkstreamsController.prototype, "get", getDescriptor);
+
+const workspaceDescriptor = Object.getOwnPropertyDescriptor(
+  WorkstreamsController.prototype,
+  "workspace",
+)!;
+Req()(WorkstreamsController.prototype, "workspace", 0);
+Param("projectId")(WorkstreamsController.prototype, "workspace", 1);
+Param("workstreamId")(WorkstreamsController.prototype, "workspace", 2);
+Get(":workstreamId/workspace")(WorkstreamsController.prototype, "workspace", workspaceDescriptor);
+SetMetadata(PROJECT_POLICY_ACTION, "resource.read")(
+  WorkstreamsController.prototype,
+  "workspace",
+  workspaceDescriptor,
+);
+UseGuards(ProjectPolicyGuard)(WorkstreamsController.prototype, "workspace", workspaceDescriptor);
 
 const addDescriptor = Object.getOwnPropertyDescriptor(
   WorkstreamsController.prototype,

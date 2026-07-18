@@ -47,6 +47,35 @@ export class CriteriaDocumentReader {
     return this.getPrerequisitesUsing(this.database as DocumentModel.DocumentDatabase, input);
   }
 
+  async getCurrentPrerequisites(
+    input: Readonly<{
+      kind: "project" | "workstream";
+      resourceId: string;
+    }>,
+  ): Promise<CriteriaDocumentPrerequisites | null> {
+    const record = await this.database.documentRecord.findUnique({
+      where:
+        input.kind === "project"
+          ? { projectId: input.resourceId }
+          : { workstreamId: input.resourceId },
+      select: { id: true, currentVersion: true },
+    });
+    if (record === null || record.currentVersion < 1) return null;
+    const version = await this.database.documentVersion.findUnique({
+      where: {
+        documentId_version: { documentId: record.id, version: record.currentVersion },
+      },
+      select: { id: true },
+    });
+    return version === null ? null : this.getPrerequisites({ documentVersionId: version.id });
+  }
+
+  async getVersionIdentity(
+    input: Readonly<{ documentVersionId: string }>,
+  ): Promise<CriteriaDocumentVersionIdentity | null> {
+    return this.getVersionIdentityUsing(this.database, input);
+  }
+
   async getPrerequisitesIn(
     transaction: DocumentModel.DocumentTransaction,
     input: Readonly<{ documentVersionId: string }>,
@@ -75,7 +104,14 @@ export class CriteriaDocumentReader {
       WHERE version.id = ${input.documentVersionId}::uuid
       FOR UPDATE OF document
     `;
-    const version = await transaction.documentVersion.findUnique({
+    return this.getVersionIdentityUsing(transaction, input);
+  }
+
+  private async getVersionIdentityUsing(
+    database: Pick<DocumentModel.DocumentDatabase, "documentVersion" | "documentRecord">,
+    input: Readonly<{ documentVersionId: string }>,
+  ): Promise<CriteriaDocumentVersionIdentity | null> {
+    const version = await database.documentVersion.findUnique({
       where: { id: input.documentVersionId },
       select: {
         id: true,
@@ -84,7 +120,7 @@ export class CriteriaDocumentReader {
       },
     });
     if (version === null) return null;
-    const document = await transaction.documentRecord.findUnique({
+    const document = await database.documentRecord.findUnique({
       where: { id: version.documentId },
       select: { currentVersion: true },
     });

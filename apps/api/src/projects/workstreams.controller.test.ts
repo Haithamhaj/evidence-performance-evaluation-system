@@ -25,6 +25,7 @@ function serviceMock() {
     createWorkstream: vi.fn(async (value: unknown) => value),
     listWorkstreams: vi.fn(async (value: unknown) => value),
     getWorkstream: vi.fn(async (value: unknown) => value),
+    getWorkspace: vi.fn(async (value: unknown) => value),
     addContributor: vi.fn(async (value: unknown) => value),
     endContributor: vi.fn(async (value: unknown) => value),
     transitionWorkstream: vi.fn(async (value: unknown) => value),
@@ -98,5 +99,24 @@ describe("WorkstreamsController", () => {
     expect(service.listWorkstreams).not.toHaveBeenCalled();
     expect(service.getWorkstream).not.toHaveBeenCalled();
     expect(service.endContributor).not.toHaveBeenCalled();
+  });
+
+  it("delegates the protected workstream workspace read", async () => {
+    const service = serviceMock();
+    const controller = new WorkstreamsController(service as never);
+    const projectId = crypto.randomUUID();
+    const workstreamId = crypto.randomUUID();
+    await controller.workspace(request, projectId, workstreamId);
+    expect(service.getWorkspace).toHaveBeenCalledWith({
+      actor: { userId: request.principal.userId, active: true },
+      projectId,
+      workstreamId,
+    });
+    expect(Reflect.getMetadata(PATH_METADATA, WorkstreamsController.prototype.workspace)).toBe(
+      ":workstreamId/workspace",
+    );
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, WorkstreamsController.prototype.workspace),
+    ).toContain(ProjectPolicyGuard);
   });
 });

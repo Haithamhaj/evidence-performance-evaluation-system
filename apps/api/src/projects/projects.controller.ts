@@ -51,6 +51,13 @@ export class ProjectsController {
     return this.service.getProject({ actor: actor(request), projectId: parseId(projectId) });
   }
 
+  workspace(request: ProjectRequest, projectId: string) {
+    return this.service.getWorkspace({
+      actor: actor(request),
+      projectId: parseId(projectId),
+    });
+  }
+
   addMember(request: ProjectRequest, projectId: string, body: unknown) {
     return this.service.addProjectMember({
       actor: actor(request),
@@ -130,6 +137,20 @@ SetMetadata(PROJECT_POLICY_ACTION, "resource.read")(
   getDescriptor,
 );
 UseGuards(ProjectPolicyGuard)(ProjectsController.prototype, "get", getDescriptor);
+
+const workspaceDescriptor = Object.getOwnPropertyDescriptor(
+  ProjectsController.prototype,
+  "workspace",
+)!;
+Req()(ProjectsController.prototype, "workspace", 0);
+Param("projectId")(ProjectsController.prototype, "workspace", 1);
+Get(":projectId/workspace")(ProjectsController.prototype, "workspace", workspaceDescriptor);
+SetMetadata(PROJECT_POLICY_ACTION, "resource.read")(
+  ProjectsController.prototype,
+  "workspace",
+  workspaceDescriptor,
+);
+UseGuards(ProjectPolicyGuard)(ProjectsController.prototype, "workspace", workspaceDescriptor);
 
 const addMemberDescriptor = Object.getOwnPropertyDescriptor(
   ProjectsController.prototype,

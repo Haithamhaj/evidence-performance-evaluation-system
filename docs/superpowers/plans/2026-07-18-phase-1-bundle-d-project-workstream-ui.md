@@ -150,6 +150,10 @@ type CriteriaWorkspace = {
     effectiveTo: string | null;
     items: Array<CriterionProposalItem & { id: string; position: number }>;
   };
+  replacementRequest: null | {
+    replacesProposalId: string;
+    ownerFeedback: string;
+  };
   allowedActions: CriteriaWorkspaceAction[];
 };
 ```
@@ -162,7 +166,7 @@ type CriteriaWorkspace = {
 
 - An absent document or criteria proposal returns `null` inside an authorized response. An unauthorized resource remains 403 and is never converted to “absent.”
 
-- [ ] **Step 1: Write strict contract tests**
+- [x] **Step 1: Write strict contract tests**
 
 Add fixtures that prove:
 
@@ -183,7 +187,7 @@ expect(() =>
 ).toThrow();
 ```
 
-- [ ] **Step 2: Run the contract test RED**
+- [x] **Step 2: Run the contract test RED**
 
 Run:
 
@@ -193,11 +197,11 @@ pnpm exec vitest run --root . packages/contracts/src/workspace.test.ts
 
 Expected: FAIL because `workspace.ts` and its exports do not exist.
 
-- [ ] **Step 3: Implement the strict schemas and exports**
+- [x] **Step 3: Implement the strict schemas and exports**
 
 Use `.strict()` at every object boundary, ISO UTC datetime schemas for periods, existing `ProjectSchema`, `WorkstreamSchema`, and `CriterionProposalItemSchema`, and a unique sorted `allowedActions` array.
 
-- [ ] **Step 4: Add failing project/workstream workspace tests**
+- [x] **Step 4: Add failing project/workstream workspace tests**
 
 Tests create current, ended, and future responsibility windows and assert:
 
@@ -215,11 +219,11 @@ expect(view.people).not.toContainEqual(
 
 The project view includes only authorized child workstreams. A contributor cannot expand the project view beyond scopes already allowed by the existing list services.
 
-- [ ] **Step 5: Implement project/workstream workspace methods**
+- [x] **Step 5: Implement project/workstream workspace methods**
 
 Add `getWorkspace()` methods that reuse the existing `getProject()`/`getWorkstream()` authorization scope, select current half-open responsibility windows at the service clock, include only `User.id` and `User.displayName`, and serialize through the new contracts. No email, role-assignment row, manager decision, or audit data enters the view.
 
-- [ ] **Step 6: Add failing document-by-resource tests**
+- [x] **Step 6: Add failing document-by-resource tests**
 
 Cover an authorized participant, cross-department denial, absent document, and completed resource read:
 
@@ -232,11 +236,11 @@ await expect(
 ).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH" });
 ```
 
-- [ ] **Step 7: Implement exact document lookup**
+- [x] **Step 7: Implement exact document lookup**
 
 Resolve the resource through `DocumentResourceIdentityReader`, authorize `document.read`, query the one unique record, and call existing `loadDetail`. Return `null` only after authorization when no record exists.
 
-- [ ] **Step 8: Add failing criteria-workspace tests**
+- [x] **Step 8: Add failing criteria-workspace tests**
 
 Cover:
 
@@ -250,15 +254,15 @@ Cover:
 - manager-facing response contains no readiness detail or percentage;
 - superseded/rejected proposals expose no illegal action.
 
-- [ ] **Step 9: Implement `CriteriaWorkspaceQueryService`**
+- [x] **Step 9: Implement `CriteriaWorkspaceQueryService`**
 
 Load the latest proposal by `proposalNumber desc`, its ordered items, frozen snapshot, viewer eligibility/response, aggregate counts, manager resolution, and active set with its proposal items. Compute each `allowedAction` through the injected existing criteria policy plus state/eligibility preconditions. Do not mutate or lock history.
 
-- [ ] **Step 10: Add controller route tests RED, then implement routes**
+- [x] **Step 10: Add controller route tests RED, then implement routes**
 
 Each controller parses UUID/kind strictly, passes only authenticated actor/resource inputs to its public service, and retains the existing policy guard. No controller accesses Prisma.
 
-- [ ] **Step 11: Verify Task 1**
+- [x] **Step 11: Verify Task 1**
 
 Run:
 
@@ -283,7 +287,7 @@ node scripts/validate-boundaries.mjs
 
 Expected: all focused tests, type checks, and boundary validation pass.
 
-- [ ] **Step 12: Run the critical bounded review and commit**
+- [x] **Step 12: Run the critical bounded review and commit**
 
 One specification review and one security/code-quality review inspect only these new reads. Fix confirmed P0/P1 findings once and re-review corrected findings only.
 
@@ -615,7 +619,8 @@ For upload sources, show file name/type/size/hash only; signed URLs are fetched 
 
 Render a form only when its exact action appears in `allowedActions`:
 
-- `generate`: current document version and idempotency key;
+- `generate`: current document version and idempotency key, plus the exact hidden
+  `replacesProposalId` and `ownerFeedback` from `replacementRequest` when present;
 - `owner_review`: reject/correction/alternative/wording action plus reason/feedback;
 - `publish`: approval reason;
 - `respond`: acknowledge or object with required reason;

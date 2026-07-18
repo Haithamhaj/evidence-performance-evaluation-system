@@ -3,6 +3,7 @@ import { createDatabaseClient } from "@evaluation/database";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createProjectService } from "./project-service.js";
+import { createWorkstreamService } from "./workstream-service.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 const now = new Date("2026-07-17T12:00:00Z");
@@ -189,6 +190,90 @@ describe("ProjectService", () => {
       scopeId: created.id,
       reason: "Approved department project",
     });
+  });
+
+  it("returns only current people and already-authorized child workstreams", async () => {
+    const projectService = createProjectService(client, databaseAuditWriter as never, () => now);
+    const workstreamService = createWorkstreamService(
+      client,
+      databaseAuditWriter as never,
+      () => now,
+    );
+    const project = await projectService.createProject(command());
+    const first = await workstreamService.createWorkstream({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      input: {
+        name: "Visible stream",
+        description: "Scoped",
+        primaryOwnerId: fixture.ownerId,
+        startsAt: "2026-07-17T06:00:00Z",
+        reason: "Approved",
+      },
+    });
+    const second = await workstreamService.createWorkstream({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      input: {
+        name: "Other stream",
+        description: "Scoped",
+        primaryOwnerId: fixture.ownerId,
+        startsAt: "2026-07-17T06:00:00Z",
+        reason: "Approved",
+      },
+    });
+    await workstreamService.addContributor({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      workstreamId: first.id,
+      input: {
+        userId: fixture.memberId,
+        startsAt: "2026-07-17T07:00:00Z",
+        reason: "Current contribution",
+      },
+    });
+    await client.responsibilityWindow.createMany({
+      data: [
+        {
+          employeeId: fixture.memberId,
+          projectId: project.id,
+          responsibilityType: "contributor",
+          startsAt: new Date("2026-07-16T06:00:00Z"),
+          endsAt: new Date("2026-07-17T11:00:00Z"),
+          reason: "Former project contribution",
+          createdById: fixture.managerId,
+        },
+        {
+          employeeId: fixture.memberId,
+          projectId: project.id,
+          responsibilityType: "contributor",
+          startsAt: new Date("2026-07-19T06:00:00Z"),
+          reason: "Future project contribution",
+          createdById: fixture.managerId,
+        },
+      ],
+    });
+
+    const ownerView = await projectService.getWorkspace({
+      actor: { userId: fixture.ownerId, active: true },
+      projectId: project.id,
+    });
+    expect(
+      ownerView.people.map(({ person, responsibilityType }) => [
+        person.displayName,
+        responsibilityType,
+      ]),
+    ).toEqual([["Owner", "original"]]);
+    expect(ownerView.workstreams.map(({ id }) => id)).toEqual([first.id, second.id]);
+
+    const contributorView = await projectService.getWorkspace({
+      actor: { userId: fixture.memberId, active: true },
+      projectId: project.id,
+    });
+    expect(contributorView.workstreams.map(({ id }) => id)).toEqual([first.id]);
   });
 
   it("denies cross-department managers and system administrators", async () => {

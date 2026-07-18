@@ -44,6 +44,7 @@ describe("DocumentsController", () => {
     const service = {
       create: vi.fn(async (value: unknown) => value),
       get: vi.fn(),
+      getByResource: vi.fn(async (value: unknown) => value),
       appendVersion: vi.fn(async (value: unknown) => value),
     };
     const controller = new DocumentsController(service as never);
@@ -71,6 +72,33 @@ describe("DocumentsController", () => {
     ).toThrowError(expect.objectContaining({ code: "DOCUMENT_INPUT_INVALID" }));
     expect(service.create).toHaveBeenCalledTimes(1);
     expect(service.appendVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it("strictly delegates exact resource lookup", async () => {
+    const service = {
+      create: vi.fn(),
+      get: vi.fn(),
+      getByResource: vi.fn(async (value: unknown) => value),
+      appendVersion: vi.fn(),
+    };
+    const controller = new DocumentsController(service as never);
+    await controller.getByResource(request, { kind: "project", resourceId: projectId });
+    expect(service.getByResource).toHaveBeenCalledWith({
+      actor: { userId: actorId, active: true },
+      correlationId,
+      kind: "project",
+      resourceId: projectId,
+    });
+    expect(() =>
+      controller.getByResource(request, {
+        kind: "project",
+        resourceId: projectId,
+        readinessPercentage: 90,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DOCUMENT_INPUT_INVALID" }));
+    expect(Reflect.getMetadata(PATH_METADATA, DocumentsController.prototype.getByResource)).toBe(
+      "resource",
+    );
   });
 
   it("validates the document identifier and delegates read authorization to the service", async () => {

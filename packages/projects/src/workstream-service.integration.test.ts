@@ -195,6 +195,61 @@ describe("WorkstreamService", () => {
     ).resolves.toMatchObject({ scopeId: first.id, reason: "Approved workstream" });
   });
 
+  it("returns only current people in the authorized workstream workspace", async () => {
+    const project = await createProject();
+    const service = createWorkstreamService(client, databaseAuditWriter as never, () => now);
+    const workstream = await service.createWorkstream(createCommand(project.id));
+    await service.addContributor({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      workstreamId: workstream.id,
+      input: {
+        userId: fixture.contributorAId,
+        startsAt: "2026-07-17T08:00:00Z",
+        reason: "Current contribution",
+      },
+    });
+    await client.responsibilityWindow.create({
+      data: {
+        employeeId: fixture.contributorBId,
+        workstreamId: workstream.id,
+        responsibilityType: "contributor",
+        startsAt: new Date("2026-07-16T08:00:00Z"),
+        endsAt: new Date("2026-07-17T11:00:00Z"),
+        reason: "Former contribution",
+        createdById: fixture.managerId,
+      },
+    });
+    await client.responsibilityWindow.create({
+      data: {
+        employeeId: fixture.contributorBId,
+        workstreamId: workstream.id,
+        responsibilityType: "contributor",
+        startsAt: new Date("2026-07-19T08:00:00Z"),
+        reason: "Future contribution",
+        createdById: fixture.managerId,
+      },
+    });
+
+    const workspace = await service.getWorkspace({
+      actor: { userId: fixture.contributorAId, active: true },
+      projectId: project.id,
+      workstreamId: workstream.id,
+    });
+    expect(
+      workspace.people.map(({ person, responsibilityType }) => [
+        person.displayName,
+        responsibilityType,
+      ]),
+    ).toEqual([
+      ["owner-a", "original"],
+      ["contributor-a", "contributor"],
+    ]);
+    expect(JSON.stringify(workspace)).not.toContain("@example.invalid");
+    expect(JSON.stringify(workspace)).not.toContain("managerDecision");
+  });
+
   it("rejects cross-department creation, an ineligible owner, and future starts", async () => {
     const project = await createProject();
     const service = createWorkstreamService(client, databaseAuditWriter as never, () => now);

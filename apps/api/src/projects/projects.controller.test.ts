@@ -25,6 +25,7 @@ function serviceMock() {
     createProject: vi.fn(async (value: unknown) => value),
     listProjects: vi.fn(async (value: unknown) => value),
     getProject: vi.fn(async (value: unknown) => value),
+    getWorkspace: vi.fn(async (value: unknown) => value),
     addProjectMember: vi.fn(async (value: unknown) => value),
     endProjectMember: vi.fn(async (value: unknown) => value),
     transitionProject: vi.fn(async (value: unknown) => value),
@@ -90,5 +91,22 @@ describe("ProjectsController", () => {
     ).toThrowError(expect.objectContaining({ code: "PROJECT_INPUT_INVALID", status: 400 }));
     expect(service.getProject).not.toHaveBeenCalled();
     expect(service.endProjectMember).not.toHaveBeenCalled();
+  });
+
+  it("delegates the protected workspace read without accepting actor input", async () => {
+    const service = serviceMock();
+    const controller = new ProjectsController(service as never);
+    const projectId = crypto.randomUUID();
+    await controller.workspace(request, projectId);
+    expect(service.getWorkspace).toHaveBeenCalledWith({
+      actor: { userId: request.principal.userId, active: true },
+      projectId,
+    });
+    expect(Reflect.getMetadata(PATH_METADATA, ProjectsController.prototype.workspace)).toBe(
+      ":projectId/workspace",
+    );
+    expect(Reflect.getMetadata(GUARDS_METADATA, ProjectsController.prototype.workspace)).toContain(
+      ProjectPolicyGuard,
+    );
   });
 });

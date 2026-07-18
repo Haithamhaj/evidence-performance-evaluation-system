@@ -5,6 +5,54 @@ import { CriteriaDocumentReader } from "./criteria-document-reader.js";
 const documentVersionId = "00000000-0000-4000-8000-000000000031";
 
 describe("CriteriaDocumentReader", () => {
+  it("reads current version identity and ready prerequisites through the document-owned port", async () => {
+    const documentId = crypto.randomUUID();
+    const readinessCheckId = crypto.randomUUID();
+    const workstreamId = crypto.randomUUID();
+    const database = {
+      documentRecord: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValueOnce({ currentVersion: 2 })
+          .mockResolvedValueOnce({ id: documentId, currentVersion: 2 })
+          .mockResolvedValueOnce({ projectId: null, workstreamId }),
+      },
+      documentVersion: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValueOnce({ id: documentVersionId, documentId, version: 2 })
+          .mockResolvedValueOnce({ id: documentVersionId })
+          .mockResolvedValueOnce({ version: 2 }),
+      },
+      documentReadinessCheck: {
+        findFirst: vi.fn(async () => ({
+          id: readinessCheckId,
+          documentId,
+          documentVersionId,
+          sourceReferences: [`document-version:${documentVersionId}`],
+        })),
+      },
+      documentReadinessLifecycleTransition: {
+        findFirst: vi.fn(async () => ({ toState: "ready_for_criteria_generation" })),
+      },
+    };
+    const reader = new CriteriaDocumentReader(database as never);
+
+    await expect(reader.getVersionIdentity({ documentVersionId })).resolves.toEqual({
+      documentId,
+      documentVersionId,
+      isCurrent: true,
+    });
+    await expect(
+      reader.getCurrentPrerequisites({ kind: "workstream", resourceId: workstreamId }),
+    ).resolves.toMatchObject({
+      documentId,
+      documentVersionId,
+      readinessCheckId,
+      lifecycleState: "ready_for_criteria_generation",
+    });
+  });
+
   it("locks the stable document and reports whether a version is still current", async () => {
     const documentId = crypto.randomUUID();
     const queryRaw = vi.fn(async () => [{ id: documentId }]);

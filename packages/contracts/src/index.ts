@@ -9,3 +9,4 @@ export * from "./evaluation-cycle.js";
 export * from "./jobs.js";
 export * from "./performance-rating.js";
 export * from "./projects.js";
+export * from "./workspace.js";

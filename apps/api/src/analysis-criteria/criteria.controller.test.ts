@@ -15,6 +15,7 @@ const documentId = "00000000-0000-4000-8000-000000000007";
 const documentVersionId = "00000000-0000-4000-8000-000000000004";
 const proposalId = "00000000-0000-4000-8000-000000000005";
 const comparisonReviewId = "00000000-0000-4000-8000-000000000006";
+const snapshotId = "00000000-0000-4000-8000-000000000030";
 
 function request(roles: readonly import("@evaluation/permissions").Role[] = ["project_owner"]) {
   return {
@@ -50,6 +51,7 @@ function services() {
     activation: { activate: vi.fn(async (value: unknown) => value) },
     revisions: { start: vi.fn(async () => receipt) },
     versions: { resolve: vi.fn(async (value: unknown) => value) },
+    workspace: { get: vi.fn(async (value: unknown) => value) },
     jobs: { enqueueAfterCommit: vi.fn(async () => "queued-job") },
   };
 }
@@ -62,6 +64,7 @@ function controller(service = services()) {
       service.activation as never,
       service.revisions as never,
       service.versions as never,
+      service.workspace as never,
       service.jobs as never,
     ),
     service,
@@ -264,6 +267,23 @@ describe("CriteriaController", () => {
     ).toThrowError(expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID" }));
   });
 
+  it("strictly delegates the protected criteria workspace read", async () => {
+    const { instance, service } = controller();
+    await instance.getWorkspace(request(["employee"]), { kind: "workstream", resourceId });
+    expect(service.workspace.get).toHaveBeenCalledWith({
+      actor: { userId: actorId, active: true },
+      kind: "workstream",
+      resourceId,
+    });
+    expect(() =>
+      instance.getWorkspace(request(["employee"]), {
+        kind: "workstream",
+        resourceId,
+        readinessPercentage: 90,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID" }));
+  });
+
   it("requires correlation before every write service call", () => {
     const { instance, service } = controller();
     const noCorrelation = { ...request(), correlationId: undefined };
@@ -273,7 +293,7 @@ describe("CriteriaController", () => {
     expect(service.proposals.reviewByOwner).not.toHaveBeenCalled();
   });
 
-  it("declares all eight exact routes with authentication and policy guards", () => {
+  it("declares all nine exact routes with authentication and policy guards", () => {
     expect(Reflect.getMetadata(PATH_METADATA, CriteriaController)).toBe("api/v1/dynamic-criteria");
     expect(Reflect.getMetadata(GUARDS_METADATA, CriteriaController)).toEqual([
       AnalysisCriteriaAuthenticationGuard,
@@ -287,6 +307,7 @@ describe("CriteriaController", () => {
       ["activate", 1, ":proposalId/activate"],
       ["revise", 1, "revisions"],
       ["getActive", 0, "active"],
+      ["getWorkspace", 0, "workspace"],
     ] as const;
     for (const [method, verb, path] of routes) {
       expect(Reflect.getMetadata(METHOD_METADATA, CriteriaController.prototype[method])).toBe(verb);
@@ -298,6 +319,12 @@ describe("CriteriaController", () => {
         Reflect.getMetadata(ANALYSIS_CRITERIA_POLICY_ACTION, CriteriaController.prototype[method]),
       ).toBeTypeOf("string");
     }
+    expect(
+      Reflect.getMetadata(
+        ANALYSIS_CRITERIA_POLICY_ACTION,
+        CriteriaController.prototype.getWorkspace,
+      ),
+    ).toBe("criteria.workspace.read");
   });
 });
 
@@ -402,6 +429,42 @@ describe("AnalysisCriteriaPolicyGuard resource boundaries", () => {
       expect.objectContaining({ where: { id: proposalId } }),
     );
   });
+
+  it("allows only a frozen eligible former contributor to read the criteria workspace", async () => {
+    const database = policyDatabase({
+      roles: [{ role: "employee", scopeType: "department", scopeId: crypto.randomUUID() }],
+    });
+    database.responsibilityWindow.findMany.mockResolvedValueOnce([]);
+    const guard = new AnalysisCriteriaPolicyGuard(
+      reflector("criteria.workspace.read") as never,
+      database as never,
+    );
+    await expect(
+      guard.canActivate(context(request(["employee"]), {}, { kind: "workstream", resourceId })),
+    ).resolves.toBe(true);
+
+    database.responsibilityWindow.findMany.mockResolvedValueOnce([]);
+    database.dynamicCriteriaProposal.findFirst.mockResolvedValueOnce({
+      state: "contributor_review",
+      responses: [{ employeeId: actorId }],
+      reviewSnapshot: { id: snapshotId, eligibility: [{ employeeId: actorId }] },
+    });
+    await expect(
+      guard.canActivate(context(request(["employee"]), {}, { kind: "workstream", resourceId })),
+    ).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH", status: 403 });
+
+    for (const state of ["manager_resolution", "approved", "activated"] as const) {
+      database.responsibilityWindow.findMany.mockResolvedValueOnce([]);
+      database.dynamicCriteriaProposal.findFirst.mockResolvedValueOnce({
+        state,
+        responses: [],
+        reviewSnapshot: { id: snapshotId, eligibility: [{ employeeId: actorId }] },
+      });
+      await expect(
+        guard.canActivate(context(request(["employee"]), {}, { kind: "workstream", resourceId })),
+      ).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH", status: 403 });
+    }
+  });
 });
 
 function reflector(action: string) {
@@ -480,6 +543,14 @@ function policyDatabase(input: {
           projectId: "00000000-0000-4000-8000-000000000020",
           project: { departmentId: "00000000-0000-4000-8000-000000000021" },
         },
+        reviewSnapshot: {
+          id: "00000000-0000-4000-8000-000000000030",
+          eligibility: [{ employeeId: actorId }],
+        },
+      })),
+      findFirst: vi.fn(async () => ({
+        state: "contributor_review",
+        responses: [] as { employeeId: string }[],
         reviewSnapshot: {
           id: "00000000-0000-4000-8000-000000000030",
           eligibility: [{ employeeId: actorId }],

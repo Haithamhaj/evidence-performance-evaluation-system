@@ -5,6 +5,7 @@ import {
   CreateWorkstreamSchema,
   EndMembershipSchema,
   UpdateStatusSchema,
+  WorkstreamWorkspaceSchema,
   WorkstreamSchema,
 } from "@evaluation/contracts";
 import { decide } from "@evaluation/permissions";
@@ -162,17 +163,9 @@ export class WorkstreamService {
   async listWorkstreams(command: unknown): Promise<import("@evaluation/contracts").Workstream[]> {
     const parsed = ListCommandSchema.parse(command);
     const current = validClock(this.clock());
-    return this.client.$transaction(async (transaction) => {
-      const scope = await loadWorkstreamReadScope(transaction, parsed.actor, current);
-      const rows = await transaction.workstream.findMany({
-        where: {
-          AND: [{ projectId: parsed.projectId }, authorizedWorkstreamWhere(scope)],
-        },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        select: workstreamSelection,
-      });
-      return serializeWorkstreams(transaction, rows, current);
-    });
+    return this.client.$transaction((transaction) =>
+      loadAuthorizedWorkstreams(transaction, parsed.actor, parsed.projectId, current),
+    );
   }
 
   async getWorkstream(command: unknown): Promise<import("@evaluation/contracts").Workstream> {
@@ -191,6 +184,31 @@ export class WorkstreamService {
       });
       if (row === null) throw authorizationError("SCOPE_MISMATCH");
       return (await serializeWorkstreams(transaction, [row], current))[0]!;
+    });
+  }
+
+  async getWorkspace(
+    command: unknown,
+  ): Promise<import("@evaluation/contracts").WorkstreamWorkspace> {
+    const parsed = GetCommandSchema.parse(command);
+    const current = validClock(this.clock());
+    return this.client.$transaction(async (transaction) => {
+      const scope = await loadWorkstreamReadScope(transaction, parsed.actor, current);
+      const row = await transaction.workstream.findFirst({
+        where: {
+          AND: [
+            { id: parsed.workstreamId, projectId: parsed.projectId },
+            authorizedWorkstreamWhere(scope),
+          ],
+        },
+        select: workstreamSelection,
+      });
+      if (row === null) throw authorizationError("SCOPE_MISMATCH");
+      const [workstream, people] = await Promise.all([
+        serializeWorkstreams(transaction, [row], current).then(([value]) => value!),
+        loadWorkspacePeople(transaction, row.id, current),
+      ]);
+      return WorkstreamWorkspaceSchema.parse({ workstream, people });
     });
   }
 
@@ -665,6 +683,21 @@ async function loadWorkstreamReadScope(
   };
 }
 
+export async function loadAuthorizedWorkstreams(
+  transaction: Transaction,
+  actor: Readonly<{ userId: string; active: boolean }>,
+  projectId: string,
+  current: Date,
+): Promise<import("@evaluation/contracts").Workstream[]> {
+  const scope = await loadWorkstreamReadScope(transaction, actor, current);
+  const rows = await transaction.workstream.findMany({
+    where: { AND: [{ projectId }, authorizedWorkstreamWhere(scope)] },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: workstreamSelection,
+  });
+  return serializeWorkstreams(transaction, rows, current);
+}
+
 function authorizedWorkstreamWhere(scope: WorkstreamReadScope) {
   if (
     scope.departmentIds.length === 0 &&
@@ -725,6 +758,40 @@ async function serializeWorkstreams(
       primaryOwnerId: ownerByWorkstream.get(row.id) ?? null,
     }),
   );
+}
+
+async function loadWorkspacePeople(
+  transaction: Transaction,
+  workstreamId: string,
+  at: Date,
+): Promise<import("@evaluation/contracts").WorkspacePersonPeriod[]> {
+  const rows = await transaction.responsibilityWindow.findMany({
+    where: {
+      workstreamId,
+      startsAt: { lte: at },
+      OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+    },
+    select: {
+      responsibilityType: true,
+      startsAt: true,
+      endsAt: true,
+      employee: { select: { id: true, displayName: true } },
+    },
+  });
+  const order = { original: 0, acting: 0, permanent: 0, contributor: 1 } as const;
+  return rows
+    .sort(
+      (left, right) =>
+        order[left.responsibilityType] - order[right.responsibilityType] ||
+        left.employee.displayName.localeCompare(right.employee.displayName) ||
+        left.employee.id.localeCompare(right.employee.id),
+    )
+    .map((row) => ({
+      person: row.employee,
+      responsibilityType: row.responsibilityType,
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt?.toISOString() ?? null,
+    }));
 }
 
 function serializeMembership(member: {

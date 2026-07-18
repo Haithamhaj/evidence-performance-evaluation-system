@@ -8,6 +8,7 @@ import {
 import {
   ActivationService,
   CriteriaVersionResolver,
+  CriteriaWorkspaceQueryService,
   ProposalService,
   RevisionService,
   WorkstreamReviewService,
@@ -70,6 +71,7 @@ export class CriteriaController {
   private readonly activation: ActivationService;
   private readonly revisions: RevisionService;
   private readonly versions: CriteriaVersionResolver;
+  private readonly workspace: CriteriaWorkspaceQueryService;
   private readonly jobs: AnalysisJobEnqueuer;
 
   constructor(
@@ -78,6 +80,7 @@ export class CriteriaController {
     activation: ActivationService,
     revisions: RevisionService,
     versions: CriteriaVersionResolver,
+    workspace: CriteriaWorkspaceQueryService,
     jobs: AnalysisJobEnqueuer,
   ) {
     this.proposals = proposals;
@@ -85,6 +88,7 @@ export class CriteriaController {
     this.activation = activation;
     this.revisions = revisions;
     this.versions = versions;
+    this.workspace = workspace;
     this.jobs = jobs;
   }
 
@@ -177,6 +181,15 @@ export class CriteriaController {
       occurredAt: new Date(input.occurredAt),
     });
   }
+
+  getWorkspace(request: AnalysisRequest, query: unknown) {
+    const input = parse(z.object({ kind: KindSchema, resourceId: UuidSchema }).strict(), query);
+    return this.workspace.get({
+      actor: actor(request),
+      kind: input.kind,
+      resourceId: input.resourceId,
+    });
+  }
 }
 
 function actor(request: AnalysisRequest) {
@@ -212,7 +225,8 @@ Inject(WorkstreamReviewService)(CriteriaController, undefined, 1);
 Inject(ActivationService)(CriteriaController, undefined, 2);
 Inject(RevisionService)(CriteriaController, undefined, 3);
 Inject(CriteriaVersionResolver)(CriteriaController, undefined, 4);
-Inject(AnalysisJobEnqueuer)(CriteriaController, undefined, 5);
+Inject(CriteriaWorkspaceQueryService)(CriteriaController, undefined, 5);
+Inject(AnalysisJobEnqueuer)(CriteriaController, undefined, 6);
 
 type RouteMethod =
   | "createProposal"
@@ -222,7 +236,8 @@ type RouteMethod =
   | "resolveByManager"
   | "activate"
   | "revise"
-  | "getActive";
+  | "getActive"
+  | "getWorkspace";
 
 function route(
   method: RouteMethod,
@@ -273,3 +288,4 @@ route("activate", ":proposalId/activate", "criteria.activate", "post", [
 ]);
 route("revise", "revisions", "criteria.generate", "post", ["request", "body"]);
 route("getActive", "active", "criteria.read", "get", ["request", "query"]);
+route("getWorkspace", "workspace", "criteria.workspace.read", "get", ["request", "query"]);

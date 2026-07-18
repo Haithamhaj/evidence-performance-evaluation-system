@@ -4,6 +4,7 @@ import {
   AppError,
   CreateProjectSchema,
   EndMembershipSchema,
+  ProjectWorkspaceSchema,
   ProjectSchema,
   UpdateStatusSchema,
 } from "@evaluation/contracts";
@@ -11,6 +12,7 @@ import { decide } from "@evaluation/permissions";
 import { z } from "zod";
 
 import { assertLifecycleTransition } from "./invariants.js";
+import { loadAuthorizedWorkstreams } from "./workstream-service.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
@@ -205,6 +207,25 @@ export class ProjectService {
       });
       if (row === null) throw authorizationError("SCOPE_MISMATCH");
       return (await serializeProjects(transaction, [row], current))[0]!;
+    });
+  }
+
+  async getWorkspace(command: unknown): Promise<import("@evaluation/contracts").ProjectWorkspace> {
+    const parsed = GetProjectCommandSchema.parse(command);
+    const current = validClock(this.clock());
+    return this.client.$transaction(async (transaction) => {
+      const scope = await loadProjectReadScope(transaction, parsed.actor, current);
+      const row = await transaction.project.findFirst({
+        where: { AND: [{ id: parsed.projectId }, authorizedProjectWhere(scope)] },
+        select: projectSelection,
+      });
+      if (row === null) throw authorizationError("SCOPE_MISMATCH");
+      const [project, people, workstreams] = await Promise.all([
+        serializeProjects(transaction, [row], current).then(([value]) => value!),
+        loadWorkspacePeople(transaction, { projectId: row.id }, current),
+        loadAuthorizedWorkstreams(transaction, parsed.actor, row.id, current),
+      ]);
+      return ProjectWorkspaceSchema.parse({ project, people, workstreams });
     });
   }
 
@@ -762,4 +783,38 @@ async function serializeProjects(
       primaryOwnerId: ownerByProject.get(row.id) ?? null,
     }),
   );
+}
+
+async function loadWorkspacePeople(
+  transaction: Transaction,
+  resource: Readonly<{ projectId: string }>,
+  at: Date,
+): Promise<import("@evaluation/contracts").WorkspacePersonPeriod[]> {
+  const rows = await transaction.responsibilityWindow.findMany({
+    where: {
+      projectId: resource.projectId,
+      startsAt: { lte: at },
+      OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+    },
+    select: {
+      responsibilityType: true,
+      startsAt: true,
+      endsAt: true,
+      employee: { select: { id: true, displayName: true } },
+    },
+  });
+  const order = { original: 0, acting: 0, permanent: 0, contributor: 1 } as const;
+  return rows
+    .sort(
+      (left, right) =>
+        order[left.responsibilityType] - order[right.responsibilityType] ||
+        left.employee.displayName.localeCompare(right.employee.displayName) ||
+        left.employee.id.localeCompare(right.employee.id),
+    )
+    .map((row) => ({
+      person: row.employee,
+      responsibilityType: row.responsibilityType,
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt?.toISOString() ?? null,
+    }));
 }

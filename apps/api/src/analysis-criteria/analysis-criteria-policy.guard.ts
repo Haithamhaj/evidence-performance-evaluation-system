@@ -17,7 +17,8 @@ export type AnalysisCriteriaPolicyAction =
   | "criteria.contributor.respond"
   | "criteria.manager.resolve"
   | "criteria.activate"
-  | "criteria.read";
+  | "criteria.read"
+  | "criteria.workspace.read";
 
 type GuardRequest = Readonly<{
   principal?: import("@evaluation/auth").AuthenticatedPrincipal;
@@ -50,6 +51,9 @@ export class AnalysisCriteriaPolicyGuard {
       where: { userId: principal.userId },
       select: { role: true, scopeType: true, scopeId: true },
     });
+    if (action === "criteria.workspace.read") {
+      return this.authorizeWorkspaceRead(request, principal.userId, principal.active, roles);
+    }
     const loaded = await this.loadResource(action, request, principal.userId);
     const decision = decide(
       { subjectId: principal.userId, active: principal.active, roles },
@@ -64,8 +68,73 @@ export class AnalysisCriteriaPolicyGuard {
     return true;
   }
 
+  private async authorizeWorkspaceRead(
+    request: GuardRequest,
+    actorId: string,
+    active: boolean,
+    roles: ReadonlyArray<{
+      role: import("@evaluation/permissions").Role;
+      scopeType: import("@evaluation/permissions").ScopeType;
+      scopeId: string;
+    }>,
+  ): Promise<boolean> {
+    const kind = parseKind(request.query?.kind);
+    const resourceId = parseUuid(request.query?.resourceId);
+    const loaded = await this.loadCriteriaResource(kind, resourceId, actorId);
+    const subject = { subjectId: actorId, active, roles };
+    const context = { now: new Date().toISOString(), responsibilityWindows: loaded.windows };
+    const regular = decide(subject, "criteria.read", loaded.resource, context);
+    if (regular.allowed) return true;
+    if (kind !== "workstream" || loaded.resource.kind !== "workstream") {
+      throw authorizationError(regular.reasonCode);
+    }
+    const proposal = await this.database.dynamicCriteriaProposal.findFirst({
+      where: { kind: "workstream", workstreamId: resourceId },
+      orderBy: [{ proposalNumber: "desc" }, { id: "desc" }],
+      select: {
+        state: true,
+        reviewSnapshot: {
+          select: {
+            id: true,
+            eligibility: {
+              where: { employeeId: actorId, responseRequired: true },
+              select: { employeeId: true },
+            },
+          },
+        },
+        responses: {
+          where: { employeeId: actorId, responseRequired: true },
+          select: { employeeId: true },
+        },
+      },
+    });
+    if (
+      proposal?.state !== "contributor_review" ||
+      proposal.responses.length !== 0 ||
+      proposal?.reviewSnapshot === null ||
+      proposal?.reviewSnapshot === undefined ||
+      proposal.reviewSnapshot.eligibility.length !== 1
+    ) {
+      throw authorizationError(regular.reasonCode);
+    }
+    const frozen = decide(
+      subject,
+      "criteria.contributor.respond",
+      {
+        kind: "criteriaReviewSnapshot",
+        reviewSnapshotId: proposal.reviewSnapshot.id,
+        workstreamId: loaded.resource.workstreamId,
+        projectId: loaded.resource.projectId,
+        departmentId: loaded.resource.departmentId,
+      },
+      context,
+    );
+    if (!frozen.allowed) throw authorizationError(frozen.reasonCode);
+    return true;
+  }
+
   private async loadResource(
-    action: AnalysisCriteriaPolicyAction,
+    action: Exclude<AnalysisCriteriaPolicyAction, "criteria.workspace.read">,
     request: GuardRequest,
     actorId: string,
   ): Promise<LoadedPolicyResource> {

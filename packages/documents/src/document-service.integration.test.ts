@@ -21,6 +21,7 @@ let projectId = "";
 let workstreamId = "";
 let templateVersionId = "";
 let workstreamTemplateVersionId = "";
+let outsiderId = "";
 
 beforeAll(async () => {
   const suffix = crypto.randomUUID();
@@ -43,6 +44,9 @@ beforeAll(async () => {
   });
   const manager = await database.user.create({
     data: { email: `document-manager-${suffix}@example.invalid`, displayName: "Document Manager" },
+  });
+  const outsider = await database.user.create({
+    data: { email: `document-outsider-${suffix}@example.invalid`, displayName: "Outsider" },
   });
   await database.roleAssignment.create({
     data: {
@@ -154,6 +158,7 @@ beforeAll(async () => {
   workstreamId = workstream.id;
   templateVersionId = template.versions[0]!.id;
   workstreamTemplateVersionId = workstreamTemplate.versions[0]!.id;
+  outsiderId = outsider.id;
 });
 
 afterAll(async () => database.$disconnect());
@@ -291,6 +296,52 @@ describe("DocumentService", () => {
         },
       }),
     ).resolves.toBe(2);
+  });
+
+  it("authorizes exact resource lookup before returning a document or null", async () => {
+    await expect(
+      service.getByResource({
+        actor: actor(),
+        correlationId: crypto.randomUUID(),
+        kind: "project",
+        resourceId: projectId,
+      }),
+    ).resolves.toMatchObject({ kind: "project", resourceId: projectId });
+    await expect(
+      service.getByResource({
+        actor: { userId: outsiderId, active: true },
+        correlationId: crypto.randomUUID(),
+        kind: "project",
+        resourceId: projectId,
+      }),
+    ).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH" });
+
+    const emptyScope = await database.authorizationScope.create({
+      data: {
+        key: `document-empty-workstream-${crypto.randomUUID()}`,
+        scopeType: "workstream",
+        departmentId,
+      },
+    });
+    const empty = await database.workstream.create({
+      data: {
+        projectId,
+        authorizationScopeId: emptyScope.id,
+        authorizationScopeType: "workstream",
+        name: "No document",
+        description: "Authorized absence",
+        status: "active",
+        createdById: managerId,
+      },
+    });
+    await expect(
+      service.getByResource({
+        actor: actor(),
+        correlationId: crypto.randomUUID(),
+        kind: "workstream",
+        resourceId: empty.id,
+      }),
+    ).resolves.toBeNull();
   });
 
   it("permits only one concurrent append for the same optimistic token", async () => {

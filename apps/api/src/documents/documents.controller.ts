@@ -1,6 +1,6 @@
 import { AppendDocumentVersionSchema, AppError, CreateDocumentSchema } from "@evaluation/contracts";
 import { DocumentService } from "@evaluation/documents";
-import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 
 import { DocumentsAuthenticationGuard } from "./documents-authentication.guard.js";
@@ -22,6 +22,19 @@ export class DocumentsController {
       actor: actor(request),
       correlationId: request.correlationId,
       input: parse(CreateDocumentSchema, body),
+    });
+  }
+
+  getByResource(request: DocumentRequest, query: unknown) {
+    const input = parse(
+      z.object({ kind: z.enum(["project", "workstream"]), resourceId: z.string().uuid() }).strict(),
+      query,
+    );
+    return this.documents.getByResource({
+      actor: actor(request),
+      correlationId: request.correlationId,
+      kind: input.kind,
+      resourceId: input.resourceId,
     });
   }
 
@@ -71,6 +84,14 @@ const getDescriptor = Object.getOwnPropertyDescriptor(DocumentsController.protot
 Req()(DocumentsController.prototype, "get", 0);
 Param("documentId")(DocumentsController.prototype, "get", 1);
 Get(":documentId")(DocumentsController.prototype, "get", getDescriptor);
+
+const resourceDescriptor = Object.getOwnPropertyDescriptor(
+  DocumentsController.prototype,
+  "getByResource",
+)!;
+Req()(DocumentsController.prototype, "getByResource", 0);
+Query()(DocumentsController.prototype, "getByResource", 1);
+Get("resource")(DocumentsController.prototype, "getByResource", resourceDescriptor);
 
 const appendDescriptor = Object.getOwnPropertyDescriptor(
   DocumentsController.prototype,

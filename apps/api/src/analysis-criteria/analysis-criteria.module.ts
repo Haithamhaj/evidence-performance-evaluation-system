@@ -2,6 +2,7 @@ import { databaseAuditWriter } from "@evaluation/audit";
 import {
   ActivationService,
   CriteriaVersionResolver,
+  CriteriaWorkspaceQueryService,
   ProposalService,
   RevisionService,
   WorkstreamReviewService,
@@ -122,6 +123,88 @@ class ApiCriteriaPolicyAuthorizer {
   }
 }
 
+class ApiCriteriaWorkspacePolicy {
+  private readonly database: Database;
+
+  constructor(database: Database) {
+    this.database = database;
+  }
+
+  async allows(
+    input: Parameters<import("@evaluation/criteria").CriteriaWorkspacePolicy["allows"]>[0],
+  ): Promise<boolean> {
+    const now = new Date();
+    const [user, roles, departmentScope, windows] = await Promise.all([
+      this.database.user.findUnique({
+        where: { id: input.actor.userId },
+        select: { active: true },
+      }),
+      this.database.roleAssignment.findMany({
+        where: { userId: input.actor.userId },
+        select: { role: true, scopeType: true, scopeId: true },
+      }),
+      this.database.authorizationScope.findFirst({
+        where: { departmentId: input.identity.departmentId, scopeType: "department" },
+        select: { id: true },
+      }),
+      this.database.responsibilityWindow.findMany({
+        where: {
+          employeeId: input.actor.userId,
+          OR: [
+            { projectId: input.identity.projectId },
+            ...(input.identity.kind === "workstream"
+              ? [{ workstreamId: input.identity.resourceId }]
+              : []),
+          ],
+        },
+        select: {
+          projectId: true,
+          workstreamId: true,
+          responsibilityType: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      }),
+    ]);
+    if (user === null || !user.active || !input.actor.active || departmentScope === null) {
+      return false;
+    }
+    const resource =
+      input.action === "criteria.contributor.respond" && input.reviewSnapshotId !== null
+        ? {
+            kind: "criteriaReviewSnapshot" as const,
+            reviewSnapshotId: input.reviewSnapshotId,
+            workstreamId: input.identity.resourceId,
+            projectId: input.identity.projectId,
+            departmentId: departmentScope.id,
+          }
+        : input.identity.kind === "project"
+          ? {
+              kind: "project" as const,
+              projectId: input.identity.resourceId,
+              departmentId: departmentScope.id,
+            }
+          : {
+              kind: "workstream" as const,
+              workstreamId: input.identity.resourceId,
+              projectId: input.identity.projectId,
+              departmentId: departmentScope.id,
+            };
+    return decide({ subjectId: input.actor.userId, active: true, roles }, input.action, resource, {
+      now: now.toISOString(),
+      responsibilityWindows: windows.map((window) => ({
+        subjectId: input.actor.userId,
+        scopeType: window.workstreamId === null ? ("project" as const) : ("workstream" as const),
+        scopeId: window.workstreamId ?? window.projectId!,
+        ...(window.workstreamId === null ? {} : { projectId: input.identity.projectId }),
+        responsibilityType: window.responsibilityType,
+        startsAt: window.startsAt.toISOString(),
+        endsAt: window.endsAt?.toISOString() ?? null,
+      })),
+    }).allowed;
+  }
+}
+
 export function createAnalysisCriteriaApiServices(
   database: Database,
   queue: Pick<AnalysisQueue, "enqueue">,
@@ -192,6 +275,12 @@ export function createAnalysisCriteriaApiServices(
       outbox,
     ),
     versions: new CriteriaVersionResolver(database),
+    workspace: new CriteriaWorkspaceQueryService(
+      database,
+      documentReader,
+      criteriaDocumentReader,
+      new ApiCriteriaWorkspacePolicy(database),
+    ),
   };
 }
 
@@ -249,6 +338,7 @@ Module({
     serviceProvider(ActivationService, "activation"),
     serviceProvider(RevisionService, "revisions"),
     serviceProvider(CriteriaVersionResolver, "versions"),
+    serviceProvider(CriteriaWorkspaceQueryService, "workspace"),
     {
       provide: ANALYSIS_CRITERIA_LIFECYCLE,
       useFactory: (
