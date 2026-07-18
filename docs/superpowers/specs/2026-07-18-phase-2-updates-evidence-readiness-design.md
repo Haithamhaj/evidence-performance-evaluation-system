@@ -1,6 +1,10 @@
 # Phase 2 Updates, Evidence, GitHub, Check-ins, and Monthly Readiness Design
 
-**Status:** Approved for internal execution under the product owner's Fast Controlled Execution and autonomous-progression decisions. This design applies only requirements already approved in `docs/PROJECT_REFERENCE.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/EVALUATION_RUBRIC.md`, `TASKS.md`, and `AGENTS.md`; it does not change a protected product rule.
+> **SUPERSEDED — DO NOT EXECUTE**
+>
+> This design is retained as draft history only. It was superseded on 2026-07-18 by the approved Product Direction Reset and must not be used to resume T030–T044 or to authorize production Work Item backend implementation. The active prototype design is `docs/superpowers/specs/2026-07-18-product-direction-reset-prototype-design.md`.
+
+**Status:** Superseded draft; retained for historical reference only.
 
 ## 1. Goal and Boundary
 
