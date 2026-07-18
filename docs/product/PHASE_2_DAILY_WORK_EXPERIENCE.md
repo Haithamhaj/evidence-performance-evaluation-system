@@ -1,6 +1,10 @@
 # Phase 2 Daily Work Experience
 
-**Status:** Product-direction acceptance prototype
+> **PROTOTYPE ACCEPTANCE HISTORY**
+>
+> This document describes the accepted Product Reset prototype. Production behavior is governed by `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md` and `docs/product/PHASE_2_FEATURE_MAP.md`. In production, official Project/Workstream progress comes only from a versioned human-approved Progress Contract; it never comes from completed Work Item count. AI clarification continues for as many turns as required, manual evidence is available inside the update flow, and mobile evidence review opens as a visible sheet.
+
+**Status:** Product-direction acceptance prototype history
 **Prototype:** `apps/product-reset-prototype`
 **Data:** Synthetic, in-memory, and reset when the browser reloads
 **Production impact:** None
@@ -157,33 +161,33 @@ The readiness component uses only coarse labels such as “record ready for revi
 
 ### Core terminology
 
-| Concept | Arabic | English |
-|---|---|---|
-| Employee home | عملي | My Work |
-| Work Item | عنصر عمل | Work Item |
-| Project | مشروع | Project |
-| Workstream | مسار العمل | Workstream |
-| Update | تحديث | Update |
-| Evidence | دليل / الأدلة | Evidence |
-| Suggested evidence | دليل مقترح | Suggested evidence |
-| Contribution context | سياق المساهمة | Contribution context |
-| Responsibility window | فترة المسؤولية | Responsibility window |
-| Evaluation Fact View | عرض حقائق التقييم | Evaluation Fact View |
-| Documentation Readiness | جاهزية التوثيق | Documentation Readiness |
+| Concept                 | Arabic            | English                 |
+| ----------------------- | ----------------- | ----------------------- |
+| Employee home           | عملي              | My Work                 |
+| Work Item               | عنصر عمل          | Work Item               |
+| Project                 | مشروع             | Project                 |
+| Workstream              | مسار العمل        | Workstream              |
+| Update                  | تحديث             | Update                  |
+| Evidence                | دليل / الأدلة     | Evidence                |
+| Suggested evidence      | دليل مقترح        | Suggested evidence      |
+| Contribution context    | سياق المساهمة     | Contribution context    |
+| Responsibility window   | فترة المسؤولية    | Responsibility window   |
+| Evaluation Fact View    | عرض حقائق التقييم | Evaluation Fact View    |
+| Documentation Readiness | جاهزية التوثيق    | Documentation Readiness |
 
 These are original product terms and do not import or activate the protected T016 Arabic evaluation rubric.
 
 ## Prototype routes
 
-| Experience | Arabic | English |
-|---|---|---|
-| My Work | `/ar` | `/en` |
-| Inbox | `/ar/inbox` | `/en/inbox` |
-| Projects | `/ar/projects` | `/en/projects` |
-| Evidence | `/ar/evidence` | `/en/evidence` |
-| Readiness | `/ar/readiness` | `/en/readiness` |
-| Manager | `/ar/manager?persona=manager` | `/en/manager?persona=manager` |
-| Addressable Work Item | `/ar?workItem=wi-105` | `/en?workItem=wi-105` |
+| Experience            | Arabic                        | English                       |
+| --------------------- | ----------------------------- | ----------------------------- |
+| My Work               | `/ar`                         | `/en`                         |
+| Inbox                 | `/ar/inbox`                   | `/en/inbox`                   |
+| Projects              | `/ar/projects`                | `/en/projects`                |
+| Evidence              | `/ar/evidence`                | `/en/evidence`                |
+| Readiness             | `/ar/readiness`               | `/en/readiness`               |
+| Manager               | `/ar/manager?persona=manager` | `/en/manager?persona=manager` |
+| Addressable Work Item | `/ar?workItem=wi-105`         | `/en?workItem=wi-105`         |
 
 ## Acceptance walkthrough
 

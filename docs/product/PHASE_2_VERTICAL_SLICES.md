@@ -1,7 +1,11 @@
 # Phase 2 Product Reset Vertical Slices
 
-**Status:** Proposed sequence after product-direction approval
-**Current checkpoint:** UX prototype only; no production slice is authorized
+> **SUPERSEDED PROTOTYPE SEQUENCE — DO NOT EXECUTE**
+>
+> This file is retained as the sequence that accompanied the Product Reset acceptance prototype. The approved production feature map is now `docs/product/PHASE_2_FEATURE_MAP.md`, and the approved production design is `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`.
+
+**Status:** Superseded prototype-planning history
+**Current checkpoint:** No production slice is authorized
 
 Every slice must produce one visible result across UI, API, domain, persistence, authorization, audit, localization, tests, and demo. Reuse the Phase 1 backend; do not create a parallel identity, Project, Workstream, criteria, document, audit, queue, or AI store.
 

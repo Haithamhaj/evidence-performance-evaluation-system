@@ -1,5 +1,9 @@
 # Product Direction Reset Prototype Implementation Plan
 
+> **COMPLETED PROTOTYPE PLAN — DO NOT USE FOR PRODUCTION PHASE 2**
+>
+> The approved production plan is `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Do not use a Subagent-Driven Development loop; the approved execution policy requires one implementation owner.
 
 **Goal:** Deliver a clickable Arabic-first Product Reset acceptance prototype that demonstrates daily Work Item, update, evidence, manager, and evaluation-readiness workflows without production backend implementation.
@@ -29,6 +33,7 @@
 ### Task 1: Isolated prototype foundation and deterministic mock domain
 
 **Files:**
+
 - Create: `apps/product-reset-prototype/package.json`
 - Create: `apps/product-reset-prototype/next.config.ts`
 - Create: `apps/product-reset-prototype/next-env.d.ts`
@@ -42,6 +47,7 @@
 - Create: `apps/product-reset-prototype/src/domain/mock-ai.test.ts`
 
 **Interfaces:**
+
 - Produces: `Locale`, `Persona`, `Project`, `Workstream`, `WorkItem`, `InboxItem`, `ActivityEvent`, `EvidenceSuggestion`, `ReadinessFact`.
 - Produces: `prototypeData` containing exactly two Projects, five Workstreams, and twenty Work Items.
 - Produces: `structureTextUpdate(rawText, context)` and `structureTranscript(transcript, context)` deterministic functions.
@@ -125,6 +131,7 @@ git commit -m "feat: add isolated product reset prototype foundation"
 ### Task 2: Original bilingual shell, route state, and visual system
 
 **Files:**
+
 - Create: `apps/product-reset-prototype/src/i18n/catalog.ts`
 - Create: `apps/product-reset-prototype/src/i18n/catalog.test.ts`
 - Create: `apps/product-reset-prototype/src/app/prototype-app.tsx`
@@ -136,6 +143,7 @@ git commit -m "feat: add isolated product reset prototype foundation"
 - Create: `apps/product-reset-prototype/src/app/styles.css`
 
 **Interfaces:**
+
 - Consumes: all Task 1 mock domain types.
 - Produces: `usePrototype()` for persona, locale, screen, selected Work Item, shared filters, mutable mock state, and navigation.
 - Produces: `AppShell` with employee/manager navigation, persona switch, locale switch, synthetic marker, desktop sidebar, and mobile navigation.
@@ -187,6 +195,7 @@ git commit -m "feat: add bilingual product reset shell"
 ### Task 3: My Work, Inbox, Projects, Workstreams, shared views, and Work Item side panel
 
 **Files:**
+
 - Create: `apps/product-reset-prototype/src/components/work-item-row.tsx`
 - Create: `apps/product-reset-prototype/src/components/work-item-panel.tsx`
 - Create: `apps/product-reset-prototype/src/components/view-switcher.tsx`
@@ -198,6 +207,7 @@ git commit -m "feat: add bilingual product reset shell"
 - Create: `apps/product-reset-prototype/src/screens/work-screens.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `usePrototype()`, shared `WorkItem[]`, Projects, Workstreams, and filters.
 - Produces: the required employee daily screens and a URL-addressable `WorkItemPanel`.
 - Produces: List, Board, Calendar, and Timeline projections from the same filtered `WorkItem[]`.
@@ -258,6 +268,7 @@ git commit -m "feat: prototype daily work and project navigation"
 ### Task 4: Text/voice update, timeline, evidence, and GitHub suggestion flows
 
 **Files:**
+
 - Create: `apps/product-reset-prototype/src/components/text-update-dialog.tsx`
 - Create: `apps/product-reset-prototype/src/components/voice-update-dialog.tsx`
 - Create: `apps/product-reset-prototype/src/components/activity-timeline.tsx`
@@ -266,6 +277,7 @@ git commit -m "feat: prototype daily work and project navigation"
 - Create: `apps/product-reset-prototype/src/screens/update-flows.test.tsx`
 
 **Interfaces:**
+
 - Consumes: deterministic Task 1 adapters and the shared mock store.
 - Produces: confirmed simulated Activity events and evidence dispositions in memory only.
 
@@ -318,11 +330,13 @@ git commit -m "feat: prototype updates timeline and evidence"
 ### Task 5: Manager operations and Evaluation Fact View readiness
 
 **Files:**
+
 - Create: `apps/product-reset-prototype/src/screens/manager-screen.tsx`
 - Create: `apps/product-reset-prototype/src/screens/readiness-screen.tsx`
 - Create: `apps/product-reset-prototype/src/screens/protected-rules.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Projects, Workstreams, inbox actions, responsibility windows, evidence state, criteria, and readiness facts.
 - Produces: operational manager dashboard and no-rating Evaluation Fact View preview.
 
@@ -368,6 +382,7 @@ git commit -m "feat: prototype manager operations and fact view"
 ### Task 6: Product documents, browser acceptance, screenshots, and checkpoint
 
 **Files:**
+
 - Create: `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - Create: `docs/product/PHASE_2_BACKEND_DELTA.md`
 - Create: `docs/product/PHASE_2_VERTICAL_SLICES.md`
@@ -381,6 +396,7 @@ git commit -m "feat: prototype manager operations and fact view"
 - Modify: `project-state/PROJECT_STATE.md`
 
 **Interfaces:**
+
 - Consumes: the complete prototype.
 - Produces: documented user experience, exact Phase 1 backend delta, eight vertical production slices, provenance register, runnable URL, and acceptance evidence.
 

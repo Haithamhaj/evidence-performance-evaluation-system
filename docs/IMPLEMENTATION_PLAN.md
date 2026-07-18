@@ -1117,25 +1117,37 @@ Exit criteria:
 
 ## Phase 2 — Updates, Evidence, GitHub, and Readiness
 
-Build:
+**Approved Product Direction Reset:** The original T030–T044 execution order is superseded. Use `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`, `docs/product/PHASE_2_FEATURE_MAP.md`, and `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`.
 
-- Text and voice updates.
-- Images and files.
-- Activity timeline.
-- Evidence records.
-- Verification states.
-- Contribution attribution.
-- Disputes.
-- GitHub App and evidence inbox.
-- Thursday check-in and aggregation.
-- Monthly Evaluation Readiness Review.
-- Arabic text, document, and dialect test fixtures.
+Build through seven visible vertical slices:
+
+1. My Work, Work Items, and the Project/Workstream Progress Contract foundation.
+2. Interactive text updates, live AI through the existing AI Router, Timeline, and manual evidence.
+3. GitHub suggested evidence.
+4. Voice updates.
+5. Thursday check-ins and Monthly Evaluation Readiness.
+6. Manager operational queues.
+7. Evaluation Fact View preparation only.
+
+Architecture:
+
+- Preserve Phase 0/1 identity, authorization, audit, queue, AI Router, Projects, Workstreams, responsibility, documents, readiness, criteria, and history.
+- Add one bounded `work-items` module.
+- Add one bounded `updates-evidence` module.
+- Keep versioned human-approved Progress Contracts and append-only official progress snapshots inside the Projects domain.
+- Compose My Work, dashboards, Timeline, manager operations, and Fact View preparation through read-only application services using public module interfaces.
+- Keep GitHub and voice as connectors to Updates & Evidence.
+- Do not introduce a generic activity platform, second store, additional authentication system, microservice, or package-per-feature architecture.
 
 Exit criteria:
 
-- An employee can document real work in English with traceable evidence; the same Arabic workflow may be released only after T016 approval.
-- GitHub activity never becomes performance automatically.
-- Thin evidence is surfaced before quarter-end without quotas.
+- An employee completes the approved Arabic-first daily journey with English support: Work Item, dynamic multi-turn text/voice update, manual or suggested evidence, confirmation, source-labelled Timeline, and Project dashboard.
+- Official Project/Workstream progress comes only from an approved measurable contract and confirmed source facts. It never comes from Work Item count, task/update/GitHub volume, commits, files, or lines changed.
+- Missing source coverage preserves the previous official percentage; a decrease is source-explained and historically preserved; no direct percentage override exists.
+- GitHub activity never becomes evidence, progress, contribution, or employee performance automatically.
+- Thin evidence is surfaced without quotas, penalties, scores, or rankings, and manager readiness remains coarse.
+- Phase 2 Fact View preparation contains no rating recommendation and does not implement the complete employee evaluation workflow.
+- Every slice has focused tests, migration verification where applicable, a runnable local demo, Arabic/English desktop/mobile screenshots, commit/push checkpoint, and product-owner gate.
 
 ## Phase 3 — Employee Evaluation
 

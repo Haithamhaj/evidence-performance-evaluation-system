@@ -277,8 +277,33 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 # Phase 2 — Updates, Evidence, GitHub, Check-ins, and Monthly Readiness
 
+> **REPLANNED — DO NOT EXECUTE T030–T044 IN THE ORIGINAL ORDER**
+>
+> The product owner approved the Product Direction Reset production structure on 2026-07-18. T030–T044 remain traceability references and are mapped into seven visible slices in `docs/product/PHASE_2_FEATURE_MAP.md`. The active design is `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`, and the active implementation plan is `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`. No production slice is authorized until the product owner reviews those pushed documents.
+
+## Approved execution mapping
+
+1. Slice 1 — My Work + Work Items + Progress Contract foundation.
+2. Slice 2 — Interactive Text Update + live AI + Timeline + manual evidence.
+3. Slice 3 — GitHub suggested evidence.
+4. Slice 4 — Voice update.
+5. Slice 5 — Check-ins and monthly readiness.
+6. Slice 6 — Manager operational view.
+7. Slice 7 — Evaluation Fact View preparation.
+
+Mapping:
+
+- T030, T031, T033–T035, and the relevant T042 UI are implemented in Slice 2.
+- T032 and its T044 voice/dialect fixtures are implemented in Slice 4.
+- T036–T037 and T043 are implemented in Slice 5.
+- T038–T041 are implemented in Slice 3.
+- T042 is delivered incrementally across Slices 1–4.
+- Evaluation Fact View preparation is added in Slice 7 without implementing the complete Phase 3 evaluation workflow.
+- Work Items and the Project/Workstream Progress Contract foundation are approved Product Reset additions in Slice 1.
+
 ## T030 — Implement Activity Timeline
 
+**Planning status:** Mapped to Slice 2; implement as a source-labelled read projection, not a generic activity platform.
 **Priority:** P1  
 **Dependencies:** T018, T019  
 **Purpose:** Store typed project and workstream events.  
@@ -286,6 +311,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T031 — Implement Text Update Composer
 
+**Planning status:** Mapped to Slice 2 with dynamic multi-turn clarification, previous-state comparison, manual evidence, and employee confirmation.
 **Priority:** P1  
 **Dependencies:** T030, T011  
 **Purpose:** Structure employee updates through AI and human confirmation.  
@@ -293,6 +319,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T032 — Implement Voice Update Flow
 
+**Planning status:** Mapped to Slice 4 as a connector to the Slice 2 Updates & Evidence lifecycle.
 **Priority:** P1  
 **Dependencies:** T022, T030, T011  
 **Purpose:** Transcribe, confirm, structure, and store voice updates.  
@@ -300,6 +327,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T033 — Implement Evidence Records
 
+**Planning status:** Mapped to Slice 2 inside the bounded Updates & Evidence module.
 **Priority:** P1  
 **Dependencies:** T022, T030  
 **Purpose:** Link files, images, links, and source metadata to claims and criteria.  
@@ -307,6 +335,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T034 — Implement Multimodal Evidence Analysis
 
+**Planning status:** Mapped to Slice 2; analysis supports a claim but never becomes automatic proof or progress.
 **Priority:** P1  
 **Dependencies:** T033, T011  
 **Purpose:** Analyze images and documents without treating them as automatic proof.  
@@ -314,6 +343,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T035 — Implement Contribution Attribution
 
+**Planning status:** Mapped to Slice 2 with immutable confirmation and responsibility-period attribution.
 **Priority:** P1  
 **Dependencies:** T030, T033  
 **Purpose:** Record individual/team contribution, peer acknowledgment, and objections.  
@@ -321,6 +351,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T036 — Implement Thursday Workstream Check-in
 
+**Planning status:** Mapped to Slice 5.
 **Priority:** P1  
 **Dependencies:** T019, T030, T013  
 **Purpose:** Require a lightweight check-in only when no substantive update exists.  
@@ -328,6 +359,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T037 — Implement Project Check-in Aggregation
 
+**Planning status:** Mapped to Slice 5.
 **Priority:** P1  
 **Dependencies:** T036  
 **Purpose:** Summarize workstreams for Primary Project Owner.  
@@ -335,6 +367,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T038 — Create GitHub App Integration
 
+**Planning status:** Mapped to Slice 3 as a connector to Updates & Evidence.
 **Priority:** P1  
 **Dependencies:** T007, T009  
 **Purpose:** Install scoped GitHub access.  
@@ -342,6 +375,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T039 — Implement GitHub Webhook Ingestion
 
+**Planning status:** Mapped to Slice 3.
 **Priority:** P1  
 **Dependencies:** T038, T013  
 **Purpose:** Receive push, PR, and check events idempotently.  
@@ -349,6 +383,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T040 — Implement GitHub Document Sync
 
+**Planning status:** Mapped to Slice 3 and limited to approved document bindings/versions.
 **Priority:** P1  
 **Dependencies:** T023, T038, T039  
 **Purpose:** Track branch/path/commit and create document versions.  
@@ -356,6 +391,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T041 — Implement Suggested Evidence Inbox
 
+**Planning status:** Mapped to Slice 3; employee confirmation remains mandatory.
 **Priority:** P1  
 **Dependencies:** T033, T039  
 **Purpose:** Show PRs, commits, and checks as suggestions requiring employee context.  
@@ -363,6 +399,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T042 — Build Update, Timeline, and Evidence UI
 
+**Planning status:** Delivered incrementally across Slices 1–4 rather than as a late standalone UI task.
 **Priority:** P1  
 **Dependencies:** T030–T041  
 **Expected output:** Arabic-first responsive RTL screens with English support.  
@@ -370,6 +407,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T043 — Implement Monthly Evaluation Readiness Review
 
+**Planning status:** Mapped to Slice 5.
 **Priority:** P1  
 **Dependencies:** T030, T033, T012, T036  
 **Purpose:** Surface thin evidence before quarter-end without creating update or evidence quotas.  
@@ -379,6 +417,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T044 — Expand Arabic and Dialect AI Fixtures
 
+**Planning status:** Distributed to the slice that changes the relevant prompt/schema or voice behavior; no unrelated fixture expansion.
 **Priority:** P1  
 **Dependencies:** T012, T032
 **Purpose:** Validate AI behavior on the language actually used by the pilot team.  

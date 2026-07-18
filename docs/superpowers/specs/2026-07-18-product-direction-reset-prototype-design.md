@@ -1,6 +1,10 @@
 # Product Direction Reset Prototype Design
 
-**Status:** Approved for implementation by the product owner on 2026-07-18  
+> **PROTOTYPE HISTORY — NOT THE PRODUCTION PHASE 2 DESIGN**
+>
+> This design governed the isolated acceptance prototype. The approved production design is `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`.
+
+**Status:** Implemented acceptance prototype; retained for history
 **Scope:** Clickable UX and workflow acceptance prototype only  
 **Supersedes:** `2026-07-18-phase-2-updates-evidence-readiness-design.md` for current execution  
 **Research basis:** `docs/research/OPEN_SOURCE_REUSE_ASSESSMENT.md` and `docs/research/OPEN_SOURCE_REUSE_DECISION.md`
