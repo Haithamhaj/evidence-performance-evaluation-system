@@ -398,14 +398,14 @@ export type ClarificationState =
   | { state: "ready_for_review"; draftRevisionId: string };
 ```
 
-- [ ] **Step 1: Add failing update/evidence contract and prohibited-output tests**
+- [x] **Step 1: Add failing update/evidence contract and prohibited-output tests**
 
 Assert versioned clarification turns, source revisions, supported claim, Project required, conditional Work Item/KPI/criterion links, employee confirmation, execution mode, and schemas with no rating/rank/productivity/readiness score.
 
 Run: `pnpm vitest run --project unit packages/contracts/src/updates-evidence.test.ts packages/updates-evidence/src/prompts.test.ts`
 Expected: FAIL, then implement schemas/prompts and rerun to PASS.
 
-- [ ] **Step 2: Add migration 0014 with immutable update/evidence lineage**
+- [x] **Step 2: Add migration 0014 with immutable update/evidence lineage**
 
 Create update source, clarification session/turn, structured-draft revision, update confirmation, evidence source/revision/link, attribution, verification, confirmation, and accepted-event tables. Add idempotency, source identity, optimistic revision, and append-only constraints.
 
@@ -418,7 +418,7 @@ pnpm vitest run --project integration packages/database/src/updates-evidence-sch
 
 Expected: PASS from empty and Phase 1 snapshot.
 
-- [ ] **Step 3: Implement multi-turn text update with RED/GREEN cycles**
+- [x] **Step 3: Implement multi-turn text update with RED/GREEN cycles**
 
 Tests must prove:
 
@@ -434,7 +434,7 @@ Tests must prove:
 Run: `pnpm vitest run --project integration packages/updates-evidence/src/update-service.integration.test.ts`
 Expected: PASS.
 
-- [ ] **Step 4: Implement manual evidence and AI-drafted claim confirmation**
+- [x] **Step 4: Implement manual evidence and AI-drafted claim confirmation**
 
 Support image/screenshot, file/document, pasted code/text/CLI, URL, and link sources through existing private upload and safe-source controls. Require Project and supported claim; require Work Item only when captured from a Work Item flow; allow KPI/criterion links only when applicable.
 

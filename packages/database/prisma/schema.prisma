@@ -72,6 +72,17 @@ model User {
   progressTransitions       ProgressContractTransition[]           @relation("ProgressContractTransitionActor")
   progressConfirmations     ProgressHumanConfirmation[]            @relation("ProgressHumanConfirmationActor")
   progressSnapshots         ProgressSnapshot[]                     @relation("ProgressSnapshotActor")
+  updateSources             UpdateSource[]                         @relation("UpdateSourceEmployee")
+  clarificationAnswers      ClarificationAnswer[]                  @relation("ClarificationAnswerEmployee")
+  updateDraftRevisions      StructuredUpdateDraftRevision[]        @relation("StructuredUpdateDraftRevisionCreatedBy")
+  updateConfirmations       UpdateConfirmation[]                   @relation("UpdateConfirmationEmployee")
+  acceptedUpdateEvents      AcceptedUpdateEvent[]                  @relation("AcceptedUpdateEventEmployee")
+  evidenceRecords           EvidenceRecord[]                       @relation("EvidenceRecordEmployee")
+  evidenceRevisions         EvidenceRevision[]                     @relation("EvidenceRevisionCreatedBy")
+  evidenceAttributions      EvidenceAttribution[]                  @relation("EvidenceAttributionEmployee")
+  proposedAttributions      EvidenceAttribution[]                  @relation("EvidenceAttributionProposedBy")
+  evidenceVerifications     EvidenceVerification[]                 @relation("EvidenceVerificationActor")
+  evidenceConfirmations     EvidenceConfirmation[]                 @relation("EvidenceConfirmationEmployee")
   createdAt                 DateTime                               @default(now()) @db.Timestamptz(6)
   updatedAt                 DateTime                               @updatedAt @db.Timestamptz(6)
 }
@@ -129,24 +140,25 @@ enum OperationStatus {
 }
 
 model Operation {
-  id              String                   @id @db.Uuid
-  organizationId  String                   @db.Uuid
-  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  jobType         String
-  jobVersion      Int
-  idempotencyKey  String                   @unique
-  correlationId   String                   @db.Uuid
-  payloadHash     String
-  status          OperationStatus          @default(pending)
-  attemptCount    Int                      @default(0)
-  errorCode       String?
-  resultReference String?
-  startedAt       DateTime?                @db.Timestamptz(6)
-  completedAt     DateTime?                @db.Timestamptz(6)
-  createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime                 @updatedAt @db.Timestamptz(6)
-  effectReceipts  OperationEffectReceipt[]
-  analysisRequest DocumentAnalysisRequest?
+  id                           String                        @id @db.Uuid
+  organizationId               String                        @db.Uuid
+  organization                 Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  jobType                      String
+  jobVersion                   Int
+  idempotencyKey               String                        @unique
+  correlationId                String                        @db.Uuid
+  payloadHash                  String
+  status                       OperationStatus               @default(pending)
+  attemptCount                 Int                           @default(0)
+  errorCode                    String?
+  resultReference              String?
+  startedAt                    DateTime?                     @db.Timestamptz(6)
+  completedAt                  DateTime?                     @db.Timestamptz(6)
+  createdAt                    DateTime                      @default(now()) @db.Timestamptz(6)
+  updatedAt                    DateTime                      @updatedAt @db.Timestamptz(6)
+  effectReceipts               OperationEffectReceipt[]
+  analysisRequest              DocumentAnalysisRequest?
+  progressRecalculationRequest ProgressRecalculationRequest?
 
   @@index([organizationId, status, createdAt])
   @@index([jobType, jobVersion, status, createdAt])
@@ -334,6 +346,10 @@ model Project {
   criteriaSets           DynamicCriteriaSet[]
   workItems              WorkItem[]
   progressContracts      ProgressContract[]
+  updateSources          UpdateSource[]
+  evidenceRecords        EvidenceRecord[]
+  acceptedUpdateEvents   AcceptedUpdateEvent[]
+  acceptedEvidenceEvents AcceptedEvidenceEvent[]
   createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
 
@@ -403,6 +419,10 @@ model Workstream {
   criteriaSets           DynamicCriteriaSet[]
   workItems              WorkItem[]
   progressContracts      ProgressContract[]
+  updateSources          UpdateSource[]
+  evidenceRecords        EvidenceRecord[]
+  acceptedUpdateEvents   AcceptedUpdateEvent[]
+  acceptedEvidenceEvents AcceptedEvidenceEvent[]
   createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
 
@@ -490,9 +510,14 @@ model WorkItem {
   blocks               WorkItemDependency[]        @relation("WorkItemBlocks")
   statusHistory        WorkItemStatusHistory[]
   assignmentHistory    WorkItemAssignmentHistory[]
+  updateSources        UpdateSource[]
+  evidenceRecords      EvidenceRecord[]
+  evidenceLinks        EvidenceLink[]
+  acceptedUpdateEvents AcceptedUpdateEvent[]
   createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
   updatedAt            DateTime                    @updatedAt @db.Timestamptz(6)
 
+  @@unique([id, projectId])
   @@index([projectId, status, createdAt])
   @@index([workstreamId, status, createdAt])
   @@index([assigneeId, status, dueAt])
@@ -609,39 +634,40 @@ enum ProgressSourceKind {
 }
 
 model ProgressContract {
-  id                       String                       @id @default(uuid()) @db.Uuid
+  id                       String                         @id @default(uuid()) @db.Uuid
   scopeKind                ProgressScopeKind
-  projectId                String                       @db.Uuid
-  project                  Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId             String?                      @db.Uuid
-  workstream               Workstream?                  @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
-  sourceDocumentId         String                       @db.Uuid
-  sourceDocument           DocumentRecord               @relation(fields: [sourceDocumentId], references: [id], onDelete: Restrict)
-  sourceDocumentVersionId  String                       @db.Uuid
-  sourceDocumentVersion    DocumentVersion              @relation(fields: [sourceDocumentVersionId, sourceDocumentId], references: [id, documentId], onDelete: Restrict)
+  projectId                String                         @db.Uuid
+  project                  Project                        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId             String?                        @db.Uuid
+  workstream               Workstream?                    @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  sourceDocumentId         String                         @db.Uuid
+  sourceDocument           DocumentRecord                 @relation(fields: [sourceDocumentId], references: [id], onDelete: Restrict)
+  sourceDocumentVersionId  String                         @db.Uuid
+  sourceDocumentVersion    DocumentVersion                @relation(fields: [sourceDocumentVersionId, sourceDocumentId], references: [id, documentId], onDelete: Restrict)
   sourceDocumentVersionNo  Int
   calculationKind          ProgressCalculationKind
   calculationSchemaVersion String
   contractVersion          Int
-  version                  Int                          @default(1)
-  state                    ProgressContractState        @default(draft)
-  ownerId                  String                       @db.Uuid
-  owner                    User                         @relation("ProgressContractOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  approverId               String?                      @db.Uuid
-  approver                 User?                        @relation("ProgressContractApprover", fields: [approverId], references: [id], onDelete: Restrict)
-  effectiveAt              DateTime                     @db.Timestamptz(6)
-  approvedAt               DateTime?                    @db.Timestamptz(6)
-  previousContractId       String?                      @unique @db.Uuid
-  previousContract         ProgressContract?            @relation("ProgressContractSuccessor", fields: [previousContractId], references: [id], onDelete: Restrict)
-  successorContract        ProgressContract?            @relation("ProgressContractSuccessor")
-  createdById              String                       @db.Uuid
-  createdBy                User                         @relation("ProgressContractCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  version                  Int                            @default(1)
+  state                    ProgressContractState          @default(draft)
+  ownerId                  String                         @db.Uuid
+  owner                    User                           @relation("ProgressContractOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  approverId               String?                        @db.Uuid
+  approver                 User?                          @relation("ProgressContractApprover", fields: [approverId], references: [id], onDelete: Restrict)
+  effectiveAt              DateTime                       @db.Timestamptz(6)
+  approvedAt               DateTime?                      @db.Timestamptz(6)
+  previousContractId       String?                        @unique @db.Uuid
+  previousContract         ProgressContract?              @relation("ProgressContractSuccessor", fields: [previousContractId], references: [id], onDelete: Restrict)
+  successorContract        ProgressContract?              @relation("ProgressContractSuccessor")
+  createdById              String                         @db.Uuid
+  createdBy                User                           @relation("ProgressContractCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   components               ProgressContractComponent[]
   transitions              ProgressContractTransition[]
   confirmations            ProgressHumanConfirmation[]
   snapshots                ProgressSnapshot[]
-  createdAt                DateTime                     @default(now()) @db.Timestamptz(6)
-  updatedAt                DateTime                     @updatedAt @db.Timestamptz(6)
+  recalculationRequests    ProgressRecalculationRequest[]
+  createdAt                DateTime                       @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime                       @updatedAt @db.Timestamptz(6)
 
   @@index([projectId, state, effectiveAt])
   @@index([workstreamId, state, effectiveAt])
@@ -667,6 +693,7 @@ model ProgressContractComponent {
   confirmationMode     ProgressConfirmationMode
   confirmations        ProgressHumanConfirmation[]
   snapshotSources      ProgressSnapshotSource[]
+  evidenceLinks        EvidenceLink[]
   createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
 
   @@unique([contractId, position])
@@ -745,6 +772,383 @@ model ProgressSnapshotSource {
 
   @@unique([snapshotId, componentId, sourceKind, sourceId, sourceVersion])
   @@index([sourceKind, sourceId])
+}
+
+enum UpdateInputKind {
+  text
+  voice
+}
+
+enum UpdateSessionState {
+  clarifying
+  ready_for_review
+  confirmed
+  cancelled
+}
+
+enum Phase2ExecutionMode {
+  manual
+  ai_assisted
+  agent_generated
+  mixed
+}
+
+enum UpdateDraftRevisionKind {
+  ai_draft
+  employee_edit
+}
+
+enum ManualEvidenceSourceKind {
+  image
+  screenshot
+  file
+  document
+  pasted_code
+  pasted_text
+  cli_snapshot
+  url
+}
+
+enum EvidenceRecordState {
+  draft
+  confirmed
+  rejected
+}
+
+enum EvidenceRevisionKind {
+  ai_draft
+  employee_edit
+  manual_draft
+}
+
+enum EvidenceVerificationOutcome {
+  unverified
+  pending
+  supported
+  partial
+  conflicting
+  rejected
+}
+
+enum EvidenceAttributionState {
+  proposed
+  acknowledged
+  disputed
+}
+
+enum ProgressRecalculationState {
+  pending
+  completed
+  failed
+}
+
+model UpdateSource {
+  id                   String                          @id @default(uuid()) @db.Uuid
+  idempotencyKey       String                          @unique @db.Uuid
+  projectId            String                          @db.Uuid
+  project              Project                         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId         String?                         @db.Uuid
+  workstream           Workstream?                     @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  workItemId           String?                         @db.Uuid
+  workItem             WorkItem?                       @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
+  employeeId           String                          @db.Uuid
+  employee             User                            @relation("UpdateSourceEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  inputKind            UpdateInputKind
+  rawText              String
+  executionMode        Phase2ExecutionMode
+  sourceVersion        Int                             @default(1)
+  clarificationSession ClarificationSession?
+  draftRevisions       StructuredUpdateDraftRevision[]
+  confirmation         UpdateConfirmation?
+  acceptedEvent        AcceptedUpdateEvent?
+  evidenceRecords      EvidenceRecord[]
+  createdAt            DateTime                        @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, projectId])
+  @@index([employeeId, createdAt])
+  @@index([projectId, workstreamId, createdAt])
+  @@index([workItemId, createdAt])
+}
+
+model ClarificationSession {
+  id               String                          @id @default(uuid()) @db.Uuid
+  updateSourceId   String                          @unique @db.Uuid
+  updateSource     UpdateSource                    @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
+  state            UpdateSessionState              @default(clarifying)
+  version          Int                             @default(1)
+  unresolvedFields Json
+  currentTurnNo    Int                             @default(0)
+  turns            ClarificationTurn[]
+  draftRevisions   StructuredUpdateDraftRevision[]
+  createdAt        DateTime                        @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime                        @updatedAt @db.Timestamptz(6)
+}
+
+model ClarificationTurn {
+  id        String               @id @default(uuid()) @db.Uuid
+  sessionId String               @db.Uuid
+  session   ClarificationSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  turnNo    Int
+  question  String
+  affects   Json
+  answer    ClarificationAnswer?
+  createdAt DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@unique([sessionId, turnNo])
+}
+
+model ClarificationAnswer {
+  id                      String            @id @default(uuid()) @db.Uuid
+  turnId                  String            @unique @db.Uuid
+  turn                    ClarificationTurn @relation(fields: [turnId], references: [id], onDelete: Restrict)
+  answer                  String
+  employeeId              String            @db.Uuid
+  employee                User              @relation("ClarificationAnswerEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  resultingSessionVersion Int
+  createdAt               DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@index([employeeId, createdAt])
+}
+
+model StructuredUpdateDraftRevision {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  updateSourceId      String                  @db.Uuid
+  updateSource        UpdateSource            @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
+  sessionId           String                  @db.Uuid
+  session             ClarificationSession    @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  revision            Int
+  summary             String
+  result              String
+  blocker             String?
+  nextAction          String
+  contributionContext String
+  executionMode       Phase2ExecutionMode
+  revisionKind        UpdateDraftRevisionKind
+  sourceReferences    Json
+  evidenceClaimDrafts Json
+  comparison          Json
+  aiRunId             String?                 @db.Uuid
+  aiRun               AiRun?                  @relation(fields: [aiRunId], references: [id], onDelete: Restrict)
+  createdById         String                  @db.Uuid
+  createdBy           User                    @relation("StructuredUpdateDraftRevisionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmation        UpdateConfirmation?
+  createdAt           DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@unique([sessionId, revision])
+  @@unique([id, updateSourceId])
+  @@index([updateSourceId, revision])
+  @@index([aiRunId])
+  @@index([createdById, createdAt])
+}
+
+model UpdateConfirmation {
+  id              String                        @id @default(uuid()) @db.Uuid
+  updateSourceId  String                        @unique @db.Uuid
+  updateSource    UpdateSource                  @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
+  draftRevisionId String                        @unique @db.Uuid
+  draftRevision   StructuredUpdateDraftRevision @relation(fields: [draftRevisionId, updateSourceId], references: [id, updateSourceId], onDelete: Restrict)
+  employeeId      String                        @db.Uuid
+  employee        User                          @relation("UpdateConfirmationEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  reason          String
+  acceptedEvent   AcceptedUpdateEvent?
+  confirmedAt     DateTime                      @db.Timestamptz(6)
+  createdAt       DateTime                      @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, updateSourceId])
+  @@unique([draftRevisionId, updateSourceId])
+  @@index([employeeId, confirmedAt])
+}
+
+model AcceptedUpdateEvent {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  confirmationId       String                        @unique @db.Uuid
+  updateSourceId       String                        @unique @db.Uuid
+  confirmation         UpdateConfirmation            @relation(fields: [confirmationId, updateSourceId], references: [id, updateSourceId], onDelete: Restrict)
+  updateSource         UpdateSource                  @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
+  projectId            String                        @db.Uuid
+  project              Project                       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId         String?                       @db.Uuid
+  workstream           Workstream?                   @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  workItemId           String?                       @db.Uuid
+  workItem             WorkItem?                     @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
+  employeeId           String                        @db.Uuid
+  employee             User                          @relation("AcceptedUpdateEventEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  sourceReferences     Json
+  occurredAt           DateTime                      @db.Timestamptz(6)
+  recalculationRequest ProgressRecalculationRequest?
+  createdAt            DateTime                      @default(now()) @db.Timestamptz(6)
+
+  @@unique([confirmationId, updateSourceId])
+  @@index([projectId, occurredAt, id])
+  @@index([workstreamId, occurredAt, id])
+  @@index([workItemId, occurredAt, id])
+  @@index([employeeId, occurredAt])
+}
+
+model ProgressRecalculationRequest {
+  id              String                     @id @default(uuid()) @db.Uuid
+  acceptedEventId String                     @unique @db.Uuid
+  acceptedEvent   AcceptedUpdateEvent        @relation(fields: [acceptedEventId], references: [id], onDelete: Restrict)
+  contractId      String?                    @db.Uuid
+  contract        ProgressContract?          @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  state           ProgressRecalculationState @default(pending)
+  version         Int                        @default(1)
+  operationId     String                     @unique @db.Uuid
+  operation       Operation                  @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  correlationId   String                     @db.Uuid
+  createdAt       DateTime                   @default(now()) @db.Timestamptz(6)
+  completedAt     DateTime?                  @db.Timestamptz(6)
+
+  @@index([state, createdAt])
+  @@index([contractId, createdAt])
+}
+
+model EvidenceRecord {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  idempotencyKey       String                 @unique @db.Uuid
+  projectId            String                 @db.Uuid
+  project              Project                @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId         String?                @db.Uuid
+  workstream           Workstream?            @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  workItemId           String?                @db.Uuid
+  workItem             WorkItem?              @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
+  capturedFromWorkItem Boolean                @default(false)
+  updateSourceId       String?                @db.Uuid
+  updateSource         UpdateSource?          @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
+  employeeId           String                 @db.Uuid
+  employee             User                   @relation("EvidenceRecordEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  state                EvidenceRecordState    @default(draft)
+  version              Int                    @default(1)
+  currentRevision      Int                    @default(1)
+  revisions            EvidenceRevision[]
+  confirmation         EvidenceConfirmation?
+  acceptedEvent        AcceptedEvidenceEvent?
+  createdAt            DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime               @updatedAt @db.Timestamptz(6)
+
+  @@index([employeeId, state, createdAt])
+  @@index([projectId, workstreamId, state, createdAt])
+  @@index([workItemId, createdAt])
+  @@index([updateSourceId])
+}
+
+model EvidenceRevision {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  evidenceId          String                   @db.Uuid
+  evidence            EvidenceRecord           @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  revision            Int
+  revisionKind        EvidenceRevisionKind
+  sourceKind          ManualEvidenceSourceKind
+  objectKey           String?
+  sourceText          String?
+  sourceUrl           String?
+  mediaType           String?
+  checksumSha256      String?
+  sizeBytes           Int?
+  supportedClaim      String
+  contributionContext String
+  executionMode       Phase2ExecutionMode
+  aiRunId             String?                  @db.Uuid
+  aiRun               AiRun?                   @relation(fields: [aiRunId], references: [id], onDelete: Restrict)
+  createdById         String                   @db.Uuid
+  createdBy           User                     @relation("EvidenceRevisionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  links               EvidenceLink[]
+  attributions        EvidenceAttribution[]
+  verifications       EvidenceVerification[]
+  confirmation        EvidenceConfirmation?
+  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@unique([evidenceId, revision])
+  @@unique([id, evidenceId])
+  @@index([aiRunId])
+  @@index([createdById, createdAt])
+}
+
+model EvidenceLink {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  evidenceRevisionId  String                     @db.Uuid
+  evidenceRevision    EvidenceRevision           @relation(fields: [evidenceRevisionId], references: [id], onDelete: Restrict)
+  workItemId          String?                    @db.Uuid
+  workItem            WorkItem?                  @relation(fields: [workItemId], references: [id], onDelete: Restrict)
+  progressComponentId String?                    @db.Uuid
+  progressComponent   ProgressContractComponent? @relation(fields: [progressComponentId], references: [id], onDelete: Restrict)
+  dynamicCriterionId  String?                    @db.Uuid
+  dynamicCriterion    DynamicCriterion?          @relation(fields: [dynamicCriterionId], references: [id], onDelete: Restrict)
+  createdAt           DateTime                   @default(now()) @db.Timestamptz(6)
+
+  @@unique([evidenceRevisionId, workItemId, progressComponentId, dynamicCriterionId])
+  @@index([workItemId])
+  @@index([progressComponentId])
+  @@index([dynamicCriterionId])
+}
+
+model EvidenceAttribution {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  evidenceRevisionId  String                   @db.Uuid
+  evidenceRevision    EvidenceRevision         @relation(fields: [evidenceRevisionId], references: [id], onDelete: Restrict)
+  employeeId          String                   @db.Uuid
+  employee            User                     @relation("EvidenceAttributionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  contributionContext String
+  state               EvidenceAttributionState
+  proposedById        String                   @db.Uuid
+  proposedBy          User                     @relation("EvidenceAttributionProposedBy", fields: [proposedById], references: [id], onDelete: Restrict)
+  reason              String
+  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@index([evidenceRevisionId, employeeId, createdAt])
+  @@index([employeeId, state, createdAt])
+}
+
+model EvidenceVerification {
+  id                 String                      @id @default(uuid()) @db.Uuid
+  evidenceRevisionId String                      @db.Uuid
+  evidenceRevision   EvidenceRevision            @relation(fields: [evidenceRevisionId], references: [id], onDelete: Restrict)
+  outcome            EvidenceVerificationOutcome
+  sourceReferences   Json
+  actorId            String                      @db.Uuid
+  actor              User                        @relation("EvidenceVerificationActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason             String
+  createdAt          DateTime                    @default(now()) @db.Timestamptz(6)
+
+  @@index([evidenceRevisionId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model EvidenceConfirmation {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  evidenceId         String                 @unique @db.Uuid
+  evidence           EvidenceRecord         @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  evidenceRevisionId String                 @unique @db.Uuid
+  evidenceRevision   EvidenceRevision       @relation(fields: [evidenceRevisionId, evidenceId], references: [id, evidenceId], onDelete: Restrict)
+  employeeId         String                 @db.Uuid
+  employee           User                   @relation("EvidenceConfirmationEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  reason             String
+  acceptedEvent      AcceptedEvidenceEvent?
+  confirmedAt        DateTime               @db.Timestamptz(6)
+  createdAt          DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, evidenceId])
+  @@unique([evidenceRevisionId, evidenceId])
+  @@index([employeeId, confirmedAt])
+}
+
+model AcceptedEvidenceEvent {
+  id               String               @id @default(uuid()) @db.Uuid
+  confirmationId   String               @unique @db.Uuid
+  evidenceId       String               @unique @db.Uuid
+  confirmation     EvidenceConfirmation @relation(fields: [confirmationId, evidenceId], references: [id, evidenceId], onDelete: Restrict)
+  evidence         EvidenceRecord       @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  projectId        String               @db.Uuid
+  project          Project              @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId     String?              @db.Uuid
+  workstream       Workstream?          @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  sourceReferences Json
+  occurredAt       DateTime             @db.Timestamptz(6)
+  createdAt        DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@unique([confirmationId, evidenceId])
+  @@index([projectId, occurredAt, id])
+  @@index([workstreamId, occurredAt, id])
 }
 
 model ResponsibilityWindow {
@@ -1425,6 +1829,7 @@ model DynamicCriterion {
   id                       String             @id @default(uuid()) @db.Uuid
   criteriaSetId            String             @db.Uuid
   criteriaSet              DynamicCriteriaSet @relation(fields: [criteriaSetId], references: [id], onDelete: Restrict)
+  evidenceLinks            EvidenceLink[]
   position                 Int
   name                     String
   selectionReason          String
@@ -1733,37 +2138,37 @@ model AiOutputSchemaArtifact {
 }
 
 model AiRun {
-  id                     String                 @id @default(uuid()) @db.Uuid
+  id                     String                          @id @default(uuid()) @db.Uuid
   routeKey               String
-  routeId                String                 @db.Uuid
-  route                  AiRoute                @relation(fields: [routeId, routeKey, routeLevel, scopeId], references: [id, routeKey, level, scopeId], onDelete: Restrict)
-  routeConfigId          String                 @db.Uuid
+  routeId                String                          @db.Uuid
+  route                  AiRoute                         @relation(fields: [routeId, routeKey, routeLevel, scopeId], references: [id, routeKey, level, scopeId], onDelete: Restrict)
+  routeConfigId          String                          @db.Uuid
   routeConfigVersion     Int
-  routeConfig            AiRouteConfig          @relation(fields: [routeConfigId, routeId, routeConfigVersion], references: [id, routeId, version], onDelete: Restrict)
+  routeConfig            AiRouteConfig                   @relation(fields: [routeConfigId, routeId, routeConfigVersion], references: [id, routeId, version], onDelete: Restrict)
   routeLevel             ScopeType
-  scopeId                String                 @db.Uuid
-  routeConfigProviderId  String                 @db.Uuid
-  providerConfigId       String                 @db.Uuid
+  scopeId                String                          @db.Uuid
+  routeConfigProviderId  String                          @db.Uuid
+  providerConfigId       String                          @db.Uuid
   providerConfigVersion  Int
-  routeConfigProvider    AiRouteConfigProvider  @relation(fields: [routeConfigProviderId, routeConfigId, providerConfigId, providerConfigVersion], references: [id, routeConfigId, providerConfigId, providerConfigVersion], onDelete: Restrict)
-  projectScopeId         String?                @db.Uuid
+  routeConfigProvider    AiRouteConfigProvider           @relation(fields: [routeConfigProviderId, routeConfigId, providerConfigId, providerConfigVersion], references: [id, routeConfigId, providerConfigId, providerConfigVersion], onDelete: Restrict)
+  projectScopeId         String?                         @db.Uuid
   projectScopeType       ScopeType?
-  projectScope           AuthorizationScope?    @relation("AiRunProjectScope", fields: [projectScopeId, projectScopeType], references: [id, scopeType], onDelete: Restrict)
-  departmentScopeId      String?                @db.Uuid
+  projectScope           AuthorizationScope?             @relation("AiRunProjectScope", fields: [projectScopeId, projectScopeType], references: [id, scopeType], onDelete: Restrict)
+  departmentScopeId      String?                         @db.Uuid
   departmentScopeType    ScopeType?
-  departmentScope        AuthorizationScope?    @relation("AiRunDepartmentScope", fields: [departmentScopeId, departmentScopeType], references: [id, scopeType], onDelete: Restrict)
+  departmentScope        AuthorizationScope?             @relation("AiRunDepartmentScope", fields: [departmentScopeId, departmentScopeType], references: [id, scopeType], onDelete: Restrict)
   classification         AiDataClassification
   inputReference         String
   inputSchemaVersion     String
   outputSchemaVersion    String
-  outputSchemaArtifactId String                 @db.Uuid
+  outputSchemaArtifactId String                          @db.Uuid
   outputSchemaHash       String
-  outputSchemaArtifact   AiOutputSchemaArtifact @relation(fields: [outputSchemaArtifactId, routeKey, outputSchemaVersion, outputSchemaHash], references: [id, routeKey, version, schemaHash], onDelete: Restrict)
+  outputSchemaArtifact   AiOutputSchemaArtifact          @relation(fields: [outputSchemaArtifactId, routeKey, outputSchemaVersion, outputSchemaHash], references: [id, routeKey, version, schemaHash], onDelete: Restrict)
   promptTemplateVersion  String
   sourceReferences       Json
   outputReference        String?
-  startedAt              DateTime               @db.Timestamptz(6)
-  completedAt            DateTime               @db.Timestamptz(6)
+  startedAt              DateTime                        @db.Timestamptz(6)
+  completedAt            DateTime                        @db.Timestamptz(6)
   latencyMs              Int
   usage                  Json?
   costUsd                Float?
@@ -1771,9 +2176,11 @@ model AiRun {
   errorCategory          String?
   fallbackChain          Json
   humanApprovalState     AiHumanApprovalState
-  correlationId          String                 @db.Uuid
+  correlationId          String                          @db.Uuid
   validationIssueCodes   Json
-  createdAt              DateTime               @default(now()) @db.Timestamptz(6)
+  updateDraftRevisions   StructuredUpdateDraftRevision[]
+  evidenceRevisions      EvidenceRevision[]
+  createdAt              DateTime                        @default(now()) @db.Timestamptz(6)
 
   @@index([routeId, routeConfigVersion, createdAt])
   @@index([routeKey, createdAt])

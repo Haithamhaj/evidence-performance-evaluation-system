@@ -466,6 +466,18 @@ importers:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
 
+  packages/updates-evidence:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
   packages/work-items:
     dependencies:
       '@evaluation/contracts':
