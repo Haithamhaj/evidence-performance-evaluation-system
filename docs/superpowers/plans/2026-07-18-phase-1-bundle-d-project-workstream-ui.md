@@ -482,7 +482,7 @@ git commit -m "feat: add secure workspace web boundary"
 - Project detail reads `/api/workspace/projects/<projectId>`.
 - Pure views accept already validated `ProjectWorkspace` and detail composite objects; they never receive session or token fields.
 
-- [ ] **Step 1: Add paired catalog keys and compatibility tests**
+- [x] **Step 1: Add paired catalog keys and compatibility tests**
 
 Add exact Arabic/English keys for:
 
@@ -495,7 +495,7 @@ Add exact Arabic/English keys for:
 
 Catalog compatibility must still reject missing keys or mismatched placeholders.
 
-- [ ] **Step 2: Write RED pure-view tests**
+- [x] **Step 2: Write RED pure-view tests**
 
 Use `renderToStaticMarkup` to verify:
 
@@ -508,15 +508,15 @@ expect(markup).not.toMatch(/rating|rank|productivity/iu);
 
 Also verify empty state, long Arabic names, technical UUID isolation, and semantic heading order.
 
-- [ ] **Step 3: Implement the shared workspace shell**
+- [x] **Step 3: Implement the shared workspace shell**
 
 Use one header with logo/title, “Projects and workstreams,” locale switch preserving the current resource path, and logout. Keep the identified-pilot notice on the home screen; do not duplicate manager-feedback copy inside project criteria screens.
 
-- [ ] **Step 4: Implement project list states**
+- [x] **Step 4: Implement project list states**
 
 `workspace-client.tsx` is the only client data loader. It uses an abortable GET, renders loading → data/empty/error, provides a retry button, and never renders raw upstream messages. Project cards show name, localized status, owner display name when present, and a link to the detail route.
 
-- [ ] **Step 5: Implement project detail**
+- [x] **Step 5: Implement project detail**
 
 Render:
 
@@ -529,11 +529,11 @@ Render:
 
 Use anchor navigation instead of hidden tabs so all sections remain keyboard-accessible and linkable.
 
-- [ ] **Step 6: Add responsive logical CSS**
+- [x] **Step 6: Add responsive logical CSS**
 
 Use CSS grid with `minmax(0, 1fr)`, `margin-inline`, `padding-inline`, `border-inline-start`, and a single-column breakpoint at 48rem. Do not use physical left/right positioning. Ensure touch targets are at least 2.75rem high and focus remains visible.
 
-- [ ] **Step 7: Verify and review Task 3**
+- [x] **Step 7: Verify and review Task 3**
 
 Run:
 
@@ -549,7 +549,7 @@ node scripts/check-user-visible-copy.mjs
 
 One independent normal-product review reports only P0/P1 blockers. Record P2/P3 without delaying.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/localization apps/web/src/app

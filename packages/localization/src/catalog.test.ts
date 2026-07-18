@@ -26,6 +26,35 @@ describe("localization catalogs", () => {
     expect(localeMetadata.en.direction).toBe("ltr");
   });
 
+  it("keeps the complete project workspace vocabulary in both locales", async () => {
+    const requiredKeys = [
+      "workspace.projects.title",
+      "workspace.workstreams.title",
+      "workspace.people.title",
+      "workspace.document.title",
+      "workspace.readiness.title",
+      "workspace.criteria.title",
+      "workspace.loading",
+      "workspace.empty",
+      "workspace.errorReference",
+      "workspace.status.active",
+      "workspace.responsibility.contributor",
+      "workspace.criteriaAction.generate",
+      "workspace.criteriaAction.owner_review",
+      "workspace.criteriaAction.publish",
+      "workspace.criteriaAction.respond",
+      "workspace.criteriaAction.manager_resolve",
+      "workspace.criteriaAction.activate",
+    ] as const;
+    const ar = await getCatalog("ar");
+    const en = await getCatalog("en");
+
+    for (const key of requiredKeys) {
+      expect(Object.hasOwn(ar, key)).toBe(true);
+      expect(Object.hasOwn(en, key)).toBe(true);
+    }
+  });
+
   it("uses the exact approved Identified-mode notice in both locales", async () => {
     const ar = await getCatalog("ar");
     const en = await getCatalog("en");

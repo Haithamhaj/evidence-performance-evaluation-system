@@ -154,6 +154,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@evaluation/localization':
         specifier: workspace:*
         version: link:../../packages/localization
