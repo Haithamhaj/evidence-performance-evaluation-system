@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: mocks.cookies }));
 
-import { fetchWorkspaceUpstream } from "./workspace-api.js";
+import { fetchWorkspaceUpstream, mutateCriteriaUpstream } from "./workspace-api.js";
 
 const secret = "local-test-session-secret-with-at-least-32-characters";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -369,5 +369,67 @@ describe("server-only workspace upstream", () => {
         schema: projectScreenSchema,
       }),
     ).rejects.toMatchObject({ status: 503, messageKey: "errors.internal" });
+  });
+
+  it.each([
+    ["generate", { kind: "generate" }, "/api/v1/dynamic-criteria/proposals"],
+    [
+      "owner review",
+      { kind: "owner_review", proposalId: sourceId },
+      `/api/v1/dynamic-criteria/${sourceId}/owner-reviews`,
+    ],
+    [
+      "publish",
+      { kind: "publish", proposalId: sourceId },
+      `/api/v1/dynamic-criteria/${sourceId}/publish`,
+    ],
+    [
+      "respond",
+      { kind: "respond", proposalId: sourceId },
+      `/api/v1/dynamic-criteria/${sourceId}/responses`,
+    ],
+    [
+      "manager resolve",
+      { kind: "manager_resolve", proposalId: sourceId },
+      `/api/v1/dynamic-criteria/${sourceId}/manager-resolutions`,
+    ],
+    [
+      "activate",
+      { kind: "activate", proposalId: sourceId },
+      `/api/v1/dynamic-criteria/${sourceId}/activate`,
+    ],
+  ] as const)("posts only to the exact %s mutation path", async (_name, route, path) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ignored: true }), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await mutateCriteriaUpstream({ route, body: { reason: "Approved reason" } });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://127.0.0.1:3001${path}`,
+      expect.objectContaining({
+        cache: "no-store",
+        method: "POST",
+        body: JSON.stringify({ reason: "Approved reason" }),
+        headers: expect.objectContaining({
+          authorization: "Bearer access-token",
+          "content-type": "application/json",
+        }),
+      }),
+    );
+  });
+
+  it("rejects a malformed proposal mutation identity before fetch", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(
+      mutateCriteriaUpstream({
+        route: { kind: "respond", proposalId: "not-a-uuid" },
+        body: { action: "acknowledge" },
+      }),
+    ).rejects.toMatchObject({ status: 404, messageKey: "errors.notFound" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

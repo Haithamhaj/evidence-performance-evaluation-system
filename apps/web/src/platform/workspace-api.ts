@@ -16,6 +16,13 @@ export type WorkspaceRoute =
       readonly workstreamId: string;
     };
 
+export type CriteriaMutationRoute =
+  | { readonly kind: "generate" }
+  | {
+      readonly kind: "owner_review" | "publish" | "respond" | "manager_resolve" | "activate";
+      readonly proposalId: string;
+    };
+
 export type SafeWorkspaceError = {
   readonly status: 401 | 403 | 404 | 409 | 500 | 503;
   readonly messageKey:
@@ -159,6 +166,42 @@ export async function fetchWorkspaceUpstream<T>(input: {
   }
 }
 
+export async function mutateCriteriaUpstream(input: {
+  readonly route: CriteriaMutationRoute;
+  readonly body: unknown;
+}): Promise<void> {
+  const correlationId = randomUUID();
+  const baseUrl = internalApiBaseUrl(correlationId);
+  const path = criteriaMutationPath(input.route, correlationId);
+  let settings: ReturnType<typeof oidcSettings>;
+  try {
+    settings = oidcSettings();
+  } catch {
+    throw failure(500, "errors.internal", correlationId);
+  }
+  let cookieStore: Awaited<ReturnType<typeof cookies>>;
+  try {
+    cookieStore = await cookies();
+  } catch {
+    throw failure(500, "errors.internal", correlationId);
+  }
+
+  let accessToken: string;
+  try {
+    accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
+  } catch {
+    throw failure(401, "errors.unauthorized", correlationId);
+  }
+
+  await requestJson(
+    { accessToken, baseUrl, correlationId },
+    path,
+    { parse: () => undefined },
+    "POST",
+    input.body,
+  );
+}
+
 export function safeWorkspaceError(error: unknown): SafeWorkspaceError {
   if (error instanceof WorkspaceApiError) {
     return {
@@ -204,6 +247,19 @@ function workspacePath(route: WorkspaceRoute, correlationId: string): string {
   if (route.kind === "project") return `/api/v1/projects/${route.projectId}/workspace`;
   assertUuid(route.workstreamId, correlationId);
   return `/api/v1/projects/${route.projectId}/workstreams/${route.workstreamId}/workspace`;
+}
+
+function criteriaMutationPath(route: CriteriaMutationRoute, correlationId: string): string {
+  if (route.kind === "generate") return "/api/v1/dynamic-criteria/proposals";
+  assertUuid(route.proposalId, correlationId);
+  const suffix = {
+    owner_review: "owner-reviews",
+    publish: "publish",
+    respond: "responses",
+    manager_resolve: "manager-resolutions",
+    activate: "activate",
+  }[route.kind];
+  return `/api/v1/dynamic-criteria/${route.proposalId}/${suffix}`;
 }
 
 type UpstreamContext = {

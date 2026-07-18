@@ -4,7 +4,13 @@ import type { Project } from "@evaluation/contracts";
 import type { Catalog, Locale } from "@evaluation/localization";
 import { createElement, useCallback, useEffect, useState } from "react";
 
-import { ProjectDetailView, ProjectListView, type ProjectScreenView } from "./workspace-views";
+import {
+  ProjectDetailView,
+  ProjectListView,
+  type ProjectScreenView,
+  WorkstreamDetailView,
+  type WorkstreamScreenView,
+} from "./workspace-views";
 
 type WorkspaceClientProperties =
   | {
@@ -17,6 +23,13 @@ type WorkspaceClientProperties =
       readonly locale: Locale;
       readonly mode: "project";
       readonly projectId: string;
+    }
+  | {
+      readonly catalog: Catalog;
+      readonly locale: Locale;
+      readonly mode: "workstream";
+      readonly projectId: string;
+      readonly workstreamId: string;
     };
 
 type LoadState =
@@ -27,14 +40,17 @@ type LoadState =
       readonly projects: readonly Project[];
       readonly ownersById: Readonly<Record<string, string>>;
     }
-  | { readonly kind: "project"; readonly screen: ProjectScreenView };
+  | { readonly kind: "project"; readonly screen: ProjectScreenView }
+  | { readonly kind: "workstream"; readonly screen: WorkstreamScreenView };
 
 export function WorkspaceClient(properties: WorkspaceClientProperties) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const path =
     properties.mode === "list"
       ? "/api/workspace/projects"
-      : `/api/workspace/projects/${properties.projectId}`;
+      : properties.mode === "project"
+        ? `/api/workspace/projects/${properties.projectId}`
+        : `/api/workspace/projects/${properties.projectId}/workstreams/${properties.workstreamId}`;
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -62,8 +78,10 @@ export function WorkspaceClient(properties: WorkspaceClientProperties) {
           const projects = body as readonly Project[];
           const ownersById = await loadOwnerNames(projects, signal);
           setState({ kind: "list", ownersById, projects });
-        } else {
+        } else if (properties.mode === "project") {
           setState({ kind: "project", screen: body as ProjectScreenView });
+        } else {
+          setState({ kind: "workstream", screen: body as WorkstreamScreenView });
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -115,11 +133,17 @@ export function WorkspaceClient(properties: WorkspaceClientProperties) {
       projects: state.projects,
     });
   }
-  return createElement(ProjectDetailView, {
-    catalog: properties.catalog,
-    locale: properties.locale,
-    screen: state.screen,
-  });
+  return state.kind === "project"
+    ? createElement(ProjectDetailView, {
+        catalog: properties.catalog,
+        locale: properties.locale,
+        screen: state.screen,
+      })
+    : createElement(WorkstreamDetailView, {
+        catalog: properties.catalog,
+        locale: properties.locale,
+        screen: state.screen,
+      });
 }
 
 async function loadOwnerNames(

@@ -4,11 +4,14 @@ import type {
   Project,
   ProjectWorkspace,
   ReadinessParticipantDetail,
+  WorkstreamWorkspace,
 } from "@evaluation/contracts";
 import type { Catalog, Locale } from "@evaluation/localization";
 import { localeMetadata } from "@evaluation/localization";
 import { BidiText } from "@evaluation/ui";
 import { createElement } from "react";
+
+import { CriteriaActions } from "./criteria-actions";
 
 export type ManagerReadinessView = {
   readonly audience: "manager";
@@ -17,6 +20,13 @@ export type ManagerReadinessView = {
 
 export type ProjectScreenView = {
   readonly workspace: ProjectWorkspace;
+  readonly document: DocumentDetail | null;
+  readonly readiness: ReadinessParticipantDetail | ManagerReadinessView | null;
+  readonly criteria: CriteriaWorkspace;
+};
+
+export type WorkstreamScreenView = {
+  readonly workspace: WorkstreamWorkspace;
   readonly document: DocumentDetail | null;
   readonly readiness: ReadinessParticipantDetail | ManagerReadinessView | null;
   readonly criteria: CriteriaWorkspace;
@@ -193,6 +203,139 @@ export function ProjectDetailView({ catalog, locale, screen }: ProjectDetailView
               </ol>
             </>
           )}
+          {createElement(CriteriaActions, {
+            allowedActions: criteria.allowedActions,
+            catalog,
+            context: criteriaContext(locale, "project", project.id, project.id, document, criteria),
+          })}
+        </section>
+      </div>
+    </>
+  );
+}
+
+type WorkstreamDetailViewProperties = {
+  readonly catalog: Catalog;
+  readonly locale: Locale;
+  readonly screen: WorkstreamScreenView;
+};
+
+export function WorkstreamDetailView({ catalog, locale, screen }: WorkstreamDetailViewProperties) {
+  const { criteria, document, readiness, workspace } = screen;
+  const { workstream } = workspace;
+  const criteriaItems = criteria.activeSet?.items ?? criteria.proposal?.items ?? [];
+
+  return (
+    <>
+      <nav className="breadcrumbs" aria-label={catalog["workspace.backToProjects"]}>
+        <a href={`/${locale}/projects/${workstream.projectId}`}>
+          {catalog["workspace.backToProjects"]}
+        </a>
+      </nav>
+      <section className="workspaceHero">
+        <div>
+          <h1>{workstream.name}</h1>
+          <p>{workstream.description || catalog["workspace.noDescription"]}</p>
+        </div>
+        {createElement(StatusBadge, { catalog, status: workstream.status })}
+      </section>
+      <div className="workspaceDetailGrid">
+        <section className="panel">
+          <h2>{catalog["workspace.people.title"]}</h2>
+          {workspace.people.length === 0 ? (
+            <p>{catalog["workspace.noPeople"]}</p>
+          ) : (
+            <ul className="plainList">
+              {workspace.people.map((period) => (
+                <li key={`${period.person.id}:${period.startsAt}`}>
+                  <strong>{period.person.displayName}</strong>
+                  <span>
+                    {catalog[`workspace.responsibility.${period.responsibilityType}`]}
+                    {" · "}
+                    {formatDate(locale, period.startsAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="panel">
+          <h2>{catalog["workspace.documentHistory"]}</h2>
+          {document === null ? (
+            <p>{catalog["workspace.documentMissing"]}</p>
+          ) : (
+            <ol className="documentVersions">
+              {document.versions.map((version) => (
+                <li key={version.id}>
+                  <strong>
+                    {catalog["workspace.version"]} {formatNumber(locale, version.version)}
+                  </strong>
+                  <span>{formatDate(locale, version.createdAt)}</span>
+                  <p>{version.reason}</p>
+                  <ul className="sourceList">
+                    {version.sources.map((source) => (
+                      <li key={source.id}>{renderSource(catalog, locale, source)}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+          )}
+          <h3>{catalog["workspace.readiness.title"]}</h3>
+          <p>{readinessLabel(catalog, readiness)}</p>
+        </section>
+
+        <section className="panel criteriaPanel">
+          <h2>{catalog["workspace.criteria.title"]}</h2>
+          {criteria.proposal === null ? null : (
+            <dl className="compactDetails">
+              <dt>{catalog["workspace.responseProgress"]}</dt>
+              <dd>
+                {formatNumber(locale, criteria.proposal.completedResponses)} /{" "}
+                {formatNumber(locale, criteria.proposal.requiredResponses)}
+              </dd>
+              <dt>{catalog["workspace.objectionCount"]}</dt>
+              <dd>{formatNumber(locale, criteria.proposal.objectionCount)}</dd>
+              {criteria.proposal.managerResolution === null ? null : (
+                <>
+                  <dt>{catalog["workspace.managerResolution"]}</dt>
+                  <dd>{criteria.proposal.managerResolution.reason}</dd>
+                </>
+              )}
+            </dl>
+          )}
+          {criteriaItems.length === 0 ? (
+            <p>{catalog["workspace.criteriaNone"]}</p>
+          ) : (
+            <ol className="criteriaList">
+              {criteriaItems.map((criterion) => (
+                <li key={criterion.id}>
+                  <strong>{criterion.name}</strong>
+                  <p>{criterion.expectedBehaviorOrResult}</p>
+                  <p>{criterion.evaluationMethod}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+          {criteria.activeSet === null ? null : (
+            <p>
+              {catalog["workspace.effectiveFrom"]}{" "}
+              {formatDate(locale, criteria.activeSet.effectiveFrom)}
+            </p>
+          )}
+          {createElement(CriteriaActions, {
+            allowedActions: criteria.allowedActions,
+            catalog,
+            context: criteriaContext(
+              locale,
+              "workstream",
+              workstream.id,
+              workstream.projectId,
+              document,
+              criteria,
+            ),
+          })}
         </section>
       </div>
     </>
@@ -217,6 +360,61 @@ function readinessLabel(catalog: Catalog, readiness: ProjectScreenView["readines
   return readiness.missingItems.length === 0
     ? catalog["workspace.readiness.ready"]
     : catalog["workspace.readiness.needs_attention"];
+}
+
+function criteriaContext(
+  locale: Locale,
+  kind: "project" | "workstream",
+  resourceId: string,
+  projectId: string,
+  document: DocumentDetail | null,
+  criteria: CriteriaWorkspace,
+): import("./criteria-actions").CriteriaActionContext {
+  const documentVersionId =
+    document?.versions.find((version) => version.version === document.currentVersion)?.id ?? null;
+  return {
+    locale,
+    kind,
+    resourceId,
+    projectId,
+    proposalId: criteria.proposal?.id ?? null,
+    proposalVersion: criteria.proposal?.version ?? null,
+    documentVersionId,
+    replacementRequest: criteria.replacementRequest,
+  };
+}
+
+function renderSource(
+  catalog: Catalog,
+  locale: Locale,
+  source: DocumentDetail["versions"][number]["sources"][number],
+) {
+  if (source.sourceType === "upload") {
+    return (
+      <dl className="compactDetails">
+        <dt>{catalog["workspace.source"]}</dt>
+        <dd>{createTechnicalText(source.uploadedSource.filename)}</dd>
+        <dt>{catalog["workspace.fileType"]}</dt>
+        <dd>{createTechnicalText(source.uploadedSource.detectedType)}</dd>
+        <dt>{catalog["workspace.fileSize"]}</dt>
+        <dd>
+          {new Intl.NumberFormat(localeMetadata[locale].dateLocale, {
+            style: "unit",
+            unit: "byte",
+            unitDisplay: "short",
+          }).format(source.uploadedSource.byteSize)}
+        </dd>
+        <dt>{catalog["workspace.sourceHash"]}</dt>
+        <dd>
+          {createElement(BidiText, {
+            kind: "hash",
+            children: source.uploadedSource.sha256,
+          })}
+        </dd>
+      </dl>
+    );
+  }
+  return createElement(BidiText, { kind: "url", children: source.url });
 }
 
 function formatDate(locale: Locale, value: string): string {

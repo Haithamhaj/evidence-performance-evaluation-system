@@ -593,7 +593,7 @@ Server Actions:
 
 Every action parses `FormData` through existing contract schemas plus UUID/kind/resource schemas, obtains the server-only session, calls an exact upstream path, uses `revalidatePath`, and returns only a catalog key/correlation ID for expected errors.
 
-- [ ] **Step 1: Write RED action-parser tests**
+- [x] **Step 1: Write RED action-parser tests**
 
 Cover valid inputs and rejection of:
 
@@ -605,17 +605,17 @@ Cover valid inputs and rejection of:
 - invalid effective date/version;
 - mismatched project/workstream kind.
 
-- [ ] **Step 2: Implement minimal Server Actions**
+- [x] **Step 2: Implement minimal Server Actions**
 
 Follow Next.js 16 guidance: keep `'use server'` at the action module boundary, validate before calling upstream, call `revalidatePath` after success, and keep `redirect` outside catch blocks. Never return an access token or upstream body.
 
-- [ ] **Step 3: Add workstream detail view**
+- [x] **Step 3: Add workstream detail view**
 
 Reuse the project detail visual system. Show current people, immutable document versions/sources, safe readiness state, proposal items, response progress, retained objection count, manager resolution, active version, and effective dates.
 
 For upload sources, show file name/type/size/hash only; signed URLs are fetched only through the existing protected access flow and are not persisted in page state.
 
-- [ ] **Step 4: Add role-scoped criteria forms**
+- [x] **Step 4: Add role-scoped criteria forms**
 
 Render a form only when its exact action appears in `allowedActions`:
 
@@ -629,11 +629,11 @@ Render a form only when its exact action appears in `allowedActions`:
 
 The UI never lets a manager edit criterion text. Objections remain visible after acceptance.
 
-- [ ] **Step 5: Add pending/success/error accessibility**
+- [x] **Step 5: Add pending/success/error accessibility**
 
 Use `useActionState`, disable only the submitted form while pending, announce status through `aria-live="polite"`, move no focus automatically on validation failure, and display the safe correlation reference.
 
-- [ ] **Step 6: Verify Task 4**
+- [x] **Step 6: Verify Task 4**
 
 Run:
 
@@ -646,7 +646,7 @@ pnpm --filter @evaluation/web typecheck
 node scripts/check-user-visible-copy.mjs
 ```
 
-- [ ] **Step 7: Self-review and commit**
+- [x] **Step 7: Self-review and commit**
 
 Because the implementation is UI over already protected APIs, self-review for raw secret leakage, manager readiness detail, illegal action visibility, RTL, and prohibited scoring language. Escalate only a concrete P0/P1.
 
