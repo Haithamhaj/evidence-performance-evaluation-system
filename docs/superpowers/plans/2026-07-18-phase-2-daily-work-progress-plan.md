@@ -441,7 +441,7 @@ Support image/screenshot, file/document, pasted code/text/CLI, URL, and link sou
 Run: `pnpm vitest run --project integration packages/updates-evidence/src/evidence-service.integration.test.ts`
 Expected: PASS for source immutability, employee edit/confirmation, contribution context, execution mode, authorization, malware/type/size rejection, and no automatic progress.
 
-- [ ] **Step 5: Route production structuring only through AI Router**
+- [x] **Step 5: Route production structuring only through AI Router**
 
 Use `Pick<AiRouter<DatabaseTransaction>, "run">`, route key `update.structure`, a versioned output schema, exact source references, whole-run timeout, and transactional persistence callback. Deterministic adapters are test/demo only.
 

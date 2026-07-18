@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { OpaqueReferenceSchema } from "@evaluation/ai-routing";
 import { UpdateStructureAiOutputSchema } from "@evaluation/contracts";
 
 import { UpdateStructuringProcessor } from "./update-structuring.processor.js";
@@ -27,12 +28,22 @@ describe("UpdateStructuringProcessor", () => {
         departmentId: expect.any(String),
         inputSchemaVersion: "update-structure-input.v1",
         outputSchemaVersion: "update-structure-output.v1",
-        promptTemplateVersion: "update-structure.v1",
+        promptTemplateVersion: "update-structure.v3",
         classification: "confidential",
         requiresHumanApproval: true,
       });
       expect(request).not.toHaveProperty("provider");
       expect(request).not.toHaveProperty("model");
+      expect(Object.keys(request.input).sort()).toEqual([
+        "trustedInstruction",
+        "untrustedContent",
+      ]);
+      expect(OpaqueReferenceSchema.safeParse(request.inputReference).success).toBe(true);
+      expect(
+        request.sourceReferences.every(
+          (reference: unknown) => OpaqueReferenceSchema.safeParse(reference).success,
+        ),
+      ).toBe(true);
       const saved = await callback(transaction, output);
       return {
         runId: crypto.randomUUID(),
@@ -57,7 +68,7 @@ describe("UpdateStructuringProcessor", () => {
         answers: [],
         previousAcceptedState: null,
         activeContract: null,
-        sourceReferences: [`update-source:${crypto.randomUUID()}:1`],
+        sourceReferences: [`update-source:${crypto.randomUUID()}`],
       },
       persisted,
     );

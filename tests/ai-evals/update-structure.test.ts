@@ -47,7 +47,7 @@ describe("update structuring AI boundary", () => {
       answers: [],
       previousAcceptedState: null,
       activeContract: null,
-      sourceReferences: ["update-source:55555555-5555-4555-8555-555555555555:1"],
+      sourceReferences: ["update-source:55555555-5555-4555-8555-555555555555"],
     });
     expect(request.untrustedContent.rawText.content).toBe(rawText);
     const parsed = UpdateStructureAiOutputSchema.parse(output);
@@ -62,7 +62,7 @@ describe("update structuring AI boundary", () => {
       answers: [],
       previousAcceptedState: null,
       activeContract: null,
-      sourceReferences: ["update-source:55555555-5555-4555-8555-555555555555:1"],
+      sourceReferences: ["update-source:55555555-5555-4555-8555-555555555555"],
     });
     expect(request.untrustedContent.rawText).toMatchObject({
       begin: "BEGIN_UNTRUSTED_UPDATE",

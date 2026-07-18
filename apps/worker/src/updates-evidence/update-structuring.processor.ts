@@ -1,4 +1,8 @@
-import type { AiRouter, PersistValidatedOutput } from "@evaluation/ai-routing";
+import {
+  OpaqueReferenceSchema,
+  type AiRouter,
+  type PersistValidatedOutput,
+} from "@evaluation/ai-routing";
 import { UpdateStructureAiOutputSchema } from "@evaluation/contracts";
 import type { DatabaseTransaction } from "@evaluation/database";
 import {
@@ -49,7 +53,7 @@ const InputSchema = z
       })
       .strict()
       .nullable(),
-    sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
+    sourceReferences: z.array(OpaqueReferenceSchema).min(1).max(50),
   })
   .strict();
 
@@ -84,7 +88,10 @@ export class UpdateStructuringProcessor {
         projectId: parsed.projectId,
         departmentId: parsed.departmentId,
         systemId: this.options.systemId,
-        input: governedInput,
+        input: {
+          trustedInstruction: governedInput.trustedInstruction,
+          untrustedContent: governedInput.untrustedContent,
+        },
         inputReference: `update-source:${parsed.updateSourceId}`,
         inputSchemaVersion: UPDATE_STRUCTURE_INPUT_SCHEMA_VERSION,
         outputSchemaVersion: UPDATE_STRUCTURE_OUTPUT_SCHEMA_VERSION,

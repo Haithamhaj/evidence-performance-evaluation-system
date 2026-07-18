@@ -62,7 +62,13 @@ export type UpdateStructureContext = Readonly<{
 }>;
 
 export interface UpdateStructurer {
-  structure(input: UpdateStructureContext): Promise<AiOutput>;
+  structure(
+    input: UpdateStructureContext,
+    persistValidatedOutput: (
+      transaction: Transaction,
+      output: AiOutput,
+    ) => Promise<Readonly<{ outputReference: string }>>,
+  ): Promise<AiOutput>;
 }
 
 export interface UpdateScopeReader {
@@ -107,7 +113,7 @@ export class UpdateService {
   async start(command: unknown): Promise<import("@evaluation/contracts").ClarificationState> {
     const parsed = StartCommandSchema.parse(command);
     const at = validClock(this.clock());
-    return serializable(this.client, async (transaction) => {
+    const prepared = await serializable(this.client, async (transaction) => {
       const scope = await this.scopeReader.authorizeIn(transaction, {
         actor: parsed.actor,
         projectId: parsed.input.projectId,
@@ -122,7 +128,22 @@ export class UpdateService {
       if (existing !== null) {
         assertSameSource(existing, parsed);
         if (existing.clarificationSession === null) throw invalidState();
-        return currentState(transaction, existing.clarificationSession);
+        if (
+          existing.clarificationSession.currentTurnNo > 0 ||
+          existing.clarificationSession.state !== "clarifying"
+        ) {
+          return {
+            kind: "existing" as const,
+            state: await currentState(transaction, existing.clarificationSession),
+          };
+        }
+        return {
+          kind: "structure" as const,
+          source: existing,
+          session: existing.clarificationSession,
+          context: await buildStructureContext(transaction, existing, [], scope),
+          scope,
+        };
       }
       const source = await transaction.updateSource.create({
         data: {
@@ -139,14 +160,32 @@ export class UpdateService {
       const session = await transaction.clarificationSession.create({
         data: { updateSourceId: source.id, unresolvedFields: [] },
       });
-      return this.advance(transaction, source, session, [], scope);
+      return {
+        kind: "structure" as const,
+        source,
+        session,
+        context: await buildStructureContext(transaction, source, [], scope),
+        scope,
+      };
+    });
+    if (prepared.kind === "existing") return prepared.state;
+    return this.persistStructuredOutput({
+      actor: parsed.actor,
+      at,
+      source: prepared.source,
+      sessionId: prepared.session.id,
+      expectedSessionVersion: prepared.session.version,
+      expectedTurnId: null,
+      pendingAnswer: null,
+      context: prepared.context,
+      expectedScope: prepared.scope,
     });
   }
 
   async answer(command: unknown): Promise<import("@evaluation/contracts").ClarificationState> {
     const parsed = AnswerCommandSchema.parse(command);
     const at = validClock(this.clock());
-    return serializable(this.client, async (transaction) => {
+    const prepared = await serializable(this.client, async (transaction) => {
       await lockSession(transaction, parsed.sessionId);
       const session = await loadSession(transaction, parsed.sessionId);
       assertOwner(session.updateSource.employeeId, parsed.actor);
@@ -167,23 +206,25 @@ export class UpdateService {
         .filter((item) => item.answer !== null)
         .map((item) => ({ question: item.question, answer: item.answer?.answer ?? "" }));
       answers.push({ question: turn.question, answer: parsed.input.answer });
-      const structured = await this.structure(transaction, session.updateSource, answers, scope);
-      await transaction.clarificationAnswer.create({
-        data: {
-          turnId: turn.id,
-          answer: parsed.input.answer,
-          employeeId: parsed.actor.userId,
-          resultingSessionVersion: session.version + 1,
-        },
-      });
-      return applyOutput(
-        transaction,
-        session,
-        session.updateSource,
-        structured.output,
-        structured.sourceReferences,
-        parsed.actor.userId,
-      );
+      return {
+        source: session.updateSource,
+        sessionId: session.id,
+        expectedSessionVersion: session.version,
+        expectedTurnId: turn.id,
+        context: await buildStructureContext(transaction, session.updateSource, answers, scope),
+        scope,
+      };
+    });
+    return this.persistStructuredOutput({
+      actor: parsed.actor,
+      at,
+      source: prepared.source,
+      sessionId: prepared.sessionId,
+      expectedSessionVersion: prepared.expectedSessionVersion,
+      expectedTurnId: prepared.expectedTurnId,
+      pendingAnswer: parsed.input.answer,
+      context: prepared.context,
+      expectedScope: prepared.scope,
     });
   }
 
@@ -323,63 +364,70 @@ export class UpdateService {
     });
   }
 
-  private async advance(
-    transaction: Transaction,
-    source: Source,
-    session: Session,
-    answers: ReadonlyArray<{ question: string; answer: string }>,
-    scope: Scope,
-  ) {
-    const structured = await this.structure(transaction, source, answers, scope);
-    return applyOutput(
-      transaction,
-      session,
-      source,
-      structured.output,
-      structured.sourceReferences,
-      source.employeeId,
-    );
-  }
-
-  private async structure(
-    transaction: Transaction,
-    source: Source,
-    answers: ReadonlyArray<{ question: string; answer: string }>,
-    scope: Scope,
-  ): Promise<{ output: AiOutput; sourceReferences: string[] }> {
-    const previous = await transaction.acceptedUpdateEvent.findFirst({
-      where: {
-        employeeId: source.employeeId,
-        projectId: source.projectId,
-        workstreamId: source.workstreamId,
-        workItemId: source.workItemId,
-      },
-      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-      include: { confirmation: { include: { draftRevision: true } } },
+  private async persistStructuredOutput(input: {
+    actor: { userId: string; active: boolean };
+    at: Date;
+    source: Source;
+    sessionId: string;
+    expectedSessionVersion: number;
+    expectedTurnId: string | null;
+    pendingAnswer: string | null;
+    context: UpdateStructureContext;
+    expectedScope: Scope;
+  }): Promise<import("@evaluation/contracts").ClarificationState> {
+    let persistedState: import("@evaluation/contracts").ClarificationState | undefined;
+    await this.structurer.structure(input.context, async (transaction, untrustedOutput) => {
+      if (persistedState !== undefined) throw invalidPersistence();
+      const output = UpdateStructureAiOutputSchema.parse(untrustedOutput);
+      await lockSession(transaction, input.sessionId);
+      const session = await loadSession(transaction, input.sessionId);
+      assertOwner(session.updateSource.employeeId, input.actor);
+      if (session.state !== "clarifying") throw invalidState();
+      if (session.version !== input.expectedSessionVersion) throw versionConflict();
+      const scope = await this.scopeReader.authorizeIn(transaction, {
+        actor: input.actor,
+        projectId: session.updateSource.projectId,
+        workstreamId: session.updateSource.workstreamId,
+        workItemId: session.updateSource.workItemId,
+        at: input.at,
+      });
+      if (!sameScope(scope, input.expectedScope)) throw versionConflict();
+      if (input.expectedTurnId !== null) {
+        const turn = session.turns.at(-1);
+        if (
+          turn === undefined ||
+          turn.id !== input.expectedTurnId ||
+          turn.answer !== null ||
+          input.pendingAnswer === null
+        ) {
+          throw invalidTurn();
+        }
+        await transaction.clarificationAnswer.create({
+          data: {
+            turnId: turn.id,
+            answer: input.pendingAnswer,
+            employeeId: input.actor.userId,
+            resultingSessionVersion: session.version + 1,
+          },
+        });
+      }
+      persistedState = await applyOutput(
+        transaction,
+        session,
+        session.updateSource,
+        output,
+        [...input.context.sourceReferences],
+        input.actor.userId,
+      );
+      return {
+        outputReference:
+          persistedState.state === "question"
+            ? `clarification-turn:${persistedState.turnId}`
+            : `update-draft:${persistedState.draftRevisionId}`,
+      };
     });
-    const sourceReferences = [
-      `update-source:${source.id}:${source.sourceVersion}`,
-      ...(previous === null ? [] : [`accepted-update-event:${previous.id}`]),
-      ...(scope.activeContract?.componentReferences ?? []),
-    ];
-    const output = UpdateStructureAiOutputSchema.parse(
-      await this.structurer.structure({
-        rawText: source.rawText,
-        answers,
-        previousAcceptedState:
-          previous === null
-            ? null
-            : {
-                acceptedEventId: previous.id,
-                summary: previous.confirmation.draftRevision.summary,
-                result: previous.confirmation.draftRevision.result,
-                sourceReferences: jsonArray(previous.sourceReferences),
-              },
-        activeContract: scope.activeContract,
-        sourceReferences,
-      }),
-    );
-    return { output, sourceReferences };
+    if (persistedState === undefined) throw invalidPersistence();
+    return persistedState;
   }
 }
 
@@ -398,6 +446,44 @@ type Session = {
   version: number;
   currentTurnNo: number;
 };
+
+async function buildStructureContext(
+  transaction: Transaction,
+  source: Source,
+  answers: ReadonlyArray<{ question: string; answer: string }>,
+  scope: Scope,
+): Promise<UpdateStructureContext> {
+  const previous = await transaction.acceptedUpdateEvent.findFirst({
+    where: {
+      employeeId: source.employeeId,
+      projectId: source.projectId,
+      workstreamId: source.workstreamId,
+      workItemId: source.workItemId,
+    },
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    include: { confirmation: { include: { draftRevision: true } } },
+  });
+  const sourceReferences = [
+    `update-source:${source.id}`,
+    ...(previous === null ? [] : [`accepted-update-event:${previous.id}`]),
+    ...(scope.activeContract?.componentReferences ?? []),
+  ];
+  return {
+    rawText: source.rawText,
+    answers,
+    previousAcceptedState:
+      previous === null
+        ? null
+        : {
+            acceptedEventId: previous.id,
+            summary: previous.confirmation.draftRevision.summary,
+            result: previous.confirmation.draftRevision.result,
+            sourceReferences: jsonArray(previous.sourceReferences),
+          },
+    activeContract: scope.activeContract,
+    sourceReferences,
+  };
+}
 
 async function applyOutput(
   transaction: Transaction,
@@ -652,4 +738,16 @@ function versionConflict(): AppError {
 
 function employeeEditRequired(): AppError {
   return new AppError("UPDATE_EMPLOYEE_EDIT_REQUIRED", "errors.updates.employeeEditRequired", 409);
+}
+
+function invalidPersistence(): AppError {
+  return new AppError(
+    "AI_RUN_PERSISTENCE_FAILED",
+    "errors.aiRouter.validatedOutputPersistenceFailed",
+    500,
+  );
+}
+
+function sameScope(left: Scope, right: Scope): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }

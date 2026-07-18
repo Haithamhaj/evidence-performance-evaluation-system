@@ -31,10 +31,13 @@ describe("UpdateService", () => {
     ];
     const seen: import("./update-service.js").UpdateStructureContext[] = [];
     const structurer = {
-      structure: vi.fn(async (input: import("./update-service.js").UpdateStructureContext) => {
+      structure: vi.fn(async (input, persistValidatedOutput) => {
         seen.push(input);
         const output = outputs.shift();
         if (output === undefined) throw new Error("Unexpected structuring call");
+        await client.$transaction((transaction) =>
+          persistValidatedOutput(transaction, output),
+        );
         return output;
       }),
     };
@@ -124,6 +127,10 @@ describe("UpdateService", () => {
       previousAcceptedState: null,
     });
     expect(seen.at(-1)?.answers).toHaveLength(2);
+    const storedSource = await client.updateSource.findUniqueOrThrow({
+      where: { idempotencyKey },
+    });
+    expect(seen[0]?.sourceReferences).toContain(`update-source:${storedSource.id}`);
 
     const sessionId = await sessionIdFor(idempotencyKey);
     await expect(
@@ -183,6 +190,113 @@ describe("UpdateService", () => {
     ).resolves.toBe(1);
   });
 
+  it("leaves no partial answer or draft when structuring fails and allows a safe retry", async () => {
+    const graph = await seedGraph();
+    let attempt = 0;
+    const structurer = {
+      structure: vi.fn(async (_input, persistValidatedOutput) => {
+        const currentAttempt = attempt++;
+        if (currentAttempt === 0 || currentAttempt === 2) {
+          throw new Error("simulated provider failure");
+        }
+        const output =
+          currentAttempt === 1
+            ? question(["result"], "ما النتيجة القابلة للتحقق؟")
+            : ({
+                state: "ready_for_review",
+                unresolvedFields: [],
+                draft: {
+                  summary: "اكتمل التحديث.",
+                  result: "نجحت جميع حالات القبول.",
+                  blocker: null,
+                  nextAction: "إرفاق سجل الاعتماد.",
+                  contributionContext: "نفذت التحقق وراجعت النتيجة.",
+                  evidenceClaimDrafts: ["نجحت حالات القبول."],
+                  comparisonExplanation: "أضيفت نتيجة قابلة للتحقق.",
+                },
+              } satisfies import("@evaluation/contracts").UpdateStructureAiOutput);
+        await client.$transaction((transaction) =>
+          persistValidatedOutput(transaction, output),
+        );
+        return output;
+      }),
+    };
+    const service = new UpdateService(
+      client,
+      {
+        authorizeIn: async () => ({
+          organizationId: graph.organizationId,
+          activeContract: null,
+        }),
+      },
+      structurer,
+      { append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }) },
+      () => now,
+    );
+    const idempotencyKey = crypto.randomUUID();
+    const startCommand = {
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+      input: {
+        idempotencyKey,
+        projectId: graph.projectId,
+        workstreamId: graph.workstreamId,
+        workItemId: graph.workItemId,
+        rawText: "أنجزت العمل.",
+        executionMode: "ai_assisted",
+      },
+    } as const;
+
+    await expect(service.start(startCommand)).rejects.toThrow("simulated provider failure");
+    const emptySession = await client.updateSource.findUniqueOrThrow({
+      where: { idempotencyKey },
+      include: {
+        clarificationSession: {
+          include: { turns: { include: { answer: true } }, draftRevisions: true },
+        },
+      },
+    });
+    expect(emptySession.clarificationSession).toMatchObject({
+      state: "clarifying",
+      version: 1,
+      turns: [],
+      draftRevisions: [],
+    });
+
+    const questionState = await service.start(startCommand);
+    expect(questionState).toMatchObject({ state: "question", sessionVersion: 2 });
+    if (questionState.state !== "question") throw new Error("Expected a clarification question");
+    const answerCommand = {
+      actor: startCommand.actor,
+      correlationId: crypto.randomUUID(),
+      sessionId: emptySession.clarificationSession?.id ?? "",
+      input: {
+        expectedSessionVersion: questionState.sessionVersion,
+        turnId: questionState.turnId,
+        answer: "نجحت جميع حالات القبول.",
+      },
+    } as const;
+
+    await expect(service.answer(answerCommand)).rejects.toThrow("simulated provider failure");
+    const unchangedSession = await client.clarificationSession.findUniqueOrThrow({
+      where: { id: answerCommand.sessionId },
+      include: { turns: { include: { answer: true } }, draftRevisions: true },
+    });
+    expect(unchangedSession).toMatchObject({
+      state: "clarifying",
+      version: 2,
+      draftRevisions: [],
+    });
+    expect(unchangedSession.turns).toHaveLength(1);
+    expect(unchangedSession.turns[0]?.answer).toBeNull();
+
+    await expect(service.answer(answerCommand)).resolves.toMatchObject({
+      state: "ready_for_review",
+      sessionVersion: 3,
+      draftRevision: 1,
+    });
+  });
+
   it("includes the previous accepted state when a later update starts", async () => {
     const graph = await seedGraph();
     const previous = await seedAcceptedUpdate(graph);
@@ -196,9 +310,13 @@ describe("UpdateService", () => {
         }),
       },
       {
-        structure: async (input) => {
+        structure: async (input, persistValidatedOutput) => {
           captured = input;
-          return question(["result"], "ما التغيير منذ آخر تحديث؟");
+          const output = question(["result"], "ما التغيير منذ آخر تحديث؟");
+          await client.$transaction((transaction) =>
+            persistValidatedOutput(transaction, output),
+          );
+          return output;
         },
       },
       { append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }) },

@@ -230,4 +230,31 @@ describe("OpenAI-compatible neutral adapter", () => {
     );
     expect(adapter.matchesConfiguration({ ...provider, localTrustPolicyVersion: 4 })).toBe(false);
   });
+
+  it("keeps an already normalized persisted endpoint unchanged at runtime", () => {
+    const endpoint = "https://api.openai.com/v1/chat/completions";
+    const adapter = new OpenAiCompatibleAdapter({
+      providerKey: "openai",
+      adapterKey: "openai-compatible",
+      locality: "external",
+      baseUrl: endpoint,
+      credentialProvider: async () => undefined,
+    });
+
+    expect(
+      adapter.matchesConfiguration({
+        routeConfigProviderId: crypto.randomUUID(),
+        providerConfigId: crypto.randomUUID(),
+        providerConfigVersion: 1,
+        providerKey: "openai",
+        adapterKey: "openai-compatible",
+        modelKey: "gpt-5.5-2026-04-23",
+        locality: "external",
+        endpoint,
+        localTrustPolicyId: null,
+        localTrustPolicyVersion: null,
+        localTrustAllowedIp: null,
+      }),
+    ).toBe(true);
+  });
 });
