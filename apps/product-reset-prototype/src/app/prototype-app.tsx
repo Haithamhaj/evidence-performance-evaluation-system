@@ -4,29 +4,25 @@ import { useState } from "react";
 
 import { AppShell } from "../components/app-shell";
 import type { Locale } from "../domain/types";
-import { copy, type CatalogKey } from "../i18n/catalog";
 import { PrototypeProvider, usePrototype } from "./prototype-store";
+import {
+  InboxScreen,
+  MyWorkScreen,
+  ProjectDetailScreen,
+  ProjectsScreen,
+  WorkItemPanel,
+  WorkstreamScreen,
+} from "../components/work-screens";
 
 type PrototypeAppProperties = {
   readonly initialLocale: Locale;
   readonly initialPath: string;
 };
 
-const screenKeys: Record<string, CatalogKey> = {
-  "": "screens.myWork.title",
-  inbox: "screens.inbox.title",
-  projects: "screens.projects.title",
-  evidence: "screens.evidence.title",
-  readiness: "screens.readiness.title",
-  manager: "screens.manager.title",
-};
-
 function PrototypeContent() {
   const { locale, path } = usePrototype();
   const [notice, setNotice] = useState<string | null>(null);
-  const section = path.split("/")[0] ?? "";
-  const titleKey = screenKeys[section] ?? "screens.myWork.title";
-  const subtitleKey = titleKey.replace(".title", ".subtitle") as CatalogKey;
+  const parts = path.split("/").filter(Boolean);
 
   const showSimulationNotice = (kind: "add" | "update") => {
     setNotice(
@@ -40,33 +36,28 @@ function PrototypeContent() {
     );
   };
 
+  let screen: React.ReactNode = <MyWorkScreen />;
+  if (parts[0] === "inbox") screen = <InboxScreen />;
+  if (parts[0] === "projects" && parts.length === 1) screen = <ProjectsScreen />;
+  if (parts[0] === "projects" && parts[1] && parts.length === 2) {
+    screen = <ProjectDetailScreen projectId={parts[1]} />;
+  }
+  if (parts[0] === "projects" && parts[2] === "workstreams" && parts[3]) {
+    screen = <WorkstreamScreen workstreamId={parts[3]} />;
+  }
+
   return (
     <AppShell
       onQuickAdd={() => showSimulationNotice("add")}
       onQuickUpdate={() => showSimulationNotice("update")}
     >
-      <div className="pageHeader">
-        <div>
-          <p className="eyebrow">{copy(locale, "prototype.synthetic")}</p>
-          <h1>{copy(locale, titleKey)}</h1>
-          <p>{copy(locale, subtitleKey)}</p>
-        </div>
-      </div>
       {notice ? (
         <div className="inlineNotice" role="status">
           {notice}
         </div>
       ) : null}
-      <section className="surface placeholderSurface">
-        <span className="largeGlyph" aria-hidden="true">
-          ◌
-        </span>
-        <p>
-          {locale === "ar"
-            ? "يجري الآن تركيب محتوى الشاشة التفاعلي."
-            : "The interactive screen content is being assembled."}
-        </p>
-      </section>
+      {screen}
+      <WorkItemPanel />
     </AppShell>
   );
 }
