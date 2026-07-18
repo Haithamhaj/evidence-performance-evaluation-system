@@ -110,11 +110,10 @@ describe("AnalysisOutboxDispatcher", () => {
       return timer;
     });
     const clearInterval = vi.fn();
-    const lifecycle = new AnalysisOutboxDispatcherLifecycle(
-      { scanOnce },
-      12_000,
-      { setInterval, clearInterval } as never,
-    );
+    const lifecycle = new AnalysisOutboxDispatcherLifecycle({ scanOnce }, 12_000, {
+      setInterval,
+      clearInterval,
+    } as never);
 
     await lifecycle.onApplicationBootstrap();
 

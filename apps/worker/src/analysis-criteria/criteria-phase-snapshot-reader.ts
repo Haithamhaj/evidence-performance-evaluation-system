@@ -9,18 +9,15 @@ type DocumentReader = Readonly<{
   getPrerequisitesIn(
     transaction: Transaction,
     input: Readonly<{ documentVersionId: string }>,
-  ): Promise<
-    | Readonly<{
-        documentId: string;
-        documentVersionId: string;
-        documentVersion: number;
-        readinessCheckId: string;
-        projectId: string | null;
-        workstreamId: string | null;
-        sourceReferences: readonly string[];
-      }>
-    | null
-  >;
+  ): Promise<Readonly<{
+    documentId: string;
+    documentVersionId: string;
+    documentVersion: number;
+    readinessCheckId: string;
+    projectId: string | null;
+    workstreamId: string | null;
+    sourceReferences: readonly string[];
+  }> | null>;
 }>;
 
 type ReviewReader = Readonly<{
@@ -31,18 +28,15 @@ type ReviewReader = Readonly<{
       resourceId: string;
       at: Date;
     }>,
-  ): Promise<
-    | Readonly<{
-        kind: "project" | "workstream";
-        resourceId: string;
-        projectId: string;
-        organizationId: string;
-        departmentId: string;
-        primaryOwnerId: string;
-        contributorIds: readonly string[];
-      }>
-    | null
-  >;
+  ): Promise<Readonly<{
+    kind: "project" | "workstream";
+    resourceId: string;
+    projectId: string;
+    organizationId: string;
+    departmentId: string;
+    primaryOwnerId: string;
+    contributorIds: readonly string[];
+  }> | null>;
 }>;
 
 export class PrismaCriteriaPhaseSnapshotReader {
@@ -57,9 +51,7 @@ export class PrismaCriteriaPhaseSnapshotReader {
   async readIn(
     transaction: Transaction,
     input: Readonly<{ requestId: string; actorId: string; correlationId: string }>,
-  ): Promise<
-    import("./criteria-analysis-phase-handler.js").CriteriaPhaseSnapshot | null
-  > {
+  ): Promise<import("./criteria-analysis-phase-handler.js").CriteriaPhaseSnapshot | null> {
     const row = await transaction.documentAnalysisRequest.findUnique({
       where: { id: input.requestId },
       select: {
@@ -113,8 +105,7 @@ export class PrismaCriteriaPhaseSnapshotReader {
       prerequisites.readinessCheckId !== row.pinnedReadinessCheckId
     )
       return null;
-    const resourceId =
-      kind === "project" ? prerequisites.projectId : prerequisites.workstreamId;
+    const resourceId = kind === "project" ? prerequisites.projectId : prerequisites.workstreamId;
     if (resourceId === null) return null;
     const identity = await this.reviewReader.snapshotIn(transaction, {
       kind,
@@ -198,19 +189,14 @@ async function replacementPins(
     correlationId: string;
     pinnedProposalId: string | null;
   }>,
-): Promise<
-  | Readonly<{
-      materialComparisonReviewId: string | null;
-      ownerFeedbackSource:
-        | Readonly<{
-            kind: "proposal_transition" | "comparison_review";
-            referenceId: string;
-            sha256: string;
-          }>
-        | null;
-    }>
-  | null
-> {
+): Promise<Readonly<{
+  materialComparisonReviewId: string | null;
+  ownerFeedbackSource: Readonly<{
+    kind: "proposal_transition" | "comparison_review";
+    referenceId: string;
+    sha256: string;
+  }> | null;
+}> | null> {
   if (input.pinnedProposalId === null) {
     return { materialComparisonReviewId: null, ownerFeedbackSource: null };
   }
@@ -220,10 +206,7 @@ async function replacementPins(
       targetId: input.requestId,
       correlationId: input.correlationId,
       eventType: {
-        in: [
-          "dynamic_criteria.generation_requested",
-          "dynamic_criteria.revision_requested",
-        ],
+        in: ["dynamic_criteria.generation_requested", "dynamic_criteria.revision_requested"],
       },
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -271,9 +254,7 @@ function jsonUuid(value: unknown, key: string): string | null {
   if (typeof value !== "object" || value === null || !(key in value)) return null;
   const candidate = (value as Record<string, unknown>)[key];
   return typeof candidate === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-      candidate,
-    )
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(candidate)
     ? candidate
     : null;
 }

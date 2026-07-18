@@ -469,14 +469,14 @@ export class ProposalService {
     });
     return {
       ...buildCriteriaGenerationRequest({
-      kind: parsed.kind,
-      prompt: {
-        artifactId: parsed.promptArtifactId,
-        sha256: parsed.promptArtifactHash,
-      },
-      documentSources: document.sources,
-      readinessSourceReferences: input.readinessSourceReferences,
-      ...(ownerFeedback === undefined ? {} : { ownerFeedback }),
+        kind: parsed.kind,
+        prompt: {
+          artifactId: parsed.promptArtifactId,
+          sha256: parsed.promptArtifactHash,
+        },
+        documentSources: document.sources,
+        readinessSourceReferences: input.readinessSourceReferences,
+        ...(ownerFeedback === undefined ? {} : { ownerFeedback }),
       }),
       sourceReferences: [
         ...new Set([
@@ -866,15 +866,13 @@ async function validateReplacementPins(
     },
   });
   const priorResourceId = prior?.kind === "project" ? prior.projectId : prior?.workstreamId;
-  const ownerReviewTransition = prior?.transitions.find(
-    ({ fromState, toState }) => fromState === "owner_review" && toState === "superseded",
-  );
+  const replacementTransition = prior?.transitions.find(isReplacementTransition);
   if (
     prior === null ||
     prior.kind !== command.kind ||
     priorResourceId !== command.resourceId ||
     prior.state !== "superseded" ||
-    ownerReviewTransition === undefined
+    replacementTransition === undefined
   ) {
     throw replacementInvalid();
   }
@@ -886,16 +884,16 @@ async function validateReplacementPins(
       throw replacementInvalid();
     }
     if (
-      typeof ownerReviewTransition.id !== "string" ||
-      typeof ownerReviewTransition.reason !== "string" ||
-      command.ownerFeedback !== ownerReviewTransition.reason
+      typeof replacementTransition.id !== "string" ||
+      typeof replacementTransition.reason !== "string" ||
+      command.ownerFeedback !== replacementTransition.reason
     ) {
       throw replacementInvalid();
     }
     return {
       kind: "proposal_transition",
-      referenceId: ownerReviewTransition.id,
-      sha256: sha256Text(ownerReviewTransition.reason),
+      referenceId: replacementTransition.id,
+      sha256: sha256Text(replacementTransition.reason),
     };
   }
   const materialReview = await transaction.documentComparisonReview.findUnique({
@@ -986,9 +984,7 @@ async function validateOwnerFeedbackLineage(
       ? documentVersion?.document.projectId
       : documentVersion?.document.workstreamId;
   const priorResourceId = prior?.kind === "project" ? prior.projectId : prior?.workstreamId;
-  const hasCorrectionTransition = prior?.transitions.some(
-    ({ fromState, toState }) => fromState === "owner_review" && toState === "superseded",
-  );
+  const hasReplacementTransition = prior?.transitions.some(isReplacementTransition);
   if (
     documentVersion === null ||
     currentResourceId === null ||
@@ -1015,12 +1011,11 @@ async function validateOwnerFeedbackLineage(
     if (
       pins.materialComparisonReviewId !== null ||
       prior.state !== "superseded" ||
-      !hasCorrectionTransition ||
+      !hasReplacementTransition ||
       prior.sourceDocumentVersionId !== pins.documentVersionId ||
       transition === null ||
       transition.proposalId !== pins.replacesProposalId ||
-      transition.fromState !== "owner_review" ||
-      transition.toState !== "superseded" ||
+      !isReplacementTransition(transition) ||
       sha256Text(transition.reason) !== source.sha256
     ) {
       throw replacementInvalid();
@@ -1059,6 +1054,15 @@ async function validateOwnerFeedbackLineage(
     throw replacementInvalid();
   }
   return review.reason;
+}
+
+function isReplacementTransition(
+  transition: Readonly<{ fromState: string; toState: string }>,
+): boolean {
+  return (
+    ["owner_review", "manager_resolution"].includes(transition.fromState) &&
+    transition.toState === "superseded"
+  );
 }
 
 function sha256Text(value: string): string {

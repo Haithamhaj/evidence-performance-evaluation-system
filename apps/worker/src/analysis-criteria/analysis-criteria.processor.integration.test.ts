@@ -144,20 +144,23 @@ describe("AnalysisCriteriaProcessor", () => {
     ["comparison", "comparison"],
     ["criteria_project", "criteria"],
     ["criteria_workstream", "criteria"],
-  ] as const)("validates durably then dispatches %s outside the transaction", async (kind, handler) => {
-    const harness = fixture({ kind });
+  ] as const)(
+    "validates durably then dispatches %s outside the transaction",
+    async (kind, handler) => {
+      const harness = fixture({ kind });
 
-    await expect(harness.processor.process(envelope())).resolves.toBe(
-      `analysis-result:${ids.requestId}`,
-    );
+      await expect(harness.processor.process(envelope())).resolves.toBe(
+        `analysis-result:${ids.requestId}`,
+      );
 
-    expect(harness.handlers[handler].process).toHaveBeenCalledWith(
-      ids.requestId,
-      ids.actorId,
-      ids.correlationId,
-    );
-    expect(harness.openTransactions).toBe(0);
-  });
+      expect(harness.handlers[handler].process).toHaveBeenCalledWith(
+        ids.requestId,
+        ids.actorId,
+        ids.correlationId,
+      );
+      expect(harness.openTransactions).toBe(0);
+    },
+  );
 
   it.each([
     ["organization", { organizationId: "00000000-0000-4000-8000-000000000099" }],
@@ -180,10 +183,7 @@ describe("AnalysisCriteriaProcessor", () => {
 
   it.each([
     ["missing", null],
-    [
-      "non-human",
-      { actorKind: "service", actorId: "worker", correlationId: ids.correlationId },
-    ],
+    ["non-human", { actorKind: "service", actorId: "worker", correlationId: ids.correlationId }],
     [
       "wrong-correlation",
       {

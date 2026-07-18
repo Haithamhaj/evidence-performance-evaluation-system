@@ -69,17 +69,17 @@ function harness(
       findUnique: vi.fn(async () => ({ ...operation })),
       updateMany: vi.fn(async ({ where, data }: any) => {
         if (where.status !== undefined && operation.status !== where.status) return { count: 0 };
-        if (
-          typeof where.attemptCount === "number" &&
-          operation.attemptCount !== where.attemptCount
-        )
+        if (typeof where.attemptCount === "number" && operation.attemptCount !== where.attemptCount)
           return { count: 0 };
         if (
           where.attemptCount?.lt !== undefined &&
           Number(operation.attemptCount) >= where.attemptCount.lt
         )
           return { count: 0 };
-        if (where.OR !== undefined && !where.OR.some((item: any) => item.status?.in?.includes(operation.status)))
+        if (
+          where.OR !== undefined &&
+          !where.OR.some((item: any) => item.status?.in?.includes(operation.status))
+        )
           return { count: 0 };
         if (data.attemptCount?.increment !== undefined)
           operation.attemptCount = Number(operation.attemptCount) + data.attemptCount.increment;
@@ -215,30 +215,35 @@ function harness(
     ),
   };
   const router = {
-    run: vi.fn(async (_input: unknown, persist: (tx: typeof transaction, value: unknown) => Promise<unknown>) => {
-      expect(transactions).toBe(0);
-      if (options.deferRouter === true) await routerGate;
-      if (options.loseLeaseBeforePersist === true) operation.attemptCount = 2;
-      if (options.routerError !== undefined) throw options.routerError;
-      const persisted = await database.$transaction((tx) =>
-        persist(tx, {
-          criteria: [
-            {
-              name: "Evidence quality",
-              selectionReason: "Source-linked delivery evidence is material to this project.",
-              successLink: "Improves the reliability of project delivery decisions.",
-              expectedBehaviorOrResult: "Maintains current, source-linked project evidence.",
-              evaluationMethod: "Human review of the cited approved project document.",
-              suggestedEvidence: ["Approved project document"],
-              sourceReferences: [
-                options.outputSourceReference ?? `document-readiness:${ids.readiness}`,
-              ],
-            },
-          ],
-        }),
-      );
-      return { runId: crypto.randomUUID(), output: {}, outputReference: String(persisted) };
-    }),
+    run: vi.fn(
+      async (
+        _input: unknown,
+        persist: (tx: typeof transaction, value: unknown) => Promise<unknown>,
+      ) => {
+        expect(transactions).toBe(0);
+        if (options.deferRouter === true) await routerGate;
+        if (options.loseLeaseBeforePersist === true) operation.attemptCount = 2;
+        if (options.routerError !== undefined) throw options.routerError;
+        const persisted = await database.$transaction((tx) =>
+          persist(tx, {
+            criteria: [
+              {
+                name: "Evidence quality",
+                selectionReason: "Source-linked delivery evidence is material to this project.",
+                successLink: "Improves the reliability of project delivery decisions.",
+                expectedBehaviorOrResult: "Maintains current, source-linked project evidence.",
+                evaluationMethod: "Human review of the cited approved project document.",
+                suggestedEvidence: ["Approved project document"],
+                sourceReferences: [
+                  options.outputSourceReference ?? `document-readiness:${ids.readiness}`,
+                ],
+              },
+            ],
+          }),
+        );
+        return { runId: crypto.randomUUID(), output: {}, outputReference: String(persisted) };
+      },
+    ),
   };
   const handler = new CriteriaAnalysisPhaseHandler(
     database as never,
@@ -256,7 +261,16 @@ function harness(
       now: () => new Date("2026-07-17T12:00:00.000Z"),
     },
   );
-  return { handler, operation, proposal, releaseRouter, request, router, snapshotReader, transaction };
+  return {
+    handler,
+    operation,
+    proposal,
+    releaseRouter,
+    request,
+    router,
+    snapshotReader,
+    transaction,
+  };
 }
 
 describe("CriteriaAnalysisPhaseHandler", () => {
@@ -320,11 +334,7 @@ describe("CriteriaAnalysisPhaseHandler", () => {
 
   it("terminalizes a quarantined output instead of leaving the request running", async () => {
     const test = harness({
-      routerError: new AppError(
-        "AI_OUTPUT_QUARANTINED",
-        "errors.ai.outputQuarantined",
-        502,
-      ),
+      routerError: new AppError("AI_OUTPUT_QUARANTINED", "errors.ai.outputQuarantined", 502),
     });
     await expect(
       test.handler.process(ids.request, ids.actor, ids.correlation),
@@ -337,11 +347,7 @@ describe("CriteriaAnalysisPhaseHandler", () => {
 
   it("terminalizes an invalid criteria count without repeating the model attempt", async () => {
     const test = harness({
-      routerError: new AppError(
-        "CRITERIA_COUNT_INVALID",
-        "errors.criteria.countInvalid",
-        422,
-      ),
+      routerError: new AppError("CRITERIA_COUNT_INVALID", "errors.criteria.countInvalid", 422),
     });
     await expect(
       test.handler.process(ids.request, ids.actor, ids.correlation),
@@ -373,8 +379,7 @@ describe("CriteriaAnalysisPhaseHandler", () => {
 
   it("rejects a fabricated criterion source before proposal persistence", async () => {
     const test = harness({
-      outputSourceReference:
-        "document-source:40000000-0000-4000-8000-000000000099",
+      outputSourceReference: "document-source:40000000-0000-4000-8000-000000000099",
     });
     await expect(
       test.handler.process(ids.request, ids.actor, ids.correlation),

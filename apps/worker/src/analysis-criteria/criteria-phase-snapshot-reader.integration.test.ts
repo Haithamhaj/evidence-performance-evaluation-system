@@ -72,26 +72,20 @@ function fixture(
             options.replacement === "material"
               ? "dynamic_criteria.revision_requested"
               : "dynamic_criteria.generation_requested",
-          safeDiff:
-            options.replacement === "material"
-              ? { comparisonReviewId: ids.review }
-              : {},
+          safeDiff: options.replacement === "material" ? { comparisonReviewId: ids.review } : {},
         };
   const transaction = {
     documentAnalysisRequest: { findUnique: vi.fn(async () => row) },
     auditEvent: {
       findFirst: vi.fn(async ({ where }: any) =>
-        audit !== null &&
-        where.correlationId === (options.auditCorrelation ?? ids.correlation)
+        audit !== null && where.correlationId === (options.auditCorrelation ?? ids.correlation)
           ? audit
           : null,
       ),
     },
     dynamicCriteriaProposalTransition: {
       findFirst: vi.fn(async () =>
-        options.replacement === "owner"
-          ? { id: ids.transition, reason: feedback }
-          : null,
+        options.replacement === "owner" ? { id: ids.transition, reason: feedback } : null,
       ),
     },
     documentComparisonReview: {
@@ -124,10 +118,7 @@ function fixture(
   };
   return {
     feedback,
-    reader: new PrismaCriteriaPhaseSnapshotReader(
-      documentReader as never,
-      reviewReader as never,
-    ),
+    reader: new PrismaCriteriaPhaseSnapshotReader(documentReader as never, reviewReader as never),
     transaction,
   };
 }
@@ -156,26 +147,25 @@ describe("PrismaCriteriaPhaseSnapshotReader", () => {
   it.each([
     ["owner", "proposal_transition", ids.transition],
     ["material", "comparison_review", ids.review],
-  ] as const)("reconstructs %s replacement feedback from its immutable source", async (
-    replacement,
-    kind,
-    referenceId,
-  ) => {
-    const test = fixture({ replacement });
-    const result = await test.reader.readIn(test.transaction as never, {
-      requestId: ids.request,
-      actorId: ids.actor,
-      correlationId: ids.correlation,
-    });
-    expect(result?.job.ownerFeedbackSource).toEqual({
-      kind,
-      referenceId,
-      sha256: createHash("sha256").update(test.feedback).digest("hex"),
-    });
-    expect(result?.job.materialComparisonReviewId).toBe(
-      replacement === "material" ? ids.review : null,
-    );
-  });
+  ] as const)(
+    "reconstructs %s replacement feedback from its immutable source",
+    async (replacement, kind, referenceId) => {
+      const test = fixture({ replacement });
+      const result = await test.reader.readIn(test.transaction as never, {
+        requestId: ids.request,
+        actorId: ids.actor,
+        correlationId: ids.correlation,
+      });
+      expect(result?.job.ownerFeedbackSource).toEqual({
+        kind,
+        referenceId,
+        sha256: createHash("sha256").update(test.feedback).digest("hex"),
+      });
+      expect(result?.job.materialComparisonReviewId).toBe(
+        replacement === "material" ? ids.review : null,
+      );
+    },
+  );
 
   it.each([
     ["actor", { actorId: "30000000-0000-4000-8000-000000000099" }],
@@ -188,10 +178,7 @@ describe("PrismaCriteriaPhaseSnapshotReader", () => {
     ],
     ["route", { routeKey: "criteria.generate.workstream" }],
     ["artifact hash", { artifactPromptHash: "f".repeat(64) }],
-    [
-      "pinned readiness",
-      { pinnedReadinessCheckId: "30000000-0000-4000-8000-000000000099" },
-    ],
+    ["pinned readiness", { pinnedReadinessCheckId: "30000000-0000-4000-8000-000000000099" }],
   ])("fails closed for a mismatched %s pin", async (_label, options) => {
     const test = fixture(options);
     await expect(

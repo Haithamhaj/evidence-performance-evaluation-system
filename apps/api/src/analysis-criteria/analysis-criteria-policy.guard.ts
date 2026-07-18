@@ -30,10 +30,7 @@ export class AnalysisCriteriaPolicyGuard {
   private readonly reflector: Reflector;
   private readonly database: import("@evaluation/database").DatabaseClient;
 
-  constructor(
-    reflector: Reflector,
-    database: import("@evaluation/database").DatabaseClient,
-  ) {
+  constructor(reflector: Reflector, database: import("@evaluation/database").DatabaseClient) {
     this.reflector = reflector;
     this.database = database;
   }

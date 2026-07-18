@@ -72,11 +72,9 @@ export class AnalysisCriteriaProcessor {
         throw new NonRetryableJobError("ANALYSIS_JOB_ACTOR_INVALID");
       }
       const requestTerminal =
-        ["succeeded", "superseded"].includes(request.state) &&
-        request.resultReference !== null;
+        ["succeeded", "superseded"].includes(request.state) && request.resultReference !== null;
       const operationSucceeded =
-        request.operation.status === "succeeded" &&
-        request.operation.resultReference !== null;
+        request.operation.status === "succeeded" && request.operation.resultReference !== null;
       if (requestTerminal) {
         const requestReference = request.resultReference;
         const operationReference = request.operation.resultReference;
@@ -95,18 +93,11 @@ export class AnalysisCriteriaProcessor {
       }
       if (request.state === "superseded") {
         const effect = await terminalEffectReference(transaction, request);
-        if (effect === null)
-          throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
-        if (
-          operationSucceeded &&
-          request.operation.resultReference === effect.receiptReference
-        ) {
+        if (effect === null) throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
+        if (operationSucceeded && request.operation.resultReference === effect.receiptReference) {
           return { kind: "replay" as const, resultReference: effect.receiptReference };
         }
-        if (
-          request.operation.status === "running" &&
-          request.operation.resultReference === null
-        ) {
+        if (request.operation.status === "running" && request.operation.resultReference === null) {
           return dispatchOf(request, audit.actorId, envelope.correlationId);
         }
         throw new NonRetryableJobError("ANALYSIS_JOB_STATE_INCONSISTENT");
@@ -123,11 +114,7 @@ export class AnalysisCriteriaProcessor {
         : validated.requestKind === "comparison"
           ? this.handlers.comparison
           : this.handlers.criteria;
-    return handler.process(
-      validated.requestId,
-      validated.actorId,
-      validated.correlationId,
-    );
+    return handler.process(validated.requestId, validated.actorId, validated.correlationId);
   }
 }
 
@@ -136,10 +123,7 @@ function auditEventTypes(
 ): string[] {
   if (kind === "readiness") return ["document.readiness_requested"];
   if (kind === "comparison") return ["document.comparison_requested"];
-  return [
-    "dynamic_criteria.generation_requested",
-    "dynamic_criteria.revision_requested",
-  ];
+  return ["dynamic_criteria.generation_requested", "dynamic_criteria.revision_requested"];
 }
 
 async function terminalEffectReference(

@@ -77,11 +77,7 @@ export class PromptAwareOpenAiCompatibleAdapter {
       artifact.bodyHash !== descriptor.sha256 ||
       hash(artifact.trustedBody) !== descriptor.sha256
     ) {
-      throw new AppError(
-        "AI_PROMPT_ARTIFACT_MISMATCH",
-        "errors.ai.promptArtifactMismatch",
-        500,
-      );
+      throw new AppError("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
     }
 
     const untrustedContent = serializeUntrusted(parsed.data.untrustedContent);

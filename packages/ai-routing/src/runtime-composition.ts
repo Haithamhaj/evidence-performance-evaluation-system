@@ -49,9 +49,7 @@ export async function createRuntimeAiRouter(input: {
     }
   }
   await Promise.all(
-    [...selectedRouteKeys].map((routeKey) =>
-      requireRouteArtifacts(input.database, routeKey),
-    ),
+    [...selectedRouteKeys].map((routeKey) => requireRouteArtifacts(input.database, routeKey)),
   );
   const adapters = [...activeProviders.values()].map((provider) => {
     if (provider.adapterKey !== "openai-compatible") {
@@ -114,11 +112,7 @@ async function requireRouteArtifacts(
     }),
   ]);
   if (prompt === null) {
-    throw new AppError(
-      "AI_PROMPT_ARTIFACT_NOT_FOUND",
-      "errors.ai.promptArtifactNotFound",
-      500,
-    );
+    throw new AppError("AI_PROMPT_ARTIFACT_NOT_FOUND", "errors.ai.promptArtifactNotFound", 500);
   }
   if (
     prompt.routeKey !== routeKey ||
@@ -126,18 +120,10 @@ async function requireRouteArtifacts(
     !/^[a-f0-9]{64}$/u.test(prompt.bodyHash) ||
     sha256(prompt.trustedBody) !== prompt.bodyHash
   ) {
-    throw new AppError(
-      "AI_PROMPT_ARTIFACT_MISMATCH",
-      "errors.ai.promptArtifactMismatch",
-      500,
-    );
+    throw new AppError("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
   }
   if (schema === null) {
-    throw new AppError(
-      "AI_SCHEMA_ARTIFACT_NOT_FOUND",
-      "errors.ai.schemaArtifactNotFound",
-      500,
-    );
+    throw new AppError("AI_SCHEMA_ARTIFACT_NOT_FOUND", "errors.ai.schemaArtifactNotFound", 500);
   }
   if (
     schema.routeKey !== routeKey ||
@@ -145,11 +131,7 @@ async function requireRouteArtifacts(
     !/^[a-f0-9]{64}$/u.test(schema.schemaHash) ||
     sha256(canonicalJson(schema.schemaArtifact)) !== schema.schemaHash
   ) {
-    throw new AppError(
-      "AI_SCHEMA_ARTIFACT_MISMATCH",
-      "errors.ai.schemaArtifactMismatch",
-      500,
-    );
+    throw new AppError("AI_SCHEMA_ARTIFACT_MISMATCH", "errors.ai.schemaArtifactMismatch", 500);
   }
 }
 

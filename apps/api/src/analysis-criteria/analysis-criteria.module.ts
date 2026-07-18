@@ -202,11 +202,7 @@ export function createAnalysisCriteriaApiLifecycle(
   intervalMs = analysisOutboxReconcileInterval(),
   timers?: import("./analysis-outbox-dispatcher.js").TimerPort,
 ) {
-  const reconciliation = new AnalysisOutboxDispatcherLifecycle(
-    dispatcher,
-    intervalMs,
-    timers,
-  );
+  const reconciliation = new AnalysisOutboxDispatcherLifecycle(dispatcher, intervalMs, timers);
   return {
     onApplicationBootstrap: () => reconciliation.onApplicationBootstrap(),
     async onApplicationShutdown() {
@@ -260,11 +256,7 @@ Module({
         queue: AnalysisQueue,
         dispatcher: AnalysisOutboxDispatcher,
       ) => createAnalysisCriteriaApiLifecycle(database, queue, dispatcher),
-      inject: [
-        ANALYSIS_CRITERIA_DATABASE,
-        ANALYSIS_CRITERIA_QUEUE,
-        AnalysisOutboxDispatcher,
-      ],
+      inject: [ANALYSIS_CRITERIA_DATABASE, ANALYSIS_CRITERIA_QUEUE, AnalysisOutboxDispatcher],
     },
     AnalysisCriteriaAuthenticationGuard,
     AnalysisCriteriaPolicyGuard,

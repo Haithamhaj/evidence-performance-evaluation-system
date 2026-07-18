@@ -153,13 +153,11 @@ function route(
   else Post(path)(DocumentAnalysisController.prototype, method, descriptor);
 }
 
-route(
-  "requestReadiness",
-  "readiness-checks",
-  "document.analysis.run",
-  "post",
-  ["request", "documentId", "body"],
-);
+route("requestReadiness", "readiness-checks", "document.analysis.run", "post", [
+  "request",
+  "documentId",
+  "body",
+]);
 route("getLatest", "readiness-checks/latest", "document.readiness.detail.read", "get", [
   "request",
   "documentId",

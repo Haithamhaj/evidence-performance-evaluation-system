@@ -9,10 +9,12 @@ type GenerationJob = Extract<
 >;
 
 type ProposalPort = Readonly<{
-  prepareGeneration(input: Readonly<{
-    job: GenerationJob;
-    readinessSourceReferences: readonly string[];
-  }>): Promise<
+  prepareGeneration(
+    input: Readonly<{
+      job: GenerationJob;
+      readinessSourceReferences: readonly string[];
+    }>,
+  ): Promise<
     Readonly<{
       routeKey: "criteria.generate.project" | "criteria.generate.workstream";
       inputSchemaVersion: string;
@@ -183,9 +185,11 @@ export class CriteriaAnalysisPhaseHandler {
     }
   }
 
-  private async claim(requestId: string, actorId: string, correlationId: string): Promise<
-    (Claimed & { replay?: never }) | (Replay & { replay: true })
-  > {
+  private async claim(
+    requestId: string,
+    actorId: string,
+    correlationId: string,
+  ): Promise<(Claimed & { replay?: never }) | (Replay & { replay: true })> {
     const now = this.options.now?.() ?? new Date();
     const result = await this.database.$transaction(async (transaction) => {
       await transaction.$queryRaw`
@@ -205,10 +209,7 @@ export class CriteriaAnalysisPhaseHandler {
           resultReference: true,
         },
       });
-      if (
-        request === null ||
-        !["criteria_project", "criteria_workstream"].includes(request.kind)
-      )
+      if (request === null || !["criteria_project", "criteria_workstream"].includes(request.kind))
         throw requestNotFound();
       const operation = await transaction.operation.findUnique({
         where: { id: request.operationId },
@@ -360,10 +361,7 @@ export class CriteriaAnalysisPhaseHandler {
           where: { id: request.operationId },
           select: { status: true, resultReference: true },
         });
-        if (
-          operation?.status !== "succeeded" ||
-          operation.resultReference !== stableReference
-        )
+        if (operation?.status !== "succeeded" || operation.resultReference !== stableReference)
           throw stateInconsistent();
       }
     });
@@ -381,8 +379,7 @@ export class CriteriaAnalysisPhaseHandler {
       }),
     ]);
     return request?.state === "succeeded"
-      ? request.resultReference !== null &&
-          request.resultReference === effect?.receiptReference
+      ? request.resultReference !== null && request.resultReference === effect?.receiptReference
       : request?.state === "superseded" && effect !== null;
   }
 
@@ -403,9 +400,7 @@ export class CriteriaAnalysisPhaseHandler {
         where: { id: request.operationId, status: "running", attemptCount },
         data: {
           status: "failed",
-          errorCode: retryable
-            ? "ANALYSIS_RETRYABLE_FAILED"
-            : "ANALYSIS_TERMINAL_FAILED",
+          errorCode: retryable ? "ANALYSIS_RETRYABLE_FAILED" : "ANALYSIS_TERMINAL_FAILED",
           completedAt: this.options.now?.() ?? new Date(),
         },
       });
@@ -414,9 +409,7 @@ export class CriteriaAnalysisPhaseHandler {
           where: { id: requestId, state: "running" },
           data: {
             state: "failed",
-            errorCode: exhausted
-              ? "ANALYSIS_RETRIES_EXHAUSTED"
-              : "ANALYSIS_TERMINAL_FAILED",
+            errorCode: exhausted ? "ANALYSIS_RETRIES_EXHAUSTED" : "ANALYSIS_TERMINAL_FAILED",
             completedAt: this.options.now?.() ?? new Date(),
           },
         });
@@ -468,10 +461,12 @@ function effectIdempotencyKey(requestId: string): string {
   return `analysis:${requestId}:validated-result`;
 }
 
-function validateTiming(options: Readonly<{
-  timeoutMs: number;
-  execution: { heartbeatMs: number; leaseMs: number; maxAttempts: number };
-}>): void {
+function validateTiming(
+  options: Readonly<{
+    timeoutMs: number;
+    execution: { heartbeatMs: number; leaseMs: number; maxAttempts: number };
+  }>,
+): void {
   if (
     !Number.isInteger(options.timeoutMs) ||
     options.timeoutMs < 1 ||
@@ -482,12 +477,9 @@ function validateTiming(options: Readonly<{
     !Number.isInteger(options.execution.leaseMs) ||
     options.execution.leaseMs < 1 ||
     options.execution.heartbeatMs * 3 > options.execution.leaseMs ||
-    options.timeoutMs + options.execution.heartbeatMs * 2 >
-      options.execution.leaseMs
+    options.timeoutMs + options.execution.heartbeatMs * 2 > options.execution.leaseMs
   )
-    throw new TypeError(
-      "Analysis lease must safely exceed the heartbeat and Router timeout",
-    );
+    throw new TypeError("Analysis lease must safely exceed the heartbeat and Router timeout");
 }
 
 function requestNotFound(): AppError {
@@ -503,11 +495,7 @@ function requestRunning(): AppError {
 }
 
 function stateInconsistent(): AppError {
-  return new AppError(
-    "ANALYSIS_JOB_STATE_INCONSISTENT",
-    "errors.analysis.stateInconsistent",
-    409,
-  );
+  return new AppError("ANALYSIS_JOB_STATE_INCONSISTENT", "errors.analysis.stateInconsistent", 409);
 }
 
 async function assertFence(
@@ -528,11 +516,7 @@ function leaseLost(): AppError {
 }
 
 function retriesExhausted(): AppError {
-  return new AppError(
-    "ANALYSIS_RETRIES_EXHAUSTED",
-    "errors.analysis.retriesExhausted",
-    409,
-  );
+  return new AppError("ANALYSIS_RETRIES_EXHAUSTED", "errors.analysis.retriesExhausted", 409);
 }
 
 function isRetryable(error: unknown): boolean {
@@ -556,10 +540,6 @@ function assertBoundCriteriaSources(
       criterion.sourceReferences.some((reference) => !allowed.has(reference)),
     )
   ) {
-    throw new AppError(
-      "AI_SOURCE_REFERENCE_INVALID",
-      "errors.ai.sourceReferenceInvalid",
-      502,
-    );
+    throw new AppError("AI_SOURCE_REFERENCE_INVALID", "errors.ai.sourceReferenceInvalid", 502);
   }
 }

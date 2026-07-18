@@ -17,9 +17,7 @@ import {
 import { CriteriaReviewReader, DocumentResourceReader } from "@evaluation/projects";
 
 import { AnalysisCriteriaProcessor } from "./analysis-criteria.processor.js";
-import {
-  createAnalysisCriteriaQueueRuntime,
-} from "./analysis-criteria-queue-runtime.js";
+import { createAnalysisCriteriaQueueRuntime } from "./analysis-criteria-queue-runtime.js";
 import { CriteriaAnalysisPhaseHandler } from "./criteria-analysis-phase-handler.js";
 import { PrismaCriteriaPhaseSnapshotReader } from "./criteria-phase-snapshot-reader.js";
 import {
@@ -45,9 +43,7 @@ export type AnalysisCriteriaWorkerComposition = Readonly<{
 export const ANALYSIS_CRITERIA_WORKER_CONFIGURATION = Symbol(
   "ANALYSIS_CRITERIA_WORKER_CONFIGURATION",
 );
-export const ANALYSIS_CRITERIA_WORKER_FACTORY = Symbol(
-  "ANALYSIS_CRITERIA_WORKER_FACTORY",
-);
+export const ANALYSIS_CRITERIA_WORKER_FACTORY = Symbol("ANALYSIS_CRITERIA_WORKER_FACTORY");
 
 export type AnalysisCriteriaWorkerFactory = (
   configuration: AnalysisCriteriaWorkerConfiguration,
@@ -58,11 +54,7 @@ export function createAnalysisCriteriaWorkerConfiguration(
 ): AnalysisCriteriaWorkerConfiguration | undefined {
   const databaseUrl = environment.DATABASE_URL?.trim();
   const redisUrl = environment.REDIS_URL?.trim();
-  if (
-    !databaseUrl ||
-    !redisUrl ||
-    environment.WORKER_JOB_TYPE !== "analysis-criteria.process"
-  )
+  if (!databaseUrl || !redisUrl || environment.WORKER_JOB_TYPE !== "analysis-criteria.process")
     return undefined;
   return { databaseUrl, redisUrl, environment };
 }
@@ -92,24 +84,15 @@ export async function createAnalysisCriteriaWorkerComposition(
         documentConfig.policy.maxBytesByClass.office,
       ),
       maxArchiveEntries: documentConfig.policy.maxArchiveEntries,
-      maxArchiveUncompressedBytes:
-        documentConfig.policy.maxArchiveUncompressedBytes,
-      maxArchiveCompressionRatio:
-        documentConfig.policy.maxArchiveCompressionRatio,
+      maxArchiveUncompressedBytes: documentConfig.policy.maxArchiveUncompressedBytes,
+      maxArchiveCompressionRatio: documentConfig.policy.maxArchiveCompressionRatio,
     };
     const storage = new S3PrivateStorage(s3, documentConfig.storage.bucket);
-    const canonicalLoader = new DocumentAnalysisSourceLoader(
-      database,
-      storage,
-      extractionPolicy,
-    );
+    const canonicalLoader = new DocumentAnalysisSourceLoader(database, storage, extractionPolicy);
     const documentReader = new DocumentResourceReader(database);
     const criteriaDocumentReader = new CriteriaDocumentReader(database);
     const criteriaReviewReader = new CriteriaReviewReader(database);
-    const criteriaSourceLoader = new WorkerCriteriaSourceLoader(
-      canonicalLoader,
-      extractionPolicy,
-    );
+    const criteriaSourceLoader = new WorkerCriteriaSourceLoader(canonicalLoader, extractionPolicy);
     const execution = {
       heartbeatMs: positiveInteger(configuration.environment, "ANALYSIS_HEARTBEAT_MS", 5_000),
       leaseMs: positiveInteger(configuration.environment, "ANALYSIS_LEASE_MS", 90_000),
@@ -165,10 +148,7 @@ export async function createAnalysisCriteriaWorkerComposition(
       database,
       proposal,
       router,
-      new PrismaCriteriaPhaseSnapshotReader(
-        criteriaDocumentReader,
-        criteriaReviewReader,
-      ),
+      new PrismaCriteriaPhaseSnapshotReader(criteriaDocumentReader, criteriaReviewReader),
       { systemId, timeoutMs, execution },
     );
     const processor = new AnalysisCriteriaProcessor(database, {
@@ -260,11 +240,7 @@ function required(environment: Environment, key: string): string {
   return value;
 }
 
-function positiveInteger(
-  environment: Environment,
-  key: string,
-  fallback: number,
-): number {
+function positiveInteger(environment: Environment, key: string, fallback: number): number {
   const raw = environment[key];
   if (raw === undefined) return fallback;
   const value = Number(raw);
@@ -279,9 +255,7 @@ function unsupportedReviewAction(): never {
 
 export class AnalysisCriteriaWorkerLifecycle {
   private composition: AnalysisCriteriaWorkerComposition | undefined;
-  private readonly configuration:
-    | AnalysisCriteriaWorkerConfiguration
-    | undefined;
+  private readonly configuration: AnalysisCriteriaWorkerConfiguration | undefined;
   private readonly createComposition: AnalysisCriteriaWorkerFactory;
 
   constructor(
@@ -307,16 +281,8 @@ export class AnalysisCriteriaWorkerLifecycle {
   }
 }
 
-Inject(ANALYSIS_CRITERIA_WORKER_CONFIGURATION)(
-  AnalysisCriteriaWorkerLifecycle,
-  undefined,
-  0,
-);
-Inject(ANALYSIS_CRITERIA_WORKER_FACTORY)(
-  AnalysisCriteriaWorkerLifecycle,
-  undefined,
-  1,
-);
+Inject(ANALYSIS_CRITERIA_WORKER_CONFIGURATION)(AnalysisCriteriaWorkerLifecycle, undefined, 0);
+Inject(ANALYSIS_CRITERIA_WORKER_FACTORY)(AnalysisCriteriaWorkerLifecycle, undefined, 1);
 Injectable()(AnalysisCriteriaWorkerLifecycle);
 
 export class AnalysisCriteriaWorkerModule {}

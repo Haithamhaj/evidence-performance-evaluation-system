@@ -148,9 +148,7 @@ describe("AnalysisJobEnqueuer", () => {
       { enqueue },
     );
 
-    await expect(
-      service.enqueueAfterCommit({ requestId, operationId }),
-    ).rejects.toMatchObject({
+    await expect(service.enqueueAfterCommit({ requestId, operationId })).rejects.toMatchObject({
       code: "ANALYSIS_QUEUE_RECEIPT_CONFLICT",
       status: 409,
     });

@@ -10,9 +10,18 @@ function feedbackHash(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
-function requestHarness(input: Readonly<{ material: boolean }>) {
+function requestHarness(
+  input: Readonly<{
+    material: boolean;
+    kind?: "project" | "workstream";
+    replacementTransition?: "owner_review" | "manager_resolution";
+  }>,
+) {
+  const kind = input.kind ?? "project";
   const ownerId = crypto.randomUUID();
   const projectId = crypto.randomUUID();
+  const workstreamId = crypto.randomUUID();
+  const resourceId = kind === "project" ? projectId : workstreamId;
   const documentId = crypto.randomUUID();
   const currentDocumentVersionId = crypto.randomUUID();
   const priorDocumentVersionId = input.material ? crypto.randomUUID() : currentDocumentVersionId;
@@ -20,7 +29,11 @@ function requestHarness(input: Readonly<{ material: boolean }>) {
   const priorProposalId = crypto.randomUUID();
   const transitionId = crypto.randomUUID();
   const comparisonReviewId = crypto.randomUUID();
-  const transitionReason = "Generate a corrected alternative from the owner review.";
+  const replacementTransition = input.replacementTransition ?? "owner_review";
+  const transitionReason =
+    replacementTransition === "manager_resolution"
+      ? "Revise through a new owner-reviewed proposal."
+      : "Generate a corrected alternative from the owner review.";
   const comparisonReason = "The reviewed document comparison requires revised criteria.";
   const ownerFeedback = input.material ? comparisonReason : transitionReason;
   let capturedPayload: Record<string, unknown> | undefined;
@@ -30,13 +43,13 @@ function requestHarness(input: Readonly<{ material: boolean }>) {
     documentVersion: 2,
     readinessCheckId,
     lifecycleState: input.material ? "revision_required" : "ready_for_criteria_generation",
-    projectId,
-    workstreamId: null,
+    projectId: kind === "project" ? projectId : null,
+    workstreamId: kind === "workstream" ? workstreamId : null,
     sourceReferences: [`readiness:${readinessCheckId}`],
   } as const;
   const identity = {
-    kind: "project",
-    resourceId: projectId,
+    kind,
+    resourceId,
     projectId,
     organizationId: crypto.randomUUID(),
     departmentId: crypto.randomUUID(),
@@ -55,15 +68,15 @@ function requestHarness(input: Readonly<{ material: boolean }>) {
     dynamicCriteriaProposal: {
       findUnique: vi.fn(async () => ({
         id: priorProposalId,
-        kind: "project",
-        projectId,
-        workstreamId: null,
+        kind,
+        projectId: kind === "project" ? projectId : null,
+        workstreamId: kind === "workstream" ? workstreamId : null,
         sourceDocumentVersionId: priorDocumentVersionId,
         state: "superseded",
         transitions: [
           {
             id: transitionId,
-            fromState: "owner_review",
+            fromState: replacementTransition,
             toState: "superseded",
             reason: transitionReason,
           },
@@ -159,10 +172,13 @@ function requestHarness(input: Readonly<{ material: boolean }>) {
     database,
     documentId,
     identity,
+    kind,
     ownerFeedback,
     priorDocumentVersionId,
     priorProposalId,
     prerequisites,
+    replacementTransition,
+    resourceId,
     service,
     sourceLoader,
     transaction,
@@ -189,23 +205,23 @@ function workerHarness(
         id: harness.currentDocumentVersionId,
         documentId: harness.documentId,
         document: {
-          projectId: harness.identity.projectId,
-          workstreamId: null,
+          projectId: harness.kind === "project" ? harness.resourceId : null,
+          workstreamId: harness.kind === "workstream" ? harness.resourceId : null,
         },
       })),
     },
     dynamicCriteriaProposal: {
       findUnique: vi.fn(async () => ({
         id: harness.priorProposalId,
-        kind: "project",
-        projectId: harness.identity.projectId,
-        workstreamId: null,
+        kind: harness.kind,
+        projectId: harness.kind === "project" ? harness.resourceId : null,
+        workstreamId: harness.kind === "workstream" ? harness.resourceId : null,
         sourceDocumentVersionId: harness.priorDocumentVersionId,
         state: harness.material ? "activated" : "superseded",
         transitions: [
           {
             id: harness.transitionId,
-            fromState: "owner_review",
+            fromState: harness.replacementTransition,
             toState: "superseded",
           },
         ],
@@ -223,7 +239,7 @@ function workerHarness(
           : {
               id: harness.transitionId,
               proposalId: overrides.transitionProposalId ?? harness.priorProposalId,
-              fromState: "owner_review",
+              fromState: harness.replacementTransition,
               toState: "superseded",
               reason: harness.ownerFeedback,
             },
@@ -290,6 +306,50 @@ describe("ProposalService durable owner feedback", () => {
 
     const worker = workerHarness(harness);
 
+    await expect(
+      worker.service.prepareGeneration({
+        job: payload as never,
+        readinessSourceReferences: harness.prerequisites.sourceReferences,
+      }),
+    ).resolves.toMatchObject({
+      input: {
+        untrustedContent: {
+          ownerFeedback: {
+            value: harness.ownerFeedback,
+          },
+        },
+      },
+    });
+  });
+
+  it("creates a replacement from a manager request_revision transition", async () => {
+    const harness = requestHarness({
+      material: false,
+      kind: "workstream",
+      replacementTransition: "manager_resolution",
+    });
+
+    await harness.service.requestGeneration({
+      actor: { userId: harness.identity.primaryOwnerId, active: true },
+      correlationId: crypto.randomUUID(),
+      kind: "workstream",
+      resourceId: harness.resourceId,
+      documentVersionId: harness.currentDocumentVersionId,
+      idempotencyKey: crypto.randomUUID(),
+      replacesProposalId: harness.priorProposalId,
+      ownerFeedback: harness.ownerFeedback,
+    });
+    const payload = harness.getCapturedPayload();
+    expect(payload).toMatchObject({
+      replacesProposalId: harness.priorProposalId,
+      ownerFeedbackSource: {
+        kind: "proposal_transition",
+        referenceId: harness.transitionId,
+        sha256: feedbackHash(harness.ownerFeedback),
+      },
+    });
+
+    const worker = workerHarness(harness);
     await expect(
       worker.service.prepareGeneration({
         job: payload as never,

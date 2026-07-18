@@ -1,15 +1,9 @@
 import { Queue, QueueEvents, Worker } from "bullmq";
 
 import { JobEnvelopeSchema, jobQueueName } from "@evaluation/contracts";
-import {
-  createCorrelationCarrier,
-  runWithCorrelation,
-} from "@evaluation/observability";
+import { createCorrelationCarrier, runWithCorrelation } from "@evaluation/observability";
 
-import {
-  redisConnection,
-  retryPolicyForJobType,
-} from "../queue/queue.module.js";
+import { redisConnection, retryPolicyForJobType } from "../queue/queue.module.js";
 
 type QueueJob = Readonly<{
   name: string;
@@ -18,10 +12,7 @@ type QueueJob = Readonly<{
 }>;
 
 export async function processAnalysisCriteriaQueueJob(
-  processor: Pick<
-    import("./analysis-criteria.processor.js").AnalysisCriteriaProcessor,
-    "process"
-  >,
+  processor: Pick<import("./analysis-criteria.processor.js").AnalysisCriteriaProcessor, "process">,
   job: QueueJob,
 ): Promise<string> {
   if (job.name !== "analysis-criteria.process") {
@@ -50,13 +41,15 @@ export type AnalysisCriteriaQueueRuntime = Readonly<{
   isHealthy(): boolean;
 }>;
 
-export function createAnalysisCriteriaQueueRuntime(input: Readonly<{
-  redisUrl: string;
-  processor: Pick<
-    import("./analysis-criteria.processor.js").AnalysisCriteriaProcessor,
-    "process"
-  >;
-}>): AnalysisCriteriaQueueRuntime {
+export function createAnalysisCriteriaQueueRuntime(
+  input: Readonly<{
+    redisUrl: string;
+    processor: Pick<
+      import("./analysis-criteria.processor.js").AnalysisCriteriaProcessor,
+      "process"
+    >;
+  }>,
+): AnalysisCriteriaQueueRuntime {
   const logicalName = jobQueueName("analysis-criteria.process", 1);
   const physicalName = logicalName.replace(":", "--");
   const connection = redisConnection(input.redisUrl);
@@ -83,15 +76,17 @@ export function createAnalysisCriteriaQueueRuntime(input: Readonly<{
   return createAnalysisCriteriaQueueLifecycle({ queue, queueEvents, worker });
 }
 
-export function createAnalysisCriteriaQueueLifecycle(components: Readonly<{
-  queue: { waitUntilReady(): Promise<unknown>; close(): Promise<unknown> };
-  queueEvents: { waitUntilReady(): Promise<unknown>; close(): Promise<unknown> };
-  worker: {
-    run(): Promise<void>;
-    waitUntilReady(): Promise<unknown>;
-    close(): Promise<unknown>;
-  };
-}>): AnalysisCriteriaQueueRuntime {
+export function createAnalysisCriteriaQueueLifecycle(
+  components: Readonly<{
+    queue: { waitUntilReady(): Promise<unknown>; close(): Promise<unknown> };
+    queueEvents: { waitUntilReady(): Promise<unknown>; close(): Promise<unknown> };
+    worker: {
+      run(): Promise<void>;
+      waitUntilReady(): Promise<unknown>;
+      close(): Promise<unknown>;
+    };
+  }>,
+): AnalysisCriteriaQueueRuntime {
   let runPromise: Promise<void> | undefined;
   let closePromise: Promise<void> | undefined;
   let runFailure: unknown;
@@ -121,10 +116,7 @@ export function createAnalysisCriteriaQueueLifecycle(components: Readonly<{
       closePromise ??= (async () => {
         closing = true;
         await components.worker.close();
-        await Promise.all([
-          components.queueEvents.close(),
-          components.queue.close(),
-        ]);
+        await Promise.all([components.queueEvents.close(), components.queue.close()]);
         await runPromise?.catch(() => undefined);
       })();
       return closePromise;
@@ -132,9 +124,7 @@ export function createAnalysisCriteriaQueueLifecycle(components: Readonly<{
   };
 }
 
-function isNonRetryable(
-  error: unknown,
-): error is Readonly<{ retryable?: false; code?: string }> {
+function isNonRetryable(error: unknown): error is Readonly<{ retryable?: false; code?: string }> {
   const explicitlyNonRetryable =
     typeof error === "object" &&
     error !== null &&

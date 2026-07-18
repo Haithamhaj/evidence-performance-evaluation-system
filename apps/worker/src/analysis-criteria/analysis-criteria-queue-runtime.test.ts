@@ -47,9 +47,9 @@ describe("analysis criteria dedicated queue runtime", () => {
   ])("discards a non-retryable %s conflict", async (_label, name, data) => {
     const processor = { process: vi.fn() };
     const job = { name, data, discard: vi.fn() };
-    await expect(
-      processAnalysisCriteriaQueueJob(processor as never, job),
-    ).rejects.toMatchObject({ retryable: false });
+    await expect(processAnalysisCriteriaQueueJob(processor as never, job)).rejects.toMatchObject({
+      retryable: false,
+    });
     expect(job.discard).toHaveBeenCalledOnce();
     expect(processor.process).not.toHaveBeenCalled();
   });
@@ -61,9 +61,7 @@ describe("analysis criteria dedicated queue runtime", () => {
       }),
     };
     const job = { name: envelope.jobType, data: envelope, discard: vi.fn() };
-    await expect(
-      processAnalysisCriteriaQueueJob(processor as never, job),
-    ).rejects.toMatchObject({
+    await expect(processAnalysisCriteriaQueueJob(processor as never, job)).rejects.toMatchObject({
       code: "ANALYSIS_JOB_ACTOR_INVALID",
       retryable: false,
     });
@@ -74,21 +72,18 @@ describe("analysis criteria dedicated queue runtime", () => {
     "AI_OUTPUT_QUARANTINED",
     "AI_SOURCE_REFERENCE_INVALID",
     "CRITERIA_COUNT_INVALID",
-  ] as const)(
-    "discards terminal %s AppErrors after the request is terminalized",
-    async (code) => {
-      const processor = {
-        process: vi.fn(async () => {
-          throw new AppError(code, "errors.ai.terminal", 502);
-        }),
-      };
-      const job = { name: envelope.jobType, data: envelope, discard: vi.fn() };
-      await expect(
-        processAnalysisCriteriaQueueJob(processor as never, job),
-      ).rejects.toMatchObject({ code });
-      expect(job.discard).toHaveBeenCalledOnce();
-    },
-  );
+  ] as const)("discards terminal %s AppErrors after the request is terminalized", async (code) => {
+    const processor = {
+      process: vi.fn(async () => {
+        throw new AppError(code, "errors.ai.terminal", 502);
+      }),
+    };
+    const job = { name: envelope.jobType, data: envelope, discard: vi.fn() };
+    await expect(processAnalysisCriteriaQueueJob(processor as never, job)).rejects.toMatchObject({
+      code,
+    });
+    expect(job.discard).toHaveBeenCalledOnce();
+  });
 
   it("leaves retryable crashes eligible for BullMQ retry", async () => {
     const processor = {
@@ -97,9 +92,9 @@ describe("analysis criteria dedicated queue runtime", () => {
       }),
     };
     const job = { name: envelope.jobType, data: envelope, discard: vi.fn() };
-    await expect(
-      processAnalysisCriteriaQueueJob(processor as never, job),
-    ).rejects.toThrow(/transient/u);
+    await expect(processAnalysisCriteriaQueueJob(processor as never, job)).rejects.toThrow(
+      /transient/u,
+    );
     expect(job.discard).not.toHaveBeenCalled();
   });
 

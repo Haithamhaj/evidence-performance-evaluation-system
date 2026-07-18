@@ -27,6 +27,7 @@ const UuidSchema = z.string().uuid();
 const KindSchema = z.enum(["project", "workstream"]);
 const IdempotencyKeySchema = z.string().trim().min(1).max(256);
 const ReasonSchema = z.string().trim().min(1).max(1_000);
+const OwnerFeedbackSchema = z.string().trim().min(1).max(4_000);
 const OwnerReviewRouteSchema = OwnerReviewCriteriaSchema.refine(
   (review) => review.action !== "approve",
 );
@@ -36,6 +37,8 @@ const ProposalRequestSchema = z
     resourceId: UuidSchema,
     documentVersionId: UuidSchema,
     idempotencyKey: IdempotencyKeySchema,
+    replacesProposalId: UuidSchema.optional(),
+    ownerFeedback: OwnerFeedbackSchema.optional(),
   })
   .strict();
 const PublishSchema = z.object({ reason: ReasonSchema }).strict();
@@ -90,7 +93,14 @@ export class CriteriaController {
     const receipt = await this.proposals.requestGeneration({
       actor: actor(request),
       correlationId: correlation(request),
-      ...input,
+      kind: input.kind,
+      resourceId: input.resourceId,
+      documentVersionId: input.documentVersionId,
+      idempotencyKey: input.idempotencyKey,
+      ...(input.replacesProposalId === undefined
+        ? {}
+        : { replacesProposalId: input.replacesProposalId }),
+      ...(input.ownerFeedback === undefined ? {} : { ownerFeedback: input.ownerFeedback }),
     });
     await this.jobs.enqueueAfterCommit(receipt);
     return receipt;

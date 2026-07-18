@@ -20,8 +20,8 @@
     },
     {
       "path": "TASKS.md",
-      "bytes": 30840,
-      "sha256": "ecb9012091ef572a7bea83c8ec8d1e11571c83f33721972eb04222b60c1a3f80"
+      "bytes": 31515,
+      "sha256": "ddf8c893d77c6c34aecda04d7392c43a2c2ffd1946a98f6d77258d71a053160e"
     },
     {
       "path": "docs/EVALUATION_RUBRIC.md",
@@ -50,13 +50,13 @@
     },
     {
       "path": "project-state/PROJECT_STATE.md",
-      "bytes": 4817,
-      "sha256": "489c4ecfd910a7dadfb4f6422749be931089b6dba20c45ce38d27fb1089ab1b6"
+      "bytes": 5631,
+      "sha256": "d688e867c621250370cfab2f40568d1e85edb753f2a16bcf8eebba0f370b8178"
     },
     {
       "path": "project-state/SYSTEM_MAP.html",
-      "bytes": 31562,
-      "sha256": "cdb9c338d837e1f7fe74df23e58dc6a26ffc98771af807972b5275ff3bcbd08e"
+      "bytes": 33684,
+      "sha256": "bbf2911b279be3bd4a548ba0e1ce3808ee43f7290708d49fdaddd41b8185f8fc"
     },
     {
       "path": "scripts/validate_task_graph.py",

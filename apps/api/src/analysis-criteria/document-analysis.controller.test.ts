@@ -77,7 +77,9 @@ describe("DocumentAnalysisController", () => {
         idempotencyKey: "readiness-v1",
         unexpected: true,
       }),
-    ).toThrowError(expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID", status: 400 }));
+    ).toThrowError(
+      expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID", status: 400 }),
+    );
     expect(() =>
       controller.requestComparison(request, documentId, {
         beforeDocumentVersionId: beforeVersionId,
@@ -85,7 +87,9 @@ describe("DocumentAnalysisController", () => {
         idempotencyKey: "comparison-v1",
         unexpected: true,
       }),
-    ).toThrowError(expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID", status: 400 }));
+    ).toThrowError(
+      expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID", status: 400 }),
+    );
   });
 
   it("rejects missing correlation and invalid path identifiers before service selection", () => {
@@ -100,9 +104,7 @@ describe("DocumentAnalysisController", () => {
       controller.requestReadiness(withoutCorrelation as never, documentId, {
         idempotencyKey: "readiness-v1",
       }),
-    ).toThrowError(
-      expect.objectContaining({ code: "CORRELATION_ID_REQUIRED", status: 400 }),
-    );
+    ).toThrowError(expect.objectContaining({ code: "CORRELATION_ID_REQUIRED", status: 400 }));
     expect(() => controller.getLatest(request, "not-a-uuid")).toThrowError(
       expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID", status: 400 }),
     );
@@ -153,7 +155,9 @@ describe("DocumentAnalysisController", () => {
         ...review,
         classification: "editorial",
       }),
-    ).toThrowError(expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID", status: 400 }));
+    ).toThrowError(
+      expect.objectContaining({ code: "ANALYSIS_CRITERIA_INPUT_INVALID", status: 400 }),
+    );
     expect(service.comparisons.review).toHaveBeenCalledTimes(1);
   });
 
@@ -173,9 +177,9 @@ describe("DocumentAnalysisController", () => {
       ["reviewComparison", 1, "comparisons/:comparisonId/reviews"],
     ] as const;
     for (const [method, verb, path] of routes) {
-      expect(Reflect.getMetadata(METHOD_METADATA, DocumentAnalysisController.prototype[method])).toBe(
-        verb,
-      );
+      expect(
+        Reflect.getMetadata(METHOD_METADATA, DocumentAnalysisController.prototype[method]),
+      ).toBe(verb);
       expect(Reflect.getMetadata(PATH_METADATA, DocumentAnalysisController.prototype[method])).toBe(
         path,
       );

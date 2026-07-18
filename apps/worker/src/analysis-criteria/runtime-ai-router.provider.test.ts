@@ -54,16 +54,12 @@ describe("worker runtime AI Router provider", () => {
           routeKey: "document.analyze",
           version: "document-readiness-output.v2",
           schemaArtifact,
-          schemaHash: createHash("sha256")
-            .update(JSON.stringify(schemaArtifact))
-            .digest("hex"),
+          schemaHash: createHash("sha256").update(JSON.stringify(schemaArtifact)).digest("hex"),
         })),
       },
     };
     const resolver = { get: vi.fn(async () => "private-secret") };
-    await expect(
-      createWorkerRuntimeAiRouter(database as never, resolver),
-    ).resolves.toBeDefined();
+    await expect(createWorkerRuntimeAiRouter(database as never, resolver)).resolves.toBeDefined();
     expect(resolver.get).not.toHaveBeenCalled();
   });
 
@@ -189,15 +185,12 @@ describe("worker runtime AI Router provider", () => {
             },
             untrustedContent: { document: "untrusted" },
           },
-          inputReference:
-            "document-version:21000000-0000-4000-8000-000000000009",
+          inputReference: "document-version:21000000-0000-4000-8000-000000000009",
           inputSchemaVersion: "document-readiness-input.v2",
           outputSchemaVersion: schemaArtifact.version,
           promptTemplateVersion: prompt.version,
           outputSchema,
-          sourceReferences: [
-            "document-source:21000000-0000-4000-8000-000000000010",
-          ],
+          sourceReferences: ["document-source:21000000-0000-4000-8000-000000000010"],
           classification: "confidential",
           timeoutMs: 1_000,
           requiresHumanApproval: false,

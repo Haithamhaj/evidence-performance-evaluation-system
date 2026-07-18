@@ -93,6 +93,27 @@ describe("CriteriaController", () => {
     });
   });
 
+  it("accepts and forwards exact replacement lineage and owner feedback", async () => {
+    const { instance, service } = controller();
+    const body = {
+      kind: "workstream",
+      resourceId,
+      documentVersionId,
+      idempotencyKey: "criteria-workstream-replacement-v1",
+      replacesProposalId: proposalId,
+      ownerFeedback: "Revise through a new owner-reviewed proposal.",
+    } as const;
+
+    await instance.createProposal(request(["workstream_owner"]), body);
+
+    expect(service.proposals.requestGeneration).toHaveBeenCalledWith({
+      actor: { userId: actorId, active: true },
+      correlationId,
+      ...body,
+    });
+    expect(service.jobs.enqueueAfterCommit).toHaveBeenCalledWith(service.receipt);
+  });
+
   it("keeps owner review and publication as separate strict actions", async () => {
     const { instance, service } = controller();
     const review = {

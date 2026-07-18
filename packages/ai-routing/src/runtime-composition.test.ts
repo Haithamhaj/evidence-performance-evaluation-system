@@ -141,9 +141,7 @@ function schemaArtifact() {
     routeKey: "document.analyze",
     version: "document-readiness-output.v2",
     schemaArtifact,
-    schemaHash: createHash("sha256")
-      .update(JSON.stringify(schemaArtifact))
-      .digest("hex"),
+    schemaHash: createHash("sha256").update(JSON.stringify(schemaArtifact)).digest("hex"),
   };
 }
 

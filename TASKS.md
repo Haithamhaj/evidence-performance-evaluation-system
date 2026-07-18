@@ -225,6 +225,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T024 — Implement Document Readiness Checks
 
+**Status:** Complete — source-bound readiness, append-only results, correction guidance, and manager-safe projection verified.
 **Priority:** P1  
 **Dependencies:** T023, T011  
 **Purpose:** Validate documents against template requirements.  
@@ -233,6 +234,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T025 — Implement Document Comparison and Material Change
 
+**Status:** Complete — adjacent-version comparison, retained source references, and append-only human review verified.
 **Priority:** P1  
 **Dependencies:** T023, T011  
 **Purpose:** Compare versions and classify material changes.  
@@ -240,6 +242,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T026 — Implement Dynamic Project Criteria
 
+**Status:** Complete — one-to-three source-bound proposals, employee correction/rejection, owner approval, and prospective activation verified.
 **Priority:** P1  
 **Dependencies:** T024, T011  
 **Purpose:** Generate and approve one to three project criteria.  
@@ -247,6 +250,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T027 — Implement Dynamic Workstream Criteria
 
+**Status:** Complete — two-to-three proposals, frozen contributor responses, retained objections, and bounded manager resolution verified.
 **Priority:** P1  
 **Dependencies:** T024, T019, T011  
 **Purpose:** Generate two to three criteria and collect contributor acknowledgments/objections.  
@@ -254,6 +258,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T028 — Implement Criteria Revision
 
+**Status:** Complete — reviewed material changes create atomic prospective revisions while historical timestamp links remain immutable.
 **Priority:** P1  
 **Dependencies:** T025, T026, T027  
 **Purpose:** Revise criteria prospectively after material changes.  

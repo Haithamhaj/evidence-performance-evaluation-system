@@ -88,11 +88,7 @@ export async function registerAnalysisCriteriaAiArtifacts(
           (existing.bodyHash !== artifact.prompt.sha256 ||
             existing.trustedBody !== artifact.prompt.trustedBody)
         ) {
-          throw new AppError(
-            "AI_PROMPT_VERSION_CONFLICT",
-            "errors.ai.promptVersionConflict",
-            409,
-          );
+          throw new AppError("AI_PROMPT_VERSION_CONFLICT", "errors.ai.promptVersionConflict", 409);
         }
         const prompt =
           existing ??

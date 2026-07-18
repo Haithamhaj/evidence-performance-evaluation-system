@@ -14,7 +14,9 @@ type Database = Readonly<{
 }>;
 
 type AnalysisJobPort = Readonly<{
-  enqueueAfterCommit(receipt: Readonly<{ requestId: string; operationId: string }>): Promise<string>;
+  enqueueAfterCommit(
+    receipt: Readonly<{ requestId: string; operationId: string }>,
+  ): Promise<string>;
 }>;
 
 export type AnalysisOutboxDispatchResult = Readonly<{
