@@ -150,6 +150,8 @@ export const ConfirmEvidenceInputSchema = z
   })
   .strict();
 
+export const RejectEvidenceInputSchema = ConfirmEvidenceInputSchema;
+
 export const UpdateComparisonSchema = z
   .object({
     previousAcceptedEventId: UuidSchema.nullable(),
@@ -237,6 +239,76 @@ export const UpdateStructureAiOutputSchema = z.discriminatedUnion("state", [
     .strict(),
 ]);
 
+export const EvidenceReviewSchema = z
+  .object({
+    id: UuidSchema,
+    revisionId: UuidSchema,
+    projectId: UuidSchema,
+    workstreamId: UuidSchema.nullable(),
+    workItemId: UuidSchema.nullable(),
+    state: z.enum(["draft", "confirmed", "rejected"]),
+    revision: PositiveVersionSchema,
+    revisionKind: z.enum(["ai_draft", "employee_edit", "manual_draft"]),
+    sourceKind: EvidenceSourceKindSchema,
+    sourceText: z.string().nullable(),
+    sourceUrl: z.url().nullable(),
+    mediaType: z.string().nullable(),
+    supportedClaim: z.string().trim().min(1).max(2_000),
+    contributionContext: z.string().trim().min(1).max(2_000),
+    executionMode: ExecutionModeSchema,
+  })
+  .strict();
+
+export const EvidenceDetailSchema = z
+  .object({
+    id: UuidSchema,
+    revisionId: UuidSchema,
+    projectId: UuidSchema,
+    workstreamId: UuidSchema.nullable(),
+    workItemId: UuidSchema.nullable(),
+    state: z.enum(["draft", "confirmed", "rejected"]),
+    revision: PositiveVersionSchema,
+    revisionKind: z.enum(["ai_draft", "employee_edit", "manual_draft"]),
+    sourceKind: EvidenceSourceKindSchema,
+    supportedClaim: z.string().trim().min(1).max(2_000),
+    contributionContext: z.string().trim().min(1).max(2_000),
+    executionMode: ExecutionModeSchema,
+  })
+  .strict();
+
+export const AcceptedEvidenceEventSchema = z
+  .object({
+    id: UuidSchema,
+    evidenceId: UuidSchema,
+    projectId: UuidSchema,
+    workstreamId: UuidSchema.nullable(),
+    sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
+    confirmedAt: UtcInstantSchema,
+  })
+  .strict();
+
+export const TimelineItemSchema = z
+  .object({
+    id: UuidSchema,
+    kind: z.enum(["update", "evidence"]),
+    projectId: UuidSchema,
+    workstreamId: UuidSchema.nullable(),
+    workItemId: UuidSchema.nullable(),
+    employeeId: UuidSchema,
+    occurredAt: UtcInstantSchema,
+    title: z.string().trim().min(1).max(2_000),
+    detail: z.string().trim().min(1).max(4_000),
+    sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
+  })
+  .strict();
+
+export const TimelineResponseSchema = z
+  .object({
+    items: z.array(TimelineItemSchema).max(50),
+    nextCursor: z.string().min(1).max(1_000).nullable(),
+  })
+  .strict();
+
 export type ExecutionMode = z.infer<typeof ExecutionModeSchema>;
 export type EvidenceSourceKind = z.infer<typeof EvidenceSourceKindSchema>;
 export type EvidenceVerificationState = z.infer<typeof EvidenceVerificationStateSchema>;
@@ -244,3 +316,8 @@ export type ClarificationState = z.infer<typeof ClarificationStateSchema>;
 export type StructuredUpdateDraft = z.infer<typeof StructuredUpdateDraftSchema>;
 export type UpdateStructureAiOutput = z.infer<typeof UpdateStructureAiOutputSchema>;
 export type AcceptedUpdateEvent = z.infer<typeof AcceptedUpdateEventSchema>;
+export type EvidenceReview = z.infer<typeof EvidenceReviewSchema>;
+export type EvidenceDetail = z.infer<typeof EvidenceDetailSchema>;
+export type AcceptedEvidenceEvent = z.infer<typeof AcceptedEvidenceEventSchema>;
+export type TimelineItem = z.infer<typeof TimelineItemSchema>;
+export type TimelineResponse = z.infer<typeof TimelineResponseSchema>;

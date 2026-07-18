@@ -44,6 +44,8 @@ describe("UpdateService", () => {
     const scopeReader = {
       authorizeIn: vi.fn(async () => ({
         organizationId: graph.organizationId,
+        projectScopeId: graph.projectId,
+        departmentScopeId: graph.departmentId,
         activeContract: {
           contractId: graph.contractId,
           contractVersion: 3,
@@ -226,6 +228,8 @@ describe("UpdateService", () => {
       {
         authorizeIn: async () => ({
           organizationId: graph.organizationId,
+          projectScopeId: graph.projectId,
+          departmentScopeId: graph.departmentId,
           activeContract: null,
         }),
       },
@@ -306,6 +310,8 @@ describe("UpdateService", () => {
       {
         authorizeIn: async () => ({
           organizationId: graph.organizationId,
+          projectScopeId: graph.projectId,
+          departmentScopeId: graph.departmentId,
           activeContract: null,
         }),
       },
@@ -367,6 +373,7 @@ async function sessionIdFor(idempotencyKey: string): Promise<string> {
 
 type Graph = {
   organizationId: string;
+  departmentId: string;
   employeeId: string;
   projectId: string;
   workstreamId: string;
@@ -542,6 +549,7 @@ async function seedGraph(): Promise<Graph> {
   });
   return {
     organizationId,
+    departmentId,
     employeeId,
     projectId,
     workstreamId,

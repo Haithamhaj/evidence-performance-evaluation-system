@@ -123,6 +123,9 @@ importers:
       '@evaluation/projects':
         specifier: workspace:*
         version: link:../../packages/projects
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:../../packages/updates-evidence
       '@evaluation/work-items':
         specifier: workspace:*
         version: link:../../packages/work-items
@@ -477,6 +480,9 @@ importers:
 
   packages/updates-evidence:
     dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../contracts

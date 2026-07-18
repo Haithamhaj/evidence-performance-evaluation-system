@@ -1,4 +1,5 @@
 export * from "./contracts.js";
+export * from "./environment-secret-resolver.js";
 export * from "./output-validator.js";
 export * from "./prisma-repository.js";
 export * from "./runtime-composition.js";

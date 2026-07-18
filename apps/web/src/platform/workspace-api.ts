@@ -216,6 +216,47 @@ export async function mutateCriteriaUpstream(input: {
   );
 }
 
+export async function fetchProtectedUpstream<T>(input: {
+  readonly path: string;
+  readonly schema: { parse(value: unknown): T };
+  readonly method?: "GET" | "POST";
+  readonly body?: unknown;
+}): Promise<T> {
+  const correlationId = randomUUID();
+  if (!input.path.startsWith("/api/v1/") || input.path.includes("://")) {
+    throw failure(404, "errors.notFound", correlationId);
+  }
+  const baseUrl = internalApiBaseUrl(correlationId);
+  let settings: ReturnType<typeof oidcSettings>;
+  try {
+    settings = oidcSettings();
+  } catch {
+    throw failure(500, "errors.internal", correlationId);
+  }
+  let cookieStore: Awaited<ReturnType<typeof cookies>>;
+  try {
+    cookieStore = await cookies();
+  } catch {
+    throw failure(500, "errors.internal", correlationId);
+  }
+  let accessToken: string;
+  try {
+    accessToken = sessionAccessToken(
+      cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "",
+      settings,
+    );
+  } catch {
+    throw failure(401, "errors.unauthorized", correlationId);
+  }
+  return requestJson(
+    { accessToken, baseUrl, correlationId },
+    input.path,
+    input.schema,
+    input.method ?? "GET",
+    input.body,
+  );
+}
+
 export function safeWorkspaceError(error: unknown): SafeWorkspaceError {
   if (error instanceof WorkspaceApiError) {
     return {

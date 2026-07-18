@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { AppError } from "@evaluation/contracts";
 import { createDatabaseClient } from "@evaluation/database";
 
+import { ActivityReader } from "./activity-reader.js";
 import { EvidenceService } from "./evidence-service.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
@@ -67,7 +68,26 @@ describe("EvidenceService", () => {
       evidenceId: created.id,
       input: { expectedRevision: 2, reason: "راجعت الدليل وأكدته." },
     });
-    expect(accepted).toMatchObject({ evidenceId: created.id, projectId: graph.projectId });
+    expect(accepted).toMatchObject({
+      evidenceId: created.id,
+      projectId: graph.projectId,
+      sourceReferences: [`evidence:${created.id}`],
+    });
+    const timeline = await new ActivityReader(client).timeline({
+      actorId: graph.employeeId,
+      projectId: graph.projectId,
+      workstreamId: null,
+      limit: 20,
+      cursor: null,
+    });
+    expect(timeline.items).toEqual([
+      expect.objectContaining({
+        kind: "evidence",
+        id: accepted.id,
+        projectId: graph.projectId,
+        title: revised.supportedClaim,
+      }),
+    ]);
     await expect(
       client.progressRecalculationRequest.count({
         where: { acceptedEvent: { projectId: graph.projectId } },
@@ -177,6 +197,56 @@ describe("EvidenceService", () => {
       client.evidenceRecord.count({ where: { projectId: graph.projectId } }),
     ).resolves.toBe(before);
   });
+
+  it("lets the employee reject a draft without creating an accepted event", async () => {
+    const graph = await seedGraph();
+    const append = vi.fn(auditWriter.append);
+    const service = new EvidenceService(
+      client,
+      { authorizeIn: async () => undefined },
+      { getApprovedUploadIn: vi.fn() },
+      { append },
+      () => now,
+    );
+    const created = await service.create({
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+      input: {
+        idempotencyKey: crypto.randomUUID(),
+        projectId: graph.projectId,
+        workstreamId: null,
+        workItemId: null,
+        capturedFromWorkItem: false,
+        updateSourceId: null,
+        source: { kind: "pasted_text", text: "نتيجة أولية تحتاج المراجعة." },
+        supportedClaim: "مسودة دليل",
+        relatedKpiComponentId: null,
+        relatedCriterionId: null,
+        contributionContext: "قيد المراجعة",
+        executionMode: "manual",
+      },
+    });
+
+    const rejected = await service.reject({
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+      evidenceId: created.id,
+      input: { expectedRevision: 1, reason: "لا يدعم الادعاء المطلوب." },
+    });
+
+    expect(rejected).toMatchObject({ id: created.id, state: "rejected", revision: 1 });
+    await expect(
+      client.acceptedEvidenceEvent.count({ where: { evidenceId: created.id } }),
+    ).resolves.toBe(0);
+    expect(append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: "evidence.rejected",
+        targetId: created.id,
+        reason: "لا يدعم الادعاء المطلوب.",
+      }),
+    );
+  });
 });
 
 const auditWriter: import("@evaluation/contracts").AuditWriter<
@@ -221,6 +291,15 @@ async function seedGraph() {
       name: "Evidence project",
       description: "",
       status: "active",
+      createdById: employeeId,
+    },
+  });
+  await client.projectMember.create({
+    data: {
+      projectId,
+      employeeId,
+      startsAt: new Date("2026-07-01T00:00:00.000Z"),
+      reason: "Evidence contributor",
       createdById: employeeId,
     },
   });

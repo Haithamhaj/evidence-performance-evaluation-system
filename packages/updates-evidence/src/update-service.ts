@@ -61,9 +61,17 @@ export type UpdateStructureContext = Readonly<{
   sourceReferences: readonly string[];
 }>;
 
+export type UpdateStructureRunInput = UpdateStructureContext &
+  Readonly<{
+    projectScopeId: string;
+    departmentScopeId: string;
+    correlationId: string;
+    updateSourceId: string;
+  }>;
+
 export interface UpdateStructurer {
   structure(
-    input: UpdateStructureContext,
+    input: UpdateStructureRunInput,
     persistValidatedOutput: (
       transaction: Transaction,
       output: AiOutput,
@@ -83,6 +91,8 @@ export interface UpdateScopeReader {
     }>,
   ): Promise<{
     organizationId: string;
+    projectScopeId: string;
+    departmentScopeId: string;
     activeContract: UpdateStructureContext["activeContract"];
   }>;
 }
@@ -172,6 +182,7 @@ export class UpdateService {
     return this.persistStructuredOutput({
       actor: parsed.actor,
       at,
+      correlationId: parsed.correlationId,
       source: prepared.source,
       sessionId: prepared.session.id,
       expectedSessionVersion: prepared.session.version,
@@ -218,6 +229,7 @@ export class UpdateService {
     return this.persistStructuredOutput({
       actor: parsed.actor,
       at,
+      correlationId: parsed.correlationId,
       source: prepared.source,
       sessionId: prepared.sessionId,
       expectedSessionVersion: prepared.expectedSessionVersion,
@@ -367,6 +379,7 @@ export class UpdateService {
   private async persistStructuredOutput(input: {
     actor: { userId: string; active: boolean };
     at: Date;
+    correlationId: string;
     source: Source;
     sessionId: string;
     expectedSessionVersion: number;
@@ -376,7 +389,15 @@ export class UpdateService {
     expectedScope: Scope;
   }): Promise<import("@evaluation/contracts").ClarificationState> {
     let persistedState: import("@evaluation/contracts").ClarificationState | undefined;
-    await this.structurer.structure(input.context, async (transaction, untrustedOutput) => {
+    await this.structurer.structure(
+      {
+        ...input.context,
+        projectScopeId: input.expectedScope.projectScopeId,
+        departmentScopeId: input.expectedScope.departmentScopeId,
+        correlationId: input.correlationId,
+        updateSourceId: input.source.id,
+      },
+      async (transaction, untrustedOutput) => {
       if (persistedState !== undefined) throw invalidPersistence();
       const output = UpdateStructureAiOutputSchema.parse(untrustedOutput);
       await lockSession(transaction, input.sessionId);
@@ -425,7 +446,8 @@ export class UpdateService {
             ? `clarification-turn:${persistedState.turnId}`
             : `update-draft:${persistedState.draftRevisionId}`,
       };
-    });
+      },
+    );
     if (persistedState === undefined) throw invalidPersistence();
     return persistedState;
   }

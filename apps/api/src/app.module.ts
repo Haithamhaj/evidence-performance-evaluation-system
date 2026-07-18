@@ -10,6 +10,7 @@ import { CorrelationMiddleware } from "./platform/correlation.middleware.js";
 import { DocumentsModule } from "./documents/documents.module.js";
 import { DailyWorkModule } from "./daily-work/daily-work.module.js";
 import { WorkItemsModule } from "./work-items/work-items.module.js";
+import { UpdatesEvidenceModule } from "./updates-evidence/updates-evidence.module.js";
 import {
   createEnvironmentReadinessProbes,
   HealthController,
@@ -33,6 +34,7 @@ Module({
     PermissionsModule,
     ProjectsModule,
     WorkItemsModule,
+    UpdatesEvidenceModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: READINESS_PROBES, useFactory: createEnvironmentReadinessProbes }],

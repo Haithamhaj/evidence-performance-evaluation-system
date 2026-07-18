@@ -2,6 +2,7 @@ import {
   AppError,
   ConfirmEvidenceInputSchema,
   CreateManualEvidenceInputSchema,
+  RejectEvidenceInputSchema,
   ReviseEvidenceInputSchema,
 } from "@evaluation/contracts";
 import { z } from "zod";
@@ -30,6 +31,9 @@ const ReviseCommandSchema = EvidenceCommandSchema.extend({
 }).strict();
 const ConfirmCommandSchema = EvidenceCommandSchema.extend({
   input: ConfirmEvidenceInputSchema,
+}).strict();
+const RejectCommandSchema = EvidenceCommandSchema.extend({
+  input: RejectEvidenceInputSchema,
 }).strict();
 
 export interface EvidenceScopeReader {
@@ -268,7 +272,7 @@ export class EvidenceService {
           evidenceId: record.id,
           projectId: record.projectId,
           workstreamId: record.workstreamId,
-          sourceReferences: [`evidence:${record.id}:${latest.revision}`],
+          sourceReferences: [`evidence:${record.id}`],
           occurredAt: at,
         },
       });
@@ -290,6 +294,47 @@ export class EvidenceService {
         source: "api",
       });
       return serializeAccepted(event);
+    });
+  }
+
+  async reject(command: unknown): Promise<EvidenceDetail> {
+    const parsed = RejectCommandSchema.parse(command);
+    const at = validClock(this.clock());
+    return serializable(this.client, async (transaction) => {
+      await lockEvidence(transaction, parsed.evidenceId);
+      const record = await loadRecord(transaction, parsed.evidenceId);
+      assertOwner(record.employeeId, parsed.actor);
+      if (record.state !== "draft") throw invalidState();
+      if (record.currentRevision !== parsed.input.expectedRevision) throw versionConflict();
+      await this.scopeReader.authorizeIn(transaction, {
+        actor: parsed.actor,
+        projectId: record.projectId,
+        workstreamId: record.workstreamId,
+        workItemId: record.workItemId,
+        progressComponentId: null,
+        dynamicCriterionId: null,
+        at,
+      });
+      const latest = record.revisions.at(-1);
+      if (latest === undefined) throw invalidState();
+      const rejected = await transaction.evidenceRecord.update({
+        where: { id: record.id },
+        data: { state: "rejected", version: { increment: 1 } },
+      });
+      await this.auditWriter.append(transaction, {
+        eventType: "evidence.rejected",
+        actor: { kind: "human", id: parsed.actor.userId },
+        effectiveSubjectId: parsed.actor.userId,
+        scopeType: "project",
+        scopeId: record.projectId,
+        targetType: "evidence_record",
+        targetId: record.id,
+        reason: parsed.input.reason,
+        safeDiff: { revision: latest.revision, nextState: "rejected" },
+        correlationId: parsed.correlationId,
+        source: "api",
+      });
+      return serialize(rejected, latest);
     });
   }
 }

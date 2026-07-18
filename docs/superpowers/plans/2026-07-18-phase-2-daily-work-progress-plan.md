@@ -455,7 +455,7 @@ pnpm scan:secrets
 
 Expected: PASS, including Arabic, mixed technical text, prompt injection, invalid schema, missing context, and prohibited concept fixtures.
 
-- [ ] **Step 6: Add protected APIs and same-origin web gateway**
+- [x] **Step 6: Add protected APIs and same-origin web gateway**
 
 Implement exact routes for update draft/start, clarification answer, evidence source creation, draft review, employee confirmation, evidence confirmation/rejection, and Timeline pagination. Reject actor IDs, arbitrary source paths, provider/model overrides, raw object keys, rating fields, and unauthorized links.
 
