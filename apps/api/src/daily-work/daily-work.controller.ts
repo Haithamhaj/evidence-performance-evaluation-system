@@ -33,9 +33,7 @@ export class DailyWorkController {
     return this.query.myWork(request.principal.userId);
   }
 
-  updateContext(
-    request: Request,
-  ): Promise<import("@evaluation/contracts").UpdateComposerContext> {
+  updateContext(request: Request): Promise<import("@evaluation/contracts").UpdateComposerContext> {
     return this.query.updateContext(request.principal.userId);
   }
 

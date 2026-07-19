@@ -13,9 +13,7 @@ describe("deterministic prototype structuring", () => {
     expect(draft.result).toContain("18%");
     expect(draft.relatedWorkItemId).toBe("wi-104");
     expect(draft.relatedCriteria).toEqual(["criterion-quality"]);
-    expect(JSON.stringify(draft)).not.toMatch(
-      /rating|rank|productivityScore|readinessScore/iu,
-    );
+    expect(JSON.stringify(draft)).not.toMatch(/rating|rank|productivityScore|readinessScore/iu);
   });
 
   it("asks exactly one clarification question when the result is missing", () => {
@@ -25,9 +23,7 @@ describe("deterministic prototype structuring", () => {
     });
 
     expect(draft.missingContext).toEqual(["result"]);
-    expect(draft.clarificationQuestion).toBe(
-      "What result or decision came from this activity?",
-    );
+    expect(draft.clarificationQuestion).toBe("What result or decision came from this activity?");
   });
 
   it("preserves the simulated transcript as the original input", () => {

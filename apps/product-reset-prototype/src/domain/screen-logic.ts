@@ -12,10 +12,7 @@ export type MyWorkGroups = {
 
 const day = 86_400_000;
 
-export function groupMyWork(
-  items: readonly WorkItem[],
-  todayIso: string,
-): MyWorkGroups {
+export function groupMyWork(items: readonly WorkItem[], todayIso: string): MyWorkGroups {
   const result: Record<keyof MyWorkGroups, WorkItem[]> = {
     needsAction: [],
     overdue: [],

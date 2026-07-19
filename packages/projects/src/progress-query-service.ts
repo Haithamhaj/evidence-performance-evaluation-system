@@ -9,9 +9,7 @@ export class ProgressQueryService {
     this.client = client;
   }
 
-  async listUpdateScopes(
-    input: Readonly<{ actorId: string }>,
-  ): Promise<
+  async listUpdateScopes(input: Readonly<{ actorId: string }>): Promise<
     ReadonlyArray<
       Readonly<{
         id: string;

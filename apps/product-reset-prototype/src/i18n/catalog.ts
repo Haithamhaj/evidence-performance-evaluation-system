@@ -110,7 +110,8 @@ const en: Record<keyof typeof ar, string> = {
   "persona.employee": "Employee",
   "persona.manager": "Manager",
   "prototype.synthetic": "Acceptance prototype · Synthetic data",
-  "prototype.notice": "Changes are simulated in this browser and are not stored in the production system.",
+  "prototype.notice":
+    "Changes are simulated in this browser and are not stored in the production system.",
   "actions.quickAdd": "Quick Add",
   "actions.quickUpdate": "Quick Update",
   "actions.open": "Open",
@@ -163,11 +164,14 @@ const en: Record<keyof typeof ar, string> = {
   "screens.projects.title": "Projects",
   "screens.projects.subtitle": "Work health, next action, and important blockers.",
   "screens.evidence.title": "Evidence and GitHub Suggestions",
-  "screens.evidence.subtitle": "Review the source and add contribution context before confirmation.",
+  "screens.evidence.subtitle":
+    "Review the source and add contribution context before confirmation.",
   "screens.readiness.title": "Evaluation Readiness Preview",
-  "screens.readiness.subtitle": "Facts and context for human evaluation — with no suggested rating.",
+  "screens.readiness.subtitle":
+    "Facts and context for human evaluation — with no suggested rating.",
   "screens.manager.title": "Operational Overview",
-  "screens.manager.subtitle": "Team actions and project health without rankings or performance scores.",
+  "screens.manager.subtitle":
+    "Team actions and project health without rankings or performance scores.",
   "groups.needsAction": "Needs My Action",
   "groups.overdue": "Overdue",
   "groups.today": "Today",

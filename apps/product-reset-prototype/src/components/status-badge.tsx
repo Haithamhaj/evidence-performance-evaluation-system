@@ -12,8 +12,6 @@ type StatusBadgeProperties = {
 export function StatusBadge({ kind, value }: StatusBadgeProperties) {
   const { locale } = usePrototype();
   return (
-    <span className={`badge badge-${value}`}>
-      {copy(locale, `${kind}.${value}` as CatalogKey)}
-    </span>
+    <span className={`badge badge-${value}`}>{copy(locale, `${kind}.${value}` as CatalogKey)}</span>
   );
 }

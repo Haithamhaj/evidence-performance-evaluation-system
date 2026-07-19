@@ -128,10 +128,7 @@ export class AiRouterUpdateStructurer implements UpdateStructurer {
     this.options = options;
   }
 
-  async structure(
-    input: UpdateStructureRunInput,
-    persistValidatedOutput: Persist,
-  ) {
+  async structure(input: UpdateStructureRunInput, persistValidatedOutput: Persist) {
     const prompt = await this.promptReader.analysisPromptArtifact.findUnique({
       where: {
         routeKey_version: {
@@ -141,9 +138,7 @@ export class AiRouterUpdateStructurer implements UpdateStructurer {
       },
       select: { id: true, bodyHash: true, trustedBody: true },
     });
-    const expectedHash = createHash("sha256")
-      .update(UPDATE_STRUCTURE_TRUSTED_PROMPT)
-      .digest("hex");
+    const expectedHash = createHash("sha256").update(UPDATE_STRUCTURE_TRUSTED_PROMPT).digest("hex");
     if (
       prompt === null ||
       prompt.bodyHash !== expectedHash ||

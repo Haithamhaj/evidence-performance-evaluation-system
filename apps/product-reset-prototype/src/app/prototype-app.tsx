@@ -45,10 +45,7 @@ function PrototypeContent() {
   if (parts[0] === "manager") screen = <ManagerScreen />;
 
   return (
-    <AppShell
-      onQuickAdd={() => setDialog("add")}
-      onQuickUpdate={() => setDialog("update")}
-    >
+    <AppShell onQuickAdd={() => setDialog("add")} onQuickUpdate={() => setDialog("update")}>
       {screen}
       <WorkItemPanel />
       {dialog === "add" ? <QuickAddDialog onClose={() => setDialog(null)} /> : null}

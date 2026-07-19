@@ -12,9 +12,7 @@ test("employee completes a Project-only update with draft-first clarification an
   await page.goto("/en/my-work");
   await page.getByRole("button", { name: "Add update" }).click();
   await expect(page.getByRole("dialog", { name: "Share a progress update" })).toBeVisible();
-  await expect(page.getByLabel("Project")).toHaveValue(
-    "11111111-1111-4111-8111-111111111111",
-  );
+  await expect(page.getByLabel("Project")).toHaveValue("11111111-1111-4111-8111-111111111111");
   await expect(page.getByLabel("Workstream")).toHaveValue("");
   await expect(page.getByLabel("Work Item")).toHaveValue("");
   await page.screenshot({
@@ -22,9 +20,7 @@ test("employee completes a Project-only update with draft-first clarification an
     path: "docs/product/screenshots/phase-2-production/daily-update-correction/01-project-selection-en-desktop.png",
   });
 
-  await page
-    .getByLabel("What changed?")
-    .fill("Deployment passed the approved acceptance check.");
+  await page.getByLabel("What changed?").fill("Deployment passed the approved acceptance check.");
   await page.getByRole("button", { name: "Continue" }).click();
 
   await expect(page.getByText("Current update draft")).toBeVisible();
@@ -93,9 +89,9 @@ test("Arabic mobile flow preserves RTL, Project-first scope, and the visible dra
   const updateDialog = page.getByRole("dialog", { name: "شارك تحديث التقدم" });
   await expect(updateDialog.getByLabel("المشروع")).toBeVisible();
   await expect(updateDialog.getByLabel("مسار العمل")).toHaveValue("");
-  await expect(
-    updateDialog.getByRole("combobox", { name: "عنصر العمل", exact: true }),
-  ).toHaveValue("");
+  await expect(updateDialog.getByRole("combobox", { name: "عنصر العمل", exact: true })).toHaveValue(
+    "",
+  );
   await page.screenshot({
     fullPage: false,
     path: "docs/product/screenshots/phase-2-production/daily-update-correction/05-project-selection-ar-mobile.png",

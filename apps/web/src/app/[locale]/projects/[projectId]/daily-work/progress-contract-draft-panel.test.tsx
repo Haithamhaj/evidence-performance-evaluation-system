@@ -80,10 +80,7 @@ describe("ProgressContractDraftPanel", () => {
     form.set("component.1.target", "12");
     form.set("component.1.unit", "scenarios");
     form.set("component.1.direction", "increase");
-    form.set(
-      "component.1.acceptanceConditions",
-      "The Product Owner accepts the quality gate",
-    );
+    form.set("component.1.acceptanceConditions", "The Product Owner accepts the quality gate");
     form.set("component.1.requiredEvidence", "CI test summary");
     form.set("component.1.confirmationMode", "human_confirmed");
     form.set("ambiguities", "The approved document does not define the retry threshold.");

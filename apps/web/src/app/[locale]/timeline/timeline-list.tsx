@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  defaultTimeZone,
-  localeMetadata,
-} from "@evaluation/localization";
+import { defaultTimeZone, localeMetadata } from "@evaluation/localization";
 import { useEffect, useState } from "react";
 
 import {

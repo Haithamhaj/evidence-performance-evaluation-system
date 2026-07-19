@@ -14,8 +14,9 @@ test("Arabic employee completes multi-turn update, evidence review, confirmation
   await page.getByLabel("ما الذي تغيّر؟").fill("أنجزت العمل المطلوب.");
   await page.getByRole("button", { name: "متابعة" }).click();
 
-  await expect(page.getByRole("heading", { name: "ما النتيجة القابلة للتحقق التي تحققت؟" }))
-    .toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "ما النتيجة القابلة للتحقق التي تحققت؟" }),
+  ).toBeVisible();
   await page.screenshot({
     fullPage: true,
     path: "docs/product/screenshots/phase-2-production/slice-2/clarification-ar-desktop.png",
@@ -40,14 +41,10 @@ test("Arabic employee completes multi-turn update, evidence review, confirmation
   await expect(page.getByLabel("الادعاء الذي يدعمه الدليل")).toHaveValue(
     "نجحت 12 من 12 حالة قبول متفق عليها.",
   );
-  await expect(page.getByLabel("سياق المساهمة")).toHaveValue(
-    "نفذت السيناريوهات وراجعت النتائج.",
-  );
+  await expect(page.getByLabel("سياق المساهمة")).toHaveValue("نفذت السيناريوهات وراجعت النتائج.");
   await page.getByLabel("مصدر الدليل").selectOption("cli_snapshot");
   await page.getByLabel("محتوى المصدر").fill("12 passed, 0 failed");
-  await page
-    .getByLabel("الادعاء الذي يدعمه الدليل")
-    .fill("نجحت سيناريوهات القبول المتفق عليها.");
+  await page.getByLabel("الادعاء الذي يدعمه الدليل").fill("نجحت سيناريوهات القبول المتفق عليها.");
   await page.getByLabel("سياق المساهمة").fill("نفذت السيناريوهات وراجعت سجل الاختبار.");
   await page.screenshot({
     fullPage: true,
@@ -65,9 +62,7 @@ test("Arabic employee completes multi-turn update, evidence review, confirmation
   await page.getByRole("button", { name: "تأكيد التحديث" }).click();
   await expect(page.getByText("تم تأكيد التحديث")).toBeVisible();
   await expect(page.getByText("نجحت سيناريوهات القبول المتفق عليها")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "اكتملت رحلة التحديث والأدلة" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "اكتملت رحلة التحديث والأدلة" })).toBeVisible();
   await expect(page.getByText(/ترتيب|إنتاجية|تقييم متوقع/u)).toHaveCount(0);
   await page.screenshot({
     fullPage: true,

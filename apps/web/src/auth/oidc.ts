@@ -211,10 +211,7 @@ function asTransaction(payload: AuthCookiePayload): TransactionCookie {
   return payload as TransactionCookie;
 }
 
-export function canonicalOidcCallbackUrl(
-  settings: OidcSettings,
-  callbackUrl: URL,
-): URL {
+export function canonicalOidcCallbackUrl(settings: OidcSettings, callbackUrl: URL): URL {
   const configured = new URL(settings.redirectUri);
   if (callbackUrl.pathname !== configured.pathname) {
     throw new WebAuthError("AUTH_INVALID_SESSION", "errors.auth.invalidSession", 401);

@@ -2,13 +2,7 @@ export type Locale = "ar" | "en";
 export type Persona = "employee" | "manager";
 export type Health = "on_track" | "needs_attention" | "at_risk" | "paused" | "completed";
 export type WorkItemStatus =
-  | "planned"
-  | "ready"
-  | "in_progress"
-  | "blocked"
-  | "in_review"
-  | "done"
-  | "cancelled";
+  "planned" | "ready" | "in_progress" | "blocked" | "in_review" | "done" | "cancelled";
 export type Priority = "urgent" | "high" | "medium" | "low";
 export type ExecutionMode = "manual" | "ai_assisted" | "agent_generated" | "mixed";
 

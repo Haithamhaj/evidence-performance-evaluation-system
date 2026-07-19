@@ -17,9 +17,7 @@ describe("progress contract AI draft schema", () => {
     `;
     expect(tables.map(({ name }) => name)).not.toContain(null);
 
-    const foreignKeys = await client.$queryRaw<
-      Array<{ table_name: string; delete_rule: string }>
-    >`
+    const foreignKeys = await client.$queryRaw<Array<{ table_name: string; delete_rule: string }>>`
       SELECT tc.table_name, rc.delete_rule
       FROM information_schema.table_constraints tc
       JOIN information_schema.referential_constraints rc
@@ -43,10 +41,7 @@ describe("progress contract AI draft schema", () => {
         AND event_manipulation IN ('UPDATE', 'DELETE')
       ORDER BY event_manipulation
     `;
-    expect(revisionTriggers.map(({ manipulation }) => manipulation)).toEqual([
-      "DELETE",
-      "UPDATE",
-    ]);
+    expect(revisionTriggers.map(({ manipulation }) => manipulation)).toEqual(["DELETE", "UPDATE"]);
 
     const mappingTriggers = await client.$queryRaw<Array<{ manipulation: string }>>`
       SELECT event_manipulation AS manipulation
@@ -56,10 +51,7 @@ describe("progress contract AI draft schema", () => {
         AND event_manipulation IN ('UPDATE', 'DELETE')
       ORDER BY event_manipulation
     `;
-    expect(mappingTriggers.map(({ manipulation }) => manipulation)).toEqual([
-      "DELETE",
-      "UPDATE",
-    ]);
+    expect(mappingTriggers.map(({ manipulation }) => manipulation)).toEqual(["DELETE", "UPDATE"]);
 
     const [requestGuard] = await client.$queryRaw<Array<{ definition: string }>>`
       SELECT pg_get_functiondef(p.oid) AS definition

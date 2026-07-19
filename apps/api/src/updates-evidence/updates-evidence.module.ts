@@ -22,9 +22,7 @@ import { UpdatesEvidencePolicyGuard } from "./updates-evidence-policy.guard.js";
 
 const UPDATES_EVIDENCE_DATABASE = Symbol("UPDATES_EVIDENCE_DATABASE");
 const UPDATES_EVIDENCE_STRUCTURER = Symbol("UPDATES_EVIDENCE_STRUCTURER");
-const UPDATES_EVIDENCE_DATABASE_LIFECYCLE = Symbol(
-  "UPDATES_EVIDENCE_DATABASE_LIFECYCLE",
-);
+const UPDATES_EVIDENCE_DATABASE_LIFECYCLE = Symbol("UPDATES_EVIDENCE_DATABASE_LIFECYCLE");
 
 export class UpdatesEvidenceModule {}
 
@@ -87,8 +85,7 @@ Module({
     },
     {
       provide: ActivityReader,
-      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
-        new ActivityReader(client),
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) => new ActivityReader(client),
       inject: [UPDATES_EVIDENCE_DATABASE],
     },
     {

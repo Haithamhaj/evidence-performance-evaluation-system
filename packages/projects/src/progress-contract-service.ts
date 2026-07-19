@@ -76,76 +76,76 @@ export class ProgressContractService {
     const draft = validateProgressContractDraft(parsed.draft);
     const now = validProgressClock(this.clock);
     const proposeUsing = async (transaction: Transaction) => {
-        const source = await this.documentReader.getApprovedSourceIn(transaction, {
-          documentVersionId: draft.sourceDocumentVersionId,
-        });
-        const identity = await this.identityReader.snapshotIn(transaction, {
-          kind: draft.scopeKind,
-          resourceId: draft.workstreamId ?? draft.projectId,
-          at: now,
-        });
-        assertProposalAuthority(parsed.actor.userId, draft, source, identity);
-        const previous = await transaction.progressContract.findFirst({
-          where: {
-            projectId: draft.projectId,
-            workstreamId: draft.workstreamId,
-            state: "active",
+      const source = await this.documentReader.getApprovedSourceIn(transaction, {
+        documentVersionId: draft.sourceDocumentVersionId,
+      });
+      const identity = await this.identityReader.snapshotIn(transaction, {
+        kind: draft.scopeKind,
+        resourceId: draft.workstreamId ?? draft.projectId,
+        at: now,
+      });
+      assertProposalAuthority(parsed.actor.userId, draft, source, identity);
+      const previous = await transaction.progressContract.findFirst({
+        where: {
+          projectId: draft.projectId,
+          workstreamId: draft.workstreamId,
+          state: "active",
+        },
+        orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
+        select: { id: true, contractVersion: true },
+      });
+      const latest = await transaction.progressContract.findFirst({
+        where: {
+          projectId: draft.projectId,
+          workstreamId: draft.workstreamId,
+        },
+        orderBy: [{ contractVersion: "desc" }, { createdAt: "desc" }],
+        select: { contractVersion: true },
+      });
+      const id = crypto.randomUUID();
+      const row = await transaction.progressContract.create({
+        data: {
+          id,
+          scopeKind: draft.scopeKind,
+          projectId: draft.projectId,
+          workstreamId: draft.workstreamId,
+          sourceDocumentId: draft.sourceDocumentId,
+          sourceDocumentVersionId: draft.sourceDocumentVersionId,
+          sourceDocumentVersionNo: draft.sourceDocumentVersion,
+          calculationKind: draft.calculationKind,
+          calculationSchemaVersion: draft.calculationSchemaVersion,
+          contractVersion: (latest?.contractVersion ?? 0) + 1,
+          ownerId: identity!.primaryOwnerId,
+          effectiveAt: new Date(draft.effectiveAt),
+          previousContractId: previous?.id ?? null,
+          createdById: parsed.actor.userId,
+          components: {
+            create: draft.components.map((component, index) => ({
+              ...component,
+              position: index + 1,
+            })),
           },
-          orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
-          select: { id: true, contractVersion: true },
-        });
-        const latest = await transaction.progressContract.findFirst({
-          where: {
-            projectId: draft.projectId,
-            workstreamId: draft.workstreamId,
-          },
-          orderBy: [{ contractVersion: "desc" }, { createdAt: "desc" }],
-          select: { contractVersion: true },
-        });
-        const id = crypto.randomUUID();
-        const row = await transaction.progressContract.create({
-          data: {
-            id,
-            scopeKind: draft.scopeKind,
-            projectId: draft.projectId,
-            workstreamId: draft.workstreamId,
-            sourceDocumentId: draft.sourceDocumentId,
-            sourceDocumentVersionId: draft.sourceDocumentVersionId,
-            sourceDocumentVersionNo: draft.sourceDocumentVersion,
-            calculationKind: draft.calculationKind,
-            calculationSchemaVersion: draft.calculationSchemaVersion,
-            contractVersion: (latest?.contractVersion ?? 0) + 1,
-            ownerId: identity!.primaryOwnerId,
-            effectiveAt: new Date(draft.effectiveAt),
-            previousContractId: previous?.id ?? null,
-            createdById: parsed.actor.userId,
-            components: {
-              create: draft.components.map((component, index) => ({
-                ...component,
-                position: index + 1,
-              })),
-            },
-          },
-          include: { components: { orderBy: { position: "asc" } } },
-        });
-        await this.auditWriter.append(transaction, {
-          eventType: "progress_contract.proposed",
-          actor: { kind: "human", id: parsed.actor.userId },
-          effectiveSubjectId: parsed.actor.userId,
-          scopeType: draft.scopeKind,
-          scopeId: draft.workstreamId ?? draft.projectId,
-          targetType: "progress_contract",
-          targetId: id,
-          reason: parsed.reason,
-          safeDiff: {
-            state: "draft",
-            version: 1,
-            sourceDocumentVersionId: draft.sourceDocumentVersionId,
-          },
-          correlationId: parsed.correlationId,
-          source: "api",
-        });
-        return serializeProgressContract(row);
+        },
+        include: { components: { orderBy: { position: "asc" } } },
+      });
+      await this.auditWriter.append(transaction, {
+        eventType: "progress_contract.proposed",
+        actor: { kind: "human", id: parsed.actor.userId },
+        effectiveSubjectId: parsed.actor.userId,
+        scopeType: draft.scopeKind,
+        scopeId: draft.workstreamId ?? draft.projectId,
+        targetType: "progress_contract",
+        targetId: id,
+        reason: parsed.reason,
+        safeDiff: {
+          state: "draft",
+          version: 1,
+          sourceDocumentVersionId: draft.sourceDocumentVersionId,
+        },
+        correlationId: parsed.correlationId,
+        source: "api",
+      });
+      return serializeProgressContract(row);
     };
     if (transaction !== undefined) return proposeUsing(transaction);
     return this.client.$transaction(proposeUsing, { isolationLevel: "Serializable" });

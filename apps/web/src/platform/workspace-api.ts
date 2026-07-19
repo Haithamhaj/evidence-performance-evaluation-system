@@ -241,10 +241,7 @@ export async function fetchProtectedUpstream<T>(input: {
   }
   let accessToken: string;
   try {
-    accessToken = sessionAccessToken(
-      cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "",
-      settings,
-    );
+    accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
   } catch {
     throw failure(401, "errors.unauthorized", correlationId);
   }
@@ -273,10 +270,7 @@ export async function uploadProtectedSource<T>(input: {
   const cookieStore = await cookies();
   let accessToken: string;
   try {
-    accessToken = sessionAccessToken(
-      cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "",
-      settings,
-    );
+    accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
   } catch {
     throw failure(401, "errors.unauthorized", correlationId);
   }

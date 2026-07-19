@@ -19,13 +19,7 @@ import {
   workItems as initialWorkItems,
   workstreams,
 } from "../domain/mock-data";
-import type {
-  ActivityEvent,
-  EvidenceSuggestion,
-  Locale,
-  Persona,
-  WorkItem,
-} from "../domain/types";
+import type { ActivityEvent, EvidenceSuggestion, Locale, Persona, WorkItem } from "../domain/types";
 
 export type WorkView = "list" | "board" | "calendar" | "timeline";
 
@@ -90,8 +84,9 @@ export function PrototypeProvider({
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const [workItems, setWorkItems] = useState<readonly WorkItem[]>(initialWorkItems);
   const [activities, setActivities] = useState<readonly ActivityEvent[]>(initialActivityEvents);
-  const [evidenceSuggestions, setEvidenceSuggestions] =
-    useState<readonly EvidenceSuggestion[]>(initialEvidenceSuggestions);
+  const [evidenceSuggestions, setEvidenceSuggestions] = useState<readonly EvidenceSuggestion[]>(
+    initialEvidenceSuggestions,
+  );
   const [resolvedInboxIds, setResolvedInboxIds] = useState<ReadonlySet<string>>(new Set());
 
   const syncUrl = useCallback(

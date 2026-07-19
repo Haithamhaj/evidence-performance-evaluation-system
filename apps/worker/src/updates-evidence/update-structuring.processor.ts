@@ -18,11 +18,6 @@ export class UpdateStructuringProcessor {
   }
 
   process(input: unknown, persistValidatedOutput: Persist) {
-    return runGovernedUpdateStructure(
-      this.router,
-      this.options,
-      input,
-      persistValidatedOutput,
-    );
+    return runGovernedUpdateStructure(this.router, this.options, input, persistValidatedOutput);
   }
 }

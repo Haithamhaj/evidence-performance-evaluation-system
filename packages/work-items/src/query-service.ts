@@ -110,9 +110,7 @@ export class WorkItemQueryService {
     });
   }
 
-  async listUpdatable(input: {
-    actorId: string;
-  }): Promise<
+  async listUpdatable(input: { actorId: string }): Promise<
     ReadonlyArray<
       Readonly<{
         id: string;

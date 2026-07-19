@@ -34,9 +34,7 @@ export function structureTextUpdate(
     relatedCriteria: context.criterionIds,
     suggestedEvidenceIds: [],
     missingContext: hasResult ? [] : ["result"],
-    clarificationQuestion: hasResult
-      ? null
-      : "What result or decision came from this activity?",
+    clarificationQuestion: hasResult ? null : "What result or decision came from this activity?",
   };
 }
 
