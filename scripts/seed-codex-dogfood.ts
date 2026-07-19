@@ -18,6 +18,8 @@ export type CodexDogfoodSeedInput = Readonly<{
   repository: Readonly<{
     commitSha: string;
     pullRequestRef: string;
+    pullRequestBaseSha: string;
+    pullRequestHeadSha: string;
     sources: readonly CodexDogfoodSource[];
   }>;
 }>;
@@ -52,6 +54,8 @@ export type CodexDogfoodSeedServices = Readonly<{
     ownerId: string;
     commitSha: string;
     pullRequestRef: string;
+    pullRequestBaseSha: string;
+    pullRequestHeadSha: string;
     content: string;
     sourceChecksum: string;
   }): Promise<{ documentVersionId: string; documentVersion: number }>;
@@ -146,6 +150,8 @@ export async function seedCodexDogfood(
     ownerId: owner.id,
     commitSha: input.repository.commitSha,
     pullRequestRef: input.repository.pullRequestRef,
+    pullRequestBaseSha: input.repository.pullRequestBaseSha,
+    pullRequestHeadSha: input.repository.pullRequestHeadSha,
     content,
     sourceChecksum,
   });
@@ -184,6 +190,15 @@ function assertRepositoryInput(repository: CodexDogfoodSeedInput["repository"]):
     throw new Error("Repository commit must be an exact SHA-1");
   }
   if (
+    !/^[a-f0-9]{40}$/u.test(repository.pullRequestBaseSha) ||
+    !/^[a-f0-9]{40}$/u.test(repository.pullRequestHeadSha)
+  ) {
+    throw new Error("Pull Request base and head commits must be exact SHA-1 values");
+  }
+  if (!isExactGitHubPullRequestRef(repository.pullRequestRef)) {
+    throw new Error("Pull Request reference must be an exact GitHub Pull Request URL");
+  }
+  if (
     repository.sources.length === 0 ||
     repository.sources.some(
       (source) =>
@@ -197,6 +212,23 @@ function assertRepositoryInput(repository: CodexDogfoodSeedInput["repository"]):
   }
 }
 
+function isExactGitHubPullRequestRef(value: string): boolean {
+  try {
+    const reference = new URL(value);
+    return (
+      reference.protocol === "https:" &&
+      reference.hostname === "github.com" &&
+      reference.username === "" &&
+      reference.password === "" &&
+      reference.search === "" &&
+      reference.hash === "" &&
+      /^\/[^/]+\/[^/]+\/pull\/[1-9][0-9]*$/u.test(reference.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function authoritativeSnapshot(repository: CodexDogfoodSeedInput["repository"]): string {
   return [
     "# Evidence Performance System — Phase 2",
@@ -205,6 +237,8 @@ function authoritativeSnapshot(repository: CodexDogfoodSeedInput["repository"]):
     "",
     `Repository commit: ${repository.commitSha}`,
     `Pull Request: ${repository.pullRequestRef}`,
+    `Pull Request base commit: ${repository.pullRequestBaseSha}`,
+    `Pull Request head commit: ${repository.pullRequestHeadSha}`,
     "",
     "## Source manifest",
     ...repository.sources.map((source) => `- ${source.path}: sha256:${source.sha256}`),
@@ -224,8 +258,12 @@ function authoritativeSnapshot(repository: CodexDogfoodSeedInput["repository"]):
 
 type InMemoryHistory = Readonly<{
   commitSha: string;
+  pullRequestRef: string;
+  pullRequestBaseSha: string;
+  pullRequestHeadSha: string;
   documentVersionId: string;
   sourceChecksum: string;
+  sourceContent: string;
 }>;
 
 export function createInMemoryCodexDogfoodSeedServices() {
@@ -249,7 +287,7 @@ export function createInMemoryCodexDogfoodSeedServices() {
       return { id: "10000000-0000-4000-8000-000000000004" };
     },
     async ensureApprovedSource(input) {
-      const existing = history.find((entry) => entry.commitSha === input.commitSha);
+      const existing = history.find((entry) => entry.sourceChecksum === input.sourceChecksum);
       if (existing !== undefined) {
         return {
           documentVersionId: existing.documentVersionId,
@@ -263,8 +301,12 @@ export function createInMemoryCodexDogfoodSeedServices() {
       )}`;
       history.push({
         commitSha: input.commitSha,
+        pullRequestRef: input.pullRequestRef,
+        pullRequestBaseSha: input.pullRequestBaseSha,
+        pullRequestHeadSha: input.pullRequestHeadSha,
         documentVersionId,
         sourceChecksum: input.sourceChecksum,
+        sourceContent: input.content,
       });
       return { documentVersionId, documentVersion };
     },

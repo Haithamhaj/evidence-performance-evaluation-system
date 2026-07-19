@@ -18,8 +18,14 @@ The Project is `Evidence Performance System — Phase 2`, the Workstream is `Pha
 
 - Repository commit: `b73c8e9049abdee72c7702074766e1e8b4b998d4`
 - Pull Request reference: `Haithamhaj/evidence-performance-evaluation-system#5`
+- Pull Request base commit: not recorded separately in historical DocumentVersion `1`; pending a governed rerun
+- Pull Request head commit: not recorded separately in historical DocumentVersion `1`; pending a governed rerun
 - Approved Project DocumentVersion: `1` (`5019…32b3`)
 - Composed source checksum: `94511e8fc322216e60d1e1ffff5385048c10975153873cfdeb2a908798878d30`
+
+No new live snapshot is claimed by this correction. The next explicit local acceptance rerun must
+create a new immutable DocumentVersion containing the exact Pull Request reference, base commit,
+and head commit.
 
 | Repository source                                                                | SHA-256                                                            |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
