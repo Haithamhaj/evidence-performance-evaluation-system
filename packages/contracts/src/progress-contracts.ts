@@ -23,6 +23,146 @@ export const ProgressComponentKindSchema = z.enum([
 export const ProgressDirectionSchema = z.enum(["increase", "decrease", "maintain"]);
 export const ProgressConfirmationModeSchema = z.enum(["measured", "human_confirmed"]);
 
+const ProgressContractAiDraftComponentRegistrationSchema = z
+  .object({
+    clientKey: z.string().min(1).max(80),
+    kind: z.enum(["milestone", "deliverable", "operational_kpi"]),
+    name: z.string().min(1).max(200),
+    description: z.string().min(1).max(2_000),
+    weight: z.number().nonnegative().max(100).nullable(),
+    baseline: z.number().finite().nullable(),
+    target: z.number().finite().nullable(),
+    unit: z.string().min(1).max(80).nullable(),
+    direction: z.enum(["increase", "decrease", "maintain"]).nullable(),
+    acceptanceConditions: z.array(z.string().min(1).max(500)).min(1).max(12),
+    requiredEvidence: z.array(z.string().min(1).max(500)).min(1).max(12),
+    confirmationMode: z.enum(["deterministic", "human_confirmed"]),
+    proposedSourceMappings: z
+      .array(
+        z
+          .object({
+            source: z.literal("github"),
+            event: z.enum(["pull_request_merged", "required_checks_passed", "release_published"]),
+            repositoryRef: z.string().min(1).max(300),
+            branchRef: z.string().min(1).max(300).nullable(),
+            checkNames: z.array(z.string().min(1).max(200)).max(20),
+          })
+          .strict(),
+      )
+      .max(10),
+    sourceReferences: z.array(z.string().min(1).max(500)).min(1).max(20),
+  })
+  .strict();
+
+export const ProgressContractAiDraftComponentSchema = z
+  .object({
+    clientKey: z.string().trim().min(1).max(80),
+    kind: z.enum(["milestone", "deliverable", "operational_kpi"]),
+    name: z.string().trim().min(1).max(200),
+    description: z.string().trim().min(1).max(2_000),
+    weight: z.number().nonnegative().max(100).nullable(),
+    baseline: z.number().finite().nullable(),
+    target: z.number().finite().nullable(),
+    unit: z.string().trim().min(1).max(80).nullable(),
+    direction: z.enum(["increase", "decrease", "maintain"]).nullable(),
+    acceptanceConditions: z.array(z.string().trim().min(1).max(500)).min(1).max(12),
+    requiredEvidence: z.array(z.string().trim().min(1).max(500)).min(1).max(12),
+    confirmationMode: z.enum(["deterministic", "human_confirmed"]),
+    proposedSourceMappings: z
+      .array(
+        z
+          .object({
+            source: z.literal("github"),
+            event: z.enum(["pull_request_merged", "required_checks_passed", "release_published"]),
+            repositoryRef: z.string().trim().min(1).max(300),
+            branchRef: z.string().trim().min(1).max(300).nullable(),
+            checkNames: z.array(z.string().trim().min(1).max(200)).max(20),
+          })
+          .strict(),
+      )
+      .max(10),
+    sourceReferences: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
+  })
+  .strict()
+  .superRefine(validateKpiMetadata);
+
+const ProgressContractAiDraftOutputCoreSchema = z
+  .object({
+    components: z.array(ProgressContractAiDraftComponentRegistrationSchema).min(1).max(12),
+    ambiguities: z.array(z.string().min(1).max(500)).max(12),
+    clarificationQuestions: z.array(z.string().min(1).max(500)).max(12),
+  })
+  .strict();
+
+export const ProgressContractAiDraftOutputSchema = z
+  .object({
+    components: z.array(ProgressContractAiDraftComponentSchema).min(1).max(12),
+    ambiguities: z.array(z.string().trim().min(1).max(500)).max(12),
+    clarificationQuestions: z.array(z.string().trim().min(1).max(500)).max(12),
+  })
+  .strict()
+  .superRefine(validateAiDraftShape);
+
+// The AI Router persists canonical JSON Schema, which cannot represent cross-field rules.
+// Callers must parse provider output with ProgressContractAiDraftOutputSchema before use.
+export const ProgressContractAiDraftOutputRegistrationSchema =
+  ProgressContractAiDraftOutputCoreSchema;
+
+function validateKpiMetadata(
+  value: z.infer<typeof ProgressContractAiDraftComponentRegistrationSchema>,
+  context: z.RefinementCtx,
+): void {
+  if (
+    value.kind === "operational_kpi" &&
+    (value.baseline === null ||
+      value.target === null ||
+      value.unit === null ||
+      value.direction === null)
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["baseline"],
+      message: "operational KPI components require baseline, target, unit and direction",
+    });
+  }
+}
+
+function validateAiDraftShape(
+  value: z.infer<typeof ProgressContractAiDraftOutputSchema>,
+  context: z.RefinementCtx,
+): void {
+  const clientKeys = new Set<string>();
+  for (const [index, component] of value.components.entries()) {
+    if (clientKeys.has(component.clientKey)) {
+      context.addIssue({
+        code: "custom",
+        path: ["components", index, "clientKey"],
+        message: "AI draft component client keys must be unique",
+      });
+    }
+    clientKeys.add(component.clientKey);
+  }
+
+  const weights = value.components.map((component) => component.weight);
+  const hasWeight = weights.some((weight) => weight !== null);
+  if (hasWeight && weights.some((weight) => weight === null)) {
+    context.addIssue({
+      code: "custom",
+      path: ["components"],
+      message: "AI draft component weights must be supplied for every component or none",
+    });
+  } else if (hasWeight) {
+    const total = weights.reduce<number>((sum, weight) => sum + (weight ?? 0), 0);
+    if (Math.abs(total - 100) > Number.EPSILON) {
+      context.addIssue({
+        code: "custom",
+        path: ["components"],
+        message: "AI draft component weights must total exactly 100",
+      });
+    }
+  }
+}
+
 export const ProgressContractComponentSchema = z
   .object({
     id: UuidSchema,
@@ -177,6 +317,10 @@ export const OfficialProgressResultSchema = z.discriminatedUnion("state", [
 ]);
 
 export type ProgressContractDraft = z.infer<typeof ProgressContractDraftSchema>;
+export type ProgressContractAiDraftOutput = z.infer<typeof ProgressContractAiDraftOutputSchema>;
+export type ProgressContractAiDraftComponent = z.infer<
+  typeof ProgressContractAiDraftComponentSchema
+>;
 export type ProgressContract = z.infer<typeof ProgressContractSchema>;
 export type ProgressContractState = z.infer<typeof ProgressContractStateSchema>;
 export type ProgressContractComponent = z.infer<typeof ProgressContractComponentSchema>;

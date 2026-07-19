@@ -31,6 +31,7 @@
     "infra:verify": "node scripts/verify-infra.mjs",
     "lint": "turbo run lint && eslint scripts tests && node scripts/validate-boundaries.mjs && node scripts/check-user-visible-copy.mjs",
     "scan:performance-inputs": "node scripts/scan-performance-inputs.mjs",
+    "scan:ai-boundary": "node scripts/validate-boundaries.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "typecheck": "turbo run typecheck",
     "test": "pnpm test:task-graph && vitest run --project unit",

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   OfficialProgressResultSchema,
+  ProgressContractAiDraftOutputSchema,
   ProgressContractDraftSchema,
   ProgressContractSchema,
 } from "./progress-contracts.js";
@@ -24,6 +25,29 @@ const component = {
   acceptanceConditions: ["اعتماد وثيقة الإغلاق"],
   requiredEvidence: ["document"],
   confirmationMode: "measured" as const,
+};
+
+const aiDraftOutput = {
+  components: [
+    {
+      clientKey: "approved-release",
+      kind: "deliverable" as const,
+      name: "Approved release",
+      description: "Publish the approved release from the documented scope.",
+      weight: 100,
+      baseline: null,
+      target: null,
+      unit: null,
+      direction: null,
+      acceptanceConditions: ["The release is approved by the Project owner"],
+      requiredEvidence: ["Approved release record"],
+      confirmationMode: "human_confirmed" as const,
+      proposedSourceMappings: [],
+      sourceReferences: ["document-section:release"],
+    },
+  ],
+  ambiguities: [],
+  clarificationQuestions: [],
 };
 
 function activeContract() {
@@ -50,6 +74,64 @@ function activeContract() {
 }
 
 describe("progress contract contracts", () => {
+  it("accepts a source-cited AI draft without direct overall progress", () => {
+    expect(ProgressContractAiDraftOutputSchema.parse(aiDraftOutput)).toEqual(aiDraftOutput);
+  });
+
+  it.each(["rating", "recommendedRating", "productivityScore", "employeeRank", "overallPercent"])(
+    "rejects forbidden AI draft field %s",
+    (field) => {
+      expect(() =>
+        ProgressContractAiDraftOutputSchema.parse({
+          ...aiDraftOutput,
+          [field]: 90,
+        }),
+      ).toThrow();
+    },
+  );
+
+  it("requires measurable KPI metadata and source references", () => {
+    expect(() =>
+      ProgressContractAiDraftOutputSchema.parse({
+        ...aiDraftOutput,
+        components: [
+          {
+            clientKey: "quality-gate",
+            kind: "operational_kpi",
+            name: "Required checks",
+            description: "Approved required checks pass",
+            weight: null,
+            baseline: null,
+            target: 1,
+            unit: "boolean",
+            direction: "increase",
+            acceptanceConditions: ["Every allowlisted required check is successful"],
+            requiredEvidence: ["Verified GitHub check suite"],
+            confirmationMode: "deterministic",
+            proposedSourceMappings: [],
+            sourceReferences: [],
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects duplicate AI draft client keys and partial weights", () => {
+    expect(() =>
+      ProgressContractAiDraftOutputSchema.parse({
+        ...aiDraftOutput,
+        components: [
+          aiDraftOutput.components[0],
+          {
+            ...aiDraftOutput.components[0],
+            name: "Approved release confirmation",
+            weight: null,
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
   it("requires weighted rules to total exactly 100", () => {
     expect(() =>
       ProgressContractDraftSchema.parse({

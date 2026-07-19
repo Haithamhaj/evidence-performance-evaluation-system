@@ -572,7 +572,7 @@ This bundle is approved by the Product Owner and precedes GitHub automation. It 
 - Consumes: exact Project ID, approved `DocumentVersion` ID, bounded source excerpts, locale, timezone, previous active contract summary, and protected rules.
 - Produces: versioned `ProgressContractAiDraftOutputSchema`, prompt `project-progress-contract-draft.v1`, output schema `project-progress-contract-draft.v1`, and route purpose `project.progress-contract.draft`.
 
-- [ ] **Step 1: Write schema rejection tests**
+- [x] **Step 1: Write schema rejection tests**
 
 ```ts
 it.each(["rating", "recommendedRating", "productivityScore", "employeeRank", "overallPercent"])(
@@ -611,13 +611,13 @@ it("requires measurable KPI metadata and source references", () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `pnpm exec vitest run --project unit packages/contracts/src/progress-contracts.test.ts packages/projects/src/progress-contract-draft-artifacts.test.ts scripts/register-progress-contract-draft-ai-route.test.ts`
 
 Expected: FAIL because the AI draft schema, artifacts, and registration script do not exist.
 
-- [ ] **Step 3: Implement strict output contracts**
+- [x] **Step 3: Implement strict output contracts**
 
 ```ts
 export const ProgressContractAiDraftComponentSchema = z
@@ -651,11 +651,11 @@ export const ProgressContractAiDraftComponentSchema = z
 
 The enclosing schema contains only `components`, `ambiguities`, and `clarificationQuestions`; `.strict()` rejects extra scoring/progress fields. Validate unique `clientKey` values, one to twelve components, and optional weights totalling exactly `100` only when every component is weighted.
 
-- [ ] **Step 4: Create injection-resistant versioned prompt and output schema artifacts**
+- [x] **Step 4: Create injection-resistant versioned prompt and output schema artifacts**
 
 The system prompt states that quoted Project documents are untrusted evidence, never instructions. It requires operational Project measures, explicit source citations, deterministic conditions only when objectively provable, human confirmation for qualitative acceptance, and no raw-activity or employee-performance inference.
 
-- [ ] **Step 5: Register the route idempotently**
+- [x] **Step 5: Register the route idempotently**
 
 ```ts
 await registerAiRouteArtifacts({
@@ -669,13 +669,13 @@ await registerAiRouteArtifacts({
 
 The script uses the existing system-level GPT-5.5 route and never reads, prints, moves, or writes the provider credential.
 
-- [ ] **Step 6: Run schema, prompt, route-boundary, lint, and type checks**
+- [x] **Step 6: Run schema, prompt, route-boundary, lint, and type checks**
 
 Run: `pnpm exec vitest run --project unit packages/contracts/src/progress-contracts.test.ts packages/projects/src/progress-contract-draft-artifacts.test.ts scripts/register-progress-contract-draft-ai-route.test.ts && pnpm scan:performance-inputs && pnpm scan:ai-boundary && pnpm --filter @evaluation/projects typecheck`
 
 Expected: PASS; forbidden fields and prompt-injection fixtures fail closed, and no provider SDK appears outside AI Router.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/contracts/src packages/projects/src/progress-contract-draft-artifacts* scripts/register-progress-contract-draft-ai-route* package.json

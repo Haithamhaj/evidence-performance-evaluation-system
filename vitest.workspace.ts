@@ -8,6 +8,7 @@ export default [
         "tests/repository/**/*.test.ts",
         "apps/**/*.test.{ts,tsx}",
         "packages/**/*.test.{ts,tsx}",
+        "scripts/**/*.test.ts",
       ],
       exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
     },
