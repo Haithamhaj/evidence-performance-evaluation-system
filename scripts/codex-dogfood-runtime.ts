@@ -103,6 +103,17 @@ export function resolveCodexDogfoodPullRequestLineage(
   );
 }
 
+export function buildCodexDogfoodEvaluationEvidenceReferences(
+  input: CodexDogfoodPullRequestLineage & Readonly<{ commitSha: string }>,
+): string[] {
+  return [
+    `repository-commit:${input.commitSha}`,
+    `pull-request:${createHash("sha256").update(input.pullRequestRef).digest("hex")}`,
+    `pull-request-base:${input.pullRequestBaseSha}`,
+    `pull-request-head:${input.pullRequestHeadSha}`,
+  ];
+}
+
 function executeReadOnlyCommand(file: string, args: readonly string[]): string {
   return execFileSync(file, [...args], {
     cwd: process.cwd(),
@@ -558,12 +569,7 @@ async function approveDocumentVersion(
         schemaArtifact: { type: "object", additionalProperties: false },
         reason: "Approved local Codex dogfood source",
         expectedBehavior: "Record source readiness without performance values",
-        evaluationEvidenceReferences: [
-          `repository-commit:${input.commitSha}`,
-          `pull-request:${input.pullRequestRef}`,
-          `pull-request-base:${input.pullRequestBaseSha}`,
-          `pull-request-head:${input.pullRequestHeadSha}`,
-        ],
+        evaluationEvidenceReferences: buildCodexDogfoodEvaluationEvidenceReferences(input),
         humanApprovalPolicy: "feature_defined",
         createdById: input.ownerId,
       },

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveCodexDogfoodPullRequestLineage } from "./codex-dogfood-runtime.js";
+import {
+  buildCodexDogfoodEvaluationEvidenceReferences,
+  resolveCodexDogfoodPullRequestLineage,
+} from "./codex-dogfood-runtime.js";
 
 describe("Codex dogfood Pull Request lineage runtime", () => {
   it("exposes a deterministic Pull Request lineage resolver", () => {
@@ -94,5 +97,25 @@ describe("Codex dogfood Pull Request lineage runtime", () => {
         resolveCodexDogfoodPullRequestLineage({}, () => JSON.stringify(metadata)),
       ).toThrow("exact Pull Request base/head metadata");
     }
+  });
+
+  it("stores exact commit lineage in database-safe AI evidence references", () => {
+    const lineage = {
+      pullRequestRef: "https://github.com/Haithamhaj/evidence-performance-evaluation-system/pull/5",
+      pullRequestBaseSha: "a".repeat(40),
+      pullRequestHeadSha: "b".repeat(40),
+    };
+
+    expect(
+      buildCodexDogfoodEvaluationEvidenceReferences({
+        commitSha: "c".repeat(40),
+        ...lineage,
+      }),
+    ).toEqual([
+      `repository-commit:${"c".repeat(40)}`,
+      "pull-request:edf25b31c62c5b900381af07d75525521d26b1c1262c05f79c99b6160a0f8922",
+      `pull-request-base:${"a".repeat(40)}`,
+      `pull-request-head:${"b".repeat(40)}`,
+    ]);
   });
 });
