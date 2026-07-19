@@ -134,6 +134,7 @@ export type UpdateResultCard = Readonly<{
 ### Task 1: Add authorized Update scope composition
 
 **Files:**
+
 - Modify: `packages/contracts/src/updates-evidence.ts`
 - Modify: `packages/contracts/src/index.ts`
 - Modify: `packages/projects/src/progress-query-service.ts`
@@ -146,66 +147,85 @@ export type UpdateResultCard = Readonly<{
 - Test: `apps/api/src/daily-work/daily-work.e2e.integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: current Project membership/responsibility windows and `WorkItemQueryService`.
 - Produces: `UpdateComposerContextSchema`, `ProgressQueryService.listUpdateScopes({ actorId })`, `WorkItemQueryService.listUpdatable({ actorId })`, and `GET /api/v1/daily-work/update-context`.
 
-- [ ] **Step 1: Write failing contract and composition tests**
+- [x] **Step 1: Write failing contract and composition tests**
 
 ```ts
 it("requires a Project while keeping Workstream and Work Item optional", () => {
-  expect(UpdateComposerContextSchema.parse({
-    projects: [{ id: PROJECT_ID, name: "Atlas", workstreams: [], workItems: [] }],
-  }).projects[0]?.name).toBe("Atlas");
-  expect(() => StartTextUpdateInputSchema.parse({
-    idempotencyKey: KEY,
-    projectId: null,
-    workstreamId: null,
-    workItemId: null,
-    rawText: "Completed the approved deployment",
-    executionMode: "ai_assisted",
-  })).toThrow();
+  expect(
+    UpdateComposerContextSchema.parse({
+      projects: [{ id: PROJECT_ID, name: "Atlas", workstreams: [], workItems: [] }],
+    }).projects[0]?.name,
+  ).toBe("Atlas");
+  expect(() =>
+    StartTextUpdateInputSchema.parse({
+      idempotencyKey: KEY,
+      projectId: null,
+      workstreamId: null,
+      workItemId: null,
+      rawText: "Completed the approved deployment",
+      executionMode: "ai_assisted",
+    }),
+  ).toThrow();
 });
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the new schema/read methods are missing**
+- [x] **Step 2: Run the focused tests and confirm the new schema/read methods are missing**
 
 Run: `pnpm exec vitest run --project unit packages/contracts/src/updates-evidence.test.ts packages/work-items/src/query-service.test.ts apps/api/src/daily-work/daily-work.e2e.integration.test.ts`
 
 Expected: FAIL because `UpdateComposerContextSchema`, `listUpdateScopes`, and `updateContext` do not exist.
 
-- [ ] **Step 3: Add the strict context schema and public query methods**
+- [x] **Step 3: Add the strict context schema and public query methods**
 
 ```ts
-export const UpdateComposerContextSchema = z.object({
-  projects: z.array(z.object({
-    id: UuidSchema,
-    name: z.string().trim().min(1).max(200),
-    workstreams: z.array(z.object({
-      id: UuidSchema,
-      name: z.string().trim().min(1).max(200),
-    }).strict()),
-    workItems: z.array(z.object({
-      id: UuidSchema,
-      title: z.string().trim().min(1).max(300),
-      workstreamId: UuidSchema.nullable(),
-    }).strict()),
-  }).strict()),
-}).strict();
+export const UpdateComposerContextSchema = z
+  .object({
+    projects: z.array(
+      z
+        .object({
+          id: UuidSchema,
+          name: z.string().trim().min(1).max(200),
+          workstreams: z.array(
+            z
+              .object({
+                id: UuidSchema,
+                name: z.string().trim().min(1).max(200),
+              })
+              .strict(),
+          ),
+          workItems: z.array(
+            z
+              .object({
+                id: UuidSchema,
+                title: z.string().trim().min(1).max(300),
+                workstreamId: UuidSchema.nullable(),
+              })
+              .strict(),
+          ),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 ```
 
 `DailyWorkQueryService.updateContext()` must join only the outputs of the public Projects and Work Items query services. It must not read either package's tables directly.
 
-- [ ] **Step 4: Add and protect `GET /api/v1/daily-work/update-context`**
+- [x] **Step 4: Add and protect `GET /api/v1/daily-work/update-context`**
 
 The endpoint returns only active Projects the actor may contribute to, their active Workstreams, and Work Items with `add_update`; a manager receives contributor actions only when separately authorized as a contributor/owner.
 
-- [ ] **Step 5: Run focused unit and integration tests**
+- [x] **Step 5: Run focused unit and integration tests**
 
 Run: `pnpm exec vitest run --project unit packages/contracts/src/updates-evidence.test.ts packages/work-items/src/query-service.test.ts && pnpm exec vitest run --project integration apps/api/src/daily-work/daily-work.e2e.integration.test.ts`
 
 Expected: PASS; cross-Project Workstream/Work Item combinations return `SCOPE_MISMATCH`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/contracts/src/updates-evidence.ts packages/contracts/src/index.ts packages/projects/src/progress-query-service.ts packages/work-items/src/query-service.ts apps/api/src/daily-work
@@ -215,12 +235,16 @@ git commit -m "feat: compose optional-scope project updates"
 ### Task 2: Persist a draft before clarification and return a readable result
 
 **Files:**
+
 - Modify: `packages/contracts/src/updates-evidence.ts`
 - Modify: `packages/updates-evidence/src/update-service.ts`
 - Modify: `packages/updates-evidence/src/ai-structurer.ts`
 - Modify: `packages/updates-evidence/src/prompts.ts`
 - Modify: `packages/updates-evidence/src/activity-reader.ts`
+- Modify: `packages/database/prisma/schema.prisma`
+- Create: `packages/database/prisma/migrations/0015_update_draft_context/migration.sql`
 - Modify: `apps/api/src/updates-evidence/updates.controller.ts`
+- Modify: `scripts/register-update-structure-ai-route.ts`
 - Test: `packages/updates-evidence/src/update-service.integration.test.ts`
 - Test: `packages/updates-evidence/src/ai-structurer.test.ts`
 - Test: `packages/updates-evidence/src/prompts.test.ts`
@@ -228,10 +252,11 @@ git commit -m "feat: compose optional-scope project updates"
 - Test: `tests/ai-evals/update-structuring.eval.test.ts`
 
 **Interfaces:**
+
 - Consumes: `UpdateComposerContext`, active Progress Contract references, prior accepted Update, AI Router route `update.structure`.
 - Produces: `DraftFirstClarificationState`, `UpdateResultCardSchema`, `ActivityReader.updateResult({ actorId, acceptedEventId })`, and `GET /api/v1/updates/:acceptedEventId/result`.
 
-- [ ] **Step 1: Write failing draft-first and no-rating tests**
+- [x] **Step 1: Write failing draft-first and no-rating tests**
 
 ```ts
 it("returns a useful draft with the first necessary question", async () => {
@@ -243,51 +268,57 @@ it("returns a useful draft with the first necessary question", async () => {
 });
 
 it("rejects AI output containing performance fields", () => {
-  expect(() => UpdateStructureAiOutputSchema.parse({
-    state: "ready_for_review",
-    unresolvedFields: [],
-    draft: { ...VALID_DRAFT, suggestedRating: 5 },
-  })).toThrow();
+  expect(() =>
+    UpdateStructureAiOutputSchema.parse({
+      state: "ready_for_review",
+      unresolvedFields: [],
+      draft: { ...VALID_DRAFT, suggestedRating: 5 },
+    }),
+  ).toThrow();
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `pnpm exec vitest run --project unit packages/updates-evidence/src/ai-structurer.test.ts packages/updates-evidence/src/prompts.test.ts && pnpm exec vitest run --project integration packages/updates-evidence/src/update-service.integration.test.ts`
 
 Expected: FAIL because the current `question` state contains no draft and no result-card reader exists.
 
-- [ ] **Step 3: Replace question-first output with the strict draft-first union**
+- [x] **Step 3: Replace question-first output with the strict draft-first union**
 
 ```ts
 export const ClarificationStateSchema = z.discriminatedUnion("state", [
-  z.object({
-    state: z.literal("draft_with_question"),
-    sessionId: UuidSchema,
-    sessionVersion: PositiveVersionSchema,
-    draft: StructuredUpdateDraftSchema,
-    turnId: UuidSchema,
-    turnNumber: PositiveVersionSchema,
-    question: z.string().trim().min(1).max(1_000),
-    affects: z.array(ClarificationAffectsSchema).min(1).max(7),
-    remainingFieldCount: PositiveVersionSchema,
-  }).strict(),
-  z.object({
-    state: z.literal("ready_for_review"),
-    sessionId: UuidSchema,
-    sessionVersion: PositiveVersionSchema,
-    draft: StructuredUpdateDraftSchema,
-  }).strict(),
+  z
+    .object({
+      state: z.literal("draft_with_question"),
+      sessionId: UuidSchema,
+      sessionVersion: PositiveVersionSchema,
+      draft: StructuredUpdateDraftSchema,
+      turnId: UuidSchema,
+      turnNumber: PositiveVersionSchema,
+      question: z.string().trim().min(1).max(1_000),
+      affects: z.array(ClarificationAffectsSchema).min(1).max(7),
+      remainingFieldCount: PositiveVersionSchema,
+    })
+    .strict(),
+  z
+    .object({
+      state: z.literal("ready_for_review"),
+      sessionId: UuidSchema,
+      sessionVersion: PositiveVersionSchema,
+      draft: StructuredUpdateDraftSchema,
+    })
+    .strict(),
 ]);
 ```
 
 Persist an `ai_draft` revision on every validated AI run before creating the next unanswered clarification turn. Keep the original `UpdateSource.rawText` unchanged.
 
-- [ ] **Step 4: Add structured closure and contract mapping fields**
+- [x] **Step 4: Add structured closure and contract mapping fields**
 
 Add `documentationNeeds: string[]` and `relatedProgressComponentIds: string[]` to AI drafts, employee revisions, stored revisions, and result reads. Treat these IDs as suggestions only; confirmation or a deterministic rule remains required before official progress changes.
 
-- [ ] **Step 5: Add the authorized result-card reader**
+- [x] **Step 5: Add the authorized result-card reader**
 
 ```ts
 async updateResult(input: { actorId: string; acceptedEventId: string }): Promise<UpdateResultCard> {
@@ -298,19 +329,19 @@ async updateResult(input: { actorId: string; acceptedEventId: string }): Promise
 
 The reader resolves real Project/Workstream/Work Item names, the accepted employee revision, evidence state, comparison, progress disposition, and documentation gaps.
 
-- [ ] **Step 6: Version the AI schema/prompt and run AI evaluations**
+- [x] **Step 6: Version the AI schema/prompt and run AI evaluations**
 
 Run: `pnpm test:ai -- tests/ai-evals/update-structuring.eval.test.ts`
 
 Expected: PASS for English and existing Arabic fixtures; no output key matches rating, rank, performance score, productivity, or employee readiness.
 
-- [ ] **Step 7: Run service and API tests**
+- [x] **Step 7: Run service and API tests**
 
 Run: `pnpm exec vitest run --project integration packages/updates-evidence/src/update-service.integration.test.ts apps/api/src/updates-evidence/updates-evidence.e2e.integration.test.ts`
 
 Expected: PASS; retries are idempotent and stale session/draft versions return 409 without duplicate answers or events.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/contracts/src/updates-evidence.ts packages/updates-evidence/src apps/api/src/updates-evidence tests/ai-evals
@@ -320,6 +351,7 @@ git commit -m "feat: make update structuring draft first"
 ### Task 3: Replace the Work-Item-first form with the unified daily composer
 
 **Files:**
+
 - Create: `apps/web/src/app/[locale]/my-work/update-composer-view.tsx`
 - Create: `apps/web/src/app/[locale]/my-work/update-draft-storage.ts`
 - Create: `apps/web/src/app/[locale]/my-work/update-result-card.tsx`
@@ -337,6 +369,7 @@ git commit -m "feat: make update structuring draft first"
 - Test: `apps/web/src/app/[locale]/my-work/my-work.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `GET /api/daily-work/update-context`, draft-first Update endpoints, `UpdateResultCard`.
 - Produces: one Project-required composer with optional Workstream/Work Item, draft-visible clarification, session continuity, precise recovery, and a compact confirmed result card.
 
@@ -368,7 +401,10 @@ Expected: FAIL because the current form requires `itemId`, hides the draft durin
 export const UPDATE_DRAFT_STORAGE_VERSION = 1;
 
 export function saveUpdateDraft(key: string, value: UpdateDraftEnvelope): void {
-  sessionStorage.setItem(`daily-update:v${UPDATE_DRAFT_STORAGE_VERSION}:${key}`, JSON.stringify(value));
+  sessionStorage.setItem(
+    `daily-update:v${UPDATE_DRAFT_STORAGE_VERSION}:${key}`,
+    JSON.stringify(value),
+  );
 }
 
 export function removeUpdateDraft(key: string): void {
@@ -410,6 +446,7 @@ git commit -m "feat: correct the daily update journey"
 ### Task 4: Bundle 1 runnable acceptance checkpoint
 
 **Files:**
+
 - Modify: `packages/database/src/seed-pilot.ts`
 - Create: `tests/e2e/daily-update-journey.spec.ts`
 - Create: `docs/product/screenshots/phase-2-production/daily-update-correction/`
@@ -417,6 +454,7 @@ git commit -m "feat: correct the daily update journey"
 - Modify: `project-state/PROJECT_STATE.md`
 
 **Interfaces:**
+
 - Consumes: Tasks 1–3.
 - Produces: realistic employee demo, screenshots, verification record, pushed checkpoint, and Product Owner gate.
 
@@ -473,10 +511,11 @@ The Product Owner reviews the running flow and screenshots. Do not begin Bundle 
 ### Task 5: Add versioned repository bindings and deterministic rule mappings
 
 **Files:**
+
 - Create: `packages/contracts/src/github.ts`
 - Modify: `packages/contracts/src/index.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0015_github_contract_sources/migration.sql`
+- Create: `packages/database/prisma/migrations/0016_github_contract_sources/migration.sql`
 - Create: `packages/database/src/github-contract-source-schema.integration.test.ts`
 - Create: `packages/projects/src/github-binding-service.ts`
 - Create: `packages/projects/src/github-binding-service.integration.test.ts`
@@ -489,6 +528,7 @@ The Product Owner reviews the running flow and screenshots. Do not begin Bundle 
 - Modify: `packages/projects/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: active `ProgressContract`, Project/Workstream ownership, GitHub App installation/repository identifiers.
 - Produces: protected GitHub App installation/setup flow, `GitHubBindingDraftSchema`, `GitHubContractRuleSchema`, and `GitHubBindingService.propose/activate/end`.
 
@@ -496,12 +536,14 @@ The Product Owner reviews the running flow and screenshots. Do not begin Bundle 
 
 ```ts
 it("rejects a mapping to a component outside the selected active contract", async () => {
-  await expect(service.activate({
-    actor: OWNER,
-    bindingId: BINDING_ID,
-    expectedVersion: 1,
-    reason: "Approved repository source",
-  })).rejects.toMatchObject({ code: "GITHUB_BINDING_CONTRACT_MISMATCH" });
+  await expect(
+    service.activate({
+      actor: OWNER,
+      bindingId: BINDING_ID,
+      expectedVersion: 1,
+      reason: "Approved repository source",
+    }),
+  ).rejects.toMatchObject({ code: "GITHUB_BINDING_CONTRACT_MISMATCH" });
 });
 ```
 
@@ -571,6 +613,7 @@ git commit -m "feat: add governed github project bindings"
 ### Task 6: Ingest verified GitHub webhooks into a durable inbox
 
 **Files:**
+
 - Create: `packages/updates-evidence/src/github-event-service.ts`
 - Create: `packages/updates-evidence/src/github-event-service.integration.test.ts`
 - Modify: `packages/updates-evidence/src/index.ts`
@@ -582,6 +625,7 @@ git commit -m "feat: add governed github project bindings"
 - Modify: `.env.example`
 
 **Interfaces:**
+
 - Consumes: raw request bytes, `X-Hub-Signature-256`, `X-GitHub-Delivery`, `X-GitHub-Event`.
 - Produces: `GitHubEventService.ingestVerified({ deliveryId, eventName, payloadDigest, normalized })` and `POST /api/v1/integrations/github/webhook`.
 
@@ -639,6 +683,7 @@ git commit -m "feat: ingest verified github source events"
 ### Task 7: Apply deterministic contract rules and create reviewable ambiguity
 
 **Files:**
+
 - Create: `packages/projects/src/progress-source-assembler.ts`
 - Create: `packages/projects/src/progress-source-assembler.integration.test.ts`
 - Create: `packages/projects/src/github-progress-service.ts`
@@ -654,6 +699,7 @@ git commit -m "feat: ingest verified github source events"
 - Modify: `apps/worker/src/app.module.ts`
 
 **Interfaces:**
+
 - Consumes: one verified durable GitHub event, one active binding/rule, and latest accepted component sources.
 - Produces: `GitHubProgressService.evaluate(eventId)`, source-explained `ProgressSnapshot`, or immutable `review_required/no_match/ignored` disposition.
 
@@ -724,6 +770,7 @@ git commit -m "feat: apply contract-aware github progress"
 ### Task 8: Separate Project activity from employee contribution evidence
 
 **Files:**
+
 - Create: `packages/updates-evidence/src/github-suggestion-service.ts`
 - Create: `packages/updates-evidence/src/github-suggestion-service.integration.test.ts`
 - Modify: `packages/updates-evidence/src/evidence-service.ts`
@@ -737,6 +784,7 @@ git commit -m "feat: apply contract-aware github progress"
 - Modify: `packages/localization/src/catalogs/ar.json`
 
 **Interfaces:**
+
 - Consumes: immutable GitHub event/disposition and verified employee GitHub identity mapping.
 - Produces: Project source activity, `EvidenceSuggestion`, employee edit/confirm/dismiss commands, and confirmed `EvidenceRecord`.
 
@@ -752,7 +800,11 @@ it("updates Project activity without creating employee contribution evidence", a
 it("creates contribution evidence only after employee confirmation", async () => {
   const draft = await suggestions.review({ actor: EMPLOYEE, suggestionId: SUGGESTION_ID });
   expect(draft.state).toBe("pending_employee");
-  await suggestions.confirm({ actor: EMPLOYEE, suggestionId: SUGGESTION_ID, claim: "Implemented X" });
+  await suggestions.confirm({
+    actor: EMPLOYEE,
+    suggestionId: SUGGESTION_ID,
+    claim: "Implemented X",
+  });
   expect(await db.acceptedEvidenceEvent.count()).toBe(1);
 });
 ```
@@ -787,6 +839,7 @@ git commit -m "feat: review github contribution suggestions"
 ### Task 9: Bundle 2 runnable acceptance checkpoint
 
 **Files:**
+
 - Modify: `packages/database/src/seed-pilot.ts`
 - Create: `tests/e2e/github-project-progress.spec.ts`
 - Create: `tests/e2e/github-contribution-suggestion.spec.ts`
@@ -795,6 +848,7 @@ git commit -m "feat: review github contribution suggestions"
 - Modify: `project-state/PROJECT_STATE.md`
 
 **Interfaces:**
+
 - Consumes: Tasks 5–8.
 - Produces: deterministic webhook-to-progress demo, separate employee evidence demo, screenshots, reviews, and pushed checkpoint.
 
@@ -835,9 +889,10 @@ The Product Owner verifies that automation tracks the Project while employee con
 ### Task 10: Accept all manual sources through the same Update lifecycle
 
 **Files:**
+
 - Modify: `packages/contracts/src/updates-evidence.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0016_update_source_attachments/migration.sql`
+- Create: `packages/database/prisma/migrations/0017_update_source_attachments/migration.sql`
 - Modify: `packages/updates-evidence/src/update-service.ts`
 - Modify: `packages/updates-evidence/src/scope-readers.ts`
 - Create: `packages/updates-evidence/src/update-source-loader.ts`
@@ -849,6 +904,7 @@ The Product Owner verifies that automation tracks the Project while employee con
 - Test: `apps/web/src/app/[locale]/my-work/update-composer.test.tsx`
 
 **Interfaces:**
+
 - Consumes: private uploaded sources and bounded pasted text/code/CLI/URL/manual GitHub snapshots.
 - Produces: `StartUpdateInputSchema` with one or more typed source references and a single draft-first Update session.
 
@@ -857,7 +913,8 @@ The Product Owner verifies that automation tracks the Project while employee con
 ```ts
 it.each(["text", "image", "file", "pasted_code", "cli_snapshot", "url", "github_snapshot"])(
   "starts one governed Update from %s",
-  async (kind) => expect(await service.start(commandWith(kind))).toMatchObject({ sessionId: expect.any(String) }),
+  async (kind) =>
+    expect(await service.start(commandWith(kind))).toMatchObject({ sessionId: expect.any(String) }),
 );
 ```
 
@@ -895,9 +952,10 @@ git commit -m "feat: unify manual update sources"
 ### Task 11: Add voice transcript correction as a connector to Updates & Evidence
 
 **Files:**
+
 - Modify: `packages/contracts/src/updates-evidence.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0017_voice_update_sources/migration.sql`
+- Create: `packages/database/prisma/migrations/0018_voice_update_sources/migration.sql`
 - Create: `packages/updates-evidence/src/voice-update-service.ts`
 - Create: `packages/updates-evidence/src/voice-update-service.integration.test.ts`
 - Create: `packages/updates-evidence/src/voice-transcriber.ts`
@@ -908,6 +966,7 @@ git commit -m "feat: unify manual update sources"
 - Create: `tests/ai-evals/voice-transcription.eval.test.ts`
 
 **Interfaces:**
+
 - Consumes: safe private audio upload and AI Router route `update.transcribe`.
 - Produces: `VoiceUpdateService.start`, `reviseTranscript`, `confirmTranscript`, then `UpdateService.start` with the confirmed transcript and audio source reference.
 
@@ -968,6 +1027,7 @@ git commit -m "feat: add confirmed voice update connector"
 ### Task 12: Add the voice and combined-source user journey
 
 **Files:**
+
 - Create: `apps/web/src/app/[locale]/my-work/voice-update-panel.tsx`
 - Create: `apps/web/src/app/[locale]/my-work/voice-update-panel.test.tsx`
 - Modify: `apps/web/src/app/[locale]/my-work/update-composer-view.tsx`
@@ -977,6 +1037,7 @@ git commit -m "feat: add confirmed voice update connector"
 - Modify: `apps/web/src/app/globals.css`
 
 **Interfaces:**
+
 - Consumes: voice endpoints and unified `StartUpdateInputSchema`.
 - Produces: record/upload, transcript review/edit/confirm, draft-first Update, evidence, and final confirmation in one sheet/drawer journey.
 
@@ -986,7 +1047,9 @@ git commit -m "feat: add confirmed voice update connector"
 it("keeps transcript confirmation separate from final Update confirmation", async () => {
   render(<VoiceUpdatePanel {...props} />);
   expect(screen.getByRole("button", { name: catalog["voice.confirmTranscript"] })).toBeVisible();
-  expect(screen.queryByRole("button", { name: catalog["updates.confirm"] })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: catalog["updates.confirm"] }),
+  ).not.toBeInTheDocument();
 });
 ```
 
@@ -1020,12 +1083,14 @@ git commit -m "feat: add unified voice update experience"
 ### Task 13: Bundle 3 runnable acceptance checkpoint
 
 **Files:**
+
 - Create: `tests/e2e/manual-and-voice-update.spec.ts`
 - Create: `docs/product/screenshots/phase-2-production/manual-voice-sources/`
 - Modify: `docs/product/PHASE_2_FEATURE_MAP.md`
 - Modify: `project-state/PROJECT_STATE.md`
 
 **Interfaces:**
+
 - Consumes: Tasks 10–12.
 - Produces: manual no-GitHub fallback demo, voice demo, screenshots, critical review, and pushed checkpoint.
 
@@ -1070,6 +1135,7 @@ This amendment replaces the old plan's Slice 2–4 behavior. After Bundle 3, exe
 ### Task 14: Compose source-supported employee facts without ratings
 
 **Files:**
+
 - Create: `packages/contracts/src/evaluation-facts.ts`
 - Create: `packages/contracts/src/evaluation-facts.test.ts`
 - Modify: `packages/contracts/src/index.ts`
@@ -1085,6 +1151,7 @@ This amendment replaces the old plan's Slice 2–4 behavior. After Bundle 3, exe
 - Modify: `apps/api/src/app.module.ts`
 
 **Interfaces:**
+
 - Consumes: responsibility windows, Project/Workstream history, accepted Updates/evidence, verification/attribution state, operational KPI/milestone snapshots, and Work Item context through public readers.
 - Produces: `EvaluationFactViewSchema` and `GET /api/v1/evaluation-preparation/me?periodStart=&periodEnd=`.
 
@@ -1093,13 +1160,21 @@ This amendment replaces the old plan's Slice 2–4 behavior. After Bundle 3, exe
 ```ts
 it("separates source-supported facts from employee interpretation", () => {
   const view = EvaluationFactViewSchema.parse(FIXTURE);
-  expect(view.sourceSupportedFacts).not.toContainEqual(expect.objectContaining({ kind: "interpretation" }));
+  expect(view.sourceSupportedFacts).not.toContainEqual(
+    expect.objectContaining({ kind: "interpretation" }),
+  );
   expect(view.employeeInterpretations).toHaveLength(1);
 });
 
-it.each(["rating", "suggestedRating", "predictedRating", "rank", "productivityScore", "readinessPercent"])(
-  "forbids %s",
-  (key) => expect(JSON.stringify(EvaluationFactViewSchema.parse(FIXTURE))).not.toContain(`"${key}"`),
+it.each([
+  "rating",
+  "suggestedRating",
+  "predictedRating",
+  "rank",
+  "productivityScore",
+  "readinessPercent",
+])("forbids %s", (key) =>
+  expect(JSON.stringify(EvaluationFactViewSchema.parse(FIXTURE))).not.toContain(`"${key}"`),
 );
 ```
 
@@ -1112,14 +1187,16 @@ Expected: FAIL because the neutral schema does not exist.
 - [ ] **Step 3: Define the strict neutral schema**
 
 ```ts
-export const EvaluationFactViewSchema = z.object({
-  employeeId: UuidSchema,
-  period: z.object({ startsAt: UtcInstantSchema, endsAt: UtcInstantSchema }).strict(),
-  responsibilityWindows: z.array(ResponsibilityFactSchema),
-  sourceSupportedFacts: z.array(SourceSupportedFactSchema),
-  employeeInterpretations: z.array(EmployeeInterpretationSchema),
-  unresolved: z.array(UnresolvedFactSchema),
-}).strict();
+export const EvaluationFactViewSchema = z
+  .object({
+    employeeId: UuidSchema,
+    period: z.object({ startsAt: UtcInstantSchema, endsAt: UtcInstantSchema }).strict(),
+    responsibilityWindows: z.array(ResponsibilityFactSchema),
+    sourceSupportedFacts: z.array(SourceSupportedFactSchema),
+    employeeInterpretations: z.array(EmployeeInterpretationSchema),
+    unresolved: z.array(UnresolvedFactSchema),
+  })
+  .strict();
 ```
 
 No rating-related or manager-readiness fields exist in this schema.
@@ -1148,6 +1225,7 @@ git commit -m "feat: compose neutral evaluation facts"
 ### Task 15: Build the read-only Fact View and final Phase 2 checkpoint
 
 **Files:**
+
 - Create: `apps/web/src/app/[locale]/evaluation-preparation/page.tsx`
 - Create: `apps/web/src/app/[locale]/evaluation-preparation/fact-view.tsx`
 - Create: `apps/web/src/app/[locale]/evaluation-preparation/fact-view.test.tsx`
@@ -1162,6 +1240,7 @@ git commit -m "feat: compose neutral evaluation facts"
 - Modify: `project-state/PROJECT_STATE.md`
 
 **Interfaces:**
+
 - Consumes: `EvaluationFactViewSchema` plus completed Check-ins/Monthly Readiness and Manager Operational View checkpoints from the unaffected plan.
 - Produces: read-only, source-labelled Phase 2 Fact View and final Phase 2 verification evidence; no evaluation form.
 

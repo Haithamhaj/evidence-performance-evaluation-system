@@ -9,8 +9,19 @@ describe("UpdateStructuringProcessor", () => {
   it("routes the governed request through AI Router and persists in its success transaction", async () => {
     const transaction = { marker: "router-transaction" };
     const output = UpdateStructureAiOutputSchema.parse({
-      state: "question",
+      state: "draft_with_question",
       unresolvedFields: ["result", "evidence"],
+      draft: {
+        summary: "مسودة تحديث العمل.",
+        result: "تحتاج النتيجة القابلة للتحقق إلى توضيح.",
+        blocker: null,
+        nextAction: "استكمال تفاصيل النتيجة.",
+        contributionContext: "مساهمة الموظف قيد المراجعة.",
+        evidenceClaimDrafts: [],
+        documentationNeeds: [],
+        relatedProgressComponentIds: [],
+        comparisonExplanation: "هذه مسودة أولية قبل التوضيح.",
+      },
       nextQuestion: {
         question: "ما النتيجة القابلة للتحقق؟",
         affects: ["result"],
@@ -27,17 +38,14 @@ describe("UpdateStructuringProcessor", () => {
         projectId: expect.any(String),
         departmentId: expect.any(String),
         inputSchemaVersion: "update-structure-input.v1",
-        outputSchemaVersion: "update-structure-output.v1",
-        promptTemplateVersion: "update-structure.v3",
+        outputSchemaVersion: "update-structure-output.v2",
+        promptTemplateVersion: "update-structure.v4",
         classification: "confidential",
         requiresHumanApproval: true,
       });
       expect(request).not.toHaveProperty("provider");
       expect(request).not.toHaveProperty("model");
-      expect(Object.keys(request.input).sort()).toEqual([
-        "trustedInstruction",
-        "untrustedContent",
-      ]);
+      expect(Object.keys(request.input).sort()).toEqual(["trustedInstruction", "untrustedContent"]);
       expect(OpaqueReferenceSchema.safeParse(request.inputReference).success).toBe(true);
       expect(
         request.sourceReferences.every(

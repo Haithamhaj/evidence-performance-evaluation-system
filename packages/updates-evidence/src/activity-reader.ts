@@ -3,6 +3,7 @@ import {
   EvidenceReviewSchema,
   StructuredUpdateDraftSchema,
   UpdateComparisonSchema,
+  UpdateResultCardSchema,
 } from "@evaluation/contracts";
 
 import { prepareTimeline } from "./timeline-prepare.js";
@@ -37,7 +38,71 @@ export class ActivityReader {
       executionMode: draft.executionMode,
       sourceReferences: stringArray(draft.sourceReferences),
       evidenceIds: [],
+      documentationNeeds: stringArray(draft.documentationNeeds),
+      relatedProgressComponentIds: stringArray(draft.relatedProgressComponentIds),
       comparison: UpdateComparisonSchema.parse(draft.comparison),
+    });
+  }
+
+  async updateResult(
+    input: Readonly<{ actorId: string; acceptedEventId: string }>,
+  ): Promise<import("@evaluation/contracts").UpdateResultCard> {
+    const event = await this.client.acceptedUpdateEvent.findFirst({
+      where: { id: input.acceptedEventId, employeeId: input.actorId },
+      include: {
+        project: { select: { id: true, name: true } },
+        workstream: { select: { id: true, name: true } },
+        workItem: { select: { id: true, title: true } },
+        confirmation: { include: { draftRevision: true } },
+      },
+    });
+    if (event === null) throw scopeError();
+
+    const snapshotSource = await this.client.progressSnapshotSource.findFirst({
+      where: {
+        sourceKind: "update",
+        sourceId: event.id,
+      },
+      orderBy: { createdAt: "desc" },
+      include: { snapshot: true },
+    });
+    const draft = event.confirmation.draftRevision;
+    const documentationNeeds = stringArray(draft.documentationNeeds);
+    const relatedProgressComponentIds = stringArray(draft.relatedProgressComponentIds);
+    const comparison = UpdateComparisonSchema.parse(draft.comparison);
+
+    return UpdateResultCardSchema.parse({
+      acceptedEventId: event.id,
+      project: event.project,
+      workstream: event.workstream,
+      workItem: event.workItem,
+      summary: draft.summary,
+      result: draft.result,
+      sourceReferences: stringArray(event.sourceReferences),
+      comparison: {
+        previousAcceptedEventId: comparison.previousAcceptedEventId,
+        explanation: comparison.explanation,
+      },
+      blocker: draft.blocker,
+      nextAction: draft.nextAction,
+      documentationNeeds,
+      progressImpact:
+        snapshotSource !== null
+          ? {
+              state: "applied",
+              snapshotId: snapshotSource.snapshot.id,
+              previousPercent: Number(snapshotSource.snapshot.previousPercent),
+              percent: Number(snapshotSource.snapshot.percent),
+            }
+          : documentationNeeds.length > 0
+            ? { state: "insufficient_information", missing: documentationNeeds }
+            : relatedProgressComponentIds.length > 0
+              ? {
+                  state: "awaiting_confirmation",
+                  componentIds: relatedProgressComponentIds,
+                }
+              : { state: "no_measurable_impact" },
+      confirmedAt: event.confirmation.confirmedAt.toISOString(),
     });
   }
 

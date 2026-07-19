@@ -76,7 +76,7 @@ export async function registerUpdateStructureAiRoute(
       schema: UpdateStructureAiOutputSchema,
       reason: parsed.reason,
       expectedBehavior:
-        "Asks one question per turn, preserves Arabic and mixed technical text, cites supplied sources, and emits no rating, ranking, productivity, readiness, or progress override.",
+        "Returns the best current draft before one question per turn, preserves Arabic and mixed technical text, cites supplied sources, and emits no rating, ranking, productivity, readiness, or progress override.",
       evaluationEvidenceReferences: [`ai-eval:${schema.schemaHash}`],
       correlationId: parsed.correlationId,
     });
@@ -170,7 +170,8 @@ async function registerPrompt(
         version: UPDATE_STRUCTURE_PROMPT_VERSION,
         bodyHash: promptHash,
         trustedBody: UPDATE_STRUCTURE_TRUSTED_PROMPT,
-        expectedBehavior: "One dynamic clarification question or a neutral editable draft.",
+        expectedBehavior:
+          "A neutral evolving draft with one dynamic clarification question, or a neutral editable draft ready for employee review.",
         registeredById: input.actorId,
         registrationReason: input.reason,
       },

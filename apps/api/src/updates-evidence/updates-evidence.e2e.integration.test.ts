@@ -76,6 +76,16 @@ describe("updates and evidence protected API contracts", () => {
     expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ sessionId }));
   });
 
+  it("reads a confirmed result only through the authenticated actor", async () => {
+    const acceptedEventId = crypto.randomUUID();
+    const updateResult = vi.fn(async () => ({ acceptedEventId }));
+    const controller = new UpdatesController({} as never, { updateResult } as never);
+
+    await controller.result(request, acceptedEventId);
+
+    expect(updateResult).toHaveBeenCalledWith({ actorId, acceptedEventId });
+  });
+
   it("creates manual evidence without accepting raw storage paths or actor overrides", async () => {
     const create = vi.fn(async () => ({ id: evidenceId }));
     const controller = new EvidenceController({ create } as never, {} as never);

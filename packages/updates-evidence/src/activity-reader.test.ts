@@ -10,25 +10,16 @@ describe("ActivityReader", () => {
   it("includes workstream events in the Project timeline and paginates stably", async () => {
     const firstPage = [
       timelineItem("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "update", "2026-07-18T12:00:00.000Z"),
-      timelineItem(
-        "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-        "evidence",
-        "2026-07-18T11:00:00.000Z",
-      ),
+      timelineItem("cccccccc-cccc-4ccc-8ccc-cccccccccccc", "evidence", "2026-07-18T11:00:00.000Z"),
     ];
     const secondPage = [
       timelineItem("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "update", "2026-07-18T10:00:00.000Z"),
     ];
-    const queryRaw = vi
-      .fn()
-      .mockResolvedValueOnce(firstPage)
-      .mockResolvedValueOnce(secondPage);
-    const reader = new ActivityReader(
-      {
-        project: { findFirst: vi.fn(async () => ({ id: projectId })) },
-        $queryRaw: queryRaw,
-      } as never,
-    );
+    const queryRaw = vi.fn().mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage);
+    const reader = new ActivityReader({
+      project: { findFirst: vi.fn(async () => ({ id: projectId })) },
+      $queryRaw: queryRaw,
+    } as never);
 
     const first = await reader.timeline({
       actorId,
@@ -65,13 +56,69 @@ describe("ActivityReader", () => {
       reader.timeline({ actorId, projectId, workstreamId: null, limit: 20, cursor: null }),
     ).rejects.toMatchObject({ code: "SCOPE_MISMATCH", status: 403 });
   });
+
+  it("returns an authorized confirmed result with readable scope names and progress disposition", async () => {
+    const acceptedEventId = "44444444-4444-4444-8444-444444444444";
+    const draftId = "55555555-5555-4555-8555-555555555555";
+    const reader = new ActivityReader({
+      acceptedUpdateEvent: {
+        findFirst: vi.fn(async () => ({
+          id: acceptedEventId,
+          employeeId: actorId,
+          sourceReferences: [`update-source:${draftId}:1`],
+          occurredAt: new Date("2026-07-18T12:00:00.000Z"),
+          project: { id: projectId, name: "Atlas Delivery" },
+          workstream: { id: workstreamId, name: "API readiness" },
+          workItem: null,
+          confirmation: {
+            confirmedAt: new Date("2026-07-18T12:00:00.000Z"),
+            draftRevision: {
+              summary: "اكتمل مسار القبول.",
+              result: "نجحت 12 حالة من أصل 12.",
+              blocker: null,
+              nextAction: "إرفاق سجل الاعتماد.",
+              documentationNeeds: [],
+              relatedProgressComponentIds: ["66666666-6666-4666-8666-666666666666"],
+              comparison: {
+                previousAcceptedEventId: null,
+                changedFields: ["result"],
+                explanation: "هذه أول نتيجة مؤكدة.",
+              },
+            },
+          },
+        })),
+      },
+      progressSnapshotSource: { findFirst: vi.fn(async () => null) },
+    } as never);
+
+    await expect(reader.updateResult({ actorId, acceptedEventId })).resolves.toMatchObject({
+      acceptedEventId,
+      project: { id: projectId, name: "Atlas Delivery" },
+      workstream: { id: workstreamId, name: "API readiness" },
+      workItem: null,
+      progressImpact: {
+        state: "awaiting_confirmation",
+        componentIds: ["66666666-6666-4666-8666-666666666666"],
+      },
+    });
+  });
+
+  it("does not return another employee's confirmed result", async () => {
+    const reader = new ActivityReader({
+      acceptedUpdateEvent: { findFirst: vi.fn(async () => null) },
+      progressSnapshotSource: { findFirst: vi.fn() },
+    } as never);
+
+    await expect(
+      reader.updateResult({
+        actorId,
+        acceptedEventId: "44444444-4444-4444-8444-444444444444",
+      }),
+    ).rejects.toMatchObject({ code: "SCOPE_MISMATCH", status: 403 });
+  });
 });
 
-function timelineItem(
-  id: string,
-  kind: "update" | "evidence",
-  occurredAt: string,
-) {
+function timelineItem(id: string, kind: "update" | "evidence", occurredAt: string) {
   return {
     id,
     kind,

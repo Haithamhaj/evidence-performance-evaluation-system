@@ -3,10 +3,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 import { AiRouterUpdateStructurer } from "./ai-structurer.js";
-import {
-  UPDATE_STRUCTURE_PROMPT_VERSION,
-  UPDATE_STRUCTURE_TRUSTED_PROMPT,
-} from "./prompts.js";
+import { UPDATE_STRUCTURE_PROMPT_VERSION, UPDATE_STRUCTURE_TRUSTED_PROMPT } from "./prompts.js";
 
 const artifactId = "11111111-1111-4111-8111-111111111111";
 const projectScopeId = "22222222-2222-4222-8222-222222222222";
@@ -24,6 +21,8 @@ const output = {
     nextAction: "توثيق النتيجة.",
     contributionContext: "نفذت حالات القبول.",
     evidenceClaimDrafts: [],
+    documentationNeeds: [],
+    relatedProgressComponentIds: [],
     comparisonExplanation: "هذا أول تحديث.",
   },
 };
@@ -43,11 +42,10 @@ describe("AiRouterUpdateStructurer", () => {
         })),
       },
     };
-    const structurer = new AiRouterUpdateStructurer(
-      { run } as never,
-      promptReader as never,
-      { systemId, timeoutMs: 60_000 },
-    );
+    const structurer = new AiRouterUpdateStructurer({ run } as never, promptReader as never, {
+      systemId,
+      timeoutMs: 60_000,
+    });
     const persist = vi.fn(async () => ({ outputReference: `update-draft:${updateSourceId}` }));
 
     await expect(structurer.structure(input(), persist)).resolves.toEqual(output);

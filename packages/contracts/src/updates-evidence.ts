@@ -85,30 +85,6 @@ export const ClarificationAnswerInputSchema = z
   })
   .strict();
 
-export const ClarificationStateSchema = z.discriminatedUnion("state", [
-  z
-    .object({
-      state: z.literal("question"),
-      sessionId: UuidSchema,
-      sessionVersion: PositiveVersionSchema,
-      turnId: UuidSchema,
-      turnNumber: PositiveVersionSchema,
-      question: z.string().trim().min(1).max(1_000),
-      affects: z.array(ClarificationAffectsSchema).min(1).max(7),
-      remainingFieldCount: PositiveVersionSchema,
-    })
-    .strict(),
-  z
-    .object({
-      state: z.literal("ready_for_review"),
-      sessionId: UuidSchema,
-      sessionVersion: PositiveVersionSchema,
-      draftRevisionId: UuidSchema,
-      draftRevision: PositiveVersionSchema,
-    })
-    .strict(),
-]);
-
 export const EvidenceDraftInputSchema = UpdateContextSchema.extend({
   sourceId: UuidSchema,
   sourceRevision: PositiveVersionSchema,
@@ -205,9 +181,35 @@ export const StructuredUpdateDraftSchema = z
     executionMode: ExecutionModeSchema,
     sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
     evidenceIds: z.array(UuidSchema).max(100),
+    documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
+    relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
     comparison: UpdateComparisonSchema,
   })
   .strict();
+
+export const ClarificationStateSchema = z.discriminatedUnion("state", [
+  z
+    .object({
+      state: z.literal("draft_with_question"),
+      sessionId: UuidSchema,
+      sessionVersion: PositiveVersionSchema,
+      draft: StructuredUpdateDraftSchema,
+      turnId: UuidSchema,
+      turnNumber: PositiveVersionSchema,
+      question: z.string().trim().min(1).max(1_000),
+      affects: z.array(ClarificationAffectsSchema).min(1).max(7),
+      remainingFieldCount: PositiveVersionSchema,
+    })
+    .strict(),
+  z
+    .object({
+      state: z.literal("ready_for_review"),
+      sessionId: UuidSchema,
+      sessionVersion: PositiveVersionSchema,
+      draft: StructuredUpdateDraftSchema,
+    })
+    .strict(),
+]);
 
 export const ConfirmUpdateInputSchema = z
   .object({
@@ -225,6 +227,8 @@ export const ReviseUpdateDraftInputSchema = z
     nextAction: z.string().trim().min(1).max(2_000),
     contributionContext: z.string().trim().min(1).max(2_000),
     evidenceClaimDrafts: z.array(z.string().trim().min(1).max(2_000)).max(20),
+    documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
+    relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
   })
   .strict();
 
@@ -237,6 +241,68 @@ export const AcceptedUpdateEventSchema = UpdateContextSchema.extend({
   sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
 }).strict();
 
+const UpdateResultScopeSchema = z
+  .object({
+    id: UuidSchema,
+    name: z.string().trim().min(1).max(300),
+  })
+  .strict();
+
+const UpdateProgressImpactSchema = z.discriminatedUnion("state", [
+  z
+    .object({
+      state: z.literal("applied"),
+      snapshotId: UuidSchema,
+      previousPercent: z.number().min(0).max(100),
+      percent: z.number().min(0).max(100),
+    })
+    .strict(),
+  z
+    .object({
+      state: z.literal("awaiting_confirmation"),
+      componentIds: z.array(UuidSchema).min(1).max(100),
+    })
+    .strict(),
+  z.object({ state: z.literal("no_measurable_impact") }).strict(),
+  z
+    .object({
+      state: z.literal("insufficient_information"),
+      missing: z.array(z.string().trim().min(1).max(500)).min(1).max(50),
+    })
+    .strict(),
+]);
+
+const UpdateResultComparisonSchema = z
+  .object({
+    previousAcceptedEventId: UuidSchema.nullable(),
+    explanation: z.string().trim().min(1).max(2_000),
+  })
+  .strict();
+
+export const UpdateResultCardSchema = z
+  .object({
+    acceptedEventId: UuidSchema,
+    project: UpdateResultScopeSchema,
+    workstream: UpdateResultScopeSchema.nullable(),
+    workItem: z
+      .object({
+        id: UuidSchema,
+        title: z.string().trim().min(1).max(300),
+      })
+      .strict()
+      .nullable(),
+    summary: z.string().trim().min(1).max(2_000),
+    result: z.string().trim().min(1).max(4_000),
+    sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
+    comparison: UpdateResultComparisonSchema,
+    blocker: z.string().trim().min(1).max(2_000).nullable(),
+    nextAction: z.string().trim().min(1).max(2_000),
+    documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50),
+    progressImpact: UpdateProgressImpactSchema,
+    confirmedAt: UtcInstantSchema,
+  })
+  .strict();
+
 const AiDraftSchema = z
   .object({
     summary: z.string().min(1).max(2_000).regex(/\S/u),
@@ -245,6 +311,8 @@ const AiDraftSchema = z
     nextAction: z.string().min(1).max(2_000).regex(/\S/u),
     contributionContext: z.string().min(1).max(2_000).regex(/\S/u),
     evidenceClaimDrafts: z.array(z.string().min(1).max(2_000).regex(/\S/u)).max(20),
+    documentationNeeds: z.array(z.string().min(1).max(500).regex(/\S/u)).max(50).default([]),
+    relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
     comparisonExplanation: z.string().min(1).max(2_000).regex(/\S/u),
   })
   .strict();
@@ -252,8 +320,9 @@ const AiDraftSchema = z
 export const UpdateStructureAiOutputSchema = z.discriminatedUnion("state", [
   z
     .object({
-      state: z.literal("question"),
+      state: z.literal("draft_with_question"),
       unresolvedFields: z.array(ClarificationAffectsSchema).min(1).max(7),
+      draft: AiDraftSchema,
       nextQuestion: z
         .object({
           question: z.string().min(1).max(1_000).regex(/\S/u),
@@ -349,6 +418,7 @@ export type ClarificationState = z.infer<typeof ClarificationStateSchema>;
 export type StructuredUpdateDraft = z.infer<typeof StructuredUpdateDraftSchema>;
 export type UpdateStructureAiOutput = z.infer<typeof UpdateStructureAiOutputSchema>;
 export type AcceptedUpdateEvent = z.infer<typeof AcceptedUpdateEventSchema>;
+export type UpdateResultCard = z.infer<typeof UpdateResultCardSchema>;
 export type EvidenceReview = z.infer<typeof EvidenceReviewSchema>;
 export type EvidenceDetail = z.infer<typeof EvidenceDetailSchema>;
 export type AcceptedEvidenceEvent = z.infer<typeof AcceptedEvidenceEventSchema>;

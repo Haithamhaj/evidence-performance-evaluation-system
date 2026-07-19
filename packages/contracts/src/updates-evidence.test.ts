@@ -12,6 +12,7 @@ import {
   StartTextUpdateInputSchema,
   StructuredUpdateDraftSchema,
   UpdateComposerContextSchema,
+  UpdateResultCardSchema,
   UpdateStructureAiOutputSchema,
 } from "./updates-evidence.js";
 
@@ -64,18 +65,44 @@ describe("updates and evidence contracts", () => {
 
   it("versions clarification turns and returns exactly one question", () => {
     const sessionId = crypto.randomUUID();
+    const draft = {
+      id: crypto.randomUUID(),
+      sessionId,
+      revision: 1,
+      summary: "مسودة أولية",
+      result: "تم تنفيذ التغيير",
+      blocker: null,
+      nextAction: "تأكيد النتيجة",
+      contributionContext: "نفذ الموظف التغيير",
+      executionMode: "ai_assisted",
+      sourceReferences: [`update-source:${sourceId}`],
+      evidenceIds: [],
+      documentationNeeds: [],
+      relatedProgressComponentIds: [],
+      comparison: {
+        previousAcceptedEventId: null,
+        changedFields: ["result"],
+        explanation: "هذه أول حالة مقبولة.",
+      },
+    } as const;
     expect(
       ClarificationStateSchema.parse({
-        state: "question",
+        state: "draft_with_question",
         sessionId,
         sessionVersion: 2,
+        draft,
         turnId: crypto.randomUUID(),
         turnNumber: 2,
         question: "ما النتيجة القابلة للتحقق؟",
         affects: ["result", "evidence"],
         remainingFieldCount: 3,
       }),
-    ).toMatchObject({ state: "question", sessionId, turnNumber: 2, remainingFieldCount: 3 });
+    ).toMatchObject({
+      state: "draft_with_question",
+      sessionId,
+      turnNumber: 2,
+      remainingFieldCount: 3,
+    });
     expect(() =>
       ClarificationStateSchema.parse({
         state: "question",
@@ -99,6 +126,34 @@ describe("updates and evidence contracts", () => {
         answer: "نجحت 12 حالة من أصل 12.",
       }),
     ).toMatchObject({ expectedSessionVersion: 2 });
+  });
+
+  it("requires the AI question state to include an evolving draft", () => {
+    expect(() =>
+      UpdateStructureAiOutputSchema.parse({
+        state: "draft_with_question",
+        unresolvedFields: ["result"],
+        nextQuestion: { question: "ما النتيجة؟", affects: ["result"] },
+      }),
+    ).toThrow();
+    expect(
+      UpdateStructureAiOutputSchema.parse({
+        state: "draft_with_question",
+        unresolvedFields: ["result"],
+        nextQuestion: { question: "ما النتيجة؟", affects: ["result"] },
+        draft: {
+          summary: "مسودة أولية",
+          result: "تم تنفيذ التغيير",
+          blocker: null,
+          nextAction: "تأكيد النتيجة",
+          contributionContext: "نفذ الموظف التغيير",
+          evidenceClaimDrafts: [],
+          documentationNeeds: ["سجل القبول"],
+          relatedProgressComponentIds: [],
+          comparisonExplanation: "هذه أول حالة.",
+        },
+      }),
+    ).toMatchObject({ state: "draft_with_question" });
   });
 
   it("requires source revision, supported claim, contribution context and execution mode", () => {
@@ -173,6 +228,8 @@ describe("updates and evidence contracts", () => {
       executionMode: "ai_assisted",
       sourceReferences: [`update-source:${sourceId}:1`],
       evidenceIds: [],
+      documentationNeeds: [],
+      relatedProgressComponentIds: [],
       comparison: {
         previousAcceptedEventId: null,
         changedFields: ["result"],
@@ -194,6 +251,42 @@ describe("updates and evidence contracts", () => {
         sourceReferences: draft.sourceReferences,
       }),
     ).toMatchObject({ updateSourceId: sourceId, workItemId });
+  });
+
+  it("returns a readable confirmed result without employee-performance fields", () => {
+    const acceptedEventId = crypto.randomUUID();
+    const result = UpdateResultCardSchema.parse({
+      acceptedEventId,
+      project: { id: projectId, name: "Atlas Delivery" },
+      workstream: null,
+      workItem: { id: workItemId, title: "Verify acceptance flow" },
+      summary: "اكتمل مسار القبول.",
+      result: "نجحت 12 حالة من أصل 12.",
+      sourceReferences: [`update-source:${sourceId}:1`],
+      comparison: {
+        previousAcceptedEventId: null,
+        explanation: "هذه أول نتيجة مؤكدة.",
+      },
+      blocker: null,
+      nextAction: "إرفاق سجل الاعتماد.",
+      documentationNeeds: ["سجل اعتماد العميل."],
+      progressImpact: {
+        state: "insufficient_information",
+        missing: ["سجل اعتماد العميل."],
+      },
+      confirmedAt: "2026-07-18T12:00:00.000Z",
+    });
+    expect(result).toMatchObject({
+      acceptedEventId,
+      project: { name: "Atlas Delivery" },
+      progressImpact: { state: "insufficient_information" },
+    });
+    expect(() =>
+      UpdateResultCardSchema.parse({
+        ...result,
+        suggestedRating: 5,
+      }),
+    ).toThrow();
   });
 
   it.each(["suggestedRating", "rank", "productivityScore", "readinessScore"])(

@@ -25,6 +25,8 @@ describe("UpdateService", () => {
           nextAction: "إرفاق سجل الاعتماد.",
           contributionContext: "نفذت الاختبارات وراجعت النتائج.",
           evidenceClaimDrafts: ["نجحت اختبارات القبول."],
+          documentationNeeds: ["سجل الاعتماد."],
+          relatedProgressComponentIds: [graph.componentId],
           comparisonExplanation: "أضيفت نتيجة قابلة للتحقق.",
         },
       },
@@ -35,9 +37,7 @@ describe("UpdateService", () => {
         seen.push(input);
         const output = outputs.shift();
         if (output === undefined) throw new Error("Unexpected structuring call");
-        await client.$transaction((transaction) =>
-          persistValidatedOutput(transaction, output),
-        );
+        await client.$transaction((transaction) => persistValidatedOutput(transaction, output));
         return output;
       }),
     };
@@ -75,7 +75,7 @@ describe("UpdateService", () => {
 
     const first = await service.start(command);
     expect(first).toMatchObject({
-      state: "question",
+      state: "draft_with_question",
       turnNumber: 1,
       remainingFieldCount: 2,
     });
@@ -100,11 +100,11 @@ describe("UpdateService", () => {
       sessionId: await sessionIdFor(idempotencyKey),
       input: {
         expectedSessionVersion: first.sessionVersion,
-        turnId: first.state === "question" ? first.turnId : "",
+        turnId: first.state === "draft_with_question" ? first.turnId : "",
         answer: "نجحت 12 حالة من أصل 12.",
       },
     });
-    expect(second).toMatchObject({ state: "question", turnNumber: 2 });
+    expect(second).toMatchObject({ state: "draft_with_question", turnNumber: 2 });
 
     const ready = await service.answer({
       actor: command.actor,
@@ -112,11 +112,14 @@ describe("UpdateService", () => {
       sessionId: await sessionIdFor(idempotencyKey),
       input: {
         expectedSessionVersion: second.sessionVersion,
-        turnId: second.state === "question" ? second.turnId : "",
+        turnId: second.state === "draft_with_question" ? second.turnId : "",
         answer: "سجل الاختبار مرفق في الدليل اليدوي.",
       },
     });
-    expect(ready).toMatchObject({ state: "ready_for_review", draftRevision: 1 });
+    expect(ready).toMatchObject({
+      state: "ready_for_review",
+      draft: { revision: 3 },
+    });
     await expect(
       client.acceptedUpdateEvent.count({ where: { projectId: graph.projectId } }),
     ).resolves.toBe(0);
@@ -140,7 +143,7 @@ describe("UpdateService", () => {
         actor: command.actor,
         correlationId: crypto.randomUUID(),
         sessionId,
-        input: { expectedDraftRevision: 1, reason: "Confirmed without edit" },
+        input: { expectedDraftRevision: 3, reason: "Confirmed without edit" },
       }),
     ).rejects.toMatchObject({ code: "UPDATE_EMPLOYEE_EDIT_REQUIRED" });
 
@@ -149,7 +152,7 @@ describe("UpdateService", () => {
       correlationId: crypto.randomUUID(),
       sessionId,
       input: {
-        expectedDraftRevision: 1,
+        expectedDraftRevision: 3,
         summary: "اكتمل مسار القبول بعد مراجعة الموظف.",
         result: "نجحت 12 حالة من أصل 12.",
         blocker: null,
@@ -158,13 +161,13 @@ describe("UpdateService", () => {
         evidenceClaimDrafts: ["نجحت اختبارات القبول."],
       },
     });
-    expect(edited).toMatchObject({ revision: 2, executionMode: "mixed" });
+    expect(edited).toMatchObject({ revision: 4, executionMode: "mixed" });
 
     const accepted = await service.confirm({
       actor: command.actor,
       correlationId: crypto.randomUUID(),
       sessionId,
-      input: { expectedDraftRevision: 2, reason: "راجعت وأكدت التحديث." },
+      input: { expectedDraftRevision: 4, reason: "راجعت وأكدت التحديث." },
     });
     expect(accepted).toMatchObject({
       projectId: graph.projectId,
@@ -184,7 +187,7 @@ describe("UpdateService", () => {
       actor: command.actor,
       correlationId: crypto.randomUUID(),
       sessionId,
-      input: { expectedDraftRevision: 2, reason: "إعادة آمنة للطلب." },
+      input: { expectedDraftRevision: 4, reason: "إعادة آمنة للطلب." },
     });
     expect(acceptedAgain.id).toBe(accepted.id);
     await expect(
@@ -214,12 +217,12 @@ describe("UpdateService", () => {
                   nextAction: "إرفاق سجل الاعتماد.",
                   contributionContext: "نفذت التحقق وراجعت النتيجة.",
                   evidenceClaimDrafts: ["نجحت حالات القبول."],
+                  documentationNeeds: [],
+                  relatedProgressComponentIds: [],
                   comparisonExplanation: "أضيفت نتيجة قابلة للتحقق.",
                 },
               } satisfies import("@evaluation/contracts").UpdateStructureAiOutput);
-        await client.$transaction((transaction) =>
-          persistValidatedOutput(transaction, output),
-        );
+        await client.$transaction((transaction) => persistValidatedOutput(transaction, output));
         return output;
       }),
     };
@@ -268,8 +271,14 @@ describe("UpdateService", () => {
     });
 
     const questionState = await service.start(startCommand);
-    expect(questionState).toMatchObject({ state: "question", sessionVersion: 2 });
-    if (questionState.state !== "question") throw new Error("Expected a clarification question");
+    expect(questionState).toMatchObject({
+      state: "draft_with_question",
+      sessionVersion: 2,
+      draft: { revision: 1 },
+    });
+    if (questionState.state !== "draft_with_question") {
+      throw new Error("Expected a draft with clarification question");
+    }
     const answerCommand = {
       actor: startCommand.actor,
       correlationId: crypto.randomUUID(),
@@ -289,7 +298,7 @@ describe("UpdateService", () => {
     expect(unchangedSession).toMatchObject({
       state: "clarifying",
       version: 2,
-      draftRevisions: [],
+      draftRevisions: [expect.objectContaining({ revision: 1 })],
     });
     expect(unchangedSession.turns).toHaveLength(1);
     expect(unchangedSession.turns[0]?.answer).toBeNull();
@@ -297,7 +306,7 @@ describe("UpdateService", () => {
     await expect(service.answer(answerCommand)).resolves.toMatchObject({
       state: "ready_for_review",
       sessionVersion: 3,
-      draftRevision: 1,
+      draft: { revision: 2 },
     });
   });
 
@@ -319,9 +328,7 @@ describe("UpdateService", () => {
         structure: async (input, persistValidatedOutput) => {
           captured = input;
           const output = question(["result"], "ما التغيير منذ آخر تحديث؟");
-          await client.$transaction((transaction) =>
-            persistValidatedOutput(transaction, output),
-          );
+          await client.$transaction((transaction) => persistValidatedOutput(transaction, output));
           return output;
         },
       },
@@ -357,8 +364,19 @@ function question(
   text: string,
 ): import("@evaluation/contracts").UpdateStructureAiOutput {
   return {
-    state: "question",
+    state: "draft_with_question",
     unresolvedFields,
+    draft: {
+      summary: "مسودة التحديث.",
+      result: "النتيجة تحتاج توضيحاً.",
+      blocker: null,
+      nextAction: "استكمال التحديث.",
+      contributionContext: "مساهمة الموظف قيد المراجعة.",
+      evidenceClaimDrafts: [],
+      documentationNeeds: [],
+      relatedProgressComponentIds: [],
+      comparisonExplanation: "مسودة مقارنة أولية.",
+    },
     nextQuestion: { question: text, affects: unresolvedFields.slice(0, 1) },
   };
 }

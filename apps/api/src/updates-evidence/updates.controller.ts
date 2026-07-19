@@ -57,6 +57,13 @@ export class UpdatesController {
     });
   }
 
+  result(request: Request, acceptedEventId: string) {
+    return this.query.updateResult({
+      actorId: request.principal.userId,
+      acceptedEventId: z.string().uuid().parse(acceptedEventId),
+    });
+  }
+
   revise(request: Request, sessionId: string, body: unknown) {
     return this.service.revise({
       actor: actor(request),
@@ -108,13 +115,20 @@ for (const [method, verb, path] of [
   ["start", "post", "text"],
   ["answer", "post", ":sessionId/answers"],
   ["review", "get", ":sessionId/draft"],
+  ["result", "get", ":acceptedEventId/result"],
   ["revise", "post", ":sessionId/revisions"],
   ["confirm", "post", ":sessionId/confirm"],
 ] as const) {
   const descriptor = Object.getOwnPropertyDescriptor(UpdatesController.prototype, method)!;
   Req()(UpdatesController.prototype, method, 0);
-  if (method !== "start") Param("sessionId")(UpdatesController.prototype, method, 1);
-  if (!["review"].includes(method)) {
+  if (method !== "start") {
+    Param(method === "result" ? "acceptedEventId" : "sessionId")(
+      UpdatesController.prototype,
+      method,
+      1,
+    );
+  }
+  if (["start", "answer", "revise", "confirm"].includes(method)) {
     Body()(UpdatesController.prototype, method, method === "start" ? 1 : 2);
   }
   (verb === "get" ? Get(path) : Post(path))(UpdatesController.prototype, method, descriptor);

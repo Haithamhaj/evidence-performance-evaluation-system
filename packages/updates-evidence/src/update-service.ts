@@ -272,6 +272,8 @@ export class UpdateService {
           executionMode: session.updateSource.executionMode === "manual" ? "manual" : "mixed",
           sourceReferences: jsonArray(latest.sourceReferences),
           evidenceClaimDrafts: parsed.input.evidenceClaimDrafts,
+          documentationNeeds: parsed.input.documentationNeeds,
+          relatedProgressComponentIds: parsed.input.relatedProgressComponentIds,
           comparison: UpdateComparisonSchema.parse(latest.comparison),
           createdById: parsed.actor.userId,
         },
@@ -398,54 +400,54 @@ export class UpdateService {
         updateSourceId: input.source.id,
       },
       async (transaction, untrustedOutput) => {
-      if (persistedState !== undefined) throw invalidPersistence();
-      const output = UpdateStructureAiOutputSchema.parse(untrustedOutput);
-      await lockSession(transaction, input.sessionId);
-      const session = await loadSession(transaction, input.sessionId);
-      assertOwner(session.updateSource.employeeId, input.actor);
-      if (session.state !== "clarifying") throw invalidState();
-      if (session.version !== input.expectedSessionVersion) throw versionConflict();
-      const scope = await this.scopeReader.authorizeIn(transaction, {
-        actor: input.actor,
-        projectId: session.updateSource.projectId,
-        workstreamId: session.updateSource.workstreamId,
-        workItemId: session.updateSource.workItemId,
-        at: input.at,
-      });
-      if (!sameScope(scope, input.expectedScope)) throw versionConflict();
-      if (input.expectedTurnId !== null) {
-        const turn = session.turns.at(-1);
-        if (
-          turn === undefined ||
-          turn.id !== input.expectedTurnId ||
-          turn.answer !== null ||
-          input.pendingAnswer === null
-        ) {
-          throw invalidTurn();
-        }
-        await transaction.clarificationAnswer.create({
-          data: {
-            turnId: turn.id,
-            answer: input.pendingAnswer,
-            employeeId: input.actor.userId,
-            resultingSessionVersion: session.version + 1,
-          },
+        if (persistedState !== undefined) throw invalidPersistence();
+        const output = UpdateStructureAiOutputSchema.parse(untrustedOutput);
+        await lockSession(transaction, input.sessionId);
+        const session = await loadSession(transaction, input.sessionId);
+        assertOwner(session.updateSource.employeeId, input.actor);
+        if (session.state !== "clarifying") throw invalidState();
+        if (session.version !== input.expectedSessionVersion) throw versionConflict();
+        const scope = await this.scopeReader.authorizeIn(transaction, {
+          actor: input.actor,
+          projectId: session.updateSource.projectId,
+          workstreamId: session.updateSource.workstreamId,
+          workItemId: session.updateSource.workItemId,
+          at: input.at,
         });
-      }
-      persistedState = await applyOutput(
-        transaction,
-        session,
-        session.updateSource,
-        output,
-        [...input.context.sourceReferences],
-        input.actor.userId,
-      );
-      return {
-        outputReference:
-          persistedState.state === "question"
-            ? `clarification-turn:${persistedState.turnId}`
-            : `update-draft:${persistedState.draftRevisionId}`,
-      };
+        if (!sameScope(scope, input.expectedScope)) throw versionConflict();
+        if (input.expectedTurnId !== null) {
+          const turn = session.turns.at(-1);
+          if (
+            turn === undefined ||
+            turn.id !== input.expectedTurnId ||
+            turn.answer !== null ||
+            input.pendingAnswer === null
+          ) {
+            throw invalidTurn();
+          }
+          await transaction.clarificationAnswer.create({
+            data: {
+              turnId: turn.id,
+              answer: input.pendingAnswer,
+              employeeId: input.actor.userId,
+              resultingSessionVersion: session.version + 1,
+            },
+          });
+        }
+        persistedState = await applyOutput(
+          transaction,
+          session,
+          session.updateSource,
+          output,
+          [...input.context.sourceReferences],
+          input.actor.userId,
+        );
+        return {
+          outputReference:
+            persistedState.state === "draft_with_question"
+              ? `clarification-turn:${persistedState.turnId}`
+              : `update-draft:${persistedState.draft.id}`,
+        };
       },
     );
     if (persistedState === undefined) throw invalidPersistence();
@@ -515,7 +517,47 @@ async function applyOutput(
   sourceReferences: string[],
   createdById: string,
 ): Promise<import("@evaluation/contracts").ClarificationState> {
-  if (output.state === "question") {
+  const revision =
+    (await transaction.structuredUpdateDraftRevision.count({
+      where: { sessionId: session.id },
+    })) + 1;
+  const previous = await transaction.acceptedUpdateEvent.findFirst({
+    where: {
+      employeeId: source.employeeId,
+      projectId: source.projectId,
+      workstreamId: source.workstreamId,
+      workItemId: source.workItemId,
+    },
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    select: { id: true },
+  });
+  assertAuthorizedProgressComponents(output.draft.relatedProgressComponentIds, sourceReferences);
+  const draft = await transaction.structuredUpdateDraftRevision.create({
+    data: {
+      updateSourceId: source.id,
+      sessionId: session.id,
+      revision,
+      revisionKind: "ai_draft",
+      summary: output.draft.summary,
+      result: output.draft.result,
+      blocker: output.draft.blocker,
+      nextAction: output.draft.nextAction,
+      contributionContext: output.draft.contributionContext,
+      evidenceClaimDrafts: output.draft.evidenceClaimDrafts,
+      documentationNeeds: output.draft.documentationNeeds,
+      relatedProgressComponentIds: output.draft.relatedProgressComponentIds,
+      executionMode: source.executionMode,
+      sourceReferences,
+      comparison: {
+        previousAcceptedEventId: previous?.id ?? null,
+        changedFields: ["summary", "result", "blocker", "nextAction", "contributionContext"],
+        explanation: output.draft.comparisonExplanation,
+      },
+      createdById,
+    },
+  });
+  const serializedDraft = serializeDraft(draft);
+  if (output.state === "draft_with_question") {
     const turnNumber = session.currentTurnNo + 1;
     const turn = await transaction.clarificationTurn.create({
       data: {
@@ -534,9 +576,10 @@ async function applyOutput(
       },
     });
     return ClarificationStateSchema.parse({
-      state: "question",
+      state: "draft_with_question",
       sessionId: session.id,
       sessionVersion: updated.version,
+      draft: serializedDraft,
       turnId: turn.id,
       turnNumber,
       question: turn.question,
@@ -544,42 +587,6 @@ async function applyOutput(
       remainingFieldCount: output.unresolvedFields.length,
     });
   }
-  const revision =
-    (await transaction.structuredUpdateDraftRevision.count({
-      where: { sessionId: session.id },
-    })) + 1;
-  const previous = await transaction.acceptedUpdateEvent.findFirst({
-    where: {
-      employeeId: source.employeeId,
-      projectId: source.projectId,
-      workstreamId: source.workstreamId,
-      workItemId: source.workItemId,
-    },
-    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    select: { id: true },
-  });
-  const draft = await transaction.structuredUpdateDraftRevision.create({
-    data: {
-      updateSourceId: source.id,
-      sessionId: session.id,
-      revision,
-      revisionKind: "ai_draft",
-      summary: output.draft.summary,
-      result: output.draft.result,
-      blocker: output.draft.blocker,
-      nextAction: output.draft.nextAction,
-      contributionContext: output.draft.contributionContext,
-      evidenceClaimDrafts: output.draft.evidenceClaimDrafts,
-      executionMode: source.executionMode,
-      sourceReferences,
-      comparison: {
-        previousAcceptedEventId: previous?.id ?? null,
-        changedFields: ["summary", "result", "blocker", "nextAction", "contributionContext"],
-        explanation: output.draft.comparisonExplanation,
-      },
-      createdById,
-    },
-  });
   const updated = await transaction.clarificationSession.update({
     where: { id: session.id },
     data: {
@@ -592,8 +599,7 @@ async function applyOutput(
     state: "ready_for_review",
     sessionId: session.id,
     sessionVersion: updated.version,
-    draftRevisionId: draft.id,
-    draftRevision: draft.revision,
+    draft: serializedDraft,
   });
 }
 
@@ -618,29 +624,30 @@ async function currentState(
     where: { sessionId: session.id },
     orderBy: { revision: "desc" },
   });
-  if (draft !== null) {
-    return ClarificationStateSchema.parse({
-      state: "ready_for_review",
-      sessionId: session.id,
-      sessionVersion: session.version,
-      draftRevisionId: draft.id,
-      draftRevision: draft.revision,
-    });
-  }
   const turn = await transaction.clarificationTurn.findFirst({
     where: { sessionId: session.id, answer: null },
     orderBy: { turnNo: "desc" },
   });
+  if (draft !== null && session.state === "ready_for_review") {
+    return ClarificationStateSchema.parse({
+      state: "ready_for_review",
+      sessionId: session.id,
+      sessionVersion: session.version,
+      draft: serializeDraft(draft),
+    });
+  }
   if (turn === null) throw invalidState();
   const unresolved = await transaction.clarificationSession.findUniqueOrThrow({
     where: { id: session.id },
     select: { unresolvedFields: true },
   });
   const fields = jsonArray(unresolved.unresolvedFields);
+  if (draft === null) throw invalidState();
   return ClarificationStateSchema.parse({
-    state: "question",
+    state: "draft_with_question",
     sessionId: session.id,
     sessionVersion: session.version,
+    draft: serializeDraft(draft),
     turnId: turn.id,
     turnNumber: turn.turnNo,
     question: turn.question,
@@ -660,6 +667,8 @@ function serializeDraft(row: {
   contributionContext: string;
   executionMode: import("@evaluation/contracts").ExecutionMode;
   sourceReferences: unknown;
+  documentationNeeds: unknown;
+  relatedProgressComponentIds: unknown;
   comparison: unknown;
 }) {
   return StructuredUpdateDraftSchema.parse({
@@ -674,8 +683,23 @@ function serializeDraft(row: {
     executionMode: row.executionMode,
     sourceReferences: jsonArray(row.sourceReferences),
     evidenceIds: [],
+    documentationNeeds: jsonArray(row.documentationNeeds),
+    relatedProgressComponentIds: jsonArray(row.relatedProgressComponentIds),
     comparison: UpdateComparisonSchema.parse(row.comparison),
   });
+}
+
+function assertAuthorizedProgressComponents(
+  ids: readonly string[],
+  sourceReferences: string[],
+): void {
+  if (ids.some((id) => !sourceReferences.includes(`progress-component:${id}`))) {
+    throw new AppError(
+      "UPDATE_PROGRESS_COMPONENT_INVALID",
+      "errors.updates.progressComponentInvalid",
+      422,
+    );
+  }
 }
 
 function serializeAccepted(

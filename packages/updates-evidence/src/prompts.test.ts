@@ -9,9 +9,9 @@ import {
 
 describe("update structuring prompt", () => {
   it("pins JSON mode instructions to a new governed prompt version", () => {
-    expect(UPDATE_STRUCTURE_PROMPT_VERSION).toBe("update-structure.v3");
+    expect(UPDATE_STRUCTURE_PROMPT_VERSION).toBe("update-structure.v4");
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toMatch(/\bJSON\b/u);
-    expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"state":"question"');
+    expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"state":"draft_with_question"');
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"state":"ready_for_review"');
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"comparisonExplanation"');
   });
@@ -49,7 +49,7 @@ describe("update structuring prompt", () => {
       "sha256",
       "version",
     ]);
-    expect(UPDATE_STRUCTURE_OUTPUT_SCHEMA_VERSION).toBe("update-structure-output.v1");
+    expect(UPDATE_STRUCTURE_OUTPUT_SCHEMA_VERSION).toBe("update-structure-output.v2");
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain(
       "Never assign, predict, recommend, or calculate an employee performance rating",
     );
