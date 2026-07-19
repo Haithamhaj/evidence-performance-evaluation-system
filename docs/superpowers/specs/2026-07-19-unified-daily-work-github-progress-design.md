@@ -1,6 +1,6 @@
 # Unified Daily Work and Contract-Aware GitHub Progress
 
-**Status:** Product-owner approved design; written-spec review pending
+**Status:** Product-owner approved written specification
 **Approved in conversation:** 2026-07-19
 **Scope:** Correct the Phase 2 daily-work journey, GitHub automation, operational Project progress, evidence preparation, and their boundary from periodic employee evaluation
 **Does not authorize:** Production implementation, rubric changes, rating automation, employee ranking, or a complete Phase 3 evaluation workflow

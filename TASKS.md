@@ -279,14 +279,14 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 > **REPLANNED — DO NOT EXECUTE T030–T044 IN THE ORIGINAL ORDER**
 >
-> The product owner approved the Product Direction Reset production structure and autonomous Phase 2 execution on 2026-07-18. T030–T044 remain traceability references and are mapped into seven visible slices in `docs/product/PHASE_2_FEATURE_MAP.md`. The active design is `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`, and the active implementation plan is `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`.
+> The product owner approved the Product Direction Reset production structure on 2026-07-18 and the corrected unified daily-work/GitHub specification on 2026-07-19. T030–T044 remain traceability references. The active design is `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`, and the active implementation plan is `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
 
 ## Approved execution mapping
 
 1. Slice 1 — My Work + Work Items + Progress Contract foundation.
-2. Slice 2 — Interactive Text Update + live AI + Timeline + manual evidence.
-3. Slice 3 — GitHub suggested evidence.
-4. Slice 4 — Voice update.
+2. Slice 2 correction — Project-required, Work-Item-optional, draft-first unified daily Update.
+3. Slice 3 — Contract-aware GitHub Project automation plus separate contribution suggestions.
+4. Slice 4 — Unified manual and voice sources.
 5. Slice 5 — Check-ins and monthly readiness.
 6. Slice 6 — Manager operational view.
 7. Slice 7 — Evaluation Fact View preparation.
@@ -295,7 +295,7 @@ Execution status:
 
 - **Slice 1 complete:** production My Work, bounded Work Items, versioned document-sourced Progress Contracts, official source-linked progress snapshots, protected API composition, Arabic/English UI, local synthetic demo, and desktop/mobile screenshots.
 - **Slice 2 complete:** interactive Arabic/English text updates, one-question-at-a-time live AI through the existing AI Router, employee-edited drafts, private manual evidence, mandatory evidence/update confirmation, and append-only source-labelled Timeline. The runnable local demo and desktop/mobile screenshots passed the Slice 2 gate checks on 2026-07-18.
-- **Slice 3 gated next:** GitHub suggested evidence starts only after product-owner review of the Slice 2 running flow and screenshots.
+- **Corrected Slice 2 gated next:** replace the Work-Item-first question form with the approved Project-first draft-first journey before beginning GitHub automation.
 
 Mapping:
 
@@ -318,8 +318,8 @@ Mapping:
 
 ## T031 — Implement Text Update Composer
 
-**Planning status:** Mapped to Slice 2 with dynamic multi-turn clarification, previous-state comparison, manual evidence, and employee confirmation.
-**Execution status:** Complete in Slice 2 through the AI-Router-only `update.structure` route with editable employee review and confirmation.
+**Planning status:** The completed backend foundation is retained; the 2026-07-19 correction makes Project required, Work Item optional, and the first useful AI response a readable draft.
+**Execution status:** Backend foundation complete; corrected user journey pending.
 **Priority:** P1  
 **Dependencies:** T030, T011  
 **Purpose:** Structure employee updates through AI and human confirmation.  
@@ -378,7 +378,7 @@ Mapping:
 
 ## T038 — Create GitHub App Integration
 
-**Planning status:** Mapped to Slice 3 as a connector to Updates & Evidence.
+**Planning status:** Mapped to Slice 3 as a connector to Updates & Evidence and a versioned source binding to Projects.
 **Priority:** P1  
 **Dependencies:** T007, T009  
 **Purpose:** Install scoped GitHub access.  
@@ -386,7 +386,7 @@ Mapping:
 
 ## T039 — Implement GitHub Webhook Ingestion
 
-**Planning status:** Mapped to Slice 3.
+**Planning status:** Mapped to Slice 3 with signature verification, durable idempotent inbox, reconciliation, and deterministic contract-rule processing.
 **Priority:** P1  
 **Dependencies:** T038, T013  
 **Purpose:** Receive push, PR, and check events idempotently.  
@@ -402,7 +402,7 @@ Mapping:
 
 ## T041 — Implement Suggested Evidence Inbox
 
-**Planning status:** Mapped to Slice 3; employee confirmation remains mandatory.
+**Planning status:** Mapped to Slice 3; automatic Project progress and employee contribution are separate, and employee confirmation remains mandatory for contribution evidence.
 **Priority:** P1  
 **Dependencies:** T033, T039  
 **Purpose:** Show PRs, commits, and checks as suggestions requiring employee context.  

@@ -1,9 +1,9 @@
 # Phase 2 Feature Map
 
 **Status:** Product-owner approved production feature map
-**Design:** `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`
-**Implementation plan:** `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`
-**Execution status:** Production execution approved; Slice 1 complete and Slice 2 is next
+**Design:** `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`
+**Implementation plan:** `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`
+**Execution status:** Slice 1 and the original Slice 2 backend foundation are complete; corrected daily Update journey is the next Product Owner-gated bundle
 
 ## Purpose
 
@@ -34,15 +34,16 @@ This map connects the approved Product Reset, the Phase 0/1 foundation, the orig
 | Required Project, optional Workstream | Project/Workstream scope              | Work Items                       |     1 | Same-Project validation                                 |
 | Work Item history                     | Accepted commands                     | Work Items                       |     1 | Append-only                                             |
 | Project/Workstream Progress Contract  | Active document version               | Projects                         |     1 | Human approval; prospective versions                    |
-| Official progress snapshot            | Contract rule plus confirmed sources  | Projects                         |   1–2 | Never task/count/GitHub volume                          |
+| Official progress snapshot            | Contract rule plus confirmed sources  | Projects                         |   1–3 | Never task/count/GitHub volume                          |
 | Portfolio and Project dashboard       | Authorized read composition           | API/Web                          |     1 | Project progress is not employee performance            |
 | Interactive text update               | Employee source plus active context   | Updates & Evidence               |     2 | AI Router; employee correction and confirmation         |
 | Dynamic multi-turn clarification      | Missing required fields               | Updates & Evidence               |     2 | One visible question at a time, as many as required     |
 | Previous-state comparison             | Previous accepted update and contract | Updates & Evidence + composition |     2 | Source references preserved                             |
-| Manual images/files/code/CLI/links    | Employee-provided source              | Updates & Evidence + Documents   |     2 | Untrusted input; private access                         |
+| Manual images/files/code/CLI/links    | Employee-provided source              | Updates & Evidence + Documents   |   2–4 | Untrusted input; private access                         |
 | AI-drafted evidence description       | Source analysis                       | Updates & Evidence               |     2 | Employee confirmation required                          |
 | Timeline                              | Accepted source events                | API composition                  |     2 | No arbitrary mutable activity feed                      |
-| GitHub App and suggestions            | GitHub source                         | Updates & Evidence connector     |     3 | Suggested evidence only                                 |
+| GitHub Project automation             | Verified mapped GitHub source         | Projects + connector             |     3 | Deterministic approved contract rule only               |
+| GitHub contribution suggestions       | GitHub source plus employee context   | Updates & Evidence connector     |     3 | Employee confirmation required                          |
 | GitHub webhook/reconciliation         | Verified external events              | Worker/connector                 |     3 | Minimum permissions, idempotency                        |
 | Voice update                          | Audio and transcript revisions        | Updates & Evidence connector     |     4 | Private source, dual human gates                        |
 | Thursday check-in                     | Substantive update query              | Updates & Evidence               |     5 | Approved leave excluded                                 |
@@ -109,15 +110,17 @@ An authenticated employee opens Arabic My Work, sees Needs My Action, Today, and
 
 Product owner reviews the Work Item lifecycle, contract wording, progress explanation, migration, authorization, concurrency, and history before Slice 2.
 
-## Slice 2 — Interactive Text Update + live AI + Timeline + manual evidence
+## Slice 2 correction — Draft-first unified daily Update
 
 ### Visible outcome
 
-An employee submits incomplete Arabic text, answers every necessary AI question one at a time, adds a screenshot or pasted CLI/code source, edits the AI-drafted evidence claim, reviews comparison and progress impact, confirms, and sees the accepted event in Timeline.
+An employee chooses a required Project and optional Workstream/Work Item, supplies text or a manual source, sees a useful draft first, answers only necessary questions one at a time, edits and confirms the Update, and sees a compact result card and Timeline event.
 
 ### Backend delta
 
-- Add update sources/revisions, clarification sessions/turns, structured drafts, confirmations, manual evidence sources/revisions, verification, attribution, and accepted events.
+- Reuse the completed update/evidence foundation while making Work Item optional in the UI and keeping Project required.
+- Persist and show an evolving draft before clarification becomes the dominant interaction.
+- Add session draft continuity, precise recovery, real context names, and a readable confirmed result card.
 - Compose previous accepted state and active Progress Contract.
 - Use the live AI Router for production and deterministic adapters for tests/demo.
 - Request progress recalculation only after employee confirmation.
@@ -125,6 +128,8 @@ An employee submits incomplete Arabic text, answers every necessary AI question 
 ### Acceptance
 
 - Original text, questions, answers, drafts, employee edits, and source references preserved.
+- Project is required; Workstream and Work Item are optional and scope-validated.
+- The first useful AI response is a readable draft.
 - AI asks as many questions as required while displaying one at a time.
 - Evidence is available in the same flow.
 - Employee confirmation is mandatory.
@@ -144,15 +149,15 @@ An employee submits incomplete Arabic text, answers every necessary AI question 
 
 Product owner reviews AI behavior, evidence language, progress explanation, privacy, upload safety, AI route trace, append-only revisions, and prompt/schema evaluations.
 
-## Slice 3 — GitHub suggested evidence
+## Slice 3 — Contract-aware GitHub automation and contribution suggestions
 
 ### Visible outcome
 
-A GitHub PR/check arrives as a suggestion. The employee opens a visible review drawer, links and contextualizes it, confirms one suggestion, and rejects another without any automatic progress or performance effect.
+A verified mapped GitHub PR/check/release/deployment appears automatically in Project activity and may prove a deterministic Progress Contract condition. A separate employee suggestion requires review and confirmation before it becomes personal contribution evidence.
 
 ### Backend delta
 
-- Add GitHub App installation and repository grants.
+- Add GitHub App installation, repository grants, versioned Project/Workstream bindings, and deterministic contract mappings.
 - Add verified idempotent webhook receipt, reconciliation, suggestion identity, and disposition history to the Updates & Evidence connector.
 - Preserve original source IDs and URLs.
 
@@ -160,14 +165,17 @@ A GitHub PR/check arrives as a suggestion. The employee opens a visible review d
 
 - Minimum permissions and secret isolation.
 - Signature validation, replay safety, reconciliation, uninstall handling.
-- Suggestions never become evidence or progress before employee confirmation.
+- A deterministic mapped event may update operational Project progress without duplicate employee entry.
+- Ambiguous, unbound, conflicting, or qualitative events cannot update official progress automatically.
+- Suggestions never become personal contribution evidence before employee confirmation.
 - Commit, PR, file, line, and activity volume excluded from calculations.
 - Mobile selection opens the review sheet immediately.
 
 ### Demo and screenshots
 
-- Ingest synthetic PR and check events.
-- Confirm, reject, ignore, merge, and reassign bounded suggestions.
+- Ingest one deterministic mapped event and one ambiguous event.
+- Verify the mapped event changes Project progress and the ambiguous event does not.
+- Confirm and dismiss separate contribution suggestions.
 - Capture Inbox and review drawer in Arabic/English desktop/mobile.
 
 ### Stop gate

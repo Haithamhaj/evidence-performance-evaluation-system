@@ -510,6 +510,10 @@ Official progress is calculated only from the approved measurable rules and conf
 
 A Work Item, update, or evidence item may support a contract milestone or KPI, propose a value change, or signal that the source document may need revision. It does not change the contract by itself.
 
+A verified GitHub event may automatically prove a deterministic condition already mapped in the active Progress Contract, such as an approved pull request being merged after every required check passes. In that case, the contract rule—not GitHub activity volume—determines the resulting operational progress. An unbound, ambiguous, conflicting, or qualitatively judged event creates a reviewable Project suggestion and cannot change official progress automatically.
+
+Automatic Project progress and personal contribution evidence remain separate. The same GitHub event is only suggested evidence for an employee contribution and requires the employee to review and confirm the supported claim and contribution context before it becomes a contribution record.
+
 When an approved rule contains a qualitative condition that cannot be confirmed automatically, an authorized human may confirm whether that contract-defined condition has been met. The system then recalculates progress from the approved rule. A user cannot directly enter or override the overall progress percentage.
 
 If the available information is insufficient, the prior official progress remains unchanged and the system identifies the missing confirmation or evidence. Progress may decrease when an approved measurable value decreases or a previously satisfied condition is no longer satisfied; the explanation and resulting snapshot are preserved in append-only history.
@@ -2285,7 +2289,8 @@ The following decisions are approved:
 - Manual evidence is available inside the update flow and requires employee confirmation.
 - A Monthly Evaluation Readiness Review identifies thin evidence before quarter-end without imposing evidence quotas.
 - Images are valid evidence when contextualized.
-- GitHub activity is suggested evidence only.
+- GitHub activity is suggested evidence only for personal contribution records; employee confirmation remains mandatory.
+- A verified GitHub event may prove a deterministic, pre-approved Progress Contract condition, but raw GitHub activity volume never calculates progress.
 - Cycle 1 is a Calibration — Non-Baseline cycle.
 - English-only pilot use is permitted; Arabic employee use requires approved Arabic rubric content, semantic review, and RTL support.
 - The manager sees operational Documentation Readiness states but not employee percentages or rankings.

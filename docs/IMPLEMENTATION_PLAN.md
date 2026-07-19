@@ -260,11 +260,15 @@ Owns:
 
 - GitHub App installation.
 - Repository access.
+- Versioned Project/Workstream repository bindings to an active Progress Contract.
+- Deterministic source mappings for approved milestones, deliverables, KPIs, and acceptance conditions.
 - Document synchronization.
 - Webhook ingestion.
 - PR, commit, check, and test suggestions.
 - Evidence inbox source references.
 - Idempotency and replay.
+
+The Projects domain remains the only owner of official progress calculation and snapshots. GitHub ingestion may supply a verified source fact to an already-approved deterministic contract rule; it does not calculate progress from activity volume. Updates & Evidence separately owns employee contribution suggestions and confirmation.
 
 ## 3.14 AI Routing and Runs
 
@@ -681,6 +685,14 @@ The employee must:
 - Confirm project/workstream link.
 
 No activity count is used in performance calculation.
+
+## 7.5 Contract-Aware Project Progress
+
+A Project or Workstream owner may bind a repository and deterministic GitHub source condition to the active human-approved Progress Contract. For example, an approved pull request merged into the configured branch after every required check passes may prove one mapped milestone condition.
+
+The binding and rule must be versioned, effective-dated, source-explained, and auditable. Verified events are ingested idempotently and missed events are reconciled. Ambiguous, unbound, conflicting, or qualitative events require authorized Project review and do not change official progress.
+
+Raw commit, PR, file, line, check, or activity volume never calculates Project progress and never becomes employee performance. A GitHub event still requires employee review and confirmation before it becomes a personal contribution record.
 
 ---
 
@@ -1117,14 +1129,14 @@ Exit criteria:
 
 ## Phase 2 — Updates, Evidence, GitHub, and Readiness
 
-**Approved Product Direction Reset:** The original T030–T044 execution order is superseded. Use `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`, `docs/product/PHASE_2_FEATURE_MAP.md`, and `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`.
+**Approved Product Direction Reset:** The original T030–T044 execution order is superseded. The 2026-07-19 daily-work correction further supersedes the affected Slice 2–4 behavior. Use `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`, `docs/product/PHASE_2_FEATURE_MAP.md`, and `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
 
 Build through seven visible vertical slices:
 
 1. My Work, Work Items, and the Project/Workstream Progress Contract foundation.
-2. Interactive text updates, live AI through the existing AI Router, Timeline, and manual evidence.
-3. GitHub suggested evidence.
-4. Voice updates.
+2. Corrected Project-required, Work-Item-optional, draft-first daily Update journey.
+3. Contract-aware GitHub Project automation with separate employee contribution suggestions.
+4. Unified manual and voice sources through the same Updates & Evidence lifecycle.
 5. Thursday check-ins and Monthly Evaluation Readiness.
 6. Manager operational queues.
 7. Evaluation Fact View preparation only.
@@ -1141,10 +1153,11 @@ Architecture:
 
 Exit criteria:
 
-- An employee completes the approved Arabic-first daily journey with English support: Work Item, dynamic multi-turn text/voice update, manual or suggested evidence, confirmation, source-labelled Timeline, and Project dashboard.
+- An employee completes the approved daily journey in English and the existing Arabic/RTL interface: required Project, optional Workstream/Work Item, draft-first dynamic text/voice Update, manual or suggested evidence, confirmation, source-labelled Timeline, and Project dashboard.
 - Official Project/Workstream progress comes only from an approved measurable contract and confirmed source facts. It never comes from Work Item count, task/update/GitHub volume, commits, files, or lines changed.
 - Missing source coverage preserves the previous official percentage; a decrease is source-explained and historically preserved; no direct percentage override exists.
-- GitHub activity never becomes evidence, progress, contribution, or employee performance automatically.
+- A verified GitHub event may prove a deterministic condition mapped in the active Progress Contract and update operational Project progress; ambiguous events cannot.
+- GitHub activity never becomes personal contribution evidence or employee performance automatically.
 - Thin evidence is surfaced without quotas, penalties, scores, or rankings, and manager readiness remains coarse.
 - Phase 2 Fact View preparation contains no rating recommendation and does not implement the complete employee evaluation workflow.
 - Every slice has focused tests, migration verification where applicable, a runnable local demo, Arabic/English desktop/mobile screenshots, commit/push checkpoint, and product-owner gate.

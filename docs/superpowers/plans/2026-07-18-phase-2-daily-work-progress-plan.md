@@ -1,5 +1,7 @@
 # Phase 2 Daily Work, Progress, Updates, and Evidence Implementation Plan
 
+> **Partially superseded:** Use `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md` for the corrected Slice 2–4 journey and Fact View preparation. Task 5 (Check-ins and Monthly Readiness) and Task 6 (Manager Operational View) in this plan remain active and execute between Bundle 3 and Bundle 4 of the new plan.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver the approved Phase 2 daily-work foundation through seven visible, production-backed vertical slices while preserving the Phase 0/1 modular monolith and every protected product boundary.
