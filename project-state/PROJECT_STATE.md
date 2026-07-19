@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Hold at the Bundle 1 Product Owner acceptance gate after correcting the Phase 2 daily Update journey. Do not begin contract-aware GitHub automation until approval.
+Prepare the approved Codex dogfood execution: use this repository as the real Phase 2 Project, Codex as the local employee/contributor, live GPT-5.5 for a human-approved Progress Contract draft and Updates, and governed GitHub automation for real source evidence.
 
 ## Current Reality
 
@@ -38,6 +38,8 @@ Hold at the Bundle 1 Product Owner acceptance gate after correcting the Phase 2 
 - The local governed `update.structure` route now has prompt v4 and output schema v2 registered against the approved GPT-5.5 model route. The provider credential remained outside the repository and was not printed, moved, or committed.
 - The verified Bundle 1 implementation checkpoint was pushed at commit `99ac870`; execution is stopped at the Product Owner gate and Bundle 2 has not started.
 - Product Owner gate feedback confirmed that `/{locale}` still exposed the Phase 0 diagnostics page and the English acceptance preview retained Arabic synthetic records. The root route now opens localized My Work, and the English-pilot seed is English and safely rerunnable for mutable records; existing immutable contract history and employee-authored source content remain unmodified.
+- The Product Owner approved the full-real dogfood direction on 2026-07-19: this repository becomes the real Project, the local employee persona is `Codex`, live AI drafts but never activates the Progress Contract, and Bundle 2 implements the GitHub App path before the end-to-end run.
+- The bounded dogfood design is `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`; it is awaiting written Product Owner review before the implementation plan is amended.
 
 ## Active Decisions
 
@@ -70,7 +72,7 @@ Hold at the Bundle 1 Product Owner acceptance gate after correcting the Phase 2 
 
 ## Next Recommended Action
 
-Product owner reviews the corrected running daily-work flow and the six checkpoint screenshots. If accepted, begin Bundle 2 contract-aware GitHub automation; otherwise amend only the confirmed Bundle 1 findings.
+Product Owner reviews the written Codex dogfood design. After approval, amend the active execution plan to add the governed AI Progress Contract draft slice and the real repository acceptance journey before executing Bundle 2.
 
 ## Critical References
 
@@ -84,6 +86,7 @@ Product owner reviews the corrected running daily-work flow and the six checkpoi
 - `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`
 - `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`
 - `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`
+- `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`
 - `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
