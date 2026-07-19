@@ -1,4 +1,7 @@
 import { formatDateTime } from "@evaluation/localization";
+import { createElement } from "react";
+
+import { ProgressContractDraftPanel } from "./progress-contract-draft-panel";
 
 export type ProjectProgressView = Readonly<{
   project: Readonly<{
@@ -40,10 +43,18 @@ export type ProjectProgressView = Readonly<{
 
 export function ProjectProgressPanel({
   catalog,
+  draftJourney,
   locale,
   view,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
+  draftJourney?: Readonly<{
+    initialDraft:
+      import("../../../../../platform/progress-contract-drafts").PublicProgressContractDraft | null;
+    initialOpen: boolean;
+    sourceRequest:
+      import("./progress-contract-draft-panel").ProgressContractDraftSourceRequest | null;
+  }>;
   locale: import("@evaluation/localization").Locale;
   view: ProjectProgressView;
 }>) {
@@ -63,6 +74,15 @@ export function ProjectProgressPanel({
           {catalog[`workspace.status.${view.project.status}`]}
         </span>
       </header>
+
+      {createElement(ProgressContractDraftPanel, {
+        catalog,
+        initialDraft: draftJourney?.initialDraft ?? null,
+        initialOpen: draftJourney?.initialOpen ?? false,
+        locale,
+        projectId: view.project.id,
+        sourceRequest: draftJourney?.sourceRequest ?? null,
+      })}
 
       <section className="progressSummary panel" aria-labelledby="official-progress-heading">
         <div>

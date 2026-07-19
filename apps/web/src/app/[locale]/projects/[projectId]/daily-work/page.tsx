@@ -4,6 +4,8 @@ import { createElement } from "react";
 import { z } from "zod";
 
 import { fetchDailyWorkUpstream } from "../../../../../platform/daily-work-api";
+import { PublicProgressContractDraftSchema } from "../../../../../platform/progress-contract-drafts";
+import { fetchProtectedUpstream } from "../../../../../platform/workspace-api";
 import { WorkspaceShell } from "../../../workspace-shell";
 import { ProjectProgressPanel } from "./project-progress-panel";
 
@@ -65,15 +67,28 @@ const ProjectProgressViewSchema: z.ZodType<import("./project-progress-panel").Pr
 
 export default async function ProjectDailyWorkPage({
   params,
-}: Readonly<{ params: Promise<{ locale: string; projectId: string }> }>) {
+  searchParams,
+}: Readonly<{
+  params: Promise<{ locale: string; projectId: string }>;
+  searchParams?: Promise<{ draft?: string | string[] }>;
+}>) {
   const { locale, projectId } = await params;
   if (!isLocale(locale)) notFound();
-  const [catalog, view] = await Promise.all([
+  const draftValue = (await searchParams)?.draft;
+  const draftRequestId =
+    typeof draftValue === "string" && Uuid.safeParse(draftValue).success ? draftValue : null;
+  const [catalog, view, initialDraft] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
       route: { kind: "project", projectId },
       schema: ProjectProgressViewSchema,
     }),
+    draftRequestId === null
+      ? Promise.resolve(null)
+      : fetchProtectedUpstream({
+          path: `/api/v1/projects/${Uuid.parse(projectId)}/progress-contract-drafts/${draftRequestId}`,
+          schema: PublicProgressContractDraftSchema,
+        }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
   return createElement(
@@ -83,6 +98,15 @@ export default async function ProjectDailyWorkPage({
       locale,
       localeSwitchHref: `/${alternateLocale}/projects/${projectId}/daily-work`,
     },
-    createElement(ProjectProgressPanel, { catalog, locale, view }),
+    createElement(ProjectProgressPanel, {
+      catalog,
+      draftJourney: {
+        initialDraft,
+        initialOpen: initialDraft !== null,
+        sourceRequest: null,
+      },
+      locale,
+      view,
+    }),
   );
 }

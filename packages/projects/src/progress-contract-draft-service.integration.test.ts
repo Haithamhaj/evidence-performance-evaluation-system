@@ -82,13 +82,14 @@ function harness() {
       findMany: vi.fn(async () => [...appliedComponentMappings]),
     },
     aiRun: {
-      findFirst: vi.fn(async ({ where }: any) =>
-        aiRuns.find(
-          (run) =>
-            run.outputReference === where.outputReference &&
-            run.routeKey === where.routeKey &&
-            run.state === where.state,
-        ) ?? null,
+      findFirst: vi.fn(
+        async ({ where }: any) =>
+          aiRuns.find(
+            (run) =>
+              run.outputReference === where.outputReference &&
+              run.routeKey === where.routeKey &&
+              run.state === where.state,
+          ) ?? null,
       ),
     },
   };
@@ -115,9 +116,7 @@ function harness() {
     progressContract: {
       findFirst: vi.fn(async () => null),
     },
-    $transaction: vi.fn(async (operation: (tx: any) => Promise<unknown>) =>
-      operation(transaction),
-    ),
+    $transaction: vi.fn(async (operation: (tx: any) => Promise<unknown>) => operation(transaction)),
   };
   const sourceReader = {
     loadApprovedVersion: vi.fn(async () => ({
@@ -294,6 +293,34 @@ describe("ProgressContractDraftService", () => {
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
   });
 
+  it("authorizes and audits a direct human-review read", async () => {
+    const context = harness();
+    const ready = await context.service.requestDraft(context.requestInput);
+    context.audit.append.mockClear();
+
+    const read = await context.service.getDraft({
+      actor,
+      correlationId: crypto.randomUUID(),
+      projectId,
+      requestId: ready.requestId,
+    });
+
+    expect(read).toMatchObject({
+      requestId: ready.requestId,
+      state: "ready",
+      revision: 1,
+      sourceDocumentVersion: 2,
+    });
+    expect(context.audit.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: "progress_contract_ai_draft.viewed",
+        scopeId: projectId,
+        targetId: ready.requestId,
+      }),
+    );
+  });
+
   it("does not return duplicate private draft content after Project ownership ends", async () => {
     const context = harness();
     await context.service.requestDraft(context.requestInput);
@@ -419,13 +446,13 @@ describe("ProgressContractDraftService", () => {
 
     expect(applied.contractState).toBe("draft");
     expect(context.progressContractService.propose).toHaveBeenCalledOnce();
-    expect(context.progressContractService.propose.mock.calls[0]?.[0].draft.components[0]).toMatchObject(
-      {
-        id: expect.any(String),
-        kind: "milestone",
-        confirmationMode: "human_confirmed",
-      },
-    );
+    expect(
+      context.progressContractService.propose.mock.calls[0]?.[0].draft.components[0],
+    ).toMatchObject({
+      id: expect.any(String),
+      kind: "milestone",
+      confirmationMode: "human_confirmed",
+    });
     expect(context.request).toMatchObject({
       state: "applied",
       appliedContractId: applied.contractId,

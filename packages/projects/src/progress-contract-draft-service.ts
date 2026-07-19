@@ -50,6 +50,14 @@ const ApplyRevisionSchema = RejectDraftSchema.extend({
   selectedRevision: z.number().int().positive(),
   calculationKind: z.enum(["weighted", "stage_gate"]),
 }).strict();
+const GetDraftSchema = z
+  .object({
+    actor: z.object({ userId: z.string().uuid(), active: z.literal(true) }).strict(),
+    correlationId: z.string().uuid(),
+    projectId: z.string().uuid(),
+    requestId: z.string().uuid(),
+  })
+  .strict();
 
 export type ProgressContractDraftReceipt = Readonly<{
   requestId: string;
@@ -57,6 +65,7 @@ export type ProgressContractDraftReceipt = Readonly<{
   revision: number | null;
   origin: "ai" | "human" | null;
   content: ProgressContractAiDraftOutput | null;
+  sourceDocumentVersion: number;
   failureCode: string | null;
   aiRunTraceId: string | null;
   appliedContractId: string | null;
@@ -84,18 +93,23 @@ type DraftSource = Readonly<{
   }>[];
 }>;
 type DraftSourceReader = Readonly<{
-  loadApprovedVersion(input: Readonly<{
-    actor: Readonly<{ userId: string; active: boolean }>;
-    projectId: string;
-    documentVersionId: string;
-    sourceChecksum: string;
-  }>): Promise<DraftSource>;
+  loadApprovedVersion(
+    input: Readonly<{
+      actor: Readonly<{ userId: string; active: boolean }>;
+      projectId: string;
+      documentVersionId: string;
+      sourceChecksum: string;
+    }>,
+  ): Promise<DraftSource>;
 }>;
 type IdentityReader = Pick<
   import("./criteria-review-reader.js").CriteriaReviewReader,
   "snapshotIn"
 >;
-type ContractProposer = Pick<import("./progress-contract-service.js").ProgressContractService, "propose">;
+type ContractProposer = Pick<
+  import("./progress-contract-service.js").ProgressContractService,
+  "propose"
+>;
 
 export class ProgressContractDraftService {
   private readonly client: DatabaseClient;
@@ -257,6 +271,39 @@ export class ProgressContractDraftService {
       data: { aiRunTraceId: route.runId },
     });
     return this.authorizedReceipt(parsed.actor, parsed.projectId, prepared.request.id);
+  }
+
+  async getDraft(command: unknown): Promise<ProgressContractDraftReceipt> {
+    const parsed = GetDraftSchema.parse(command);
+    return this.client.$transaction(
+      async (transaction) => {
+        const receipt = await this.authorizedReceiptIn(
+          transaction,
+          parsed.actor,
+          parsed.projectId,
+          parsed.requestId,
+        );
+        await this.audit.append(transaction, {
+          eventType: "progress_contract_ai_draft.viewed",
+          actor: { kind: "human", id: parsed.actor.userId },
+          effectiveSubjectId: parsed.actor.userId,
+          scopeType: "project",
+          scopeId: parsed.projectId,
+          targetType: "progress_contract_ai_draft_request",
+          targetId: parsed.requestId,
+          reason: "Opened AI-drafted Progress Contract for human review",
+          safeDiff: {
+            state: receipt.state,
+            revision: receipt.revision,
+            sourceDocumentVersion: receipt.sourceDocumentVersion,
+          },
+          correlationId: parsed.correlationId,
+          source: "api",
+        });
+        return receipt;
+      },
+      { isolationLevel: "Serializable" },
+    );
   }
 
   async reviseDraft(command: unknown): Promise<ProgressContractDraftReceipt> {
@@ -424,14 +471,8 @@ export class ProgressContractDraftService {
             500,
           );
         }
-        const persistedComponentIds = new Set(
-          contract.components.map((component) => component.id),
-        );
-        if (
-          mappedComponents.some(
-            ({ componentId }) => !persistedComponentIds.has(componentId),
-          )
-        ) {
+        const persistedComponentIds = new Set(contract.components.map((component) => component.id));
+        if (mappedComponents.some(({ componentId }) => !persistedComponentIds.has(componentId))) {
           throw new AppError(
             "PROGRESS_CONTRACT_AI_DRAFT_APPLY_UNSAFE",
             "errors.progressContractDraft.applyUnsafe",
@@ -602,7 +643,11 @@ export class ProgressContractDraftService {
       resourceId: projectId,
       at: this.options.now?.() ?? new Date(),
     });
-    if (identity === null || identity.projectId !== projectId || identity.primaryOwnerId !== actor.userId) {
+    if (
+      identity === null ||
+      identity.projectId !== projectId ||
+      identity.primaryOwnerId !== actor.userId
+    ) {
       throw new AppError(
         "PROGRESS_CONTRACT_AI_DRAFT_FORBIDDEN",
         "errors.progressContractDraft.forbidden",
@@ -630,41 +675,47 @@ export class ProgressContractDraftService {
     requestId: string,
   ): Promise<ProgressContractDraftReceipt> {
     return this.client.$transaction(
-      async (transaction) => {
-        await lockRequest(transaction, requestId);
-        let request = await transaction.progressContractAiDraftRequest.findUnique({
-          where: { id: requestId },
-        });
-        if (request === null || request.projectId !== projectId) {
-          throw new AppError(
-            "PROGRESS_CONTRACT_AI_DRAFT_NOT_FOUND",
-            "errors.progressContractDraft.notFound",
-            404,
-          );
-        }
-        await this.assertOwner(transaction, actor, projectId);
-        request = await recoverTraceLink(transaction, request);
-        const [latest, mappings] = await Promise.all([
-          transaction.progressContractAiDraftRevision.findFirst({
-            where: { requestId },
-            orderBy: { revision: "desc" },
-          }),
-          transaction.progressContractAiDraftAppliedComponent.findMany({
-            where: { requestId },
-            orderBy: { clientKey: "asc" },
-            select: { clientKey: true, componentId: true },
-          }),
-        ]);
-        return receiptFrom(
-          request,
-          latest,
-          latest === null
-            ? null
-            : ProgressContractAiDraftOutputSchema.parse(latest.content),
-          mappings,
-        );
-      },
+      (transaction) => this.authorizedReceiptIn(transaction, actor, projectId, requestId),
       { isolationLevel: "Serializable" },
+    );
+  }
+
+  private async authorizedReceiptIn(
+    transaction: Transaction,
+    actor: Actor,
+    projectId: string,
+    requestId: string,
+  ): Promise<ProgressContractDraftReceipt> {
+    await lockRequest(transaction, requestId);
+    let request = await transaction.progressContractAiDraftRequest.findUnique({
+      where: { id: requestId },
+      include: { documentVersion: { select: { version: true } } },
+    });
+    if (request === null || request.projectId !== projectId) {
+      throw new AppError(
+        "PROGRESS_CONTRACT_AI_DRAFT_NOT_FOUND",
+        "errors.progressContractDraft.notFound",
+        404,
+      );
+    }
+    await this.assertOwner(transaction, actor, projectId);
+    request = await recoverTraceLink(transaction, request);
+    const [latest, mappings] = await Promise.all([
+      transaction.progressContractAiDraftRevision.findFirst({
+        where: { requestId },
+        orderBy: { revision: "desc" },
+      }),
+      transaction.progressContractAiDraftAppliedComponent.findMany({
+        where: { requestId },
+        orderBy: { clientKey: "asc" },
+        select: { clientKey: true, componentId: true },
+      }),
+    ]);
+    return receiptFrom(
+      request,
+      latest,
+      latest === null ? null : ProgressContractAiDraftOutputSchema.parse(latest.content),
+      mappings,
     );
   }
 
@@ -788,30 +839,19 @@ function hashPayload(parsed: z.infer<typeof RequestDraftSchema>): string {
     .digest("hex");
 }
 
-function assertSourceReferences(
-  output: ProgressContractAiDraftOutput,
-  allowed: readonly string[],
-) {
+function assertSourceReferences(output: ProgressContractAiDraftOutput, allowed: readonly string[]) {
   const allowedSet = new Set(allowed);
   if (collectSourceReferences(output).some((reference) => !allowedSet.has(reference))) {
-    throw new AppError(
-      "AI_SOURCE_REFERENCE_INVALID",
-      "errors.ai.sourceReferenceInvalid",
-      502,
-    );
+    throw new AppError("AI_SOURCE_REFERENCE_INVALID", "errors.ai.sourceReferenceInvalid", 502);
   }
 }
 
 function collectSourceReferences(output: ProgressContractAiDraftOutput): string[] {
-  return [
-    ...new Set(output.components.flatMap((component) => component.sourceReferences)),
-  ].sort();
+  return [...new Set(output.components.flatMap((component) => component.sourceReferences))].sort();
 }
 
 function jsonStrings(value: unknown): string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string")
-    ? value
-    : [];
+  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
 }
 
 async function lockRequest(transaction: Transaction, requestId: string) {
@@ -824,10 +864,7 @@ async function lockRequest(transaction: Transaction, requestId: string) {
 }
 
 async function recoverTraceLink(transaction: Transaction, request: any) {
-  if (
-    request.aiRunTraceId !== null ||
-    !["ready", "applied", "rejected"].includes(request.state)
-  ) {
+  if (request.aiRunTraceId !== null || !["ready", "applied", "rejected"].includes(request.state)) {
     return request;
   }
   const aiRevision = await transaction.progressContractAiDraftRevision.findFirst({
@@ -846,10 +883,11 @@ async function recoverTraceLink(transaction: Transaction, request: any) {
     select: { id: true },
   });
   if (run === null) throw traceRecoveryPending();
-  return transaction.progressContractAiDraftRequest.update({
+  const updated = await transaction.progressContractAiDraftRequest.update({
     where: { id: request.id },
     data: { aiRunTraceId: run.id },
   });
+  return { ...updated, documentVersion: request.documentVersion };
 }
 
 function receiptFrom(
@@ -864,6 +902,7 @@ function receiptFrom(
     revision: revision?.revision ?? null,
     origin: revision?.origin ?? null,
     content,
+    sourceDocumentVersion: request.documentVersion.version,
     failureCode: request.failureCode ?? null,
     aiRunTraceId: request.aiRunTraceId ?? null,
     appliedContractId: request.appliedContractId ?? null,

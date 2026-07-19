@@ -70,4 +70,27 @@ describe("ProjectProgressPanel", () => {
     expect(markup).not.toContain("62.5%");
     expect(markup).not.toContain("<progress");
   });
+
+  it("integrates the AI proposal review into the existing Project progress screen", async () => {
+    const catalog = await getCatalog("en");
+    const markup = renderToStaticMarkup(
+      createElement(ProjectProgressPanel, {
+        catalog,
+        locale: "en",
+        view: base,
+        draftJourney: {
+          initialDraft: null,
+          initialOpen: false,
+          sourceRequest: {
+            documentVersionId: crypto.randomUUID(),
+            sourceChecksum: "a".repeat(64),
+            sourceLabel: "Approved Project document",
+            sourceVersion: 3,
+          },
+        },
+      }),
+    );
+    expect(markup).toContain(catalog["progressContract.review"]);
+    expect(markup).toContain(catalog["progressContract.activationRequired"]);
+  });
 });

@@ -15,6 +15,7 @@ import { GET, POST } from "./route.js";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const sessionId = "22222222-2222-4222-8222-222222222222";
+const draftRequestId = "33333333-3333-4333-8333-333333333333";
 
 afterEach(() => vi.clearAllMocks());
 
@@ -218,5 +219,129 @@ describe("daily-work same-origin gateway", () => {
         path: `/api/v1/updates/${acceptedEventId}/result`,
       }),
     );
+  });
+
+  it("forwards only strict Project Progress Contract draft commands", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      requestId: draftRequestId,
+      state: "ready",
+      revision: 1,
+      origin: "ai",
+      source: { label: "Approved Project document", version: 3 },
+      draft: {
+        components: [
+          {
+            position: 1,
+            kind: "deliverable",
+            name: "Approved release",
+            description: "Release accepted by the Product Owner.",
+            weight: 100,
+            baseline: null,
+            target: null,
+            unit: null,
+            direction: null,
+            acceptanceConditions: ["Product Owner acceptance"],
+            requiredEvidence: ["Acceptance record"],
+            confirmationMode: "human_confirmed",
+            sourceLabels: ["Approved Project document · version 3"],
+            automationHints: [],
+          },
+        ],
+        ambiguities: [],
+        clarificationQuestions: [],
+      },
+      contract: null,
+    });
+    const body = {
+      idempotencyKey: "progress-contract-draft-1",
+      documentVersionId: draftRequestId,
+      sourceChecksum: "a".repeat(64),
+      locale: "en",
+      timezone: "Asia/Riyadh",
+      effectiveAt: "2026-07-20T00:00:00Z",
+      reason: "Prepare the approved source for human review",
+    };
+
+    const response = await POST(
+      new Request(
+        `http://localhost:3000/api/daily-work/projects/${projectId}/progress-contract-drafts`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["projects", projectId, "progress-contract-drafts"],
+        }),
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: `/api/v1/projects/${projectId}/progress-contract-drafts`,
+        method: "POST",
+        body,
+      }),
+    );
+
+    const rejected = await POST(
+      new Request(
+        `http://localhost:3000/api/daily-work/projects/${projectId}/progress-contract-drafts`,
+        {
+          method: "POST",
+          body: JSON.stringify({ ...body, actorId: projectId, model: "gpt-5.5" }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["projects", projectId, "progress-contract-drafts"],
+        }),
+      },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
+  it("allows the protected draft read but not internal trace paths", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      requestId: draftRequestId,
+      state: "pending",
+      revision: null,
+      origin: null,
+      source: { label: "Approved Project document", version: 3 },
+      draft: null,
+      contract: null,
+    });
+    const response = await GET(
+      new Request(
+        `http://localhost:3000/api/daily-work/projects/${projectId}/progress-contract-drafts/${draftRequestId}`,
+      ),
+      {
+        params: Promise.resolve({
+          path: ["projects", projectId, "progress-contract-drafts", draftRequestId],
+        }),
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: `/api/v1/projects/${projectId}/progress-contract-drafts/${draftRequestId}`,
+      }),
+    );
+
+    const rejected = await GET(
+      new Request(
+        `http://localhost:3000/api/daily-work/projects/${projectId}/progress-contract-drafts/${draftRequestId}/trace`,
+      ),
+      {
+        params: Promise.resolve({
+          path: ["projects", projectId, "progress-contract-drafts", draftRequestId, "trace"],
+        }),
+      },
+    );
+    expect(rejected.status).toBe(404);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
   });
 });

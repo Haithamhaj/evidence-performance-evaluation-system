@@ -19,6 +19,16 @@ import {
   UpdateResultCardSchema,
   UploadedEvidenceSourceSchema,
 } from "../../../../platform/updates-evidence-contracts";
+import {
+  AppliedProgressContractDraftSchema,
+  ApplyProgressContractDraftInputSchema,
+  CreateProgressContractDraftInputSchema,
+  ProgressContractDecisionBodySchema,
+  PublicProgressContractDecisionResultSchema,
+  PublicProgressContractDraftSchema,
+  RejectProgressContractDraftInputSchema,
+  ReviseProgressContractDraftInputSchema,
+} from "../../../../platform/progress-contract-drafts";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -70,6 +80,20 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
       );
     }
     if (new URL(request.url).search !== "") return notFound();
+    if (
+      path.length === 4 &&
+      path[0] === "projects" &&
+      isUuid(path[1]) &&
+      path[2] === "progress-contract-drafts" &&
+      isUuid(path[3])
+    ) {
+      return json(
+        await fetchProtectedUpstream({
+          path: `/api/v1/projects/${path[1]}/progress-contract-drafts/${path[3]}`,
+          schema: PublicProgressContractDraftSchema,
+        }),
+      );
+    }
     if (path.length === 3 && path[0] === "updates" && isUuid(path[1]) && path[2] === "draft") {
       return json(
         await fetchProtectedUpstream({
@@ -114,6 +138,61 @@ export async function POST(request: Request, context: Context): Promise<NextResp
     return invalid();
   }
   try {
+    if (
+      path.length === 3 &&
+      path[0] === "projects" &&
+      isUuid(path[1]) &&
+      path[2] === "progress-contract-drafts"
+    ) {
+      return await post(
+        `/api/v1/projects/${path[1]}/progress-contract-drafts`,
+        CreateProgressContractDraftInputSchema.parse(body),
+        PublicProgressContractDraftSchema,
+      );
+    }
+    if (
+      path.length === 5 &&
+      path[0] === "projects" &&
+      isUuid(path[1]) &&
+      path[2] === "progress-contract-drafts" &&
+      isUuid(path[3])
+    ) {
+      if (path[4] === "revisions") {
+        return await post(
+          `/api/v1/projects/${path[1]}/progress-contract-drafts/${path[3]}/revisions`,
+          ReviseProgressContractDraftInputSchema.parse(body),
+          PublicProgressContractDraftSchema,
+        );
+      }
+      if (path[4] === "apply") {
+        return await post(
+          `/api/v1/projects/${path[1]}/progress-contract-drafts/${path[3]}/apply`,
+          ApplyProgressContractDraftInputSchema.parse(body),
+          AppliedProgressContractDraftSchema,
+        );
+      }
+      if (path[4] === "reject") {
+        return await post(
+          `/api/v1/projects/${path[1]}/progress-contract-drafts/${path[3]}/reject`,
+          RejectProgressContractDraftInputSchema.parse(body),
+          PublicProgressContractDraftSchema,
+        );
+      }
+    }
+    if (
+      path.length === 5 &&
+      path[0] === "projects" &&
+      isUuid(path[1]) &&
+      path[2] === "progress-contracts" &&
+      isUuid(path[3]) &&
+      ["submit", "approve"].includes(path[4]!)
+    ) {
+      return await post(
+        `/api/v1/projects/${path[1]}/progress-contracts/${path[3]}/${path[4]}`,
+        ProgressContractDecisionBodySchema.parse(body),
+        PublicProgressContractDecisionResultSchema,
+      );
+    }
     if (path.length === 2 && path[0] === "updates" && path[1] === "text") {
       return await post(
         "/api/v1/updates/text",
