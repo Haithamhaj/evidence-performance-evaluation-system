@@ -28,6 +28,8 @@ import {
 } from "@evaluation/projects";
 import { Module } from "@nestjs/common";
 
+import { createDeferredRuntimeAiRouter } from "../ai-routing/deferred-runtime-ai-router.js";
+import { resolveSystemAiScopeId } from "../ai-routing/system-ai-scope.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { PROJECTS_POLICY_DATABASE, ProjectPolicyGuard } from "./project-policy-loaders.js";
 import { ProgressContractDraftsController } from "./progress-contract-drafts.controller.js";
@@ -131,20 +133,14 @@ Module({
     {
       provide: PROJECTS_DRAFT_AI_RUNTIME,
       useFactory: async (client: ReturnType<typeof createDatabaseClient>) => {
-        const route = await client.aiRoute.findFirst({
-          where: { routeKey: "project.progress-contract.draft", level: "system" },
-          orderBy: { createdAt: "desc" },
-          select: { scopeId: true },
-        });
-        if (route === null) {
-          throw new Error("The Project Progress Contract draft route is not configured");
-        }
         return {
-          router: await createRuntimeAiRouter({
-            database: client,
-            secretResolver: new EnvironmentAiCredentialSecretResolver(),
-          }),
-          systemId: route.scopeId,
+          router: createDeferredRuntimeAiRouter(() =>
+            createRuntimeAiRouter({
+              database: client,
+              secretResolver: new EnvironmentAiCredentialSecretResolver(),
+            }),
+          ),
+          systemId: await resolveSystemAiScopeId(client, "project.progress-contract.draft"),
         };
       },
       inject: [PROJECTS_DATABASE],

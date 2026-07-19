@@ -127,6 +127,7 @@ describe("CI contract", () => {
     expect(job(workflow, "build")).toContain("pnpm build");
     const integrationJob = job(workflow, "integration");
     expect(integrationJob).toContain("needs: [quality, build]");
+    expect(integrationJob).toContain("pnpm infra:verify");
     expect(integrationJob).toContain("pnpm db:verify");
     expect(integrationJob).toContain("pnpm db:deploy");
     expect(integrationJob).toContain("Run integration tests with local service configuration");

@@ -87,6 +87,7 @@ jobs:
       - run: >-
           docker compose --env-file .env.example --env-file .env.test.example
           -f infra/docker/compose.yml up -d --wait
+      - run: pnpm infra:verify
       - run: pnpm db:verify
       - run: pnpm db:deploy
       - name: Run integration tests with local service configuration

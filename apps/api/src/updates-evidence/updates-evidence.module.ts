@@ -15,6 +15,8 @@ import {
 } from "@evaluation/updates-evidence";
 import { Module } from "@nestjs/common";
 
+import { createDeferredRuntimeAiRouter } from "../ai-routing/deferred-runtime-ai-router.js";
+import { resolveSystemAiScopeId } from "../ai-routing/system-ai-scope.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { EvidenceController } from "./evidence.controller.js";
 import { TimelineController, UpdatesController } from "./updates.controller.js";
@@ -41,18 +43,14 @@ Module({
     {
       provide: UPDATES_EVIDENCE_STRUCTURER,
       useFactory: async (client: ReturnType<typeof createDatabaseClient>) => {
-        const route = await client.aiRoute.findFirst({
-          where: { routeKey: "update.structure", level: "system" },
-          orderBy: { createdAt: "desc" },
-          select: { scopeId: true },
-        });
-        if (route === null) throw new Error("The update.structure system route is not configured");
-        const router = await createRuntimeAiRouter({
-          database: client,
-          secretResolver: new EnvironmentAiCredentialSecretResolver(),
-        });
+        const router = createDeferredRuntimeAiRouter(() =>
+          createRuntimeAiRouter({
+            database: client,
+            secretResolver: new EnvironmentAiCredentialSecretResolver(),
+          }),
+        );
         return new AiRouterUpdateStructurer(router, client, {
-          systemId: route.scopeId,
+          systemId: await resolveSystemAiScopeId(client, "update.structure"),
           timeoutMs: 60_000,
         });
       },
