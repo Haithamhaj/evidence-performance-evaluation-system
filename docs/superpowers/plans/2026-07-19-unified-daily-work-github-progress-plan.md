@@ -492,7 +492,7 @@ Expected: PASS; no rating fields, raw-activity progress input, secret, direct pr
 
 Capture Project selection, draft-with-question, evidence review sheet, confirmed result card, and Timeline in English and the existing Arabic/RTL interface.
 
-- [ ] **Step 6: Commit and push the checkpoint**
+- [x] **Step 6: Commit and push the checkpoint**
 
 ```bash
 git add packages/database/src/seed-pilot.ts tests/e2e/daily-update-journey.spec.ts docs/product project-state/PROJECT_STATE.md
@@ -500,7 +500,7 @@ git commit -m "test: verify corrected daily update journey"
 git push origin codex/phase-2-updates-evidence-readiness
 ```
 
-- [ ] **Step 7: Stop at the Product Owner gate**
+- [x] **Step 7: Stop at the Product Owner gate**
 
 The Product Owner reviews the running flow and screenshots. Do not begin Bundle 2 before approval because this gate validates the corrected daily-work journey that triggered the amendment.
 
