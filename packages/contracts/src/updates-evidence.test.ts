@@ -11,6 +11,7 @@ import {
   ReviseUpdateDraftInputSchema,
   StartTextUpdateInputSchema,
   StructuredUpdateDraftSchema,
+  UpdateComposerContextSchema,
   UpdateStructureAiOutputSchema,
 } from "./updates-evidence.js";
 
@@ -19,6 +20,30 @@ const workItemId = crypto.randomUUID();
 const sourceId = crypto.randomUUID();
 
 describe("updates and evidence contracts", () => {
+  it("describes Project-required Update scope with optional Workstream and Work Item choices", () => {
+    const workstreamId = crypto.randomUUID();
+    expect(
+      UpdateComposerContextSchema.parse({
+        projects: [
+          {
+            id: projectId,
+            name: "Atlas Delivery",
+            workstreams: [{ id: workstreamId, name: "API readiness" }],
+            workItems: [
+              {
+                id: workItemId,
+                title: "Verify acceptance flow",
+                workstreamId,
+              },
+            ],
+          },
+        ],
+      }),
+    ).toMatchObject({
+      projects: [{ id: projectId, workstreams: [{ id: workstreamId }] }],
+    });
+  });
+
   it("requires a Project while keeping Work Item and approved rule links conditional", () => {
     const valid = {
       idempotencyKey: crypto.randomUUID(),

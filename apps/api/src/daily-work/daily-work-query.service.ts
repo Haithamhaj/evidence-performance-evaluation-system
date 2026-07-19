@@ -14,6 +14,24 @@ export class DailyWorkQueryService {
     return this.workItems.listMyWork({ actorId });
   }
 
+  async updateContext(
+    actorId: string,
+  ): Promise<import("@evaluation/contracts").UpdateComposerContext> {
+    const [projects, workItems] = await Promise.all([
+      this.progress.listUpdateScopes({ actorId }),
+      this.workItems.listUpdatable({ actorId }),
+    ]);
+    const { UpdateComposerContextSchema } = await import("@evaluation/contracts");
+    return UpdateComposerContextSchema.parse({
+      projects: projects.map((project) => ({
+        ...project,
+        workItems: workItems
+          .filter((item) => item.projectId === project.id)
+          .map(({ id, title, workstreamId }) => ({ id, title, workstreamId })),
+      })),
+    });
+  }
+
   projects(actorId: string): Promise<unknown> {
     return this.progress.listPortfolio({ actorId });
   }

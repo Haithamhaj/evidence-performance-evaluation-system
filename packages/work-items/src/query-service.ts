@@ -109,6 +109,47 @@ export class WorkItemQueryService {
       nextCursor: null,
     });
   }
+
+  async listUpdatable(input: {
+    actorId: string;
+  }): Promise<
+    ReadonlyArray<
+      Readonly<{
+        id: string;
+        projectId: string;
+        workstreamId: string | null;
+        title: string;
+      }>
+    >
+  > {
+    const rows = await this.client.workItem.findMany({
+      where: {
+        project: {
+          members: {
+            some: {
+              employeeId: input.actorId,
+              startsAt: { lte: this.clock() },
+              OR: [{ endsAt: null }, { endsAt: { gt: this.clock() } }],
+            },
+          },
+        },
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      select: {
+        id: true,
+        projectId: true,
+        workstreamId: true,
+        title: true,
+      },
+      take: 200,
+    });
+    return rows.map(({ id, projectId, workstreamId, title }) => ({
+      id,
+      projectId,
+      workstreamId,
+      title,
+    }));
+  }
 }
 
 function calendarDayKey(value: Date, timeZone: string): string {

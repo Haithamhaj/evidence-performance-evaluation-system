@@ -33,6 +33,12 @@ export class DailyWorkController {
     return this.query.myWork(request.principal.userId);
   }
 
+  updateContext(
+    request: Request,
+  ): Promise<import("@evaluation/contracts").UpdateComposerContext> {
+    return this.query.updateContext(request.principal.userId);
+  }
+
   projects(request: Request): Promise<unknown> {
     return this.query.projects(request.principal.userId);
   }
@@ -108,6 +114,13 @@ Inject(DailyWorkQueryService)(DailyWorkController, undefined, 0);
 const myWork = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "myWork")!;
 Req()(DailyWorkController.prototype, "myWork", 0);
 Get("my-work")(DailyWorkController.prototype, "myWork", myWork);
+
+const updateContext = Object.getOwnPropertyDescriptor(
+  DailyWorkController.prototype,
+  "updateContext",
+)!;
+Req()(DailyWorkController.prototype, "updateContext", 0);
+Get("update-context")(DailyWorkController.prototype, "updateContext", updateContext);
 
 const projects = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "projects")!;
 Req()(DailyWorkController.prototype, "projects", 0);

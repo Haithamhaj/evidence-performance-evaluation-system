@@ -9,6 +9,50 @@ export class ProgressQueryService {
     this.client = client;
   }
 
+  async listUpdateScopes(
+    input: Readonly<{ actorId: string }>,
+  ): Promise<
+    ReadonlyArray<
+      Readonly<{
+        id: string;
+        name: string;
+        workstreams: ReadonlyArray<Readonly<{ id: string; name: string }>>;
+      }>
+    >
+  > {
+    const at = new Date();
+    return this.client.project.findMany({
+      where: {
+        status: { in: ["active", "paused"] },
+        members: {
+          some: {
+            employeeId: input.actorId,
+            startsAt: { lte: at },
+            OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+          },
+        },
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        workstreams: {
+          where: {
+            members: {
+              some: {
+                employeeId: input.actorId,
+                startsAt: { lte: at },
+                OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+              },
+            },
+          },
+          orderBy: [{ name: "asc" }, { id: "asc" }],
+          select: { id: true, name: true },
+        },
+      },
+    });
+  }
+
   async getProjectProgress(
     input: Readonly<{ actorId: string; projectId: string }>,
   ): Promise<unknown> {

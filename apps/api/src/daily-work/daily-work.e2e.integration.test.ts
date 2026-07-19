@@ -52,6 +52,15 @@ describe("daily work protected API contracts", () => {
     expect(myWork).toHaveBeenCalledWith(actorId);
   });
 
+  it("composes the Update context through public Project and Work Item readers", async () => {
+    const updateContext = vi.fn(async () => ({ projects: [] }));
+    const controller = new DailyWorkController({ updateContext } as never);
+
+    await controller.updateContext(request);
+
+    expect(updateContext).toHaveBeenCalledWith(actorId);
+  });
+
   it("rejects cross-Project contracts before domain mutation", () => {
     const service = { propose: vi.fn() };
     const controller = new ProgressContractsController(service as never);

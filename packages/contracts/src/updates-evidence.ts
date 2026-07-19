@@ -41,6 +41,36 @@ const UpdateContextSchema = z
   })
   .strict();
 
+export const UpdateComposerContextSchema = z
+  .object({
+    projects: z.array(
+      z
+        .object({
+          id: UuidSchema,
+          name: z.string().trim().min(1).max(200),
+          workstreams: z.array(
+            z
+              .object({
+                id: UuidSchema,
+                name: z.string().trim().min(1).max(200),
+              })
+              .strict(),
+          ),
+          workItems: z.array(
+            z
+              .object({
+                id: UuidSchema,
+                title: z.string().trim().min(1).max(200),
+                workstreamId: UuidSchema.nullable(),
+              })
+              .strict(),
+          ),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
 export const StartTextUpdateInputSchema = UpdateContextSchema.extend({
   idempotencyKey: UuidSchema,
   rawText: z.string().trim().min(1).max(50_000),
@@ -312,6 +342,7 @@ export const TimelineResponseSchema = z
   .strict();
 
 export type ExecutionMode = z.infer<typeof ExecutionModeSchema>;
+export type UpdateComposerContext = z.infer<typeof UpdateComposerContextSchema>;
 export type EvidenceSourceKind = z.infer<typeof EvidenceSourceKindSchema>;
 export type EvidenceVerificationState = z.infer<typeof EvidenceVerificationStateSchema>;
 export type ClarificationState = z.infer<typeof ClarificationStateSchema>;
