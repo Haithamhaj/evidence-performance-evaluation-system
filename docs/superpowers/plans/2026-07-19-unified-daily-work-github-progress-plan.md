@@ -795,9 +795,11 @@ git commit -m "feat: persist reviewed progress contract ai drafts"
 - Create: `apps/api/src/projects/progress-contract-drafts.controller.ts`
 - Create: `apps/api/src/projects/progress-contract-drafts.controller.test.ts`
 - Modify: `apps/api/src/projects/projects.module.ts`
-- Create: `apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.tsx`
-- Create: `apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.test.tsx`
-- Modify: `apps/web/src/app/[locale]/projects/[projectId]/project-progress-client.tsx`
+- Create: `apps/web/src/app/[locale]/projects/[projectId]/daily-work/progress-contract-draft-panel.tsx`
+- Create: `apps/web/src/app/[locale]/projects/[projectId]/daily-work/progress-contract-draft-panel.test.tsx`
+- Modify: `apps/web/src/app/[locale]/projects/[projectId]/daily-work/page.tsx`
+- Modify: `apps/web/src/app/[locale]/projects/[projectId]/daily-work/project-progress-panel.tsx`
+- Modify: `apps/web/src/app/api/daily-work/[...path]/route.ts`
 - Modify: `packages/localization/src/catalogs/en.json`
 - Modify: `packages/localization/src/catalogs/ar.json`
 - Create: `tests/ai-evals/project-progress-contract-draft.eval.test.ts`
@@ -807,7 +809,7 @@ git commit -m "feat: persist reviewed progress contract ai drafts"
 - Consumes: Task 4B public service and existing Progress Contract commands.
 - Produces: protected create/read/revise/reject/apply endpoints and a source-visible human review drawer/sheet.
 
-- [ ] **Step 1: Write failing API, UI, and AI evaluation tests**
+- [x] **Step 1: Write failing API, UI, and AI evaluation tests**
 
 ```tsx
 it("labels the proposal as an AI draft and requires human activation", async () => {
@@ -821,13 +823,13 @@ it("labels the proposal as an AI draft and requires human activation", async () 
 
 AI evaluations include authoritative source coverage, missing-information disclosure, prompt injection, Arabic/English mixed technical text, raw GitHub volume prohibition, rating-field prohibition, and deterministic-versus-human confirmation classification.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `pnpm exec vitest run --project unit apps/api/src/projects/progress-contract-drafts.controller.test.ts 'apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.test.tsx' && pnpm test:ai -- tests/ai-evals/project-progress-contract-draft.eval.test.ts`
 
 Expected: FAIL because the endpoints, panel, and evaluation suite do not exist.
 
-- [ ] **Step 3: Add protected endpoints**
+- [x] **Step 3: Add protected endpoints**
 
 Use:
 
@@ -839,19 +841,19 @@ Use:
 
 Every endpoint loads actor identity server-side, validates Project/document scope, emits an audit event, and returns public names/source labels rather than internal implementation details.
 
-- [ ] **Step 4: Implement the compact review panel**
+- [x] **Step 4: Implement the compact review panel**
 
 Show the approved source version, AI-draft label, components, KPI baseline/target/unit/direction, acceptance conditions, required evidence, confirmation mode, ambiguities, and clarification questions. The human can edit every proposed value, give a reason, save a new revision, apply it as a contract draft, submit it for approval, and activate it only through the existing protected approval action.
 
 Mobile uses a bottom sheet; desktop uses a right/left drawer matching direction. Preserve keyboard focus, visible focus, reduced motion, and mixed Arabic/English technical rendering.
 
-- [ ] **Step 5: Run API, AI, localization, UI, lint, and type checks**
+- [x] **Step 5: Run API, AI, localization, UI, lint, and type checks**
 
 Run: `pnpm exec vitest run --project unit apps/api/src/projects/progress-contract-drafts.controller.test.ts 'apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.test.tsx' packages/localization/src/catalog.test.ts && pnpm test:ai -- tests/ai-evals/project-progress-contract-draft.eval.test.ts && pnpm --filter @evaluation/api typecheck && pnpm --filter @evaluation/web lint && pnpm --filter @evaluation/web typecheck`
 
 Expected: PASS; the UI never represents an AI proposal as active and exposes no rating/progress override field.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/src/projects apps/web/src/app packages/localization/src/catalogs tests/ai-evals
