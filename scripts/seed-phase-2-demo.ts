@@ -48,11 +48,11 @@ async function main() {
       });
       await transaction.department.upsert({
         where: { id: ids.department },
-        update: { name: "فريق الذكاء الاصطناعي التجريبي" },
+        update: { name: "Phase 2 Demo AI Team" },
         create: {
           id: ids.department,
           key: "phase-2-demo-ai",
-          name: "فريق الذكاء الاصطناعي التجريبي",
+          name: "Phase 2 Demo AI Team",
           organizationId: ids.organization,
         },
       });
@@ -68,21 +68,21 @@ async function main() {
       });
       await transaction.user.upsert({
         where: { id: ids.owner },
-        update: { active: true },
+        update: { active: true, displayName: "Layan Employee" },
         create: {
           id: ids.owner,
           email: "phase2.employee@example.invalid",
-          displayName: "ليان الموظفة",
+          displayName: "Layan Employee",
           active: true,
         },
       });
       await transaction.user.upsert({
         where: { id: ids.manager },
-        update: { active: true },
+        update: { active: true, displayName: "Reem Manager" },
         create: {
           id: ids.manager,
           email: "phase2.manager@example.invalid",
-          displayName: "ريم المديرة",
+          displayName: "Reem Manager",
           active: true,
         },
       });
@@ -125,6 +125,9 @@ async function main() {
 
 async function seedProjects(transaction: any) {
   for (const [index, projectId] of [ids.projectA, ids.projectB].entries()) {
+    const projectName =
+      index === 0 ? "Evidence-supported Evaluation Platform" : "Internal Knowledge Assistant";
+    const projectDescription = "Demo project with an approved measurable progress rule.";
     await transaction.authorizationScope.upsert({
       where: { id: projectId },
       update: {},
@@ -137,15 +140,15 @@ async function seedProjects(transaction: any) {
     });
     await transaction.project.upsert({
       where: { id: projectId },
-      update: {},
+      update: { name: projectName, description: projectDescription },
       create: {
         id: projectId,
         organizationId: ids.organization,
         departmentId: ids.department,
         authorizationScopeId: projectId,
         authorizationScopeType: "project",
-        name: index === 0 ? "منصة التقييم المدعوم بالأدلة" : "مساعد المعرفة الداخلي",
-        description: "مشروع تجريبي بقاعدة تقدم قابلة للقياس.",
+        name: projectName,
+        description: projectDescription,
         status: "active",
         createdById: ids.manager,
       },
@@ -166,6 +169,8 @@ async function seedProjects(transaction: any) {
   }
   for (const [index, workstreamId] of workstreamIds.entries()) {
     const projectId = index < 3 ? ids.projectA : ids.projectB;
+    const workstreamName = `Workstream ${index + 1}`;
+    const workstreamDescription = "Operational workstream for the Phase 2 acceptance demo.";
     await transaction.authorizationScope.upsert({
       where: { id: workstreamId },
       update: {},
@@ -178,14 +183,14 @@ async function seedProjects(transaction: any) {
     });
     await transaction.workstream.upsert({
       where: { id: workstreamId },
-      update: {},
+      update: { name: workstreamName, description: workstreamDescription },
       create: {
         id: workstreamId,
         projectId,
         authorizationScopeId: workstreamId,
         authorizationScopeType: "workstream",
-        name: `مسار العمل ${index + 1}`,
-        description: "مسار عمل تشغيلي للعرض التجريبي.",
+        name: workstreamName,
+        description: workstreamDescription,
         status: "active",
         createdById: ids.manager,
       },
@@ -281,23 +286,26 @@ async function seedWorkItems(transaction: any) {
             : index < 12
               ? "blocked"
               : "planned";
+    const workItemCopy = {
+      title: `Demo Work Item ${index + 1}`,
+      description: "Daily operational deliverable linked to the project.",
+      requirements: ["Complete the agreed scope", "Document the verified result"],
+      acceptanceConditions: ["Project owner approval"],
+      blocker: status === "blocked" ? "Waiting for a scope decision" : null,
+      nextAction: "Update the execution status and attach supporting evidence",
+    };
     await transaction.workItem.upsert({
       where: { id },
-      update: {},
+      update: workItemCopy,
       create: {
         id,
         projectId,
         workstreamId,
-        title: `عنصر عمل تجريبي ${index + 1}`,
-        description: "مخرج تشغيلي يومي مرتبط بالمشروع.",
+        ...workItemCopy,
         status,
         priority: index < 4 ? "high" : "normal",
         assigneeId: ids.owner,
         dueAt: new Date(index < 9 ? "2026-07-18T18:00:00.000Z" : "2026-07-24T18:00:00.000Z"),
-        requirements: ["تنفيذ النطاق", "توثيق النتيجة"],
-        acceptanceConditions: ["اعتماد المالك"],
-        blocker: status === "blocked" ? "بانتظار قرار نطاق" : null,
-        nextAction: "تحديث حالة التنفيذ وإرفاق الدليل",
         createdById: ids.manager,
       },
     });
@@ -326,26 +334,26 @@ async function seedContracts(transaction: any, now: Date) {
               id: ids.componentKpi,
               position: 1,
               kind: "kpi",
-              name: "السيناريوهات المعتمدة",
-              description: "السيناريوهات التي اعتمدها مالك المنتج.",
+              name: "Accepted scenarios",
+              description: "Scenarios accepted by the Product Owner.",
               weight: 60,
               baseline: 0,
               target: 12,
-              unit: "سيناريو",
+              unit: "scenario",
               direction: "increase",
-              acceptanceConditions: ["اعتماد مالك المنتج"],
-              requiredEvidence: ["سجل القبول"],
+              acceptanceConditions: ["Product Owner approval"],
+              requiredEvidence: ["Acceptance record"],
               confirmationMode: "measured",
             },
             {
               id: ids.componentMilestone,
               position: 2,
               kind: "milestone",
-              name: "جاهزية العرض",
-              description: "العرض المحلي جاهز بالعربية والإنجليزية.",
+              name: "Demo readiness",
+              description: "The local Arabic and English demo is ready for review.",
               weight: 40,
-              acceptanceConditions: ["نجاح العرض المحلي"],
-              requiredEvidence: ["لقطات الشاشة"],
+              acceptanceConditions: ["Successful local walkthrough"],
+              requiredEvidence: ["Acceptance screenshots"],
               confirmationMode: "human_confirmed",
             },
           ],
@@ -388,10 +396,10 @@ async function seedContracts(transaction: any, now: Date) {
             id: ids.componentPending,
             position: 1,
             kind: "milestone",
-            name: "اعتماد النطاق",
-            description: "اعتماد نطاق المشروع الثاني.",
-            acceptanceConditions: ["اعتماد المالك"],
-            requiredEvidence: ["قرار النطاق"],
+            name: "Scope approval",
+            description: "Approval of the second project scope.",
+            acceptanceConditions: ["Project owner approval"],
+            requiredEvidence: ["Scope decision"],
             confirmationMode: "human_confirmed",
           },
         },

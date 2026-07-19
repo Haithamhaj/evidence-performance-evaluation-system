@@ -31,8 +31,14 @@ The result is operational Project documentation. It is not an employee rating, p
 - Arabic: `http://127.0.0.1:3300/ar/my-work`
 - English: `http://127.0.0.1:3300/en/my-work`
 - Use the existing authenticated local employee session.
-- Deterministic synthetic data includes two Projects, five Workstreams, twenty Work Items, and a versioned Project Progress Contract. The primary acceptance Project is `منصة التقييم المدعوم بالأدلة`.
+- Deterministic synthetic data includes two Projects, five Workstreams, twenty Work Items, and a versioned Project Progress Contract. The primary acceptance Project is `Evidence-supported Evaluation Platform`.
 - The browser acceptance fixture uses deterministic AI-shaped responses so screenshots and regression tests do not spend a provider call. The real application path remains the governed `update.structure` route through the AI Router.
+
+### Product Owner follow-up correction
+
+- Opening `/{locale}` now enters `/{locale}/my-work`; the Phase 0 diagnostics page is no longer presented as the employee home.
+- The English-pilot acceptance seed now uses English Project, Workstream, Work Item, person, and Progress Contract copy. Rerunning it refreshes only mutable demo records; a clean local seed creates immutable contracts in English from the start.
+- Arabic and English system labels, direction, status text, and date formatting follow the selected locale. Existing immutable contracts plus real employee-authored updates and evidence remain in their original language so the system does not silently rewrite historical or source content.
 
 ### Acceptance coverage and screenshots
 
