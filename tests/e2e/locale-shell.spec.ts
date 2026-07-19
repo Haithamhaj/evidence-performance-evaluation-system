@@ -1,9 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+import { installWorkspaceSession } from "./fixtures/workspace.js";
+
+test.beforeEach(async ({ context }) => installWorkspaceSession(context));
+
 test("redirects the root to the Arabic shell before rendering", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page).toHaveURL(/\/ar$/u);
+  await expect(page).toHaveURL(/\/ar\/my-work$/u);
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
@@ -11,6 +15,7 @@ test("redirects the root to the Arabic shell before rendering", async ({ page })
 test("renders the supported English shell as LTR", async ({ page }) => {
   await page.goto("/en");
 
+  await expect(page).toHaveURL(/\/en\/my-work$/u);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
 });
