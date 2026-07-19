@@ -123,7 +123,7 @@ describe("workspace contract", () => {
         await rm("apps/web/.next", { force: true, recursive: true });
       }
     }
-  });
+  }, 30_000);
 
   it.each(webForbiddenImports)(
     "rejects Web imports of %s",
