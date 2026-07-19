@@ -2,15 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Correct the daily Update journey, automate contract-aware GitHub Project progress without scoring employees, unify manual and voice sources, and prepare a neutral Evaluation Fact View.
+**Goal:** Prove the real Codex employee journey from an authoritative Project document through a live-AI-drafted, human-approved Progress Contract, then correct the daily Update journey, automate contract-aware GitHub Project progress without scoring employees, unify manual and voice sources, and prepare a neutral Evaluation Fact View.
 
-**Architecture:** Preserve the modular monolith and the completed Phase 0/1 and Phase 2 Slice 1/2 foundations. Extend `projects` to own repository bindings, deterministic Progress Contract rules, and official snapshots; extend `updates-evidence` to own source ingestion, employee-confirmed contribution evidence, and the shared Update lifecycle; compose My Work and Fact View reads in the API application layer.
+**Architecture:** Preserve the modular monolith and the completed Phase 0/1 and Phase 2 Slice 1/2 foundations. Extend `projects` to own document-derived Progress Contract draft proposals, human revisions, repository bindings, deterministic Progress Contract rules, and official snapshots; extend `updates-evidence` to own source ingestion, employee-confirmed contribution evidence, and the shared Update lifecycle; compose My Work and Fact View reads in the API application layer. Codex is a synthetic employee/contributor in a real local acceptance Project; Haitham remains the protected human Product Owner and approver.
 
 **Tech Stack:** Node.js 24.18.0, pnpm 11.13.0, TypeScript 7, NestJS 11, Next.js 16 App Router, React 19, Prisma/PostgreSQL, BullMQ/Redis, S3-compatible private storage, Zod 4, Vitest, Playwright.
 
 ## Global Constraints
 
 - The approved design is `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`.
+- The approved dogfood design is `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`.
+- The dogfood Project tracks the real repository and Phase 2 Pull Request; it is acceptance data, not a second product architecture.
+- The AI may draft a Progress Contract only from an exact, approved Project document version. The draft is never active until a human reviews, edits as needed, submits, and approves it through the existing versioned lifecycle.
+- A Progress Contract AI output must preserve source references and route/prompt/schema trace, and must never contain a rating, rank, productivity score, employee readiness value, or directly entered overall-progress percentage.
 - A Project is required for every Update; Workstream and Work Item are optional and must belong to the selected Project.
 - Operational Project/Workstream progress is never employee performance.
 - Raw task, Update, evidence, commit, PR, file, line, or activity counts never calculate progress.
@@ -41,6 +45,7 @@
 - `packages/updates-evidence/src/evidence-service.ts` — employee-reviewed evidence lifecycle.
 - `packages/updates-evidence/src/activity-reader.ts` — Update/evidence review and Timeline projections.
 - `packages/projects/src/progress-calculation-service.ts` — official Progress Contract calculation and snapshots.
+- `packages/projects/src/progress-contract-service.ts` — existing human-controlled `draft → pending_approval → active` lifecycle used after AI drafting.
 - `packages/projects/src/progress-query-service.ts` — authorized Project and Workstream context/progress reads.
 - `apps/api/src/daily-work/daily-work-query.service.ts` — application composition for My Work and Update context.
 - `apps/api/src/daily-work/daily-work.controller.ts` — protected daily-work read endpoints.
@@ -54,6 +59,12 @@
 
 ### Focused files to create
 
+- `packages/projects/src/progress-contract-draft-artifacts.ts` — versioned prompt/schema artifacts for document-derived contract proposals.
+- `packages/projects/src/progress-contract-draft-service.ts` — durable AI draft, append-only human revision, and apply-to-existing-contract lifecycle.
+- `apps/api/src/projects/progress-contract-drafts.controller.ts` — authorized AI draft/revision/apply endpoints.
+- `apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.tsx` — source-visible human review and correction UI.
+- `scripts/register-progress-contract-draft-ai-route.ts` — idempotent AI Router artifact and route registration.
+- `scripts/seed-codex-dogfood.ts` — deterministic local acceptance Project, Codex user, authoritative document snapshot, and Work Items.
 - `packages/contracts/src/github.ts` — repository binding, webhook disposition, and suggested-evidence contracts.
 - `packages/contracts/src/evaluation-facts.ts` — neutral source fact and interpretation schemas with no rating fields.
 - `packages/projects/src/github-binding-service.ts` — authorized, versioned repository bindings and deterministic mappings.
@@ -124,6 +135,40 @@ export type UpdateResultCard = Readonly<{
     | { state: "no_measurable_impact" }
     | { state: "insufficient_information"; missing: readonly string[] };
   confirmedAt: string;
+}>;
+
+export type ProgressContractDraftResult = Readonly<{
+  requestId: string;
+  revision: number;
+  projectId: string;
+  documentVersionId: string;
+  promptVersion: string;
+  schemaVersion: string;
+  modelRouteTraceId: string;
+  components: readonly Readonly<{
+    clientKey: string;
+    kind: "milestone" | "deliverable" | "operational_kpi";
+    name: string;
+    description: string;
+    weight: number | null;
+    baseline: number | null;
+    target: number | null;
+    unit: string | null;
+    direction: "increase" | "decrease" | "maintain" | null;
+    acceptanceConditions: readonly string[];
+    requiredEvidence: readonly string[];
+    confirmationMode: "deterministic" | "human_confirmed";
+    proposedSourceMappings: readonly Readonly<{
+      source: "github";
+      event: "pull_request_merged" | "required_checks_passed" | "release_published";
+      repositoryRef: string;
+      branchRef: string | null;
+      checkNames: readonly string[];
+    }>[];
+    sourceReferences: readonly string[];
+  }>[];
+  ambiguities: readonly string[];
+  clarificationQuestions: readonly string[];
 }>;
 ```
 
@@ -506,6 +551,405 @@ The Product Owner reviews the running flow and screenshots. Do not begin Bundle 
 
 ---
 
+## Bundle 1.5 — Codex Dogfood Project and AI-Drafted Progress Contract
+
+This bundle is approved by the Product Owner and precedes GitHub automation. It creates the same journey a real employee uses: an approved main document defines a Project, AI proposes measurable components, a human corrects and activates the contract, and only then may automated sources affect operational Project progress.
+
+### Task 4A: Define the bounded Progress Contract AI artifacts
+
+**Files:**
+
+- Modify: `packages/contracts/src/progress-contracts.ts`
+- Modify: `packages/contracts/src/index.ts`
+- Create: `packages/projects/src/progress-contract-draft-artifacts.ts`
+- Create: `packages/projects/src/progress-contract-draft-artifacts.test.ts`
+- Create: `scripts/register-progress-contract-draft-ai-route.ts`
+- Create: `scripts/register-progress-contract-draft-ai-route.test.ts`
+- Modify: `package.json`
+
+**Interfaces:**
+
+- Consumes: exact Project ID, approved `DocumentVersion` ID, bounded source excerpts, locale, timezone, previous active contract summary, and protected rules.
+- Produces: versioned `ProgressContractAiDraftOutputSchema`, prompt `project-progress-contract-draft.v1`, output schema `project-progress-contract-draft.v1`, and route purpose `project.progress-contract.draft`.
+
+- [ ] **Step 1: Write schema rejection tests**
+
+```ts
+it.each(["rating", "recommendedRating", "productivityScore", "employeeRank", "overallPercent"])(
+  "rejects forbidden field %s",
+  (field) => {
+    expect(() =>
+      ProgressContractAiDraftOutputSchema.parse({
+        ...VALID_OUTPUT,
+        [field]: 90,
+      }),
+    ).toThrow();
+  },
+);
+
+it("requires measurable KPI metadata and source references", () => {
+  expect(() =>
+    ProgressContractAiDraftOutputSchema.parse({
+      ...VALID_OUTPUT,
+      components: [{
+        clientKey: "quality-gate",
+        kind: "operational_kpi",
+        name: "Required checks",
+        description: "Approved required checks pass",
+        weight: null,
+        baseline: null,
+        target: 1,
+        unit: "boolean",
+        direction: "increase",
+        acceptanceConditions: ["Every allowlisted required check is successful"],
+        requiredEvidence: ["Verified GitHub check suite"],
+        confirmationMode: "deterministic",
+        sourceReferences: [],
+      }],
+    }),
+  ).toThrow();
+});
+```
+
+- [ ] **Step 2: Run focused tests and verify RED**
+
+Run: `pnpm exec vitest run --project unit packages/contracts/src/progress-contracts.test.ts packages/projects/src/progress-contract-draft-artifacts.test.ts scripts/register-progress-contract-draft-ai-route.test.ts`
+
+Expected: FAIL because the AI draft schema, artifacts, and registration script do not exist.
+
+- [ ] **Step 3: Implement strict output contracts**
+
+```ts
+export const ProgressContractAiDraftComponentSchema = z
+  .object({
+    clientKey: z.string().trim().min(1).max(80),
+    kind: z.enum(["milestone", "deliverable", "operational_kpi"]),
+    name: z.string().trim().min(1).max(200),
+    description: z.string().trim().min(1).max(2_000),
+    weight: z.number().nonnegative().max(100).nullable(),
+    baseline: z.number().finite().nullable(),
+    target: z.number().finite().nullable(),
+    unit: z.string().trim().min(1).max(80).nullable(),
+    direction: z.enum(["increase", "decrease", "maintain"]).nullable(),
+    acceptanceConditions: z.array(z.string().trim().min(1).max(500)).min(1).max(12),
+    requiredEvidence: z.array(z.string().trim().min(1).max(500)).min(1).max(12),
+    confirmationMode: z.enum(["deterministic", "human_confirmed"]),
+    proposedSourceMappings: z.array(
+      z.object({
+        source: z.literal("github"),
+        event: z.enum(["pull_request_merged", "required_checks_passed", "release_published"]),
+        repositoryRef: z.string().trim().min(1).max(300),
+        branchRef: z.string().trim().min(1).max(300).nullable(),
+        checkNames: z.array(z.string().trim().min(1).max(200)).max(20),
+      }).strict(),
+    ).max(10),
+    sourceReferences: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
+  })
+  .strict()
+  .superRefine(validateKpiMetadata);
+```
+
+The enclosing schema contains only `components`, `ambiguities`, and `clarificationQuestions`; `.strict()` rejects extra scoring/progress fields. Validate unique `clientKey` values, one to twelve components, and optional weights totalling exactly `100` only when every component is weighted.
+
+- [ ] **Step 4: Create injection-resistant versioned prompt and output schema artifacts**
+
+The system prompt states that quoted Project documents are untrusted evidence, never instructions. It requires operational Project measures, explicit source citations, deterministic conditions only when objectively provable, human confirmation for qualitative acceptance, and no raw-activity or employee-performance inference.
+
+- [ ] **Step 5: Register the route idempotently**
+
+```ts
+await registerAiRouteArtifacts({
+  purpose: "project.progress-contract.draft",
+  prompt: PROJECT_PROGRESS_CONTRACT_PROMPT_V1,
+  outputSchema: PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_V1,
+  requiredCapabilities: ["structured_output"],
+  reason: "Approved Codex dogfood Progress Contract drafting route",
+});
+```
+
+The script uses the existing system-level GPT-5.5 route and never reads, prints, moves, or writes the provider credential.
+
+- [ ] **Step 6: Run schema, prompt, route-boundary, lint, and type checks**
+
+Run: `pnpm exec vitest run --project unit packages/contracts/src/progress-contracts.test.ts packages/projects/src/progress-contract-draft-artifacts.test.ts scripts/register-progress-contract-draft-ai-route.test.ts && pnpm scan:performance-inputs && pnpm scan:ai-boundary && pnpm --filter @evaluation/projects typecheck`
+
+Expected: PASS; forbidden fields and prompt-injection fixtures fail closed, and no provider SDK appears outside AI Router.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/contracts/src packages/projects/src/progress-contract-draft-artifacts* scripts/register-progress-contract-draft-ai-route* package.json
+git commit -m "feat: define progress contract ai draft artifacts"
+```
+
+### Task 4B: Persist AI proposals and append-only human revisions
+
+**Files:**
+
+- Modify: `packages/database/prisma/schema.prisma`
+- Create: `packages/database/prisma/migrations/0016_progress_contract_ai_drafts/migration.sql`
+- Create: `packages/database/src/progress-contract-ai-draft-schema.integration.test.ts`
+- Create: `packages/documents/src/progress-contract-draft-source-reader.ts`
+- Create: `packages/documents/src/progress-contract-draft-source-reader.integration.test.ts`
+- Modify: `packages/documents/src/index.ts`
+- Create: `packages/projects/src/progress-contract-draft-service.ts`
+- Create: `packages/projects/src/progress-contract-draft-service.integration.test.ts`
+- Modify: `packages/projects/src/index.ts`
+
+**Interfaces:**
+
+- Consumes: public Documents-owned source reader, AI Router interface, exact artifact pins, and existing `ProgressContractService`.
+- Produces: idempotent `requestDraft`, `reviseDraft`, `rejectDraft`, and `applyRevision` commands. Applying creates an ordinary Progress Contract in `draft`; it never submits or approves it.
+
+- [ ] **Step 1: Write failing migration and lifecycle tests**
+
+```ts
+it("stores the AI revision before a human revision and preserves both", async () => {
+  const ready = await service.requestDraft(REQUEST);
+  const edited = await service.reviseDraft({
+    actor: PRODUCT_OWNER,
+    requestId: ready.requestId,
+    expectedRevision: 1,
+    content: HUMAN_EDIT,
+    reason: "Clarified the accepted quality gate",
+  });
+  expect(edited.revision).toBe(2);
+  expect(await db.progressContractAiDraftRevision.count({
+    where: { requestId: ready.requestId },
+  })).toBe(2);
+});
+
+it("cannot activate a contract by applying an AI draft", async () => {
+  const result = await service.applyRevision(APPLY_REQUEST);
+  expect(result.contractState).toBe("draft");
+  expect(await db.progressContract.findUnique({ where: { id: result.contractId } }))
+    .toMatchObject({ status: "draft" });
+});
+```
+
+- [ ] **Step 2: Run focused tests and verify RED**
+
+Run: `pnpm exec vitest run --project integration packages/database/src/progress-contract-ai-draft-schema.integration.test.ts packages/documents/src/progress-contract-draft-source-reader.integration.test.ts packages/projects/src/progress-contract-draft-service.integration.test.ts`
+
+Expected: FAIL because migration `0016`, the public source reader, and draft service do not exist.
+
+- [ ] **Step 3: Add durable request and immutable revision records**
+
+Migration `0016` adds:
+
+- `ProgressContractAiDraftRequest`: Project/document identity, requester, idempotency key and payload hash, state, artifact pins, AI run trace ID, failure code, and applied contract ID.
+- `ProgressContractAiDraftRevision`: request ID, monotonically increasing revision, validated content JSON, origin `ai|human`, editor, reason, source references, and creation time.
+- uniqueness on `(request_id, revision)` and `(requested_by_id, idempotency_key)`;
+- restrictive foreign keys for Project/document/contract history and indexes on Project, state, and created time.
+
+The request state may transition `pending → ready|failed → applied|rejected`; content changes only through a new revision. No cascade deletes are allowed.
+
+- [ ] **Step 4: Expose approved document content through the Documents public interface**
+
+`ProgressContractDraftSourceReader.loadApprovedVersion()` verifies Project ownership, document status/version, source checksum, private access, bounded extraction, and returns quoted untrusted sections plus immutable source references. Projects code must not read Documents tables directly.
+
+- [ ] **Step 5: Implement idempotent live AI drafting**
+
+```ts
+const route = await this.aiRouter.invoke({
+  purpose: "project.progress-contract.draft",
+  projectId: input.projectId,
+  promptVersion: PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
+  outputSchemaVersion: PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
+  input: buildBoundedContractDraftInput(source, previousContract),
+});
+const output = ProgressContractAiDraftOutputSchema.parse(route.output);
+return this.storeReadyRevision({ request, routeTraceId: route.traceId, output });
+```
+
+Persist the request before the call. On timeout/provider/schema failure, persist only a safe failure code and retain the source request for retry. Never persist or log provider credentials. A repeated idempotency key with a different payload is rejected.
+
+- [ ] **Step 6: Implement revision and application authorization**
+
+Only an authorized Project/Product Owner may revise, reject, or apply. Applying a selected human-visible revision maps stable `clientKey` values to server-generated component IDs and calls `ProgressContractService.propose()`. Submission and activation remain the existing separate human commands.
+
+- [ ] **Step 7: Run migration, lifecycle, authorization, retry, and type checks**
+
+Run: `pnpm db:verify && pnpm exec vitest run --project integration packages/database/src/progress-contract-ai-draft-schema.integration.test.ts packages/documents/src/progress-contract-draft-source-reader.integration.test.ts packages/projects/src/progress-contract-draft-service.integration.test.ts && pnpm --filter @evaluation/documents typecheck && pnpm --filter @evaluation/projects typecheck`
+
+Expected: PASS; stale revisions, cross-Project documents, unapproved document versions, duplicate retries, direct activation, and unauthorized edits are rejected.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add packages/database packages/documents/src packages/projects/src
+git commit -m "feat: persist reviewed progress contract ai drafts"
+```
+
+### Task 4C: Add the human review and activation journey
+
+**Files:**
+
+- Create: `apps/api/src/projects/progress-contract-drafts.controller.ts`
+- Create: `apps/api/src/projects/progress-contract-drafts.controller.test.ts`
+- Modify: `apps/api/src/projects/projects.module.ts`
+- Create: `apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.tsx`
+- Create: `apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.test.tsx`
+- Modify: `apps/web/src/app/[locale]/projects/[projectId]/project-progress-client.tsx`
+- Modify: `packages/localization/src/catalogs/en.json`
+- Modify: `packages/localization/src/catalogs/ar.json`
+- Create: `tests/ai-evals/project-progress-contract-draft.eval.test.ts`
+
+**Interfaces:**
+
+- Consumes: Task 4B public service and existing Progress Contract commands.
+- Produces: protected create/read/revise/reject/apply endpoints and a source-visible human review drawer/sheet.
+
+- [ ] **Step 1: Write failing API, UI, and AI evaluation tests**
+
+```tsx
+it("labels the proposal as an AI draft and requires human activation", async () => {
+  render(<ProgressContractDraftPanel {...READY_PROPS} />);
+  expect(screen.getByText(catalog["progressContract.aiDraftLabel"])).toBeVisible();
+  expect(screen.getByRole("button", { name: catalog["progressContract.applyAsDraft"] }))
+    .toBeVisible();
+  expect(screen.queryByText(catalog["progressContract.active"])).not.toBeInTheDocument();
+});
+```
+
+AI evaluations include authoritative source coverage, missing-information disclosure, prompt injection, Arabic/English mixed technical text, raw GitHub volume prohibition, rating-field prohibition, and deterministic-versus-human confirmation classification.
+
+- [ ] **Step 2: Run tests and verify RED**
+
+Run: `pnpm exec vitest run --project unit apps/api/src/projects/progress-contract-drafts.controller.test.ts 'apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.test.tsx' && pnpm test:ai -- tests/ai-evals/project-progress-contract-draft.eval.test.ts`
+
+Expected: FAIL because the endpoints, panel, and evaluation suite do not exist.
+
+- [ ] **Step 3: Add protected endpoints**
+
+Use:
+
+- `POST /api/v1/projects/:projectId/progress-contract-drafts`
+- `GET /api/v1/projects/:projectId/progress-contract-drafts/:requestId`
+- `POST /api/v1/projects/:projectId/progress-contract-drafts/:requestId/revisions`
+- `POST /api/v1/projects/:projectId/progress-contract-drafts/:requestId/apply`
+- `POST /api/v1/projects/:projectId/progress-contract-drafts/:requestId/reject`
+
+Every endpoint loads actor identity server-side, validates Project/document scope, emits an audit event, and returns public names/source labels rather than internal implementation details.
+
+- [ ] **Step 4: Implement the compact review panel**
+
+Show the approved source version, AI-draft label, components, KPI baseline/target/unit/direction, acceptance conditions, required evidence, confirmation mode, ambiguities, and clarification questions. The human can edit every proposed value, give a reason, save a new revision, apply it as a contract draft, submit it for approval, and activate it only through the existing protected approval action.
+
+Mobile uses a bottom sheet; desktop uses a right/left drawer matching direction. Preserve keyboard focus, visible focus, reduced motion, and mixed Arabic/English technical rendering.
+
+- [ ] **Step 5: Run API, AI, localization, UI, lint, and type checks**
+
+Run: `pnpm exec vitest run --project unit apps/api/src/projects/progress-contract-drafts.controller.test.ts 'apps/web/src/app/[locale]/projects/[projectId]/progress-contract-draft-panel.test.tsx' packages/localization/src/catalog.test.ts && pnpm test:ai -- tests/ai-evals/project-progress-contract-draft.eval.test.ts && pnpm --filter @evaluation/api typecheck && pnpm --filter @evaluation/web lint && pnpm --filter @evaluation/web typecheck`
+
+Expected: PASS; the UI never represents an AI proposal as active and exposes no rating/progress override field.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/api/src/projects apps/web/src/app packages/localization/src/catalogs tests/ai-evals
+git commit -m "feat: review and activate document-derived progress contracts"
+```
+
+### Task 4D: Seed and run the real Codex employee journey
+
+**Files:**
+
+- Create: `scripts/seed-codex-dogfood.ts`
+- Create: `scripts/seed-codex-dogfood.test.ts`
+- Modify: `package.json`
+- Create: `tests/e2e/codex-dogfood-contract.spec.ts`
+- Create: `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md`
+- Create: `docs/product/screenshots/phase-2-production/codex-dogfood-contract/`
+- Modify: `docs/product/PHASE_2_FEATURE_MAP.md`
+- Modify: `project-state/PROJECT_STATE.md`
+
+**Interfaces:**
+
+- Consumes: this repository at an exact commit, approved Project documents, the live `project.progress-contract.draft` AI route, Codex acceptance identity, and existing human approval lifecycle.
+- Produces: one deterministic local Project named `Evidence Performance System — Phase 2`, one synthetic contributor `Codex`, its authoritative source snapshot, real Work Items for remaining plan tasks, an AI proposal, and a human-reviewable activation checkpoint.
+
+- [ ] **Step 1: Write failing seed safety tests**
+
+```ts
+it("is rerunnable without rewriting approved history", async () => {
+  await seedCodexDogfood(INPUT);
+  const before = await approvedHistory();
+  await seedCodexDogfood(INPUT);
+  expect(await approvedHistory()).toEqual(before);
+});
+
+it("creates no employee score or raw-activity progress rule", async () => {
+  await seedCodexDogfood(INPUT);
+  expect(await forbiddenPerformanceRows()).toEqual([]);
+  expect(await rawActivityRules()).toEqual([]);
+});
+```
+
+- [ ] **Step 2: Run seed tests and verify RED**
+
+Run: `pnpm exec vitest run --project unit scripts/seed-codex-dogfood.test.ts`
+
+Expected: FAIL because the dogfood seed does not exist.
+
+- [ ] **Step 3: Implement a deterministic local-only seed**
+
+The seed uses public domain services, never raw destructive deletes. It creates:
+
+- synthetic user `Codex` with employee/contributor access;
+- Haitham/Product Owner approval identity already present in local acceptance data;
+- Project `Evidence Performance System — Phase 2`;
+- optional Workstream `Phase 2 Delivery`;
+- Work Items mapped to incomplete tasks in this plan;
+- an immutable approved document version containing exact file paths, repository commit SHA, content hashes, and Pull Request reference.
+
+The seed refuses to run outside the explicit local acceptance environment and never reads or copies the OpenAI credential.
+
+- [ ] **Step 4: Register and call live GPT-5.5 through AI Router**
+
+Run: `pnpm ai:register:project-progress-contract && pnpm dogfood:seed && pnpm dogfood:draft-contract`
+
+Expected: a validated AI proposal is stored with source references and a redacted model-route trace. The command output contains IDs/status only, never source content or credentials.
+
+- [ ] **Step 5: Run the employee-equivalent browser journey**
+
+```ts
+test("Codex reviews the real Project contract proposal", async ({ page }) => {
+  await loginAs(page, "product_owner");
+  await page.goto("/en/projects");
+  await page.getByRole("link", { name: "Evidence Performance System — Phase 2" }).click();
+  await page.getByRole("button", { name: "Review AI contract draft" }).click();
+  await expect(page.getByText("AI draft — human approval required")).toBeVisible();
+  await expect(page.getByText("Required quality gate satisfied")).toBeVisible();
+});
+```
+
+Run: `pnpm test:e2e -- tests/e2e/codex-dogfood-contract.spec.ts`
+
+Expected: PASS in English and Arabic/RTL at desktop and 390px mobile.
+
+- [ ] **Step 6: Run bounded critical reviews**
+
+Perform one specification-compliance review and one security/code-quality review covering AI boundary, prompt injection, document authorization, artifact/version trace, migration, audit, append-only revision history, and human activation. Fix only confirmed P0/P1 findings in one bounded cycle, then re-review corrected findings only.
+
+- [ ] **Step 7: Capture and document the acceptance evidence**
+
+Record exact commit/document version, redacted AI route/prompt/schema versions, proposed components, human edits, activation state, known missing behavior, and screenshots. Do not include secrets or unredacted private content.
+
+- [ ] **Step 8: Commit and push the checkpoint**
+
+```bash
+git add scripts package.json tests/e2e docs/acceptance docs/product project-state/PROJECT_STATE.md
+git commit -m "test: prove the codex project contract journey"
+git push origin codex/phase-2-updates-evidence-readiness
+```
+
+- [ ] **Step 9: Stop only at the protected human activation gate**
+
+Haitham reviews the live AI proposal and may edit it. GitHub automation begins only after Haitham activates the selected Progress Contract version. AI and Codex cannot approve on the human’s behalf.
+
+---
+
 ## Bundle 2 — Contract-Aware GitHub Automation
 
 ### Task 5: Add versioned repository bindings and deterministic rule mappings
@@ -515,7 +959,7 @@ The Product Owner reviews the running flow and screenshots. Do not begin Bundle 
 - Create: `packages/contracts/src/github.ts`
 - Modify: `packages/contracts/src/index.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0016_github_contract_sources/migration.sql`
+- Create: `packages/database/prisma/migrations/0017_github_contract_sources/migration.sql`
 - Create: `packages/database/src/github-contract-source-schema.integration.test.ts`
 - Create: `packages/projects/src/github-binding-service.ts`
 - Create: `packages/projects/src/github-binding-service.integration.test.ts`
@@ -551,7 +995,7 @@ it("rejects a mapping to a component outside the selected active contract", asyn
 
 Run: `pnpm exec vitest run --project integration packages/database/src/github-contract-source-schema.integration.test.ts packages/projects/src/github-binding-service.integration.test.ts`
 
-Expected: FAIL because migration `0015` and `GitHubBindingService` do not exist.
+Expected: FAIL because migration `0017` and `GitHubBindingService` do not exist.
 
 - [ ] **Step 3: Add append-only binding, mapping, event, disposition, identity, and suggestion tables**
 
@@ -840,21 +1284,23 @@ git commit -m "feat: review github contribution suggestions"
 
 **Files:**
 
-- Modify: `packages/database/src/seed-pilot.ts`
+- Modify: `scripts/seed-codex-dogfood.ts`
 - Create: `tests/e2e/github-project-progress.spec.ts`
 - Create: `tests/e2e/github-contribution-suggestion.spec.ts`
+- Create: `tests/e2e/codex-dogfood-github-live.spec.ts`
 - Create: `docs/product/screenshots/phase-2-production/github-automation/`
+- Modify: `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md`
 - Modify: `docs/product/PHASE_2_FEATURE_MAP.md`
 - Modify: `project-state/PROJECT_STATE.md`
 
 **Interfaces:**
 
 - Consumes: Tasks 5–8.
-- Produces: deterministic webhook-to-progress demo, separate employee evidence demo, screenshots, reviews, and pushed checkpoint.
+- Produces: deterministic webhook-to-progress demo, separate employee evidence demo, a real repository acceptance run when the GitHub App is installed, screenshots, reviews, and pushed checkpoint.
 
-- [ ] **Step 1: Seed one mapped deterministic event and one ambiguous event**
+- [ ] **Step 1: Bind deterministic fixtures to the active Codex dogfood contract**
 
-The mapped event proves an approved milestone condition. The ambiguous event produces `review_required` and leaves official progress unchanged.
+The mapped fixture proves one condition from the active human-approved dogfood contract. The ambiguous fixture produces `review_required` and leaves official progress unchanged. No second synthetic Project or contract is created.
 
 - [ ] **Step 2: Run GitHub security, integration, and browser flows**
 
@@ -870,17 +1316,43 @@ Review only: webhook authentication, minimum permissions, idempotency/reconcilia
 
 Capture automatic Project activity/progress, ambiguous review state, employee suggestion sheet, edited claim, confirmed evidence, and Timeline.
 
-- [ ] **Step 5: Commit and push**
+- [ ] **Step 5: Commit and push the deterministic checkpoint**
 
 ```bash
-git add packages/database/src/seed-pilot.ts tests/e2e docs/product project-state/PROJECT_STATE.md
+git add scripts/seed-codex-dogfood.ts tests/e2e docs/acceptance docs/product project-state/PROJECT_STATE.md
 git commit -m "test: verify contract-aware github automation"
 git push origin codex/phase-2-updates-evidence-readiness
 ```
 
-- [ ] **Step 6: Stop at the Product Owner gate**
+- [ ] **Step 6: Stop only if GitHub App installation needs direct human action**
 
-The Product Owner verifies that automation tracks the Project while employee contribution still requires confirmation.
+If the repository does not yet have the governed GitHub App installed, present the exact callback URL, webhook URL, required minimum permissions, and generated public setup metadata. Do not simulate connection, request a personal access token, expose secrets, or proceed with a fake live result.
+
+- [ ] **Step 7: Reconcile the real repository and Pull Request**
+
+After installation, bind `Haithamhaj/evidence-performance-evaluation-system`, the approved Phase 2 base/head branches, Pull Request #5 or its approved successor, and allowlisted required checks. Run reconciliation, then confirm:
+
+- a verified real event appears once in Project activity;
+- only a pre-approved deterministic rule can create a new Project snapshot;
+- an ambiguous real event enters Project review without changing official progress;
+- Codex receives a personal contribution suggestion only after verified identity mapping;
+- the suggestion stays outside employee facts until Codex confirms it.
+
+Run: `pnpm test:e2e -- tests/e2e/codex-dogfood-github-live.spec.ts`
+
+Expected: PASS against the installed GitHub App and real repository. The test must fail or skip with an explicit external-gate code when installation is absent; it must never silently use fixtures.
+
+- [ ] **Step 8: Complete one real Codex Update**
+
+As Codex, open My Work, select the dogfood Project, describe one actual implemented bundle through live GPT-5.5, review/edit the structured draft, attach or confirm one source, and confirm the Update. Verify comparison with the previous accepted state, the Project result card, evidence state, next action, documentation gaps, and append-only Timeline.
+
+- [ ] **Step 9: Finalize the dogfood acceptance record and push**
+
+Update `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md` with redacted live event identities/URLs, exact contract version, before/after Project snapshots, Codex’s confirmed Update, screenshots, and all missing/partial behavior. Commit and push the record.
+
+- [ ] **Step 10: Stop at the Product Owner gate**
+
+The Product Owner verifies that automation tracks the Project, the employee journey matches normal daily use, and personal contribution still requires confirmation. Do not merge Phase 2 at this gate.
 
 ---
 
@@ -892,7 +1364,7 @@ The Product Owner verifies that automation tracks the Project while employee con
 
 - Modify: `packages/contracts/src/updates-evidence.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0017_update_source_attachments/migration.sql`
+- Create: `packages/database/prisma/migrations/0018_update_source_attachments/migration.sql`
 - Modify: `packages/updates-evidence/src/update-service.ts`
 - Modify: `packages/updates-evidence/src/scope-readers.ts`
 - Create: `packages/updates-evidence/src/update-source-loader.ts`
@@ -926,7 +1398,7 @@ Expected: FAIL because `UpdateSource` currently stores only raw text/voice and h
 
 - [ ] **Step 3: Add immutable source attachments**
 
-Migration `0016` adds `UpdateSourceAttachment` with source kind, uploaded source or bounded text/URL, checksum, position, and source version. Enforce exactly one storage representation per attachment and `RESTRICT` history.
+Migration `0018` adds `UpdateSourceAttachment` with source kind, uploaded source or bounded text/URL, checksum, position, and source version. Enforce exactly one storage representation per attachment and `RESTRICT` history.
 
 - [ ] **Step 4: Load safe AI input**
 
@@ -955,7 +1427,7 @@ git commit -m "feat: unify manual update sources"
 
 - Modify: `packages/contracts/src/updates-evidence.ts`
 - Modify: `packages/database/prisma/schema.prisma`
-- Create: `packages/database/prisma/migrations/0018_voice_update_sources/migration.sql`
+- Create: `packages/database/prisma/migrations/0019_voice_update_sources/migration.sql`
 - Create: `packages/updates-evidence/src/voice-update-service.ts`
 - Create: `packages/updates-evidence/src/voice-update-service.integration.test.ts`
 - Create: `packages/updates-evidence/src/voice-transcriber.ts`
@@ -1301,10 +1773,14 @@ Do not merge Phase 2 or begin the complete Phase 3 self-assessment/manager-asses
 
 ## Plan self-review checklist
 
+- [ ] The real Codex employee Project uses an immutable approved source version and does not create a second architecture or performance record.
+- [ ] Live AI drafts the Progress Contract through AI Router with versioned artifacts, source references, strict output validation, and no activation authority.
+- [ ] Human revision, application, submission, and activation remain explicit, audited steps; AI and Codex cannot cross the protected approval gate.
 - [ ] Every Update requires Project and permits null Workstream/Work Item.
 - [ ] The first AI response contains a readable draft; clarification is conditional and one question at a time.
 - [ ] Raw input, AI drafts, employee edits, evidence confirmation, Update confirmation, and Timeline events remain distinct and append-only.
 - [ ] GitHub automation proves only mapped contract conditions and never uses volume.
+- [ ] The live GitHub acceptance uses a GitHub App with minimum permissions and cannot silently fall back to fixtures.
 - [ ] Project progress and employee contribution evidence are separate lifecycles.
 - [ ] Unconfirmed GitHub suggestions do not enter employee facts.
 - [ ] Manual text, image, file, code, CLI, URL, snapshot, and voice use the same Update lifecycle.

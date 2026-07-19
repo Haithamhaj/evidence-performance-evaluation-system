@@ -279,23 +279,25 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 > **REPLANNED — DO NOT EXECUTE T030–T044 IN THE ORIGINAL ORDER**
 >
-> The product owner approved the Product Direction Reset production structure on 2026-07-18 and the corrected unified daily-work/GitHub specification on 2026-07-19. T030–T044 remain traceability references. The active design is `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`, and the active implementation plan is `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
+> The product owner approved the Product Direction Reset production structure on 2026-07-18, the corrected unified daily-work/GitHub specification on 2026-07-19, and the real Codex dogfood acceptance design on 2026-07-19. T030–T044 remain traceability references. The active designs are `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md` and `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`; the active implementation plan is `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
 
 ## Approved execution mapping
 
 1. Slice 1 — My Work + Work Items + Progress Contract foundation.
 2. Slice 2 correction — Project-required, Work-Item-optional, draft-first unified daily Update.
-3. Slice 3 — Contract-aware GitHub Project automation plus separate contribution suggestions.
-4. Slice 4 — Unified manual and voice sources.
-5. Slice 5 — Check-ins and monthly readiness.
-6. Slice 6 — Manager operational view.
-7. Slice 7 — Evaluation Fact View preparation.
+3. Slice 2.5 — Codex dogfood Project + approved source snapshot + live-AI contract proposal + protected human activation.
+4. Slice 3 — Contract-aware GitHub Project automation plus separate contribution suggestions.
+5. Slice 4 — Unified manual and voice sources.
+6. Slice 5 — Check-ins and monthly readiness.
+7. Slice 6 — Manager operational view.
+8. Slice 7 — Evaluation Fact View preparation.
 
 Execution status:
 
 - **Slice 1 complete:** production My Work, bounded Work Items, versioned document-sourced Progress Contracts, official source-linked progress snapshots, protected API composition, Arabic/English UI, local synthetic demo, and desktop/mobile screenshots.
 - **Slice 2 complete:** interactive Arabic/English text updates, one-question-at-a-time live AI through the existing AI Router, employee-edited drafts, private manual evidence, mandatory evidence/update confirmation, and append-only source-labelled Timeline. The runnable local demo and desktop/mobile screenshots passed the Slice 2 gate checks on 2026-07-18.
-- **Corrected Slice 2 gated next:** replace the Work-Item-first question form with the approved Project-first draft-first journey before beginning GitHub automation.
+- **Corrected Slice 2 complete:** Project-required, Work-Item-optional, draft-first journey verified and accepted.
+- **Slice 2.5 approved next:** create the real Codex acceptance Project, immutable approved source document, governed AI proposal, append-only human revisions, and protected activation gate before GitHub automation.
 
 Mapping:
 

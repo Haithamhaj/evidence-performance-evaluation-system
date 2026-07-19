@@ -1129,17 +1129,18 @@ Exit criteria:
 
 ## Phase 2 — Updates, Evidence, GitHub, and Readiness
 
-**Approved Product Direction Reset:** The original T030–T044 execution order is superseded. The 2026-07-19 daily-work correction further supersedes the affected Slice 2–4 behavior. Use `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`, `docs/product/PHASE_2_FEATURE_MAP.md`, and `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
+**Approved Product Direction Reset:** The original T030–T044 execution order is superseded. The 2026-07-19 daily-work correction further supersedes the affected Slice 2–4 behavior. The approved Codex dogfood acceptance adds a bounded document-derived AI Progress Contract draft and protected human activation gate before GitHub automation. Use `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`, `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`, `docs/product/PHASE_2_FEATURE_MAP.md`, and `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
 
-Build through seven visible vertical slices:
+Build through eight visible vertical slices:
 
 1. My Work, Work Items, and the Project/Workstream Progress Contract foundation.
 2. Corrected Project-required, Work-Item-optional, draft-first daily Update journey.
-3. Contract-aware GitHub Project automation with separate employee contribution suggestions.
-4. Unified manual and voice sources through the same Updates & Evidence lifecycle.
-5. Thursday check-ins and Monthly Evaluation Readiness.
-6. Manager operational queues.
-7. Evaluation Fact View preparation only.
+3. Real Codex employee Project, approved document snapshot, live-AI Progress Contract proposal, human revision, and protected activation.
+4. Contract-aware GitHub Project automation with separate employee contribution suggestions.
+5. Unified manual and voice sources through the same Updates & Evidence lifecycle.
+6. Thursday check-ins and Monthly Evaluation Readiness.
+7. Manager operational queues.
+8. Evaluation Fact View preparation only.
 
 Architecture:
 
@@ -1147,6 +1148,7 @@ Architecture:
 - Add one bounded `work-items` module.
 - Add one bounded `updates-evidence` module.
 - Keep versioned human-approved Progress Contracts and append-only official progress snapshots inside the Projects domain.
+- Keep document-derived AI contract proposals and append-only human revisions inside Projects; AI can create only a proposal and cannot submit, approve, activate, or directly set overall progress.
 - Compose My Work, dashboards, Timeline, manager operations, and Fact View preparation through read-only application services using public module interfaces.
 - Keep GitHub and voice as connectors to Updates & Evidence.
 - Do not introduce a generic activity platform, second store, additional authentication system, microservice, or package-per-feature architecture.
@@ -1154,6 +1156,7 @@ Architecture:
 Exit criteria:
 
 - An employee completes the approved daily journey in English and the existing Arabic/RTL interface: required Project, optional Workstream/Work Item, draft-first dynamic text/voice Update, manual or suggested evidence, confirmation, source-labelled Timeline, and Project dashboard.
+- The real Codex acceptance Project uses an exact approved source-document version; live GPT-5.5 proposes measurable components through AI Router, and the proposal remains inactive until a human reviews and activates the ordinary versioned contract.
 - Official Project/Workstream progress comes only from an approved measurable contract and confirmed source facts. It never comes from Work Item count, task/update/GitHub volume, commits, files, or lines changed.
 - Missing source coverage preserves the previous official percentage; a decrease is source-explained and historically preserved; no direct percentage override exists.
 - A verified GitHub event may prove a deterministic condition mapped in the active Progress Contract and update operational Project progress; ambiguous events cannot.

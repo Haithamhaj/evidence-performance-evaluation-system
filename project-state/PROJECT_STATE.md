@@ -39,7 +39,9 @@ Prepare the approved Codex dogfood execution: use this repository as the real Ph
 - The verified Bundle 1 implementation checkpoint was pushed at commit `99ac870`; execution is stopped at the Product Owner gate and Bundle 2 has not started.
 - Product Owner gate feedback confirmed that `/{locale}` still exposed the Phase 0 diagnostics page and the English acceptance preview retained Arabic synthetic records. The root route now opens localized My Work, and the English-pilot seed is English and safely rerunnable for mutable records; existing immutable contract history and employee-authored source content remain unmodified.
 - The Product Owner approved the full-real dogfood direction on 2026-07-19: this repository becomes the real Project, the local employee persona is `Codex`, live AI drafts but never activates the Progress Contract, and Bundle 2 implements the GitHub App path before the end-to-end run.
-- The bounded dogfood design is `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`; it is awaiting written Product Owner review before the implementation plan is amended.
+- The bounded dogfood design is `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`; the Product Owner approved it in writing on 2026-07-19.
+- The active execution plan now inserts Bundle 1.5 before GitHub automation: versioned `project.progress-contract.draft` artifacts, durable AI proposals and human revisions, the protected review/activation UI, and the real Codex Project seed/acceptance journey.
+- The subsequent GitHub bundle uses the same active human-approved Codex contract and real repository; deterministic fixtures verify safety before live GitHub App reconciliation.
 
 ## Active Decisions
 
@@ -72,7 +74,7 @@ Prepare the approved Codex dogfood execution: use this repository as the real Ph
 
 ## Next Recommended Action
 
-Product Owner reviews the written Codex dogfood design. After approval, amend the active execution plan to add the governed AI Progress Contract draft slice and the real repository acceptance journey before executing Bundle 2.
+Self-review and push the amended dogfood execution plan, then execute Bundle 1.5 through its live AI proposal. Stop only when Haitham must activate the reviewed contract or install the GitHub App.
 
 ## Critical References
 
