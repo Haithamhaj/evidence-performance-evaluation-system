@@ -42,9 +42,10 @@ Hold at the protected Product Owner gate for the live Codex dogfood Progress Con
 - The bounded dogfood design is `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`; the Product Owner approved it in writing on 2026-07-19.
 - The active execution plan now inserts Bundle 1.5 before GitHub automation: versioned `project.progress-contract.draft` artifacts, durable AI proposals and human revisions, the protected review/activation UI, and the real Codex Project seed/acceptance journey.
 - The subsequent GitHub bundle uses the same active human-approved Codex contract and real repository; deterministic fixtures verify safety before live GitHub App reconciliation.
-- The real local Codex Project seed is safely rerunnable at repository commit `b73c8e9`: one Project, one Workstream, exact approved DocumentVersion `1`, six remaining-plan Work Items, and no performance or raw-activity progress rows.
-- Live GPT-5.5 produced persisted proposal revision `1` through the governed AI Router. The redacted trace is prompt `project-progress-contract-draft.v2`, output schema `project-progress-contract-draft.v1`, route config `2`, succeeded with human approval pending.
+- The real local Codex Project seed is safely rerunnable at repository commit `29da397`: one Project, one Workstream, exact approved DocumentVersion `3`, six remaining-plan Work Items, and no performance or raw-activity progress rows. Its audited lineage pins Pull Request #5 base `b5e679e` and head `29da397`.
+- Live GPT-5.5 produced persisted proposal revision `1` for DocumentVersion `3` through the governed AI Router. The redacted trace is prompt `project-progress-contract-draft.v2`, output schema `project-progress-contract-draft.v1`, route config `2`, succeeded with human approval pending.
 - The persisted proposal was reviewed through the real local API and signed Keycloak authentication in English and Arabic/RTL at desktop and 390px. No human edit, application, submission, approval, activation, GitHub binding, or official progress recalculation was performed.
+- The bounded specification and security/code-quality reviews have no remaining P0/P1 finding. Deferred P2 maintenance observations are recorded in GitHub issue #6 and do not block the Product Owner gate.
 - Acceptance evidence is `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md`; live screenshots are under `docs/product/screenshots/phase-2-production/codex-dogfood-contract/`.
 
 ## Active Decisions

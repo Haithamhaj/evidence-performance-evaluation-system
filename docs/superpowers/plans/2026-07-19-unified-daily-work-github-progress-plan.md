@@ -945,7 +945,7 @@ Perform one specification-compliance review and one security/code-quality review
 
 Record exact commit/document version, redacted AI route/prompt/schema versions, proposed components, human edits, activation state, known missing behavior, and screenshots. Do not include secrets or unredacted private content.
 
-- [ ] **Step 8: Commit and push the checkpoint**
+- [x] **Step 8: Commit and push the checkpoint**
 
 ```bash
 git add scripts package.json tests/e2e docs/acceptance docs/product project-state/PROJECT_STATE.md
@@ -953,7 +953,7 @@ git commit -m "test: prove the codex project contract journey"
 git push origin codex/phase-2-updates-evidence-readiness
 ```
 
-- [ ] **Step 9: Stop only at the protected human activation gate**
+- [x] **Step 9: Stop only at the protected human activation gate**
 
 Haitham reviews the live AI proposal and may edit it. GitHub automation begins only after Haitham activates the selected Progress Contract version. AI and Codex cannot approve on the human’s behalf.
 

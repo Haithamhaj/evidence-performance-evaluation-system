@@ -16,32 +16,37 @@ The Project is `Evidence Performance System — Phase 2`, the Workstream is `Pha
 
 ## Exact approved source
 
-- Repository commit: `b73c8e9049abdee72c7702074766e1e8b4b998d4`
+- Repository commit: `29da3975b2633fdd01093b2abc9b08d169f2e1f7`
 - Pull Request reference: `Haithamhaj/evidence-performance-evaluation-system#5`
-- Pull Request base commit: not recorded separately in historical DocumentVersion `1`; pending a governed rerun
-- Pull Request head commit: not recorded separately in historical DocumentVersion `1`; pending a governed rerun
-- Approved Project DocumentVersion: `1` (`5019…32b3`)
-- Composed source checksum: `94511e8fc322216e60d1e1ffff5385048c10975153873cfdeb2a908798878d30`
+- Pull Request base commit: `b5e679e56d208f8734abcc3f013b62219c227915`
+- Pull Request head commit: `29da3975b2633fdd01093b2abc9b08d169f2e1f7`
+- Approved Project DocumentVersion: `3` (`cbe1…6983`)
+- Composed source checksum: `e18e33154ca6e3e77ea552749b056a4d14adc28e135d979abf121433df217128`
 
-No new live snapshot is claimed by this correction. The next explicit local acceptance rerun must
-create a new immutable DocumentVersion containing the exact Pull Request reference, base commit,
-and head commit.
+DocumentVersion `2` remains as an immutable incomplete local attempt. Its readiness artifact was
+rejected before proposal generation because one AI evidence reference did not satisfy the
+database-safe opaque-reference format. The bounded correction hashes the Pull Request URL inside
+the AI evidence-reference array while preserving the exact URL and exact base/head commits in the
+audited source lineage. DocumentVersion `2` has zero readiness checks and zero draft requests;
+DocumentVersion `3` is the governed approved source used below.
 
 | Repository source                                                                | SHA-256                                                            |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `docs/PROJECT_REFERENCE.md`                                                      | `31095fad8a95a05d438809a6d0e42fef5d2bcdd5b983fad7047197a5962ca4d1` |
 | `docs/IMPLEMENTATION_PLAN.md`                                                    | `a10708913cac8e42ead3f649cf2d68a17a572102ddd8e3904fcc26a6c9507c18` |
-| `TASKS.md`                                                                       | `2242ea3ed5a64349617264c9b5e27302c8dfa3c78e8439d956e3d7e72f96607f` |
+| `TASKS.md`                                                                       | `1f5f89f64c6ac2cf01e20df378c00df5a49758b6b3fa33a08158945c40806d05` |
 | `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md` | `1069a3dc3431fcd7010e674803862f953d62d11d776088075c288e3134651df5` |
-| `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`   | `1e0a177b4fc0fa4ef4972f3a0dadcc46f9a8bb689d675d38cb4e57bbc909b221` |
+| `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`   | `96a9654723c7efe18078e3ef5739bd8343200a28a4ddcb9b29d508d68eb3d8c6` |
 
-The seed was run twice. Both runs returned the same Project, Workstream, contributor, owner, DocumentVersion, checksum, and six Work Items. No approved history was rewritten. Repository content is stored and sent to AI as untrusted evidence.
+The successful DocumentVersion `3` seed was run twice. Both runs returned the same Project,
+Workstream, contributor, owner, DocumentVersion, checksum, and six Work Items. No approved history
+was rewritten. Repository content is stored and sent to AI as untrusted evidence.
 
 ## Redacted live AI trace
 
 - Project: `c2ab…b066`
-- Draft request: `43c9…0b0a`
-- AI run: `d93b…4f17`
+- Draft request: `1352…55f0`
+- AI run: `75c6…1493`
 - State: `ready`
 - Revision: `1`, origin `ai`
 - Model route: governed system-level GPT-5.5 route, config `2`
@@ -53,19 +58,31 @@ The seed was run twice. Both runs returned the same Project, Workstream, contrib
 
 The provider credential stayed outside the repository. It was not printed, copied, moved, committed, placed in browser state, or included in screenshots. Failed attempts preserved safe failure categories only and stored no invalid proposal content.
 
+## Bounded independent review
+
+The required specification-compliance and security/code-quality reviews are complete. All four
+blocking specification findings are resolved, including independent confirmation that the live
+DocumentVersion `3` and its ready proposal pin the exact Pull Request base/head lineage. The
+reviewer independently confirmed zero human revisions, no applied contract, and zero contract
+transitions or progress snapshots.
+
+No P0/P1 finding remains. Two non-blocking P2 maintenance observations are deferred in
+[GitHub issue #6](https://github.com/Haithamhaj/evidence-performance-evaluation-system/issues/6);
+they do not weaken authorization, AI routing, source lineage, or the protected human gate.
+
 ## Proposed components
 
 The live proposal contains nine operational components. All weights are `null`, so the review UI safely defaults to `stage_gate`.
 
-1. Progress Contract foundation for Projects and Workstreams
-2. My Work update context with Project-required scope
-3. Draft-first daily Update lifecycle
-4. Codex dogfood Project contract-proposal gate
-5. Contract-aware GitHub Project automation
-6. Unified manual and voice Update sources
-7. Check-ins, monthly readiness, and manager operational view
-8. Neutral Evaluation Fact View preparation
-9. English pilot with preserved Arabic and RTL foundation
+1. Approved-source Progress Contract drafting gate
+2. Unified manual-source Update fallback
+3. Voice and combined-source Update journey
+4. Manual and voice sources acceptance checkpoint
+5. Check-ins and monthly readiness operational checkpoint
+6. Manager operational view checkpoint
+7. Neutral evaluation fact composition
+8. Read-only Fact View and final Phase 2 checkpoint
+9. Protected boundary compliance
 
 All proposed confirmations are `human_confirmed`. No deterministic GitHub mapping was activated. The proposal explicitly records bounded-source omissions, missing approval-role detail, optional weights, Workstream-contract scope, timing decisions, and final evidence requirements as human-review questions.
 
@@ -82,14 +99,20 @@ Haitham must review and may edit the proposal before deciding whether to apply i
 
 ## Authenticated UI evidence
 
-The persisted `ready` revision was opened through the real local API and a real signed local Keycloak access token mapped to the existing pilot manager. The temporary capture identity and client were deleted after capture; no token or cookie was written to disk.
+The persisted `ready` revision was opened through the real local API and a real signed local
+Keycloak session mapped to the existing pilot manager. A local-only Product Owner review identity
+remains available outside the repository for the protected review gate. No token or cookie was
+written to the repository or screenshots.
 
 - `docs/product/screenshots/phase-2-production/codex-dogfood-contract/01-live-review-en-desktop.png`
 - `docs/product/screenshots/phase-2-production/codex-dogfood-contract/02-live-review-ar-desktop.png`
 - `docs/product/screenshots/phase-2-production/codex-dogfood-contract/03-live-review-en-mobile.png`
 - `docs/product/screenshots/phase-2-production/codex-dogfood-contract/04-live-review-ar-mobile.png`
 
-The English and Arabic UI exposes the AI-proposal label, approved source version, editable component fields, and separate activation boundary. Arabic is RTL at desktop and 390px; neither mobile locale has horizontal overflow. The AI proposal itself was requested in English, so generated component content remains English inside the Arabic review shell.
+The refreshed English and Arabic screenshots show approved source version `3`, the AI-proposal
+label, editable component fields, and the separate activation boundary. Arabic is RTL at desktop
+and 390px; neither mobile locale has horizontal overflow. The AI proposal itself was requested in
+English, so generated component content remains English inside the Arabic review shell.
 
 ## Remaining gate
 
