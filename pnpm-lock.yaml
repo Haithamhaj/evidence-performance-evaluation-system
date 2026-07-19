@@ -445,6 +445,9 @@ importers:
 
   packages/projects:
     dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
       '@evaluation/audit':
         specifier: workspace:*
         version: link:../audit

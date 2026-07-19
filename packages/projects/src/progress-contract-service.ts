@@ -68,12 +68,14 @@ export class ProgressContractService {
     this.clock = clock;
   }
 
-  async propose(command: unknown): Promise<import("@evaluation/contracts").ProgressContract> {
+  async propose(
+    command: unknown,
+    transaction?: Transaction,
+  ): Promise<import("@evaluation/contracts").ProgressContract> {
     const parsed = ProposalCommandSchema.parse(command);
     const draft = validateProgressContractDraft(parsed.draft);
     const now = validProgressClock(this.clock);
-    return this.client.$transaction(
-      async (transaction) => {
+    const proposeUsing = async (transaction: Transaction) => {
         const source = await this.documentReader.getApprovedSourceIn(transaction, {
           documentVersionId: draft.sourceDocumentVersionId,
         });
@@ -144,9 +146,9 @@ export class ProgressContractService {
           source: "api",
         });
         return serializeProgressContract(row);
-      },
-      { isolationLevel: "Serializable" },
-    );
+    };
+    if (transaction !== undefined) return proposeUsing(transaction);
+    return this.client.$transaction(proposeUsing, { isolationLevel: "Serializable" });
   }
 
   submitForApproval(command: unknown): Promise<import("@evaluation/contracts").ProgressContract> {

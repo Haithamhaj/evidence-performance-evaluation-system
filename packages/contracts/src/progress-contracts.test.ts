@@ -78,6 +78,23 @@ describe("progress contract contracts", () => {
     expect(ProgressContractAiDraftOutputSchema.parse(aiDraftOutput)).toEqual(aiDraftOutput);
   });
 
+  it("preserves deterministic confirmation intent in an ordinary contract draft", () => {
+    expect(
+      ProgressContractDraftSchema.parse({
+        scopeKind: "project",
+        projectId,
+        workstreamId: null,
+        sourceDocumentId: documentId,
+        sourceDocumentVersionId: documentVersionId,
+        sourceDocumentVersion: 2,
+        calculationKind: "weighted",
+        calculationSchemaVersion: "1.0.0",
+        effectiveAt: "2026-07-20T00:00:00Z",
+        components: [{ ...component, confirmationMode: "deterministic" }],
+      }).components[0]?.confirmationMode,
+    ).toBe("deterministic");
+  });
+
   it.each(["rating", "recommendedRating", "productivityScore", "employeeRank", "overallPercent"])(
     "rejects forbidden AI draft field %s",
     (field) => {

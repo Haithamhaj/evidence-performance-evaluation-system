@@ -21,7 +21,11 @@ export const ProgressComponentKindSchema = z.enum([
   "acceptance",
 ]);
 export const ProgressDirectionSchema = z.enum(["increase", "decrease", "maintain"]);
-export const ProgressConfirmationModeSchema = z.enum(["measured", "human_confirmed"]);
+export const ProgressConfirmationModeSchema = z.enum([
+  "measured",
+  "human_confirmed",
+  "deterministic",
+]);
 
 const ProgressContractAiDraftComponentRegistrationSchema = z
   .object({

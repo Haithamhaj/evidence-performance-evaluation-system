@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ProgressCalculationService } from "./progress-calculation-service.js";
 
-function harness(previousPercent = 75) {
+function harness(previousPercent = 75, includeDeterministic = false) {
   const actorId = crypto.randomUUID();
   const contractId = crypto.randomUUID();
   const projectId = crypto.randomUUID();
   const measuredId = crypto.randomUUID();
   const confirmedId = crypto.randomUUID();
+  const deterministicId = crypto.randomUUID();
   const components = [
     {
       id: measuredId,
@@ -42,6 +43,24 @@ function harness(previousPercent = 75) {
       confirmationMode: "human_confirmed",
     },
   ];
+  if (includeDeterministic) {
+    components.push({
+      id: deterministicId,
+      contractId,
+      position: 2,
+      kind: "milestone",
+      name: "Verified merge",
+      description: "The approved repository condition is objectively verified.",
+      weight: 0,
+      baseline: null,
+      target: null,
+      unit: null,
+      direction: null,
+      acceptanceConditions: ["The approved deterministic source rule is satisfied"],
+      requiredEvidence: ["Verified source event"],
+      confirmationMode: "deterministic",
+    });
+  }
   const contract = {
     id: contractId,
     projectId,
@@ -79,6 +98,7 @@ function harness(previousPercent = 75) {
     contractId,
     measuredId,
     confirmedId,
+    deterministicId,
     create,
     auditWriter,
     service: new ProgressCalculationService(
@@ -176,5 +196,23 @@ describe("ProgressCalculationService", () => {
         safeDiff: expect.objectContaining({ previousPercent: 75, percent: 60 }),
       }),
     );
+  });
+
+  it("keeps deterministic components awaiting information until a verified resolver exists", async () => {
+    const context = harness(75, true);
+    const result = await context.service.calculate(
+      command(context, [
+        source(context.measuredId, { measuredValue: 80, satisfied: null }),
+        source(context.confirmedId, { measuredValue: null, satisfied: true }),
+        source(context.deterministicId, { measuredValue: null, satisfied: true }),
+      ]),
+    );
+
+    expect(result).toEqual({
+      state: "awaiting_information",
+      previousPercent: 75,
+      missing: ["Verified merge"],
+    });
+    expect(context.create).not.toHaveBeenCalled();
   });
 });

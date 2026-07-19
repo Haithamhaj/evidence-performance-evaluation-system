@@ -170,7 +170,9 @@ function resolveComponents(
           source.componentId === component.id &&
           (component.confirmationMode === "measured"
             ? source.sourceKind === "kpi_measurement" && source.measuredValue !== null
-            : source.sourceKind === "human_confirmation" && source.satisfied !== null),
+            : component.confirmationMode === "human_confirmed"
+              ? source.sourceKind === "human_confirmation" && source.satisfied !== null
+              : false),
       )
       .sort((left, right) => right.observedAt.localeCompare(left.observedAt));
     const source = eligible[0];
@@ -178,7 +180,7 @@ function resolveComponents(
     const percent =
       component.confirmationMode === "measured"
         ? calculateComponentPercent(component, source.measuredValue!)
-        : source.satisfied
+        : component.confirmationMode === "human_confirmed" && source.satisfied
           ? 100
           : 0;
     results.set(component.id, { component, percent, source });
