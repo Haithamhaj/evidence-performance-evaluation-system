@@ -170,6 +170,7 @@
   "progressContract.reason": "سبب هذا القرار البشري",
   "progressContract.saveRevision": "حفظ مراجعة بشرية",
   "progressContract.saving": "جارٍ الحفظ…",
+  "progressContract.saveBeforeApply": "احفظ هذه المراجعة البشرية قبل تطبيقها كمسودة عقد. يجب حفظ أي تغيير لاحق على المحتوى مرة أخرى.",
   "progressContract.calculationKind": "قاعدة الحساب",
   "progressContract.calculation.weighted": "مكونات موزونة",
   "progressContract.calculation.stage_gate": "بوابة مرحلية",

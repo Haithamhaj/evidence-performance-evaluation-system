@@ -3,7 +3,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { ProgressContractDraftPanel } from "./progress-contract-draft-panel.js";
+import {
+  hasUnsavedDraftChanges,
+  ProgressContractDraftPanel,
+} from "./progress-contract-draft-panel.js";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const requestId = "22222222-2222-4222-8222-222222222222";
@@ -55,9 +58,38 @@ describe("ProgressContractDraftPanel", () => {
 
     expect(markup).toContain(catalog["progressContract.aiDraftLabel"]);
     expect(markup).toContain(catalog["progressContract.applyAsDraft"]);
+    expect(markup).toContain(catalog["progressContract.saveBeforeApply"]);
+    expect(markup).toMatch(
+      new RegExp(
+        `<button[^>]*disabled[^>]*>${catalog["progressContract.applyAsDraft"]}</button>`,
+        "u",
+      ),
+    );
     expect(markup).toContain(catalog["progressContract.activationRequired"]);
     expect(markup).not.toContain(catalog["progressContract.active"]);
     expect(markup).not.toMatch(/rating|productivity|overall progress override/iu);
+  });
+
+  it("detects unsaved editable content before applying a human revision", () => {
+    const form = new FormData();
+    form.set("component.1.kind", "operational_kpi");
+    form.set("component.1.name", "Changed quality gate");
+    form.set("component.1.description", "Run pnpm test and confirm the approved scenarios.");
+    form.set("component.1.weight", "100");
+    form.set("component.1.baseline", "0");
+    form.set("component.1.target", "12");
+    form.set("component.1.unit", "scenarios");
+    form.set("component.1.direction", "increase");
+    form.set(
+      "component.1.acceptanceConditions",
+      "The Product Owner accepts the quality gate",
+    );
+    form.set("component.1.requiredEvidence", "CI test summary");
+    form.set("component.1.confirmationMode", "human_confirmed");
+    form.set("ambiguities", "The approved document does not define the retry threshold.");
+    form.set("clarificationQuestions", "Which retry threshold is approved?");
+
+    expect(hasUnsavedDraftChanges(form, initialDraft.draft)).toBe(true);
   });
 
   it("shows every review field with the approved source version in an accessible drawer", async () => {

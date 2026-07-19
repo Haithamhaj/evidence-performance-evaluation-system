@@ -170,6 +170,7 @@
   "progressContract.reason": "Reason for this human decision",
   "progressContract.saveRevision": "Save human revision",
   "progressContract.saving": "Saving…",
+  "progressContract.saveBeforeApply": "Save this human revision before applying it as a contract draft. Any later content change must be saved again.",
   "progressContract.calculationKind": "Calculation rule",
   "progressContract.calculation.weighted": "Weighted components",
   "progressContract.calculation.stage_gate": "Stage gate",

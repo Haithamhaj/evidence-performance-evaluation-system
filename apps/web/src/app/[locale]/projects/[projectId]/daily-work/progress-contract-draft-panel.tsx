@@ -117,6 +117,14 @@ export function ProgressContractDraftPanel({
     if (draft === null || draft.revision === null || reviewForm.current === null) return;
     const current = draft;
     const form = new FormData(reviewForm.current);
+    if (
+      current.origin !== "human" ||
+      current.draft === null ||
+      hasUnsavedDraftChanges(form, current.draft)
+    ) {
+      setError(true);
+      return;
+    }
     await mutateDraft(async () => {
       const result = await requestJson(
         `/api/daily-work/projects/${projectId}/progress-contract-drafts/${current.requestId}/apply`,
@@ -292,6 +300,11 @@ function DraftReviewForm({
   onSave: (event: import("react").FormEvent<HTMLFormElement>) => void;
   onSubmitForApproval: () => void;
 }>) {
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  useEffect(() => {
+    setHasUnsavedChanges(false);
+  }, [draft.requestId, draft.revision]);
+
   if (draft.state === "pending") {
     return <p aria-live="polite">{catalog["progressContract.state.pending"]}</p>;
   }
@@ -310,8 +323,31 @@ function DraftReviewForm({
   )
     ? "weighted"
     : "stage_gate";
+  const mustSaveBeforeApply = draft.origin !== "human" || hasUnsavedChanges;
   return (
-    <form className="progressContractDraftForm" onSubmit={onSave} ref={formRef}>
+    <form
+      className="progressContractDraftForm"
+      onChange={(event) => {
+        const target: EventTarget = event.target;
+        if (
+          !(target instanceof HTMLInputElement) &&
+          !(target instanceof HTMLSelectElement) &&
+          !(target instanceof HTMLTextAreaElement)
+        ) {
+          return;
+        }
+        const { name } = target;
+        if (
+          name.startsWith("component.") ||
+          name === "ambiguities" ||
+          name === "clarificationQuestions"
+        ) {
+          setHasUnsavedChanges(true);
+        }
+      }}
+      onSubmit={onSave}
+      ref={formRef}
+    >
       <dl className="compactDetails sourceVersionCard">
         <dt>{catalog["progressContract.approvedSource"]}</dt>
         <dd>{catalog["progressContract.approvedProjectDocument"]}</dd>
@@ -478,17 +514,27 @@ function DraftReviewForm({
       </label>
       <p className="boundaryNote">{catalog["progressContract.activationRequired"]}</p>
       {contract === null ? (
-        <div className="formActions">
-          <button className="secondaryAction" disabled={busy} type="submit">
-            {busy ? catalog["progressContract.saving"] : catalog["progressContract.saveRevision"]}
-          </button>
-          <button className="primaryAction" disabled={busy} onClick={onApply} type="button">
-            {catalog["progressContract.applyAsDraft"]}
-          </button>
-          <button className="quietButton" disabled={busy} onClick={onReject} type="button">
-            {catalog["progressContract.rejectDraft"]}
-          </button>
-        </div>
+        <>
+          {mustSaveBeforeApply ? (
+            <p className="boundaryNote">{catalog["progressContract.saveBeforeApply"]}</p>
+          ) : null}
+          <div className="formActions">
+            <button className="secondaryAction" disabled={busy} type="submit">
+              {busy ? catalog["progressContract.saving"] : catalog["progressContract.saveRevision"]}
+            </button>
+            <button
+              className="primaryAction"
+              disabled={busy || mustSaveBeforeApply}
+              onClick={onApply}
+              type="button"
+            >
+              {catalog["progressContract.applyAsDraft"]}
+            </button>
+            <button className="quietButton" disabled={busy} onClick={onReject} type="button">
+              {catalog["progressContract.rejectDraft"]}
+            </button>
+          </div>
+        </>
       ) : (
         <section className="humanApprovalGate" aria-labelledby="human-approval-heading">
           <h3 id="human-approval-heading">
@@ -602,6 +648,21 @@ function editedContent(
     ambiguities: lines(form, "ambiguities", false),
     clarificationQuestions: lines(form, "clarificationQuestions", false),
   };
+}
+
+export function hasUnsavedDraftChanges(
+  form: FormData,
+  current: import("../../../../../platform/progress-contract-drafts").PublicProgressContractDraftContent,
+): boolean {
+  const currentEditable = {
+    components: current.components.map(
+      ({ automationHints: _automationHints, sourceLabels: _sourceLabels, ...component }) =>
+        component,
+    ),
+    ambiguities: [...current.ambiguities],
+    clarificationQuestions: [...current.clarificationQuestions],
+  };
+  return JSON.stringify(editedContent(form, current)) !== JSON.stringify(currentEditable);
 }
 
 function requiredText(form: FormData, name: string): string {
