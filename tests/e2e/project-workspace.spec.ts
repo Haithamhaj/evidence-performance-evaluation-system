@@ -11,7 +11,11 @@ test("renders the Arabic project workspace with operational-only readiness", asy
   await expect(
     page.getByRole("heading", { level: 1, name: "مشاريعي ومسارات العمل" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "فتح المشروع" }).click();
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "منصة الأدلة" })
+    .getByRole("link", { name: "فتح المشروع" })
+    .click();
   await expect(page).toHaveURL(`/ar/projects/${projectId}`);
   await expect(page.getByRole("heading", { name: "الأشخاص الحاليون" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "مسارات العمل" })).toBeVisible();

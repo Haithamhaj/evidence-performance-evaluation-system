@@ -386,6 +386,12 @@ const server = createServer(async (request, response) => {
     return json(response, 200, dogfoodDraft());
   }
   if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/projects/${projectId}/progress-contract-drafts`
+  ) {
+    return json(response, 200, null);
+  }
+  if (
     request.method === "POST" &&
     url.pathname === `/api/v1/projects/${dogfoodProjectId}/progress-contract-drafts`
   ) {
