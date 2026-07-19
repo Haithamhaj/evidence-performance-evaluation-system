@@ -36,6 +36,8 @@ const aiContent = {
 function harness() {
   let request: any;
   const revisions: any[] = [];
+  const appliedComponentMappings: any[] = [];
+  const aiRuns: any[] = [];
   const transaction = {
     $queryRaw: vi.fn(async () => []),
     progressContractAiDraftRequest: {
@@ -46,6 +48,7 @@ function harness() {
           createdAt: now,
           documentVersion: { version: 2 },
           appliedContractId: null,
+          aiRunTraceId: null,
           failureCode: null,
         };
         return request;
@@ -71,7 +74,27 @@ function harness() {
       findFirst: vi.fn(async () => revisions.at(-1) ?? null),
       count: vi.fn(async () => revisions.length),
     },
+    progressContractAiDraftAppliedComponent: {
+      createMany: vi.fn(async ({ data }: any) => {
+        appliedComponentMappings.push(...data);
+        return { count: data.length };
+      }),
+      findMany: vi.fn(async () => [...appliedComponentMappings]),
+    },
+    aiRun: {
+      findFirst: vi.fn(async ({ where }: any) =>
+        aiRuns.find(
+          (run) =>
+            run.outputReference === where.outputReference &&
+            run.routeKey === where.routeKey &&
+            run.state === where.state,
+        ) ?? null,
+      ),
+    },
   };
+  const updateRequestAfterRun = vi.fn(async (input: any) =>
+    transaction.progressContractAiDraftRequest.update(input),
+  );
   const database = {
     progressContractAiDraftRequest: {
       findUnique: vi.fn(async () => request ?? null),
@@ -81,11 +104,12 @@ function harness() {
           createdAt: now,
           documentVersion: { version: 2 },
           appliedContractId: null,
+          aiRunTraceId: null,
           failureCode: null,
         };
         return request;
       }),
-      update: transaction.progressContractAiDraftRequest.update,
+      update: updateRequestAfterRun,
     },
     progressContractAiDraftRevision: transaction.progressContractAiDraftRevision,
     progressContract: {
@@ -128,8 +152,15 @@ function harness() {
   const aiRouter = {
     run: vi.fn(async (_input: any, persist: any): Promise<any> => {
       const persisted = await persist(transaction, aiContent);
+      const runId = crypto.randomUUID();
+      aiRuns.push({
+        id: runId,
+        outputReference: persisted.outputReference,
+        routeKey: "project.progress-contract.draft",
+        state: "succeeded",
+      });
       return {
-        runId: crypto.randomUUID(),
+        runId,
         output: aiContent,
         outputReference: persisted.outputReference,
         requiresHumanApproval: true,
@@ -167,6 +198,8 @@ function harness() {
   };
   return {
     aiRouter,
+    aiRuns,
+    appliedComponentMappings,
     audit,
     database,
     identityReader,
@@ -175,6 +208,7 @@ function harness() {
     revisions,
     service,
     sourceReader,
+    updateRequestAfterRun,
     get request() {
       return request;
     },
@@ -260,6 +294,21 @@ describe("ProgressContractDraftService", () => {
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
   });
 
+  it("does not return duplicate private draft content after Project ownership ends", async () => {
+    const context = harness();
+    await context.service.requestDraft(context.requestInput);
+    context.sourceReader.loadApprovedVersion.mockClear();
+    context.identityReader.snapshotIn.mockResolvedValue({
+      ...(await context.identityReader.snapshotIn()),
+      primaryOwnerId: crypto.randomUUID(),
+    });
+
+    await expect(context.service.requestDraft(context.requestInput)).rejects.toMatchObject({
+      code: "PROGRESS_CONTRACT_AI_DRAFT_FORBIDDEN",
+    });
+    expect(context.sourceReader.loadApprovedVersion).not.toHaveBeenCalled();
+  });
+
   it("persists a safe failure code without displaying or storing invalid provider output", async () => {
     const context = harness();
     context.aiRouter.run.mockImplementationOnce(async (_input: any, persist: any) => {
@@ -306,6 +355,23 @@ describe("ProgressContractDraftService", () => {
     expect(ready).toMatchObject({ state: "ready", revision: 1 });
     expect(context.aiRouter.run).toHaveBeenCalledTimes(2);
     expect(context.revisions).toHaveLength(1);
+  });
+
+  it("recovers the immutable AI run trace link after a post-run update failure", async () => {
+    const context = harness();
+    context.updateRequestAfterRun.mockRejectedValueOnce(new Error("post-run link failed"));
+
+    await expect(context.service.requestDraft(context.requestInput)).rejects.toThrow(
+      "post-run link failed",
+    );
+    expect(context.request).toMatchObject({ state: "ready", aiRunTraceId: null });
+
+    const recovered = await context.service.requestDraft(context.requestInput);
+    expect(recovered).toMatchObject({
+      state: "ready",
+      aiRunTraceId: context.aiRuns[0]?.id,
+    });
+    expect(context.aiRouter.run).toHaveBeenCalledOnce();
   });
 
   it("rejects stale and unauthorized human revisions", async () => {
@@ -363,6 +429,26 @@ describe("ProgressContractDraftService", () => {
     expect(context.request).toMatchObject({
       state: "applied",
       appliedContractId: applied.contractId,
+    });
+    const generatedComponentId =
+      context.progressContractService.propose.mock.calls[0]?.[0].draft.components[0].id;
+    expect(applied.componentMappings).toEqual([
+      { clientKey: "release", componentId: generatedComponentId },
+    ]);
+    expect(context.appliedComponentMappings).toEqual([
+      expect.objectContaining({
+        requestId: ready.requestId,
+        selectedRevision: 1,
+        clientKey: "release",
+        contractId: applied.contractId,
+        componentId: generatedComponentId,
+      }),
+    ]);
+    const queried = await context.service.requestDraft(context.requestInput);
+    expect(queried).toMatchObject({
+      state: "applied",
+      appliedContractId: applied.contractId,
+      componentMappings: [{ clientKey: "release", componentId: generatedComponentId }],
     });
   });
 

@@ -60,6 +60,7 @@ export type ProgressContractDraftReceipt = Readonly<{
   failureCode: string | null;
   aiRunTraceId: string | null;
   appliedContractId: string | null;
+  componentMappings: readonly Readonly<{ clientKey: string; componentId: string }>[];
 }>;
 
 export type ProgressContractDraftAiRouter = Pick<
@@ -132,7 +133,7 @@ export class ProgressContractDraftService {
     const payloadHash = hashPayload(parsed);
     const duplicate = await this.findIdempotent(parsed.actor.userId, parsed.idempotencyKey);
     if (duplicate !== null && duplicate.payloadHash !== payloadHash) throw idempotencyConflict();
-    if (duplicate !== null && duplicate.state !== "failed") return this.receipt(duplicate);
+    await this.assertCurrentOwner(parsed.actor, parsed.projectId);
 
     const source = await this.sourceReader.loadApprovedVersion({
       actor: parsed.actor,
@@ -140,8 +141,13 @@ export class ProgressContractDraftService {
       documentVersionId: parsed.documentVersionId,
       sourceChecksum: parsed.sourceChecksum,
     });
+    if (duplicate !== null && duplicate.state !== "failed") {
+      return this.authorizedReceipt(parsed.actor, parsed.projectId, duplicate.id);
+    }
     const prepared = await this.prepareRequest(parsed, source, payloadHash);
-    if (!prepared.invoke) return this.receipt(prepared.request);
+    if (!prepared.invoke) {
+      return this.authorizedReceipt(parsed.actor, parsed.projectId, prepared.request.id);
+    }
 
     const previousContract = await this.client.progressContract.findFirst({
       where: { projectId: parsed.projectId, workstreamId: null, state: "active" },
@@ -244,22 +250,13 @@ export class ProgressContractDraftService {
       );
     }
 
-    const output = ProgressContractAiDraftOutputSchema.parse(route.output);
+    ProgressContractAiDraftOutputSchema.parse(route.output);
     if (createdRevision === undefined) throw invalidState();
-    const ready = await this.client.progressContractAiDraftRequest.update({
+    await this.client.progressContractAiDraftRequest.update({
       where: { id: prepared.request.id },
       data: { aiRunTraceId: route.runId },
     });
-    return {
-      requestId: ready.id,
-      state: "ready",
-      revision: createdRevision.revision,
-      origin: createdRevision.origin,
-      content: output,
-      failureCode: null,
-      aiRunTraceId: route.runId,
-      appliedContractId: null,
-    };
+    return this.authorizedReceipt(parsed.actor, parsed.projectId, prepared.request.id);
   }
 
   async reviseDraft(command: unknown): Promise<ProgressContractDraftReceipt> {
@@ -354,6 +351,7 @@ export class ProgressContractDraftService {
       selectedRevision: number;
       contractId: string;
       contractState: "draft";
+      componentMappings: readonly Readonly<{ clientKey: string; componentId: string }>[];
     }>
   > {
     const parsed = ApplyRevisionSchema.parse(command);
@@ -381,6 +379,11 @@ export class ProgressContractDraftService {
           );
         }
         const content = ProgressContractAiDraftOutputSchema.parse(selected.content);
+        const mappedComponents = content.components.map((component) => ({
+          clientKey: component.clientKey,
+          componentId: randomUUID(),
+          component,
+        }));
         const contract = await this.progressContracts.propose(
           {
             actor: parsed.actor,
@@ -396,8 +399,8 @@ export class ProgressContractDraftService {
               calculationKind: parsed.calculationKind,
               calculationSchemaVersion: "1.0.0",
               effectiveAt: context.request.effectiveAt.toISOString(),
-              components: content.components.map((component) => ({
-                id: randomUUID(),
+              components: mappedComponents.map(({ componentId, component }) => ({
+                id: componentId,
                 kind: component.kind === "operational_kpi" ? "kpi" : component.kind,
                 name: component.name,
                 description: component.description,
@@ -421,6 +424,30 @@ export class ProgressContractDraftService {
             500,
           );
         }
+        const persistedComponentIds = new Set(
+          contract.components.map((component) => component.id),
+        );
+        if (
+          mappedComponents.some(
+            ({ componentId }) => !persistedComponentIds.has(componentId),
+          )
+        ) {
+          throw new AppError(
+            "PROGRESS_CONTRACT_AI_DRAFT_APPLY_UNSAFE",
+            "errors.progressContractDraft.applyUnsafe",
+            500,
+          );
+        }
+        await transaction.progressContractAiDraftAppliedComponent.createMany({
+          data: mappedComponents.map(({ clientKey, componentId }) => ({
+            id: randomUUID(),
+            requestId: context.request.id,
+            selectedRevision: parsed.selectedRevision,
+            clientKey,
+            contractId: contract.id,
+            componentId,
+          })),
+        });
         await transaction.progressContractAiDraftRequest.update({
           where: { id: context.request.id },
           data: { state: "applied", appliedContractId: contract.id },
@@ -447,6 +474,10 @@ export class ProgressContractDraftService {
           selectedRevision: parsed.selectedRevision,
           contractId: contract.id,
           contractState: "draft",
+          componentMappings: mappedComponents.map(({ clientKey, componentId }) => ({
+            clientKey,
+            componentId,
+          })),
         };
       },
       { isolationLevel: "Serializable" },
@@ -580,21 +611,60 @@ export class ProgressContractDraftService {
     }
   }
 
+  private async assertCurrentOwner(actor: Actor, projectId: string): Promise<void> {
+    await this.client.$transaction(
+      async (transaction) => this.assertOwner(transaction, actor, projectId),
+      { isolationLevel: "Serializable" },
+    );
+  }
+
   private findIdempotent(requestedById: string, idempotencyKey: string) {
     return this.client.progressContractAiDraftRequest.findUnique({
       where: { requestedById_idempotencyKey: { requestedById, idempotencyKey } },
     });
   }
 
-  private async receipt(request: any): Promise<ProgressContractDraftReceipt> {
-    const latest = await this.client.progressContractAiDraftRevision.findFirst({
-      where: { requestId: request.id },
-      orderBy: { revision: "desc" },
-    });
-    return receiptFrom(
-      request,
-      latest,
-      latest === null ? null : ProgressContractAiDraftOutputSchema.parse(latest.content),
+  private async authorizedReceipt(
+    actor: Actor,
+    projectId: string,
+    requestId: string,
+  ): Promise<ProgressContractDraftReceipt> {
+    return this.client.$transaction(
+      async (transaction) => {
+        await lockRequest(transaction, requestId);
+        let request = await transaction.progressContractAiDraftRequest.findUnique({
+          where: { id: requestId },
+        });
+        if (request === null || request.projectId !== projectId) {
+          throw new AppError(
+            "PROGRESS_CONTRACT_AI_DRAFT_NOT_FOUND",
+            "errors.progressContractDraft.notFound",
+            404,
+          );
+        }
+        await this.assertOwner(transaction, actor, projectId);
+        request = await recoverTraceLink(transaction, request);
+        const [latest, mappings] = await Promise.all([
+          transaction.progressContractAiDraftRevision.findFirst({
+            where: { requestId },
+            orderBy: { revision: "desc" },
+          }),
+          transaction.progressContractAiDraftAppliedComponent.findMany({
+            where: { requestId },
+            orderBy: { clientKey: "asc" },
+            select: { clientKey: true, componentId: true },
+          }),
+        ]);
+        return receiptFrom(
+          request,
+          latest,
+          latest === null
+            ? null
+            : ProgressContractAiDraftOutputSchema.parse(latest.content),
+          mappings,
+        );
+      },
+      { isolationLevel: "Serializable" },
     );
   }
 
@@ -753,10 +823,40 @@ async function lockRequest(transaction: Transaction, requestId: string) {
   `;
 }
 
+async function recoverTraceLink(transaction: Transaction, request: any) {
+  if (
+    request.aiRunTraceId !== null ||
+    !["ready", "applied", "rejected"].includes(request.state)
+  ) {
+    return request;
+  }
+  const aiRevision = await transaction.progressContractAiDraftRevision.findFirst({
+    where: { requestId: request.id, origin: "ai" },
+    orderBy: { revision: "desc" },
+    select: { id: true },
+  });
+  if (aiRevision === null) throw traceRecoveryPending();
+  const run = await transaction.aiRun.findFirst({
+    where: {
+      outputReference: `progress-contract-draft-revision:${aiRevision.id}`,
+      routeKey: PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
+      state: "succeeded",
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (run === null) throw traceRecoveryPending();
+  return transaction.progressContractAiDraftRequest.update({
+    where: { id: request.id },
+    data: { aiRunTraceId: run.id },
+  });
+}
+
 function receiptFrom(
   request: any,
   revision: any,
   content: ProgressContractAiDraftOutput | null,
+  componentMappings: readonly Readonly<{ clientKey: string; componentId: string }>[] = [],
 ): ProgressContractDraftReceipt {
   return {
     requestId: request.id,
@@ -767,6 +867,7 @@ function receiptFrom(
     failureCode: request.failureCode ?? null,
     aiRunTraceId: request.aiRunTraceId ?? null,
     appliedContractId: request.appliedContractId ?? null,
+    componentMappings,
   };
 }
 
@@ -799,5 +900,13 @@ function invalidState() {
     "PROGRESS_CONTRACT_AI_DRAFT_STATE_INVALID",
     "errors.progressContractDraft.stateInvalid",
     409,
+  );
+}
+
+function traceRecoveryPending() {
+  return new AppError(
+    "PROGRESS_CONTRACT_AI_DRAFT_TRACE_RECOVERY_PENDING",
+    "errors.progressContractDraft.traceRecoveryPending",
+    503,
   );
 }

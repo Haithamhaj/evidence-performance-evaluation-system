@@ -740,11 +740,28 @@ model ProgressContractAiDraftRevision {
   editor           User                                  @relation("ProgressContractAiDraftRevisionEditor", fields: [editorId], references: [id], onDelete: Restrict)
   reason           String
   sourceReferences Json
+  appliedComponents ProgressContractAiDraftAppliedComponent[]
   createdAt        DateTime                              @default(now()) @db.Timestamptz(6)
 
   @@unique([requestId, revision])
   @@index([requestId, createdAt])
   @@index([editorId, createdAt])
+}
+
+model ProgressContractAiDraftAppliedComponent {
+  id               String                          @id @default(uuid()) @db.Uuid
+  requestId        String                          @db.Uuid
+  selectedRevision Int
+  requestRevision  ProgressContractAiDraftRevision @relation(fields: [requestId, selectedRevision], references: [requestId, revision], onDelete: Restrict)
+  clientKey        String
+  contractId       String                          @db.Uuid
+  componentId      String                          @unique @db.Uuid
+  component        ProgressContractComponent       @relation(fields: [componentId, contractId], references: [id, contractId], onDelete: Restrict)
+  createdAt        DateTime                        @default(now()) @db.Timestamptz(6)
+
+  @@unique([requestId, clientKey])
+  @@index([requestId, selectedRevision])
+  @@index([contractId, componentId])
 }
 
 model ProgressContractComponent {
@@ -766,6 +783,7 @@ model ProgressContractComponent {
   confirmations        ProgressHumanConfirmation[]
   snapshotSources      ProgressSnapshotSource[]
   evidenceLinks        EvidenceLink[]
+  appliedAiDraftMappings ProgressContractAiDraftAppliedComponent[]
   createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
 
   @@unique([contractId, position])

@@ -56,6 +56,21 @@ CREATE TABLE "ProgressContractAiDraftRevision" (
     CHECK ("revision" > 0)
 );
 
+-- CreateTable
+CREATE TABLE "ProgressContractAiDraftAppliedComponent" (
+  "id" UUID NOT NULL,
+  "requestId" UUID NOT NULL,
+  "selectedRevision" INTEGER NOT NULL,
+  "clientKey" TEXT NOT NULL,
+  "contractId" UUID NOT NULL,
+  "componentId" UUID NOT NULL,
+  "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT "ProgressContractAiDraftAppliedComponent_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "ProgressContractAiDraftAppliedComponent_positive_revision"
+    CHECK ("selectedRevision" > 0)
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "ProgressContractAiDraftRequest_requestedById_idempotencyKey_key"
 ON "ProgressContractAiDraftRequest"("requestedById", "idempotencyKey");
@@ -91,6 +106,22 @@ ON "ProgressContractAiDraftRevision"("requestId", "createdAt");
 -- CreateIndex
 CREATE INDEX "ProgressContractAiDraftRevision_editorId_createdAt_idx"
 ON "ProgressContractAiDraftRevision"("editorId", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ProgressContractAiDraftAppliedComponent_requestId_clientKey_key"
+ON "ProgressContractAiDraftAppliedComponent"("requestId", "clientKey");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ProgressContractAiDraftAppliedComponent_componentId_key"
+ON "ProgressContractAiDraftAppliedComponent"("componentId");
+
+-- CreateIndex
+CREATE INDEX "ProgressContractAiDraftAppliedComponent_requestId_selectedR_idx"
+ON "ProgressContractAiDraftAppliedComponent"("requestId", "selectedRevision");
+
+-- CreateIndex
+CREATE INDEX "ProgressContractAiDraftAppliedComponent_contractId_componen_idx"
+ON "ProgressContractAiDraftAppliedComponent"("contractId", "componentId");
 
 -- AddForeignKey
 ALTER TABLE "ProgressContractAiDraftRequest"
@@ -141,6 +172,20 @@ ADD CONSTRAINT "ProgressContractAiDraftRevision_editorId_fkey"
 FOREIGN KEY ("editorId") REFERENCES "User"("id")
 ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- AddForeignKey
+ALTER TABLE "ProgressContractAiDraftAppliedComponent"
+ADD CONSTRAINT "ProgressContractAiDraftAppliedComponent_requestId_selected_fkey"
+FOREIGN KEY ("requestId", "selectedRevision")
+REFERENCES "ProgressContractAiDraftRevision"("requestId", "revision")
+ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProgressContractAiDraftAppliedComponent"
+ADD CONSTRAINT "ProgressContractAiDraftAppliedComponent_componentId_contra_fkey"
+FOREIGN KEY ("componentId", "contractId")
+REFERENCES "ProgressContractComponent"("id", "contractId")
+ON DELETE RESTRICT ON UPDATE CASCADE;
+
 -- Guard request lineage and lifecycle.
 CREATE FUNCTION "guard_progress_contract_ai_draft_request"() RETURNS trigger AS $$
 BEGIN
@@ -171,6 +216,17 @@ BEGIN
     OR (OLD."state" = 'ready' AND NEW."state" IN ('applied', 'rejected'))
   ) THEN
     RAISE EXCEPTION 'Invalid Progress Contract AI draft request transition'
+      USING ERRCODE = '55000';
+  END IF;
+
+  IF OLD."aiRunTraceId" IS NOT NULL
+    AND NEW."aiRunTraceId" IS DISTINCT FROM OLD."aiRunTraceId" THEN
+    RAISE EXCEPTION 'Progress Contract AI draft trace link is immutable once set'
+      USING ERRCODE = '55000';
+  END IF;
+  IF OLD."appliedContractId" IS NOT NULL
+    AND NEW."appliedContractId" IS DISTINCT FROM OLD."appliedContractId" THEN
+    RAISE EXCEPTION 'Progress Contract AI draft applied contract link is immutable once set'
       USING ERRCODE = '55000';
   END IF;
 
@@ -226,4 +282,8 @@ FOR EACH ROW EXECUTE FUNCTION "guard_progress_contract_ai_draft_revision_insert"
 
 CREATE TRIGGER "ProgressContractAiDraftRevision_append_only"
 BEFORE UPDATE OR DELETE ON "ProgressContractAiDraftRevision"
+FOR EACH ROW EXECUTE FUNCTION "prevent_phase2_history_mutation"();
+
+CREATE TRIGGER "ProgressContractAiDraftAppliedComponent_append_only"
+BEFORE UPDATE OR DELETE ON "ProgressContractAiDraftAppliedComponent"
 FOR EACH ROW EXECUTE FUNCTION "prevent_phase2_history_mutation"();
