@@ -39,6 +39,11 @@ export type ProjectProgressView = Readonly<{
         reason: string;
         updatedAt: string;
       }>;
+  contractDraftSourceRequest?: Readonly<{
+    documentVersionId: string;
+    sourceChecksum: string;
+    sourceVersion: number;
+  }> | null;
 }>;
 
 export function ProjectProgressPanel({

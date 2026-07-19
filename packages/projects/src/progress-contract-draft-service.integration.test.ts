@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 
+import { PROJECT_PROGRESS_CONTRACT_PROMPT_V2 } from "./progress-contract-draft-artifacts.js";
 import { ProgressContractDraftService } from "./progress-contract-draft-service.js";
 
 const now = new Date("2026-07-19T12:00:00.000Z");
@@ -7,6 +9,7 @@ const ownerId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
 const documentId = crypto.randomUUID();
 const documentVersionId = crypto.randomUUID();
+const promptArtifactId = crypto.randomUUID();
 const sourceChecksum = "a".repeat(64);
 const sourceReference = `document-source:${crypto.randomUUID()}`;
 const actor = { userId: ownerId, active: true } as const;
@@ -97,6 +100,13 @@ function harness() {
     transaction.progressContractAiDraftRequest.update(input),
   );
   const database = {
+    analysisPromptArtifact: {
+      findUnique: vi.fn(async () => ({
+        id: promptArtifactId,
+        bodyHash: createHash("sha256").update(PROJECT_PROGRESS_CONTRACT_PROMPT_V2).digest("hex"),
+        trustedBody: PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
+      })),
+    },
     progressContractAiDraftRequest: {
       findUnique: vi.fn(async () => request ?? null),
       create: vi.fn(async ({ data }: any) => {
@@ -121,7 +131,7 @@ function harness() {
   const sourceReader = {
     loadApprovedVersion: vi.fn(async () => ({
       projectId,
-      departmentId: crypto.randomUUID(),
+      departmentScopeId: crypto.randomUUID(),
       documentId,
       documentVersionId,
       documentVersion: 2,
@@ -269,7 +279,14 @@ describe("ProgressContractDraftService", () => {
     expect(edited).toMatchObject({ state: "ready", revision: 2, origin: "human" });
     expect(context.revisions.map(({ origin }) => origin)).toEqual(["ai", "human"]);
     const governedInput = context.aiRouter.run.mock.calls[0]?.[0].input;
+    expect(governedInput.trustedInstruction).toMatchObject({
+      routeKey: "project.progress-contract.draft",
+      artifactId: promptArtifactId,
+      version: "project-progress-contract-draft.v2",
+    });
+    expect(governedInput.trustedInstruction).not.toEqual(expect.any(String));
     expect(JSON.parse(governedInput.untrustedContent)).toMatchObject({
+      allowedSourceReferences: [sourceReference],
       requestedContext: {
         locale: "en",
         timezone: "Asia/Riyadh",
@@ -291,6 +308,30 @@ describe("ProgressContractDraftService", () => {
         locale: "ar",
       }),
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
+  it("bounds a large approved source before the provider call without losing its source reference", async () => {
+    const context = harness();
+    const source = await context.sourceReader.loadApprovedVersion();
+    context.sourceReader.loadApprovedVersion.mockResolvedValueOnce({
+      ...source,
+      quotedSections: [
+        {
+          reference: sourceReference,
+          mediaType: "text/markdown",
+          text: "approved-source-line\n".repeat(15_000),
+          trust: "untrusted" as const,
+        },
+      ],
+    });
+
+    await context.service.requestDraft(context.requestInput);
+
+    const governedInput = context.aiRouter.run.mock.calls[0]?.[0].input;
+    const quoted = JSON.parse(governedInput.untrustedContent).quotedSections[0];
+    expect(quoted.reference).toBe(sourceReference);
+    expect(quoted.text.length).toBeLessThanOrEqual(80_000);
+    expect(quoted.text).toContain("[bounded omission:");
   });
 
   it("authorizes and audits a direct human-review read", async () => {

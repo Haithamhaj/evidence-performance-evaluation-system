@@ -3,7 +3,7 @@
 **Status:** Product-owner approved production feature map
 **Design:** `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`
 **Implementation plan:** `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`
-**Execution status:** Slice 1 and the original Slice 2 backend foundation are complete; corrected daily Update journey is the next Product Owner-gated bundle
+**Execution status:** Slice 1, corrected Slice 2, and the Slice 2.5 Codex dogfood proposal checkpoint are complete through the protected human-activation gate
 
 ## Purpose
 
@@ -148,6 +148,27 @@ An employee chooses a required Project and optional Workstream/Work Item, suppli
 ### Stop gate
 
 Product owner reviews AI behavior, evidence language, progress explanation, privacy, upload safety, AI route trace, append-only revisions, and prompt/schema evaluations.
+
+## Slice 2.5 — Real Codex Project and live contract proposal
+
+### Visible outcome
+
+The real local `Evidence Performance System — Phase 2` Project uses an immutable approved snapshot of the exact repository commit. Live GPT-5.5 drafts a source-cited Progress Contract proposal, and an authenticated Product Owner can review it in English or Arabic/RTL without the proposal becoming active.
+
+### Acceptance checkpoint
+
+- The local-only seed is safely rerunnable and preserves approved history.
+- The approved source records exact paths, commit, Pull Request reference, and content hashes.
+- The AI Router uses prompt `project-progress-contract-draft.v2` and output schema `project-progress-contract-draft.v1`.
+- The persisted proposal remains `ready` with human approval `pending`.
+- No employee score, rating, rank, productivity value, raw-activity rule, or direct overall-progress override is created.
+- The authenticated desktop and 390px review UI preserves the separate protected activation boundary.
+
+### Evidence and stop gate
+
+The redacted run record is `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md`; screenshots are under `docs/product/screenshots/phase-2-production/codex-dogfood-contract/`.
+
+Execution is stopped at `human_activation_required`. GitHub automation cannot use the proposal until the Product Owner reviews and activates a contract through the protected lifecycle.
 
 ## Slice 3 — Contract-aware GitHub automation and contribution suggestions
 

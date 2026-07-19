@@ -16,7 +16,7 @@ type ExtractionPolicy = Readonly<{
 
 export type ProgressContractDraftSource = Readonly<{
   projectId: string;
-  departmentId: string;
+  departmentScopeId: string;
   documentId: string;
   documentVersionId: string;
   documentVersion: number;
@@ -31,20 +31,100 @@ export type ProgressContractDraftSource = Readonly<{
 }>;
 
 export interface ApprovedProgressContractDraftSourceReader {
-  loadApprovedVersion(input: Readonly<{
-    actor: Actor;
-    projectId: string;
+  loadApprovedVersion(
+    input: Readonly<{
+      actor: Actor;
+      projectId: string;
+      documentVersionId: string;
+      sourceChecksum: string;
+    }>,
+  ): Promise<ProgressContractDraftSource>;
+}
+
+export class ProgressContractDraftSourceLocator {
+  private readonly database: import("./model.js").DocumentDatabase;
+  private readonly identityReader: import("./model.js").DocumentResourceIdentityReader;
+
+  constructor(
+    database: import("./model.js").DocumentDatabase,
+    identityReader: import("./model.js").DocumentResourceIdentityReader,
+  ) {
+    this.database = database;
+    this.identityReader = identityReader;
+  }
+
+  async locateApprovedProjectVersion(
+    input: Readonly<{
+      actor: Actor;
+      projectId: string;
+    }>,
+  ): Promise<Readonly<{
     documentVersionId: string;
     sourceChecksum: string;
-  }>): Promise<ProgressContractDraftSource>;
+    sourceVersion: number;
+  }> | null> {
+    const identity = await this.identityReader.read({
+      kind: "project",
+      resourceId: input.projectId,
+    });
+    if (identity === null || identity.status !== "active") return null;
+    await authorizeDocument(this.database, input.actor, identity, "document.read", new Date());
+    const document = await this.database.documentRecord.findUnique({
+      where: { projectId: input.projectId },
+      include: {
+        versions: {
+          orderBy: { version: "desc" },
+          take: 1,
+          include: {
+            sources: {
+              orderBy: { position: "asc" },
+              include: { uploadedSource: { select: { sha256: true } } },
+            },
+            readinessChecks: {
+              where: { analyzedState: "ready_for_criteria_generation", stale: false },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              include: {
+                lifecycleTransitions: {
+                  orderBy: [{ effectiveAt: "desc" }, { id: "desc" }],
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const version = document?.versions[0];
+    const readiness = version?.readinessChecks[0];
+    if (
+      document === null ||
+      version === undefined ||
+      version.version !== document.currentVersion ||
+      readiness?.lifecycleTransitions[0]?.toState !== "criteria_approved" ||
+      version.sources.length === 0 ||
+      version.sources.some(({ uploadedSource }) => uploadedSource === null)
+    )
+      return null;
+    const lineage = version.sources.map((source) => ({
+      reference: `document-source:${source.id}`,
+      sha256: source.uploadedSource!.sha256,
+    }));
+    return {
+      documentVersionId: version.id,
+      sourceVersion: version.version,
+      sourceChecksum:
+        lineage.length === 1
+          ? lineage[0]!.sha256
+          : createHash("sha256").update(JSON.stringify(lineage)).digest("hex"),
+    };
+  }
 }
 
 type Extract = typeof extractSafeSources;
 type Authorize = typeof authorizeDocument;
 
-export class ProgressContractDraftSourceReader
-  implements ApprovedProgressContractDraftSourceReader
-{
+export class ProgressContractDraftSourceReader implements ApprovedProgressContractDraftSourceReader {
   private readonly database: import("./model.js").DocumentDatabase;
   private readonly identityReader: import("./model.js").DocumentResourceIdentityReader;
   private readonly sourceLoader: import("./document-analysis-source-loader.js").DocumentAnalysisSourceLoader;
@@ -117,6 +197,12 @@ export class ProgressContractDraftSourceReader
       throw invalidSource();
     }
 
+    const departmentScope = await this.database.authorizationScope.findFirst({
+      where: { departmentId: identity.departmentId, scopeType: "department" },
+      select: { id: true },
+    });
+    if (departmentScope === null) throw invalidSource();
+
     await this.authorize(this.database, input.actor, identity, "document.read", new Date());
     const canonical = await this.sourceLoader.load({
       documentVersionId: input.documentVersionId,
@@ -180,7 +266,7 @@ export class ProgressContractDraftSourceReader
 
     return {
       projectId: input.projectId,
-      departmentId: identity.departmentId,
+      departmentScopeId: departmentScope.id,
       documentId: document.id,
       documentVersionId: version.id,
       documentVersion: version.version,
@@ -191,9 +277,7 @@ export class ProgressContractDraftSourceReader
   }
 }
 
-function checksumOf(
-  sources: readonly Readonly<{ reference: string; sha256?: string }>[],
-): string {
+function checksumOf(sources: readonly Readonly<{ reference: string; sha256?: string }>[]): string {
   if (sources.length === 1) return sources[0]!.sha256!;
   const lineage = sources.map(({ reference, sha256 }) => ({ reference, sha256 }));
   return createHash("sha256").update(JSON.stringify(lineage)).digest("hex");

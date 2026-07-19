@@ -19,7 +19,6 @@ import {
 export type ProgressContractDraftSourceRequest = Readonly<{
   documentVersionId: string;
   sourceChecksum: string;
-  sourceLabel: string;
   sourceVersion: number;
 }>;
 
@@ -306,6 +305,11 @@ function DraftReviewForm({
       </p>
     );
   }
+  const defaultCalculationKind = draft.draft.components.every(
+    (component) => component.weight !== null,
+  )
+    ? "weighted"
+    : "stage_gate";
   return (
     <form className="progressContractDraftForm" onSubmit={onSave} ref={formRef}>
       <dl className="compactDetails sourceVersionCard">
@@ -467,7 +471,7 @@ function DraftReviewForm({
       </label>
       <label>
         <span>{catalog["progressContract.calculationKind"]}</span>
-        <select defaultValue="weighted" name="calculationKind">
+        <select defaultValue={defaultCalculationKind} name="calculationKind">
           <option value="weighted">{catalog["progressContract.calculation.weighted"]}</option>
           <option value="stage_gate">{catalog["progressContract.calculation.stage_gate"]}</option>
         </select>

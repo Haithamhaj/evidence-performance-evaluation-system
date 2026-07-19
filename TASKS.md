@@ -297,7 +297,7 @@ Execution status:
 - **Slice 1 complete:** production My Work, bounded Work Items, versioned document-sourced Progress Contracts, official source-linked progress snapshots, protected API composition, Arabic/English UI, local synthetic demo, and desktop/mobile screenshots.
 - **Slice 2 complete:** interactive Arabic/English text updates, one-question-at-a-time live AI through the existing AI Router, employee-edited drafts, private manual evidence, mandatory evidence/update confirmation, and append-only source-labelled Timeline. The runnable local demo and desktop/mobile screenshots passed the Slice 2 gate checks on 2026-07-18.
 - **Corrected Slice 2 complete:** Project-required, Work-Item-optional, draft-first journey verified and accepted.
-- **Slice 2.5 approved next:** create the real Codex acceptance Project, immutable approved source document, governed AI proposal, append-only human revisions, and protected activation gate before GitHub automation.
+- **Slice 2.5 at protected human gate:** the real Codex acceptance Project, immutable approved source DocumentVersion, six remaining-plan Work Items, live governed GPT-5.5 proposal, redacted trace, and authenticated bilingual review evidence are complete. No contract was applied, submitted, approved, or activated.
 
 Mapping:
 

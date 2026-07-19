@@ -878,7 +878,7 @@ git commit -m "feat: review and activate document-derived progress contracts"
 - Consumes: this repository at an exact commit, approved Project documents, the live `project.progress-contract.draft` AI route, Codex acceptance identity, and existing human approval lifecycle.
 - Produces: one deterministic local Project named `Evidence Performance System — Phase 2`, one synthetic contributor `Codex`, its authoritative source snapshot, real Work Items for remaining plan tasks, an AI proposal, and a human-reviewable activation checkpoint.
 
-- [ ] **Step 1: Write failing seed safety tests**
+- [x] **Step 1: Write failing seed safety tests**
 
 ```ts
 it("is rerunnable without rewriting approved history", async () => {
@@ -895,13 +895,13 @@ it("creates no employee score or raw-activity progress rule", async () => {
 });
 ```
 
-- [ ] **Step 2: Run seed tests and verify RED**
+- [x] **Step 2: Run seed tests and verify RED**
 
 Run: `pnpm exec vitest run --project unit scripts/seed-codex-dogfood.test.ts`
 
 Expected: FAIL because the dogfood seed does not exist.
 
-- [ ] **Step 3: Implement a deterministic local-only seed**
+- [x] **Step 3: Implement a deterministic local-only seed**
 
 The seed uses public domain services, never raw destructive deletes. It creates:
 
@@ -914,13 +914,13 @@ The seed uses public domain services, never raw destructive deletes. It creates:
 
 The seed refuses to run outside the explicit local acceptance environment and never reads or copies the OpenAI credential.
 
-- [ ] **Step 4: Register and call live GPT-5.5 through AI Router**
+- [x] **Step 4: Register and call live GPT-5.5 through AI Router**
 
 Run: `pnpm ai:register:project-progress-contract && pnpm dogfood:seed && pnpm dogfood:draft-contract`
 
 Expected: a validated AI proposal is stored with source references and a redacted model-route trace. The command output contains IDs/status only, never source content or credentials.
 
-- [ ] **Step 5: Run the employee-equivalent browser journey**
+- [x] **Step 5: Run the employee-equivalent browser journey**
 
 ```ts
 test("Codex reviews the real Project contract proposal", async ({ page }) => {
@@ -937,11 +937,11 @@ Run: `pnpm test:e2e -- tests/e2e/codex-dogfood-contract.spec.ts`
 
 Expected: PASS in English and Arabic/RTL at desktop and 390px mobile.
 
-- [ ] **Step 6: Run bounded critical reviews**
+- [x] **Step 6: Run bounded critical reviews**
 
 Perform one specification-compliance review and one security/code-quality review covering AI boundary, prompt injection, document authorization, artifact/version trace, migration, audit, append-only revision history, and human activation. Fix only confirmed P0/P1 findings in one bounded cycle, then re-review corrected findings only.
 
-- [ ] **Step 7: Capture and document the acceptance evidence**
+- [x] **Step 7: Capture and document the acceptance evidence**
 
 Record exact commit/document version, redacted AI route/prompt/schema versions, proposed components, human edits, activation state, known missing behavior, and screenshots. Do not include secrets or unredacted private content.
 

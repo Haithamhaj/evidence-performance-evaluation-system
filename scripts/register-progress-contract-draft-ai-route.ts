@@ -9,7 +9,7 @@ import { createDatabaseClient } from "@evaluation/database";
 import {
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_V1,
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
-  PROJECT_PROGRESS_CONTRACT_PROMPT_V1,
+  PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
   PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
 } from "../packages/projects/src/progress-contract-draft-artifacts.js";
@@ -33,7 +33,7 @@ const ArgumentsSchema = z
 
 const modelKey = "gpt-5.5-2026-04-23";
 const providerEndpoint = "https://api.openai.com/v1";
-const promptHash = createHash("sha256").update(PROJECT_PROGRESS_CONTRACT_PROMPT_V1).digest("hex");
+const promptHash = createHash("sha256").update(PROJECT_PROGRESS_CONTRACT_PROMPT_V2).digest("hex");
 const schema = outputSchemaDescriptor(
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
@@ -92,16 +92,40 @@ export async function registerProgressContractDraftAiRoute(
       correlationId: registrationContext.correlationId,
     });
     const prompt = await registerPrompt(database, registrationContext, outputArtifact.id);
-    const existingProvider = await database.aiProviderConfig.findFirst({
-      where: {
-        providerKey: "openai",
-        adapterKey: "openai-compatible",
-        modelKey,
-        locality: "external",
-        endpoint: providerEndpoint,
+    const sharedGptRoute = await database.aiRoute.findFirst({
+      where: { routeKey: "update.structure", level: "system" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        configs: {
+          orderBy: { version: "desc" },
+          take: 1,
+          include: {
+            providers: {
+              orderBy: { position: "asc" },
+              take: 1,
+              include: { providerConfig: true },
+            },
+          },
+        },
       },
-      orderBy: { version: "desc" },
     });
+    const sharedProvider = sharedGptRoute?.configs[0]?.providers[0]?.providerConfig;
+    const existingProvider =
+      sharedProvider?.providerKey === "openai" &&
+      sharedProvider.adapterKey === "openai-compatible" &&
+      sharedProvider.modelKey === modelKey &&
+      sharedProvider.locality === "external"
+        ? sharedProvider
+        : await database.aiProviderConfig.findFirst({
+            where: {
+              providerKey: "openai",
+              adapterKey: "openai-compatible",
+              modelKey,
+              locality: "external",
+              endpoint: providerEndpoint,
+            },
+            orderBy: { version: "desc" },
+          });
     const provider =
       existingProvider ??
       (await registerAuthorizedAiProviderConfig(database, principal, {
@@ -174,7 +198,7 @@ async function registerPrompt(
     if (
       existing !== null &&
       (existing.bodyHash !== promptHash ||
-        existing.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V1)
+        existing.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V2)
     ) {
       throw new AppError("AI_PROMPT_VERSION_CONFLICT", "errors.ai.promptVersionConflict", 409);
     }
@@ -184,7 +208,7 @@ async function registerPrompt(
         routeKey: PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
         version: PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
         bodyHash: promptHash,
-        trustedBody: PROJECT_PROGRESS_CONTRACT_PROMPT_V1,
+        trustedBody: PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
         expectedBehavior:
           "A source-cited, document-derived Project Progress Contract proposal for mandatory human review.",
         registeredById: input.actorId,

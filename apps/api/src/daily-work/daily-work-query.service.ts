@@ -1,13 +1,24 @@
 export class DailyWorkQueryService {
   private readonly workItems: import("@evaluation/work-items").WorkItemQueryService;
   private readonly progress: import("@evaluation/projects").ProgressQueryService;
+  private readonly sourceRequests:
+    | Pick<
+        import("@evaluation/documents").ProgressContractDraftSourceLocator,
+        "locateApprovedProjectVersion"
+      >
+    | undefined;
 
   constructor(
     workItems: import("@evaluation/work-items").WorkItemQueryService,
     progress: import("@evaluation/projects").ProgressQueryService,
+    sourceRequests?: Pick<
+      import("@evaluation/documents").ProgressContractDraftSourceLocator,
+      "locateApprovedProjectVersion"
+    >,
   ) {
     this.workItems = workItems;
     this.progress = progress;
+    this.sourceRequests = sourceRequests;
   }
 
   myWork(actorId: string): Promise<import("@evaluation/contracts").MyWorkResponse> {
@@ -36,7 +47,14 @@ export class DailyWorkQueryService {
     return this.progress.listPortfolio({ actorId });
   }
 
-  project(actorId: string, projectId: string): Promise<unknown> {
-    return this.progress.getProjectProgress({ actorId, projectId });
+  async project(actorId: string, projectId: string): Promise<unknown> {
+    const [view, contractDraftSourceRequest] = await Promise.all([
+      this.progress.getProjectProgress({ actorId, projectId }),
+      this.sourceRequests?.locateApprovedProjectVersion({
+        actor: { userId: actorId, active: true },
+        projectId,
+      }) ?? Promise.resolve(null),
+    ]);
+    return { ...(view as object), contractDraftSourceRequest };
   }
 }

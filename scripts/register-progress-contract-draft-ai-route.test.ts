@@ -8,7 +8,7 @@ describe("Progress Contract AI draft route registration", () => {
       routeKey: "project.progress-contract.draft",
       modelKey: "gpt-5.5-2026-04-23",
       providerEndpoint: "https://api.openai.com/v1",
-      promptVersion: "project-progress-contract-draft.v1",
+      promptVersion: "project-progress-contract-draft.v2",
       outputSchemaVersion: "project-progress-contract-draft.v1",
     });
   });

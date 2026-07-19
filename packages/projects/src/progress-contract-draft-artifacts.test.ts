@@ -4,6 +4,7 @@ import {
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_V1,
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
   PROJECT_PROGRESS_CONTRACT_PROMPT_V1,
+  PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
   PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
 } from "./progress-contract-draft-artifacts.js";
@@ -11,7 +12,7 @@ import {
 describe("Progress Contract AI draft artifacts", () => {
   it("pins the document-derived proposal to a versioned governed route", () => {
     expect(PROJECT_PROGRESS_CONTRACT_ROUTE_KEY).toBe("project.progress-contract.draft");
-    expect(PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION).toBe("project-progress-contract-draft.v1");
+    expect(PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION).toBe("project-progress-contract-draft.v2");
     expect(PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION).toBe(
       "project-progress-contract-draft.v1",
     );
@@ -25,5 +26,7 @@ describe("Progress Contract AI draft artifacts", () => {
       "raw task, update, evidence, commit, PR, file, line, or activity counts",
     );
     expect(PROJECT_PROGRESS_CONTRACT_PROMPT_V1).toContain("employee-performance inference");
+    expect(PROJECT_PROGRESS_CONTRACT_PROMPT_V2).toContain("exact opaque values");
+    expect(PROJECT_PROGRESS_CONTRACT_PROMPT_V2).toContain("allowedSourceReferences");
   });
 });

@@ -62,6 +62,14 @@ const ProjectProgressViewSchema: z.ZodType<import("./project-progress-panel").Pr
         .strict()
         .nullable(),
       progress: ProgressSchema,
+      contractDraftSourceRequest: z
+        .object({
+          documentVersionId: Uuid,
+          sourceChecksum: z.string().regex(/^[a-f0-9]{64}$/u),
+          sourceVersion: z.number().int().positive(),
+        })
+        .strict()
+        .nullable(),
     })
     .strict();
 
@@ -103,7 +111,14 @@ export default async function ProjectDailyWorkPage({
       draftJourney: {
         initialDraft,
         initialOpen: initialDraft !== null,
-        sourceRequest: null,
+        sourceRequest:
+          view.contractDraftSourceRequest == null
+            ? null
+            : {
+                documentVersionId: view.contractDraftSourceRequest.documentVersionId,
+                sourceChecksum: view.contractDraftSourceRequest.sourceChecksum,
+                sourceVersion: view.contractDraftSourceRequest.sourceVersion,
+              },
       },
       locale,
       view,

@@ -9,16 +9,19 @@ const projectId = crypto.randomUUID();
 const documentId = crypto.randomUUID();
 const documentVersionId = crypto.randomUUID();
 const sourceId = crypto.randomUUID();
+const departmentScopeId = crypto.randomUUID();
 const content = "Approved scope\nAcceptance requires a reviewed release.";
 const checksum = createHash("sha256").update(content).digest("hex");
 
-function harness(overrides: {
-  documentProjectId?: string;
-  lifecycleState?: string;
-  version?: number;
-  currentVersion?: number;
-  extractedChecksum?: string;
-} = {}) {
+function harness(
+  overrides: {
+    documentProjectId?: string;
+    lifecycleState?: string;
+    version?: number;
+    currentVersion?: number;
+    extractedChecksum?: string;
+  } = {},
+) {
   const database = {
     documentReadinessCheck: {
       findFirst: vi.fn(async () => ({
@@ -47,6 +50,9 @@ function harness(overrides: {
         documentId,
         version: overrides.version ?? 2,
       })),
+    },
+    authorizationScope: {
+      findFirst: vi.fn(async () => ({ id: departmentScopeId })),
     },
   };
   const identityReader = {
@@ -116,6 +122,7 @@ describe("ProgressContractDraftSourceReader", () => {
 
     expect(result).toMatchObject({
       projectId,
+      departmentScopeId,
       documentId,
       documentVersionId,
       documentVersion: 2,
@@ -147,9 +154,7 @@ describe("ProgressContractDraftSourceReader", () => {
         sourceChecksum: checksum,
       }),
     ).rejects.toMatchObject({
-      code: expect.stringMatching(
-        /PROGRESS_CONTRACT_DRAFT_SOURCE_(?:INVALID|CHECKSUM_MISMATCH)/u,
-      ),
+      code: expect.stringMatching(/PROGRESS_CONTRACT_DRAFT_SOURCE_(?:INVALID|CHECKSUM_MISMATCH)/u),
     });
   });
 });

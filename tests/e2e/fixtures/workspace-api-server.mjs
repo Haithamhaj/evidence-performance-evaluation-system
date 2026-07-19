@@ -18,6 +18,9 @@ const proposalId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const sourceHash = "a".repeat(64);
 const progressContractId = "e1111111-1111-4111-8111-111111111111";
 const progressSnapshotId = "e2222222-2222-4222-8222-222222222222";
+const dogfoodProjectId = "d1111111-1111-4111-8111-111111111111";
+const dogfoodDocumentVersionId = "d2222222-2222-4222-8222-222222222222";
+const dogfoodDraftRequestId = "d3333333-3333-4333-8333-333333333333";
 const updateSessionId = "e5555555-5555-4555-8555-555555555555";
 const updateSourceId = "e6666666-6666-4666-8666-666666666666";
 const firstTurnId = "e7777777-7777-4777-8777-777777777777";
@@ -265,7 +268,57 @@ const projectProgress = {
     reason: "اعتمدت خمسة من ثمانية مخرجات قابلة للقياس.",
     updatedAt: "2026-07-18T12:00:00.000Z",
   },
+  contractDraftSourceRequest: null,
 };
+
+const dogfoodProgress = {
+  project: {
+    id: dogfoodProjectId,
+    name: "Evidence Performance System — Phase 2",
+    description: "Real Codex employee acceptance Project.",
+    status: "active",
+  },
+  contract: null,
+  progress: { state: "awaiting_contract" },
+  contractDraftSourceRequest: {
+    documentVersionId: dogfoodDocumentVersionId,
+    sourceChecksum: "c".repeat(64),
+    sourceVersion: 1,
+  },
+};
+
+function dogfoodDraft() {
+  return {
+    requestId: dogfoodDraftRequestId,
+    state: "ready",
+    revision: 1,
+    origin: "ai",
+    source: { label: "Approved Project document", version: 1 },
+    draft: {
+      components: [
+        {
+          position: 1,
+          kind: "milestone",
+          name: "Required quality gate satisfied",
+          description: "The exact required checks pass for the approved merge commit.",
+          weight: null,
+          baseline: null,
+          target: null,
+          unit: null,
+          direction: null,
+          acceptanceConditions: ["The Product Owner accepts the named quality gate"],
+          requiredEvidence: ["Required-check summary", "Product Owner acceptance record"],
+          confirmationMode: "human_confirmed",
+          sourceLabels: ["Approved Project document · version 1"],
+          automationHints: [],
+        },
+      ],
+      ambiguities: ["The final approved merge commit is not yet available."],
+      clarificationQuestions: ["Which exact merge commit will be accepted?"],
+    },
+    contract: null,
+  };
+}
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://127.0.0.1:3101");
@@ -311,6 +364,25 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === `/api/v1/daily-work/projects/${projectId}`) {
     return json(response, 200, projectProgress);
   }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/daily-work/projects/${dogfoodProjectId}`
+  ) {
+    return json(response, 200, dogfoodProgress);
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/projects/${dogfoodProjectId}/progress-contract-drafts`
+  ) {
+    return json(response, 200, dogfoodDraft());
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname ===
+      `/api/v1/projects/${dogfoodProjectId}/progress-contract-drafts/${dogfoodDraftRequestId}`
+  ) {
+    return json(response, 200, dogfoodDraft());
+  }
   if (request.method === "POST" && url.pathname === "/api/v1/updates/text") {
     const body = await readJson(request);
     if (body === null) return json(response, 400, { messageKey: "errors.validation" });
@@ -350,10 +422,7 @@ const server = createServer(async (request, response) => {
       remainingFieldCount: 2,
     });
   }
-  if (
-    request.method === "POST" &&
-    url.pathname === `/api/v1/updates/${updateSessionId}/answers`
-  ) {
+  if (request.method === "POST" && url.pathname === `/api/v1/updates/${updateSessionId}/answers`) {
     const body = await readJson(request);
     if (body === null) return json(response, 400, { messageKey: "errors.validation" });
     if (clarificationTurn === 1) {
@@ -396,10 +465,7 @@ const server = createServer(async (request, response) => {
       draft: structuredDraft(),
     });
   }
-  if (
-    request.method === "GET" &&
-    url.pathname === `/api/v1/updates/${updateSessionId}/draft`
-  ) {
+  if (request.method === "GET" && url.pathname === `/api/v1/updates/${updateSessionId}/draft`) {
     return json(response, 200, structuredDraft());
   }
   if (
@@ -411,10 +477,7 @@ const server = createServer(async (request, response) => {
     updateDraftRevision += 1;
     return json(response, 200, structuredDraft(body));
   }
-  if (
-    request.method === "POST" &&
-    url.pathname === `/api/v1/updates/${updateSessionId}/confirm`
-  ) {
+  if (request.method === "POST" && url.pathname === `/api/v1/updates/${updateSessionId}/confirm`) {
     if (!timelineItems.some((item) => item.id === acceptedUpdateId)) {
       timelineItems.unshift({
         id: acceptedUpdateId,
@@ -447,10 +510,7 @@ const server = createServer(async (request, response) => {
       sourceReferences: [`update-source:${updateSourceId}`],
     });
   }
-  if (
-    request.method === "GET" &&
-    url.pathname === `/api/v1/updates/${acceptedUpdateId}/result`
-  ) {
+  if (request.method === "GET" && url.pathname === `/api/v1/updates/${acceptedUpdateId}/result`) {
     return json(response, 200, {
       acceptedEventId: acceptedUpdateId,
       project: { id: projectId, name: "Atlas Delivery" },
@@ -489,15 +549,11 @@ const server = createServer(async (request, response) => {
           ? "اعتماد الإغلاق مع مالك المنتج."
           : "Confirm closure with the product owner.",
       documentationNeeds:
-        updateLocale === "ar"
-          ? ["سجل اعتماد مالك المنتج"]
-          : ["Product-owner approval record"],
+        updateLocale === "ar" ? ["سجل اعتماد مالك المنتج"] : ["Product-owner approval record"],
       progressImpact: {
         state: "insufficient_information",
         missing:
-          updateLocale === "ar"
-            ? ["سجل اعتماد مالك المنتج"]
-            : ["Product-owner approval record"],
+          updateLocale === "ar" ? ["سجل اعتماد مالك المنتج"] : ["Product-owner approval record"],
       },
       confirmedAt: "2026-07-18T14:05:00.000Z",
     });
@@ -521,19 +577,13 @@ const server = createServer(async (request, response) => {
     evidenceRevision = 1;
     return json(response, 200, evidenceDetail(body));
   }
-  if (
-    request.method === "POST" &&
-    url.pathname === `/api/v1/evidence/${evidenceId}/revisions`
-  ) {
+  if (request.method === "POST" && url.pathname === `/api/v1/evidence/${evidenceId}/revisions`) {
     const body = await readJson(request);
     if (body === null) return json(response, 400, { messageKey: "errors.validation" });
     evidenceRevision += 1;
     return json(response, 200, evidenceDetail(body));
   }
-  if (
-    request.method === "POST" &&
-    url.pathname === `/api/v1/evidence/${evidenceId}/confirm`
-  ) {
+  if (request.method === "POST" && url.pathname === `/api/v1/evidence/${evidenceId}/confirm`) {
     if (!timelineItems.some((item) => item.id === acceptedEvidenceId)) {
       timelineItems.unshift({
         id: acceptedEvidenceId,
@@ -557,10 +607,7 @@ const server = createServer(async (request, response) => {
       confirmedAt: "2026-07-18T14:04:00.000Z",
     });
   }
-  if (
-    request.method === "POST" &&
-    url.pathname === `/api/v1/evidence/${evidenceId}/reject`
-  ) {
+  if (request.method === "POST" && url.pathname === `/api/v1/evidence/${evidenceId}/reject`) {
     return json(response, 200, { ...evidenceDetail({}), state: "rejected" });
   }
   if (request.method === "GET" && url.pathname === "/api/v1/timeline") {

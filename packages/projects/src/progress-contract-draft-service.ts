@@ -12,7 +12,7 @@ import { z } from "zod";
 import {
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_V1,
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
-  PROJECT_PROGRESS_CONTRACT_PROMPT_V1,
+  PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
   PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
 } from "./progress-contract-draft-artifacts.js";
@@ -79,7 +79,7 @@ export type ProgressContractDraftAiRouter = Pick<
 
 type DraftSource = Readonly<{
   projectId: string;
-  departmentId: string;
+  departmentScopeId: string;
   documentId: string;
   documentVersionId: string;
   documentVersion: number;
@@ -177,17 +177,44 @@ export class ProgressContractDraftService {
       | undefined;
     let route: Awaited<ReturnType<ProgressContractDraftAiRouter["run"]>>;
     try {
+      const prompt = await this.client.analysisPromptArtifact.findUnique({
+        where: {
+          routeKey_version: {
+            routeKey: PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
+            version: PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
+          },
+        },
+        select: { id: true, bodyHash: true, trustedBody: true },
+      });
+      const expectedPromptHash = createHash("sha256")
+        .update(PROJECT_PROGRESS_CONTRACT_PROMPT_V2)
+        .digest("hex");
+      if (
+        prompt === null ||
+        prompt.bodyHash !== expectedPromptHash ||
+        prompt.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V2
+      ) {
+        throw new AppError("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
+      }
       route = await this.aiRouter.run(
         {
           routeKey: PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
           projectId: parsed.projectId,
-          departmentId: source.departmentId,
+          departmentId: source.departmentScopeId,
           systemId: this.options.systemId,
-          input: buildBoundedDraftInput(source, previousContract, {
-            locale: parsed.locale,
-            timezone: parsed.timezone,
-            effectiveAt: parsed.effectiveAt,
-          }),
+          input: buildBoundedDraftInput(
+            source,
+            previousContract,
+            {
+              locale: parsed.locale,
+              timezone: parsed.timezone,
+              effectiveAt: parsed.effectiveAt,
+            },
+            {
+              artifactId: prompt.id,
+              sha256: prompt.bodyHash,
+            },
+          ),
           inputReference: `progress-contract-draft:${prepared.request.id}`,
           inputSchemaVersion: "project-progress-contract-draft-input.v1",
           outputSchemaVersion: PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
@@ -583,8 +610,10 @@ export class ProgressContractDraftService {
             safeDiff: {
               state: "pending",
               documentVersionId: source.documentVersionId,
-              promptVersion: PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
-              outputSchemaVersion: PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
+              artifactVersions: [
+                PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
+                PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
+              ],
             },
             correlationId: parsed.correlationId,
             source: "api",
@@ -775,7 +804,9 @@ function buildBoundedDraftInput(
   source: DraftSource,
   previousContract: any,
   context: Readonly<{ locale: string; timezone: string; effectiveAt: string }>,
+  prompt: Readonly<{ artifactId: string; sha256: string }>,
 ) {
+  const quotedSections = boundQuotedSections(source.quotedSections, 80_000);
   const previousSummary =
     previousContract === null
       ? null
@@ -808,7 +839,12 @@ function buildBoundedDraftInput(
           boundedOmission: "Previous component detail exceeded the governed input bound",
         };
   return {
-    trustedInstruction: PROJECT_PROGRESS_CONTRACT_PROMPT_V1,
+    trustedInstruction: {
+      routeKey: PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
+      artifactId: prompt.artifactId,
+      version: PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
+      sha256: prompt.sha256,
+    },
     untrustedContent: JSON.stringify({
       requestedContext: context,
       exactDocumentVersion: {
@@ -817,10 +853,56 @@ function buildBoundedDraftInput(
         documentVersion: source.documentVersion,
         sourceChecksum: source.sourceChecksum,
       },
-      quotedSections: source.quotedSections,
+      allowedSourceReferences: source.sourceReferences,
+      quotedSections,
       previousActiveContract: boundedPreviousSummary,
     }),
   };
+}
+
+function boundQuotedSections(
+  sections: DraftSource["quotedSections"],
+  maxCharacters: number,
+): DraftSource["quotedSections"] {
+  const totalCharacters = sections.reduce((sum, section) => sum + section.text.length, 0);
+  if (totalCharacters <= maxCharacters) return sections;
+  const baseBudget = Math.min(512, Math.floor(maxCharacters / sections.length));
+  let remaining = maxCharacters - baseBudget * sections.length;
+  return sections.map((section, index) => {
+    const proportional =
+      index === sections.length - 1
+        ? remaining
+        : Math.floor(
+            (remaining * section.text.length) /
+              sections.slice(index).reduce((sum, item) => sum + item.text.length, 0),
+          );
+    remaining -= proportional;
+    return {
+      ...section,
+      text: sampleApprovedText(section.text, baseBudget + proportional),
+    };
+  });
+}
+
+function sampleApprovedText(text: string, maxCharacters: number): string {
+  if (text.length <= maxCharacters) return text;
+  const marker = "\n[bounded omission: approved source text omitted]\n";
+  const windowCount = Math.min(5, Math.max(2, Math.floor(maxCharacters / 1_024)));
+  const contentBudget = maxCharacters - marker.length * (windowCount - 1);
+  if (contentBudget <= windowCount) return text.slice(0, maxCharacters);
+  const windowSize = Math.floor(contentBudget / windowCount);
+  const finalWindowSize = contentBudget - windowSize * (windowCount - 1);
+  const lastStart = text.length - finalWindowSize;
+  const starts = Array.from({ length: windowCount }, (_, index) =>
+    index === windowCount - 1
+      ? lastStart
+      : Math.floor((index * (lastStart - windowSize)) / (windowCount - 1)),
+  );
+  return starts
+    .map((start, index) =>
+      text.slice(start, start + (index === windowCount - 1 ? finalWindowSize : windowSize)),
+    )
+    .join(marker);
 }
 
 function hashPayload(parsed: z.infer<typeof RequestDraftSchema>): string {

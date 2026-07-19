@@ -1,9 +1,10 @@
 import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
-import { ProgressDocumentReader } from "@evaluation/documents";
+import { ProgressContractDraftSourceLocator, ProgressDocumentReader } from "@evaluation/documents";
 import {
   CriteriaReviewReader,
   createProgressContractService,
+  DocumentResourceReader,
   ProgressContractService,
   ProgressQueryService,
 } from "@evaluation/projects";
@@ -57,10 +58,19 @@ Module({
       inject: [DAILY_WORK_DATABASE],
     },
     {
+      provide: ProgressContractDraftSourceLocator,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new ProgressContractDraftSourceLocator(client, new DocumentResourceReader(client)),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
       provide: DailyWorkQueryService,
-      useFactory: (workItems: WorkItemQueryService, progress: ProgressQueryService) =>
-        new DailyWorkQueryService(workItems, progress),
-      inject: [WorkItemQueryService, ProgressQueryService],
+      useFactory: (
+        workItems: WorkItemQueryService,
+        progress: ProgressQueryService,
+        sourceRequests: ProgressContractDraftSourceLocator,
+      ) => new DailyWorkQueryService(workItems, progress, sourceRequests),
+      inject: [WorkItemQueryService, ProgressQueryService, ProgressContractDraftSourceLocator],
     },
     {
       provide: ProjectDashboardQueryService,

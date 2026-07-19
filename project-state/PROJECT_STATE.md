@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Prepare the approved Codex dogfood execution: use this repository as the real Phase 2 Project, Codex as the local employee/contributor, live GPT-5.5 for a human-approved Progress Contract draft and Updates, and governed GitHub automation for real source evidence.
+Hold at the protected Product Owner gate for the live Codex dogfood Progress Contract proposal; begin governed GitHub automation only after a human-approved contract becomes active.
 
 ## Current Reality
 
@@ -42,6 +42,10 @@ Prepare the approved Codex dogfood execution: use this repository as the real Ph
 - The bounded dogfood design is `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`; the Product Owner approved it in writing on 2026-07-19.
 - The active execution plan now inserts Bundle 1.5 before GitHub automation: versioned `project.progress-contract.draft` artifacts, durable AI proposals and human revisions, the protected review/activation UI, and the real Codex Project seed/acceptance journey.
 - The subsequent GitHub bundle uses the same active human-approved Codex contract and real repository; deterministic fixtures verify safety before live GitHub App reconciliation.
+- The real local Codex Project seed is safely rerunnable at repository commit `b73c8e9`: one Project, one Workstream, exact approved DocumentVersion `1`, six remaining-plan Work Items, and no performance or raw-activity progress rows.
+- Live GPT-5.5 produced persisted proposal revision `1` through the governed AI Router. The redacted trace is prompt `project-progress-contract-draft.v2`, output schema `project-progress-contract-draft.v1`, route config `2`, succeeded with human approval pending.
+- The persisted proposal was reviewed through the real local API and signed Keycloak authentication in English and Arabic/RTL at desktop and 390px. No human edit, application, submission, approval, activation, GitHub binding, or official progress recalculation was performed.
+- Acceptance evidence is `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md`; live screenshots are under `docs/product/screenshots/phase-2-production/codex-dogfood-contract/`.
 
 ## Active Decisions
 
@@ -74,7 +78,7 @@ Prepare the approved Codex dogfood execution: use this repository as the real Ph
 
 ## Next Recommended Action
 
-Self-review and push the amended dogfood execution plan, then execute Bundle 1.5 through its live AI proposal. Stop only when Haitham must activate the reviewed contract or install the GitHub App.
+Haitham reviews and may edit the persisted AI proposal, then completes the protected apply, submit, and activation decisions. Resume Bundle 2 only after an active human-approved contract exists.
 
 ## Critical References
 

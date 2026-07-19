@@ -117,4 +117,28 @@ describe("ProgressContractDraftPanel", () => {
     expect(markup).toContain("PR #142");
     expect(markup).toContain(catalog["progressContract.aiDraftLabel"]);
   });
+
+  it("defaults to stage gate when any proposed component has no approved weight", async () => {
+    const catalog = await getCatalog("en");
+    const markup = renderToStaticMarkup(
+      createElement(ProgressContractDraftPanel, {
+        catalog,
+        initialDraft: {
+          ...initialDraft,
+          draft: {
+            ...initialDraft.draft,
+            components: [{ ...initialDraft.draft.components[0]!, weight: null }],
+          },
+        },
+        initialOpen: true,
+        locale: "en",
+        projectId,
+        sourceRequest: null,
+      }),
+    );
+
+    expect(markup).toMatch(
+      /<select[^>]*name="calculationKind"[^>]*>.*<option value="stage_gate" selected/isu,
+    );
+  });
 });

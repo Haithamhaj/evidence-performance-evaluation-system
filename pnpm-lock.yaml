@@ -20,12 +20,21 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:packages/database
+      '@evaluation/documents':
+        specifier: workspace:*
+        version: link:packages/documents
       '@evaluation/localization':
         specifier: workspace:*
         version: link:packages/localization
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:packages/projects
       '@evaluation/updates-evidence':
         specifier: workspace:*
         version: link:packages/updates-evidence
+      '@evaluation/work-items':
+        specifier: workspace:*
+        version: link:packages/work-items
     devDependencies:
       '@aws-sdk/client-s3':
         specifier: 3.1087.0

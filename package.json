@@ -12,8 +12,11 @@
     "@evaluation/audit": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",
+    "@evaluation/documents": "workspace:*",
     "@evaluation/localization": "workspace:*",
-    "@evaluation/updates-evidence": "workspace:*"
+    "@evaluation/projects": "workspace:*",
+    "@evaluation/updates-evidence": "workspace:*",
+    "@evaluation/work-items": "workspace:*"
   },
   "scripts": {
     "dev": "turbo run dev --parallel",
@@ -24,6 +27,9 @@
     "db:reset:local": "node scripts/assert-local-database.mjs && pnpm --filter @evaluation/database exec prisma migrate reset --force",
     "db:seed": "pnpm --filter @evaluation/database db:seed",
     "db:verify": "node scripts/verify-migrations.mjs",
+    "ai:register:project-progress-contract": "tsx scripts/seed-codex-dogfood.ts --register-route",
+    "dogfood:seed": "tsx scripts/seed-codex-dogfood.ts --seed",
+    "dogfood:draft-contract": "tsx scripts/seed-codex-dogfood.ts --draft-contract",
     "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs prettier.config.mjs vitest.config.ts vitest.workspace.ts .github apps packages scripts tests",
     "infra:down": "node scripts/run-compose.mjs down",
     "infra:reset": "node scripts/reset-local-infra.mjs",

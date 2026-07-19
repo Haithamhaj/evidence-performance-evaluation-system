@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
+import { DailyWorkQueryService } from "./daily-work-query.service.js";
 
 const actorId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
@@ -59,6 +60,39 @@ describe("daily work protected API contracts", () => {
     await controller.updateContext(request);
 
     expect(updateContext).toHaveBeenCalledWith(actorId);
+  });
+
+  it("server-composes the approved source request without exposing document identity", async () => {
+    const progress = {
+      getProjectProgress: vi.fn(async () => ({
+        project: { id: projectId },
+        contract: null,
+        progress: { state: "awaiting_contract" },
+      })),
+    };
+    const sourceRequests = {
+      locateApprovedProjectVersion: vi.fn(async () => ({
+        documentVersionId,
+        sourceChecksum: "a".repeat(64),
+        sourceVersion: 2,
+      })),
+    };
+    const query = new DailyWorkQueryService({} as never, progress as never, sourceRequests);
+
+    await expect(query.project(actorId, projectId)).resolves.toEqual({
+      project: { id: projectId },
+      contract: null,
+      progress: { state: "awaiting_contract" },
+      contractDraftSourceRequest: {
+        documentVersionId,
+        sourceChecksum: "a".repeat(64),
+        sourceVersion: 2,
+      },
+    });
+    expect(sourceRequests.locateApprovedProjectVersion).toHaveBeenCalledWith({
+      actor: { userId: actorId, active: true },
+      projectId,
+    });
   });
 
   it("rejects cross-Project contracts before domain mutation", () => {

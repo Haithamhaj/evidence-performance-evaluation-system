@@ -84,7 +84,6 @@ describe("ProjectProgressPanel", () => {
           sourceRequest: {
             documentVersionId: crypto.randomUUID(),
             sourceChecksum: "a".repeat(64),
-            sourceLabel: "Approved Project document",
             sourceVersion: 3,
           },
         },
