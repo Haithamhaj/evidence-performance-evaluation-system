@@ -33,7 +33,11 @@ type InternalStage =
       saved: boolean;
       evidenceIds: readonly string[];
     }>
-  | Readonly<{ kind: "complete"; result: UpdateResultCard }>;
+  | Readonly<{
+      kind: "complete";
+      result: UpdateResultCard;
+      selection: UpdateSelection;
+    }>;
 
 type EvidenceContext = Readonly<{
   projectId: string;
@@ -200,7 +204,11 @@ export function UpdateComposer({
       );
       const response = await request(`/api/daily-work/updates/${accepted.id}/result`);
       removeUpdateDraft(DRAFT_STORAGE_KEY);
-      setStage({ kind: "complete", result: UpdateResultCardSchema.parse(response) });
+      setStage({
+        kind: "complete",
+        result: UpdateResultCardSchema.parse(response),
+        selection: stage.selection,
+      });
       setTimelineKey((value) => value + 1);
       onAccepted();
     });
@@ -245,7 +253,7 @@ export function UpdateComposer({
   }
 
   const viewStage = toViewStage(stage, context);
-  const activeSelection = stage.kind === "complete" ? null : stage.selection;
+  const activeSelection = stage.selection;
   const updateSourceId =
     stage.kind === "review" ? sourceIdFrom(stage.draft.sourceReferences) : null;
 
@@ -321,7 +329,7 @@ function toViewStage(
   context: import("../../../platform/updates-evidence-contracts").UpdateComposerContext,
 ): import("./update-composer-view").UpdateComposerViewStage {
   if (stage.kind === "entry") return { ...stage, context };
-  if (stage.kind === "complete") return stage;
+  if (stage.kind === "complete") return { kind: "complete", result: stage.result };
   if (stage.kind === "draft_with_question") {
     return {
       kind: "draft_with_question",

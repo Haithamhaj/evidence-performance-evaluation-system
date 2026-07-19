@@ -57,7 +57,7 @@ export function MyWorkClient({
           className="primaryAction"
           disabled={composedContext.projects.length === 0}
           onClick={() => {
-            setComposerItemId(firstUpdatable?.id ?? "");
+            setComposerItemId("");
             setComposerOpen(true);
           }}
           type="button"

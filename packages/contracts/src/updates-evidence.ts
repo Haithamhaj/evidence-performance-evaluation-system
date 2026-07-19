@@ -311,8 +311,8 @@ const AiDraftSchema = z
     nextAction: z.string().min(1).max(2_000).regex(/\S/u),
     contributionContext: z.string().min(1).max(2_000).regex(/\S/u),
     evidenceClaimDrafts: z.array(z.string().min(1).max(2_000).regex(/\S/u)).max(20),
-    documentationNeeds: z.array(z.string().min(1).max(500).regex(/\S/u)).max(50).default([]),
-    relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
+    documentationNeeds: z.array(z.string().min(1).max(500).regex(/\S/u)).max(50),
+    relatedProgressComponentIds: z.array(UuidSchema).max(100),
     comparisonExplanation: z.string().min(1).max(2_000).regex(/\S/u),
   })
   .strict();

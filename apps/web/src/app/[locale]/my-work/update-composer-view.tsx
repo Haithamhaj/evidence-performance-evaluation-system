@@ -112,6 +112,7 @@ export function UpdateComposerView({
           <EntryForm
             busy={busy}
             catalog={catalog}
+            key={`${stage.selection.projectId}:${stage.selection.workstreamId ?? ""}:${stage.selection.workItemId ?? ""}`}
             onRawTextChange={onRawTextChange}
             onSubmit={onEntrySubmit}
             stage={stage}

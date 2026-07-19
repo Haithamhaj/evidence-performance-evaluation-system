@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Hold at the approved written-plan gate before correcting the Phase 2 daily Update journey and adding contract-aware GitHub Project automation.
+Hold at the Bundle 1 Product Owner acceptance gate after correcting the Phase 2 daily Update journey. Do not begin contract-aware GitHub automation until approval.
 
 ## Current Reality
 
@@ -30,6 +30,12 @@ Hold at the approved written-plan gate before correcting the Phase 2 daily Updat
 - The product owner approved the written correction on 2026-07-19. A verified GitHub event may prove a deterministic condition mapped in the active Progress Contract and update operational Project progress; raw GitHub volume remains prohibited, ambiguous events require Project review, and personal contribution evidence still requires employee confirmation.
 - The active correction artifacts are `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md` and `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
 - The correction plan replaces the old Slice 2–4 behavior and Fact View task. The previously approved Check-ins/Monthly Readiness and Manager Operational View tasks remain active and execute between the corrected source bundles and Fact View preparation.
+- Bundle 1 correction is implemented through Tasks 1–4: authorized Project-first scope composition; draft-first AI structuring and readable results; corrected bilingual drawer/sheet interaction; deterministic acceptance data and Playwright coverage.
+- The corrected flow requires a Project while Workstream and Work Item remain optional, shows an evolving draft before each next clarification, keeps manual evidence in the same flow, and ends in a compact result card plus append-only Timeline.
+- The checkpoint uses the existing deterministic Phase 2 seed (two Projects, five Workstreams, twenty Work Items, and approved Progress Contracts) instead of creating a second seed path. No employee performance values are seeded.
+- Product-owner screenshots are under `docs/product/screenshots/phase-2-production/daily-update-correction/`; the local review routes are `http://127.0.0.1:3300/ar/my-work` and `http://127.0.0.1:3300/en/my-work`.
+- Bundle 1 verification passed at the repository-pinned Node.js 24.18.0 and pnpm 11.13.0: 57 focused unit tests, 27 related integration tests, 145 passing AI evaluation checks (one intentional skip), 4 related browser journeys, both protected scans, lint/boundaries/copy checks, and all 20 workspace typechecks.
+- The local governed `update.structure` route now has prompt v4 and output schema v2 registered against the approved GPT-5.5 model route. The provider credential remained outside the repository and was not printed, moved, or committed.
 
 ## Active Decisions
 
@@ -50,9 +56,9 @@ Hold at the approved written-plan gate before correcting the Phase 2 daily Updat
 - Live-model quality and production queue/storage operations still require deployment-time evaluation and monitoring; deterministic verification confirms governed contracts, not provider output quality.
 - Arabic employee release remains blocked at T016's protected human semantic-review gate.
 - The known non-blocking T013 recovered-running attempt-count telemetry issue remains outside Phase 1 scope.
-- The prototype remains reference-only. Production update structuring now uses the governed AI Router; GitHub suggestions, voice, check-ins/readiness, manager operations, and Fact View preparation remain in Slices 3–7.
+- The prototype remains reference-only. Production update structuring now uses the governed AI Router; connected GitHub automation, voice, check-ins/readiness, manager operations, and Fact View preparation remain in later bundles.
 - The production plan contains multiple security-, migration-, AI-, privacy-, and immutability-critical slices. Fast Controlled Execution remains the default, with bounded critical reviews only where those boundaries are touched.
-- Local verification currently uses Node.js 24.14.0 while the repository pins 24.18.0; pnpm is the required 11.13.0 and the complete Slice 1 checks pass. CI remains the exact-runtime confirmation.
+- CI remains the hosted confirmation after this checkpoint is pushed; local verification used the exact repository-pinned Node.js 24.18.0 and pnpm 11.13.0.
 
 ## Protected Areas
 
@@ -62,7 +68,7 @@ Hold at the approved written-plan gate before correcting the Phase 2 daily Updat
 
 ## Next Recommended Action
 
-Product owner reviews the written implementation plan. After approval, execute Bundle 1 with `superpowers:executing-plans` and stop at its runnable Product Owner gate before GitHub automation.
+Product owner reviews the corrected running daily-work flow and the six checkpoint screenshots. If accepted, begin Bundle 2 contract-aware GitHub automation; otherwise amend only the confirmed Bundle 1 findings.
 
 ## Critical References
 

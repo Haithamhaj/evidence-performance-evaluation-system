@@ -1,3 +1,5 @@
+import { outputSchemaDescriptor } from "@evaluation/ai-routing";
+import { UpdateStructureAiOutputSchema } from "@evaluation/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -14,6 +16,16 @@ describe("update structuring prompt", () => {
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"state":"draft_with_question"');
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"state":"ready_for_review"');
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"comparisonExplanation"');
+  });
+
+  it("keeps the registered output schema portable", () => {
+    expect(() =>
+      outputSchemaDescriptor(
+        "update.structure",
+        UPDATE_STRUCTURE_OUTPUT_SCHEMA_VERSION,
+        UpdateStructureAiOutputSchema,
+      ),
+    ).not.toThrow();
   });
 
   it("keeps employee and evidence content untrusted and pins the governed route", () => {

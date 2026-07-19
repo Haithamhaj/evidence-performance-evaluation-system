@@ -29,7 +29,9 @@ test("Arabic employee completes multi-turn update, evidence review, confirmation
   await page.getByRole("button", { name: "إجابة ومتابعة" }).click();
 
   await expect(page.getByRole("heading", { name: "راجع تحديثك" })).toBeVisible();
-  await expect(page.getByText("مقارنة بآخر تحديث معتمد")).toBeVisible();
+  await expect(
+    page.getByText("ارتفعت النتيجة من مسودة غير مكتملة إلى 12 حالة قبول ناجحة."),
+  ).toBeVisible();
   await page.getByRole("button", { name: "حفظ مراجعتي" }).click();
   await page.getByRole("button", { name: "إضافة دليل" }).click();
 
@@ -61,9 +63,11 @@ test("Arabic employee completes multi-turn update, evidence review, confirmation
 
   await expect(page.getByText("الأدلة المؤكدة: 1")).toBeVisible();
   await page.getByRole("button", { name: "تأكيد التحديث" }).click();
-  await expect(page.getByRole("heading", { name: "تم تأكيد التحديث" })).toBeVisible();
+  await expect(page.getByText("تم تأكيد التحديث")).toBeVisible();
   await expect(page.getByText("نجحت سيناريوهات القبول المتفق عليها")).toBeVisible();
-  await expect(page.getByText("اكتملت رحلة التحديث والأدلة")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "اكتملت رحلة التحديث والأدلة" }),
+  ).toBeVisible();
   await expect(page.getByText(/ترتيب|إنتاجية|تقييم متوقع/u)).toHaveCount(0);
   await page.screenshot({
     fullPage: true,

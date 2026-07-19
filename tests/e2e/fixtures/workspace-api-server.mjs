@@ -31,6 +31,12 @@ const acceptedEvidenceId = "ea555555-5555-4555-8555-555555555555";
 let clarificationTurn = 0;
 let updateDraftRevision = 1;
 let evidenceRevision = 1;
+let updateLocale = "ar";
+let currentUpdateContext = {
+  projectId,
+  workstreamId: null,
+  workItemId: null,
+};
 const timelineItems = [];
 
 const project = {
@@ -286,20 +292,60 @@ const server = createServer(async (request, response) => {
       },
     ]);
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/daily-work/update-context") {
+    return json(response, 200, {
+      projects: [
+        {
+          id: projectId,
+          name: "Atlas Delivery",
+          workstreams: [{ id: workstreamId, name: "API readiness" }],
+          workItems: workItems.map((item) => ({
+            id: item.id,
+            title: item.title,
+            workstreamId: item.workstreamId,
+          })),
+        },
+      ],
+    });
+  }
   if (request.method === "GET" && url.pathname === `/api/v1/daily-work/projects/${projectId}`) {
     return json(response, 200, projectProgress);
   }
   if (request.method === "POST" && url.pathname === "/api/v1/updates/text") {
     const body = await readJson(request);
     if (body === null) return json(response, 400, { messageKey: "errors.validation" });
+    currentUpdateContext = {
+      projectId: body.projectId,
+      workstreamId: body.workstreamId,
+      workItemId: body.workItemId,
+    };
+    updateLocale = /[\u0600-\u06ff]/u.test(body.rawText) ? "ar" : "en";
     clarificationTurn = 1;
+    updateDraftRevision = 1;
     return json(response, 200, {
-      state: "question",
+      state: "draft_with_question",
       sessionId: updateSessionId,
       sessionVersion: 2,
+      draft: structuredDraft({
+        summary: updateLocale === "ar" ? "تم تسجيل تحديث النشر." : "Deployment update recorded.",
+        result:
+          updateLocale === "ar"
+            ? "تحتاج نتيجة فحص القبول إلى توضيح."
+            : "The acceptance-check result still needs clarification.",
+        nextAction:
+          updateLocale === "ar"
+            ? "توضيح نتيجة فحص القبول."
+            : "Clarify the acceptance-check result.",
+        documentationNeeds: [
+          updateLocale === "ar" ? "نتيجة فحص القبول المعتمد" : "Approved acceptance-check result",
+        ],
+      }),
       turnId: firstTurnId,
       turnNumber: 1,
-      question: "ما النتيجة القابلة للتحقق التي تحققت؟",
+      question:
+        updateLocale === "ar"
+          ? "ما النتيجة القابلة للتحقق التي تحققت؟"
+          : "What verifiable result was achieved?",
       affects: ["result", "progress_context"],
       remainingFieldCount: 2,
     });
@@ -312,23 +358,42 @@ const server = createServer(async (request, response) => {
     if (body === null) return json(response, 400, { messageKey: "errors.validation" });
     if (clarificationTurn === 1) {
       clarificationTurn = 2;
+      updateDraftRevision = 2;
       return json(response, 200, {
-        state: "question",
+        state: "draft_with_question",
         sessionId: updateSessionId,
         sessionVersion: 3,
+        draft: structuredDraft({
+          summary: updateLocale === "ar" ? "اكتمل فحص القبول." : "Acceptance check completed.",
+          result:
+            updateLocale === "ar"
+              ? "نجحت 12 من 12 حالة قبول."
+              : "All 12 acceptance scenarios passed.",
+          nextAction:
+            updateLocale === "ar"
+              ? "إرفاق دليل النتيجة وتحديد خطوة الإغلاق."
+              : "Attach the result evidence and define the closure step.",
+          documentationNeeds:
+            updateLocale === "ar"
+              ? ["دليل نتيجة القبول", "اعتماد خطوة الإغلاق"]
+              : ["Acceptance-result evidence", "Closure-step approval"],
+        }),
         turnId: secondTurnId,
         turnNumber: 2,
-        question: "ما الدليل الذي يثبت هذه النتيجة وما الخطوة التالية؟",
+        question:
+          updateLocale === "ar"
+            ? "ما الدليل الذي يثبت هذه النتيجة وما الخطوة التالية؟"
+            : "What evidence supports this result, and what is the next step?",
         affects: ["evidence", "next_action"],
         remainingFieldCount: 1,
       });
     }
+    updateDraftRevision = 3;
     return json(response, 200, {
       state: "ready_for_review",
       sessionId: updateSessionId,
       sessionVersion: 4,
-      draftRevisionId,
-      draftRevision: 1,
+      draft: structuredDraft(),
     });
   }
   if (
@@ -354,13 +419,19 @@ const server = createServer(async (request, response) => {
       timelineItems.unshift({
         id: acceptedUpdateId,
         kind: "update",
-        projectId,
-        workstreamId,
-        workItemId: workItems[0].id,
+        projectId: currentUpdateContext.projectId,
+        workstreamId: currentUpdateContext.workstreamId,
+        workItemId: currentUpdateContext.workItemId,
         employeeId: ownerId,
         occurredAt: "2026-07-18T14:05:00.000Z",
-        title: "اكتملت رحلة التحديث والأدلة",
-        detail: "نجحت 12 من 12 حالة قبول واتُفق على خطوة الإغلاق.",
+        title:
+          updateLocale === "ar"
+            ? "اكتملت رحلة التحديث والأدلة"
+            : "Update and evidence flow completed",
+        detail:
+          updateLocale === "ar"
+            ? "نجحت 12 من 12 حالة قبول واتُفق على خطوة الإغلاق."
+            : "All 12 acceptance scenarios passed and the closure step was agreed.",
         sourceReferences: [`update-source:${updateSourceId}`],
       });
     }
@@ -368,12 +439,67 @@ const server = createServer(async (request, response) => {
       id: acceptedUpdateId,
       updateSourceId,
       draftRevisionId,
-      projectId,
-      workstreamId,
-      workItemId: workItems[0].id,
+      projectId: currentUpdateContext.projectId,
+      workstreamId: currentUpdateContext.workstreamId,
+      workItemId: currentUpdateContext.workItemId,
       employeeId: ownerId,
       confirmedAt: "2026-07-18T14:05:00.000Z",
       sourceReferences: [`update-source:${updateSourceId}`],
+    });
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/updates/${acceptedUpdateId}/result`
+  ) {
+    return json(response, 200, {
+      acceptedEventId: acceptedUpdateId,
+      project: { id: projectId, name: "Atlas Delivery" },
+      workstream:
+        currentUpdateContext.workstreamId === null
+          ? null
+          : { id: workstreamId, name: "API readiness" },
+      workItem:
+        currentUpdateContext.workItemId === null
+          ? null
+          : {
+              id: currentUpdateContext.workItemId,
+              title:
+                workItems.find((item) => item.id === currentUpdateContext.workItemId)?.title ??
+                "عنصر العمل",
+            },
+      summary:
+        updateLocale === "ar"
+          ? "اكتملت رحلة التحديث والأدلة"
+          : "Update and evidence flow completed",
+      result:
+        updateLocale === "ar"
+          ? "نجحت 12 من 12 حالة قبول متفق عليها."
+          : "All 12 agreed acceptance scenarios passed.",
+      sourceReferences: [`update-source:${updateSourceId}`],
+      comparison: {
+        previousAcceptedEventId: null,
+        explanation:
+          updateLocale === "ar"
+            ? "هذا أول تحديث مؤكد للمشروع."
+            : "This is the first confirmed update for the project.",
+      },
+      blocker: null,
+      nextAction:
+        updateLocale === "ar"
+          ? "اعتماد الإغلاق مع مالك المنتج."
+          : "Confirm closure with the product owner.",
+      documentationNeeds:
+        updateLocale === "ar"
+          ? ["سجل اعتماد مالك المنتج"]
+          : ["Product-owner approval record"],
+      progressImpact: {
+        state: "insufficient_information",
+        missing:
+          updateLocale === "ar"
+            ? ["سجل اعتماد مالك المنتج"]
+            : ["Product-owner approval record"],
+      },
+      confirmedAt: "2026-07-18T14:05:00.000Z",
     });
   }
   if (request.method === "POST" && url.pathname === "/api/v1/documents/uploads") {
@@ -534,16 +660,28 @@ function json(response, status, body) {
 }
 
 function structuredDraft(overrides = {}) {
+  const isArabic = updateLocale === "ar";
   return {
     id: draftRevisionId,
     sessionId: updateSessionId,
     revision: updateDraftRevision,
-    summary: overrides.summary ?? "اكتملت رحلة التحديث والأدلة",
-    result: overrides.result ?? "نجحت 12 من 12 حالة قبول متفق عليها.",
+    summary:
+      overrides.summary ??
+      (isArabic ? "اكتملت رحلة التحديث والأدلة" : "Update and evidence flow completed"),
+    result:
+      overrides.result ??
+      (isArabic
+        ? "نجحت 12 من 12 حالة قبول متفق عليها."
+        : "All 12 agreed acceptance scenarios passed."),
     blocker: overrides.blocker ?? null,
-    nextAction: overrides.nextAction ?? "اعتماد الإغلاق مع مالك المنتج.",
+    nextAction:
+      overrides.nextAction ??
+      (isArabic ? "اعتماد الإغلاق مع مالك المنتج." : "Confirm closure with the product owner."),
     contributionContext:
-      overrides.contributionContext ?? "نفذت السيناريوهات وراجعت النتائج.",
+      overrides.contributionContext ??
+      (isArabic
+        ? "نفذت السيناريوهات وراجعت النتائج."
+        : "Ran the scenarios and reviewed the results."),
     executionMode: updateDraftRevision === 1 ? "ai_assisted" : "mixed",
     sourceReferences: [
       `update-source:${updateSourceId}`,
@@ -551,10 +689,16 @@ function structuredDraft(overrides = {}) {
       `progress-component:e3333333-3333-4333-8333-333333333333`,
     ],
     evidenceIds: [],
+    documentationNeeds:
+      overrides.documentationNeeds ??
+      (isArabic ? ["سجل اعتماد مالك المنتج"] : ["Product-owner approval record"]),
+    relatedProgressComponentIds: ["e3333333-3333-4333-8333-333333333333"],
     comparison: {
       previousAcceptedEventId: "e4444444-4444-4444-8444-444444444444",
       changedFields: ["result", "nextAction"],
-      explanation: "ارتفعت النتيجة من مسودة غير مكتملة إلى 12 حالة قبول ناجحة.",
+      explanation: isArabic
+        ? "ارتفعت النتيجة من مسودة غير مكتملة إلى 12 حالة قبول ناجحة."
+        : "The result moved from an incomplete draft to 12 passing acceptance scenarios.",
     },
   };
 }

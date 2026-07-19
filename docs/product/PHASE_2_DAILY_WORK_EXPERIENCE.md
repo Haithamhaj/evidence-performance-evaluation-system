@@ -9,6 +9,64 @@
 **Data:** Synthetic, in-memory, and reset when the browser reloads
 **Production impact:** None
 
+## Production Bundle 1 correction checkpoint — 2026-07-19
+
+**Status:** Implemented and awaiting Product Owner acceptance before GitHub automation.
+
+The production correction now starts from the Project rather than from a Work Item:
+
+1. The employee opens **My Work** and chooses **Add update**.
+2. A Project is required. Workstream and Work Item are optional.
+3. The employee chooses a source available in the same flow: text, file, image/screenshot, pasted code, CLI snapshot, URL, or GitHub snapshot. Voice and connected GitHub are visibly identified as later bundles.
+4. Text starts an evolving structured draft immediately. The assistant shows the current draft and asks one next question at a time only while material context is missing.
+5. The employee reviews and edits the structured update.
+6. Manual evidence opens in a visible mobile sheet and requires a supported claim plus contribution context before employee confirmation.
+7. Employee confirmation appends the update and evidence to the activity Timeline.
+8. The result card shows the Project, verified result, comparison with the prior accepted update, linked-source count, progress disposition, next action, documentation needs, and confirmation time without technical identifiers.
+
+The result is operational Project documentation. It is not an employee rating, productivity score, ranking, or Documentation Readiness percentage. An update may change official Project progress only when an approved Progress Contract rule can be measured or an authorized human confirmation is required by that rule.
+
+### Runnable local review
+
+- Arabic: `http://127.0.0.1:3300/ar/my-work`
+- English: `http://127.0.0.1:3300/en/my-work`
+- Use the existing authenticated local employee session.
+- Deterministic synthetic data includes two Projects, five Workstreams, twenty Work Items, and a versioned Project Progress Contract. The primary acceptance Project is `منصة التقييم المدعوم بالأدلة`.
+- The browser acceptance fixture uses deterministic AI-shaped responses so screenshots and regression tests do not spend a provider call. The real application path remains the governed `update.structure` route through the AI Router.
+
+### Acceptance coverage and screenshots
+
+The checkpoint verifies Project-only update scope, optional Workstream/Work Item, draft-before-question behavior, multiple clarification turns, employee review, manual CLI evidence, employee evidence confirmation, update confirmation, Timeline output, Arabic RTL at 390px, and the absence of rating/ranking/productivity language.
+
+Verification at Node.js 24.18.0 and pnpm 11.13.0:
+
+- 57 focused unit tests passed across contracts, portable AI-schema registration, structuring, activity reads, composer state, result rendering, draft continuity, localization, and My Work.
+- 27 related integration tests passed across Update/Evidence services and the protected daily-work and Updates/Evidence APIs.
+- 145 AI evaluation checks passed and one fixture remained intentionally skipped.
+- 4 related Playwright journeys passed across the corrected and prior Slice 2 acceptance files.
+- The performance-input scan inspected 391 files.
+- The secret scan inspected 817 files.
+- Lint, module-boundary validation, user-visible copy validation, and all 20 workspace typechecks passed.
+- The governed live route was registered locally as `update.structure` prompt v4 with output schema v2 and the approved GPT-5.5 model route; no credential was printed, moved, or committed.
+
+- `screenshots/phase-2-production/daily-update-correction/01-project-selection-en-desktop.png`
+- `screenshots/phase-2-production/daily-update-correction/02-draft-question-en-desktop.png`
+- `screenshots/phase-2-production/daily-update-correction/03-evidence-review-en-mobile.png`
+- `screenshots/phase-2-production/daily-update-correction/04-confirmed-result-timeline-en-desktop.png`
+- `screenshots/phase-2-production/daily-update-correction/05-project-selection-ar-mobile.png`
+- `screenshots/phase-2-production/daily-update-correction/06-draft-question-ar-mobile.png`
+
+### Deliberately not implemented in this checkpoint
+
+- Connected GitHub automation and suggested evidence.
+- Voice capture/transcription.
+- Check-ins and monthly Documentation Readiness.
+- Manager operational queues.
+- Evaluation Fact View preparation.
+- Complete employee self-assessment or manager evaluation workflows.
+
+Those items remain in later approved bundles. Bundle 2 must not start until the Product Owner accepts this corrected daily-work journey.
+
 ## Decision to review
 
 Make `My Work / عملي` the employee’s default daily home. The experience connects routine work to evidence-supported periodic evaluation without turning routine activity into a performance score.

@@ -458,11 +458,11 @@ git commit -m "feat: correct the daily update journey"
 - Consumes: Tasks 1–3.
 - Produces: realistic employee demo, screenshots, verification record, pushed checkpoint, and Product Owner gate.
 
-- [ ] **Step 1: Add deterministic data for Project-only, Workstream, and Work Item Updates**
+- [x] **Step 1: Add deterministic data for Project-only, Workstream, and Work Item Updates**
 
 Seed one Project with a connected contract and named Workstreams/Work Items; do not seed employee performance values.
 
-- [ ] **Step 2: Write the browser acceptance flow**
+- [x] **Step 2: Write the browser acceptance flow**
 
 ```ts
 test("employee completes a Project update without a Work Item", async ({ page }) => {
@@ -476,19 +476,19 @@ test("employee completes a Project update without a Work Item", async ({ page })
 });
 ```
 
-- [ ] **Step 3: Run focused through related integration checks**
+- [x] **Step 3: Run focused through related integration checks**
 
 Run: `pnpm test -- packages/contracts/src/updates-evidence.test.ts packages/updates-evidence/src && pnpm test:integration -- packages/updates-evidence/src apps/api/src/daily-work apps/api/src/updates-evidence && pnpm test:e2e -- tests/e2e/daily-update-journey.spec.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Run protected-boundary scans**
+- [x] **Step 4: Run protected-boundary scans**
 
 Run: `pnpm scan:performance-inputs && pnpm scan:secrets && pnpm lint && pnpm typecheck`
 
 Expected: PASS; no rating fields, raw-activity progress input, secret, direct provider import, or forbidden manager value.
 
-- [ ] **Step 5: Capture desktop and 390px mobile screenshots**
+- [x] **Step 5: Capture desktop and 390px mobile screenshots**
 
 Capture Project selection, draft-with-question, evidence review sheet, confirmed result card, and Timeline in English and the existing Arabic/RTL interface.
 
