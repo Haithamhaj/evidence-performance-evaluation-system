@@ -22,6 +22,36 @@ const UpdateContextSchema = z
   })
   .strict();
 
+export const UpdateComposerContextSchema = z
+  .object({
+    projects: z.array(
+      z
+        .object({
+          id: UuidSchema,
+          name: z.string().trim().min(1).max(200),
+          workstreams: z.array(
+            z
+              .object({
+                id: UuidSchema,
+                name: z.string().trim().min(1).max(200),
+              })
+              .strict(),
+          ),
+          workItems: z.array(
+            z
+              .object({
+                id: UuidSchema,
+                title: z.string().trim().min(1).max(200),
+                workstreamId: UuidSchema.nullable(),
+              })
+              .strict(),
+          ),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
 export const StartTextUpdateInputSchema = UpdateContextSchema.extend({
   idempotencyKey: UuidSchema,
   rawText: z.string().trim().min(1).max(50_000),
@@ -48,9 +78,10 @@ const ClarificationAffectsSchema = z.enum([
 export const ClarificationStateSchema = z.discriminatedUnion("state", [
   z
     .object({
-      state: z.literal("question"),
+      state: z.literal("draft_with_question"),
       sessionId: UuidSchema,
       sessionVersion: PositiveVersionSchema,
+      draft: z.lazy(() => StructuredUpdateDraftSchema),
       turnId: UuidSchema,
       turnNumber: PositiveVersionSchema,
       question: z.string().trim().min(1).max(1_000),
@@ -63,8 +94,7 @@ export const ClarificationStateSchema = z.discriminatedUnion("state", [
       state: z.literal("ready_for_review"),
       sessionId: UuidSchema,
       sessionVersion: PositiveVersionSchema,
-      draftRevisionId: UuidSchema,
-      draftRevision: PositiveVersionSchema,
+      draft: z.lazy(() => StructuredUpdateDraftSchema),
     })
     .strict(),
 ]);
@@ -78,6 +108,8 @@ export const ReviseUpdateDraftInputSchema = z
     nextAction: z.string().trim().min(1).max(2_000),
     contributionContext: z.string().trim().min(1).max(2_000),
     evidenceClaimDrafts: z.array(z.string().trim().min(1).max(2_000)).max(20),
+    documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
+    relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
   })
   .strict();
 
@@ -170,6 +202,8 @@ export const StructuredUpdateDraftSchema = z
     executionMode: ExecutionModeSchema,
     sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
     evidenceIds: z.array(UuidSchema).max(100),
+    documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
+    relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
     comparison: ComparisonSchema,
   })
   .strict();
@@ -182,6 +216,68 @@ export const AcceptedUpdateEventSchema = UpdateContextSchema.extend({
   confirmedAt: UtcInstantSchema,
   sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
 }).strict();
+
+export const UpdateResultCardSchema = z
+  .object({
+    acceptedEventId: UuidSchema,
+    project: z
+      .object({
+        id: UuidSchema,
+        name: z.string().trim().min(1).max(300),
+      })
+      .strict(),
+    workstream: z
+      .object({
+        id: UuidSchema,
+        name: z.string().trim().min(1).max(300),
+      })
+      .strict()
+      .nullable(),
+    workItem: z
+      .object({
+        id: UuidSchema,
+        title: z.string().trim().min(1).max(300),
+      })
+      .strict()
+      .nullable(),
+    summary: z.string().trim().min(1).max(2_000),
+    result: z.string().trim().min(1).max(4_000),
+    sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
+    comparison: z
+      .object({
+        previousAcceptedEventId: UuidSchema.nullable(),
+        explanation: z.string().trim().min(1).max(2_000),
+      })
+      .strict(),
+    blocker: z.string().trim().min(1).max(2_000).nullable(),
+    nextAction: z.string().trim().min(1).max(2_000),
+    documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50),
+    progressImpact: z.discriminatedUnion("state", [
+      z
+        .object({
+          state: z.literal("applied"),
+          snapshotId: UuidSchema,
+          previousPercent: z.number().min(0).max(100),
+          percent: z.number().min(0).max(100),
+        })
+        .strict(),
+      z
+        .object({
+          state: z.literal("awaiting_confirmation"),
+          componentIds: z.array(UuidSchema).min(1).max(100),
+        })
+        .strict(),
+      z.object({ state: z.literal("no_measurable_impact") }).strict(),
+      z
+        .object({
+          state: z.literal("insufficient_information"),
+          missing: z.array(z.string().trim().min(1).max(500)).min(1).max(50),
+        })
+        .strict(),
+    ]),
+    confirmedAt: UtcInstantSchema,
+  })
+  .strict();
 
 export const EvidenceDetailSchema = z
   .object({
@@ -257,6 +353,8 @@ export const UploadedEvidenceSourceSchema = z
 
 export type ClarificationState = z.infer<typeof ClarificationStateSchema>;
 export type StructuredUpdateDraft = z.infer<typeof StructuredUpdateDraftSchema>;
+export type UpdateComposerContext = z.infer<typeof UpdateComposerContextSchema>;
+export type UpdateResultCard = z.infer<typeof UpdateResultCardSchema>;
 export type EvidenceDetail = z.infer<typeof EvidenceDetailSchema>;
 export type EvidenceReview = z.infer<typeof EvidenceReviewSchema>;
 export type TimelineResponse = z.infer<typeof TimelineResponseSchema>;

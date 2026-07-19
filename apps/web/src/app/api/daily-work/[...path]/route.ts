@@ -16,6 +16,7 @@ import {
   StartTextUpdateInputSchema,
   StructuredUpdateDraftSchema,
   TimelineResponseSchema,
+  UpdateResultCardSchema,
   UploadedEvidenceSourceSchema,
 } from "../../../../platform/updates-evidence-contracts";
 import { NextResponse } from "next/server";
@@ -74,6 +75,14 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
         await fetchProtectedUpstream({
           path: `/api/v1/updates/${path[1]}/draft`,
           schema: StructuredUpdateDraftSchema,
+        }),
+      );
+    }
+    if (path.length === 3 && path[0] === "updates" && isUuid(path[1]) && path[2] === "result") {
+      return json(
+        await fetchProtectedUpstream({
+          path: `/api/v1/updates/${path[1]}/result`,
+          schema: UpdateResultCardSchema,
         }),
       );
     }
@@ -234,7 +243,7 @@ function json(value: unknown): NextResponse {
 function invalid(): NextResponse {
   return NextResponse.json(
     { messageKey: "errors.validation", correlationId: randomUUID() },
-    { status: 409 },
+    { status: 400 },
   );
 }
 

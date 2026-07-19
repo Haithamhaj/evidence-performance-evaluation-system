@@ -12,7 +12,7 @@ type Review = Readonly<{
 type EvidenceContext = Readonly<{
   projectId: string;
   workstreamId: string | null;
-  workItemId: string;
+  workItemId: string | null;
   updateSourceId: string | null;
   contextLabel: string;
   suggestedClaim: string;
@@ -189,15 +189,17 @@ export function EvidenceReviewSheetView({
 export function EvidenceReviewSheet({
   catalog,
   context,
+  initialSourceKind = "file",
   onClose,
   onConfirmed,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
   context: EvidenceContext;
+  initialSourceKind?: SourceKind;
   onClose: () => void;
   onConfirmed: (evidenceId: string) => void;
 }>) {
-  const [sourceKind, setSourceKind] = useState<SourceKind>("file");
+  const [sourceKind, setSourceKind] = useState<SourceKind>(initialSourceKind);
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [busy, setBusy] = useState(false);
@@ -225,7 +227,7 @@ export function EvidenceReviewSheet({
         projectId: context.projectId,
         workstreamId: context.workstreamId,
         workItemId: context.workItemId,
-        capturedFromWorkItem: true,
+        capturedFromWorkItem: context.workItemId !== null,
         updateSourceId: context.updateSourceId,
         source,
         supportedClaim: requiredText(form, "supportedClaim"),

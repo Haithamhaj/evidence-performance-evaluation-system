@@ -6,6 +6,7 @@ import {
   fetchDailyWorkUpstream,
   WebMyWorkResponseSchema,
   WebProjectPortfolioSchema,
+  WebUpdateComposerContextSchema,
 } from "../../../platform/daily-work-api";
 import { WorkspaceShell } from "../workspace-shell";
 import { MyWorkClient } from "./my-work-client";
@@ -18,11 +19,15 @@ type Properties = Readonly<{
 export default async function MyWorkPage({ params, searchParams }: Properties) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const [{ item }, catalog, response, projects] = await Promise.all([
+  const [{ item }, catalog, response, projects, updateContext] = await Promise.all([
     searchParams,
     getCatalog(locale),
     fetchDailyWorkUpstream({ route: { kind: "my_work" }, schema: WebMyWorkResponseSchema }),
     fetchDailyWorkUpstream({ route: { kind: "projects" }, schema: WebProjectPortfolioSchema }),
+    fetchDailyWorkUpstream({
+      route: { kind: "update_context" },
+      schema: WebUpdateComposerContextSchema,
+    }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
   return createElement(
@@ -38,6 +43,7 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
       locale,
       projectNames: Object.fromEntries(projects.map((project) => [project.id, project.name])),
       response,
+      updateContext,
     }),
   );
 }

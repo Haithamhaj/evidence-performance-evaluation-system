@@ -11,6 +11,7 @@ import { createElement, useState } from "react";
 
 import { UpdateComposer } from "./update-composer";
 import { WorkItemDrawer } from "./work-item-drawer";
+import type { UpdateComposerContext } from "../../../platform/updates-evidence-contracts";
 
 type Properties = Readonly<{
   catalog: Catalog;
@@ -18,6 +19,7 @@ type Properties = Readonly<{
   locale: Locale;
   projectNames?: Readonly<Record<string, string>>;
   response: MyWorkResponse;
+  updateContext?: UpdateComposerContext;
 }>;
 
 export function MyWorkClient({
@@ -26,12 +28,14 @@ export function MyWorkClient({
   locale,
   projectNames = {},
   response,
+  updateContext,
 }: Properties) {
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const allItems = response.groups.flatMap((group) => group.items);
   const selected = allItems.find((item) => item.id === selectedId) ?? null;
   const firstUpdatable = allItems.find((item) => item.allowedActions.includes("add_update"));
-  const [composerItemId, setComposerItemId] = useState(firstUpdatable?.id ?? allItems[0]?.id ?? "");
+  const composedContext = updateContext ?? contextFromItems(allItems, projectNames);
+  const [composerItemId, setComposerItemId] = useState(firstUpdatable?.id ?? "");
   const [composerOpen, setComposerOpen] = useState(false);
 
   function select(itemId: string | null) {
@@ -51,7 +55,7 @@ export function MyWorkClient({
         </div>
         <button
           className="primaryAction"
-          disabled={firstUpdatable === undefined}
+          disabled={composedContext.projects.length === 0}
           onClick={() => {
             setComposerItemId(firstUpdatable?.id ?? "");
             setComposerOpen(true);
@@ -130,6 +134,7 @@ export function MyWorkClient({
         catalog,
         initialItemId: composerItemId,
         items: allItems.filter((item) => item.allowedActions.includes("add_update")),
+        context: composedContext,
         locale,
         onAccepted: () => undefined,
         onClose: () => setComposerOpen(false),
@@ -138,4 +143,27 @@ export function MyWorkClient({
       })}
     </section>
   );
+}
+
+function contextFromItems(
+  items: readonly MyWorkResponse["groups"][number]["items"][number][],
+  projectNames: Readonly<Record<string, string>>,
+): UpdateComposerContext {
+  const projects = new Map<string, UpdateComposerContext["projects"][number]>();
+  for (const item of items.filter((candidate) => candidate.allowedActions.includes("add_update"))) {
+    const current = projects.get(item.projectId) ?? {
+      id: item.projectId,
+      name: projectNames[item.projectId] ?? item.projectId,
+      workstreams: [],
+      workItems: [],
+    };
+    projects.set(item.projectId, {
+      ...current,
+      workItems: [
+        ...current.workItems,
+        { id: item.id, title: item.title, workstreamId: item.workstreamId },
+      ],
+    });
+  }
+  return { projects: [...projects.values()] };
 }

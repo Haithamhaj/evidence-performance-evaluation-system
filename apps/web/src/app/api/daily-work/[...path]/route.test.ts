@@ -21,9 +21,29 @@ afterEach(() => vi.clearAllMocks());
 describe("daily-work same-origin gateway", () => {
   it("forwards a validated text update without accepting caller-controlled identity or model", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue({
-      state: "question",
+      state: "draft_with_question",
       sessionId,
       sessionVersion: 1,
+      draft: {
+        id: "55555555-5555-4555-8555-555555555555",
+        sessionId,
+        revision: 1,
+        summary: "مسودة أولية",
+        result: "تحتاج النتيجة إلى توضيح",
+        blocker: null,
+        nextAction: "توضيح النتيجة",
+        contributionContext: "مساهمة قيد المراجعة",
+        executionMode: "ai_assisted",
+        sourceReferences: [`update-source:${sessionId}`],
+        evidenceIds: [],
+        documentationNeeds: [],
+        relatedProgressComponentIds: [],
+        comparison: {
+          previousAcceptedEventId: null,
+          changedFields: [],
+          explanation: "أول تحديث.",
+        },
+      },
       turnId: "33333333-3333-4333-8333-333333333333",
       turnNumber: 1,
       question: "ما النتيجة؟",
@@ -62,16 +82,14 @@ describe("daily-work same-origin gateway", () => {
       }),
       { params: Promise.resolve({ path: ["updates", "text"] }) },
     );
-    expect(rejected.status).toBe(409);
+    expect(rejected.status).toBe(400);
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
   });
 
   it("allows only bounded timeline query fields", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue({ items: [], nextCursor: null });
     const response = await GET(
-      new Request(
-        `http://localhost:3000/api/daily-work/timeline?projectId=${projectId}&limit=20`,
-      ),
+      new Request(`http://localhost:3000/api/daily-work/timeline?projectId=${projectId}&limit=20`),
       { params: Promise.resolve({ path: ["timeline"] }) },
     );
     expect(response.status).toBe(200);
@@ -143,6 +161,8 @@ describe("daily-work same-origin gateway", () => {
       executionMode: "manual",
       sourceReferences: [`update-source:${sessionId}`],
       evidenceIds: [],
+      documentationNeeds: [],
+      relatedProgressComponentIds: [],
       comparison: {
         previousAcceptedEventId: null,
         changedFields: [],
@@ -161,5 +181,42 @@ describe("daily-work same-origin gateway", () => {
     );
     expect(rejected.status).toBe(404);
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
+  it("forwards a confirmed Update result through its strict reader path", async () => {
+    const acceptedEventId = "66666666-6666-4666-8666-666666666666";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      acceptedEventId,
+      project: { id: projectId, name: "Atlas Delivery" },
+      workstream: null,
+      workItem: null,
+      summary: "Acceptance path completed",
+      result: "All approved scenarios passed",
+      sourceReferences: [`update-source:${sessionId}`],
+      comparison: {
+        previousAcceptedEventId: null,
+        explanation: "This is the first confirmed update.",
+      },
+      blocker: null,
+      nextAction: "Attach client acceptance",
+      documentationNeeds: ["Client acceptance"],
+      progressImpact: {
+        state: "insufficient_information",
+        missing: ["Client acceptance"],
+      },
+      confirmedAt: "2026-07-19T08:00:00.000Z",
+    });
+
+    const response = await GET(
+      new Request(`http://localhost:3000/api/daily-work/updates/${acceptedEventId}/result`),
+      { params: Promise.resolve({ path: ["updates", acceptedEventId, "result"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: `/api/v1/updates/${acceptedEventId}/result`,
+      }),
+    );
   });
 });

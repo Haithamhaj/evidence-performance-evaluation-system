@@ -3,81 +3,116 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { UpdateComposerView } from "./update-composer.js";
+import { UpdateComposerView } from "./update-composer-view.js";
+import { updateErrorCatalogKey } from "./update-composer.js";
 
-const item = {
-  id: crypto.randomUUID(),
-  projectId: crypto.randomUUID(),
-  workstreamId: crypto.randomUUID(),
-  title: "إغلاق مسار القبول",
-  description: "تأكيد النتيجة وإرفاق الدليل.",
-  status: "in_progress" as const,
-  priority: "high" as const,
-  assigneeId: crypto.randomUUID(),
-  dueAt: null,
-  requirements: [],
-  acceptanceConditions: [],
-  blocker: null,
-  nextAction: "إرفاق نتيجة الاختبار",
-  version: 1,
-  createdAt: "2026-07-18T08:00:00.000Z",
-  updatedAt: "2026-07-18T09:00:00.000Z",
-  allowedActions: ["add_update" as const],
+const projectId = crypto.randomUUID();
+const workstreamId = crypto.randomUUID();
+const workItemId = crypto.randomUUID();
+const context = {
+  projects: [
+    {
+      id: projectId,
+      name: "منصة التقييم التجريبية",
+      workstreams: [{ id: workstreamId, name: "جاهزية API" }],
+      workItems: [{ id: workItemId, title: "إغلاق مسار القبول", workstreamId }],
+    },
+  ],
 };
 
 describe("UpdateComposerView", () => {
-  it("shows one clarification question with human-readable project context", async () => {
+  it("starts from a required Project while Workstream and Work Item remain optional", async () => {
     const catalog = await getCatalog("ar");
     const markup = renderToStaticMarkup(
       createElement(UpdateComposerView, {
         catalog,
-        items: [item],
-        projectNames: { [item.projectId]: "منصة التقييم التجريبية" },
         stage: {
-          kind: "question",
-          itemId: item.id,
-          question: "ما النتيجة القابلة للتحقق؟",
-          remainingFieldCount: 3,
+          kind: "entry",
+          context,
+          selection: { projectId, workstreamId: null, workItemId: null },
+          rawText: "",
         },
       }),
     );
-    expect(markup).toContain("ما النتيجة القابلة للتحقق؟");
+
+    expect(markup).toMatch(/<select[^>]*name="projectId"[^>]*required/u);
+    expect(markup).toMatch(/<select[^>]*name="workstreamId"/u);
+    expect(markup).toMatch(/<select[^>]*name="workItemId"/u);
+    expect(markup).not.toMatch(/<select[^>]*name="workItemId"[^>]*required/u);
     expect(markup).toContain("منصة التقييم التجريبية");
-    expect(markup).toContain("إغلاق مسار القبول");
-    expect(markup).not.toContain(item.projectId);
-    expect(markup).not.toContain("rating");
-    expect(markup).not.toContain("productivity");
   });
 
-  it("keeps evidence and employee confirmation inside the review flow", async () => {
+  it("shows the evolving draft beside one clarification question", async () => {
     const catalog = await getCatalog("en");
     const markup = renderToStaticMarkup(
       createElement(UpdateComposerView, {
         catalog,
-        items: [item],
-        projectNames: { [item.projectId]: "Pilot evaluation platform" },
         stage: {
-          kind: "review",
-          itemId: item.id,
-          saved: true,
-          evidenceCount: 1,
+          kind: "draft_with_question",
+          context,
+          selection: { projectId, workstreamId, workItemId },
+          question: "What result can be verified?",
+          remainingFieldCount: 2,
           draft: {
-            summary: "Acceptance path completed",
-            result: "All 12 agreed scenarios passed",
+            summary: "Acceptance path prepared",
+            result: "The final result still needs clarification",
             blocker: null,
-            nextAction: "Confirm with the product owner",
-            contributionContext: "Implemented and verified the scenarios",
-            comparison: {
-              explanation: "The result is now measurable.",
-              changedFields: ["result"],
-            },
+            nextAction: "Confirm the acceptance result",
+            contributionContext: "Prepared and reviewed the path",
+            documentationNeeds: ["Client acceptance record"],
+            comparison: { explanation: "This is the first update." },
           },
         },
       }),
     );
-    expect(markup).toContain("Add evidence");
-    expect(markup).toContain("Confirm update");
-    expect(markup).toContain("The result is now measurable.");
-    expect(markup).toContain("1");
+
+    expect(markup).toContain("Acceptance path prepared");
+    expect(markup).toContain("What result can be verified?");
+    expect(markup).toContain("Client acceptance record");
+    expect(markup).not.toContain("rating");
+    expect(markup).not.toContain("productivity");
+  });
+
+  it("shows all source choices on the first screen without pretending future sources are active", async () => {
+    const catalog = await getCatalog("en");
+    const markup = renderToStaticMarkup(
+      createElement(UpdateComposerView, {
+        catalog,
+        stage: {
+          kind: "entry",
+          context,
+          selection: { projectId, workstreamId: null, workItemId: null },
+          rawText: "",
+        },
+      }),
+    );
+
+    for (const label of [
+      "Write update",
+      "Voice update",
+      "Upload file",
+      "Image or screenshot",
+      "Paste code",
+      "CLI snapshot",
+      "URL",
+      "GitHub snapshot",
+      "Connected GitHub",
+    ]) {
+      expect(markup).toContain(label);
+    }
+    expect(markup).toContain("Available in a later step");
+  });
+
+  it.each([
+    [400, "updates.error.validation"],
+    [401, "updates.error.session"],
+    [403, "updates.error.scope"],
+    [409, "updates.error.stale"],
+    [413, "updates.error.size"],
+    [415, "updates.error.type"],
+    [422, "updates.error.ai"],
+    [503, "updates.error.dependency"],
+  ] as const)("maps status %s to the precise recovery message", (status, key) => {
+    expect(updateErrorCatalogKey(status)).toBe(key);
   });
 });

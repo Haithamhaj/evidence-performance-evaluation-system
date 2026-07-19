@@ -70,4 +70,36 @@ describe("MyWorkClient", () => {
     expect(markup).toContain('role="dialog"');
     expect(markup).toContain("Acceptance conditions");
   });
+
+  it("keeps Add update available for an authorized Project even when no Work Item exists", async () => {
+    const catalog = await getCatalog("en");
+    const markup = renderToStaticMarkup(
+      createElement(MyWorkClient, {
+        catalog,
+        initialSelectedId: null,
+        locale: "en",
+        response: {
+          groups: [
+            { key: "needs_my_action", items: [], collapsedByDefault: false },
+            { key: "today", items: [], collapsedByDefault: false },
+            { key: "overdue", items: [], collapsedByDefault: false },
+          ],
+          nextCursor: null,
+        },
+        updateContext: {
+          projects: [
+            {
+              id: item.projectId,
+              name: "Atlas Delivery",
+              workstreams: [],
+              workItems: [],
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(markup).toMatch(/<button[^>]*>Add update<\/button>/u);
+    expect(markup).not.toMatch(/<button[^>]*disabled[^>]*>Add update<\/button>/u);
+  });
 });

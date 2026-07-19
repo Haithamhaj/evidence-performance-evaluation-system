@@ -59,6 +59,22 @@ describe("fetchDailyWorkUpstream", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
+  it("loads the authorized Update context without caller-supplied scope", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ projects: [] }), { status: 200 }),
+    );
+
+    await fetchDailyWorkUpstream({
+      route: { kind: "update_context" },
+      schema: { parse: (value: unknown) => value },
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/api/v1/daily-work/update-context",
+      expect.any(Object),
+    );
+  });
+
   it("redirects an expired browser session to login instead of rendering a server error", async () => {
     const request = vi.spyOn(globalThis, "fetch");
     mocks.sessionAccessToken.mockImplementation(() => {

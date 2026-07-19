@@ -7,10 +7,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { OIDC_SESSION_COOKIE, oidcSettings, sessionAccessToken } from "../auth/oidc";
+import { UpdateComposerContextSchema } from "./updates-evidence-contracts";
 
 export type DailyWorkRoute =
   | { readonly kind: "my_work" }
   | { readonly kind: "projects" }
+  | { readonly kind: "update_context" }
   | { readonly kind: "project"; readonly projectId: string };
 
 const UuidSchema = z.string().uuid();
@@ -89,6 +91,8 @@ export const WebProjectPortfolioSchema = z.array(
     .strict(),
 );
 
+export const WebUpdateComposerContextSchema = UpdateComposerContextSchema;
+
 export async function fetchDailyWorkUpstream<T>(input: {
   readonly route: DailyWorkRoute;
   readonly schema: { parse(value: unknown): T };
@@ -100,10 +104,7 @@ export async function fetchDailyWorkUpstream<T>(input: {
   const cookieStore = await cookies();
   let accessToken: string;
   try {
-    accessToken = sessionAccessToken(
-      cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "",
-      settings,
-    );
+    accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
   } catch {
     redirect("/api/auth/login");
   }
@@ -123,6 +124,7 @@ export async function fetchDailyWorkUpstream<T>(input: {
 function routePath(route: DailyWorkRoute): string {
   if (route.kind === "my_work") return "/api/v1/daily-work/my-work";
   if (route.kind === "projects") return "/api/v1/daily-work/projects";
+  if (route.kind === "update_context") return "/api/v1/daily-work/update-context";
   return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}`;
 }
 

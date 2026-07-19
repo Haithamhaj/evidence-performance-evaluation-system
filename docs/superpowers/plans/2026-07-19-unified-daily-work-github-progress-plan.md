@@ -373,7 +373,7 @@ git commit -m "feat: make update structuring draft first"
 - Consumes: `GET /api/daily-work/update-context`, draft-first Update endpoints, `UpdateResultCard`.
 - Produces: one Project-required composer with optional Workstream/Work Item, draft-visible clarification, session continuity, precise recovery, and a compact confirmed result card.
 
-- [ ] **Step 1: Write failing UI tests for the corrected journey**
+- [x] **Step 1: Write failing UI tests for the corrected journey**
 
 ```tsx
 it("starts from Project and does not require a Work Item", async () => {
@@ -389,13 +389,13 @@ it("shows the evolving draft beside one clarification", () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused UI tests and verify RED**
+- [x] **Step 2: Run the focused UI tests and verify RED**
 
 Run: `pnpm exec vitest run --project unit 'apps/web/src/app/[locale]/my-work/update-composer.test.tsx' 'apps/web/src/app/[locale]/my-work/my-work.test.tsx'`
 
 Expected: FAIL because the current form requires `itemId`, hides the draft during questions, and ends with a generic success panel.
 
-- [ ] **Step 3: Split presentation, orchestration, storage, and result rendering**
+- [x] **Step 3: Split presentation, orchestration, storage, and result rendering**
 
 ```ts
 export const UPDATE_DRAFT_STORAGE_VERSION = 1;
@@ -414,29 +414,29 @@ export function removeUpdateDraft(key: string): void {
 
 Use `sessionStorage`, never browser logs, for raw in-progress text. Clear it after a confirmed Update or explicit discard.
 
-- [ ] **Step 4: Implement Project → optional Workstream → optional Work Item selection**
+- [x] **Step 4: Implement Project → optional Workstream → optional Work Item selection**
 
 Changing Project clears incompatible Workstream and Work Item values. Changing Workstream clears an incompatible Work Item. Starting from a Project, Workstream, Work Item, or GitHub activity preselects only authorized context.
 
-- [ ] **Step 5: Put all source entry affordances on the first screen**
+- [x] **Step 5: Put all source entry affordances on the first screen**
 
 Show text, voice, upload, image/screenshot, code, CLI, URL, manual GitHub snapshot, and connected GitHub. In this bundle, text and the existing manual evidence sheet are active; voice and connected GitHub controls link to their bounded bundle state without pretending a source was accepted.
 
-- [ ] **Step 6: Add precise error classification and reauthentication recovery**
+- [x] **Step 6: Add precise error classification and reauthentication recovery**
 
 Map 400 validation, 401 session, 403 scope, 409 stale version, 413 size, 415 type, 422 AI/schema, and 503 dependency errors to distinct catalog keys and recovery actions. On 401, preserve the session draft and return path before using the existing login route.
 
-- [ ] **Step 7: Render the compact confirmed Update card**
+- [x] **Step 7: Render the compact confirmed Update card**
 
 The card shows real names, what changed, result, sources/evidence state, previous-state comparison, progress disposition, blocker, next action, documentation needs, and confirmation time. It must not show internal UUIDs.
 
-- [ ] **Step 8: Run UI, localization, lint, and type checks**
+- [x] **Step 8: Run UI, localization, lint, and type checks**
 
 Run: `pnpm exec vitest run --project unit 'apps/web/src/app/[locale]/my-work/*.test.tsx' 'apps/web/src/app/[locale]/my-work/*.test.ts' packages/localization/src/catalog.test.ts && pnpm --filter @evaluation/web lint && pnpm --filter @evaluation/web typecheck`
 
 Expected: PASS in English and Arabic/RTL; keyboard focus remains inside the drawer/sheet and reduced motion is honored.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/web/src/app apps/web/src/platform packages/localization/src/catalogs
