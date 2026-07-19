@@ -2,14 +2,17 @@ import { expect, test } from "@playwright/test";
 
 import { installWorkspaceSession } from "./fixtures/workspace.js";
 
-const projectId = "d1111111-1111-4111-8111-111111111111";
-
 test.describe.configure({ mode: "serial" });
 test.beforeEach(async ({ context }) => installWorkspaceSession(context));
 
 test("Codex reviews the real Project contract proposal in English", async ({ page }) => {
-  await page.goto(`/en/projects/${projectId}/daily-work`);
-  await page.getByRole("button", { name: "Draft from approved document" }).click();
+  await page.goto("/en/projects");
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Evidence Performance System — Phase 2" })
+    .getByRole("link", { name: "Open project" })
+    .click();
+  await page.getByRole("link", { name: "Open progress and daily work" }).click();
 
   await expect(page.getByText("AI draft — human review required")).toBeVisible();
   await expect(page.getByText("Required quality gate satisfied")).toBeVisible();
@@ -22,8 +25,13 @@ test("Arabic mobile review preserves RTL and the protected activation boundary",
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/ar/projects/${projectId}/daily-work`);
-  await page.getByRole("button", { name: "إنشاء مسودة من الوثيقة المعتمدة" }).click();
+  await page.goto("/ar/projects");
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Evidence Performance System — Phase 2" })
+    .getByRole("link", { name: "فتح المشروع" })
+    .click();
+  await page.getByRole("link", { name: "فتح التقدم والعمل اليومي" }).click();
 
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.getByText("مسودة ذكاء اصطناعي — المراجعة البشرية مطلوبة")).toBeVisible();

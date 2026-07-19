@@ -56,7 +56,7 @@ export const PublicProgressContractDraftSchema = z
     contract: z
       .object({
         id: UuidSchema,
-        state: z.literal("draft"),
+        state: z.enum(["draft", "pending_approval", "active", "superseded", "rejected"]),
         version: z.number().int().positive(),
       })
       .strict()

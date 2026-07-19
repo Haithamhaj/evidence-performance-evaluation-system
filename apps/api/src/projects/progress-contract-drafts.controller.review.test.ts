@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   actorId,
+  contractId,
   controller,
   projectId,
   readyReceipt,
@@ -48,4 +49,38 @@ describe("ProgressContractDraftsController human review", () => {
     expect(serialized).not.toContain("componentMappings");
     expect(serialized).not.toContain("failureCode");
   });
+
+  it("discovers the latest reviewable proposal for an authorized Project owner", async () => {
+    const result = await controller.latest(request, projectId);
+
+    expect(service.findLatestReviewable).toHaveBeenCalledWith({
+      actor: { userId: actorId, active: true },
+      correlationId: request.correlationId,
+      projectId,
+    });
+    expect(result).toMatchObject({
+      requestId,
+      state: "ready",
+      origin: "ai",
+    });
+  });
+
+  it.each([
+    ["pending_approval", 2],
+    ["active", 3],
+  ] as const)(
+    "returns the linked contract's current %s state and version %i on reload",
+    async (state, version) => {
+      service.getDraft.mockResolvedValueOnce({
+        ...readyReceipt,
+        state: "applied",
+        appliedContractId: contractId,
+        appliedContract: { id: contractId, state, version },
+      });
+
+      const result = await controller.get(request, projectId, requestId);
+
+      expect(result.contract).toEqual({ id: contractId, state, version });
+    },
+  );
 });

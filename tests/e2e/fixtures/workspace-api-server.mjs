@@ -51,6 +51,15 @@ const project = {
   version: 2,
   primaryOwnerId: ownerId,
 };
+const dogfoodProject = {
+  id: dogfoodProjectId,
+  departmentId,
+  name: "Evidence Performance System — Phase 2",
+  description: "Real Codex employee acceptance Project.",
+  status: "active",
+  version: 1,
+  primaryOwnerId: ownerId,
+};
 const workstream = {
   id: workstreamId,
   projectId,
@@ -330,7 +339,7 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === "GET" && url.pathname === "/api/v1/projects") {
-    return json(response, 200, [project]);
+    return json(response, 200, [project, dogfoodProject]);
   }
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/my-work") {
     return json(response, 200, myWork);
@@ -369,6 +378,12 @@ const server = createServer(async (request, response) => {
     url.pathname === `/api/v1/daily-work/projects/${dogfoodProjectId}`
   ) {
     return json(response, 200, dogfoodProgress);
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/projects/${dogfoodProjectId}/progress-contract-drafts`
+  ) {
+    return json(response, 200, dogfoodDraft());
   }
   if (
     request.method === "POST" &&
@@ -618,6 +633,12 @@ const server = createServer(async (request, response) => {
   }
   if (
     request.method === "GET" &&
+    url.pathname === `/api/v1/projects/${dogfoodProjectId}/workspace`
+  ) {
+    return json(response, 200, { project: dogfoodProject, people, workstreams: [] });
+  }
+  if (
+    request.method === "GET" &&
     url.pathname === `/api/v1/projects/${projectId}/workstreams/${historicalWorkstreamId}/workspace`
   ) {
     return json(response, 403, { messageKey: "errors.forbidden" });
@@ -636,6 +657,9 @@ const server = createServer(async (request, response) => {
     }
     if (kind === "workstream" && resourceId === workstreamId) {
       return json(response, 200, document("workstream"));
+    }
+    if (kind === "project" && resourceId === dogfoodProjectId) {
+      return json(response, 200, null);
     }
     return json(response, 404, { messageKey: "errors.notFound" });
   }
@@ -664,6 +688,9 @@ const server = createServer(async (request, response) => {
     }
     if (kind === "workstream" && resourceId === historicalWorkstreamId) {
       return json(response, 200, historicalWorkstreamCriteria);
+    }
+    if (kind === "project" && resourceId === dogfoodProjectId) {
+      return json(response, 200, projectCriteria);
     }
     return json(response, 404, { messageKey: "errors.notFound" });
   }

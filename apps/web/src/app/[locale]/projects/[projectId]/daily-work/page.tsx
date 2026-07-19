@@ -75,28 +75,21 @@ const ProjectProgressViewSchema: z.ZodType<import("./project-progress-panel").Pr
 
 export default async function ProjectDailyWorkPage({
   params,
-  searchParams,
 }: Readonly<{
   params: Promise<{ locale: string; projectId: string }>;
-  searchParams?: Promise<{ draft?: string | string[] }>;
 }>) {
   const { locale, projectId } = await params;
   if (!isLocale(locale)) notFound();
-  const draftValue = (await searchParams)?.draft;
-  const draftRequestId =
-    typeof draftValue === "string" && Uuid.safeParse(draftValue).success ? draftValue : null;
   const [catalog, view, initialDraft] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
       route: { kind: "project", projectId },
       schema: ProjectProgressViewSchema,
     }),
-    draftRequestId === null
-      ? Promise.resolve(null)
-      : fetchProtectedUpstream({
-          path: `/api/v1/projects/${Uuid.parse(projectId)}/progress-contract-drafts/${draftRequestId}`,
-          schema: PublicProgressContractDraftSchema,
-        }),
+    fetchProtectedUpstream({
+      path: `/api/v1/projects/${Uuid.parse(projectId)}/progress-contract-drafts`,
+      schema: PublicProgressContractDraftSchema.nullable(),
+    }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
   return createElement(

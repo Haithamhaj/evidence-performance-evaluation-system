@@ -21,6 +21,9 @@ describe("ProgressContractDraftsController metadata", () => {
       Reflect.getMetadata(GUARDS_METADATA, ProgressContractDraftsController.prototype.create),
     ).toContain(ProjectPolicyGuard);
     expect(
+      Reflect.getMetadata(GUARDS_METADATA, ProgressContractDraftsController.prototype.latest),
+    ).toContain(ProjectPolicyGuard);
+    expect(
       Reflect.getMetadata(GUARDS_METADATA, ProgressContractDraftsController.prototype.get),
     ).toContain(ProjectPolicyGuard);
     expect(
@@ -38,6 +41,12 @@ describe("ProgressContractDraftsController metadata", () => {
     expect(
       Reflect.getMetadata(METHOD_METADATA, ProgressContractDraftsController.prototype.get),
     ).toBe(0);
+    expect(
+      Reflect.getMetadata(METHOD_METADATA, ProgressContractDraftsController.prototype.latest),
+    ).toBe(0);
+    expect(
+      Reflect.getMetadata(PATH_METADATA, ProgressContractDraftsController.prototype.latest),
+    ).toBe("/");
     expect(
       Reflect.getMetadata(PATH_METADATA, ProgressContractDraftsController.prototype.revise),
     ).toBe(":requestId/revisions");

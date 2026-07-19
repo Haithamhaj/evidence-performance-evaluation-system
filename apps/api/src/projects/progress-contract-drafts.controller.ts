@@ -109,6 +109,15 @@ export class ProgressContractDraftsController {
     return toPublicReceipt(receipt);
   }
 
+  async latest(request: ProjectRequest, projectId: string) {
+    const receipt = await this.service.findLatestReviewable({
+      actor: actor(request),
+      correlationId: request.correlationId,
+      projectId: parseId(projectId),
+    });
+    return receipt === null ? null : toPublicReceipt(receipt);
+  }
+
   async get(request: ProjectRequest, projectId: string, requestId: string) {
     const receipt = await this.service.getDraft({
       actor: actor(request),
@@ -255,10 +264,7 @@ function toPublicReceipt(receipt: import("@evaluation/projects").ProgressContrac
             ambiguities: receipt.content.ambiguities,
             clarificationQuestions: receipt.content.clarificationQuestions,
           },
-    contract:
-      receipt.appliedContractId === null
-        ? null
-        : { id: receipt.appliedContractId, state: "draft" as const, version: 1 as const },
+    contract: receipt.appliedContract,
   };
 }
 
@@ -294,6 +300,7 @@ Inject(ProgressContractDraftService)(ProgressContractDraftsController, undefined
 
 const endpoints = [
   ["create", "", "project.manage", "post"],
+  ["latest", "", "resource.read", "get"],
   ["get", ":requestId", "resource.read", "get"],
   ["revise", ":requestId/revisions", "project.manage", "post"],
   ["applyRevision", ":requestId/apply", "project.manage", "post"],
@@ -307,10 +314,10 @@ for (const [method, path, action, verb] of endpoints) {
   )!;
   Req()(ProgressContractDraftsController.prototype, method, 0);
   Param("projectId")(ProgressContractDraftsController.prototype, method, 1);
-  if (method !== "create") {
+  if (!["create", "latest"].includes(method)) {
     Param("requestId")(ProgressContractDraftsController.prototype, method, 2);
   }
-  if (!["get"].includes(method)) {
+  if (!["get", "latest"].includes(method)) {
     Body()(ProgressContractDraftsController.prototype, method, method === "create" ? 2 : 3);
   }
   if (verb === "get") Get(path)(ProgressContractDraftsController.prototype, method, descriptor);

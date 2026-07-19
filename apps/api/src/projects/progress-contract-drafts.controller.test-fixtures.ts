@@ -53,11 +53,13 @@ export const readyReceipt = {
   failureCode: null,
   aiRunTraceId: "88888888-8888-4888-8888-888888888888",
   appliedContractId: null,
+  appliedContract: null,
   componentMappings: [],
 };
 
 type ServiceMock = Readonly<{
   requestDraft: ReturnType<typeof vi.fn>;
+  findLatestReviewable: ReturnType<typeof vi.fn>;
   getDraft: ReturnType<typeof vi.fn>;
   reviseDraft: ReturnType<typeof vi.fn>;
   rejectDraft: ReturnType<typeof vi.fn>;
@@ -66,6 +68,7 @@ type ServiceMock = Readonly<{
 
 export const service: ServiceMock = {
   requestDraft: vi.fn().mockResolvedValue(readyReceipt),
+  findLatestReviewable: vi.fn().mockResolvedValue(readyReceipt),
   getDraft: vi.fn().mockResolvedValue(readyReceipt),
   reviseDraft: vi
     .fn()
