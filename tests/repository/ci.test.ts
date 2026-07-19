@@ -129,7 +129,11 @@ describe("CI contract", () => {
     expect(integrationJob).toContain("needs: [quality, build]");
     expect(integrationJob).toContain("pnpm db:verify");
     expect(integrationJob).toContain("pnpm db:deploy");
-    expect(integrationJob).toMatch(/- run: pnpm test:integration\s*$/m);
+    expect(integrationJob).toContain("Run integration tests with local service configuration");
+    expect(integrationJob).toMatch(/^\s+source \.env\.example\s*$/m);
+    expect(integrationJob).toMatch(/^\s+source \.env\.test\.example\s*$/m);
+    expect(integrationJob).toMatch(/^\s+export DATABASE_URL="\$TEST_DATABASE_URL"\s*$/m);
+    expect(integrationJob).toMatch(/^\s+pnpm test:integration\s*$/m);
     expect(integrationJob).toMatch(/- run: pnpm test:ai\s*$/m);
     expect(integrationJob).toMatch(/- run: pnpm test:e2e\s*$/m);
     expect(integrationJob).not.toMatch(/passWithNoTests|pass-with-no-tests/);
