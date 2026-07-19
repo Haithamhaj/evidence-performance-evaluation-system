@@ -689,11 +689,15 @@ git commit -m "feat: define progress contract ai draft artifacts"
 - Modify: `packages/database/prisma/schema.prisma`
 - Create: `packages/database/prisma/migrations/0016_progress_contract_ai_drafts/migration.sql`
 - Create: `packages/database/src/progress-contract-ai-draft-schema.integration.test.ts`
+- Modify: `packages/contracts/src/progress-contracts.ts`
+- Modify: `packages/contracts/src/progress-contracts.test.ts`
 - Create: `packages/documents/src/progress-contract-draft-source-reader.ts`
 - Create: `packages/documents/src/progress-contract-draft-source-reader.integration.test.ts`
 - Modify: `packages/documents/src/index.ts`
 - Create: `packages/projects/src/progress-contract-draft-service.ts`
 - Create: `packages/projects/src/progress-contract-draft-service.integration.test.ts`
+- Modify: `packages/projects/src/progress-calculation-service.ts`
+- Modify: `packages/projects/src/progress-calculation-service.integration.test.ts`
 - Modify: `packages/projects/src/index.ts`
 
 **Interfaces:**
@@ -701,7 +705,7 @@ git commit -m "feat: define progress contract ai draft artifacts"
 - Consumes: public Documents-owned source reader, AI Router interface, exact artifact pins, and existing `ProgressContractService`.
 - Produces: idempotent `requestDraft`, `reviseDraft`, `rejectDraft`, and `applyRevision` commands. Applying creates an ordinary Progress Contract in `draft`; it never submits or approves it.
 
-- [ ] **Step 1: Write failing migration and lifecycle tests**
+- [x] **Step 1: Write failing migration and lifecycle tests**
 
 ```ts
 it("stores the AI revision before a human revision and preserves both", async () => {
@@ -727,13 +731,13 @@ it("cannot activate a contract by applying an AI draft", async () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `pnpm exec vitest run --project integration packages/database/src/progress-contract-ai-draft-schema.integration.test.ts packages/documents/src/progress-contract-draft-source-reader.integration.test.ts packages/projects/src/progress-contract-draft-service.integration.test.ts`
 
 Expected: FAIL because migration `0016`, the public source reader, and draft service do not exist.
 
-- [ ] **Step 3: Add durable request and immutable revision records**
+- [x] **Step 3: Add durable request and immutable revision records**
 
 Migration `0016` adds:
 
@@ -741,14 +745,15 @@ Migration `0016` adds:
 - `ProgressContractAiDraftRevision`: request ID, monotonically increasing revision, validated content JSON, origin `ai|human`, editor, reason, source references, and creation time.
 - uniqueness on `(request_id, revision)` and `(requested_by_id, idempotency_key)`;
 - restrictive foreign keys for Project/document/contract history and indexes on Project, state, and created time.
+- the ordinary Progress Contract confirmation value `deterministic`, preserving an approved objectively provable condition before its exact source mapping is installed in Task 5.
 
 The request state may transition `pending → ready|failed → applied|rejected`; content changes only through a new revision. No cascade deletes are allowed.
 
-- [ ] **Step 4: Expose approved document content through the Documents public interface**
+- [x] **Step 4: Expose approved document content through the Documents public interface**
 
 `ProgressContractDraftSourceReader.loadApprovedVersion()` verifies Project ownership, document status/version, source checksum, private access, bounded extraction, and returns quoted untrusted sections plus immutable source references. Projects code must not read Documents tables directly.
 
-- [ ] **Step 5: Implement idempotent live AI drafting**
+- [x] **Step 5: Implement idempotent live AI drafting**
 
 ```ts
 const route = await this.aiRouter.invoke({
@@ -764,17 +769,19 @@ return this.storeReadyRevision({ request, routeTraceId: route.traceId, output })
 
 Persist the request before the call. On timeout/provider/schema failure, persist only a safe failure code and retain the source request for retry. Never persist or log provider credentials. A repeated idempotency key with a different payload is rejected.
 
-- [ ] **Step 6: Implement revision and application authorization**
+- [x] **Step 6: Implement revision and application authorization**
 
 Only an authorized Project/Product Owner may revise, reject, or apply. Applying a selected human-visible revision maps stable `clientKey` values to server-generated component IDs and calls `ProgressContractService.propose()`. Submission and activation remain the existing separate human commands.
 
-- [ ] **Step 7: Run migration, lifecycle, authorization, retry, and type checks**
+Map `operational_kpi → kpi`, preserve `deterministic → deterministic`, and retain proposed GitHub mappings only in the append-only draft revision until Task 5 creates exact contract/component source bindings. Before Task 5, deterministic components accept no current source kind and remain `awaiting_information`; they must never be silently downgraded to `human_confirmed`.
+
+- [x] **Step 7: Run migration, lifecycle, authorization, retry, and type checks**
 
 Run: `pnpm db:verify && pnpm exec vitest run --project integration packages/database/src/progress-contract-ai-draft-schema.integration.test.ts packages/documents/src/progress-contract-draft-source-reader.integration.test.ts packages/projects/src/progress-contract-draft-service.integration.test.ts && pnpm --filter @evaluation/documents typecheck && pnpm --filter @evaluation/projects typecheck`
 
 Expected: PASS; stale revisions, cross-Project documents, unapproved document versions, duplicate retries, direct activation, and unauthorized edits are rejected.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/database packages/documents/src packages/projects/src
