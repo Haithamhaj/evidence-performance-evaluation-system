@@ -24,4 +24,31 @@ describe("OIDC login origin", () => {
     expect(response.headers.get("location")).toBe("http://localhost:3000/api/auth/login");
     expect(response.cookies.get(OIDC_TRANSACTION_COOKIE)).toBeUndefined();
   });
+
+  it("preserves only a safe localized return path while canonicalizing the origin", async () => {
+    vi.stubEnv("APP_ENV", "local");
+    vi.stubEnv("APP_BASE_URL", "http://localhost:3000");
+    vi.stubEnv("OIDC_AUDIENCE", "evaluation-api");
+    vi.stubEnv("OIDC_CLIENT_ID", "evaluation-web");
+    vi.stubEnv("OIDC_ISSUER", "http://127.0.0.1:8081/realms/evaluation");
+    vi.stubEnv("OIDC_SESSION_SECRET", "local-test-session-secret-with-at-least-32-characters");
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3000/api/auth/login?returnTo=%2Fen%2Ftasks%3Fview%3Dteam%26layout%3Dboard",
+        { headers: { host: "127.0.0.1:3000" } },
+      ),
+    );
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/api/auth/login?returnTo=%2Fen%2Ftasks%3Fview%3Dteam%26layout%3Dboard",
+    );
+
+    const external = await GET(
+      new Request(
+        "http://localhost:3000/api/auth/login?returnTo=https%3A%2F%2Fevil.example%2Fsteal",
+        { headers: { host: "127.0.0.1:3000" } },
+      ),
+    );
+    expect(external.headers.get("location")).toBe("http://localhost:3000/api/auth/login");
+  });
 });

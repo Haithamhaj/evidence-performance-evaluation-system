@@ -159,18 +159,16 @@ export class PrivateInboxService {
           createdById: parsed.actor.userId,
         },
       });
-      if (content.assigneeId !== null) {
-        await transaction.workItemAssignmentHistory.create({
-          data: {
-            workItemId: workItem.id,
-            fromAssigneeId: null,
-            toAssigneeId: content.assigneeId,
-            actorId: parsed.actor.userId,
-            reason,
-            resultingVersion: 1,
-          },
-        });
-      }
+      await transaction.workItemAssignmentHistory.create({
+        data: {
+          workItemId: workItem.id,
+          fromAssigneeId: null,
+          toAssigneeId: content.assigneeId,
+          actorId: parsed.actor.userId,
+          reason,
+          resultingVersion: 1,
+        },
+      });
       await transaction.privateInboxItem.update({
         where: { id: inbox.id },
         data: {
@@ -183,7 +181,7 @@ export class PrivateInboxService {
       await this.auditWriter.append(transaction, {
         eventType: "private_inbox.promoted",
         actor: { kind: "human", id: parsed.actor.userId },
-        effectiveSubjectId: content.assigneeId ?? parsed.actor.userId,
+        effectiveSubjectId: content.assigneeId,
         scopeType: "project",
         scopeId: project.id,
         targetType: "work_item",

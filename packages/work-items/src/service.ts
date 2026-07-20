@@ -90,22 +90,20 @@ export class WorkItemService {
           createdById: parsed.actor.userId,
         },
       });
-      if (parsed.input.assigneeId !== null) {
-        await transaction.workItemAssignmentHistory.create({
-          data: {
-            workItemId: item.id,
-            fromAssigneeId: null,
-            toAssigneeId: parsed.input.assigneeId,
-            actorId: parsed.actor.userId,
-            reason: "Initial assignment",
-            resultingVersion: 1,
-          },
-        });
-      }
+      await transaction.workItemAssignmentHistory.create({
+        data: {
+          workItemId: item.id,
+          fromAssigneeId: null,
+          toAssigneeId: parsed.input.assigneeId,
+          actorId: parsed.actor.userId,
+          reason: "Initial assignment",
+          resultingVersion: 1,
+        },
+      });
       await this.auditWriter.append(transaction, {
         eventType: "work_item.created",
         actor: { kind: "human", id: parsed.actor.userId },
-        effectiveSubjectId: parsed.input.assigneeId ?? parsed.actor.userId,
+        effectiveSubjectId: parsed.input.assigneeId,
         scopeType: "project",
         scopeId: project.id,
         targetType: "work_item",
@@ -202,9 +200,7 @@ export class WorkItemService {
       if (item.status === "done" || item.status === "cancelled") throw stateError();
 
       const targetWorkstreamId =
-        parsed.input.workstreamId === undefined
-          ? item.workstreamId
-          : parsed.input.workstreamId;
+        parsed.input.workstreamId === undefined ? item.workstreamId : parsed.input.workstreamId;
       const workstream =
         targetWorkstreamId === null
           ? null

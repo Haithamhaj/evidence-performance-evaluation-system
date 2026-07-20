@@ -45,7 +45,7 @@ const snapshot: import("@evaluation/contracts").DailyWorkspaceSnapshot = {
 };
 
 describe("MyWorkClient", () => {
-  it("renders a calm daily home with quick capture before lower-priority context", async () => {
+  it("renders value before input in the approved daily-home order", async () => {
     const catalog = await getCatalog("en");
     const markup = renderToStaticMarkup(
       createElement(MyWorkClient, {
@@ -61,9 +61,9 @@ describe("MyWorkClient", () => {
       }),
     );
 
-    expect(markup.indexOf("Needs my action")).toBeLessThan(markup.indexOf("Today"));
-    expect(markup.indexOf("Today")).toBeLessThan(markup.indexOf("Overdue"));
-    expect(markup).toContain("Quick capture");
+    expect(markup.indexOf("Review queue")).toBeLessThan(markup.indexOf("Needs my action"));
+    expect(markup.indexOf("Needs my action")).toBeLessThan(markup.indexOf("Project pulse"));
+    expect(markup.indexOf("Project pulse")).toBeLessThan(markup.indexOf("Quick capture"));
     expect(markup).toContain("Confirm pilot flow");
     expect(markup).not.toContain("Share a progress update");
   });

@@ -20,6 +20,7 @@ async function seedInboxGraph() {
   const departmentId = crypto.randomUUID();
   const employeeAId = crypto.randomUUID();
   const employeeBId = crypto.randomUUID();
+  const managerId = crypto.randomUUID();
   const projectId = crypto.randomUUID();
 
   await client.organization.create({
@@ -37,6 +38,7 @@ async function seedInboxGraph() {
     data: [
       { id: employeeAId, email: `inbox-a-${suffix}@example.invalid`, displayName: "Employee A" },
       { id: employeeBId, email: `inbox-b-${suffix}@example.invalid`, displayName: "Employee B" },
+      { id: managerId, email: `inbox-manager-${suffix}@example.invalid`, displayName: "Manager" },
     ],
   });
   await client.authorizationScope.createMany({
@@ -76,7 +78,10 @@ async function seedInboxGraph() {
       },
     });
   }
-  return { employeeAId, employeeBId, projectId };
+  await client.roleAssignment.create({
+    data: { userId: managerId, role: "manager", scopeType: "department", scopeId: departmentId },
+  });
+  return { employeeAId, employeeBId, managerId, projectId };
 }
 
 afterAll(async () => client.$disconnect());
@@ -101,6 +106,12 @@ describe("Private Inbox ownership and promotion", () => {
     await expect(
       query.list({
         actor: { userId: graph.employeeBId, active: true },
+        input: { status: "open", limit: 50, cursor: null },
+      }),
+    ).resolves.toEqual({ items: [], nextCursor: null });
+    await expect(
+      query.list({
+        actor: { userId: graph.managerId, active: true },
         input: { status: "open", limit: 50, cursor: null },
       }),
     ).resolves.toEqual({ items: [], nextCursor: null });

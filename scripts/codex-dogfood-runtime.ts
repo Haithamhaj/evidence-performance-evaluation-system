@@ -28,7 +28,7 @@ import {
   createWorkstreamService,
   DocumentResourceReader,
 } from "@evaluation/projects";
-import { WorkItemService } from "@evaluation/work-items";
+import { PrivateInboxService, WorkItemService } from "@evaluation/work-items";
 
 import { CODEX_DOGFOOD_PROJECT_NAME, seedCodexDogfood } from "./seed-codex-dogfood.js";
 import { registerProgressContractDraftAiRoute } from "./register-progress-contract-draft-ai-route.js";
@@ -37,8 +37,9 @@ const sourcePaths = [
   "docs/PROJECT_REFERENCE.md",
   "docs/IMPLEMENTATION_PLAN.md",
   "TASKS.md",
-  "docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md",
-  "docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md",
+  "docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md",
+  "docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md",
+  "docs/superpowers/plans/2026-07-20-slice-1-daily-home-tasks.md",
 ] as const;
 
 export type CodexDogfoodPullRequestLineage = Readonly<{
@@ -208,6 +209,7 @@ async function localServices(databaseUrl: string) {
   const projects = createProjectService(client, databaseAuditWriter as never);
   const workstreams = createWorkstreamService(client, databaseAuditWriter as never);
   const workItems = new WorkItemService(client, databaseAuditWriter as never);
+  const privateInbox = new PrivateInboxService(client, databaseAuditWriter as never);
   const templates = new TemplateService(client, databaseAuditWriter as never);
   const uploads = new UploadService(
     client,
@@ -476,27 +478,79 @@ async function localServices(databaseUrl: string) {
       return { documentVersionId: version.id, documentVersion: version.version };
     },
     async ensureWorkItem(input) {
+      const owner = (await base()).owner;
+      const dueAt = {
+        needs_action: "2026-07-20T12:00:00.000Z",
+        today: "2026-07-20T16:00:00.000Z",
+        overdue: "2026-07-19T12:00:00.000Z",
+        upcoming: "2026-07-24T12:00:00.000Z",
+      }[input.task.schedule];
+      const existing = await client.workItem.findFirst({
+        where: { projectId: input.projectId, title: input.task.title },
+      });
+      const item =
+        existing ??
+        (await workItems.create({
+          actor: { userId: owner.id, active: true },
+          correlationId: randomUUID(),
+          input: {
+            projectId: input.projectId,
+            workstreamId: input.workstreamId,
+            assigneeId: input.assigneeId,
+            title: input.task.title,
+            description: input.task.description,
+            dueAt,
+            priority: "high",
+            requirements: [`Approved plan task: ${input.task.key}`],
+            acceptanceConditions: [...input.task.acceptanceConditions],
+            blocker: null,
+            nextAction: "Continue after the protected contract activation gate",
+          },
+        }));
+      const itemDueAt = item.dueAt instanceof Date ? item.dueAt.toISOString() : item.dueAt;
+      const scheduled =
+        itemDueAt === dueAt
+          ? item
+          : await workItems.update({
+              actor: { userId: owner.id, active: true },
+              correlationId: randomUUID(),
+              workItemId: item.id,
+              input: {
+                dueAt,
+                expectedVersion: item.version,
+                reason: "Refresh the local Codex daily-work acceptance schedule",
+              },
+            });
+      if (input.task.schedule === "needs_action" && scheduled.status === "planned") {
+        await workItems.transition({
+          actor: { userId: owner.id, active: true },
+          correlationId: randomUUID(),
+          workItemId: scheduled.id,
+          input: {
+            status: "ready",
+            expectedVersion: scheduled.version,
+            reason: "Place the acceptance Task in Needs My Action",
+          },
+        });
+      }
+    },
+    async ensurePrivateInbox(input) {
       if (
-        (await client.workItem.findFirst({
-          where: { projectId: input.projectId, title: input.task.title },
+        (await client.privateInboxItem.findFirst({
+          where: {
+            employeeId: input.employeeId,
+            text: input.text,
+            status: "open",
+          },
         })) !== null
       )
         return;
-      await workItems.create({
-        actor: { userId: (await base()).owner.id, active: true },
+      await privateInbox.capture({
+        actor: { userId: input.employeeId, active: true },
         correlationId: randomUUID(),
         input: {
           projectId: input.projectId,
-          workstreamId: input.workstreamId,
-          assigneeId: input.assigneeId,
-          title: input.task.title,
-          description: input.task.description,
-          dueAt: null,
-          priority: "high",
-          requirements: [`Approved plan task: ${input.task.key}`],
-          acceptanceConditions: [...input.task.acceptanceConditions],
-          blocker: null,
-          nextAction: "Continue after the protected contract activation gate",
+          text: input.text,
         },
       });
     },

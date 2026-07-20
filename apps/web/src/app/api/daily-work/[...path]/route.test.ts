@@ -11,7 +11,7 @@ vi.mock("../../../../platform/workspace-api.js", () => ({
   uploadProtectedSource: mocks.uploadProtectedSource,
 }));
 
-import { GET, POST } from "./route.js";
+import { GET, PATCH, POST } from "./route.js";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const sessionId = "22222222-2222-4222-8222-222222222222";
@@ -20,6 +20,99 @@ const draftRequestId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
+  it("rejects direct official Task creation without one responsible assignee", async () => {
+    const baseBody = {
+      title: "Prepare launch evidence",
+      description: "",
+      projectId,
+      workstreamId: null,
+      dueAt: null,
+      priority: "normal",
+      requirements: [],
+      acceptanceConditions: [],
+      blocker: null,
+      nextAction: null,
+    };
+
+    for (const body of [baseBody, { ...baseBody, assigneeId: null }]) {
+      const response = await POST(
+        new Request("http://localhost:3000/api/daily-work/work-items", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+        { params: Promise.resolve({ path: ["work-items"] }) },
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(mocks.fetchProtectedUpstream).not.toHaveBeenCalled();
+  });
+
+  it("forwards a bounded Task edit without accepting caller-controlled project or identity", async () => {
+    const workItemId = "99999999-9999-4999-8999-999999999999";
+    const employeeId = "88888888-8888-4888-8888-888888888888";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      id: workItemId,
+      projectId,
+      workstreamId: null,
+      title: "Updated Task title",
+      description: "",
+      status: "planned",
+      priority: "normal",
+      assigneeId: null,
+      dueAt: null,
+      requirements: [],
+      acceptanceConditions: [],
+      blocker: null,
+      nextAction: null,
+      version: 2,
+      createdAt: "2026-07-20T08:00:00.000Z",
+      updatedAt: "2026-07-20T09:00:00.000Z",
+      checklist: [],
+      collaboratorIds: [],
+      allowedActions: ["edit"],
+    });
+
+    const response = await PATCH(
+      new Request(`http://localhost:3000/api/daily-work/work-items/${workItemId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: "Updated Task title",
+          expectedVersion: 1,
+          reason: "Employee edited Task details",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["work-items", workItemId] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      path: `/api/v1/work-items/${workItemId}`,
+      method: "PATCH",
+      body: {
+        title: "Updated Task title",
+        expectedVersion: 1,
+        reason: "Employee edited Task details",
+      },
+      schema: expect.anything(),
+    });
+
+    const rejected = await PATCH(
+      new Request(`http://localhost:3000/api/daily-work/work-items/${workItemId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: "Changed ownership",
+          projectId,
+          employeeId,
+          expectedVersion: 1,
+          reason: "Caller-controlled scope",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["work-items", workItemId] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
   it("forwards text-only private capture without caller-controlled ownership", async () => {
     const inboxId = "77777777-7777-4777-8777-777777777777";
     const employeeId = "88888888-8888-4888-8888-888888888888";

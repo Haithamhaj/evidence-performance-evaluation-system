@@ -25,7 +25,9 @@ beforeEach(() => {
   mocks.cookies.mockResolvedValue({
     get: vi.fn(() => ({ value: "encrypted" })),
   });
-  mocks.oidcSettings.mockReturnValue({});
+  mocks.oidcSettings.mockReturnValue({
+    redirectUri: "http://localhost:3000/api/auth/callback",
+  });
   mocks.redirect.mockImplementation(() => {
     throw new Error("NEXT_REDIRECT");
   });
@@ -90,6 +92,19 @@ describe("fetchDailyWorkUpstream", () => {
     );
   });
 
+  it("loads the current identity for account-scoped local drafts", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ userId: crypto.randomUUID() }), { status: 200 }),
+    );
+
+    await fetchDailyWorkUpstream({
+      route: { kind: "me" },
+      schema: { parse: (value: unknown) => value },
+    });
+
+    expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:3001/api/v1/me", expect.any(Object));
+  });
+
   it("redirects an expired browser session to login instead of rendering a server error", async () => {
     const request = vi.spyOn(globalThis, "fetch");
     mocks.sessionAccessToken.mockImplementation(() => {
@@ -99,11 +114,14 @@ describe("fetchDailyWorkUpstream", () => {
     await expect(
       fetchDailyWorkUpstream({
         route: { kind: "my_work" },
+        reauthenticateTo: "/en/tasks?view=team&layout=board",
         schema: { parse: (value: unknown) => value },
       }),
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(mocks.redirect).toHaveBeenCalledWith("/api/auth/login");
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/api/auth/login?returnTo=%2Fen%2Ftasks%3Fview%3Dteam%26layout%3Dboard",
+    );
     expect(request).not.toHaveBeenCalled();
   });
 });

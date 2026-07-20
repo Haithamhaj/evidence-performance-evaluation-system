@@ -294,7 +294,7 @@ Execution status:
 
 - The bounded Work Items, Updates & Evidence, Progress Contract, daily composition, bilingual routing, and real Codex dogfood foundations already implemented remain reusable.
 - The previous employee My Work and long Update interaction were rejected and are not accepted as the new Slice 1 experience.
-- **New Slice 1 is authorized and in progress** only after the documentation-alignment checkpoint.
+- **New Slice 1 is implemented and awaiting Product Owner acceptance.**
 - Slices 2–6 have not started under the new plan.
 
 ## AI-first reset task trace
@@ -303,7 +303,7 @@ These IDs are execution checkpoints inside the approved plans; they are not new 
 
 | Slice  | Plan tasks                                                                                                                                          | Status                                |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| P2R-S1 | S1-T1 persistence; S1-T2 services; S1-T3 APIs; S1-T4 Today composition; S1-T5 Task UI; S1-T6 acceptance                                             | Authorized; not yet implemented       |
+| P2R-S1 | S1-T1 persistence; S1-T2 services; S1-T3 APIs; S1-T4 Today composition; S1-T5 Task UI; S1-T6 acceptance                                             | Implemented; Product Owner gate       |
 | P2R-S2 | S2-T1 schema; S2-T2 connection/sync; S2-T3 APIs; S2-T4 UI; S2-T5 gated live adapters; S2-T6 privacy acceptance                                      | Planned; external Google gate applies |
 | P2R-S3 | S3-T1 governed AI schema; S3-T2 deterministic matching; S3-T3 routed AI; S3-T4 APIs; S3-T5 review queue; S3-T6 acceptance                           | Planned                               |
 | P2R-S4 | S4-T1 GitHub schema; S4-T2 webhook/reconciliation; S4-T3 source suggestions; S4-T4 universal capture; S4-T5 voice; S4-T6 Timeline; S4-T7 acceptance | Planned; external GitHub gate applies |

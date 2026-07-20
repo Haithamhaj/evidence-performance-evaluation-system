@@ -38,6 +38,7 @@ interface TransactionCookie extends AuthCookiePayload {
   readonly codeVerifier: string;
   readonly state: string;
   readonly nonce: string;
+  readonly returnTo: string;
 }
 
 interface SessionCookie extends AuthCookiePayload {
@@ -158,6 +159,35 @@ export function authCookieOptions(environment: string, maxAge: number) {
   };
 }
 
+export function safeOidcReturnPath(settings: OidcSettings, candidate?: string): string {
+  const fallback = new URL(settings.postLogoutRedirectUri);
+  const fallbackPath = `${fallback.pathname}${fallback.search}`;
+  if (
+    candidate === undefined ||
+    candidate.length === 0 ||
+    candidate.length > 2_048 ||
+    !candidate.startsWith("/") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    /[\u0000-\u001f\u007f]/u.test(candidate)
+  ) {
+    return fallbackPath;
+  }
+  try {
+    const resolved = new URL(candidate, fallback);
+    if (
+      resolved.origin !== fallback.origin ||
+      !/^\/(?:ar|en)(?:\/|$)/u.test(resolved.pathname) ||
+      resolved.pathname.startsWith("/api/")
+    ) {
+      return fallbackPath;
+    }
+    return `${resolved.pathname}${resolved.search}`;
+  } catch {
+    return fallbackPath;
+  }
+}
+
 async function oidcConfiguration(settings: OidcSettings) {
   const options =
     settings.environment === "local" ? { execute: [allowInsecureRequests] } : undefined;
@@ -170,7 +200,10 @@ async function oidcConfiguration(settings: OidcSettings) {
   );
 }
 
-export async function startOidcLogin(settings: OidcSettings): Promise<{
+export async function startOidcLogin(
+  settings: OidcSettings,
+  returnTo?: string,
+): Promise<{
   readonly authorizationUrl: URL;
   readonly transactionCookie: string;
 }> {
@@ -193,6 +226,7 @@ export async function startOidcLogin(settings: OidcSettings): Promise<{
     codeVerifier,
     state,
     nonce,
+    returnTo: safeOidcReturnPath(settings, returnTo),
   };
   return {
     authorizationUrl,
@@ -204,11 +238,19 @@ function asTransaction(payload: AuthCookiePayload): TransactionCookie {
   if (
     typeof payload.codeVerifier !== "string" ||
     typeof payload.state !== "string" ||
-    typeof payload.nonce !== "string"
+    typeof payload.nonce !== "string" ||
+    typeof payload.returnTo !== "string"
   ) {
     throw new WebAuthError("AUTH_INVALID_SESSION", "errors.auth.invalidSession", 401);
   }
   return payload as TransactionCookie;
+}
+
+export function oidcTransactionReturnTo(settings: OidcSettings, transactionCookie: string): string {
+  const transaction = asTransaction(
+    openAuthCookie(transactionCookie, settings.sessionSecret, "transaction"),
+  );
+  return safeOidcReturnPath(settings, transaction.returnTo);
 }
 
 export function canonicalOidcCallbackUrl(settings: OidcSettings, callbackUrl: URL): URL {

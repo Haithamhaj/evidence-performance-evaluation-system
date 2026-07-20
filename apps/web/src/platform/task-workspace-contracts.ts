@@ -88,7 +88,7 @@ export const CreateTaskBodySchema = z
     description: z.string().trim().max(8_000).default(""),
     projectId: WebUuidSchema,
     workstreamId: WebUuidSchema.nullable().default(null),
-    assigneeId: WebUuidSchema.nullable().default(null),
+    assigneeId: WebUuidSchema,
     dueAt: z.iso.datetime({ offset: true }).nullable().default(null),
     priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
     requirements: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
@@ -102,3 +102,32 @@ export const PromotePrivateInboxBodySchema = CreateTaskBodySchema.extend({
   expectedVersion: z.number().int().positive(),
   reason: z.string().trim().min(1).max(1_000),
 }).strict();
+
+export const UpdateTaskBodySchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(8_000).optional(),
+    workstreamId: WebUuidSchema.nullable().optional(),
+    assigneeId: WebUuidSchema.optional(),
+    dueAt: z.iso.datetime({ offset: true }).nullable().optional(),
+    priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+    checklist: z
+      .array(
+        z
+          .object({
+            text: z.string().trim().min(1).max(500),
+            completed: z.boolean().default(false),
+          })
+          .strict(),
+      )
+      .max(100)
+      .optional(),
+    collaboratorIds: z.array(WebUuidSchema).max(100).optional(),
+    requirements: z.array(z.string().trim().min(1).max(500)).max(50).optional(),
+    acceptanceConditions: z.array(z.string().trim().min(1).max(500)).max(50).optional(),
+    blocker: z.string().trim().min(1).max(2_000).nullable().optional(),
+    nextAction: z.string().trim().min(1).max(2_000).nullable().optional(),
+    expectedVersion: z.number().int().positive(),
+    reason: z.string().trim().min(1).max(1_000),
+  })
+  .strict();

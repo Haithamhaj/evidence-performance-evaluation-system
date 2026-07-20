@@ -193,14 +193,14 @@ type DailyWorkspaceSnapshot = {
 - Create: `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_1.md`
 - Create screenshots under: `docs/product/screenshots/ai-first-daily-workspace/slice-1/`
 
-- [ ] Extend the real Codex employee fixture with realistic private captures, Today items, overdue items, Project-linked Tasks, and upcoming commitments; seed no employee scores.
-- [ ] Add Playwright journeys for Arabic RTL and English LTR at desktop and 390px.
-- [ ] Demonstrate: open Today, quick capture, review draft, choose Project, create Task, edit in side panel, switch List/Board/Calendar.
-- [ ] Interrupt authentication during an unsaved Task draft, sign in again, and verify the same draft and source context are restored.
-- [ ] Verify another employee and a manager cannot access Codex's private Inbox.
-- [ ] Run focused unit/integration tests from Tasks 1–5.
-- [ ] Run `pnpm playwright test tests/e2e/ai-first-daily-workspace.spec.ts`.
-- [ ] Run the three protected scans and affected lint/typechecks.
+- [x] Extend the real Codex employee fixture with realistic private captures, Today items, overdue items, Project-linked Tasks, and upcoming commitments; seed no employee scores.
+- [x] Add Playwright journeys for Arabic RTL and English LTR at desktop and 390px.
+- [x] Demonstrate: open Today, quick capture, review draft, choose Project, create Task, edit in side panel, switch List/Board/Calendar.
+- [x] Interrupt authentication during an unsaved Task draft, sign in again, and verify the same draft and source context are restored.
+- [x] Verify another employee and a manager cannot access Codex's private Inbox.
+- [x] Run focused unit/integration tests from Tasks 1–5.
+- [x] Run `pnpm playwright test tests/e2e/ai-first-daily-workspace.spec.ts`.
+- [x] Run the three protected scans and affected lint/typechecks.
 - [ ] Commit as `test: add daily workspace slice 1 acceptance`.
 - [ ] Push, update Pull Request #5, publish exact local URLs and screenshots, then stop.
 

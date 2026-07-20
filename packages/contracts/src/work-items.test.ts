@@ -41,6 +41,20 @@ describe("work item contracts", () => {
         workstreamId: null,
       }),
     ).toThrow();
+
+    expect(() =>
+      CreateWorkItemInputSchema.parse({
+        title: "Unassigned official Task",
+        projectId,
+        assigneeId: null,
+      }),
+    ).toThrow();
+    expect(() =>
+      CreateWorkItemInputSchema.parse({
+        title: "Missing responsible employee",
+        projectId,
+      }),
+    ).toThrow();
   });
 
   it("validates the normal Task workspace view and layout", () => {
@@ -74,6 +88,20 @@ describe("work item contracts", () => {
         reason: "نقل المسؤولية",
       }),
     ).toMatchObject({ assigneeId: employeeId, expectedVersion: 3 });
+    expect(() =>
+      AssignWorkItemInputSchema.parse({
+        assigneeId: null,
+        expectedVersion: 4,
+        reason: "Remove responsibility",
+      }),
+    ).toThrow();
+    expect(() =>
+      UpdateWorkItemInputSchema.parse({
+        assigneeId: null,
+        expectedVersion: 4,
+        reason: "Remove responsibility",
+      }),
+    ).toThrow();
   });
 
   it("does not admit progress or performance fields", () => {

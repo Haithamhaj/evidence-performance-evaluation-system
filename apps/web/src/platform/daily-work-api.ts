@@ -16,6 +16,7 @@ import {
 } from "./task-workspace-contracts";
 
 export type DailyWorkRoute =
+  | { readonly kind: "me" }
   | { readonly kind: "my_work" }
   | {
       readonly kind: "tasks";
@@ -75,6 +76,7 @@ export const WebProjectPortfolioSchema = z.array(
 );
 
 export const WebUpdateComposerContextSchema = UpdateComposerContextSchema;
+export const WebCurrentUserSchema = z.object({ userId: WebUuidSchema }).passthrough();
 export { WebTaskWorkspaceResponseSchema };
 export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
   import("@evaluation/contracts").DailyWorkspaceSnapshot
@@ -110,6 +112,7 @@ export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
   .strict();
 
 export async function fetchDailyWorkUpstream<T>(input: {
+  readonly reauthenticateTo?: string;
   readonly route: DailyWorkRoute;
   readonly schema: { parse(value: unknown): T };
 }): Promise<T> {
@@ -122,7 +125,11 @@ export async function fetchDailyWorkUpstream<T>(input: {
   try {
     accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
   } catch {
-    redirect("/api/auth/login");
+    const loginUrl = new URL("/api/auth/login", settings.redirectUri);
+    if (input.reauthenticateTo !== undefined) {
+      loginUrl.searchParams.set("returnTo", input.reauthenticateTo);
+    }
+    redirect(`${loginUrl.pathname}${loginUrl.search}`);
   }
   const response = await fetch(`${baseUrl}${path}`, {
     cache: "no-store",
@@ -138,6 +145,7 @@ export async function fetchDailyWorkUpstream<T>(input: {
 }
 
 function routePath(route: DailyWorkRoute): string {
+  if (route.kind === "me") return "/api/v1/me";
   if (route.kind === "my_work") return "/api/v1/daily-work/my-work";
   if (route.kind === "tasks") {
     const query = new URLSearchParams({ view: route.view, layout: route.layout });

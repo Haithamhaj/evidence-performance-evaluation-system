@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Align the authoritative Phase 2 task and product maps with the approved AI-first Daily Workspace reset, then execute new Slice 1: Today, normal Tasks, and private Inbox.
+Hold at the Product Owner gate for AI-first Daily Workspace Slice 1: Today, normal Tasks, and private Inbox.
 
 ## Current Reality
 
@@ -53,6 +53,10 @@ Align the authoritative Phase 2 task and product maps with the approved AI-first
 - The Product Owner approved the written specification on 2026-07-20. The replacement execution authority is now one master map plus six bounded plans covering Today/Tasks, Google Workspace, Context Intelligence, GitHub/Updates/Evidence, Project-owner progress/manager operations, and neutral Evaluation Fact View preparation.
 - The plans preserve the single database, existing authentication, AI Router, Work Items, Updates & Evidence, Projects/Progress Contract, and Daily Composition foundations. No production code changed during implementation planning.
 - The Product Owner authorized execution on 2026-07-20. The active first checkpoint is documentation-only alignment of `IMPLEMENTATION_PLAN.md`, `TASKS.md`, and the three Phase 2 product maps; new Slice 1 begins after that checkpoint is verified and pushed.
+- AI-first Slice 1 is implemented on Pull Request #5: private Quick Capture, Project-required official Tasks, editable List/Board/Calendar workspace, composed Today groups, draft recovery after authentication interruption, bilingual RTL/LTR UI, and protected employee-only Inbox access.
+- Migration `0017_task_workspace` is applied locally. The real `Codex` dogfood fixture now contains six Project-linked Tasks and three private captures sourced from the current authoritative AI-first documents, with no employee score or activity-volume progress input.
+- Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_1.md`; three passing Playwright journeys and screenshots cover Arabic desktop, English draft recovery, and Arabic 390px.
+- The final bounded specification remediation is complete: My/Team Tasks are visible within authorized scope; every new official Task write requires one responsible assignee; OIDC returns only to a validated encrypted same-origin localized path; and Today follows the approved value-before-input order. Independent re-review has no remaining P0/P1 finding.
 
 ## Active Decisions
 
@@ -92,7 +96,7 @@ Align the authoritative Phase 2 task and product maps with the approved AI-first
 
 ## Next Recommended Action
 
-Verify and push the documentation-alignment checkpoint, then start Slice 1 Task 1 with failing migration and contract tests for private Inbox and Task checklist persistence.
+Product Owner reviews the runnable Slice 1 journey and either accepts it or provides bounded corrections. Do not begin Slice 2 before that decision.
 
 ## Critical References
 

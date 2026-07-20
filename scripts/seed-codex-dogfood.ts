@@ -33,6 +33,7 @@ export type CodexDogfoodSeedResult = Readonly<{
   documentVersion: number;
   sourceChecksum: string;
   workItemCount: number;
+  privateInboxCount: number;
 }>;
 
 export type CodexDogfoodSeedServices = Readonly<{
@@ -65,6 +66,7 @@ export type CodexDogfoodSeedServices = Readonly<{
     assigneeId: string;
     task: DogfoodWorkItem;
   }): Promise<void>;
+  ensurePrivateInbox(input: { employeeId: string; projectId: string; text: string }): Promise<void>;
 }>;
 
 type DogfoodWorkItem = Readonly<{
@@ -72,6 +74,7 @@ type DogfoodWorkItem = Readonly<{
   title: string;
   description: string;
   acceptanceConditions: readonly string[];
+  schedule: "needs_action" | "today" | "overdue" | "upcoming";
 }>;
 
 const remainingWorkItems: readonly DogfoodWorkItem[] = [
@@ -83,6 +86,7 @@ const remainingWorkItems: readonly DogfoodWorkItem[] = [
     acceptanceConditions: [
       "Product Owner approves the exact repository, branch, pull request, and required checks",
     ],
+    schedule: "needs_action",
   },
   {
     key: "bundle-2-deterministic-events",
@@ -92,12 +96,14 @@ const remainingWorkItems: readonly DogfoodWorkItem[] = [
     acceptanceConditions: [
       "A verified mapped event changes Project progress and an ambiguous event does not",
     ],
+    schedule: "today",
   },
   {
     key: "bundle-3-unified-sources",
     title: "Bundle 3 — Unified manual and voice sources",
     description: "Route text, manual evidence, and voice through the shared Update lifecycle.",
     acceptanceConditions: ["English and Arabic/RTL acceptance journeys pass"],
+    schedule: "overdue",
   },
   {
     key: "slice-5-checkins-readiness",
@@ -107,20 +113,29 @@ const remainingWorkItems: readonly DogfoodWorkItem[] = [
     acceptanceConditions: [
       "No quota, employee score, readiness rank, or manager percentage is produced",
     ],
+    schedule: "upcoming",
   },
   {
     key: "slice-6-manager-operations",
     title: "Slice 6 — Manager operational view",
     description: "Add protected operational queues without exposing individual readiness values.",
     acceptanceConditions: ["Manager authorization and readiness-visibility boundaries pass"],
+    schedule: "upcoming",
   },
   {
     key: "slice-7-fact-view",
     title: "Slice 7 — Evaluation Fact View preparation",
     description: "Prepare neutral source facts separately from employee interpretation.",
     acceptanceConditions: ["No rating recommendation, productivity score, or ranking is produced"],
+    schedule: "upcoming",
   },
 ];
+
+const privateCaptures = [
+  "Confirm the Product Owner review time",
+  "Capture the mobile navigation observation",
+  "Follow up on the customer journey wording",
+] as const;
 
 export async function seedCodexDogfood(
   input: CodexDogfoodSeedInput,
@@ -163,6 +178,13 @@ export async function seedCodexDogfood(
       task,
     });
   }
+  for (const text of privateCaptures) {
+    await services.ensurePrivateInbox({
+      employeeId: contributor.id,
+      projectId: project.id,
+      text,
+    });
+  }
   return {
     projectId: project.id,
     workstreamId: workstream.id,
@@ -172,6 +194,7 @@ export async function seedCodexDogfood(
     documentVersion: document.documentVersion,
     sourceChecksum,
     workItemCount: remainingWorkItems.length,
+    privateInboxCount: privateCaptures.length,
   };
 }
 
@@ -269,10 +292,12 @@ type InMemoryHistory = Readonly<{
 export function createInMemoryCodexDogfoodSeedServices() {
   const history: InMemoryHistory[] = [];
   const workItems = new Set<string>();
+  const privateInboxItems = new Set<string>();
   const services: CodexDogfoodSeedServices & {
     approvedHistory(): readonly InMemoryHistory[];
     forbiddenPerformanceRows(): readonly unknown[];
     rawActivityRules(): readonly unknown[];
+    privateInboxItems(): readonly string[];
   } = {
     async ensureSyntheticContributor() {
       return { id: "10000000-0000-4000-8000-000000000001" };
@@ -313,9 +338,13 @@ export function createInMemoryCodexDogfoodSeedServices() {
     async ensureWorkItem({ task }) {
       workItems.add(task.key);
     },
+    async ensurePrivateInbox({ text }) {
+      privateInboxItems.add(text);
+    },
     approvedHistory: () => structuredClone(history),
     forbiddenPerformanceRows: () => [],
     rawActivityRules: () => [],
+    privateInboxItems: () => [...privateInboxItems],
   };
   return services;
 }

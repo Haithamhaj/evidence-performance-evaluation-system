@@ -6,6 +6,7 @@ import {
   finishOidcLogin,
   OIDC_SESSION_COOKIE,
   OIDC_TRANSACTION_COOKIE,
+  oidcTransactionReturnTo,
   oidcSettings,
   safeAuthError,
 } from "../../../../auth/oidc";
@@ -18,8 +19,9 @@ export async function GET(request: Request): Promise<NextResponse> {
     environment = settings.environment;
     const cookieStore = await cookies();
     const transaction = cookieStore.get(OIDC_TRANSACTION_COOKIE)?.value ?? "";
+    const returnTo = oidcTransactionReturnTo(settings, transaction);
     const session = await finishOidcLogin(settings, new URL(request.url), transaction);
-    response = NextResponse.redirect(settings.postLogoutRedirectUri);
+    response = NextResponse.redirect(new URL(returnTo, settings.redirectUri));
     response.cookies.set(
       OIDC_SESSION_COOKIE,
       session,

@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   authCookieOptions,
   canonicalOidcCallbackUrl,
+  oidcTransactionReturnTo,
   openAuthCookie,
+  safeOidcReturnPath,
   sealAuthCookie,
   sessionAccessToken,
 } from "./oidc.js";
@@ -80,6 +82,32 @@ describe("encrypted OIDC browser cookies", () => {
       sameSite: "lax",
       secure: true,
     });
+  });
+
+  it("allows only localized same-origin return paths", () => {
+    expect(safeOidcReturnPath(settings, "/en/tasks?view=team&layout=board")).toBe(
+      "/en/tasks?view=team&layout=board",
+    );
+    expect(safeOidcReturnPath(settings, "https://evil.example/steal")).toBe("/ar");
+    expect(safeOidcReturnPath(settings, "//evil.example/steal")).toBe("/ar");
+    expect(safeOidcReturnPath(settings, "/api/auth/callback")).toBe("/ar");
+    expect(safeOidcReturnPath(settings, "/projects/internal")).toBe("/ar");
+  });
+
+  it("reads the validated return path only from the encrypted OIDC transaction", () => {
+    const transaction = sealAuthCookie(
+      {
+        kind: "transaction",
+        expiresAt: Date.now() + 60_000,
+        codeVerifier: "verifier",
+        nonce: "nonce",
+        state: "state",
+        returnTo: "/en/tasks?view=team&layout=board",
+      },
+      secret,
+    );
+
+    expect(oidcTransactionReturnTo(settings, transaction)).toBe("/en/tasks?view=team&layout=board");
   });
 
   it("returns only the non-empty access token from a valid encrypted session", () => {

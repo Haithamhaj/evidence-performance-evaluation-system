@@ -4,6 +4,7 @@ import { createElement } from "react";
 
 import {
   fetchDailyWorkUpstream,
+  WebCurrentUserSchema,
   WebTaskWorkspaceResponseSchema,
   WebUpdateComposerContextSchema,
 } from "../../../platform/daily-work-api";
@@ -12,7 +13,7 @@ import { TasksClient } from "./tasks-client";
 
 type Properties = Readonly<{
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ layout?: string; item?: string }>;
+  searchParams: Promise<{ layout?: string; item?: string; view?: string }>;
 }>;
 
 export default async function TasksPage({ params, searchParams }: Properties) {
@@ -22,15 +23,24 @@ export default async function TasksPage({ params, searchParams }: Properties) {
   const layout = ["list", "board", "calendar"].includes(query.layout ?? "")
     ? (query.layout as "list" | "board" | "calendar")
     : "list";
-  const [catalog, response, context] = await Promise.all([
+  const view = query.view === "team" ? "team" : "my";
+  const reauthenticateTo = `/${locale}/tasks?view=${view}&layout=${layout}`;
+  const [catalog, response, context, currentUser] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
-      route: { kind: "tasks", view: "my", layout },
+      reauthenticateTo,
+      route: { kind: "tasks", view, layout },
       schema: WebTaskWorkspaceResponseSchema,
     }),
     fetchDailyWorkUpstream({
+      reauthenticateTo,
       route: { kind: "update_context" },
       schema: WebUpdateComposerContextSchema,
+    }),
+    fetchDailyWorkUpstream({
+      reauthenticateTo,
+      route: { kind: "me" },
+      schema: WebCurrentUserSchema,
     }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
@@ -39,13 +49,15 @@ export default async function TasksPage({ params, searchParams }: Properties) {
     {
       catalog,
       locale,
-      localeSwitchHref: `/${alternateLocale}/tasks?layout=${layout}`,
+      localeSwitchHref: `/${alternateLocale}/tasks?view=${view}&layout=${layout}`,
     },
     createElement(TasksClient, {
       catalog,
+      draftOwnerId: currentUser.userId,
       initialItems: response.items,
       initialLayout: layout,
       initialSelectedId: query.item ?? null,
+      initialView: view,
       locale,
       projects: context.projects.map(({ id, name }) => ({ id, name })),
     }),

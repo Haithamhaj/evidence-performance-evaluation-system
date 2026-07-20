@@ -66,10 +66,10 @@ export function MyWorkClient({
         </a>
       </header>
 
-      {createElement(PrivateInbox, {
+      {createElement(ReviewQueue, {
         catalog,
-        initialItems: response.inbox,
-        projects,
+        items: response.reviewQueue,
+        onSelect: select,
       })}
 
       {createElement(DailyBrief, {
@@ -81,18 +81,17 @@ export function MyWorkClient({
         today: response.today,
       })}
 
-      <div className="dailyContextGrid">
-        {createElement(ReviewQueue, {
-          catalog,
-          items: response.reviewQueue,
-          onSelect: select,
-        })}
-        {createElement(ProjectPulse, {
-          catalog,
-          items: response.projectPulse,
-          locale,
-        })}
-      </div>
+      {createElement(ProjectPulse, {
+        catalog,
+        items: response.projectPulse,
+        locale,
+      })}
+
+      {createElement(PrivateInbox, {
+        catalog,
+        initialItems: response.inbox,
+        projects,
+      })}
 
       {response.upcoming.length === 0 ? null : (
         <details className="workGroup panel">

@@ -54,14 +54,18 @@ const WorkItemContentSchema = z.object({
   nextAction: z.string().trim().min(1).max(2_000).nullable().default(null),
 });
 
-export const CreateWorkItemInputSchema = WorkItemContentSchema.strict();
+const OfficialWorkItemContentSchema = WorkItemContentSchema.extend({
+  assigneeId: UuidSchema,
+});
+
+export const CreateWorkItemInputSchema = OfficialWorkItemContentSchema.strict();
 
 export const UpdateWorkItemInputSchema = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
     description: z.string().trim().max(8_000).optional(),
     workstreamId: UuidSchema.nullable().optional(),
-    assigneeId: UuidSchema.nullable().optional(),
+    assigneeId: UuidSchema.optional(),
     dueAt: UtcInstantSchema.nullable().optional(),
     priority: WorkItemPrioritySchema.optional(),
     checklist: z.array(WorkItemChecklistInputSchema).max(100).optional(),
@@ -85,7 +89,7 @@ export const TransitionWorkItemInputSchema = z
 
 export const AssignWorkItemInputSchema = z
   .object({
-    assigneeId: UuidSchema.nullable(),
+    assigneeId: UuidSchema,
     expectedVersion: PositiveVersionSchema,
     reason: ReasonSchema,
   })
@@ -113,7 +117,7 @@ export const DismissPrivateInboxInputSchema = z
   })
   .strict();
 
-export const PromotePrivateInboxInputSchema = WorkItemContentSchema.extend({
+export const PromotePrivateInboxInputSchema = OfficialWorkItemContentSchema.extend({
   expectedVersion: PositiveVersionSchema,
   reason: ReasonSchema,
 }).strict();

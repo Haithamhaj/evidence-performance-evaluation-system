@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 
 import { WebWorkItemSchema } from "../../../platform/task-workspace-contracts";
 import { TaskBoard } from "./task-board";
@@ -10,19 +10,44 @@ import { TaskList } from "./task-list";
 
 type Task = import("@evaluation/contracts").WorkItemDetail;
 type Layout = "list" | "board" | "calendar";
+type View = "my" | "team";
+
+export function buildOfficialTaskCreateBody(input: {
+  readonly employeeId: string;
+  readonly projectId: string;
+  readonly title: string;
+}) {
+  return {
+    title: input.title,
+    description: "",
+    projectId: input.projectId,
+    workstreamId: null,
+    assigneeId: input.employeeId,
+    dueAt: null,
+    priority: "normal" as const,
+    requirements: [],
+    acceptanceConditions: [],
+    blocker: null,
+    nextAction: null,
+  };
+}
 
 export function TasksClient({
   catalog,
+  draftOwnerId,
   initialItems,
   initialLayout,
   initialSelectedId = null,
+  initialView,
   locale,
   projects,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
+  draftOwnerId: string;
   initialItems: readonly Task[];
   initialLayout: Layout;
   initialSelectedId?: string | null;
+  initialView: View;
   locale: import("@evaluation/localization").Locale;
   projects: readonly { id: string; name: string }[];
 }>) {
@@ -33,7 +58,38 @@ export function TasksClient({
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
   const selected = items.find(({ id }) => id === selectedId) ?? null;
+  const draftStorageKey = `daily-work.task-draft:${draftOwnerId}`;
+
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem("daily-work.task-draft");
+      const stored = window.localStorage.getItem(draftStorageKey);
+      if (stored !== null) {
+        const parsed = JSON.parse(stored) as { title?: unknown; projectId?: unknown };
+        if (typeof parsed.title === "string") setTitle(parsed.title);
+        if (
+          typeof parsed.projectId === "string" &&
+          projects.some(({ id }) => id === parsed.projectId)
+        ) {
+          setProjectId(parsed.projectId);
+        }
+      }
+    } catch {
+      // Ignore a malformed local-only draft and keep the visible fields usable.
+    }
+    setDraftReady(true);
+  }, [draftStorageKey, projects]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    if (title === "") {
+      window.localStorage.removeItem(draftStorageKey);
+      return;
+    }
+    window.localStorage.setItem(draftStorageKey, JSON.stringify({ title, projectId }));
+  }, [draftReady, draftStorageKey, projectId, title]);
 
   function changeLayout(next: Layout) {
     setLayout(next);
@@ -65,24 +121,19 @@ export function TasksClient({
       const response = await fetch("/api/daily-work/work-items", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description: "",
-          projectId,
-          workstreamId: null,
-          assigneeId: null,
-          dueAt: null,
-          priority: "normal",
-          requirements: [],
-          acceptanceConditions: [],
-          blocker: null,
-          nextAction: null,
-        }),
+        body: JSON.stringify(
+          buildOfficialTaskCreateBody({
+            employeeId: draftOwnerId,
+            title,
+            projectId,
+          }),
+        ),
       });
       if (!response.ok) throw new Error("task creation failed");
       const created = WebWorkItemSchema.parse(await response.json());
       setItems((current) => [created, ...current]);
       setTitle("");
+      window.localStorage.removeItem(draftStorageKey);
       select(created.id);
     } catch {
       setError(true);
@@ -135,6 +186,19 @@ export function TasksClient({
         {error ? <p className="formError">{catalog["tasks.error"]}</p> : null}
       </form>
 
+      <nav className="taskToolbar" aria-label={catalog["tasks.scopes"]}>
+        {(["my", "team"] as const).map((value) => (
+          <a
+            aria-current={initialView === value ? "page" : undefined}
+            className={initialView === value ? "viewButton active" : "viewButton"}
+            href={`/${locale}/tasks?view=${value}&layout=${layout}`}
+            key={value}
+          >
+            {catalog[`tasks.scope.${value}`]}
+          </a>
+        ))}
+      </nav>
+
       <div className="taskToolbar" role="toolbar" aria-label={catalog["tasks.views"]}>
         {(["list", "board", "calendar"] as const).map((value) => (
           <button
@@ -161,6 +225,11 @@ export function TasksClient({
             catalog,
             item: selected,
             onClose: () => select(null),
+            onUpdated: (updated: Task) => {
+              setItems((current) =>
+                current.map((item) => (item.id === updated.id ? updated : item)),
+              );
+            },
           })}
       <a className="quietLink" href={`/${locale}/my-work`}>
         {catalog["tasks.backToday"]}

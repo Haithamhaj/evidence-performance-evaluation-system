@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import process from "node:process";
 import { URL } from "node:url";
@@ -184,19 +185,21 @@ function workItem(index, status, dueAt, nextAction, blocker = null) {
     id: `f${String(index).padStart(7, "0")}-1111-4111-8111-111111111111`,
     projectId,
     workstreamId: index % 2 === 0 ? workstreamId : null,
-    title: `عنصر العمل ${index}`,
-    description: `تسليم تشغيلي قابل للمراجعة رقم ${index}.`,
+    title: `Delivery task ${index}`,
+    description: `Reviewable operational delivery ${index}.`,
     status,
     priority: index < 4 ? "high" : "normal",
     assigneeId: ownerId,
     dueAt,
-    requirements: ["تنفيذ النطاق المتفق عليه", "توثيق النتيجة"],
-    acceptanceConditions: ["مراجعة النتيجة واعتمادها"],
+    requirements: ["Complete the agreed scope", "Document the result"],
+    acceptanceConditions: ["Review and accept the result"],
     blocker,
     nextAction,
     version: 1,
     createdAt: "2026-07-17T08:00:00.000Z",
     updatedAt: "2026-07-18T08:00:00.000Z",
+    checklist: [],
+    collaboratorIds: [],
     allowedActions: ["edit", "transition", "assign", "add_update"],
   };
 }
@@ -208,14 +211,27 @@ const workItems = Array.from({ length: 20 }, (_, offset) => {
       index,
       index === 3 ? "in_review" : "ready",
       "2026-07-18T18:00:00.000Z",
-      "راجع النتيجة وأكدها",
+      "Review and confirm the result",
     );
   if (index <= 6)
-    return workItem(index, "in_progress", "2026-07-18T20:00:00.000Z", "أكمل التحقق اليوم");
-  if (index <= 9)
-    return workItem(index, "in_progress", "2026-07-17T16:00:00.000Z", "حدّث خطة الإغلاق");
-  if (index <= 12) return workItem(index, "blocked", null, "اطلب قرار المالك", "بانتظار قرار نطاق");
-  return workItem(index, "planned", "2026-07-24T12:00:00.000Z", "حضّر التنفيذ");
+    return workItem(
+      index,
+      "in_progress",
+      "2026-07-18T20:00:00.000Z",
+      "Complete today's verification",
+    );
+  if (index <= 9) {
+    return workItem(index, "in_progress", "2026-07-17T16:00:00.000Z", "Update the closure plan");
+  }
+  if (index <= 12)
+    return workItem(
+      index,
+      "blocked",
+      null,
+      "Request the owner's decision",
+      "Scope decision pending",
+    );
+  return workItem(index, "planned", "2026-07-24T12:00:00.000Z", "Prepare implementation");
 });
 
 const myWork = {
@@ -228,6 +244,43 @@ const myWork = {
   ],
   nextCursor: null,
 };
+
+const privateInboxItems = [
+  {
+    id: "fa111111-1111-4111-8111-111111111111",
+    employeeId: ownerId,
+    text: "Review the customer-journey notes",
+    projectId: null,
+    status: "open",
+    promotedWorkItemId: null,
+    version: 1,
+    createdAt: "2026-07-20T07:30:00.000Z",
+    updatedAt: "2026-07-20T07:30:00.000Z",
+  },
+];
+
+function dailyWorkspace() {
+  return {
+    needsMyAction: myWork.groups[0].items,
+    today: myWork.groups[1].items,
+    overdue: myWork.groups[2].items,
+    reviewQueue: [],
+    inbox: privateInboxItems.filter(({ status }) => status === "open"),
+    projectPulse: [
+      {
+        id: projectId,
+        name: project.name,
+        status: "active",
+        progress: {
+          state: "accepted",
+          percent: 62.5,
+          updatedAt: "2026-07-18T12:00:00.000Z",
+        },
+      },
+    ],
+    upcoming: myWork.groups[4].items,
+  };
+}
 
 const projectProgress = {
   project: {
@@ -341,8 +394,19 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/v1/projects") {
     return json(response, 200, [project, dogfoodProject]);
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/me") {
+    return json(response, 200, { userId: ownerId });
+  }
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/my-work") {
-    return json(response, 200, myWork);
+    return json(response, 200, dailyWorkspace());
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/work-items") {
+    return json(response, 200, {
+      view: url.searchParams.get("view") ?? "my",
+      layout: url.searchParams.get("layout") ?? "list",
+      items: workItems,
+      nextCursor: null,
+    });
   }
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/projects") {
     return json(response, 200, [
@@ -369,6 +433,103 @@ const server = createServer(async (request, response) => {
         },
       ],
     });
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/private-inbox") {
+    const body = await readJson(request);
+    if (body === null || typeof body.text !== "string") {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    const item = {
+      id: randomUUID(),
+      employeeId: ownerId,
+      text: body.text,
+      projectId: body.projectId ?? null,
+      status: "open",
+      promotedWorkItemId: null,
+      version: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    privateInboxItems.unshift(item);
+    return json(response, 200, item);
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/work-items") {
+    const body = await readJson(request);
+    if (
+      body === null ||
+      typeof body.title !== "string" ||
+      typeof body.projectId !== "string" ||
+      body.assigneeId !== ownerId
+    ) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    const item = {
+      ...workItem(workItems.length + 1, "planned", body.dueAt ?? null, body.nextAction ?? null),
+      id: randomUUID(),
+      projectId: body.projectId,
+      workstreamId: body.workstreamId ?? null,
+      title: body.title,
+      description: body.description ?? "",
+      assigneeId: body.assigneeId,
+      priority: body.priority ?? "normal",
+      requirements: body.requirements ?? [],
+      acceptanceConditions: body.acceptanceConditions ?? [],
+      blocker: body.blocker ?? null,
+    };
+    workItems.unshift(item);
+    return json(response, 200, item);
+  }
+  if (request.method === "PATCH" && /^\/api\/v1\/work-items\/[0-9a-f-]+$/u.test(url.pathname)) {
+    const body = await readJson(request);
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
+    if (
+      body === null ||
+      item === undefined ||
+      typeof body.title !== "string" ||
+      body.expectedVersion !== item.version
+    ) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    item.title = body.title;
+    item.version += 1;
+    item.updatedAt = new Date().toISOString();
+    return json(response, 200, item);
+  }
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/private-inbox\/[0-9a-f-]+\/promote$/u.test(url.pathname)
+  ) {
+    const body = await readJson(request);
+    const inboxId = url.pathname.split("/")[4];
+    const inbox = privateInboxItems.find(({ id }) => id === inboxId);
+    if (
+      body === null ||
+      inbox === undefined ||
+      typeof body.title !== "string" ||
+      typeof body.projectId !== "string"
+    ) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    const item = {
+      ...workItem(workItems.length + 1, "planned", body.dueAt ?? null, body.nextAction ?? null),
+      id: randomUUID(),
+      projectId: body.projectId,
+      workstreamId: body.workstreamId ?? null,
+      title: body.title,
+      description: body.description ?? "",
+      assigneeId: body.assigneeId ?? ownerId,
+      priority: body.priority ?? "normal",
+      requirements: body.requirements ?? [],
+      acceptanceConditions: body.acceptanceConditions ?? [],
+      blocker: body.blocker ?? null,
+    };
+    workItems.unshift(item);
+    inbox.status = "promoted";
+    inbox.promotedWorkItemId = item.id;
+    inbox.version += 1;
+    inbox.updatedAt = new Date().toISOString();
+    return json(response, 200, item);
   }
   if (request.method === "GET" && url.pathname === `/api/v1/daily-work/projects/${projectId}`) {
     return json(response, 200, projectProgress);

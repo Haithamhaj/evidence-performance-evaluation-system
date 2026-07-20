@@ -56,10 +56,16 @@ describe("Codex dogfood acceptance seed", () => {
   it("creates no employee score or raw-activity progress rule", async () => {
     const services = createInMemoryCodexDogfoodSeedServices();
 
-    await seedCodexDogfood(INPUT, services);
+    const result = await seedCodexDogfood(INPUT, services);
 
     expect(services.forbiddenPerformanceRows()).toEqual([]);
     expect(services.rawActivityRules()).toEqual([]);
+    expect(result.privateInboxCount).toBe(3);
+    expect(services.privateInboxItems()).toEqual([
+      "Confirm the Product Owner review time",
+      "Capture the mobile navigation observation",
+      "Follow up on the customer journey wording",
+    ]);
   });
 
   it("refuses to run outside the explicit local acceptance environment", async () => {

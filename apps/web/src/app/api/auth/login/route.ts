@@ -5,6 +5,7 @@ import {
   OIDC_TRANSACTION_COOKIE,
   oidcSettings,
   safeAuthError,
+  safeOidcReturnPath,
   startOidcLogin,
 } from "../../../../auth/oidc";
 
@@ -12,6 +13,12 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const settings = oidcSettings();
     const canonicalLoginUrl = new URL("/api/auth/login", settings.redirectUri);
+    const requestedReturnTo = new URL(request.url).searchParams.get("returnTo") ?? undefined;
+    const returnTo = safeOidcReturnPath(settings, requestedReturnTo);
+    const fallbackReturnTo = safeOidcReturnPath(settings);
+    if (requestedReturnTo !== undefined && returnTo !== fallbackReturnTo) {
+      canonicalLoginUrl.searchParams.set("returnTo", returnTo);
+    }
     const presentedHost = (
       request.headers.get("x-forwarded-host") ??
       request.headers.get("host") ??
@@ -27,7 +34,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     if (!requestUsesCanonicalOrigin) {
       return NextResponse.redirect(canonicalLoginUrl);
     }
-    const login = await startOidcLogin(settings);
+    const login = await startOidcLogin(settings, returnTo);
     const response = NextResponse.redirect(login.authorizationUrl);
     response.cookies.set(
       OIDC_TRANSACTION_COOKIE,

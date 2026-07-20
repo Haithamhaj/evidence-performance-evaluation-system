@@ -34,6 +34,7 @@ import {
   CreateTaskBodySchema,
   DismissPrivateInboxBodySchema,
   PromotePrivateInboxBodySchema,
+  UpdateTaskBodySchema,
   WebPrivateInboxItemSchema,
   WebWorkItemSchema,
 } from "../../../../platform/task-workspace-contracts";
@@ -302,6 +303,38 @@ export async function POST(request: Request, context: Context): Promise<NextResp
   }
 }
 
+export async function PATCH(request: Request, context: Context): Promise<NextResponse> {
+  const path = (await context.params).path;
+  if (
+    !safeRequestPath(request, path) ||
+    new URL(request.url).search !== "" ||
+    path.length !== 2 ||
+    path[0] !== "work-items" ||
+    !isUuid(path[1])
+  ) {
+    return notFound();
+  }
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return invalid();
+  }
+  try {
+    return json(
+      await fetchProtectedUpstream({
+        path: `/api/v1/work-items/${path[1]}`,
+        schema: WebWorkItemSchema,
+        method: "PATCH",
+        body: UpdateTaskBodySchema.parse(body),
+      }),
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) return invalid();
+    return safeError(error);
+  }
+}
+
 async function uploadEvidence(request: Request): Promise<NextResponse> {
   try {
     const form = await request.formData();
@@ -384,7 +417,6 @@ function safeError(error: unknown): NextResponse {
 }
 
 export const PUT = () => notFound();
-export const PATCH = () => notFound();
 export const DELETE = () => notFound();
 export const HEAD = () => notFound();
 export const OPTIONS = () => notFound();
