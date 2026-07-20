@@ -201,8 +201,8 @@ type DailyWorkspaceSnapshot = {
 - [x] Run focused unit/integration tests from Tasks 1–5.
 - [x] Run `pnpm playwright test tests/e2e/ai-first-daily-workspace.spec.ts`.
 - [x] Run the three protected scans and affected lint/typechecks.
-- [ ] Commit as `test: add daily workspace slice 1 acceptance`.
-- [ ] Push, update Pull Request #5, publish exact local URLs and screenshots, then stop.
+- [x] Commit as `test: add daily workspace slice 1 acceptance`.
+- [x] Push, update Pull Request #5, publish exact local URLs and screenshots, then stop.
 
 ## Product Owner Stop Gate
 
