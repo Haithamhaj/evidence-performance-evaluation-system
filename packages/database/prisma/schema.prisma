@@ -66,6 +66,7 @@ model User {
   workItemAssignmentChanges WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentActor")
   workItemAssignmentsFrom   WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentFrom")
   workItemAssignmentsTo     WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentTo")
+  privateInboxItems         PrivateInboxItem[]                     @relation("PrivateInboxEmployee")
   ownedProgressContracts    ProgressContract[]                     @relation("ProgressContractOwner")
   approvedProgressContracts ProgressContract[]                     @relation("ProgressContractApprover")
   createdProgressContracts  ProgressContract[]                     @relation("ProgressContractCreatedBy")
@@ -347,6 +348,7 @@ model Project {
   criteriaProposals      DynamicCriteriaProposal[]
   criteriaSets           DynamicCriteriaSet[]
   workItems              WorkItem[]
+  privateInboxItems      PrivateInboxItem[]
   progressContracts      ProgressContract[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
   updateSources          UpdateSource[]
@@ -488,6 +490,12 @@ enum WorkItemPriority {
   urgent
 }
 
+enum PrivateInboxStatus {
+  open
+  promoted
+  dismissed
+}
+
 model WorkItem {
   id                   String                      @id @default(uuid()) @db.Uuid
   projectId            String                      @db.Uuid
@@ -513,6 +521,8 @@ model WorkItem {
   blocks               WorkItemDependency[]        @relation("WorkItemBlocks")
   statusHistory        WorkItemStatusHistory[]
   assignmentHistory    WorkItemAssignmentHistory[]
+  checklistItems       WorkItemChecklistItem[]
+  promotedFromInboxItem PrivateInboxItem?            @relation("PrivateInboxPromotion")
   updateSources        UpdateSource[]
   evidenceRecords      EvidenceRecord[]
   evidenceLinks        EvidenceLink[]
@@ -525,6 +535,38 @@ model WorkItem {
   @@index([workstreamId, status, createdAt])
   @@index([assigneeId, status, dueAt])
   @@index([createdById, createdAt])
+}
+
+model WorkItemChecklistItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  workItemId String   @db.Uuid
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Restrict)
+  text       String
+  completed  Boolean  @default(false)
+  position   Int
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([workItemId, position])
+  @@index([workItemId, completed, position])
+}
+
+model PrivateInboxItem {
+  id                 String             @id @default(uuid()) @db.Uuid
+  employeeId         String             @db.Uuid
+  employee           User               @relation("PrivateInboxEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  text               String
+  projectId          String?            @db.Uuid
+  project            Project?           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  status             PrivateInboxStatus @default(open)
+  promotedWorkItemId String?            @unique @db.Uuid
+  promotedWorkItem   WorkItem?          @relation("PrivateInboxPromotion", fields: [promotedWorkItemId], references: [id], onDelete: Restrict)
+  version            Int                @default(1)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
+
+  @@index([employeeId, status, createdAt(sort: Desc), id])
+  @@index([projectId, status, createdAt(sort: Desc)])
 }
 
 model WorkItemParticipant {

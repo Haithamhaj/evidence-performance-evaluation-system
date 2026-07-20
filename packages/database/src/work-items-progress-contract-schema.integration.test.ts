@@ -10,6 +10,8 @@ describe("work items and progress contract schema", () => {
   it("creates the bounded Phase 2 foundation tables without a manual percentage", async () => {
     const tables = await client.$queryRaw<Array<{ name: string | null }>>`
       SELECT to_regclass('"WorkItem"')::text AS name
+      UNION ALL SELECT to_regclass('"WorkItemChecklistItem"')::text
+      UNION ALL SELECT to_regclass('"PrivateInboxItem"')::text
       UNION ALL SELECT to_regclass('"WorkItemStatusHistory"')::text
       UNION ALL SELECT to_regclass('"WorkItemAssignmentHistory"')::text
       UNION ALL SELECT to_regclass('"ProgressContract"')::text
@@ -20,6 +22,41 @@ describe("work items and progress contract schema", () => {
       UNION ALL SELECT to_regclass('"ProgressSnapshotSource"')::text
     `;
     expect(tables.map(({ name }) => name)).not.toContain(null);
+
+    const taskWorkspaceColumns = await client.$queryRaw<
+      Array<{ table_name: string; column_name: string; is_nullable: string }>
+    >`
+      SELECT table_name, column_name, is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND (
+          (table_name = 'WorkItem' AND column_name = 'projectId')
+          OR
+          (table_name = 'PrivateInboxItem' AND column_name IN (
+            'employeeId',
+            'projectId',
+            'promotedWorkItemId',
+            'status'
+          ))
+        )
+      ORDER BY table_name, column_name
+    `;
+    expect(taskWorkspaceColumns).toEqual([
+      { table_name: "PrivateInboxItem", column_name: "employeeId", is_nullable: "NO" },
+      { table_name: "PrivateInboxItem", column_name: "projectId", is_nullable: "YES" },
+      { table_name: "PrivateInboxItem", column_name: "promotedWorkItemId", is_nullable: "YES" },
+      { table_name: "PrivateInboxItem", column_name: "status", is_nullable: "NO" },
+      { table_name: "WorkItem", column_name: "projectId", is_nullable: "NO" },
+    ]);
+
+    const singlePromotionIndexes = await client.$queryRaw<Array<{ indexdef: string }>>`
+      SELECT indexdef
+      FROM pg_indexes
+      WHERE schemaname = 'public'
+        AND indexname = 'PrivateInboxItem_promotedWorkItemId_key'
+    `;
+    expect(singlePromotionIndexes).toHaveLength(1);
+    expect(singlePromotionIndexes[0]?.indexdef).toContain("UNIQUE");
 
     const forbiddenColumns = await client.$queryRaw<Array<{ column_name: string }>>`
       SELECT column_name

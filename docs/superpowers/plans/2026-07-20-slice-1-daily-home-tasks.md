@@ -45,13 +45,13 @@ export const PrivateInboxItemSchema = z.object({
 });
 ```
 
-- [ ] Write schema tests proving an Inbox item may be unlinked, is employee-owned, and can reference at most one promoted Work Item.
-- [ ] Run `pnpm vitest run --project integration packages/database/src/work-items-progress-contract-schema.integration.test.ts`; verify failure.
-- [ ] Add `PrivateInboxItem`, `WorkItemChecklistItem`, and forward-only constraints/indexes. Do not make `WorkItem.projectId` optional.
-- [ ] Add Zod create/list/dismiss/promote contracts and contract tests.
-- [ ] Run `pnpm vitest run --project unit packages/contracts/src/work-items.test.ts`.
-- [ ] Run `pnpm db:verify`.
-- [ ] Commit as `feat(work-items): add private inbox persistence`.
+- [x] Write schema tests proving an Inbox item may be unlinked, is employee-owned, and can reference at most one promoted Work Item.
+- [x] Run `pnpm vitest run --project integration packages/database/src/work-items-progress-contract-schema.integration.test.ts`; verify failure.
+- [x] Add `PrivateInboxItem`, `WorkItemChecklistItem`, and forward-only constraints/indexes. Do not make `WorkItem.projectId` optional.
+- [x] Add Zod create/list/dismiss/promote contracts and contract tests.
+- [x] Run `pnpm vitest run --project unit packages/contracts/src/work-items.test.ts`.
+- [x] Run `pnpm db:verify`.
+- [x] Commit as `feat(work-items): add private inbox persistence`.
 
 ### Task 2: Add Inbox and editable Task domain services
 
