@@ -1,6 +1,6 @@
 # TASKS.md
 
-## Execution Task File — Revision 1.2
+## Execution Task File — Revision 1.3
 
 **Status:** Ready for implementation  
 **Task order:** Dependency-driven and phase-valid  
@@ -279,40 +279,50 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 > **REPLANNED — DO NOT EXECUTE T030–T044 IN THE ORIGINAL ORDER**
 >
-> The product owner approved the Product Direction Reset production structure on 2026-07-18, the corrected unified daily-work/GitHub specification on 2026-07-19, and the real Codex dogfood acceptance design on 2026-07-19. T030–T044 remain traceability references. The active designs are `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md` and `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`; the active implementation plan is `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
+> The product owner approved the AI-first Daily Workspace reset on 2026-07-20. T030–T044 remain traceability references, but the active authority is `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md` and `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md` with its six linked slice plans. Earlier Phase 2 designs and plans are historical records only.
 
 ## Approved execution mapping
 
-1. Slice 1 — My Work + Work Items + Progress Contract foundation.
-2. Slice 2 correction — Project-required, Work-Item-optional, draft-first unified daily Update.
-3. Slice 2.5 — Codex dogfood Project + approved source snapshot + live-AI contract proposal + protected human activation.
-4. Slice 3 — Contract-aware GitHub Project automation plus separate contribution suggestions.
-5. Slice 4 — Unified manual and voice sources.
-6. Slice 5 — Check-ins and monthly readiness.
-7. Slice 6 — Manager operational view.
-8. Slice 7 — Evaluation Fact View preparation.
+1. Slice 1 — Today + normal Task workspace + private Inbox.
+2. Slice 2 — Google Workspace connection + private context + manual Project linking.
+3. Slice 3 — Context Intelligence + explainable linking + human-confirmed Task drafts.
+4. Slice 4 — GitHub + fast Updates + Evidence + voice + Timeline.
+5. Slice 5 — Project-owner progress setup + check-ins/readiness + manager operations.
+6. Slice 6 — neutral Evaluation Fact View preparation.
 
 Execution status:
 
-- **Slice 1 complete:** production My Work, bounded Work Items, versioned document-sourced Progress Contracts, official source-linked progress snapshots, protected API composition, Arabic/English UI, local synthetic demo, and desktop/mobile screenshots.
-- **Slice 2 complete:** interactive Arabic/English text updates, one-question-at-a-time live AI through the existing AI Router, employee-edited drafts, private manual evidence, mandatory evidence/update confirmation, and append-only source-labelled Timeline. The runnable local demo and desktop/mobile screenshots passed the Slice 2 gate checks on 2026-07-18.
-- **Corrected Slice 2 complete:** Project-required, Work-Item-optional, draft-first journey verified and accepted.
-- **Slice 2.5 at protected human gate:** the real Codex acceptance Project, immutable approved source DocumentVersion, six remaining-plan Work Items, live governed GPT-5.5 proposal, redacted trace, and authenticated bilingual review evidence are complete. No contract was applied, submitted, approved, or activated.
+- The bounded Work Items, Updates & Evidence, Progress Contract, daily composition, bilingual routing, and real Codex dogfood foundations already implemented remain reusable.
+- The previous employee My Work and long Update interaction were rejected and are not accepted as the new Slice 1 experience.
+- **New Slice 1 is authorized and in progress** only after the documentation-alignment checkpoint.
+- Slices 2–6 have not started under the new plan.
 
-Mapping:
+## AI-first reset task trace
 
-- T030, T031, T033–T035, and the relevant T042 UI are implemented in Slice 2.
-- T032 and its T044 voice/dialect fixtures are implemented in Slice 4.
-- T036–T037 and T043 are implemented in Slice 5.
-- T038–T041 are implemented in Slice 3.
-- T042 is delivered incrementally across Slices 1–4.
-- Evaluation Fact View preparation is added in Slice 7 without implementing the complete Phase 3 evaluation workflow.
-- Work Items and the Project/Workstream Progress Contract foundation are approved Product Reset additions in Slice 1.
+These IDs are execution checkpoints inside the approved plans; they are not new dependency-graph task headings.
+
+| Slice  | Plan tasks                                                                                                                                          | Status                                |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| P2R-S1 | S1-T1 persistence; S1-T2 services; S1-T3 APIs; S1-T4 Today composition; S1-T5 Task UI; S1-T6 acceptance                                             | Authorized; not yet implemented       |
+| P2R-S2 | S2-T1 schema; S2-T2 connection/sync; S2-T3 APIs; S2-T4 UI; S2-T5 gated live adapters; S2-T6 privacy acceptance                                      | Planned; external Google gate applies |
+| P2R-S3 | S3-T1 governed AI schema; S3-T2 deterministic matching; S3-T3 routed AI; S3-T4 APIs; S3-T5 review queue; S3-T6 acceptance                           | Planned                               |
+| P2R-S4 | S4-T1 GitHub schema; S4-T2 webhook/reconciliation; S4-T3 source suggestions; S4-T4 universal capture; S4-T5 voice; S4-T6 Timeline; S4-T7 acceptance | Planned; external GitHub gate applies |
+| P2R-S5 | S5-T1 owner authorization; S5-T2 setup UI; S5-T3 Project pulse; S5-T4 check-ins/readiness; S5-T5 manager queues; S5-T6 acceptance                   | Planned                               |
+| P2R-S6 | S6-T1 Fact contract; S6-T2 source composition; S6-T3 API; S6-T4 UI; S6-T5 acceptance                                                                | Planned                               |
+
+Original-task mapping:
+
+- T030–T035 foundations are reused in Slice 4; the rejected employee interaction is replaced.
+- T032 and relevant T044 voice/dialect fixtures are completed in Slice 4.
+- T036–T037 and T043 are completed in Slice 5.
+- T038–T041 are completed in Slice 4.
+- T042 is delivered visibly across Slices 1–5.
+- Phase 2 Fact View preparation is Slice 6 and does not implement the complete Phase 3 evaluation workflow.
 
 ## T030 — Implement Activity Timeline
 
-**Planning status:** Mapped to Slice 2; implement as a source-labelled read projection, not a generic activity platform.
-**Execution status:** Complete in the bounded Slice 2 delivery; accepted updates and evidence are append-only, paginated, scope-authorized, and separately labelled.
+**Planning status:** Existing append-only source-labelled foundation is retained and presented through the unified Timeline in new Slice 4; do not build a generic activity platform.
+**Execution status:** Domain foundation complete; new employee Timeline presentation pending Slice 4.
 **Priority:** P1  
 **Dependencies:** T018, T019  
 **Purpose:** Store typed project and workstream events.  
@@ -320,8 +330,8 @@ Mapping:
 
 ## T031 — Implement Text Update Composer
 
-**Planning status:** The completed backend foundation is retained; the 2026-07-19 correction makes Project required, Work Item optional, and the first useful AI response a readable draft.
-**Execution status:** Backend foundation complete; corrected user journey pending.
+**Planning status:** The completed backend foundation is retained and simplified inside the new Slice 4 universal capture flow.
+**Execution status:** Backend foundation complete; rejected long-form employee interaction will be replaced.
 **Priority:** P1  
 **Dependencies:** T030, T011  
 **Purpose:** Structure employee updates through AI and human confirmation.  
@@ -329,7 +339,7 @@ Mapping:
 
 ## T032 — Implement Voice Update Flow
 
-**Planning status:** Mapped to Slice 4 as a connector to the Slice 2 Updates & Evidence lifecycle.
+**Planning status:** Mapped to new Slice 4 as a connector to the existing Updates & Evidence lifecycle.
 **Priority:** P1  
 **Dependencies:** T022, T030, T011  
 **Purpose:** Transcribe, confirm, structure, and store voice updates.  
@@ -337,8 +347,8 @@ Mapping:
 
 ## T033 — Implement Evidence Records
 
-**Planning status:** Mapped to Slice 2 inside the bounded Updates & Evidence module.
-**Execution status:** Complete for private manual sources and AI-assisted claim drafts in Slice 2; employee editing and confirmation remain mandatory.
+**Planning status:** Existing bounded Updates & Evidence ownership is retained; new Slice 4 exposes evidence inside universal capture and source review.
+**Execution status:** Private manual evidence foundation complete; simplified employee journey pending Slice 4.
 **Priority:** P1  
 **Dependencies:** T022, T030  
 **Purpose:** Link files, images, links, and source metadata to claims and criteria.  
@@ -346,7 +356,7 @@ Mapping:
 
 ## T034 — Implement Multimodal Evidence Analysis
 
-**Planning status:** Mapped to Slice 2; analysis supports a claim but never becomes automatic proof or progress.
+**Planning status:** Retained in new Slice 4; analysis supports a claim but never becomes automatic proof or progress.
 **Execution status:** The bounded Slice 2 acceptance is complete: screenshots/files use the existing private upload safety path, while the reviewed update draft may prefill the claim. Direct evidence-content inference is not treated as proof and was not added as a separate platform.
 **Priority:** P1  
 **Dependencies:** T033, T011  
@@ -355,7 +365,7 @@ Mapping:
 
 ## T035 — Implement Contribution Attribution
 
-**Planning status:** Mapped to Slice 2 with immutable confirmation and responsibility-period attribution.
+**Planning status:** Retained in new Slice 4 with immutable confirmation and responsibility-period attribution.
 **Execution status:** Complete for the Slice 2 employee-confirmed contribution context and responsibility-scoped evidence lineage.
 **Priority:** P1  
 **Dependencies:** T030, T033  
@@ -364,7 +374,7 @@ Mapping:
 
 ## T036 — Implement Thursday Workstream Check-in
 
-**Planning status:** Mapped to Slice 5.
+**Planning status:** Mapped to new Slice 5.
 **Priority:** P1  
 **Dependencies:** T019, T030, T013  
 **Purpose:** Require a lightweight check-in only when no substantive update exists.  
@@ -372,7 +382,7 @@ Mapping:
 
 ## T037 — Implement Project Check-in Aggregation
 
-**Planning status:** Mapped to Slice 5.
+**Planning status:** Mapped to new Slice 5.
 **Priority:** P1  
 **Dependencies:** T036  
 **Purpose:** Summarize workstreams for Primary Project Owner.  
@@ -380,7 +390,7 @@ Mapping:
 
 ## T038 — Create GitHub App Integration
 
-**Planning status:** Mapped to Slice 3 as a connector to Updates & Evidence and a versioned source binding to Projects.
+**Planning status:** Mapped to new Slice 4 as a connector to Updates & Evidence and a versioned source binding to Projects.
 **Priority:** P1  
 **Dependencies:** T007, T009  
 **Purpose:** Install scoped GitHub access.  
@@ -388,7 +398,7 @@ Mapping:
 
 ## T039 — Implement GitHub Webhook Ingestion
 
-**Planning status:** Mapped to Slice 3 with signature verification, durable idempotent inbox, reconciliation, and deterministic contract-rule processing.
+**Planning status:** Mapped to new Slice 4 with signature verification, durable idempotent receipt, reconciliation, and deterministic contract-rule processing.
 **Priority:** P1  
 **Dependencies:** T038, T013  
 **Purpose:** Receive push, PR, and check events idempotently.  
@@ -396,7 +406,7 @@ Mapping:
 
 ## T040 — Implement GitHub Document Sync
 
-**Planning status:** Mapped to Slice 3 and limited to approved document bindings/versions.
+**Planning status:** Mapped to new Slice 4 and limited to approved document bindings/versions.
 **Priority:** P1  
 **Dependencies:** T023, T038, T039  
 **Purpose:** Track branch/path/commit and create document versions.  
@@ -404,7 +414,7 @@ Mapping:
 
 ## T041 — Implement Suggested Evidence Inbox
 
-**Planning status:** Mapped to Slice 3; automatic Project progress and employee contribution are separate, and employee confirmation remains mandatory for contribution evidence.
+**Planning status:** Mapped to new Slice 4; automatic Project progress and employee contribution remain separate, and employee confirmation remains mandatory for contribution evidence.
 **Priority:** P1  
 **Dependencies:** T033, T039  
 **Purpose:** Show PRs, commits, and checks as suggestions requiring employee context.  
@@ -412,7 +422,7 @@ Mapping:
 
 ## T042 — Build Update, Timeline, and Evidence UI
 
-**Planning status:** Delivered incrementally across Slices 1–4 rather than as a late standalone UI task.
+**Planning status:** Delivered incrementally across new Slices 1–5 rather than as a late standalone UI task.
 **Priority:** P1  
 **Dependencies:** T030–T041  
 **Expected output:** Arabic-first responsive RTL screens with English support.  
@@ -420,7 +430,7 @@ Mapping:
 
 ## T043 — Implement Monthly Evaluation Readiness Review
 
-**Planning status:** Mapped to Slice 5.
+**Planning status:** Mapped to new Slice 5.
 **Priority:** P1  
 **Dependencies:** T030, T033, T012, T036  
 **Purpose:** Surface thin evidence before quarter-end without creating update or evidence quotas.  
@@ -430,7 +440,7 @@ Mapping:
 
 ## T044 — Expand Arabic and Dialect AI Fixtures
 
-**Planning status:** Distributed to the slice that changes the relevant prompt/schema or voice behavior; no unrelated fixture expansion.
+**Planning status:** Distributed across new Slices 3–4 when the relevant prompt/schema or voice behavior changes; no unrelated fixture expansion.
 **Priority:** P1  
 **Dependencies:** T012, T032
 **Purpose:** Validate AI behavior on the language actually used by the pilot team.  

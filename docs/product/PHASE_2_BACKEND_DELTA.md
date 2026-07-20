@@ -1,204 +1,168 @@
-# Phase 2 Backend Delta
+# Phase 2 AI-First Daily Workspace Backend Delta
 
-> **SUPERSEDED — DO NOT USE FOR PRODUCTION EXECUTION**
->
-> This prototype-era delta is retained for traceability. The approved production design is `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`, and the authoritative feature-to-slice mapping is `docs/product/PHASE_2_FEATURE_MAP.md`.
+**Status:** Approved production delta
 
-**Status:** Superseded prototype-era production delta
-**Implementation status:** Not implemented
-**Authority:** The existing Phase 1 modular-monolith backend remains authoritative
+**Authority:** `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md`
+
+**Execution plans:** `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md` and its six linked slice plans
 
 ## Purpose
 
-This document records only backend behavior that the Product Reset prototype proves is needed. It does not authorize migrations, APIs, queue jobs, or production Work Item code.
+This document states the smallest backend change required by the approved employee-experience reset. It preserves the existing modular monolith and adds no second identity, Project, Workstream, Task, activity, audit, queue, AI, or progress store.
 
-## Existing capabilities to preserve
+## Preserved production capabilities
 
-The production implementation must reuse current public module boundaries for:
+- OIDC sessions, deactivation, and server-side authorization.
+- Projects, Workstreams, membership, responsibility windows, documents, readiness, and criteria.
+- AI Router, worker, queue, audit, private uploads, and structured error model.
+- Work Items lifecycle, history, dependencies, participants, and Project/Workstream validation.
+- Updates & Evidence drafts, employee confirmation, source records, and Timeline readers.
+- Project-owned versioned Progress Contracts and append-only official snapshots.
+- Daily Work as an application composition layer.
 
-- identity, sessions, deactivation, and server-side permissions;
-- Projects and Project membership;
-- Workstreams, owners, and contributors;
-- responsibility windows and historical ownership;
-- documents and immutable versions;
-- Documentation Readiness;
-- dynamic Project and Workstream criteria;
-- employee acknowledgments and objections;
-- AI Router and worker;
-- append-only audit history.
+The current employee My Work and long Update form are not preserved as the target experience.
 
-It must not add a second authentication system, second queue, parallel Project/Workstream store, generic object platform, or candidate-derived activity model.
+## Capability delta
 
-## Capability-by-capability delta
+| User need                    | Existing base              | Smallest production delta                                                  | Owner                  | Slice |
+| ---------------------------- | -------------------------- | -------------------------------------------------------------------------- | ---------------------- | ----: |
+| Private quick capture        | Work Items                 | Employee-only Inbox aggregate with promote/dismiss lifecycle               | Work Items             |     1 |
+| Normal Task detail           | Work Items                 | Update command, checklist, collaborators, focused query                    | Work Items             |     1 |
+| Today                        | My Work query              | Needs My Action/Today/Overdue plus Inbox and Project pulse composition     | Daily Work             |     1 |
+| List/Board/Calendar          | Work Item query            | Stable filters/layout projection over one Task identity                    | Work Items/Web         |     1 |
+| Gmail/Calendar connection    | Auth/audit                 | Provider-neutral connection, credential reference, sync cursor, exclusions | Connected Work Context |     2 |
+| Private source summary       | Private storage patterns   | Encrypted minimal normalized summary and owner-only reader                 | Connected Work Context |     2 |
+| Manual source linking        | Projects permissions       | Reversible employee Project link with audit                                | Connected Work Context |     2 |
+| Project matching             | Project/doc readers        | Deterministic/two-anchor policy, explanation, correction                   | Context Intelligence   |     3 |
+| AI summaries and Task drafts | AI Router                  | Versioned schemas/prompts, source references, route trace                  | Context Intelligence   |     3 |
+| Smart review queue           | Daily composition          | Private suggestions and confirmation actions                               | Daily Work/Web         |     3 |
+| GitHub sources               | Worker/audit               | GitHub App binding, verified webhook, reconciliation, normalized facts     | GitHub connector       |     4 |
+| Universal capture            | Updates & Evidence         | Compact draft-first text/image/file/code/link flow                         | Updates & Evidence     |     4 |
+| Voice                        | Upload/AI Router           | Transcript revisions, dual confirmation, retention                         | Updates & Evidence     |     4 |
+| Project owner setup          | Existing Progress Contract | Guided owner-only composition; no new progress engine                      | Projects/Web           |     5 |
+| Project pulse                | Progress snapshots         | Compact explanation and missing-source actions                             | Projects/Daily Work    |     5 |
+| Check-ins/readiness          | Updates/readiness          | Substantive-update query, leave exclusion, non-scoring projection          | Updates/Daily Work     |     5 |
+| Manager operations           | Manager permissions        | Authorized action queues with forbidden score fields                       | Daily Work/Web         |     5 |
+| Evaluation facts             | Domain public readers      | Neutral read-only composition                                              | Evaluation Preparation |     6 |
 
-| User need                  | Reusable Phase 1 capability                     | Exact missing production capability                                                                       | Blocking?                                   | Smallest safe implementation                               | Protected rule                                       | Expected area                                                  | Complexity |
-| -------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------- | ---------- |
-| Daily My Work              | Identity, permissions, Project/Workstream scope | Work Item entity plus scoped list query and filters                                                       | Yes, Slice 1                                | One bounded module and one list projection                 | Counts are not performance                           | `packages/work-items`, API controller, web gateway/UI          | Medium     |
-| Work Item detail/lifecycle | Responsibility windows, audit                   | Status, assignment, participant, dependency, blocker, next-action fields and append-only history commands | Yes, Slice 1                                | Exact seven-state lifecycle with optimistic concurrency    | Historical responsibility preserved                  | `packages/work-items`, database migration, API                 | High       |
-| Inbox triage               | Worker, audit, domain events                    | Action projection; resolve/link/convert commands with idempotency                                         | No for Slice 1; yes for Slice 2             | Read model over approved public events                     | UI is not authorization                              | `packages/work-items`, API query service, web                  | Medium     |
-| Text update                | AI Router, worker, criteria, audit              | Source/revision entity, structured draft schema, confirmation command, timeline event                     | Yes, Slice 2                                | One versioned update aggregate with employee gate          | AI no rating; human confirmation                     | `packages/updates-evidence`, AI Router adapter use, API/worker | High       |
-| Voice update               | Private upload, AI Router, worker               | Audio source, raw/edited transcript revisions, STT trace, dual confirmation                               | Yes, Slice 5                                | Extend update source types; reuse file controls and router | Sensitive input; no rating                           | `packages/updates-evidence`, files, worker, API                | High       |
-| Activity Timeline          | Audit and immutable domain history              | Approved event projection with source-type discriminator                                                  | Yes for accepted update/evidence visibility | Compose public domain events; no generic mutable feed      | Historical records append-only                       | query service, API, web                                        | Medium     |
-| Evidence attribution       | Files/documents, criteria, responsibility       | Evidence/source/revision/link/attribution entities and confirm/reject commands                            | Yes, Slice 3                                | One evidence aggregate inside updates/evidence boundary    | Volume not performance; actual responsibility period | `packages/updates-evidence`, database/API                      | High       |
-| GitHub suggestions         | Worker/queue, audit                             | Suggestion/source IDs, webhook reconciliation, merge/reassign/link states                                 | Yes, Slice 4                                | GitHub App adapter producing suggestions only              | Employee confirmation required                       | GitHub adapter, worker, updates/evidence API                   | High       |
-| Dynamic criteria context   | Phase 1 criteria versions                       | Active-at-event query from update/evidence/Work Item                                                      | No new entity                               | Public criteria query interface                            | Never retroactive; no auto-average                   | criteria public interface, query composition                   | Low        |
-| Thursday check-in          | Worker and update history                       | Substantive-update query, reminder state, leave exclusion                                                 | Yes, Slice 6                                | Scheduled query plus idempotent reminder                   | Approved leave excluded                              | worker, updates query, notification adapter                    | Medium     |
-| Monthly readiness          | Phase 1 Documentation Readiness                 | Work Item/update/evidence inputs and coarse manager projection                                            | Yes, Slice 6                                | Extend existing readiness inputs through public interfaces | Non-scoring; no quotas; coarse manager view          | existing readiness module/query                                | Medium     |
-| Manager operations         | Manager permissions, Project/Workstream scope   | Aggregated action/blocker/coarse-readiness query                                                          | Yes, Slice 7                                | Read-only composed query plus bounded resolution commands  | No rank/score/individual readiness value             | API query service, web                                         | Medium     |
-| Evaluation Fact View       | Responsibility, criteria, documents, audit      | Period fact query/snapshot linking claim, facts, unclear parts, result, evidence                          | Yes, Slice 8                                | Immutable source-linked preparation snapshot               | Fact vs interpretation; no AI rating                 | evaluation query/snapshot module                               | High       |
+## New persisted concepts
 
-## Confirmed new production concepts
+### Migration `0017_task_workspace`
 
-### Work Item
+- `private_inbox_items`
+- `work_item_checklist_items`
+- indexes and constraints for employee/status/time and single promotion
 
-A Work Item requires:
+`work_items.project_id` remains required.
 
-- organization and stable identity;
-- one required Project;
-- zero or one Workstream belonging to the same Project;
-- title, description, type, status, priority, start date, and optional due date;
-- primary assignee and participants with server-side access checks;
-- employee role and contribution context;
-- requirements, acceptance criteria, dependencies, blocker, and next action;
-- links to criteria, updates, evidence, GitHub suggestions, and history.
+### Migration `0018_connected_work_context`
 
-Allowed initial statuses are exactly:
+- connected work accounts with opaque credential reference
+- source items with protected title/summary ciphertext and key version
+- source exclusions
+- reversible source/Project links
+- connector sync cursors
 
-- Planned
-- Ready
-- In Progress
-- Blocked
-- In Review
-- Done
-- Cancelled
+Live mode requires an approved credential vault and cryptographic key provider.
 
-Status history, assignment history, and responsibility attribution must be append-only. No sprint, story point, time tracking, workload score, or workflow builder is part of this delta.
+### Migration `0019_context_intelligence`
 
-### Update
+- context analyses
+- Project-link suggestions
+- Task drafts and revisions
+- source-link corrections
+- prompt/schema/route trace and human review status
 
-An update retains:
+### Migration `0020_github_integration`
 
-- original employee input;
-- source type: text or voice;
-- original transcript and employee-corrected transcript when voice is used;
-- deterministic or routed AI structured draft with schema and prompt version;
-- employee edits;
-- employee confirmation timestamp;
-- related Project, optional Workstream, Work Item, criteria, and evidence;
-- activity, result, contribution boundaries, participants, impact, blocker, decision, learning, and next step;
-- model-route trace only when a real AI route is used.
+- GitHub App installations and Project/repository bindings
+- verified delivery receipt and normalized source events
+- reconciliation cursor
+- evidence/progress suggestions and disposition history
 
-The employee confirmation is a protected human gate. No structured output becomes an accepted update before confirmation.
+Slice 5 reuses existing Progress Contract persistence. Slice 6 is read-only unless implementation review proves an immutable preparation snapshot is required; it must not create an evaluation-rating table.
 
-### Activity event
+## Core contracts
 
-Activity is a domain projection over accepted events, not a mutable generic feed. It distinguishes original input, structured summary, verified fact, employee interpretation, suggested evidence, confirmed evidence, blocker, decision, and responsibility change.
+```ts
+type DailyWorkspaceSnapshot = {
+  needsMyAction: DailyAction[];
+  today: DailyAction[];
+  overdue: DailyAction[];
+  reviewQueue: ReviewQueueItem[];
+  inbox: PrivateInboxItem[];
+  projectPulse: ProjectPulseItem[];
+  upcoming: UpcomingCommitment[];
+};
 
-Events reference their authoritative source and are append-only. Feature modules publish through a bounded interface; they do not write arbitrary activity rows.
+type LinkDecision =
+  | { kind: "AUTO_LINK"; projectId: string; anchors: ProjectAnchor[] }
+  | { kind: "REVIEW"; candidates: ProjectCandidate[]; reasons: string[] }
+  | { kind: "NO_MATCH"; reasons: string[] };
+```
 
-### Evidence and GitHub suggestion
+Automatic link policy never accepts a model confidence number as sufficient authority.
 
-Evidence records:
+## Public module boundaries
 
-- source kind and immutable source reference;
-- original external source ID and URL;
-- Project, optional Workstream, and optional Work Item;
-- state: suggested, confirmed, rejected, or ignored;
-- Manual, AI-Assisted, Agent-Generated, or Mixed execution mode;
-- employee contribution context;
-- confirmation actor and timestamp;
-- source verification and attribution state.
+- Work Items owns official Tasks, private Inbox, checklist, assignment, participant, dependency, and Task history.
+- Connected Work Context owns private connector accounts, summaries, exclusions, and reversible source links.
+- Context Intelligence consumes authorized public readers and AI Router; it owns analyses, suggestions, corrections, and drafts.
+- Updates & Evidence owns manual/voice sources, confirmed Updates, Evidence, contribution context, and source-labelled events.
+- GitHub connector owns external bindings, verified ingestion, and suggestions; Projects alone calculates official progress.
+- Projects owns documents' progress interpretation, contract versions, conditions, and official snapshots.
+- Daily Work composes reads only and does not write another module's tables.
+- Evaluation Preparation composes authorized facts only and does not rate employees.
 
-GitHub webhook and reconciliation behavior remains idempotent. GitHub items are suggestions only until employee confirmation. Commit, PR, file, and line volume must not enter employee-performance contracts.
+No arbitrary service may read another module's tables directly.
 
-## Required module boundaries
-
-Recommendation after approval:
-
-- add a bounded `work-items` domain module owning Work Item lifecycle and persistence;
-- add an `updates-evidence` module owning update confirmation, evidence confirmation, and their immutable source records;
-- expose activity through a read model composed from approved public events;
-- query Projects, Workstreams, criteria, responsibility, and documents only through their Phase 1 public interfaces;
-- route all future AI structuring through the existing AI Router;
-- enqueue asynchronous work through the existing worker and queue.
-
-No direct cross-module table reads are permitted.
-
-## Proposed APIs
-
-Exact contracts require a later implementation plan and security review. The smallest useful surface is:
-
-- list My Work with bounded filters and stable view identity;
-- get/create/update Work Item through server-side permission checks;
-- transition Work Item status with optimistic concurrency;
-- list/resolve Inbox actions;
-- create update draft and submit employee-confirmed update;
-- create/edit/confirm/reject evidence;
-- list GitHub suggestions and link them to Work Items;
-- read Project/Workstream activity projection;
-- read employee Evaluation Fact View;
-- read manager operational summary with coarse readiness only.
-
-Every protected mutation requires authorization. UI hiding is not authorization.
-
-## Transaction and immutability requirements
+## Protected transactions
 
 Use transactions for:
 
-- Work Item status transition plus history event;
-- assignee change plus responsibility/attribution history;
-- employee update confirmation plus accepted activity event;
-- evidence confirmation plus contribution context and audit event;
-- GitHub suggestion merge/reassignment plus source-link history.
+- Inbox promotion plus official Project-linked Task creation.
+- Task update/assignment/status change plus append-only history.
+- Connected-source link/correction plus audit.
+- Task draft confirmation plus idempotent Work Item creation.
+- Update confirmation plus accepted Timeline event.
+- Evidence confirmation plus contribution context and audit.
+- GitHub receipt idempotency and suggestion disposition.
+- Contract condition confirmation plus official progress snapshot.
 
-Do not update protected source, responsibility, criteria, update, evidence, or evaluation history in place. Corrections create revisions or formal transitions.
+## Privacy and encryption
 
-## Privacy and manager projection
+- Private Inbox and connected context are owner-only server-side resources.
+- Managers do not receive Gmail/Calendar summaries or private Task drafts.
+- Provider credentials are referenced through a vault; no plaintext token columns.
+- Sensitive derived titles/summaries are encrypted with a recorded key version.
+- Logs exclude tokens, source content, private URLs, uploaded content, and model credentials.
+- Disconnect stops sync immediately and applies the approved retention/deletion policy.
+- Connected content cannot train an external model unless an independently approved provider contract and route permit it.
 
-The manager operational query may expose Project/Workstream health, actions, blockers, and coarse readiness labels. It must not return:
+## AI boundary
 
-- individual Documentation Readiness percentage or numeric value;
-- readiness rank;
-- employee rank;
-- productivity score;
-- predicted or suggested rating;
-- activity-volume leaderboard;
-- GitHub-volume leaderboard.
+- Every AI call uses AI Router.
+- Persisted output is schema-validated, versioned, source-referenced, and traced.
+- Email, Calendar, documents, code, comments, and uploads are untrusted instructions.
+- AI may draft; it cannot create/assign official Tasks, confirm Evidence, activate contracts, or assign/recommend ratings.
+- AI failure preserves raw input and leaves manual Tasks, Projects, browsing, and linking usable.
 
-The manager rating screen remains separate from individual Documentation Readiness values. Final rating remains a human manager decision.
+## Progress and performance prohibitions
 
-## AI and voice production delta
+Neither contracts nor queries may derive Project progress or employee performance from:
 
-- All structuring calls use the AI Router.
-- Schemas contain no rating, rank, productivity score, or readiness score.
-- Voice upload follows existing file validation, private storage, and untrusted-input rules.
-- Raw audio, raw transcript, employee correction, and accepted summary have explicit retention and access policies.
-- Uploaded text and audio are treated as untrusted AI input and protected against instruction injection.
-- Prompt/schema changes require versioning and relevant English/Arabic evaluation fixtures.
+- Task or Work Item count/completion.
+- Update or check-in frequency.
+- GitHub activity, commits, PRs, checks, files, or lines changed.
+- Project count.
+- Documentation Readiness.
 
-The prototype’s deterministic adapter is not production AI code and must not be promoted into the production module as a provider.
+Project progress comes only from the active human-approved measurable contract. Employee performance remains a later human evaluation decision.
 
-## Migration outline — not authorized
+## External gates
 
-A later approved implementation would likely need forward-only tables for Work Items, assignments/participants, status history, dependencies, updates and revisions, evidence and source links, GitHub suggestions, and confirmation events.
+Live Google Workspace requires organization-approved OAuth configuration, scopes, consent, credential storage, retention, deletion, and administrator approval.
 
-Before any migration is written:
+Live GitHub requires GitHub App creation/installation, minimum permission review, webhook secret, and organization/repository approval.
 
-1. approve the Product Reset direction;
-2. approve the bounded domain model and module ownership;
-3. map new foreign keys to existing Project, Workstream, user, criteria, audit, and responsibility identities;
-4. define historical immutability and retention;
-5. define indexes and concurrency tokens;
-6. test from empty database and the Phase 1 release snapshot.
-
-## Explicitly excluded
-
-- production code in this prototype checkpoint;
-- a second Project, Workstream, identity, audit, queue, or AI store;
-- automatic employee score or rating;
-- task or GitHub volume as performance;
-- generic workflow builder;
-- time tracking and workload scoring;
-- retroactive criteria application;
-- mutation of closed evaluations or protected history;
-- activation of T016 Arabic evaluation rubric.
+Deterministic adapters may support local acceptance before these gates, but cannot be described as live integration.

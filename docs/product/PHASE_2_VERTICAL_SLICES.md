@@ -1,195 +1,154 @@
-# Phase 2 Product Reset Vertical Slices
+# Phase 2 AI-First Daily Workspace Vertical Slices
 
-> **SUPERSEDED PROTOTYPE SEQUENCE — DO NOT EXECUTE**
->
-> This file is retained as the sequence that accompanied the Product Reset acceptance prototype. The approved production feature map is now `docs/product/PHASE_2_FEATURE_MAP.md`, and the approved production design is `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`.
+**Status:** Approved production sequence
 
-**Status:** Superseded prototype-planning history
-**Current checkpoint:** No production slice is authorized
+**Authority:** `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md`
 
-Every slice must produce one visible result across UI, API, domain, persistence, authorization, audit, localization, tests, and demo. Reuse the Phase 1 backend; do not create a parallel identity, Project, Workstream, criteria, document, audit, queue, or AI store.
+Every slice must produce visible, runnable software across the necessary UI, API, domain, persistence, authorization, audit, localization, tests, and demo. Previously implemented domain foundations remain reusable; previously rejected employee interactions do not.
 
-## Slice 1 — My Work + Work Item
+## Slice 1 — Daily home and Tasks
 
-**Visible result:** An employee sees authorized Work Items in My Work, creates one under a required Project and optional same-Project Workstream, and opens a URL-addressable panel.
+**Visible result:** The employee opens Today, sees Needs My Action/Today/Overdue first, captures a private Inbox thought, promotes it through a Project-linked Task draft, and manages the same Task through My Tasks, Team Tasks, List, Board, Calendar, and focused detail.
 
-**Backend delta:** New bounded `work-items` module; Work Item, assignment/participant, dependency, status-history, and assignment-history records; list/get/create/update/transition queries and commands.
-
-**Dependencies:** Phase 1 identity, permissions, Projects, Workstreams, responsibility windows, and audit.
+**Backend delta:** `0017_task_workspace`; private Inbox; checklist and Task update support; protected Task endpoints; Today composition.
 
 **Acceptance criteria:**
 
-- exact seven-status vocabulary;
-- Project required and Workstream optional/same-Project;
-- status and assignment history append-only;
-- My Work groups and compact rows;
-- server authorization, optimistic concurrency, Arabic/English, RTL/LTR, keyboard, and 390px support;
-- no workload score, time tracking, sprint, story point, or employee performance calculation.
+- Official Task always requires Project.
+- Private Inbox item may be unlinked and is visible only to its employee.
+- Promotion atomically creates one official Task and closes the Inbox item.
+- Task detail supports responsible assignee, optional collaborators, Workstream, due date, priority, description, checklist, source links, and append-only history.
+- List/Board/Calendar use one Task identity and permissions model.
+- No Task count or completion changes Project progress or employee performance.
+- Arabic/English routing, RTL/LTR, mixed technical text, keyboard, focus, reduced motion, and 390px layout pass.
 
-**Focused tests:** domain invariants; migration from empty and Phase 1 snapshot; permission matrix; concurrency; immutable history; My Work query; Arabic/RTL component; protected end-to-end flow.
+**Focused tests:** migration; contracts; Inbox ownership; promotion transaction; Task updates; API guards; Today ordering/timezone; component behavior; protected browser journey.
 
-**Demo:** employee creates, filters, opens, transitions, and closes a Work Item on desktop and mobile.
+**Demo:** Today → quick capture → Task draft → choose Project → confirm Task → edit in side panel/sheet → switch List/Board/Calendar.
 
-**Stop/approval gate:** migration, authorization, concurrency, history, and protected-rule review before Slice 2.
+**Stop gate:** Product Owner validates daily-use clarity and speed.
 
-## Slice 2 — Text Update + live AI + Timeline
+## Slice 2 — Google Workspace context
 
-**Visible result:** An employee writes an update, answers one missing-context question, edits the structured draft, confirms it, and sees it in Activity Timeline.
+**Visible result:** The employee connects Google Workspace, sees private Gmail and Calendar summaries, excludes unwanted sources, and manually links useful context to a Project.
 
-**Backend delta:** Update source/revision, structured-draft revision, confirmation event, and activity projection; versioned schema; AI Router command; read/create/confirm endpoints.
-
-**Dependencies:** Slice 1, AI Router, worker, audit, active responsibility and criteria queries.
-
-**Acceptance criteria:**
-
-- original text and revisions retained;
-- all AI calls use AI Router;
-- result contains descriptive fields and source references, never rating/rank/productivity/readiness scores;
-- one clarification at a time;
-- employee edit and confirmation are mandatory human gates;
-- accepted event links Project, optional Workstream, Work Item, criteria, and evidence.
-
-**Focused tests:** schema validation; no-rating AI eval; Arabic fixtures; prompt-injection fixture; confirmation authorization; immutable revision; activity ordering; route trace and audit.
-
-**Demo:** submit incomplete Arabic text, clarify, edit, confirm, and inspect source versus structured event.
-
-**Stop/approval gate:** AI boundary, prompt/schema version, audit integrity, and immutable-history review before Slice 3.
-
-## Slice 3 — Evidence + attribution
-
-**Visible result:** An employee adds file/link/test evidence, describes personal versus team contribution, selects execution mode, and confirms attribution.
-
-**Backend delta:** Evidence, source reference, evidence revision, confirmation, attribution, execution mode, and evidence-link records; create/edit/confirm/reject commands.
-
-**Dependencies:** Slices 1–2, Phase 1 files/documents, responsibility windows, criteria, audit.
+**Backend delta:** `0018_connected_work_context`; provider-neutral adapters; credential vault and encryption ports; sync cursor; exclusions; links; protected APIs.
 
 **Acceptance criteria:**
 
-- immutable source and revision history;
-- Work Item/update/criterion links;
-- Manual, AI-Assisted, Agent-Generated, and Mixed modes;
-- partial and team contribution remain explicit;
-- attribution follows the responsibility window;
-- evidence volume never becomes a performance input.
+- Minimum approved scopes and exact OAuth state/nonce/redirect enforcement.
+- Provider tokens never enter plaintext database fields or logs.
+- Sensitive derived summaries are encrypted.
+- Employee-only access; manager and other employees receive no private summary or metadata.
+- Originals remain in Google; local storage is minimal.
+- Link/unlink/exclude/disconnect are reversible and audited.
+- Last successful sync and stale state are visible; recovery does not duplicate items.
 
-**Focused tests:** file/link authorization; source immutability; attribution window; team/partial context; confirmation transaction; negative performance-contract test.
+**Focused tests:** schema; owner privacy; OAuth attack cases; cursor recovery; idempotency; encryption boundary; disconnect/retention; browser journey.
 
-**Demo:** attach, contextualize, confirm, revise through a new revision, and inspect attribution history.
+**Demo:** deterministic Gmail/Calendar context review, exclusion, manual Project link, unlink, disconnect.
 
-**Stop/approval gate:** privacy, attribution, file safety, audit, and immutable-history review before Slice 4.
+**Stop gate:** privacy/security review and the external organization OAuth/retention gate before live mode.
 
-## Slice 4 — GitHub suggested evidence
+## Slice 3 — Context Intelligence
 
-**Visible result:** GitHub PR, commit, check, and test activity arrives as suggestions that an employee can link, merge, reassign, contextualize, confirm, reject, or ignore.
+**Visible result:** The assistant summarizes work context, explains safe Project links, asks the employee to resolve uncertain items, learns from corrections, and prepares a complete editable Task draft.
 
-**Backend delta:** GitHub suggestion and source-link records; webhook/reconciliation commands; idempotency keys; suggestion merge/reassignment history; Inbox projection.
-
-**Dependencies:** Slice 3, existing worker/queue, GitHub App with minimum permissions, audit.
-
-**Acceptance criteria:**
-
-- original source ID and URL retained;
-- webhook and reconciliation idempotent;
-- no suggestion becomes contribution/evidence before employee confirmation;
-- link to Work Item, update, and criterion;
-- merge, team/partial contribution, Project reassignment, reject, and ignore supported;
-- commit, PR, file, line, and activity volume absent from performance contracts.
-
-**Focused tests:** webhook replay; reconciliation; permission boundaries; confirmation transaction; merge/reassignment history; negative volume-to-performance test.
-
-**Demo:** ingest a synthetic PR/check, confirm one with context, reject another, and show no performance score.
-
-**Stop/approval gate:** GitHub permissions, idempotency, attribution, audit, and protected evidence review before Slice 5.
-
-## Slice 5 — Voice update
-
-**Visible result:** An employee records/uploads voice, corrects the raw transcript, confirms it, edits the structured update, and confirms the final event.
-
-**Backend delta:** private audio source, raw/edited transcript revisions, STT route trace, structured update link, retention/access policy, upload and confirmation commands.
-
-**Dependencies:** Slice 2, Phase 1 upload controls, AI Router adapter interface, worker, audit.
+**Backend delta:** `0019_context_intelligence`; matching policy; approved Project-document semantic context; versioned AI routes/schemas; corrections; Task drafts; review queue.
 
 **Acceptance criteria:**
 
-- original audio, raw transcript, edited transcript, structured update, and provider trace retained under policy;
-- audio/file validation and private access;
-- employee confirms transcript and structured output separately;
-- STT provider remains adapter-based;
-- Arabic Fusha, Gulf, Levantine, and mixed-language fixtures;
-- no rating output.
+- Automatic link requires deterministic mapping or two non-conflicting independent anchors.
+- Model confidence alone cannot authorize a link.
+- AI output is grounded in authorized sources and includes uncertainty.
+- Employee can inspect sources, correct, reject, leave unlinked, or dismiss.
+- AI cannot create or assign an official Task.
+- Manual operation remains usable when AI is unavailable.
+- Draft and source context survive reauthentication.
+- No rating, rank, productivity score, or employee judgment fields.
 
-**Focused tests:** file type/size/safety; private access; transcript revisions; dual human gates; dialect eval fixtures; injection defense; retention.
+**Focused tests:** matching policy; source authorization; prompt injection; Arabic/mixed text; schema/route trace; confirmation idempotency; privacy negatives; browser journey.
 
-**Demo:** simulated Gulf Arabic recording through transcript correction and confirmed timeline event.
+**Demo:** explainable auto-link, uncertain review, correction, rejected suggestion, edited Task draft, human confirmation.
 
-**Stop/approval gate:** credential/configuration, privacy, file safety, AI route, dialect quality, and retention review before Slice 6.
+**Stop gate:** Product Owner validates usefulness, transparency, and employee control.
 
-## Slice 6 — Check-ins and monthly readiness
+## Slice 4 — GitHub, Updates, Evidence, and voice
 
-**Visible result:** The product requests a Thursday check-in only when substantive updates are absent and highlights thin monthly records without quotas or penalties.
+**Visible result:** GitHub facts plus employee text, voice, image, file, code, and link sources enter one compact draft/confirmation flow and source-labelled Timeline.
 
-**Backend delta:** substantive-update query, check-in reminder state, monthly readiness projection, approved-leave exclusion, manager-safe coarse aggregation.
-
-**Dependencies:** Slices 1–5, Phase 1 Documentation Readiness, responsibility, eligibility/leave state, worker.
-
-**Acceptance criteria:**
-
-- no duplicate Thursday detail when a substantive update exists;
-- approved leave excluded;
-- Project check-in summarizes cross-Workstream state;
-- monthly readiness identifies thin records without evidence quota, penalty, score, or ranking;
-- manager projection is coarse and contains no individual percentage/value.
-
-**Focused tests:** substantive-update boundary; Thursday schedule; approved leave; cross-Workstream summary; no-quota/no-score contract; manager privacy negatives.
-
-**Demo:** show reminder generated, reminder suppressed by update, approved-leave exclusion, and coarse manager view.
-
-**Stop/approval gate:** readiness privacy, leave behavior, scheduling, and protected product-rule review before Slice 7.
-
-## Slice 7 — Manager operational view
-
-**Visible result:** A manager reviews blockers, missing check-ins, criteria objections, attribution questions, reassignment, evaluation actions, and team-level readiness gaps without employee scoring.
-
-**Backend delta:** manager operations query composed from public module interfaces; coarse readiness projection; action-resolution commands.
-
-**Dependencies:** Slices 1–6 and Phase 1 manager permissions.
+**Backend delta:** `0020_github_integration`; GitHub App binding; webhook/reconciliation; governed suggestions; simplified universal capture; voice transcription; evidence review.
 
 **Acceptance criteria:**
 
-- Project/Workstream operational health and action categories;
-- server-side manager scope;
-- no employee rank, productivity score, individual readiness percentage/value, commit leaderboard, task leaderboard, or predicted rating;
-- rating decision remains separate and human.
+- GitHub signatures, replay/idempotency, reconciliation, minimum permissions, and uninstall handling.
+- Verified deterministic contract condition may affect operational Project progress only through Projects.
+- Ambiguous GitHub events require authorized Project review.
+- Personal contribution Evidence always requires employee confirmation.
+- Universal capture shows a useful draft first and asks one focused question at a time only when needed.
+- Audio, transcript, employee correction, Update draft, Evidence, and route trace remain distinct.
+- Raw activity volume never becomes progress or performance.
+- Files/audio remain private and pass type/size/safety controls.
 
-**Focused tests:** manager-scope positive/negative cases; forbidden-field response contract; coarse readiness; action resolution; Arabic/RTL end-to-end.
+**Focused tests:** webhook integrity; reconciliation; progress-condition rejection; evidence confirmation; Update recovery; voice fixtures; AI boundary; file safety; Timeline authorization; browser journey.
 
-**Demo:** manager resolves a blocker and inspects coarse readiness, then verify forbidden fields are absent.
+**Demo:** mapped and ambiguous GitHub events, manual text/file/code source, voice correction, Evidence confirmation, compact result, Timeline.
 
-**Stop/approval gate:** manager authorization, readiness privacy, and protected-rule review before Slice 8.
+**Stop gate:** GitHub external gate plus integrity, upload, AI, evidence, and privacy reviews.
 
-## Slice 8 — Evaluation Fact View preparation
+## Slice 5 — Project owner progress and manager operations
 
-**Visible result:** Employee and manager preparation distinguishes source-supported facts from employee interpretation before periodic human evaluation.
+**Visible result:** A Project owner configures measurable progress through a guided owner-only flow; employees see a compact Project pulse; managers act from operational queues.
 
-**Backend delta:** period Fact View query/snapshot with responsibility window, claim, facts, unclear parts, result, evidence, verification, attribution, criteria, and immutable source references.
-
-**Dependencies:** Slices 1–7, Phase 1 criteria/responsibility/audit, later evaluation-cycle implementation.
+**Backend delta:** reuse existing Progress Contract; strengthen owner authorization; guided UI; Project pulse; Thursday check-in; Monthly Readiness; manager operations query.
 
 **Acceptance criteria:**
 
-- source facts and employee interpretation visibly and contractually separate;
-- historical responsibility and active-at-time criteria used;
-- evidence and verification traceable;
-- no automatic Project/Workstream/criteria average;
-- no recommended/predicted rating;
-- final manager rating remains human and finalization creates an immutable snapshot.
+- AI proposal remains inactive until authorized human review and approval.
+- Official progress has no direct percentage override.
+- Insufficient source coverage retains the previous official percentage.
+- Source-explained decreases and contract-version history are append-only.
+- Thursday check-in appears only without substantive update; approved leave is excluded.
+- Readiness has no quota, automatic penalty, or performance score.
+- Manager receives actions and coarse states, never individual readiness percentage/rank, productivity score, leaderboard, predicted rating, or employee ranking.
+- Employee quick actions are hidden from manager unless separately authorized as contributor/owner.
 
-**Focused tests:** fact/interpretation separation; responsibility period; criteria version; evidence trace; no-rating schema/eval; snapshot immutability; privacy authorization.
+**Focused tests:** authorization; draft/activation immutability; progress calculations; check-in and leave; readiness privacy; forbidden fields; manager scope; browser journey.
 
-**Demo:** inspect one period from source update/evidence through Fact View, then show the manager makes an independent human decision.
+**Demo:** owner setup, employee Project pulse, missing evidence action, check-in/readiness, manager action queue.
 
-**Stop/approval gate:** evaluation finalization, immutable snapshot, privacy, AI no-rating, and protected product-rule approval before any later evaluation slice.
+**Stop gate:** Product Owner validates owner clarity, employee neutrality, and manager usefulness.
+
+## Slice 6 — Evaluation Fact View preparation
+
+**Visible result:** Employee and authorized manager see the same neutral source-supported work facts, with employee interpretation clearly separated, before a future quarterly human assessment.
+
+**Backend delta:** read-only Evaluation Preparation package; public source readers; protected Fact View API; neutral UI.
+
+**Acceptance criteria:**
+
+- Source IDs, timestamps, responsibility windows, effective criteria versions, and verification states are traceable.
+- Source facts appear before employee interpretation.
+- Project count, Task count, activity volume, GitHub volume, readiness, and Project progress do not become performance scores.
+- No rating suggestion, prediction, ranking, productivity score, automatic Project average, or manager-visible individual readiness percentage.
+- Complete self-assessment, manager assessment, comparison, discussion, and final rating are not implemented in Phase 2.
+
+**Focused tests:** fact/interpretation separation; historical responsibility; prospective criteria; authorization; privacy; neutrality scan; browser journey.
+
+**Demo:** trace an accepted source through the Fact View and show neutral missing-coverage language.
+
+**Stop gate:** Product Owner reviews neutrality, privacy, historical accuracy, and the explicit Phase 3 boundary.
 
 ## Durable checkpoint rule
 
-After each approved slice: run only focused tests plus related integration tests, demonstrate the visible outcome, commit, push, update the phase Pull Request and task record, then stop at the slice’s declared gate. Do not execute several invisible slices as one long bundle.
+After each slice:
+
+1. Run focused tests and related integration tests.
+2. Run secret, performance-input, and AI-boundary scans.
+3. Run the visible local demo.
+4. Capture Arabic/English desktop and mobile screenshots where applicable.
+5. Commit and push the branch.
+6. Update Pull Request #5, `TASKS.md`, and `project-state/PROJECT_STATE.md`.
+7. Stop at the declared Product Owner gate.
+
+Do not merge Pull Request #5, start a later slice, configure live external credentials, or change protected product rules without the applicable gate.

@@ -1,325 +1,163 @@
-# Phase 2 Feature Map
+# Phase 2 AI-First Daily Workspace Feature Map
 
 **Status:** Product-owner approved production feature map
-**Design:** `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`
-**Implementation plan:** `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`
-**Execution status:** Slice 1, corrected Slice 2, and the Slice 2.5 Codex dogfood proposal checkpoint are complete through the protected human-activation gate
+
+**Design authority:** `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md`
+
+**Execution authority:** `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md`
+
+**Current checkpoint:** Documentation alignment, followed by new Slice 1
+
+**Historical plans:** Retained for traceability; they do not authorize the rejected employee experience
 
 ## Purpose
 
-This map connects the approved Product Reset, the Phase 0/1 foundation, the original T030–T044 requirements, and the seven production vertical slices. It prevents the superseded task order or prototype implementation from becoming a second source of truth.
+This map connects the approved AI-first Daily Workspace reset to the existing Phase 0/1 and applicable Phase 2 foundations. The product keeps the proven backend and replaces the complex employee interaction with a calm Today home, normal Tasks, connected work context, and human-controlled AI assistance.
 
 ## Foundation reuse
 
-| Capability                             | Existing owner                               | Phase 2 decision                                    |
-| -------------------------------------- | -------------------------------------------- | --------------------------------------------------- |
-| Identity, sessions, deactivation       | Phase 0 auth/API                             | Reuse unchanged                                     |
-| Server authorization                   | `packages/permissions` and API policy guards | Reuse and extend with resource-specific decisions   |
-| Audit                                  | `packages/audit`                             | Reuse append-only writer                            |
-| Durable work                           | existing worker/queue                        | Reuse; no second queue                              |
-| AI providers                           | `packages/ai-routing`                        | Reuse exclusively                                   |
-| Projects, Workstreams, responsibility  | `packages/projects`                          | Reuse; add focused Progress Contract capability     |
-| Documents and readiness                | `packages/documents`                         | Reuse public interfaces                             |
-| Dynamic criteria                       | `packages/criteria`                          | Reuse active-at-time public interface               |
-| Work Items                             | Missing                                      | Add `packages/work-items`                           |
-| Updates and evidence                   | Missing                                      | Add `packages/updates-evidence`                     |
-| My Work/dashboard/timeline composition | Missing                                      | Add read-only application composition in `apps/api` |
-| Production daily-work UI               | Missing                                      | Add original React/Next.js screens in `apps/web`    |
-
-## Approved feature-to-slice mapping
-
-| Feature                               | Authoritative input                   | Owning module                    | Slice | Protected boundary                                      |
-| ------------------------------------- | ------------------------------------- | -------------------------------- | ----: | ------------------------------------------------------- |
-| My Work default home                  | Authorized Work Items and actions     | Work Items + API composition     |     1 | Counts are operational only                             |
-| Required Project, optional Workstream | Project/Workstream scope              | Work Items                       |     1 | Same-Project validation                                 |
-| Work Item history                     | Accepted commands                     | Work Items                       |     1 | Append-only                                             |
-| Project/Workstream Progress Contract  | Active document version               | Projects                         |     1 | Human approval; prospective versions                    |
-| Official progress snapshot            | Contract rule plus confirmed sources  | Projects                         |   1–3 | Never task/count/GitHub volume                          |
-| Portfolio and Project dashboard       | Authorized read composition           | API/Web                          |     1 | Project progress is not employee performance            |
-| Interactive text update               | Employee source plus active context   | Updates & Evidence               |     2 | AI Router; employee correction and confirmation         |
-| Dynamic multi-turn clarification      | Missing required fields               | Updates & Evidence               |     2 | One visible question at a time, as many as required     |
-| Previous-state comparison             | Previous accepted update and contract | Updates & Evidence + composition |     2 | Source references preserved                             |
-| Manual images/files/code/CLI/links    | Employee-provided source              | Updates & Evidence + Documents   |   2–4 | Untrusted input; private access                         |
-| AI-drafted evidence description       | Source analysis                       | Updates & Evidence               |     2 | Employee confirmation required                          |
-| Timeline                              | Accepted source events                | API composition                  |     2 | No arbitrary mutable activity feed                      |
-| GitHub Project automation             | Verified mapped GitHub source         | Projects + connector             |     3 | Deterministic approved contract rule only               |
-| GitHub contribution suggestions       | GitHub source plus employee context   | Updates & Evidence connector     |     3 | Employee confirmation required                          |
-| GitHub webhook/reconciliation         | Verified external events              | Worker/connector                 |     3 | Minimum permissions, idempotency                        |
-| Voice update                          | Audio and transcript revisions        | Updates & Evidence connector     |     4 | Private source, dual human gates                        |
-| Thursday check-in                     | Substantive update query              | Updates & Evidence               |     5 | Approved leave excluded                                 |
-| Project aggregation                   | Workstream state                      | API composition                  |     5 | No duplicated details                                   |
-| Monthly readiness                     | Accepted work/update/evidence state   | Documents/readiness composition  |     5 | No quota, score, rank, or individual manager percentage |
-| Manager operations                    | Authorized actions and coarse health  | API/Web                          |     6 | No ranking, predicted rating, or productivity score     |
-| Evaluation Fact View preparation      | Source-supported period facts         | Read composition/snapshot        |     7 | No recommended rating                                   |
-| Full self/manager evaluation          | Phase 3 scope                         | Not Phase 2                      |     — | Final rating remains human                              |
-
-## Original T030–T044 mapping
-
-The original task IDs remain traceability references. Their former execution order is superseded.
-
-| Original task                     | New slice | Disposition                                                                  |
-| --------------------------------- | --------: | ---------------------------------------------------------------------------- |
-| T030 Activity Timeline            |         2 | Read projection over accepted events; no generic activity platform           |
-| T031 Text Update Composer         |         2 | Expanded to multi-turn AI, comparison, manual evidence, and progress request |
-| T032 Voice Update                 |         4 | Connector to the same update lifecycle                                       |
-| T033 Evidence Records             |         2 | Combined bounded Updates & Evidence ownership                                |
-| T034 Multimodal Analysis          |         2 | Claim support only; never automatic proof                                    |
-| T035 Contribution Attribution     |         2 | Included in confirmed evidence lifecycle                                     |
-| T036 Workstream Check-in          |         5 | Preserved with substantive-update and leave rules                            |
-| T037 Project Check-in Aggregation |         5 | Read composition; no duplicate detail                                        |
-| T038 GitHub App                   |         3 | Preserved with minimum permissions                                           |
-| T039 GitHub Webhooks              |         3 | Preserved with idempotency and reconciliation                                |
-| T040 GitHub Document Sync         |         3 | Limited to approved document bindings and versions                           |
-| T041 Suggested Evidence Inbox     |         3 | GitHub suggestions require employee confirmation                             |
-| T042 Update/Timeline/Evidence UI  |       1–4 | Delivered incrementally with each visible slice                              |
-| T043 Monthly Readiness            |         5 | Preserved as non-scoring aid                                                 |
-| T044 Arabic/Dialect Fixtures      |       2–5 | Expanded only with the prompt/schema or voice behavior that requires them    |
-
-## Slice 1 — My Work + Work Items + Progress Contract foundation
-
-### Visible outcome
-
-An authenticated employee opens Arabic My Work, sees Needs My Action, Today, and Overdue first, creates and transitions an authorized Work Item, opens its URL-addressable drawer, and reviews a Project dashboard backed by an approved versioned Progress Contract.
-
-### Backend delta
-
-- Add Work Items persistence, lifecycle, assignment, dependencies, and history.
-- Add Progress Contract and append-only official progress snapshots inside Projects.
-- Add My Work and Project dashboard composition queries.
-- Do not show an official percentage until an active contract has sufficient confirmed source coverage.
-
-### Acceptance
-
-- Project required; optional Workstream belongs to the Project.
-- Exact seven statuses.
-- Optimistic concurrency and append-only status/assignment history.
-- Contract derives from an exact document version and requires authorized approval.
-- No direct percentage override.
-- Work Item completion/count does not calculate progress.
-- Arabic/English, RTL/LTR, keyboard, visible focus, and 390px layouts.
-
-### Demo and screenshots
-
-- Create and transition a Work Item.
-- Review My Work grouping.
-- Approve a synthetic contract through the real protected path.
-- Show progress unavailable/awaiting information, then show one source-backed official snapshot.
-- Capture Arabic/English desktop and mobile My Work, Work Item drawer, and Project dashboard.
-
-### Stop gate
+| Capability                            | Existing owner                        | Decision                                              |
+| ------------------------------------- | ------------------------------------- | ----------------------------------------------------- |
+| Identity, sessions, deactivation      | Phase 0 auth/API                      | Reuse unchanged; no second authentication             |
+| Server authorization                  | `packages/permissions` and API guards | Reuse; every protected action remains server-enforced |
+| Audit                                 | `packages/audit`                      | Reuse append-only writer                              |
+| Queue and workers                     | Existing worker/BullMQ                | Reuse; no second queue                                |
+| AI providers                          | `packages/ai-routing`                 | Exclusive route for every AI call                     |
+| Projects, Workstreams, responsibility | `packages/projects`                   | Reuse public interfaces                               |
+| Documents and readiness               | `packages/documents`                  | Reuse approved-version readers                        |
+| Dynamic criteria                      | `packages/criteria`                   | Reuse active-at-time readers                          |
+| Progress Contract                     | `packages/projects`                   | Preserve versioned human-approved rules and snapshots |
+| Work Items                            | `packages/work-items`                 | Extend into normal Tasks and private Inbox            |
+| Updates and Evidence                  | `packages/updates-evidence`           | Preserve domain lifecycle; simplify employee capture  |
+| Daily composition                     | `apps/api/src/daily-work`             | Compose public readers; never become a second store   |
+| Employee web                          | `apps/web`                            | Replace rejected My Work interaction                  |
+| Connected Work Context                | Missing                               | Add one bounded provider-neutral package              |
+| Context Intelligence                  | Missing                               | Add one bounded AI Router consumer                    |
 
-Product owner reviews the Work Item lifecycle, contract wording, progress explanation, migration, authorization, concurrency, and history before Slice 2.
+## Feature-to-slice mapping
 
-## Slice 2 correction — Draft-first unified daily Update
+| Feature                           | Source                                                  | Owner                      | Slice | Protected boundary                            |
+| --------------------------------- | ------------------------------------------------------- | -------------------------- | ----: | --------------------------------------------- |
+| Today default home                | Authorized Tasks, private Inbox, actions, Project pulse | Daily composition          |     1 | No scoring or ranking                         |
+| Private quick capture             | Employee text                                           | Work Items                 |     1 | Employee-only until promotion                 |
+| Official Task                     | Human-confirmed draft or authorized human command       | Work Items                 |     1 | Project required                              |
+| My Tasks and Team Tasks           | Authorized Task queries                                 | Work Items                 |     1 | Server-side scope                             |
+| List, Board, Calendar             | Same Task identity/query                                | Web + Work Items           |     1 | No duplicate task stores                      |
+| Task side panel/sheet             | Authorized Task detail                                  | Web                        |     1 | Preserve list/board context                   |
+| Gmail summaries                   | Employee-connected account                              | Connected Work Context     |     2 | Private, minimal, encrypted                   |
+| Calendar context                  | Employee-connected account                              | Connected Work Context     |     2 | Private, minimal, encrypted                   |
+| Exclusions and disconnect         | Employee decision                                       | Connected Work Context     |     2 | Reversible and audited                        |
+| Manual Project linking            | Employee decision                                       | Connected Work Context     |     2 | No automatic shared object                    |
+| Project semantic context          | Approved Project document version                       | Context Intelligence       |     3 | Read-only source anchor                       |
+| Explainable auto-link             | Deterministic or two non-conflicting anchors            | Context Intelligence       |     3 | Model confidence alone insufficient           |
+| Task draft                        | Authorized private context                              | Context Intelligence       |     3 | Human confirmation required                   |
+| Smart review queue                | Suggestions and corrections                             | Daily composition/Web      |     3 | Private until confirmation                    |
+| GitHub sources                    | GitHub App verified events                              | GitHub connector           |     4 | Minimum permissions, idempotent               |
+| Text/image/file/code/link capture | Employee source                                         | Updates & Evidence         |     4 | Untrusted input, confirmation                 |
+| Voice update                      | Audio/transcript revisions                              | Updates & Evidence         |     4 | Dual human gates                              |
+| Evidence                          | Supported claim and source                              | Updates & Evidence         |     4 | Employee contribution confirmation            |
+| Timeline                          | Accepted source-labelled events                         | Daily composition          |     4 | Append-only projection                        |
+| Project progress setup            | Approved document + human owner                         | Projects                   |     5 | No AI activation                              |
+| Project pulse                     | Active contract + confirmed sources                     | Projects/Daily composition |     5 | Operational, not performance                  |
+| Thursday check-in                 | Substantive update state                                | Updates & Evidence         |     5 | Approved leave excluded                       |
+| Monthly readiness                 | Source coverage                                         | Readiness composition      |     5 | No quota, percentage to manager, or penalty   |
+| Manager operations                | Authorized actions and exceptions                       | Daily composition/Web      |     5 | No employee score or leaderboard              |
+| Evaluation Fact View              | Period source facts                                     | Evaluation preparation     |     6 | Facts separate from interpretation; no rating |
 
-### Visible outcome
+## Protected separation
 
-An employee chooses a required Project and optional Workstream/Work Item, supplies text or a manual source, sees a useful draft first, answers only necessary questions one at a time, edits and confirms the Update, and sees a compact result card and Timeline event.
+### Task versus Project progress
 
-### Backend delta
+A Task may support a milestone, deliverable, KPI, acceptance condition, or evidence request. Completing Tasks, creating more Tasks, or updating them frequently never calculates Project progress.
 
-- Reuse the completed update/evidence foundation while making Work Item optional in the UI and keeping Project required.
-- Persist and show an evolving draft before clarification becomes the dominant interaction.
-- Add session draft continuity, precise recovery, real context names, and a readable confirmed result card.
-- Compose previous accepted state and active Progress Contract.
-- Use the live AI Router for production and deterministic adapters for tests/demo.
-- Request progress recalculation only after employee confirmation.
+### Project progress versus employee performance
 
-### Acceptance
+Project progress is calculated only by the active versioned Progress Contract and confirmed contract inputs. It is an operational Project state, not an employee score, productivity value, rating, or rating recommendation.
 
-- Original text, questions, answers, drafts, employee edits, and source references preserved.
-- Project is required; Workstream and Work Item are optional and scope-validated.
-- The first useful AI response is a readable draft.
-- AI asks as many questions as required while displaying one at a time.
-- Evidence is available in the same flow.
-- Employee confirmation is mandatory.
-- Insufficient source coverage preserves the previous official percentage.
-- Uploaded content is private, validated, scanned, and treated as untrusted AI input.
-- No rating, rank, productivity, readiness score, or direct provider call.
+### Context versus shared record
 
-### Demo and screenshots
+Gmail and Calendar summaries are private employee context. They become visible beyond the employee only after the employee confirms a governed Task, Update, Evidence item, or decision record with clearly presented shared content.
 
-- Submit incomplete Arabic text.
-- Answer multiple clarification turns.
-- Attach and confirm a screenshot/CLI source.
-- Review before/after state and official progress explanation.
-- Capture the composer, clarification, evidence review sheet, confirmation, and Timeline on desktop/mobile.
+### AI draft versus official action
 
-### Stop gate
+AI may summarize, link, ask a focused question, and prepare a complete Task or Update draft. AI never creates or assigns an official Task, confirms evidence, activates a Progress Contract, or assigns/recommends a rating.
 
-Product owner reviews AI behavior, evidence language, progress explanation, privacy, upload safety, AI route trace, append-only revisions, and prompt/schema evaluations.
+## Slice summaries
 
-## Slice 2.5 — Real Codex Project and live contract proposal
+### Slice 1 — Daily home and Tasks
 
-### Visible outcome
+**Visible outcome:** Today shows Needs My Action, Today, and Overdue first. The employee can capture privately, review a Project-linked Task draft, create an official Task, and work through Inbox, My Tasks, Team Tasks, List, Board, Calendar, and a focused detail panel.
 
-The real local `Evidence Performance System — Phase 2` Project uses an immutable approved snapshot of the exact repository commit. Live GPT-5.5 drafts a source-cited Progress Contract proposal, and an authenticated Product Owner can review it in English or Arabic/RTL without the proposal becoming active.
+**Primary delta:** `0017_task_workspace`, private Inbox, checklist/edit support, protected Task APIs, Today composition, new daily and Task UI.
 
-### Acceptance checkpoint
+**Gate:** Product Owner validates that the daily journey is immediately understandable and lighter than the rejected flow.
 
-- The local-only seed is safely rerunnable and preserves approved history.
-- The approved source records exact paths, commit, Pull Request reference, and content hashes.
-- The AI Router uses prompt `project-progress-contract-draft.v2` and output schema `project-progress-contract-draft.v1`.
-- The persisted proposal remains `ready` with human approval `pending`.
-- No employee score, rating, rank, productivity value, raw-activity rule, or direct overall-progress override is created.
-- The authenticated desktop and 390px review UI preserves the separate protected activation boundary.
+### Slice 2 — Google Workspace context
 
-### Evidence and stop gate
+**Visible outcome:** The employee connects Google Workspace, reviews private Gmail/Calendar summaries, excludes sources, and links context manually to a Project.
 
-The redacted run record is `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md`; screenshots are under `docs/product/screenshots/phase-2-production/codex-dogfood-contract/`.
+**Primary delta:** one Connected Work Context package, encrypted minimal summaries, credential-vault port, sync cursors, exclusions, links, connection UI.
 
-Execution is stopped at `human_activation_required`. GitHub automation cannot use the proposal until the Product Owner reviews and activates a contract through the protected lifecycle.
+**Gate:** Organization-approved OAuth configuration, retention/deletion policy, and privacy review before live mode.
 
-## Slice 3 — Contract-aware GitHub automation and contribution suggestions
+### Slice 3 — Context Intelligence
 
-### Visible outcome
+**Visible outcome:** The assistant explains Project matches, sends uncertain items to review, learns from corrections, and prepares a complete editable Task draft.
 
-A verified mapped GitHub PR/check/release/deployment appears automatically in Project activity and may prove a deterministic Progress Contract condition. A separate employee suggestion requires review and confirmation before it becomes personal contribution evidence.
+**Primary delta:** versioned analyses/suggestions/drafts, deterministic matching policy, approved Project-document reader, AI Router routes, review queue.
 
-### Backend delta
+**Gate:** Product Owner validates usefulness, transparency, and human control.
 
-- Add GitHub App installation, repository grants, versioned Project/Workstream bindings, and deterministic contract mappings.
-- Add verified idempotent webhook receipt, reconciliation, suggestion identity, and disposition history to the Updates & Evidence connector.
-- Preserve original source IDs and URLs.
+### Slice 4 — GitHub, Updates, Evidence, and voice
 
-### Acceptance
+**Visible outcome:** Verified GitHub events and employee text/voice/image/file/code/link sources enter one compact confirmed lifecycle and source-labelled Timeline.
 
-- Minimum permissions and secret isolation.
-- Signature validation, replay safety, reconciliation, uninstall handling.
-- A deterministic mapped event may update operational Project progress without duplicate employee entry.
-- Ambiguous, unbound, conflicting, or qualitative events cannot update official progress automatically.
-- Suggestions never become personal contribution evidence before employee confirmation.
-- Commit, PR, file, line, and activity volume excluded from calculations.
-- Mobile selection opens the review sheet immediately.
+**Primary delta:** GitHub App connector, webhook/reconciliation, source suggestions, simplified universal capture, voice transcription, evidence review.
 
-### Demo and screenshots
+**Gate:** External GitHub App approval plus integrity, upload, AI, and evidence-confirmation review.
 
-- Ingest one deterministic mapped event and one ambiguous event.
-- Verify the mapped event changes Project progress and the ambiguous event does not.
-- Confirm and dismiss separate contribution suggestions.
-- Capture Inbox and review drawer in Arabic/English desktop/mobile.
+### Slice 5 — Project owner and manager operations
 
-### Stop gate
+**Visible outcome:** Project owners configure measurable progress outside the employee daily flow; employees see a compact Project pulse; managers act from queues rather than score-like dashboards.
 
-Product owner reviews permission scope, suggestion language, attribution, idempotency, audit, and mobile review behavior.
+**Primary delta:** guided owner setup, Project pulse, check-ins, non-scoring readiness, manager action queues.
 
-## Slice 4 — Voice update
+**Gate:** Product Owner validates owner clarity, employee neutrality, and manager usefulness.
 
-### Visible outcome
+### Slice 6 — Evaluation preparation
 
-An employee records or uploads Arabic voice, corrects the transcript, answers remaining questions, attaches evidence, confirms the structured update, and sees it in Timeline.
+**Visible outcome:** Employee and authorized manager see neutral source facts before future quarterly assessment, with employee interpretation clearly separated.
 
-### Backend delta
+**Primary delta:** read-only Evaluation Preparation package, authorized composition, Fact View API and UI.
 
-- Add private audio source, raw transcript, employee-corrected transcript, STT trace, and retention/access controls.
-- Reuse the Slice 2 clarification, evidence, confirmation, and progress request lifecycle.
+**Gate:** Neutrality/privacy approval. Complete evaluation remains Phase 3.
 
-### Acceptance
+## Original T030–T044 trace
 
-- Audio, raw transcript, edited transcript, structured update, and route trace are distinct.
-- Employee confirms transcript and final update separately.
-- Fusha, Gulf, Levantine, and mixed Arabic/English fixtures.
-- Safe file type/size/malware checks and private reads.
-- No rating output.
-
-### Demo and screenshots
-
-- Run a deterministic Gulf-Arabic demo through transcript correction and final confirmation.
-- Capture record/upload, transcript, questions, review, and Timeline on desktop/mobile.
-
-### Stop gate
-
-Product owner reviews transcript quality, correction friction, retention, privacy, route configuration, dialect fixtures, and dual human gates.
-
-## Slice 5 — Check-ins and monthly readiness
-
-### Visible outcome
-
-The product requests a Thursday check-in only when no substantive update exists and shows an employee the specific thin records to improve without quotas or penalties.
-
-### Backend delta
-
-- Add substantive-update qualification, reminder state, leave-exemption port, Project aggregation, and monthly readiness inputs.
-- Extend existing readiness through public interfaces.
-
-### Acceptance
-
-- No duplicate check-in after a substantive update.
-- Approved leave excluded.
-- Project summary avoids duplicated Workstream detail.
-- Employee sees actionable gaps.
-- Manager sees coarse authorized state only, with no individual percentage/value/rank.
-- No quota, score, automatic penalty, or employee ranking.
-
-### Demo and screenshots
-
-- Show reminder generated and suppressed.
-- Show approved-leave exclusion through the current adapter contract.
-- Show employee detail and manager coarse projection.
-- Capture Arabic/English desktop/mobile states.
-
-### Stop gate
-
-Product owner reviews cadence, leave behavior, false positives, non-scoring copy, and manager privacy.
-
-## Slice 6 — Manager operational view
-
-### Visible outcome
-
-A manager works from compact action queues for blockers, missing operational updates, criteria objections, attribution questions, reassignment, Project health, and coarse documentation gaps.
-
-### Backend delta
-
-- Add authorized manager composition queries and bounded resolution commands.
-- Keep readiness and future evaluation routes separate.
-
-### Acceptance
-
-- Server-side department/resource scope.
-- No employee Quick Add/Update unless separately authorized as contributor/owner.
-- No rank, productivity score, readiness percentage/value, completion/GitHub leaderboard, predicted rating, or suggested rating.
-- Compact queues replace oversized metric-only cards.
-
-### Demo and screenshots
-
-- Resolve an operational blocker and inspect Project health.
-- Verify forbidden fields are absent from the API and UI.
-- Capture Arabic/English desktop/mobile manager routes.
-
-### Stop gate
-
-Product owner reviews action usefulness, authorization, readiness separation, forbidden-field contracts, and mobile density.
-
-## Slice 7 — Evaluation Fact View preparation
-
-### Visible outcome
-
-An authorized employee or manager opens a period preparation view that separates source-supported facts, unclear parts, employee interpretation, results, evidence, responsibility, criteria, and Project progress history without a rating recommendation.
-
-### Backend delta
-
-- Add an immutable source-linked preparation snapshot/query.
-- Reuse existing responsibility and criteria-at-time interfaces plus Phase 2 accepted sources.
-- Do not add self-assessment, manager rating, finalization, or cycle closure commands.
-
-### Acceptance
-
-- Fact and interpretation separation in API and UI.
-- Active-at-time criteria and actual responsibility period.
-- Evidence and progress source traceability.
-- No automatic average, predicted rating, recommended rating, or preselected rating.
-- Snapshot immutability and authorization.
-
-### Demo and screenshots
-
-- Trace one accepted update/evidence source into the preparation view.
-- Show unclear source coverage and historical progress explanation.
-- Capture Arabic/English desktop/mobile views.
-
-### Stop gate
-
-Product owner reviews neutrality, privacy, source trace, historical accuracy, and the boundary excluding the full evaluation workflow.
+| Original task                 | Current disposition                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| T030 Activity Timeline        | Existing domain foundation retained; unified presentation in Slice 4         |
+| T031 Text Update              | Existing domain foundation retained; simplified universal capture in Slice 4 |
+| T032 Voice Update             | Slice 4                                                                      |
+| T033 Evidence                 | Existing foundation retained and presented in Slice 4                        |
+| T034 Multimodal Analysis      | Slice 4; claim support only                                                  |
+| T035 Contribution Attribution | Existing foundation retained; confirmation in Slice 4                        |
+| T036–T037 Check-ins           | Slice 5                                                                      |
+| T038–T041 GitHub              | Slice 4                                                                      |
+| T042 UI                       | Delivered visibly across Slices 1–5                                          |
+| T043 Monthly Readiness        | Slice 5                                                                      |
+| T044 Arabic/dialect fixtures  | Added only in Slices 3–4 when prompt/schema/voice changes                    |
 
 ## Cross-slice completion rule
 
-Every slice ends with focused tests, related integration tests, a runnable local demo, accepted screenshots, commit, push, updated task state, and the declared product-owner stop gate. The full repository suite runs after shared-foundation changes, at major integration checkpoints, and before the Phase 2 Pull Request becomes ready.
+Each slice ends with:
+
+1. Focused tests and related integration tests.
+2. Protected scans.
+3. A runnable local employee/manager journey as applicable.
+4. Arabic/English desktop and 390px screenshots where UI changes.
+5. Commit and push to Pull Request #5.
+6. Updated task and project state.
+7. Product Owner stop gate.
+
+The full repository suite runs after shared-foundation changes, at major integration checkpoints, and before Pull Request #5 becomes ready. Pull Request #5 is not merged without explicit Product Owner approval.

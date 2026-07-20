@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Hold production implementation while the Product Owner reviews the AI-first Daily Workspace master execution map and six bounded slice plans; begin Slice 1 only after the planning gate.
+Align the authoritative Phase 2 task and product maps with the approved AI-first Daily Workspace reset, then execute new Slice 1: Today, normal Tasks, and private Inbox.
 
 ## Current Reality
 
@@ -52,6 +52,7 @@ Hold production implementation while the Product Owner reviews the AI-first Dail
 - `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md` governs the replacement employee experience after written-spec review. No production code changed during the design process.
 - The Product Owner approved the written specification on 2026-07-20. The replacement execution authority is now one master map plus six bounded plans covering Today/Tasks, Google Workspace, Context Intelligence, GitHub/Updates/Evidence, Project-owner progress/manager operations, and neutral Evaluation Fact View preparation.
 - The plans preserve the single database, existing authentication, AI Router, Work Items, Updates & Evidence, Projects/Progress Contract, and Daily Composition foundations. No production code changed during implementation planning.
+- The Product Owner authorized execution on 2026-07-20. The active first checkpoint is documentation-only alignment of `IMPLEMENTATION_PLAN.md`, `TASKS.md`, and the three Phase 2 product maps; new Slice 1 begins after that checkpoint is verified and pushed.
 
 ## Active Decisions
 
@@ -91,7 +92,7 @@ Hold production implementation while the Product Owner reviews the AI-first Dail
 
 ## Next Recommended Action
 
-Haitham reviews `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md` and the six linked slice plans. After approval, align the authoritative task graph as the documentation-only checkpoint, then execute Slice 1 using Fast Controlled Execution.
+Verify and push the documentation-alignment checkpoint, then start Slice 1 Task 1 with failing migration and contract tests for private Inbox and Task checklist persistence.
 
 ## Critical References
 
