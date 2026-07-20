@@ -19,6 +19,16 @@ export const WorkItemStatusSchema = z.enum(WORK_ITEM_STATUSES);
 export const WorkItemPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
 export const WorkItemAllowedActionSchema = z.enum(["edit", "transition", "assign", "add_update"]);
 export const PrivateInboxStatusSchema = z.enum(["open", "promoted", "dismissed"]);
+export const WorkItemChecklistInputSchema = z
+  .object({
+    text: z.string().trim().min(1).max(500),
+    completed: z.boolean().default(false),
+  })
+  .strict();
+export const WorkItemChecklistItemSchema = WorkItemChecklistInputSchema.extend({
+  id: UuidSchema,
+  position: z.number().int().nonnegative(),
+}).strict();
 
 const WorkItemContentSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -40,8 +50,12 @@ export const UpdateWorkItemInputSchema = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
     description: z.string().trim().max(8_000).optional(),
+    workstreamId: UuidSchema.nullable().optional(),
+    assigneeId: UuidSchema.nullable().optional(),
     dueAt: UtcInstantSchema.nullable().optional(),
     priority: WorkItemPrioritySchema.optional(),
+    checklist: z.array(WorkItemChecklistInputSchema).max(100).optional(),
+    collaboratorIds: z.array(UuidSchema).max(100).optional(),
     requirements: z.array(z.string().trim().min(1).max(500)).max(50).optional(),
     acceptanceConditions: z.array(z.string().trim().min(1).max(500)).max(50).optional(),
     blocker: z.string().trim().min(1).max(2_000).nullable().optional(),
@@ -126,6 +140,8 @@ export const WorkItemDetailSchema = WorkItemContentSchema.extend({
   version: PositiveVersionSchema,
   createdAt: UtcInstantSchema,
   updatedAt: UtcInstantSchema,
+  checklist: z.array(WorkItemChecklistItemSchema).default([]),
+  collaboratorIds: z.array(UuidSchema).default([]),
   allowedActions: z.array(WorkItemAllowedActionSchema).default([]),
 }).strict();
 
@@ -169,6 +185,8 @@ export const MyWorkResponseSchema = z
 
 export type WorkItemStatus = z.infer<typeof WorkItemStatusSchema>;
 export type WorkItemPriority = z.infer<typeof WorkItemPrioritySchema>;
+export type WorkItemChecklistInput = z.infer<typeof WorkItemChecklistInputSchema>;
+export type WorkItemChecklistItem = z.infer<typeof WorkItemChecklistItemSchema>;
 export type CreateWorkItemInput = z.infer<typeof CreateWorkItemInputSchema>;
 export type UpdateWorkItemInput = z.infer<typeof UpdateWorkItemInputSchema>;
 export type TransitionWorkItemInput = z.infer<typeof TransitionWorkItemInputSchema>;

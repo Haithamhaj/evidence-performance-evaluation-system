@@ -9,6 +9,7 @@ import {
   PrivateInboxItemSchema,
   PromotePrivateInboxInputSchema,
   TransitionWorkItemInputSchema,
+  UpdateWorkItemInputSchema,
   WorkItemDetailSchema,
 } from "./work-items.js";
 
@@ -152,5 +153,28 @@ describe("private inbox contracts", () => {
         reason: "invalid",
       }),
     ).toThrow();
+  });
+});
+
+describe("editable Task contracts", () => {
+  it("accepts a checklist, assignee, collaborators, and Workstream edit", () => {
+    expect(
+      UpdateWorkItemInputSchema.parse({
+        workstreamId,
+        assigneeId: employeeId,
+        collaboratorIds: ["00000000-0000-4000-8000-000000000106"],
+        checklist: [
+          { text: "Confirm the result", completed: true },
+          { text: "Attach the evidence", completed: false },
+        ],
+        expectedVersion: 2,
+        reason: "Employee edited the Task",
+      }),
+    ).toMatchObject({
+      checklist: [
+        { text: "Confirm the result", completed: true },
+        { text: "Attach the evidence", completed: false },
+      ],
+    });
   });
 });

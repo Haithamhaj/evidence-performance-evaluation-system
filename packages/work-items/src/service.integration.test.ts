@@ -249,4 +249,124 @@ describe("WorkItemService", () => {
       }),
     ).rejects.toMatchObject({ code: "VERSION_CONFLICT" });
   });
+
+  it("updates editable Task fields, checklist, assignee, and collaborators atomically", async () => {
+    const graph = await seedGraph();
+    const events: Array<Record<string, unknown>> = [];
+    const recordingAuditWriter = {
+      append: async (
+        _transaction: import("@evaluation/database").DatabaseTransaction,
+        event: Record<string, unknown>,
+      ) => {
+        events.push(event);
+        return { id: crypto.randomUUID(), createdAt: now.toISOString() };
+      },
+    };
+    const service = new WorkItemService(client, recordingAuditWriter as never, () => now);
+    const created = await service.create({
+      actor: { userId: graph.actorId, active: true },
+      correlationId: crypto.randomUUID(),
+      input: {
+        title: "Initial title",
+        description: "",
+        projectId: graph.projectId,
+        workstreamId: null,
+        assigneeId: graph.actorId,
+        dueAt: null,
+        priority: "normal",
+        requirements: [],
+        acceptanceConditions: [],
+        blocker: null,
+        nextAction: null,
+      },
+    });
+
+    const updated = await service.update({
+      actor: { userId: graph.actorId, active: true },
+      correlationId: crypto.randomUUID(),
+      workItemId: created.id,
+      input: {
+        title: "Prepare launch evidence",
+        description: "Collect the approved launch artifacts.",
+        workstreamId: graph.workstreamId,
+        assigneeId: graph.assigneeId,
+        dueAt: "2026-07-23T09:00:00.000Z",
+        priority: "high",
+        checklist: [
+          { text: "Confirm acceptance conditions", completed: true },
+          { text: "Attach approved evidence", completed: false },
+        ],
+        collaboratorIds: [graph.actorId],
+        expectedVersion: 1,
+        reason: "Employee edited the task",
+      },
+    });
+
+    expect(updated).toMatchObject({
+      title: "Prepare launch evidence",
+      workstreamId: graph.workstreamId,
+      assigneeId: graph.assigneeId,
+      priority: "high",
+      version: 2,
+      collaboratorIds: [graph.actorId],
+      checklist: [
+        { text: "Confirm acceptance conditions", completed: true, position: 0 },
+        { text: "Attach approved evidence", completed: false, position: 1 },
+      ],
+    });
+    await expect(
+      client.workItemAssignmentHistory.count({ where: { workItemId: created.id } }),
+    ).resolves.toBe(2);
+    await expect(
+      client.workItemParticipant.count({
+        where: { workItemId: created.id, employeeId: graph.actorId, endsAt: null },
+      }),
+    ).resolves.toBe(1);
+    expect(events.at(-1)).toMatchObject({
+      eventType: "work_item.changed",
+      reason: "Employee edited the task",
+    });
+
+    await client.workstream.update({
+      where: { id: graph.workstreamId },
+      data: { status: "completed" },
+    });
+    await expect(
+      service.update({
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        workItemId: created.id,
+        input: {
+          workstreamId: null,
+          expectedVersion: 2,
+          reason: "Move the Task back to its Project",
+        },
+      }),
+    ).resolves.toMatchObject({ workstreamId: null, version: 3 });
+
+    await expect(
+      service.update({
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        workItemId: created.id,
+        input: {
+          workstreamId: graph.otherWorkstreamId,
+          expectedVersion: 3,
+          reason: "Invalid cross-project edit",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "WORK_ITEM_SCOPE_MISMATCH" });
+    await expect(
+      service.update({
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        workItemId: created.id,
+        input: {
+          title: "Stale edit",
+          expectedVersion: 1,
+          reason: "Stale browser",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "VERSION_CONFLICT" });
+  });
 });

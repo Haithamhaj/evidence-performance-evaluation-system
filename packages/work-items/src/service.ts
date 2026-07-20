@@ -3,6 +3,7 @@ import {
   AssignWorkItemInputSchema,
   CreateWorkItemInputSchema,
   TransitionWorkItemInputSchema,
+  UpdateWorkItemInputSchema,
   WorkItemDetailSchema,
 } from "@evaluation/contracts";
 import { z } from "zod";
@@ -33,6 +34,10 @@ const TransitionCommandSchema = CommandBaseSchema.extend({
 const AssignCommandSchema = CommandBaseSchema.extend({
   workItemId: z.string().uuid(),
   input: AssignWorkItemInputSchema,
+}).strict();
+const UpdateCommandSchema = CommandBaseSchema.extend({
+  workItemId: z.string().uuid(),
+  input: UpdateWorkItemInputSchema,
 }).strict();
 
 export class WorkItemService {
@@ -186,6 +191,182 @@ export class WorkItemService {
       return serialize(updated);
     });
   }
+
+  async update(command: unknown): Promise<import("@evaluation/contracts").WorkItemDetail> {
+    const parsed = UpdateCommandSchema.parse(command);
+    const current = validClock(this.clock());
+    return serializable(this.client, async (transaction) => {
+      await lockWorkItem(transaction, parsed.workItemId);
+      const item = await loadAuthorizedItem(transaction, parsed.actor, parsed.workItemId, current);
+      if (item.version !== parsed.input.expectedVersion) throw versionError();
+      if (item.status === "done" || item.status === "cancelled") throw stateError();
+
+      const targetWorkstreamId =
+        parsed.input.workstreamId === undefined
+          ? item.workstreamId
+          : parsed.input.workstreamId;
+      const workstream =
+        targetWorkstreamId === null
+          ? null
+          : await transaction.workstream.findUnique({
+              where: { id: targetWorkstreamId },
+              select: { id: true, projectId: true, status: true },
+            });
+      assertWorkItemScope({ projectId: item.projectId, workstream });
+      if (workstream !== null && !["active", "paused"].includes(workstream.status)) {
+        throw stateError();
+      }
+
+      const targetAssigneeId =
+        parsed.input.assigneeId === undefined ? item.assigneeId : parsed.input.assigneeId;
+      await assertEligibleAssignee(
+        transaction,
+        targetAssigneeId,
+        item.projectId,
+        targetWorkstreamId,
+        current,
+      );
+      const collaboratorIds =
+        parsed.input.collaboratorIds === undefined
+          ? undefined
+          : [...new Set(parsed.input.collaboratorIds)];
+      if (collaboratorIds !== undefined) {
+        for (const employeeId of collaboratorIds) {
+          await assertEligibleAssignee(
+            transaction,
+            employeeId,
+            item.projectId,
+            targetWorkstreamId,
+            current,
+          );
+        }
+      }
+
+      const updated = await transaction.workItem.update({
+        where: { id: item.id },
+        data: {
+          ...(parsed.input.title === undefined ? {} : { title: parsed.input.title }),
+          ...(parsed.input.description === undefined
+            ? {}
+            : { description: parsed.input.description }),
+          ...(parsed.input.workstreamId === undefined
+            ? {}
+            : { workstreamId: parsed.input.workstreamId }),
+          ...(parsed.input.assigneeId === undefined ? {} : { assigneeId: parsed.input.assigneeId }),
+          ...(parsed.input.dueAt === undefined
+            ? {}
+            : {
+                dueAt: parsed.input.dueAt === null ? null : new Date(parsed.input.dueAt),
+              }),
+          ...(parsed.input.priority === undefined ? {} : { priority: parsed.input.priority }),
+          ...(parsed.input.requirements === undefined
+            ? {}
+            : { requirements: parsed.input.requirements }),
+          ...(parsed.input.acceptanceConditions === undefined
+            ? {}
+            : { acceptanceConditions: parsed.input.acceptanceConditions }),
+          ...(parsed.input.blocker === undefined ? {} : { blocker: parsed.input.blocker }),
+          ...(parsed.input.nextAction === undefined ? {} : { nextAction: parsed.input.nextAction }),
+          version: { increment: 1 },
+        },
+      });
+
+      if (parsed.input.checklist !== undefined) {
+        await transaction.workItemChecklistItem.deleteMany({
+          where: { workItemId: item.id },
+        });
+        if (parsed.input.checklist.length > 0) {
+          await transaction.workItemChecklistItem.createMany({
+            data: parsed.input.checklist.map((entry, position) => ({
+              workItemId: item.id,
+              text: entry.text,
+              completed: entry.completed,
+              position,
+            })),
+          });
+        }
+      }
+
+      if (collaboratorIds !== undefined) {
+        const currentCollaborators = await transaction.workItemParticipant.findMany({
+          where: { workItemId: item.id, role: "collaborator", endsAt: null },
+          select: { id: true, employeeId: true },
+        });
+        const desired = new Set(collaboratorIds);
+        const existing = new Set(currentCollaborators.map(({ employeeId }) => employeeId));
+        await transaction.workItemParticipant.updateMany({
+          where: {
+            id: {
+              in: currentCollaborators
+                .filter(({ employeeId }) => !desired.has(employeeId))
+                .map(({ id }) => id),
+            },
+          },
+          data: { endsAt: current },
+        });
+        const additions = collaboratorIds.filter((employeeId) => !existing.has(employeeId));
+        if (additions.length > 0) {
+          await transaction.workItemParticipant.createMany({
+            data: additions.map((employeeId) => ({
+              workItemId: item.id,
+              employeeId,
+              role: "collaborator",
+              startsAt: current,
+              reason: parsed.input.reason,
+              createdById: parsed.actor.userId,
+            })),
+          });
+        }
+      }
+
+      if (parsed.input.assigneeId !== undefined && parsed.input.assigneeId !== item.assigneeId) {
+        await transaction.workItemAssignmentHistory.create({
+          data: {
+            workItemId: item.id,
+            fromAssigneeId: item.assigneeId,
+            toAssigneeId: parsed.input.assigneeId,
+            actorId: parsed.actor.userId,
+            reason: parsed.input.reason,
+            resultingVersion: updated.version,
+          },
+        });
+      }
+
+      await this.auditWriter.append(transaction, {
+        eventType: "work_item.changed",
+        actor: { kind: "human", id: parsed.actor.userId },
+        effectiveSubjectId: targetAssigneeId ?? parsed.actor.userId,
+        scopeType: "project",
+        scopeId: item.projectId,
+        targetType: "work_item",
+        targetId: item.id,
+        reason: parsed.input.reason,
+        safeDiff: {
+          version: updated.version,
+          changedFields: Object.keys(parsed.input).filter(
+            (key) => key !== "expectedVersion" && key !== "reason",
+          ),
+          checklistCount: parsed.input.checklist?.length ?? null,
+          collaboratorCount: collaboratorIds?.length ?? null,
+        },
+        correlationId: parsed.correlationId,
+        source: "api",
+      });
+
+      const detailed = await transaction.workItem.findUniqueOrThrow({
+        where: { id: item.id },
+        include: {
+          checklistItems: { orderBy: [{ position: "asc" }, { id: "asc" }] },
+          participants: {
+            where: { role: "collaborator", endsAt: null },
+            orderBy: { employeeId: "asc" },
+            select: { employeeId: true },
+          },
+        },
+      });
+      return serialize(detailed);
+    });
+  }
 }
 
 function serialize(item: {
@@ -205,6 +386,13 @@ function serialize(item: {
   version: number;
   createdAt: Date;
   updatedAt: Date;
+  checklistItems?: Array<{
+    id: string;
+    text: string;
+    completed: boolean;
+    position: number;
+  }>;
+  participants?: Array<{ employeeId: string }>;
 }) {
   return WorkItemDetailSchema.parse({
     id: item.id,
@@ -223,6 +411,14 @@ function serialize(item: {
     version: item.version,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
+    checklist:
+      item.checklistItems?.map(({ id, text, completed, position }) => ({
+        id,
+        text,
+        completed,
+        position,
+      })) ?? [],
+    collaboratorIds: item.participants?.map(({ employeeId }) => employeeId) ?? [],
     allowedActions:
       item.status === "done" || item.status === "cancelled"
         ? ["add_update"]

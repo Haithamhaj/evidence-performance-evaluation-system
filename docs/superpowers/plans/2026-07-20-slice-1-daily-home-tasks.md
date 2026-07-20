@@ -81,13 +81,13 @@ export interface WorkItemService {
 }
 ```
 
-- [ ] Write a failing test proving employee A cannot read, edit, dismiss, or promote employee B's Inbox item.
-- [ ] Write a failing transaction test proving promotion creates one Project-linked Work Item and marks the Inbox item `PROMOTED` atomically.
-- [ ] Write failing Work Item update tests for title, description, due date, priority, checklist, assignee, collaborators, Project/Workstream validity, optimistic version, and append-only history.
-- [ ] Implement only the minimum repositories and transaction behavior required by those tests.
-- [ ] Run `pnpm --filter @evaluation/work-items test`.
-- [ ] Run `pnpm --filter @evaluation/work-items typecheck`.
-- [ ] Commit as `feat(work-items): support private capture and task editing`.
+- [x] Write a failing test proving employee A cannot read, edit, dismiss, or promote employee B's Inbox item.
+- [x] Write a failing transaction test proving promotion creates one Project-linked Work Item and marks the Inbox item `PROMOTED` atomically.
+- [x] Write failing Work Item update tests for title, description, due date, priority, checklist, assignee, collaborators, Project/Workstream validity, optimistic version, and append-only history.
+- [x] Implement only the minimum repositories and transaction behavior required by those tests.
+- [x] Run `pnpm --filter @evaluation/work-items test`.
+- [x] Run `pnpm --filter @evaluation/work-items typecheck`.
+- [x] Commit as `feat(work-items): support private capture and task editing`.
 
 ### Task 3: Expose protected Task workspace APIs
 
