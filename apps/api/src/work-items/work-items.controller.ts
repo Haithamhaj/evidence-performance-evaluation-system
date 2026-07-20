@@ -1,10 +1,23 @@
 import {
   AssignWorkItemInputSchema,
   CreateWorkItemInputSchema,
+  ListWorkItemsInputSchema,
   TransitionWorkItemInputSchema,
+  UpdateWorkItemInputSchema,
 } from "@evaluation/contracts";
 import { WorkItemQueryService, WorkItemService } from "@evaluation/work-items";
-import { Body, Controller, Get, Inject, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import { z } from "zod";
 
 import { WorkItemsPolicyGuard } from "./work-items-policy.guard.js";
@@ -35,6 +48,26 @@ export class WorkItemsController {
     return this.query.getAuthorizedWorkItem({
       actorId: request.principal.userId,
       workItemId: z.string().uuid().parse(workItemId),
+    });
+  }
+
+  list(request: Request, query: unknown) {
+    const parsed = ListWorkItemsInputSchema.parse(query);
+    return this.query.listWorkspace({
+      actor: actor(request),
+      view: parsed.view,
+      layout: parsed.layout,
+      limit: parsed.limit,
+      cursor: parsed.cursor,
+    });
+  }
+
+  update(request: Request, workItemId: string, body: unknown) {
+    return this.service.update({
+      actor: actor(request),
+      correlationId: request.correlationId,
+      workItemId: z.string().uuid().parse(workItemId),
+      input: UpdateWorkItemInputSchema.parse(body),
     });
   }
 
@@ -71,10 +104,21 @@ Req()(WorkItemsController.prototype, "create", 0);
 Body()(WorkItemsController.prototype, "create", 1);
 Post()(WorkItemsController.prototype, "create", create);
 
+const list = Object.getOwnPropertyDescriptor(WorkItemsController.prototype, "list")!;
+Req()(WorkItemsController.prototype, "list", 0);
+Query()(WorkItemsController.prototype, "list", 1);
+Get()(WorkItemsController.prototype, "list", list);
+
 const get = Object.getOwnPropertyDescriptor(WorkItemsController.prototype, "get")!;
 Req()(WorkItemsController.prototype, "get", 0);
 Param("workItemId")(WorkItemsController.prototype, "get", 1);
 Get(":workItemId")(WorkItemsController.prototype, "get", get);
+
+const update = Object.getOwnPropertyDescriptor(WorkItemsController.prototype, "update")!;
+Req()(WorkItemsController.prototype, "update", 0);
+Param("workItemId")(WorkItemsController.prototype, "update", 1);
+Body()(WorkItemsController.prototype, "update", 2);
+Patch(":workItemId")(WorkItemsController.prototype, "update", update);
 
 const transition = Object.getOwnPropertyDescriptor(WorkItemsController.prototype, "transition")!;
 Req()(WorkItemsController.prototype, "transition", 0);

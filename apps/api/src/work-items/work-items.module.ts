@@ -1,9 +1,15 @@
 import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
-import { WorkItemQueryService, WorkItemService } from "@evaluation/work-items";
+import {
+  PrivateInboxQueryService,
+  PrivateInboxService,
+  WorkItemQueryService,
+  WorkItemService,
+} from "@evaluation/work-items";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
+import { PrivateInboxController } from "./private-inbox.controller.js";
 import { WorkItemsController } from "./work-items.controller.js";
 import { WorkItemsPolicyGuard } from "./work-items-policy.guard.js";
 
@@ -14,7 +20,7 @@ export class WorkItemsModule {}
 
 Module({
   imports: [AuthModule],
-  controllers: [WorkItemsController],
+  controllers: [WorkItemsController, PrivateInboxController],
   providers: [
     {
       provide: WORK_ITEMS_DATABASE,
@@ -37,6 +43,18 @@ Module({
       inject: [WORK_ITEMS_DATABASE],
     },
     {
+      provide: PrivateInboxService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new PrivateInboxService(client, databaseAuditWriter as never),
+      inject: [WORK_ITEMS_DATABASE],
+    },
+    {
+      provide: PrivateInboxQueryService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new PrivateInboxQueryService(client),
+      inject: [WORK_ITEMS_DATABASE],
+    },
+    {
       provide: WORK_ITEMS_DATABASE_LIFECYCLE,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) => ({
         onModuleDestroy: () => client.$disconnect(),
@@ -45,5 +63,5 @@ Module({
     },
     WorkItemsPolicyGuard,
   ],
-  exports: [WorkItemQueryService],
+  exports: [WorkItemQueryService, PrivateInboxQueryService],
 })(WorkItemsModule);

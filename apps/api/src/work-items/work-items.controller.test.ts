@@ -14,6 +14,7 @@ describe("WorkItemsController", () => {
   it("derives the actor from the authenticated principal", async () => {
     const service = {
       create: vi.fn(async (command) => command),
+      update: vi.fn(),
       transition: vi.fn(),
       assign: vi.fn(),
     };
@@ -60,5 +61,36 @@ describe("WorkItemsController", () => {
     expect(transition).toHaveBeenCalledWith(
       expect.objectContaining({ workItemId, actor: { userId: actorId, active: true } }),
     );
+  });
+
+  it("validates Task edits and workspace view options", async () => {
+    const update = vi.fn(async (command) => command);
+    const listWorkspace = vi.fn(async (command) => command);
+    const controller = new WorkItemsController({ update } as never, { listWorkspace } as never);
+
+    await controller.update(request, workItemId, {
+      title: "Prepare the launch",
+      expectedVersion: 2,
+      reason: "Employee edited the Task",
+    });
+    await controller.list(request, {
+      view: "my",
+      layout: "board",
+      limit: "25",
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: { userId: actorId, active: true },
+        workItemId,
+      }),
+    );
+    expect(listWorkspace).toHaveBeenCalledWith({
+      actor: { userId: actorId, active: true },
+      view: "my",
+      layout: "board",
+      limit: 25,
+      cursor: null,
+    });
   });
 });

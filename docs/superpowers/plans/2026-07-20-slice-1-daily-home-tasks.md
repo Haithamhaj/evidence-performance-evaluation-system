@@ -111,13 +111,13 @@ POST   /api/v1/private-inbox/:id/promote
 POST   /api/v1/private-inbox/:id/dismiss
 ```
 
-- [ ] Write controller tests for validated inputs, inactive principals, owner-only Inbox access, Project permission, and manager Team Tasks scope.
-- [ ] Add `UpdateWorkItemInputSchema` to the Work Items controller.
-- [ ] Add Inbox controller and guard rules; UI hiding must not be the authorization control.
-- [ ] Return stable error codes for stale version, invalid Project/Workstream, forbidden Inbox access, and already-promoted capture.
-- [ ] Run `pnpm vitest run --project unit apps/api/src/work-items`.
-- [ ] Run `pnpm --filter @evaluation/api typecheck`.
-- [ ] Commit as `feat(api): expose protected task workspace endpoints`.
+- [x] Write controller tests for validated inputs, inactive principals, owner-only Inbox access, Project permission, and manager Team Tasks scope.
+- [x] Add `UpdateWorkItemInputSchema` to the Work Items controller.
+- [x] Add Inbox controller and guard rules; UI hiding must not be the authorization control.
+- [x] Return stable error codes for stale version, invalid Project/Workstream, forbidden Inbox access, and already-promoted capture.
+- [x] Run `pnpm vitest run --project unit apps/api/src/work-items`.
+- [x] Run `pnpm --filter @evaluation/api typecheck`.
+- [x] Commit as `feat(api): expose protected task workspace endpoints`.
 
 ### Task 4: Compose the Today brief
 

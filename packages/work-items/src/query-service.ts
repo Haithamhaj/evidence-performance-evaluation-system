@@ -1,4 +1,4 @@
-import { MyWorkResponseSchema, WorkItemDetailSchema } from "@evaluation/contracts";
+import { AppError, MyWorkResponseSchema, WorkItemDetailSchema } from "@evaluation/contracts";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 
@@ -148,6 +148,60 @@ export class WorkItemQueryService {
       title,
     }));
   }
+
+  async listWorkspace(input: {
+    actor: { userId: string; active: boolean };
+    view: import("@evaluation/contracts").WorkItemWorkspaceView;
+    layout: import("@evaluation/contracts").WorkItemWorkspaceLayout;
+    limit: number;
+    cursor: string | null;
+  }): Promise<{
+    view: import("@evaluation/contracts").WorkItemWorkspaceView;
+    layout: import("@evaluation/contracts").WorkItemWorkspaceLayout;
+    items: import("@evaluation/contracts").WorkItemDetail[];
+    nextCursor: string | null;
+  }> {
+    if (!input.actor.active) throw scopeError();
+    const rows = await this.client.workItem.findMany({
+      where:
+        input.view === "my"
+          ? {
+              OR: [
+                { assigneeId: input.actor.userId },
+                {
+                  participants: {
+                    some: {
+                      employeeId: input.actor.userId,
+                      startsAt: { lte: this.clock() },
+                      OR: [{ endsAt: null }, { endsAt: { gt: this.clock() } }],
+                    },
+                  },
+                },
+              ],
+            }
+          : {
+              project: {
+                department: {
+                  authorizationScopes: {
+                    some: {
+                      roleAssignments: {
+                        some: { userId: input.actor.userId, role: "manager" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+      orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
+      take: Math.min(Math.max(input.limit, 1), 200),
+    });
+    return {
+      view: input.view,
+      layout: input.layout,
+      items: rows.map(serialize),
+      nextCursor: null,
+    };
+  }
 }
 
 function calendarDayKey(value: Date, timeZone: string): string {
@@ -201,4 +255,8 @@ function serialize(item: {
         ? ["add_update"]
         : ["edit", "transition", "assign", "add_update"],
   });
+}
+
+function scopeError(): AppError {
+  return new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
 }

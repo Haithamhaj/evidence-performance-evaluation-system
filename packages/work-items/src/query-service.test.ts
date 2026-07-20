@@ -68,4 +68,46 @@ describe("WorkItemQueryService", () => {
     expect(result.groups.find(({ key }) => key === "today")?.items).toEqual([]);
     expect(result.groups.find(({ key }) => key === "this_week")?.items).toHaveLength(1);
   });
+
+  it("uses server-side manager scope for Team Tasks and rejects inactive principals", async () => {
+    const findMany = vi.fn(async () => []);
+    const database = { workItem: { findMany } };
+    const service = new WorkItemQueryService(database as never);
+    const actorId = crypto.randomUUID();
+
+    await expect(
+      service.listWorkspace({
+        actor: { userId: actorId, active: false },
+        view: "my",
+        layout: "list",
+        limit: 100,
+        cursor: null,
+      }),
+    ).rejects.toMatchObject({ code: "SCOPE_MISMATCH" });
+
+    await service.listWorkspace({
+      actor: { userId: actorId, active: true },
+      view: "team",
+      layout: "board",
+      limit: 50,
+      cursor: null,
+    });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          project: {
+            department: {
+              authorizationScopes: {
+                some: {
+                  roleAssignments: {
+                    some: { userId: actorId, role: "manager" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+  });
 });

@@ -5,6 +5,7 @@ import {
   CapturePrivateInboxInputSchema,
   CreateWorkItemInputSchema,
   DismissPrivateInboxInputSchema,
+  ListWorkItemsInputSchema,
   ListPrivateInboxInputSchema,
   PrivateInboxItemSchema,
   PromotePrivateInboxInputSchema,
@@ -40,6 +41,22 @@ describe("work item contracts", () => {
         workstreamId: null,
       }),
     ).toThrow();
+  });
+
+  it("validates the normal Task workspace view and layout", () => {
+    expect(ListWorkItemsInputSchema.parse({})).toEqual({
+      view: "my",
+      layout: "list",
+      limit: 100,
+      cursor: null,
+    });
+    expect(
+      ListWorkItemsInputSchema.parse({
+        view: "team",
+        layout: "calendar",
+        limit: "25",
+      }),
+    ).toMatchObject({ view: "team", layout: "calendar", limit: 25 });
   });
 
   it("keeps transitions and assignments optimistic and reasoned", () => {
