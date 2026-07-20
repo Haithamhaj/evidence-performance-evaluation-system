@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Hold at the protected Product Owner gate for the live Codex dogfood Progress Contract proposal; begin governed GitHub automation only after a human-approved contract becomes active.
+Hold production implementation while the Product Owner reviews the approved AI-first Daily Workspace written specification; write a replacement implementation plan only after that review.
 
 ## Current Reality
 
@@ -47,6 +47,9 @@ Hold at the protected Product Owner gate for the live Codex dogfood Progress Con
 - The persisted proposal was reviewed through the real local API and signed Keycloak authentication in English and Arabic/RTL at desktop and 390px. No human edit, application, submission, approval, activation, GitHub binding, or official progress recalculation was performed.
 - The bounded specification and security/code-quality reviews have no remaining P0/P1 finding. Deferred P2 maintenance observations are recorded in GitHub issue #6 and do not block the Product Owner gate.
 - Acceptance evidence is `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md`; live screenshots are under `docs/product/screenshots/phase-2-production/codex-dogfood-contract/`.
+- Product-owner review on 2026-07-20 rejected the current employee interaction model as too complex and approved an employee-experience reset rather than a full-system rewrite.
+- The approved replacement is an AI-first Daily Workspace: smart Today brief, Project-required official Tasks, private Inbox capture, Gmail and Google Calendar work context, governed GitHub sources, universal manual capture, source-explained linking, and human-confirmed Task drafts.
+- `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md` governs the replacement employee experience after written-spec review. No production code changed during the design process.
 
 ## Active Decisions
 
@@ -60,6 +63,11 @@ Hold at the protected Product Owner gate for the live Codex dogfood Progress Con
 - Phase 2 stops at Evaluation Fact View preparation; the complete employee self-assessment and manager assessment workflow remains Phase 3.
 - T011 remains accepted under its product-owner-bounded direct import/call/meta-call enforcement; provider-key isolation, CI scanning, and human review cover documented static-flow limitations.
 - Phase 2 execution proceeds autonomously through bounded slice checkpoints under Fast Controlled Execution; stop only at a protected human gate or genuine unresolved blocker.
+- Preserve the Phase 0/1 and applicable Phase 2 domain foundations, but replace the current `My Work`, long Update composer, and employee-facing Progress Contract mechanics.
+- Use one primary store and five bounded parts: Task domain, Connected Work Context, Context Intelligence through AI Router, Daily Composition, and Employee Experience.
+- Official Tasks require a Project; private Inbox capture may remain unlinked until promoted. AI drafts Tasks but never creates or assigns them automatically.
+- Gmail and Calendar summaries are private to the employee until the employee confirms a shared Task, Update, Evidence item, or decision record.
+- Automatic source linking requires a deterministic mapping or at least two non-conflicting independent Project anchors; model confidence alone is insufficient.
 
 ## Active Risks
 
@@ -70,6 +78,8 @@ Hold at the protected Product Owner gate for the live Codex dogfood Progress Con
 - The prototype remains reference-only. Production update structuring now uses the governed AI Router; connected GitHub automation, voice, check-ins/readiness, manager operations, and Fact View preparation remain in later bundles.
 - The production plan contains multiple security-, migration-, AI-, privacy-, and immutability-critical slices. Fast Controlled Execution remains the default, with bounded critical reviews only where those boundaries are touched.
 - CI remains the hosted confirmation after this checkpoint is pushed; local verification used the exact repository-pinned Node.js 24.18.0 and pnpm 11.13.0.
+- Production Google Workspace integration requires organization-approved OAuth configuration, minimum scopes, retention/deletion policy, and administrator consent.
+- Connected-source summaries create a new privacy boundary: manager access remains prohibited until the employee confirms a shared Project object.
 
 ## Protected Areas
 
@@ -79,7 +89,7 @@ Hold at the protected Product Owner gate for the live Codex dogfood Progress Con
 
 ## Next Recommended Action
 
-Haitham reviews and may edit the persisted AI proposal, then completes the protected apply, submit, and activation decisions. Resume Bundle 2 only after an active human-approved contract exists.
+Haitham reviews `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md`. After written approval, replace the superseded execution sequence with a bounded implementation plan; do not resume production work before that gate.
 
 ## Critical References
 
@@ -95,6 +105,7 @@ Haitham reviews and may edit the persisted AI proposal, then completes the prote
 - `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`
 - `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`
 - `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`
+- `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`
