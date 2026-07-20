@@ -29,8 +29,8 @@ export class DailyWorkController {
     this.query = query;
   }
 
-  myWork(request: Request): Promise<import("@evaluation/contracts").MyWorkResponse> {
-    return this.query.myWork(request.principal.userId);
+  myWork(request: Request): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot> {
+    return this.query.dailyWorkspace(actor(request));
   }
 
   updateContext(request: Request): Promise<import("@evaluation/contracts").UpdateComposerContext> {

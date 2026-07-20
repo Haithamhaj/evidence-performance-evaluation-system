@@ -42,6 +42,19 @@ const WorkItemSchema = z
     version: z.number().int().positive(),
     createdAt: z.iso.datetime({ offset: true }),
     updatedAt: z.iso.datetime({ offset: true }),
+    checklist: z
+      .array(
+        z
+          .object({
+            id: UuidSchema,
+            text: z.string().trim().min(1).max(500),
+            completed: z.boolean(),
+            position: z.number().int().nonnegative(),
+          })
+          .strict(),
+      )
+      .default([]),
+    collaboratorIds: z.array(UuidSchema).default([]),
     allowedActions: z.array(z.enum(["edit", "transition", "assign", "add_update"])),
   })
   .strict();
@@ -92,6 +105,52 @@ export const WebProjectPortfolioSchema = z.array(
 );
 
 export const WebUpdateComposerContextSchema = UpdateComposerContextSchema;
+export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
+  import("@evaluation/contracts").DailyWorkspaceSnapshot
+> = z
+  .object({
+    needsMyAction: z.array(WorkItemSchema),
+    today: z.array(WorkItemSchema),
+    overdue: z.array(WorkItemSchema),
+    reviewQueue: z.array(WorkItemSchema),
+    inbox: z.array(
+      z
+        .object({
+          id: UuidSchema,
+          employeeId: UuidSchema,
+          text: z.string().trim().min(1).max(4_000),
+          projectId: UuidSchema.nullable(),
+          status: z.enum(["open", "promoted", "dismissed"]),
+          promotedWorkItemId: UuidSchema.nullable(),
+          version: z.number().int().positive(),
+          createdAt: z.iso.datetime({ offset: true }),
+          updatedAt: z.iso.datetime({ offset: true }),
+        })
+        .strict(),
+    ),
+    projectPulse: z.array(
+      z
+        .object({
+          id: UuidSchema,
+          name: z.string().trim().min(1).max(200),
+          status: z.enum(["active", "paused"]),
+          progress: z.discriminatedUnion("state", [
+            z.object({ state: z.literal("awaiting_contract") }).strict(),
+            z.object({ state: z.literal("awaiting_information") }).strict(),
+            z
+              .object({
+                state: z.literal("accepted"),
+                percent: z.number().min(0).max(100),
+                updatedAt: z.iso.datetime({ offset: true }),
+              })
+              .strict(),
+          ]),
+        })
+        .strict(),
+    ),
+    upcoming: z.array(WorkItemSchema),
+  })
+  .strict();
 
 export async function fetchDailyWorkUpstream<T>(input: {
   readonly route: DailyWorkRoute;

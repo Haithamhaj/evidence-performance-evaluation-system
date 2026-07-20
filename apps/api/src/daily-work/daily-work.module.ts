@@ -8,7 +8,7 @@ import {
   ProgressContractService,
   ProgressQueryService,
 } from "@evaluation/projects";
-import { WorkItemQueryService } from "@evaluation/work-items";
+import { PrivateInboxQueryService, WorkItemQueryService } from "@evaluation/work-items";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
@@ -41,6 +41,12 @@ Module({
       inject: [DAILY_WORK_DATABASE],
     },
     {
+      provide: PrivateInboxQueryService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new PrivateInboxQueryService(client),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
       provide: ProgressQueryService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
         new ProgressQueryService(client),
@@ -69,8 +75,14 @@ Module({
         workItems: WorkItemQueryService,
         progress: ProgressQueryService,
         sourceRequests: ProgressContractDraftSourceLocator,
-      ) => new DailyWorkQueryService(workItems, progress, sourceRequests),
-      inject: [WorkItemQueryService, ProgressQueryService, ProgressContractDraftSourceLocator],
+        inbox: PrivateInboxQueryService,
+      ) => new DailyWorkQueryService(workItems, progress, sourceRequests, inbox),
+      inject: [
+        WorkItemQueryService,
+        ProgressQueryService,
+        ProgressContractDraftSourceLocator,
+        PrivateInboxQueryService,
+      ],
     },
     {
       provide: ProjectDashboardQueryService,

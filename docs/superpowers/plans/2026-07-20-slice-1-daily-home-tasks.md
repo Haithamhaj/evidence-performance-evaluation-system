@@ -143,13 +143,13 @@ type DailyWorkspaceSnapshot = {
 };
 ```
 
-- [ ] Add failing integration tests for employee-only private data, deterministic ordering, timezone-aware Today/Overdue grouping, and manager role boundaries.
-- [ ] Compose public readers from Work Items and Projects; do not access their Prisma tables from Daily Work.
-- [ ] Make `Needs My Action`, `Today`, and `Overdue` the first groups; collapse lower-priority groups in the client.
-- [ ] Preserve the approved Project progress semantics and source labels.
-- [ ] Run `pnpm vitest run --project integration apps/api/src/daily-work/daily-work.e2e.integration.test.ts`.
-- [ ] Run `pnpm vitest run --project unit apps/web/src/platform/daily-work-api.test.ts`.
-- [ ] Commit as `feat(daily-work): compose employee today brief`.
+- [x] Add failing integration tests for employee-only private data, deterministic ordering, timezone-aware Today/Overdue grouping, and manager role boundaries.
+- [x] Compose public readers from Work Items and Projects; do not access their Prisma tables from Daily Work.
+- [x] Make `Needs My Action`, `Today`, and `Overdue` the first groups; collapse lower-priority groups in the client.
+- [x] Preserve the approved Project progress semantics and source labels.
+- [x] Run `pnpm vitest run --project integration apps/api/src/daily-work/daily-work.e2e.integration.test.ts`.
+- [x] Run `pnpm vitest run --project unit apps/web/src/platform/daily-work-api.test.ts`.
+- [x] Commit as `feat(daily-work): compose employee today brief`.
 
 ### Task 5: Build the normal Task workspace
 

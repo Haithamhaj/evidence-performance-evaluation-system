@@ -22,6 +22,8 @@ const item = {
   version: 1,
   createdAt: "2026-07-18T08:00:00.000Z",
   updatedAt: "2026-07-18T09:00:00.000Z",
+  checklist: [],
+  collaboratorIds: [],
   allowedActions: ["transition" as const, "add_update" as const],
 };
 

@@ -46,11 +46,84 @@ function validProposal() {
 }
 
 describe("daily work protected API contracts", () => {
-  it("composes My Work using only the authenticated identity", async () => {
-    const myWork = vi.fn(async () => ({ groups: [], nextCursor: null }));
-    const controller = new DailyWorkController({ myWork } as never);
+  it("composes the daily workspace using only the authenticated identity", async () => {
+    const dailyWorkspace = vi.fn(async () => ({
+      needsMyAction: [],
+      today: [],
+      overdue: [],
+      reviewQueue: [],
+      inbox: [],
+      projectPulse: [],
+      upcoming: [],
+    }));
+    const controller = new DailyWorkController({ dailyWorkspace } as never);
     await controller.myWork(request);
-    expect(myWork).toHaveBeenCalledWith(actorId);
+    expect(dailyWorkspace).toHaveBeenCalledWith({ userId: actorId, active: true });
+  });
+
+  it("orders primary daily groups and keeps private Inbox access employee-scoped", async () => {
+    const task = (id: string, status: "ready" | "in_progress") => ({
+      id,
+      projectId,
+      workstreamId: null,
+      title: id,
+      description: "",
+      status,
+      priority: "normal",
+      assigneeId: actorId,
+      dueAt: null,
+      requirements: [],
+      acceptanceConditions: [],
+      blocker: null,
+      nextAction: null,
+      version: 1,
+      createdAt: "2026-07-20T08:00:00.000Z",
+      updatedAt: "2026-07-20T08:00:00.000Z",
+      checklist: [],
+      collaboratorIds: [],
+      allowedActions: ["edit", "transition", "assign", "add_update"],
+    });
+    const needsAction = task(crypto.randomUUID(), "ready");
+    const today = task(crypto.randomUUID(), "in_progress");
+    const overdue = task(crypto.randomUUID(), "in_progress");
+    const upcoming = task(crypto.randomUUID(), "in_progress");
+    const workItems = {
+      listMyWork: vi.fn(async () => ({
+        groups: [
+          { key: "needs_my_action", items: [needsAction], collapsedByDefault: false },
+          { key: "today", items: [today], collapsedByDefault: false },
+          { key: "overdue", items: [overdue], collapsedByDefault: false },
+          { key: "this_week", items: [upcoming], collapsedByDefault: true },
+        ],
+        nextCursor: null,
+      })),
+    };
+    const inbox = {
+      list: vi.fn(async () => ({
+        items: [],
+        nextCursor: null,
+      })),
+    };
+    const progress = {
+      listPortfolio: vi.fn(async () => []),
+    };
+    const query = new DailyWorkQueryService(
+      workItems as never,
+      progress as never,
+      undefined,
+      inbox as never,
+    );
+
+    await expect(query.dailyWorkspace({ userId: actorId, active: true })).resolves.toMatchObject({
+      needsMyAction: [{ id: needsAction.id }],
+      today: [{ id: today.id }],
+      overdue: [{ id: overdue.id }],
+      upcoming: [{ id: upcoming.id }],
+    });
+    expect(inbox.list).toHaveBeenCalledWith({
+      actor: { userId: actorId, active: true },
+      input: { status: "open", limit: 20, cursor: null },
+    });
   });
 
   it("composes the Update context through public Project and Work Item readers", async () => {

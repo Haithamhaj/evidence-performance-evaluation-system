@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CriteriaWorkspaceSchema,
+  DailyWorkspaceSnapshotSchema,
   ProjectWorkspaceSchema,
   WorkstreamWorkspaceSchema,
 } from "./workspace.js";
@@ -144,6 +145,32 @@ describe("workspace contracts", () => {
           ownerFeedback: "Request a corrected proposal.",
           readinessPercentage: 90,
         },
+      }),
+    ).toThrow();
+  });
+
+  it("keeps Project pulse operational and rejects employee scoring fields", () => {
+    const snapshot = {
+      needsMyAction: [],
+      today: [],
+      overdue: [],
+      reviewQueue: [],
+      inbox: [],
+      projectPulse: [
+        {
+          id: projectId,
+          name: "Project",
+          status: "active",
+          progress: { state: "accepted", percent: 42, updatedAt: "2026-07-20T08:00:00.000Z" },
+        },
+      ],
+      upcoming: [],
+    };
+    expect(DailyWorkspaceSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+    expect(() =>
+      DailyWorkspaceSnapshotSchema.parse({
+        ...snapshot,
+        productivityScore: 90,
       }),
     ).toThrow();
   });

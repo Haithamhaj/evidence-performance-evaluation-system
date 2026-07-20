@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { CriterionProposalItemSchema } from "./criteria.js";
 import { ProjectSchema, ResponsibilityTypeSchema, WorkstreamSchema } from "./projects.js";
+import { PrivateInboxItemSchema, WorkItemDetailSchema } from "./work-items.js";
 
 const UuidSchema = z.string().uuid();
 const UtcInstantSchema = z.iso.datetime({ offset: true });
@@ -132,9 +133,42 @@ export const CriteriaWorkspaceSchema = z
     }
   });
 
+export const ProjectPulseItemSchema = z
+  .object({
+    id: UuidSchema,
+    name: z.string().trim().min(1).max(200),
+    status: z.enum(["active", "paused"]),
+    progress: z.discriminatedUnion("state", [
+      z.object({ state: z.literal("awaiting_contract") }).strict(),
+      z.object({ state: z.literal("awaiting_information") }).strict(),
+      z
+        .object({
+          state: z.literal("accepted"),
+          percent: z.number().min(0).max(100),
+          updatedAt: UtcInstantSchema,
+        })
+        .strict(),
+    ]),
+  })
+  .strict();
+
+export const DailyWorkspaceSnapshotSchema = z
+  .object({
+    needsMyAction: z.array(WorkItemDetailSchema),
+    today: z.array(WorkItemDetailSchema),
+    overdue: z.array(WorkItemDetailSchema),
+    reviewQueue: z.array(WorkItemDetailSchema),
+    inbox: z.array(PrivateInboxItemSchema),
+    projectPulse: z.array(ProjectPulseItemSchema),
+    upcoming: z.array(WorkItemDetailSchema),
+  })
+  .strict();
+
 export type WorkspacePerson = z.infer<typeof WorkspacePersonSchema>;
 export type WorkspacePersonPeriod = z.infer<typeof WorkspacePersonPeriodSchema>;
 export type ProjectWorkspace = z.infer<typeof ProjectWorkspaceSchema>;
 export type WorkstreamWorkspace = z.infer<typeof WorkstreamWorkspaceSchema>;
 export type CriteriaWorkspaceAction = z.infer<typeof CriteriaWorkspaceActionSchema>;
 export type CriteriaWorkspace = z.infer<typeof CriteriaWorkspaceSchema>;
+export type ProjectPulseItem = z.infer<typeof ProjectPulseItemSchema>;
+export type DailyWorkspaceSnapshot = z.infer<typeof DailyWorkspaceSnapshotSchema>;

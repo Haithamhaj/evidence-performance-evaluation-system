@@ -16,7 +16,7 @@ vi.mock("../auth/oidc", () => ({
   sessionAccessToken: mocks.sessionAccessToken,
 }));
 
-import { fetchDailyWorkUpstream } from "./daily-work-api.js";
+import { fetchDailyWorkUpstream, WebDailyWorkspaceSnapshotSchema } from "./daily-work-api.js";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -46,6 +46,21 @@ describe("fetchDailyWorkUpstream", () => {
         headers: expect.objectContaining({ authorization: "Bearer access-token" }),
       }),
     );
+  });
+
+  it("rejects scoring fields in the daily workspace response", () => {
+    expect(() =>
+      WebDailyWorkspaceSnapshotSchema.parse({
+        needsMyAction: [],
+        today: [],
+        overdue: [],
+        reviewQueue: [],
+        inbox: [],
+        projectPulse: [],
+        upcoming: [],
+        readinessPercentage: 90,
+      }),
+    ).toThrow();
   });
 
   it("validates a Project identity before creating the URL", async () => {
