@@ -110,4 +110,26 @@ describe("WorkItemQueryService", () => {
       }),
     );
   });
+
+  it("keeps a newly created unassigned Task visible to its employee creator", async () => {
+    const findMany = vi.fn(async () => []);
+    const service = new WorkItemQueryService({ workItem: { findMany } } as never);
+    const actorId = crypto.randomUUID();
+
+    await service.listWorkspace({
+      actor: { userId: actorId, active: true },
+      view: "my",
+      layout: "list",
+      limit: 100,
+      cursor: null,
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([{ createdById: actorId }]),
+        }),
+      }),
+    );
+  });
 });

@@ -71,6 +71,11 @@ export function WorkItemDrawer({
           heading: catalog["myWork.acceptance"],
           values: item.acceptanceConditions,
         })}
+        {createElement(ListSection, {
+          empty: catalog["myWork.empty"],
+          heading: catalog["tasks.checklist"],
+          values: item.checklist.map((entry) => `${entry.completed ? "✓" : "○"} ${entry.text}`),
+        })}
       </aside>
     </div>
   );

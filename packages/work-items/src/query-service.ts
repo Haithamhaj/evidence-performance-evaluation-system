@@ -168,6 +168,7 @@ export class WorkItemQueryService {
           ? {
               OR: [
                 { assigneeId: input.actor.userId },
+                { createdById: input.actor.userId },
                 {
                   participants: {
                     some: {

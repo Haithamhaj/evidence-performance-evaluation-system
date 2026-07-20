@@ -14,94 +14,72 @@ const item = {
   status: "ready" as const,
   priority: "high" as const,
   assigneeId: crypto.randomUUID(),
-  dueAt: "2026-07-18T18:00:00.000Z",
-  requirements: ["Run the product flow"],
-  acceptanceConditions: ["Owner confirms the flow"],
+  dueAt: "2026-07-20T18:00:00.000Z",
+  requirements: [],
+  acceptanceConditions: [],
   blocker: null,
   nextAction: "Open the runnable preview",
   version: 1,
-  createdAt: "2026-07-18T08:00:00.000Z",
-  updatedAt: "2026-07-18T09:00:00.000Z",
+  createdAt: "2026-07-20T08:00:00.000Z",
+  updatedAt: "2026-07-20T09:00:00.000Z",
   checklist: [],
   collaboratorIds: [],
-  allowedActions: ["transition" as const, "add_update" as const],
+  allowedActions: ["edit" as const, "add_update" as const],
+};
+
+const snapshot: import("@evaluation/contracts").DailyWorkspaceSnapshot = {
+  needsMyAction: [item],
+  today: [],
+  overdue: [],
+  reviewQueue: [],
+  inbox: [],
+  projectPulse: [
+    {
+      id: item.projectId,
+      name: "Atlas Delivery",
+      status: "active",
+      progress: { state: "awaiting_contract" },
+    },
+  ],
+  upcoming: [],
 };
 
 describe("MyWorkClient", () => {
-  it("renders the three action groups first and progressively discloses the rest", async () => {
+  it("renders a calm daily home with quick capture before lower-priority context", async () => {
     const catalog = await getCatalog("en");
     const markup = renderToStaticMarkup(
       createElement(MyWorkClient, {
         catalog,
         initialSelectedId: null,
         locale: "en",
-        response: {
-          groups: [
-            { key: "needs_my_action", items: [item], collapsedByDefault: false },
-            { key: "today", items: [], collapsedByDefault: false },
-            { key: "overdue", items: [], collapsedByDefault: false },
-            { key: "this_week", items: [], collapsedByDefault: true },
+        response: snapshot,
+        updateContext: {
+          projects: [
+            { id: item.projectId, name: "Atlas Delivery", workstreams: [], workItems: [] },
           ],
-          nextCursor: null,
         },
       }),
     );
+
     expect(markup.indexOf("Needs my action")).toBeLessThan(markup.indexOf("Today"));
     expect(markup.indexOf("Today")).toBeLessThan(markup.indexOf("Overdue"));
-    expect(markup).toContain("<details");
+    expect(markup).toContain("Quick capture");
     expect(markup).toContain("Confirm pilot flow");
+    expect(markup).not.toContain("Share a progress update");
   });
 
-  it("opens a visible review drawer for the selected Work Item", async () => {
+  it("opens a focused Task review panel", async () => {
     const catalog = await getCatalog("en");
     const markup = renderToStaticMarkup(
       createElement(MyWorkClient, {
         catalog,
         initialSelectedId: item.id,
         locale: "en",
-        response: {
-          groups: [
-            { key: "needs_my_action", items: [item], collapsedByDefault: false },
-            { key: "today", items: [], collapsedByDefault: false },
-            { key: "overdue", items: [], collapsedByDefault: false },
-          ],
-          nextCursor: null,
-        },
+        response: snapshot,
       }),
     );
+
     expect(markup).toContain('role="dialog"');
-    expect(markup).toContain("Acceptance conditions");
-  });
-
-  it("keeps Add update available for an authorized Project even when no Work Item exists", async () => {
-    const catalog = await getCatalog("en");
-    const markup = renderToStaticMarkup(
-      createElement(MyWorkClient, {
-        catalog,
-        initialSelectedId: null,
-        locale: "en",
-        response: {
-          groups: [
-            { key: "needs_my_action", items: [], collapsedByDefault: false },
-            { key: "today", items: [], collapsedByDefault: false },
-            { key: "overdue", items: [], collapsedByDefault: false },
-          ],
-          nextCursor: null,
-        },
-        updateContext: {
-          projects: [
-            {
-              id: item.projectId,
-              name: "Atlas Delivery",
-              workstreams: [],
-              workItems: [],
-            },
-          ],
-        },
-      }),
-    );
-
-    expect(markup).toMatch(/<button[^>]*>Add update<\/button>/u);
-    expect(markup).not.toMatch(/<button[^>]*disabled[^>]*>Add update<\/button>/u);
+    expect(markup).toContain("Confirm pilot flow");
   });
 });

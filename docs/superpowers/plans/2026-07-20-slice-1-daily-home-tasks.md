@@ -173,16 +173,16 @@ type DailyWorkspaceSnapshot = {
 - Modify: `packages/localization/src/catalogs/en.json`
 - Modify: `packages/localization/src/catalog.test.ts`
 
-- [ ] Write component tests for List/Board/Calendar switching without changing stored task meaning.
-- [ ] Write tests proving quick capture needs only text, official creation requires Project, and promotion always shows a reviewable Task draft first.
-- [ ] Build compact rows, a side drawer on desktop, and bottom sheet on mobile.
-- [ ] Keep the current List/Board/Calendar position and keyboard focus when Task detail closes.
-- [ ] Remove the long clarification form from the default Today path; keep universal update capture for Slice 4.
-- [ ] Hide persona switching from production navigation; render by authorized role.
-- [ ] Verify mixed Arabic/English technical text and complete English catalog coverage.
-- [ ] Run `pnpm vitest run --project unit apps/web/src/app/[locale]/tasks packages/localization/src`.
-- [ ] Run `pnpm --filter @evaluation/web typecheck`.
-- [ ] Commit as `feat(web): replace my work with today and tasks`.
+- [x] Write component tests for List/Board/Calendar switching without changing stored task meaning.
+- [x] Write tests proving quick capture needs only text, official creation requires Project, and promotion always shows a reviewable Task draft first.
+- [x] Build compact rows, a side drawer on desktop, and bottom sheet on mobile.
+- [x] Keep the current List/Board/Calendar position and keyboard focus when Task detail closes.
+- [x] Remove the long clarification form from the default Today path; keep universal update capture for Slice 4.
+- [x] Hide persona switching from production navigation; render by authorized role.
+- [x] Verify mixed Arabic/English technical text and complete English catalog coverage.
+- [x] Run `pnpm vitest run --project unit apps/web/src/app/[locale]/tasks packages/localization/src`.
+- [x] Run `pnpm --filter @evaluation/web typecheck`.
+- [x] Commit as `feat(web): replace my work with today and tasks`.
 
 ### Task 6: Seed and acceptance journey
 

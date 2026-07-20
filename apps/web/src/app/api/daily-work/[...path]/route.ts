@@ -29,6 +29,14 @@ import {
   RejectProgressContractDraftInputSchema,
   ReviseProgressContractDraftInputSchema,
 } from "../../../../platform/progress-contract-drafts";
+import {
+  CapturePrivateInboxBodySchema,
+  CreateTaskBodySchema,
+  DismissPrivateInboxBodySchema,
+  PromotePrivateInboxBodySchema,
+  WebPrivateInboxItemSchema,
+  WebWorkItemSchema,
+} from "../../../../platform/task-workspace-contracts";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -138,6 +146,40 @@ export async function POST(request: Request, context: Context): Promise<NextResp
     return invalid();
   }
   try {
+    if (path.length === 1 && path[0] === "private-inbox") {
+      return await post(
+        "/api/v1/private-inbox",
+        CapturePrivateInboxBodySchema.parse(body),
+        WebPrivateInboxItemSchema,
+      );
+    }
+    if (path.length === 1 && path[0] === "work-items") {
+      return await post("/api/v1/work-items", CreateTaskBodySchema.parse(body), WebWorkItemSchema);
+    }
+    if (
+      path.length === 3 &&
+      path[0] === "private-inbox" &&
+      isUuid(path[1]) &&
+      path[2] === "promote"
+    ) {
+      return await post(
+        `/api/v1/private-inbox/${path[1]}/promote`,
+        PromotePrivateInboxBodySchema.parse(body),
+        WebWorkItemSchema,
+      );
+    }
+    if (
+      path.length === 3 &&
+      path[0] === "private-inbox" &&
+      isUuid(path[1]) &&
+      path[2] === "dismiss"
+    ) {
+      return await post(
+        `/api/v1/private-inbox/${path[1]}/dismiss`,
+        DismissPrivateInboxBodySchema.parse(body),
+        WebPrivateInboxItemSchema,
+      );
+    }
     if (
       path.length === 3 &&
       path[0] === "projects" &&

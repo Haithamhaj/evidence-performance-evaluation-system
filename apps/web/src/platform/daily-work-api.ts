@@ -8,56 +8,26 @@ import { z } from "zod";
 
 import { OIDC_SESSION_COOKIE, oidcSettings, sessionAccessToken } from "../auth/oidc";
 import { UpdateComposerContextSchema } from "./updates-evidence-contracts";
+import {
+  WebPrivateInboxItemSchema,
+  WebTaskWorkspaceResponseSchema,
+  WebUuidSchema,
+  WebWorkItemSchema,
+} from "./task-workspace-contracts";
 
 export type DailyWorkRoute =
   | { readonly kind: "my_work" }
+  | {
+      readonly kind: "tasks";
+      readonly layout: "list" | "board" | "calendar";
+      readonly view: "my" | "team";
+    }
   | { readonly kind: "projects" }
   | { readonly kind: "update_context" }
   | { readonly kind: "project"; readonly projectId: string };
 
-const UuidSchema = z.string().uuid();
-const WorkItemSchema = z
-  .object({
-    id: UuidSchema,
-    projectId: UuidSchema,
-    workstreamId: UuidSchema.nullable(),
-    title: z.string(),
-    description: z.string(),
-    status: z.enum([
-      "planned",
-      "ready",
-      "in_progress",
-      "blocked",
-      "in_review",
-      "done",
-      "cancelled",
-    ]),
-    priority: z.enum(["low", "normal", "high", "urgent"]),
-    assigneeId: UuidSchema.nullable(),
-    dueAt: z.iso.datetime({ offset: true }).nullable(),
-    requirements: z.array(z.string()),
-    acceptanceConditions: z.array(z.string()),
-    blocker: z.string().nullable(),
-    nextAction: z.string().nullable(),
-    version: z.number().int().positive(),
-    createdAt: z.iso.datetime({ offset: true }),
-    updatedAt: z.iso.datetime({ offset: true }),
-    checklist: z
-      .array(
-        z
-          .object({
-            id: UuidSchema,
-            text: z.string().trim().min(1).max(500),
-            completed: z.boolean(),
-            position: z.number().int().nonnegative(),
-          })
-          .strict(),
-      )
-      .default([]),
-    collaboratorIds: z.array(UuidSchema).default([]),
-    allowedActions: z.array(z.enum(["edit", "transition", "assign", "add_update"])),
-  })
-  .strict();
+const UuidSchema = WebUuidSchema;
+const WorkItemSchema = WebWorkItemSchema;
 
 export const WebMyWorkResponseSchema: z.ZodType<import("@evaluation/contracts").MyWorkResponse> = z
   .object({
@@ -105,6 +75,7 @@ export const WebProjectPortfolioSchema = z.array(
 );
 
 export const WebUpdateComposerContextSchema = UpdateComposerContextSchema;
+export { WebTaskWorkspaceResponseSchema };
 export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
   import("@evaluation/contracts").DailyWorkspaceSnapshot
 > = z
@@ -113,21 +84,7 @@ export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
     today: z.array(WorkItemSchema),
     overdue: z.array(WorkItemSchema),
     reviewQueue: z.array(WorkItemSchema),
-    inbox: z.array(
-      z
-        .object({
-          id: UuidSchema,
-          employeeId: UuidSchema,
-          text: z.string().trim().min(1).max(4_000),
-          projectId: UuidSchema.nullable(),
-          status: z.enum(["open", "promoted", "dismissed"]),
-          promotedWorkItemId: UuidSchema.nullable(),
-          version: z.number().int().positive(),
-          createdAt: z.iso.datetime({ offset: true }),
-          updatedAt: z.iso.datetime({ offset: true }),
-        })
-        .strict(),
-    ),
+    inbox: z.array(WebPrivateInboxItemSchema),
     projectPulse: z.array(
       z
         .object({
@@ -182,6 +139,10 @@ export async function fetchDailyWorkUpstream<T>(input: {
 
 function routePath(route: DailyWorkRoute): string {
   if (route.kind === "my_work") return "/api/v1/daily-work/my-work";
+  if (route.kind === "tasks") {
+    const query = new URLSearchParams({ view: route.view, layout: route.layout });
+    return `/api/v1/work-items?${query.toString()}`;
+  }
   if (route.kind === "projects") return "/api/v1/daily-work/projects";
   if (route.kind === "update_context") return "/api/v1/daily-work/update-context";
   return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}`;

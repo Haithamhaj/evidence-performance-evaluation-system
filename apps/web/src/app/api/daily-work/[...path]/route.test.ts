@@ -20,6 +20,51 @@ const draftRequestId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
+  it("forwards text-only private capture without caller-controlled ownership", async () => {
+    const inboxId = "77777777-7777-4777-8777-777777777777";
+    const employeeId = "88888888-8888-4888-8888-888888888888";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      id: inboxId,
+      employeeId,
+      text: "Follow up with the client",
+      projectId: null,
+      status: "open",
+      promotedWorkItemId: null,
+      version: 1,
+      createdAt: "2026-07-20T08:00:00.000Z",
+      updatedAt: "2026-07-20T08:00:00.000Z",
+    });
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/private-inbox", {
+        method: "POST",
+        body: JSON.stringify({ text: "Follow up with the client", projectId: null }),
+      }),
+      { params: Promise.resolve({ path: ["private-inbox"] }) },
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: "/api/v1/private-inbox",
+        method: "POST",
+        body: { text: "Follow up with the client", projectId: null },
+      }),
+    );
+
+    const rejected = await POST(
+      new Request("http://localhost:3000/api/daily-work/private-inbox", {
+        method: "POST",
+        body: JSON.stringify({
+          text: "Private capture",
+          projectId: null,
+          employeeId,
+        }),
+      }),
+      { params: Promise.resolve({ path: ["private-inbox"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
   it("forwards a validated text update without accepting caller-controlled identity or model", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue({
       state: "draft_with_question",
