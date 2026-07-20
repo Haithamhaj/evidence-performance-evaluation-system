@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Hold production implementation while the Product Owner reviews the approved AI-first Daily Workspace written specification; write a replacement implementation plan only after that review.
+Hold production implementation while the Product Owner reviews the AI-first Daily Workspace master execution map and six bounded slice plans; begin Slice 1 only after the planning gate.
 
 ## Current Reality
 
@@ -50,6 +50,8 @@ Hold production implementation while the Product Owner reviews the approved AI-f
 - Product-owner review on 2026-07-20 rejected the current employee interaction model as too complex and approved an employee-experience reset rather than a full-system rewrite.
 - The approved replacement is an AI-first Daily Workspace: smart Today brief, Project-required official Tasks, private Inbox capture, Gmail and Google Calendar work context, governed GitHub sources, universal manual capture, source-explained linking, and human-confirmed Task drafts.
 - `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md` governs the replacement employee experience after written-spec review. No production code changed during the design process.
+- The Product Owner approved the written specification on 2026-07-20. The replacement execution authority is now one master map plus six bounded plans covering Today/Tasks, Google Workspace, Context Intelligence, GitHub/Updates/Evidence, Project-owner progress/manager operations, and neutral Evaluation Fact View preparation.
+- The plans preserve the single database, existing authentication, AI Router, Work Items, Updates & Evidence, Projects/Progress Contract, and Daily Composition foundations. No production code changed during implementation planning.
 
 ## Active Decisions
 
@@ -89,7 +91,7 @@ Hold production implementation while the Product Owner reviews the approved AI-f
 
 ## Next Recommended Action
 
-Haitham reviews `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md`. After written approval, replace the superseded execution sequence with a bounded implementation plan; do not resume production work before that gate.
+Haitham reviews `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md` and the six linked slice plans. After approval, align the authoritative task graph as the documentation-only checkpoint, then execute Slice 1 using Fast Controlled Execution.
 
 ## Critical References
 
@@ -106,6 +108,13 @@ Haitham reviews `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-desi
 - `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`
 - `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`
 - `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md`
+- `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md`
+- `docs/superpowers/plans/2026-07-20-slice-1-daily-home-tasks.md`
+- `docs/superpowers/plans/2026-07-20-slice-2-google-workspace-context.md`
+- `docs/superpowers/plans/2026-07-20-slice-3-context-intelligence.md`
+- `docs/superpowers/plans/2026-07-20-slice-4-github-updates-evidence.md`
+- `docs/superpowers/plans/2026-07-20-slice-5-project-owner-progress.md`
+- `docs/superpowers/plans/2026-07-20-slice-6-evaluation-preparation.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`
