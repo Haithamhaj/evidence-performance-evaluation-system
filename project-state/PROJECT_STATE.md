@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Hold at the Product Owner gate for AI-first Daily Workspace Slice 1: Today, normal Tasks, and private Inbox.
+Execute AI-first Daily Workspace Slice 2: private Google Workspace context and reversible manual Project linking.
 
 ## Current Reality
 
@@ -57,6 +57,7 @@ Hold at the Product Owner gate for AI-first Daily Workspace Slice 1: Today, norm
 - Migration `0017_task_workspace` is applied locally. The real `Codex` dogfood fixture now contains six Project-linked Tasks and three private captures sourced from the current authoritative AI-first documents, with no employee score or activity-volume progress input.
 - Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_1.md`; three passing Playwright journeys and screenshots cover Arabic desktop, English draft recovery, and Arabic 390px.
 - The final bounded specification remediation is complete: My/Team Tasks are visible within authorized scope; every new official Task write requires one responsible assignee; OIDC returns only to a validated encrypted same-origin localized path; and Today follows the approved value-before-input order. Independent re-review has no remaining P0/P1 finding.
+- The Product Owner accepted Slice 1 and authorized continued execution. Slice 2 starts with deterministic synthetic Gmail/Calendar adapters; live Google OAuth remains behind the administrator, credential, scope, retention, deletion, and consent gate.
 
 ## Active Decisions
 
@@ -96,7 +97,7 @@ Hold at the Product Owner gate for AI-first Daily Workspace Slice 1: Today, norm
 
 ## Next Recommended Action
 
-Product Owner reviews the runnable Slice 1 journey and either accepts it or provides bounded corrections. Do not begin Slice 2 before that decision.
+Implement Slice 2 Task 1: private connected-context contracts, encrypted-at-rest schema, migration verification, and employee ownership boundaries.
 
 ## Critical References
 
