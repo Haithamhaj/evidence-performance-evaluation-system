@@ -219,7 +219,7 @@ export async function mutateCriteriaUpstream(input: {
 export async function fetchProtectedUpstream<T>(input: {
   readonly path: string;
   readonly schema: { parse(value: unknown): T };
-  readonly method?: "GET" | "POST" | "PATCH";
+  readonly method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   readonly body?: unknown;
 }): Promise<T> {
   const correlationId = randomUUID();
@@ -371,14 +371,14 @@ async function requestJson<T>(
   context: UpstreamContext,
   path: string,
   schema: { parse(value: unknown): T },
-  method: "GET" | "POST" | "PATCH" = "GET",
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE" = "GET",
   body?: unknown,
 ): Promise<T> {
   const headers: Record<string, string> = {
     authorization: `Bearer ${context.accessToken}`,
     "x-correlation-id": context.correlationId,
   };
-  if (method === "POST" || method === "PATCH") headers["content-type"] = "application/json";
+  if (method !== "GET" && body !== undefined) headers["content-type"] = "application/json";
 
   let response: Response;
   try {

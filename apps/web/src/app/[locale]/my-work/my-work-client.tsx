@@ -6,6 +6,7 @@ import { createElement, useState } from "react";
 
 import type { UpdateComposerContext } from "../../../platform/updates-evidence-contracts";
 import { DailyBrief } from "./daily-brief";
+import { ConnectedContext } from "./connected-context";
 import { PrivateInbox } from "./private-inbox";
 import { ProjectPulse } from "./project-pulse";
 import { ReviewQueue } from "./review-queue";
@@ -86,6 +87,8 @@ export function MyWorkClient({
         items: response.projectPulse,
         locale,
       })}
+
+      {createElement(ConnectedContext, { catalog, projects })}
 
       {createElement(PrivateInbox, {
         catalog,
