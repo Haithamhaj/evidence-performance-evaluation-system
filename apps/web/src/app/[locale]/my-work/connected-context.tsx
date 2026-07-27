@@ -119,9 +119,9 @@ export function ConnectedContextView({
           <li key={item.id}>
             <button className="connectedContextRow" onClick={() => onReview?.(item)} type="button">
               <span>
-                <strong>{item.title}</strong>
+                <strong dir="auto">{item.title}</strong>
                 <small>{catalog[`connectedContext.source.${item.provider}`]}</small>
-                {item.summary === null ? null : <small>{item.summary}</small>}
+                {item.summary === null ? null : <small dir="auto">{item.summary}</small>}
               </span>
               <span className="privateBadge">
                 {item.excluded

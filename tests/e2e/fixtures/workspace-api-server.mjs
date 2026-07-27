@@ -32,16 +32,53 @@ const evidenceRevisionId = "ea222222-2222-4222-8222-222222222222";
 const uploadedSourceId = "ea333333-3333-4333-8333-333333333333";
 const acceptedUpdateId = "ea444444-4444-4444-8444-444444444444";
 const acceptedEvidenceId = "ea555555-5555-4555-8555-555555555555";
+const connectedGmailItemId = "ca111111-1111-4111-8111-111111111111";
+const connectedCalendarItemId = "ca222222-2222-4222-8222-222222222222";
+const ownerAccessToken = "e2e-access-token";
+const managerAccessToken = "e2e-manager-access-token";
+const otherEmployeeAccessToken = "e2e-other-employee-access-token";
+const connectedWorkAccessTokens = new Set([
+  ownerAccessToken,
+  managerAccessToken,
+  otherEmployeeAccessToken,
+]);
+const connectedWorkState = "synthetic-connected-work-state";
+const connectedWorkNonce = "synthetic-connected-work-nonce";
 let clarificationTurn = 0;
 let updateDraftRevision = 1;
 let evidenceRevision = 1;
 let updateLocale = "ar";
+let connectedWorkConnected = true;
 let currentUpdateContext = {
   projectId,
   workstreamId: null,
   workItemId: null,
 };
 const timelineItems = [];
+const connectedWorkItems = [
+  {
+    id: connectedGmailItemId,
+    provider: "GOOGLE_GMAIL",
+    occurredAt: "2026-07-20T08:30:00.000Z",
+    title: "[Synthetic] Project decision",
+    summary: "A deterministic local summary for owner-only review.",
+    sourceUrl: "https://mail.google.com/mail/u/0/#inbox/synthetic-gmail-project-decision",
+    privacy: "PRIVATE",
+    excluded: false,
+    projectId: null,
+  },
+  {
+    id: connectedCalendarItemId,
+    provider: "GOOGLE_CALENDAR",
+    occurredAt: "2026-07-20T10:00:00.000Z",
+    title: "[Synthetic] Project review",
+    summary: "A deterministic local calendar summary for owner-only review.",
+    sourceUrl: "https://calendar.google.com/calendar/event?eid=synthetic-calendar-project-review",
+    privacy: "PRIVATE",
+    excluded: false,
+    projectId: null,
+  },
+];
 
 const project = {
   id: projectId,
@@ -387,8 +424,112 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/health") {
     return json(response, 200, { status: "ok" });
   }
-  if (request.headers.authorization !== "Bearer e2e-access-token") {
+  const accessToken = request.headers.authorization?.replace(/^Bearer /u, "") ?? "";
+  if (!connectedWorkAccessTokens.has(accessToken)) {
     return json(response, 401, { messageKey: "errors.unauthorized" });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/connected-work/items") {
+    if (accessToken !== ownerAccessToken || !connectedWorkConnected) {
+      return json(response, 200, {
+        mode: "synthetic",
+        synthetic: true,
+        connection: { status: "disconnected", lastSuccessfulSyncAt: null },
+        items: [],
+      });
+    }
+    return json(response, 200, {
+      mode: "synthetic",
+      synthetic: true,
+      connection: {
+        status: "connected",
+        lastSuccessfulSyncAt: "2026-07-20T10:00:00.000Z",
+      },
+      items: connectedWorkItems,
+    });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/connected-work/google/start" &&
+    accessToken === ownerAccessToken
+  ) {
+    const body = await readJson(request);
+    if (body === null || typeof body.redirectUri !== "string") {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    const authorizationUrl = new URL(body.redirectUri);
+    authorizationUrl.searchParams.set("state", connectedWorkState);
+    authorizationUrl.searchParams.set("nonce", connectedWorkNonce);
+    return json(response, 200, {
+      mode: "synthetic",
+      synthetic: true,
+      authorizationUrl: authorizationUrl.toString(),
+    });
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === "/api/v1/connected-work/google/callback" &&
+    accessToken === ownerAccessToken
+  ) {
+    if (
+      url.searchParams.get("state") !== connectedWorkState ||
+      url.searchParams.get("nonce") !== connectedWorkNonce
+    ) {
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    }
+    connectedWorkConnected = true;
+    return json(response, 200, {
+      mode: "synthetic",
+      synthetic: true,
+      connected: true,
+      synchronizedProviders: ["GOOGLE_GMAIL", "GOOGLE_CALENDAR"],
+    });
+  }
+  if (
+    request.method === "DELETE" &&
+    url.pathname === "/api/v1/connected-work/google" &&
+    accessToken === ownerAccessToken
+  ) {
+    connectedWorkConnected = false;
+    return json(response, 200, { mode: "synthetic", synthetic: true, connected: false });
+  }
+  if (
+    /^\/api\/v1\/connected-work\/items\/[0-9a-f-]+\/(?:exclusion|project-link)$/u.test(url.pathname)
+  ) {
+    if (accessToken !== ownerAccessToken || !connectedWorkConnected) {
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    }
+    const sourceItemId = url.pathname.split("/")[5];
+    const item = connectedWorkItems.find(({ id }) => id === sourceItemId);
+    if (item === undefined) return json(response, 404, { messageKey: "errors.notFound" });
+    if (request.method === "PATCH" && url.pathname.endsWith("/exclusion")) {
+      const body = await readJson(request);
+      if (body === null || typeof body.excluded !== "boolean") {
+        return json(response, 400, { messageKey: "errors.validation" });
+      }
+      item.excluded = body.excluded;
+      return json(response, 200, { id: item.id, excluded: item.excluded });
+    }
+    if (request.method === "PUT" && url.pathname.endsWith("/project-link")) {
+      const body = await readJson(request);
+      if (body === null || body.projectId !== projectId || typeof body.reason !== "string") {
+        return json(response, 400, { messageKey: "errors.validation" });
+      }
+      item.projectId = projectId;
+      return json(response, 200, { id: item.id, projectId, linked: true });
+    }
+    if (request.method === "DELETE" && url.pathname.endsWith("/project-link")) {
+      const body = await readJson(request);
+      if (body === null || typeof body.reason !== "string") {
+        return json(response, 400, { messageKey: "errors.validation" });
+      }
+      item.projectId = null;
+      return json(response, 200, { id: item.id, linked: false });
+    }
+  }
+
+  if (accessToken !== ownerAccessToken) {
+    return json(response, 403, { messageKey: "errors.forbidden" });
   }
 
   if (request.method === "GET" && url.pathname === "/api/v1/projects") {

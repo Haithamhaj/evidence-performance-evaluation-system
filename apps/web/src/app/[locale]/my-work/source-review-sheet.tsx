@@ -47,13 +47,15 @@ export function SourceReviewSheetView({
         <header className="drawerHeader">
           <div>
             <p className="eyebrow">{catalog["connectedContext.privateLabel"]}</p>
-            <h2 id="connected-source-title">{item.title}</h2>
+            <h2 dir="auto" id="connected-source-title">
+              {item.title}
+            </h2>
           </div>
           <button autoFocus className="quietButton" onClick={onClose} type="button">
             {catalog["actions.close"]}
           </button>
         </header>
-        {item.summary === null ? null : <p>{item.summary}</p>}
+        {item.summary === null ? null : <p dir="auto">{item.summary}</p>}
         <p className="boundaryNote">{catalog["connectedContext.ownerOnly"]}</p>
         {error ? (
           <p className="formError" role="alert">
