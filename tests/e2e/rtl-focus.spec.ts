@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => installWorkspaceSession(context));
 test("RTL keyboard focus follows logical DOM order", async ({ page }) => {
   await page.goto("/ar/my-work");
 
-  const expectedFocusOrder = ["brand", "home", "my-work", "projects", "locale", "logout"];
+  const expectedFocusOrder = ["brand", "home", "my-work", "tasks", "projects", "locale", "logout"];
   for (const focusId of expectedFocusOrder) {
     await page.keyboard.press("Tab");
     await expect(page.locator(`[data-focus-id="${focusId}"]`)).toBeFocused();
