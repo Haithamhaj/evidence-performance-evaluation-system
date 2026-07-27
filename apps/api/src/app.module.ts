@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { AuditModule } from "./audit/audit.module.js";
 import { AnalysisCriteriaModule } from "./analysis-criteria/analysis-criteria.module.js";
 import { AiRoutingModule } from "./ai-routing/ai-routing.module.js";
+import { ConnectedWorkContextModule } from "./connected-work-context/connected-work-context.module.js";
 import { PermissionsModule } from "./permissions/permissions.module.js";
 import { ProjectsModule } from "./projects/projects.module.js";
 import { EvaluationEligibilityModule } from "./evaluation-eligibility/evaluation-eligibility.module.js";
@@ -28,6 +29,7 @@ Module({
     AnalysisCriteriaModule,
     AiRoutingModule,
     AuditModule,
+    ConnectedWorkContextModule,
     DocumentsModule,
     DailyWorkModule,
     EvaluationEligibilityModule,

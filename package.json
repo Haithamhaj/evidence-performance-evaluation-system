@@ -11,6 +11,7 @@
     "@evaluation/ai-routing": "workspace:*",
     "@evaluation/audit": "workspace:*",
     "@evaluation/contracts": "workspace:*",
+    "@evaluation/connected-work-context": "workspace:*",
     "@evaluation/database": "workspace:*",
     "@evaluation/documents": "workspace:*",
     "@evaluation/localization": "workspace:*",
