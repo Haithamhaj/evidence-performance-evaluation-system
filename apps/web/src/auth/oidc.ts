@@ -17,6 +17,13 @@ import {
 export const OIDC_TRANSACTION_COOKIE = "evaluation_oidc_transaction";
 export const OIDC_SESSION_COOKIE = "evaluation_session";
 
+const OIDC_STATE_PATTERN = /^[A-Za-z0-9_-]{1,256}$/u;
+
+export function oidcTransactionCookieName(state: string | null): string | undefined {
+  if (state === null || !OIDC_STATE_PATTERN.test(state)) return undefined;
+  return `${OIDC_TRANSACTION_COOKIE}_${state}`;
+}
+
 export interface OidcSettings {
   readonly issuer: string;
   readonly clientId: string;
@@ -205,6 +212,7 @@ export async function startOidcLogin(
   returnTo?: string,
 ): Promise<{
   readonly authorizationUrl: URL;
+  readonly state: string;
   readonly transactionCookie: string;
 }> {
   const configuration = await oidcConfiguration(settings);
@@ -230,6 +238,7 @@ export async function startOidcLogin(
   };
   return {
     authorizationUrl,
+    state,
     transactionCookie: sealAuthCookie(transaction, settings.sessionSecret),
   };
 }

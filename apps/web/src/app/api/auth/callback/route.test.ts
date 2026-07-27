@@ -9,7 +9,7 @@ const auth = vi.hoisted(() => ({
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: (name: string) =>
-      name === "evaluation_oidc_transaction" ? { value: "encrypted-transaction" } : undefined,
+      name === "evaluation_oidc_transaction_state" ? { value: "encrypted-transaction" } : undefined,
   })),
 }));
 
@@ -24,6 +24,8 @@ vi.mock("../../../../auth/oidc.js", () => ({
   finishOidcLogin: auth.finishOidcLogin,
   OIDC_SESSION_COOKIE: "evaluation_session",
   OIDC_TRANSACTION_COOKIE: "evaluation_oidc_transaction",
+  oidcTransactionCookieName: (state: string | null) =>
+    state === null ? undefined : `evaluation_oidc_transaction_${state}`,
   oidcSettings: () => {
     if (auth.failConfiguration) throw new Error("configuration failed");
     return {
@@ -55,13 +57,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("OIDC callback cookie finalization", () => {
-  it("clears only the transaction cookie when configuration fails", async () => {
+  it("clears the state-specific transaction cookie when configuration fails", async () => {
     auth.failConfiguration = true;
 
-    const response = await GET(new Request("http://localhost:3000/api/auth/callback"));
+    const response = await GET(new Request("http://localhost:3000/api/auth/callback?state=state"));
 
     expect(response.status).toBe(500);
-    expect(response.cookies.get(OIDC_TRANSACTION_COOKIE)).toMatchObject({ value: "" });
+    expect(response.cookies.get(`${OIDC_TRANSACTION_COOKIE}_state`)).toMatchObject({ value: "" });
     expect(response.cookies.get(OIDC_SESSION_COOKIE)).toBeUndefined();
   });
 

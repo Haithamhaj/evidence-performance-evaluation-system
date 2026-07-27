@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   authCookieOptions,
   canonicalOidcCallbackUrl,
+  oidcTransactionCookieName,
   oidcTransactionReturnTo,
   openAuthCookie,
   safeOidcReturnPath,
@@ -22,6 +23,15 @@ const settings = {
 };
 
 describe("encrypted OIDC browser cookies", () => {
+  it("maps only bounded base64url OIDC state values to transaction cookie names", () => {
+    expect(oidcTransactionCookieName("state_ABC-123")).toBe(
+      "evaluation_oidc_transaction_state_ABC-123",
+    );
+    expect(oidcTransactionCookieName(null)).toBeUndefined();
+    expect(oidcTransactionCookieName("state/with/separators")).toBeUndefined();
+    expect(oidcTransactionCookieName("a".repeat(257))).toBeUndefined();
+  });
+
   it("uses the configured external redirect URI when the server normalizes the request host", () => {
     const configured = {
       ...settings,

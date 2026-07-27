@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   authCookieOptions,
-  OIDC_TRANSACTION_COOKIE,
+  oidcTransactionCookieName,
   oidcSettings,
   safeAuthError,
   safeOidcReturnPath,
@@ -35,9 +35,11 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.redirect(canonicalLoginUrl);
     }
     const login = await startOidcLogin(settings, returnTo);
+    const transactionCookieName = oidcTransactionCookieName(login.state);
+    if (transactionCookieName === undefined) throw new Error("generated OIDC state is invalid");
     const response = NextResponse.redirect(login.authorizationUrl);
     response.cookies.set(
-      OIDC_TRANSACTION_COOKIE,
+      transactionCookieName,
       login.transactionCookie,
       authCookieOptions(settings.environment, 300),
     );
