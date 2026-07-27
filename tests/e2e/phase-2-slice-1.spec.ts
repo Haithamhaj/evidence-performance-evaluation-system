@@ -12,7 +12,7 @@ test("Arabic My Work prioritizes action and opens a visible detail sheet", async
   await expect(page.getByRole("heading", { level: 2, name: /يحتاج تدخلي/u })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /اليوم/u })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /متأخر/u })).toBeVisible();
-  await page.getByRole("button").filter({ hasText: "عنصر العمل 1" }).first().click();
+  await page.getByRole("button").filter({ hasText: "Delivery task 1" }).first().click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("heading", { name: "شروط القبول" })).toBeVisible();
   await page.screenshot({
