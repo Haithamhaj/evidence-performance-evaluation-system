@@ -351,6 +351,13 @@ importers:
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+    devDependencies:
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
 
   packages/contracts:
     dependencies:
