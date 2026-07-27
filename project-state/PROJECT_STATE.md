@@ -2,7 +2,8 @@
 
 ## Current Goal
 
-Execute AI-first Daily Workspace Slice 2: private Google Workspace context and reversible manual Project linking.
+Hold AI-first Daily Workspace Slice 2 at the Product Owner acceptance gate after completing the
+deterministic private Google Workspace context journey.
 
 ## Current Reality
 
@@ -58,6 +59,20 @@ Execute AI-first Daily Workspace Slice 2: private Google Workspace context and r
 - Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_1.md`; three passing Playwright journeys and screenshots cover Arabic desktop, English draft recovery, and Arabic 390px.
 - The final bounded specification remediation is complete: My/Team Tasks are visible within authorized scope; every new official Task write requires one responsible assignee; OIDC returns only to a validated encrypted same-origin localized path; and Today follows the approved value-before-input order. Independent re-review has no remaining P0/P1 finding.
 - The Product Owner accepted Slice 1 and authorized continued execution. Slice 2 starts with deterministic synthetic Gmail/Calendar adapters; live Google OAuth remains behind the administrator, credential, scope, retention, deletion, and consent gate.
+- Slice 2 deterministic implementation is complete on Pull Request #5: migration
+  `0018_connected_work_context`, owner-only Gmail/Calendar context, governed connection and sync
+  services, protected APIs, reversible source-scope exclusions, private manual Project links,
+  truthful disconnect behavior, bilingual review UI, and four passing Playwright journeys.
+- An active connection-generation lock prevents an in-flight old sync from committing an item or
+  cursor after disconnect, including after reconnect. Disconnect stops sync and makes derived
+  context inaccessible; it does not claim policy-dependent deletion.
+- Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_2.md`; screenshots are
+  under `docs/product/screenshots/ai-first-daily-workspace/slice-2/`. Deferred P2 improvements are
+  recorded in GitHub issue #7.
+- The bounded specification/privacy and security/code-quality re-reviews passed with no remaining
+  P0/P1 finding. Final verification passed 843 unit/coverage tests, 468 integration tests, 150 AI
+  checks (one intentional skip), 49 migration checks, and 28 browser journeys (four intentional
+  skips for superseded Update flows).
 
 ## Active Decisions
 
@@ -88,6 +103,9 @@ Execute AI-first Daily Workspace Slice 2: private Google Workspace context and r
 - CI remains the hosted confirmation after this checkpoint is pushed; local verification used the exact repository-pinned Node.js 24.18.0 and pnpm 11.13.0.
 - Production Google Workspace integration requires organization-approved OAuth configuration, minimum scopes, retention/deletion policy, and administrator consent.
 - Connected-source summaries create a new privacy boundary: manager access remains prohibited until the employee confirms a shared Project object.
+- Live Google remains blocked on the approved OAuth client, exact redirect URIs, minimum scopes,
+  administrator consent, retention/deletion policy, production credential vault, and production
+  cryptographic key provider.
 
 ## Protected Areas
 
@@ -97,7 +115,9 @@ Execute AI-first Daily Workspace Slice 2: private Google Workspace context and r
 
 ## Next Recommended Action
 
-Implement Slice 2 Task 1: private connected-context contracts, encrypted-at-rest schema, migration verification, and employee ownership boundaries.
+Product Owner reviews the deterministic Slice 2 journey and screenshots. Do not start Slice 3 or
+enable live Google until that review and the external administrator/retention/vault gates are
+resolved.
 
 ## Critical References
 

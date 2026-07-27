@@ -294,21 +294,23 @@ Execution status:
 
 - The bounded Work Items, Updates & Evidence, Progress Contract, daily composition, bilingual routing, and real Codex dogfood foundations already implemented remain reusable.
 - The previous employee My Work and long Update interaction were rejected and are not accepted as the new Slice 1 experience.
-- **New Slice 1 is implemented and awaiting Product Owner acceptance.**
-- Slices 2–6 have not started under the new plan.
+- **New Slice 1 is implemented and accepted by the Product Owner.**
+- **Slice 2 deterministic implementation and privacy acceptance are complete at the Product Owner
+  gate. Live Google remains blocked by the approved external-configuration gate.**
+- Slices 3–6 have not started under the new plan.
 
 ## AI-first reset task trace
 
 These IDs are execution checkpoints inside the approved plans; they are not new dependency-graph task headings.
 
-| Slice  | Plan tasks                                                                                                                                          | Status                                |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| P2R-S1 | S1-T1 persistence; S1-T2 services; S1-T3 APIs; S1-T4 Today composition; S1-T5 Task UI; S1-T6 acceptance                                             | Implemented; Product Owner gate       |
-| P2R-S2 | S2-T1 schema; S2-T2 connection/sync; S2-T3 APIs; S2-T4 UI; S2-T5 gated live adapters; S2-T6 privacy acceptance                                      | Planned; external Google gate applies |
-| P2R-S3 | S3-T1 governed AI schema; S3-T2 deterministic matching; S3-T3 routed AI; S3-T4 APIs; S3-T5 review queue; S3-T6 acceptance                           | Planned                               |
-| P2R-S4 | S4-T1 GitHub schema; S4-T2 webhook/reconciliation; S4-T3 source suggestions; S4-T4 universal capture; S4-T5 voice; S4-T6 Timeline; S4-T7 acceptance | Planned; external GitHub gate applies |
-| P2R-S5 | S5-T1 owner authorization; S5-T2 setup UI; S5-T3 Project pulse; S5-T4 check-ins/readiness; S5-T5 manager queues; S5-T6 acceptance                   | Planned                               |
-| P2R-S6 | S6-T1 Fact contract; S6-T2 source composition; S6-T3 API; S6-T4 UI; S6-T5 acceptance                                                                | Planned                               |
+| Slice  | Plan tasks                                                                                                                                          | Status                                                                   |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| P2R-S1 | S1-T1 persistence; S1-T2 services; S1-T3 APIs; S1-T4 Today composition; S1-T5 Task UI; S1-T6 acceptance                                             | Accepted by Product Owner                                                |
+| P2R-S2 | S2-T1 schema; S2-T2 connection/sync; S2-T3 APIs; S2-T4 UI; S2-T5 gated live adapters; S2-T6 privacy acceptance                                      | Deterministic complete; Product Owner gate; live Google externally gated |
+| P2R-S3 | S3-T1 governed AI schema; S3-T2 deterministic matching; S3-T3 routed AI; S3-T4 APIs; S3-T5 review queue; S3-T6 acceptance                           | Planned                                                                  |
+| P2R-S4 | S4-T1 GitHub schema; S4-T2 webhook/reconciliation; S4-T3 source suggestions; S4-T4 universal capture; S4-T5 voice; S4-T6 Timeline; S4-T7 acceptance | Planned; external GitHub gate applies                                    |
+| P2R-S5 | S5-T1 owner authorization; S5-T2 setup UI; S5-T3 Project pulse; S5-T4 check-ins/readiness; S5-T5 manager queues; S5-T6 acceptance                   | Planned                                                                  |
+| P2R-S6 | S6-T1 Fact contract; S6-T2 source composition; S6-T3 API; S6-T4 UI; S6-T5 acceptance                                                                | Planned                                                                  |
 
 Original-task mapping:
 
