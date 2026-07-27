@@ -1,6 +1,8 @@
+import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
 import { afterAll, describe, expect, it } from "vitest";
 
+import { ConnectedWorkConnectionService } from "./connection-service.js";
 import {
   createPrivateContextProtector,
   DevelopmentOnlyMemoryCredentialVault,
@@ -47,6 +49,152 @@ function gmailItem(providerSourceId: string, title: string, minute: number) {
 afterAll(async () => client.$disconnect());
 
 describe("connected work synchronization", () => {
+  it("does not commit an item or cursor after disconnect succeeds during a blocked provider pull", async () => {
+    const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    const graph = await seedSyncAccount(vault);
+    const protector = createPrivateContextProtector({ mode: "development" });
+    let signalPullStarted!: () => void;
+    let releasePull!: () => void;
+    const pullStarted = new Promise<void>((resolve) => {
+      signalPullStarted = resolve;
+    });
+    const pullReleased = new Promise<void>((resolve) => {
+      releasePull = resolve;
+    });
+    const syncService = new ConnectedWorkSyncService({
+      database: client,
+      credentialVault: vault,
+      protector,
+      adapter: {
+        pull: async () => {
+          signalPullStarted();
+          await pullReleased;
+          return {
+            kind: "page",
+            items: [gmailItem("late-thread", "Must not persist", 4)],
+            nextPageCursor: null,
+            checkpointCursor: "late-checkpoint",
+            cursorExpiresAt: null,
+          };
+        },
+      },
+      clock: () => now,
+    });
+    const disconnectService = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: databaseAuditWriter,
+      projectAuthorization: { canLink: async () => false },
+      clock: () => now,
+    });
+    const syncResult = syncService.sync({
+      actor: { userId: graph.employeeId, active: true },
+      provider: "GOOGLE_GMAIL",
+    });
+
+    await pullStarted;
+    await disconnectService.disconnect({
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+    });
+    await disconnectService.connect({
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+      credential: {
+        accessToken: "replacement-credential",
+        refreshToken: null,
+        expiresAt: null,
+      },
+    });
+    releasePull();
+
+    await expect(syncResult).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_FORBIDDEN" });
+    await expect(
+      client.connectedSourceItem.count({
+        where: { connectedWorkAccountId: graph.account.id },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      client.connectorSyncCursor.count({
+        where: { connectedWorkAccountId: graph.account.id },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("honors reversible Gmail-label and Calendar exclusions during synchronization", async () => {
+    const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    const graph = await seedSyncAccount(vault);
+    const connection = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: databaseAuditWriter,
+      projectAuthorization: { canLink: async () => false },
+      clock: () => new Date("2026-07-28T09:00:00.000Z"),
+    });
+    const actor = { userId: graph.employeeId, active: true };
+    await connection.setSourceExclusion({
+      actor,
+      correlationId: crypto.randomUUID(),
+      provider: "GOOGLE_GMAIL",
+      kind: "GMAIL_LABEL",
+      providerExclusionId: "private-project-label",
+      excluded: true,
+    });
+    await connection.setSourceExclusion({
+      actor,
+      correlationId: crypto.randomUUID(),
+      provider: "GOOGLE_CALENDAR",
+      kind: "CALENDAR",
+      providerExclusionId: "private-work-calendar",
+      excluded: true,
+    });
+    const adapter = new FakeGoogleWorkspaceAdapter({
+      pageSize: 2,
+      fixtures: {
+        GOOGLE_GMAIL: [
+          {
+            ...gmailItem("excluded-thread", "Excluded Gmail", 5),
+            exclusionKeys: [{ kind: "GMAIL_LABEL", providerExclusionId: "private-project-label" }],
+          },
+        ],
+        GOOGLE_CALENDAR: [
+          {
+            ...gmailItem("excluded-event", "Excluded Calendar", 6),
+            exclusionKeys: [{ kind: "CALENDAR", providerExclusionId: "private-work-calendar" }],
+          },
+        ],
+      },
+    });
+    const sync = new ConnectedWorkSyncService({
+      database: client,
+      credentialVault: vault,
+      protector: createPrivateContextProtector({ mode: "development" }),
+      adapter,
+      clock: () => now,
+    });
+
+    await sync.sync({ actor, provider: "GOOGLE_GMAIL" });
+    await sync.sync({ actor, provider: "GOOGLE_CALENDAR" });
+    await expect(
+      client.connectedSourceItem.count({ where: { connectedWorkAccountId: graph.account.id } }),
+    ).resolves.toBe(0);
+
+    await connection.setSourceExclusion({
+      actor,
+      correlationId: crypto.randomUUID(),
+      provider: "GOOGLE_GMAIL",
+      kind: "GMAIL_LABEL",
+      providerExclusionId: "private-project-label",
+      excluded: false,
+    });
+    await sync.sync({ actor, provider: "GOOGLE_GMAIL" });
+    await expect(
+      client.connectedSourceItem.count({
+        where: { connectedWorkAccountId: graph.account.id, provider: "GOOGLE_GMAIL" },
+      }),
+    ).resolves.toBe(1);
+  });
+
   it("ingests repeated provider events across repeated pages idempotently", async () => {
     const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
     const graph = await seedSyncAccount(vault);

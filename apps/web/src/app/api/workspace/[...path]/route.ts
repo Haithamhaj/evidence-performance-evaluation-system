@@ -330,6 +330,15 @@ const ConnectedWorkContextSchema = z
           privacy: z.literal("PRIVATE"),
           excluded: z.boolean(),
           projectId: UuidSchema.nullable(),
+          sourceExclusion: z
+            .object({
+              provider: z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"]),
+              kind: z.enum(["GMAIL_LABEL", "GMAIL_THREAD", "CALENDAR", "CALENDAR_EVENT_CATEGORY"]),
+              providerExclusionId: z.string().min(1).max(1_000),
+              excluded: z.boolean(),
+            })
+            .strict()
+            .nullable(),
         })
         .strict(),
     ),
@@ -346,6 +355,9 @@ const ConnectionResultSchema = z
   .object({ mode: z.enum(["synthetic", "live"]), synthetic: z.boolean(), connected: z.boolean() })
   .strict();
 const ItemExclusionResultSchema = z.object({ id: UuidSchema, excluded: z.boolean() }).strict();
+const SourceExclusionResultSchema = z
+  .object({ id: UuidSchema, sourceExcluded: z.boolean() })
+  .strict();
 const ProjectLinkResultSchema = z
   .object({ id: UuidSchema, projectId: UuidSchema.optional(), linked: z.boolean() })
   .strict();
@@ -483,6 +495,13 @@ function approvedConnectedMutationRoute(
       path: `/api/v1/connected-work/items/${id}/exclusion`,
       body: ExclusionBodySchema,
       schema: ItemExclusionResultSchema,
+    };
+  }
+  if (method === "PATCH" && path[3] === "source-exclusion") {
+    return {
+      path: `/api/v1/connected-work/items/${id}/source-exclusion`,
+      body: ExclusionBodySchema,
+      schema: SourceExclusionResultSchema,
     };
   }
   if (method === "PUT" && path[3] === "project-link") {

@@ -149,3 +149,33 @@ describe("same-origin workspace GET allowlist", () => {
     expect(mocks.fetchWorkspaceUpstream).not.toHaveBeenCalled();
   });
 });
+
+describe("same-origin connected-work mutation allowlist", () => {
+  it("forwards only the bounded source-exclusion mutation", async () => {
+    const sourceItemId = "33333333-3333-4333-8333-333333333333";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      id: sourceItemId,
+      sourceExcluded: true,
+    });
+
+    const response = await PATCH(
+      new Request(
+        `http://localhost:3000/api/workspace/connected-work/items/${sourceItemId}/source-exclusion`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ excluded: true }),
+        },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "PATCH",
+        path: `/api/v1/connected-work/items/${sourceItemId}/source-exclusion`,
+        body: { excluded: true },
+      }),
+    );
+  });
+});

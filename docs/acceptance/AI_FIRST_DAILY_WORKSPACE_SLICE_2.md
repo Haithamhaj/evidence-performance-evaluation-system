@@ -12,7 +12,8 @@
 
 The deterministic Slice 2 journey is ready for Product Owner review. An employee can privately
 review compact Gmail and Calendar context, exclude and restore an item, manually link and unlink a
-Project, reload without losing either decision, and disconnect the account. The employee-facing
+Project, exclude and restore the synthetic Gmail label and Calendar source scopes, reload without
+losing those decisions, and disconnect the account. The employee-facing
 experience presents connected context as a quiet section of `My Work`, not as another inbox,
 completed work, a Task, an activity count, or a performance signal.
 
@@ -54,8 +55,9 @@ The Playwright journey verifies:
 1. English renders left-to-right on desktop.
 2. Gmail and Calendar appear as compact, visibly synthetic, private context.
 3. Opening an item presents the title, short summary, owner-only boundary, approved source link,
-   reversible exclusion, and manual Project controls.
-4. Exclusion survives reload; restore reverses it.
+   separately labelled item-review and future-sync exclusion controls, and manual Project controls.
+4. Gmail-label and Calendar source-scope exclusions survive reload; restore reverses them and the
+   deterministic adapter honors active exclusions during later synchronization.
 5. A manual Project link survives reload; unlink removes it and remains removed after reload.
 6. No Task write occurs during review, exclusion, restore, Project link, or unlink.
 7. The rendered Task identity set remains unchanged and contains none of the private source titles,
@@ -67,8 +69,10 @@ The Playwright journey verifies:
    sheet.
 10. English source title and summary use automatic direction inside the Arabic shell, preserving
     readable mixed Arabic/English content.
-11. Disconnect immediately returns a disconnected, empty projection and removes both synthetic
-    items from `My Work`.
+11. Disconnect immediately stops future writes, revokes local credential use, returns a
+    disconnected empty projection, and makes both synthetic items inaccessible in `My Work`.
+    Retained derived content is not represented as deleted while the retention/deletion policy
+    remains externally gated.
 
 ## Shared-Task boundary
 
@@ -90,9 +94,12 @@ Facts established by automated acceptance:
 - Manager and other-employee sessions receive `items: []`, disconnected status, and no link state.
 - Caller-supplied employee identity is not part of the browser contract.
 - Manual linking does not share source content and does not create a Task.
-- Exclusion, restoration, linking, unlinking, and disconnect are owner-controlled and reversible as
-  defined.
-- Disconnect removes the owner-visible private projection immediately.
+- Item-review exclusion, source-scope exclusion/restoration, linking, unlinking, and disconnect are
+  owner-controlled and reversible as defined.
+- A database-backed account lock prevents an already-started sync from committing an item or cursor
+  after disconnect succeeds.
+- Disconnect removes the owner-visible private projection immediately and the UI truthfully states
+  that deletion follows the approved retention/deletion policy.
 - No rating, rating recommendation, ranking, productivity score, readiness percentage, or
   activity-volume performance input is created.
 
@@ -103,8 +110,8 @@ credential-vault boundaries, auditing, owner-derived authorization, and cross-us
 ## Verification evidence
 
 - Connected-context component suite: **5 passed**.
-- Connected-work protected API suite: **16 passed**.
-- Connected-work service suites: **7 passed**.
+- Connected-work protected API suite: **17 passed**.
+- Connected-work service suites: **9 passed**.
 - Localization suites: **24 passed**.
 - Slice 2 browser journeys: **4 passed**.
 - Affected web lint and typecheck: passed.
@@ -152,7 +159,7 @@ Do not begin Slice 3 until the Product Owner confirms:
 
 - Connected context feels like a quiet assistant rather than another inbox.
 - The private-by-default boundary is obvious.
-- Exclude/restore is understandable and reversible.
+- Item-review hiding and source-scope exclude/restore are distinct, understandable, and reversible.
 - Manual Project linking is fast, useful, persistent, and easy to undo.
-- Disconnect clearly removes private context.
+- Disconnect clearly makes private context inaccessible and does not falsely promise deletion.
 - The English desktop and Arabic 390px experiences are acceptable.

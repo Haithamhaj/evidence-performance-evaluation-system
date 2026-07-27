@@ -2,6 +2,16 @@ import { AppError, ConnectedSourceItemSchema } from "@evaluation/contracts";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Actor = Readonly<{ userId: string; active: boolean }>;
+type ContextReview = Readonly<{
+  connection: Readonly<{
+    status: "connected" | "disconnected";
+    lastSuccessfulSyncAt: string | null;
+  }>;
+  items: readonly (import("@evaluation/contracts").ConnectedSourceItem &
+    Readonly<{ projectId: string | null }>)[];
+  sourceExclusions: readonly (import("./source-adapter.js").SourceExclusion &
+    Readonly<{ provider: import("@evaluation/contracts").ConnectedSourceProvider }>)[];
+}>;
 
 export class ConnectedWorkContextQueryService {
   private readonly database: DatabaseClient;
@@ -38,7 +48,7 @@ export class ConnectedWorkContextQueryService {
     return Promise.all(rows.map((row) => this.serialize(row)));
   }
 
-  async review(command: Readonly<{ actor: Actor }>) {
+  async review(command: Readonly<{ actor: Actor }>): Promise<ContextReview> {
     assertActive(command.actor);
     const account = await this.database.connectedWorkAccount.findUnique({
       where: { employeeId: command.actor.userId },
@@ -51,9 +61,10 @@ export class ConnectedWorkContextQueryService {
       return {
         connection: { status: "disconnected" as const, lastSuccessfulSyncAt: null },
         items: [],
+        sourceExclusions: [],
       };
     }
-    const [cursor, rows] = await Promise.all([
+    const [cursor, rows, sourceExclusions] = await Promise.all([
       this.database.connectorSyncCursor.findFirst({
         where: { connectedWorkAccountId: account.id, employeeId: command.actor.userId },
         orderBy: { lastSuccessfulSyncAt: "desc" },
@@ -74,6 +85,18 @@ export class ConnectedWorkContextQueryService {
         },
         orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       }),
+      this.database.connectedSourceExclusion.findMany({
+        where: {
+          connectedWorkAccountId: account.id,
+          employeeId: command.actor.userId,
+          revokedAt: null,
+        },
+        select: {
+          provider: true,
+          kind: true,
+          providerExclusionId: true,
+        },
+      }),
     ]);
     return {
       connection: {
@@ -86,6 +109,7 @@ export class ConnectedWorkContextQueryService {
           projectId: row.projectLinks[0]?.projectId ?? null,
         })),
       ),
+      sourceExclusions,
     };
   }
 

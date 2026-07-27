@@ -12,6 +12,15 @@ const ContextItemSchema = z
     privacy: z.literal("PRIVATE"),
     excluded: z.boolean(),
     projectId: UuidSchema.nullable(),
+    sourceExclusion: z
+      .object({
+        provider: z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"]),
+        kind: z.enum(["GMAIL_LABEL", "GMAIL_THREAD", "CALENDAR", "CALENDAR_EVENT_CATEGORY"]),
+        providerExclusionId: z.string().min(1).max(1_000),
+        excluded: z.boolean(),
+      })
+      .strict()
+      .nullable(),
   })
   .strict();
 
@@ -93,6 +102,15 @@ export async function setContextExclusion(id: string, excluded: boolean) {
     "PATCH",
     { excluded },
     z.object({ id: UuidSchema, excluded: z.boolean() }).strict(),
+  );
+}
+
+export async function setContextSourceExclusion(id: string, excluded: boolean) {
+  return request(
+    `/api/workspace/connected-work/items/${UuidSchema.parse(id)}/source-exclusion`,
+    "PATCH",
+    { excluded },
+    z.object({ id: UuidSchema, sourceExcluded: z.boolean() }).strict(),
   );
 }
 

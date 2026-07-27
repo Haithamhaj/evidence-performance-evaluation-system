@@ -313,6 +313,7 @@ describe("connected work protected API", () => {
 });
 
 let activeProjectId: string | null = projectId;
+const activeSourceExclusions = new Set<string>();
 
 const connectionService = {
   connect: vi.fn(async () => ({ connected: true })),
@@ -331,6 +332,27 @@ const connectionService = {
       excluded: boolean;
     }) => {
       enforceOwnedItem(actor.userId, requestedId);
+      return { excluded };
+    },
+  ),
+  setSourceExclusion: vi.fn(
+    async ({
+      actor,
+      provider,
+      kind,
+      providerExclusionId,
+      excluded,
+    }: {
+      actor: { userId: string };
+      provider: string;
+      kind: string;
+      providerExclusionId: string;
+      excluded: boolean;
+    }) => {
+      enforceOwner(actor.userId);
+      const key = `${provider}:${kind}:${providerExclusionId}`;
+      if (excluded) activeSourceExclusions.add(key);
+      else activeSourceExclusions.delete(key);
       return { excluded };
     },
   ),
@@ -365,6 +387,29 @@ const connectionService = {
 };
 
 const queryService = {
+  get: vi.fn(
+    async ({
+      actor,
+      sourceItemId: requestedId,
+    }: {
+      actor: { userId: string };
+      sourceItemId: string;
+    }) => {
+      enforceOwnedItem(actor.userId, requestedId);
+      return {
+        id: sourceItemId,
+        employeeId: ownerId,
+        provider: "GOOGLE_GMAIL" as const,
+        providerSourceId: "synthetic-owner-thread",
+        occurredAt: "2026-07-20T09:00:00.000Z",
+        title: privateTitle,
+        summary: privateSummary,
+        sourceUrl: privateSourceUrl,
+        privacy: "PRIVATE" as const,
+        excluded: false,
+      };
+    },
+  ),
   review: vi.fn(async ({ actor }: { actor: { userId: string } }) =>
     actor.userId === ownerId
       ? {
@@ -387,8 +432,16 @@ const queryService = {
               projectId: activeProjectId,
             },
           ],
+          sourceExclusions: Array.from(activeSourceExclusions, (key) => {
+            const [provider, kind, providerExclusionId] = key.split(":");
+            return { provider, kind, providerExclusionId };
+          }),
         }
-      : { connection: { status: "disconnected" as const, lastSuccessfulSyncAt: null }, items: [] },
+      : {
+          connection: { status: "disconnected" as const, lastSuccessfulSyncAt: null },
+          items: [],
+          sourceExclusions: [],
+        },
   ),
 };
 
@@ -531,6 +584,12 @@ describe("connected work composed HTTP API", () => {
           privacy: "PRIVATE",
           excluded: false,
           projectId,
+          sourceExclusion: {
+            provider: "GOOGLE_GMAIL",
+            kind: "GMAIL_LABEL",
+            providerExclusionId: "synthetic-project-context",
+            excluded: false,
+          },
         },
       ],
     });
@@ -582,6 +641,39 @@ describe("connected work composed HTTP API", () => {
     );
     expect(owner.response.status).toBe(200);
     expect(owner.body).toEqual({ id: sourceItemId, excluded: true });
+  });
+
+  it("binds reversible source-scope exclusion to the authenticated owner", async () => {
+    const denied = await apiRequest(
+      "PATCH",
+      `/api/v1/connected-work/items/${sourceItemId}/source-exclusion`,
+      otherEmployeeId,
+      { excluded: true },
+    );
+    expect(denied.response.status).toBe(403);
+
+    const excluded = await apiRequest(
+      "PATCH",
+      `/api/v1/connected-work/items/${sourceItemId}/source-exclusion`,
+      ownerId,
+      { excluded: true },
+    );
+    expect(excluded.response.status).toBe(200);
+    expect(excluded.body).toEqual({ id: sourceItemId, sourceExcluded: true });
+
+    const reloaded = await apiRequest("GET", "/api/v1/connected-work/items", ownerId);
+    expect(reloaded.body).toMatchObject({
+      items: [{ id: sourceItemId, sourceExclusion: { excluded: true } }],
+    });
+
+    const restored = await apiRequest(
+      "PATCH",
+      `/api/v1/connected-work/items/${sourceItemId}/source-exclusion`,
+      ownerId,
+      { excluded: false },
+    );
+    expect(restored.response.status).toBe(200);
+    expect(restored.body).toEqual({ id: sourceItemId, sourceExcluded: false });
   });
 
   it("binds reversible Project links to the authenticated owner and URL item", async () => {

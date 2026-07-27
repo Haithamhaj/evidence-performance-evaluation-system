@@ -26,11 +26,11 @@ type Request = Readonly<{
 
 type ContextQuery = Pick<
   import("@evaluation/connected-work-context").ConnectedWorkContextQueryService,
-  "review"
+  "get" | "review"
 >;
 type ContextConnection = Pick<
   import("@evaluation/connected-work-context").ConnectedWorkConnectionService,
-  "linkProject" | "setItemExclusion" | "unlinkProject"
+  "linkProject" | "setItemExclusion" | "setSourceExclusion" | "unlinkProject"
 >;
 const ProjectLinkInputSchema = z
   .object({
@@ -65,17 +65,33 @@ export class ContextItemsController {
       mode: this.configuration.mode,
       synthetic: this.configuration.mode === "synthetic",
       connection: review.connection,
-      items: review.items.map((item) => ({
-        id: item.id,
-        provider: item.provider,
-        occurredAt: item.occurredAt,
-        title: item.title,
-        summary: item.summary,
-        sourceUrl: item.sourceUrl,
-        privacy: item.privacy,
-        excluded: item.excluded,
-        projectId: item.projectId,
-      })),
+      items: review.items.map((item) => {
+        const sourceExclusion =
+          this.configuration.mode === "synthetic" ? syntheticSourceScope(item.provider) : null;
+        return {
+          id: item.id,
+          provider: item.provider,
+          occurredAt: item.occurredAt,
+          title: item.title,
+          summary: item.summary,
+          sourceUrl: item.sourceUrl,
+          privacy: item.privacy,
+          excluded: item.excluded,
+          projectId: item.projectId,
+          sourceExclusion:
+            sourceExclusion === null
+              ? null
+              : {
+                  ...sourceExclusion,
+                  excluded: review.sourceExclusions.some(
+                    (entry) =>
+                      entry.provider === sourceExclusion.provider &&
+                      entry.kind === sourceExclusion.kind &&
+                      entry.providerExclusionId === sourceExclusion.providerExclusionId,
+                  ),
+                },
+        };
+      }),
     };
   }
 
@@ -89,6 +105,27 @@ export class ContextItemsController {
       excluded: input.excluded,
     });
     return { id, excluded: result.excluded };
+  }
+
+  async setSourceExclusion(request: Request, sourceItemId: string, body: unknown) {
+    const id = parseUuid(sourceItemId);
+    const input = parseInput(z.object({ excluded: z.boolean() }).strict(), body);
+    const item = await this.query.get({ actor: actor(request), sourceItemId: id });
+    if (this.configuration.mode !== "synthetic") {
+      throw new AppError(
+        "EXTERNAL_CONFIGURATION_REQUIRED",
+        "errors.connectedContext.externalConfigurationRequired",
+        503,
+      );
+    }
+    const scope = syntheticSourceScope(item.provider);
+    const result = await this.connection.setSourceExclusion({
+      actor: actor(request),
+      correlationId: request.correlationId,
+      ...scope,
+      excluded: input.excluded,
+    });
+    return { id, sourceExcluded: result.excluded };
   }
 
   async linkProject(request: Request, sourceItemId: string, body: unknown) {
@@ -140,6 +177,19 @@ Param("id")(ContextItemsController.prototype, "setExclusion", 1);
 Body()(ContextItemsController.prototype, "setExclusion", 2);
 Patch(":id/exclusion")(ContextItemsController.prototype, "setExclusion", setExclusion);
 
+const setSourceExclusion = Object.getOwnPropertyDescriptor(
+  ContextItemsController.prototype,
+  "setSourceExclusion",
+)!;
+Req()(ContextItemsController.prototype, "setSourceExclusion", 0);
+Param("id")(ContextItemsController.prototype, "setSourceExclusion", 1);
+Body()(ContextItemsController.prototype, "setSourceExclusion", 2);
+Patch(":id/source-exclusion")(
+  ContextItemsController.prototype,
+  "setSourceExclusion",
+  setSourceExclusion,
+);
+
 const linkProject = Object.getOwnPropertyDescriptor(
   ContextItemsController.prototype,
   "linkProject",
@@ -172,4 +222,24 @@ function parseInput<T>(schema: z.ZodType<T>, value: unknown): T {
     );
   }
   return result.data;
+}
+
+function syntheticSourceScope(
+  provider: import("@evaluation/contracts").ConnectedSourceProvider,
+): Readonly<{
+  provider: import("@evaluation/contracts").ConnectedSourceProvider;
+  kind: import("@evaluation/connected-work-context").ConnectedSourceExclusionKind;
+  providerExclusionId: string;
+}> {
+  return provider === "GOOGLE_GMAIL"
+    ? {
+        provider,
+        kind: "GMAIL_LABEL",
+        providerExclusionId: "synthetic-project-context",
+      }
+    : {
+        provider,
+        kind: "CALENDAR",
+        providerExclusionId: "synthetic-work-calendar",
+      };
 }

@@ -98,11 +98,14 @@ export class ConnectedWorkSyncService {
               502,
             );
           }
-          await this.database.connectorSyncCursor.deleteMany({
-            where: {
-              connectedWorkAccountId: account.id,
-              provider: command.provider,
-            },
+          await this.database.$transaction(async (transaction) => {
+            await lockActiveAccount(transaction, account.id, account.credentialRef);
+            await transaction.connectorSyncCursor.deleteMany({
+              where: {
+                connectedWorkAccountId: account.id,
+                provider: command.provider,
+              },
+            });
           });
           recoveredFromExpiredCursor = true;
           syncCursor = null;
@@ -128,6 +131,7 @@ export class ConnectedWorkSyncService {
               }
             : null;
         await this.database.$transaction(async (transaction) => {
+          await lockActiveAccount(transaction, account.id, account.credentialRef);
           for (const item of protectedItems) {
             await upsertSourceItem(transaction, {
               accountId: account.id,
@@ -186,6 +190,23 @@ export class ConnectedWorkSyncService {
       select: { kind: true, providerExclusionId: true },
     });
   }
+}
+
+async function lockActiveAccount(
+  transaction: Transaction,
+  accountId: string,
+  credentialRef: string,
+): Promise<void> {
+  const active = await transaction.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM "ConnectedWorkAccount"
+    WHERE id = ${accountId}::uuid
+      AND "disconnectedAt" IS NULL
+      AND "contentInaccessibleAt" IS NULL
+      AND "credentialRef" = ${credentialRef}
+    FOR UPDATE
+  `;
+  if (active.length === 0) throw forbiddenError();
 }
 
 async function upsertSourceItem(

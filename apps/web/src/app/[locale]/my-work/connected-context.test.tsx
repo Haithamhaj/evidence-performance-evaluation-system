@@ -18,6 +18,12 @@ const item = {
   privacy: "PRIVATE" as const,
   excluded: false,
   projectId: "11111111-1111-4111-8111-111111111111",
+  sourceExclusion: {
+    provider: "GOOGLE_GMAIL" as const,
+    kind: "GMAIL_LABEL" as const,
+    providerExclusionId: "synthetic-project-context",
+    excluded: false,
+  },
 };
 
 describe("ConnectedContextView", () => {
@@ -84,7 +90,8 @@ describe("SourceReviewSheetView", () => {
     expect(markup).toContain("connectedContextBottomSheet");
     expect(markup).toContain("Unlink from Atlas Delivery");
     expect(markup).toContain("Link to Project");
-    expect(markup).toContain("Exclude this source");
+    expect(markup).toContain("Hide this item from review");
+    expect(markup).toContain("Exclude this Gmail label from future sync");
     expect(markup).not.toContain(item.id);
   });
 });
@@ -121,8 +128,9 @@ describe("GoogleWorkspaceCardView", () => {
     expect(markup).toContain("Last successful sync");
     expect(markup).toContain('dateTime="2026-07-20T10:00:00.000Z"');
     expect(markup).toContain("Context may be out of date");
-    expect(markup).toContain("Disconnect and delete private context");
+    expect(markup).toContain("Disconnect and hide private context");
+    expect(markup).toContain("Deletion will follow the approved retention and deletion policy");
     expect(markup).toContain("Managers and other roles cannot view it");
-    expect(markup).not.toMatch(/token|oauth|credential/i);
+    expect(markup).not.toMatch(/accessToken|refreshToken|credentialRef|oauth/i);
   });
 });

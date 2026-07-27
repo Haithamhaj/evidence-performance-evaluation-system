@@ -135,9 +135,12 @@ export function GoogleWorkspaceCardView({
       ) : null}
       <div className="formActions">
         {connected ? (
-          <button className="secondaryAction" onClick={onDisconnect} type="button">
-            {catalog["connections.google.disconnect"]}
-          </button>
+          <>
+            <button className="secondaryAction" onClick={onDisconnect} type="button">
+              {catalog["connections.google.disconnect"]}
+            </button>
+            <p className="formHint">{catalog["connections.google.disconnectNote"]}</p>
+          </>
         ) : (
           <button
             className="primaryAction"

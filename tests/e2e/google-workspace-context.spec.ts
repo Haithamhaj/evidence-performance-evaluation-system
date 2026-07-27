@@ -49,8 +49,10 @@ test("employee privately reviews, excludes, restores, links, and unlinks synthet
     path: `${screenshotDirectory}/01-en-context-review-desktop.png`,
   });
 
-  await review.getByRole("button", { name: "Exclude this source" }).click();
-  await expect(review.getByRole("button", { name: "Restore this source" })).toBeVisible();
+  await review.getByRole("button", { name: "Exclude this Gmail label from future sync" }).click();
+  await expect(
+    review.getByRole("button", { name: "Restore this Gmail label to future sync" }),
+  ).toBeVisible();
   await page.screenshot({
     path: `${screenshotDirectory}/02-en-context-excluded-desktop.png`,
   });
@@ -58,11 +60,23 @@ test("employee privately reviews, excludes, restores, links, and unlinks synthet
   await page.reload();
   await openSourceReview(page, gmailTitle);
   await expect(
-    page.getByRole("dialog").getByRole("button", { name: "Restore this source" }),
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Restore this Gmail label to future sync" }),
   ).toBeVisible();
-  await page.getByRole("dialog").getByRole("button", { name: "Restore this source" }).click();
   await expect(
-    page.getByRole("dialog").getByRole("button", { name: "Exclude this source" }),
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Restore this Gmail label to future sync" }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Restore this Gmail label to future sync" })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Exclude this Gmail label from future sync" }),
   ).toBeVisible();
 
   await page.getByRole("dialog").getByLabel("Link to Project").selectOption(projectId);
@@ -182,6 +196,22 @@ test("Arabic private review is RTL and behaves as a 390px bottom sheet", async (
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+  await review.getByRole("button", { name: "استبعاد هذا التقويم من المزامنة القادمة" }).click();
+  await expect(
+    review.getByRole("button", { name: "إعادة هذا التقويم إلى المزامنة القادمة" }),
+  ).toBeVisible();
+  await closeReview(page);
+  await page.reload();
+  await openSourceReview(page, calendarTitle);
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "إعادة هذا التقويم إلى المزامنة القادمة" }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "إعادة هذا التقويم إلى المزامنة القادمة" })
+    .click();
   await page.screenshot({
     path: `${screenshotDirectory}/05-ar-context-review-mobile.png`,
   });
@@ -190,7 +220,10 @@ test("Arabic private review is RTL and behaves as a 390px bottom sheet", async (
 test("disconnect immediately removes the employee private review projection", async ({ page }) => {
   await ensureOwnerConnected(page);
   await page.goto("/en/settings/connections");
-  await page.getByRole("button", { name: "Disconnect and delete private context" }).click();
+  await expect(
+    page.getByText("Deletion will follow the approved retention and deletion policy"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Disconnect and hide private context" }).click();
   await expect(page.getByText("Not connected", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Google Workspace" })).toBeVisible();
   await page.screenshot({
@@ -220,7 +253,7 @@ async function ensureOwnerConnected(page: import("@playwright/test").Page): Prom
     await page.getByRole("button", { name: "Connect Google Workspace" }).click();
   }
   await expect(
-    page.getByRole("button", { name: "Disconnect and delete private context" }),
+    page.getByRole("button", { name: "Disconnect and hide private context" }),
   ).toBeVisible();
 }
 

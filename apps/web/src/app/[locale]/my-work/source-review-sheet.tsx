@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   linkContextProject,
   setContextExclusion,
+  setContextSourceExclusion,
   unlinkContextProject,
   type ConnectedWorkContextItem,
 } from "../../../platform/connected-work-context-api";
@@ -21,6 +22,7 @@ type ViewProperties = Readonly<{
   onClose?: () => void;
   onExclude?: () => void;
   onLink?: (projectId: string) => void;
+  onSourceExclude?: () => void;
   onUnlink?: () => void;
 }>;
 
@@ -33,6 +35,7 @@ export function SourceReviewSheetView({
   onClose,
   onExclude,
   onLink,
+  onSourceExclude,
   onUnlink,
   projects,
 }: ViewProperties) {
@@ -82,12 +85,19 @@ export function SourceReviewSheetView({
             </select>
           </label>
         </section>
-        <section className="drawerSection">
+        <section className="drawerSection connectedContextPrivacyActions">
           <button className="quietButton" disabled={busy} onClick={onExclude} type="button">
             {item.excluded
-              ? catalog["connectedContext.restore"]
-              : catalog["connectedContext.exclude"]}
+              ? catalog["connectedContext.restoreItem"]
+              : catalog["connectedContext.excludeItem"]}
           </button>
+          {item.sourceExclusion === null ? null : (
+            <button className="quietButton" disabled={busy} onClick={onSourceExclude} type="button">
+              {item.sourceExclusion.excluded
+                ? catalog[`connectedContext.restoreSource.${item.sourceExclusion.kind}`]
+                : catalog[`connectedContext.excludeSource.${item.sourceExclusion.kind}`]}
+            </button>
+          )}
           {item.sourceUrl === null ? null : (
             <a className="quietLink" href={item.sourceUrl} rel="noreferrer" target="_blank">
               {catalog["connectedContext.openSource"]}
@@ -115,6 +125,7 @@ export function SourceReviewSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [excluded, setExcluded] = useState(item.excluded);
+  const [sourceExcluded, setSourceExcluded] = useState(item.sourceExclusion?.excluded ?? false);
   const [linkedProject, setLinkedProject] = useState<ProjectOption | undefined>(() =>
     item.projectId === null ? undefined : projects.find((project) => project.id === item.projectId),
   );
@@ -143,7 +154,14 @@ export function SourceReviewSheet({
   return (
     <SourceReviewSheetView
       catalog={catalog}
-      item={{ ...item, excluded }}
+      item={{
+        ...item,
+        excluded,
+        sourceExclusion:
+          item.sourceExclusion === null
+            ? null
+            : { ...item.sourceExclusion, excluded: sourceExcluded },
+      }}
       {...(linkedProject === undefined ? {} : { linkedProject })}
       projects={projects}
       busy={busy}
@@ -165,6 +183,15 @@ export function SourceReviewSheet({
           setLinkedProject(projects.find((project) => project.id === projectId));
         })
       }
+      {...(item.sourceExclusion === null
+        ? {}
+        : {
+            onSourceExclude: () =>
+              void change(async () => {
+                await setContextSourceExclusion(item.id, !sourceExcluded);
+                setSourceExcluded(!sourceExcluded);
+              }),
+          })}
       onUnlink={() =>
         void change(async () => {
           await unlinkContextProject({ id: item.id, reason: "Employee unlinked private context" });

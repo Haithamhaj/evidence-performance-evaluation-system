@@ -66,6 +66,12 @@ const connectedWorkItems = [
     privacy: "PRIVATE",
     excluded: false,
     projectId: null,
+    sourceExclusion: {
+      provider: "GOOGLE_GMAIL",
+      kind: "GMAIL_LABEL",
+      providerExclusionId: "synthetic-project-context",
+      excluded: false,
+    },
   },
   {
     id: connectedCalendarItemId,
@@ -77,6 +83,12 @@ const connectedWorkItems = [
     privacy: "PRIVATE",
     excluded: false,
     projectId: null,
+    sourceExclusion: {
+      provider: "GOOGLE_CALENDAR",
+      kind: "CALENDAR",
+      providerExclusionId: "synthetic-work-calendar",
+      excluded: false,
+    },
   },
 ];
 
@@ -494,7 +506,9 @@ const server = createServer(async (request, response) => {
     return json(response, 200, { mode: "synthetic", synthetic: true, connected: false });
   }
   if (
-    /^\/api\/v1\/connected-work\/items\/[0-9a-f-]+\/(?:exclusion|project-link)$/u.test(url.pathname)
+    /^\/api\/v1\/connected-work\/items\/[0-9a-f-]+\/(?:exclusion|source-exclusion|project-link)$/u.test(
+      url.pathname,
+    )
   ) {
     if (accessToken !== ownerAccessToken || !connectedWorkConnected) {
       return json(response, 403, { messageKey: "errors.forbidden" });
@@ -509,6 +523,17 @@ const server = createServer(async (request, response) => {
       }
       item.excluded = body.excluded;
       return json(response, 200, { id: item.id, excluded: item.excluded });
+    }
+    if (request.method === "PATCH" && url.pathname.endsWith("/source-exclusion")) {
+      const body = await readJson(request);
+      if (body === null || typeof body.excluded !== "boolean") {
+        return json(response, 400, { messageKey: "errors.validation" });
+      }
+      item.sourceExclusion.excluded = body.excluded;
+      return json(response, 200, {
+        id: item.id,
+        sourceExcluded: item.sourceExclusion.excluded,
+      });
     }
     if (request.method === "PUT" && url.pathname.endsWith("/project-link")) {
       const body = await readJson(request);
