@@ -346,6 +346,12 @@ importers:
 
   packages/config: {}
 
+  packages/connected-work-context:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/contracts:
     dependencies:
       zod:

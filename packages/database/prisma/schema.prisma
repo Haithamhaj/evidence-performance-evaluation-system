@@ -67,6 +67,13 @@ model User {
   workItemAssignmentsFrom   WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentFrom")
   workItemAssignmentsTo     WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentTo")
   privateInboxItems         PrivateInboxItem[]                     @relation("PrivateInboxEmployee")
+  connectedWorkAccount      ConnectedWorkAccount?                  @relation("ConnectedWorkAccountEmployee")
+  connectedSourceItems      ConnectedSourceItem[]                  @relation("ConnectedSourceItemEmployee")
+  connectedSourceExclusions ConnectedSourceExclusion[]             @relation("ConnectedSourceExclusionEmployee")
+  connectorSyncCursors      ConnectorSyncCursor[]                  @relation("ConnectorSyncCursorEmployee")
+  sourceProjectLinks        SourceProjectLink[]                    @relation("SourceProjectLinkEmployee")
+  sourceProjectLinksCreated SourceProjectLink[]                    @relation("SourceProjectLinkLinkedBy")
+  sourceProjectLinksRemoved SourceProjectLink[]                    @relation("SourceProjectLinkUnlinkedBy")
   ownedProgressContracts    ProgressContract[]                     @relation("ProgressContractOwner")
   approvedProgressContracts ProgressContract[]                     @relation("ProgressContractApprover")
   createdProgressContracts  ProgressContract[]                     @relation("ProgressContractCreatedBy")
@@ -349,6 +356,7 @@ model Project {
   criteriaSets           DynamicCriteriaSet[]
   workItems              WorkItem[]
   privateInboxItems      PrivateInboxItem[]
+  sourceProjectLinks     SourceProjectLink[]
   progressContracts      ProgressContract[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
   updateSources          UpdateSource[]
@@ -496,6 +504,28 @@ enum PrivateInboxStatus {
   dismissed
 }
 
+enum ConnectedSourceProvider {
+  GOOGLE_GMAIL
+  GOOGLE_CALENDAR
+}
+
+enum ConnectedSourcePrivacy {
+  PRIVATE
+}
+
+enum ConnectedSourceReviewState {
+  pending
+  reviewed
+  dismissed
+}
+
+enum ConnectedSourceExclusionKind {
+  GMAIL_LABEL
+  GMAIL_THREAD
+  CALENDAR
+  CALENDAR_EVENT_CATEGORY
+}
+
 model WorkItem {
   id                   String                      @id @default(uuid()) @db.Uuid
   projectId            String                      @db.Uuid
@@ -567,6 +597,112 @@ model PrivateInboxItem {
 
   @@index([employeeId, status, createdAt(sort: Desc), id])
   @@index([projectId, status, createdAt(sort: Desc)])
+}
+
+model ConnectedWorkAccount {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  employeeId            String                     @unique @db.Uuid
+  employee              User                       @relation("ConnectedWorkAccountEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  credentialRef         String                     @unique
+  connectedAt           DateTime                   @db.Timestamptz(6)
+  disconnectedAt        DateTime?                  @db.Timestamptz(6)
+  contentInaccessibleAt DateTime?                  @db.Timestamptz(6)
+  deletionDueAt         DateTime?                  @db.Timestamptz(6)
+  sourceItems           ConnectedSourceItem[]
+  exclusions            ConnectedSourceExclusion[]
+  syncCursors           ConnectorSyncCursor[]
+  createdAt             DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                   @updatedAt @db.Timestamptz(6)
+
+  @@unique([id, employeeId])
+  @@index([employeeId, disconnectedAt])
+  @@index([deletionDueAt, contentInaccessibleAt])
+}
+
+model ConnectedSourceItem {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  connectedWorkAccountId String                     @db.Uuid
+  employeeId             String                     @db.Uuid
+  connectedWorkAccount   ConnectedWorkAccount       @relation(fields: [connectedWorkAccountId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee               User                       @relation("ConnectedSourceItemEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  provider               ConnectedSourceProvider
+  providerSourceId       String
+  occurredAt             DateTime                   @db.Timestamptz(6)
+  titleCiphertext        String
+  titleKeyVersion        String
+  summaryCiphertext      String?
+  summaryKeyVersion      String?
+  sourceUrl              String?
+  privacy                ConnectedSourcePrivacy     @default(PRIVATE)
+  reviewState            ConnectedSourceReviewState @default(pending)
+  excluded               Boolean                    @default(false)
+  retentionExpiresAt     DateTime?                  @db.Timestamptz(6)
+  deletedAt              DateTime?                  @db.Timestamptz(6)
+  projectLinks           SourceProjectLink[]
+  createdAt              DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                   @updatedAt @db.Timestamptz(6)
+
+  @@unique([id, employeeId])
+  @@unique([employeeId, provider, providerSourceId])
+  @@index([employeeId, excluded, reviewState, occurredAt(sort: Desc), id], map: "ConnectedSourceItem_owner_review_time_idx")
+  @@index([connectedWorkAccountId, provider, occurredAt(sort: Desc)], map: "ConnectedSourceItem_account_provider_time_idx")
+  @@index([retentionExpiresAt, deletedAt])
+}
+
+model ConnectedSourceExclusion {
+  id                     String                       @id @default(uuid()) @db.Uuid
+  connectedWorkAccountId String                       @db.Uuid
+  employeeId             String                       @db.Uuid
+  connectedWorkAccount   ConnectedWorkAccount         @relation(fields: [connectedWorkAccountId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee               User                         @relation("ConnectedSourceExclusionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  provider               ConnectedSourceProvider
+  kind                   ConnectedSourceExclusionKind
+  providerExclusionId    String
+  revokedAt              DateTime?                    @db.Timestamptz(6)
+  createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
+
+  @@index([employeeId, provider, revokedAt, createdAt(sort: Desc)], map: "ConnectedSourceExclusion_owner_active_time_idx")
+  @@index([connectedWorkAccountId, provider, kind, providerExclusionId], map: "ConnectedSourceExclusion_account_scope_idx")
+}
+
+model SourceProjectLink {
+  id           String              @id @default(uuid()) @db.Uuid
+  sourceItemId String              @db.Uuid
+  employeeId   String              @db.Uuid
+  sourceItem   ConnectedSourceItem @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee     User                @relation("SourceProjectLinkEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  projectId    String              @db.Uuid
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  linkedById   String              @db.Uuid
+  linkedBy     User                @relation("SourceProjectLinkLinkedBy", fields: [linkedById], references: [id], onDelete: Restrict)
+  linkedAt     DateTime            @db.Timestamptz(6)
+  unlinkedAt   DateTime?           @db.Timestamptz(6)
+  unlinkedById String?             @db.Uuid
+  unlinkedBy   User?               @relation("SourceProjectLinkUnlinkedBy", fields: [unlinkedById], references: [id], onDelete: Restrict)
+  unlinkReason String?
+
+  @@index([employeeId, unlinkedAt, linkedAt(sort: Desc)])
+  @@index([projectId, unlinkedAt, linkedAt(sort: Desc)])
+  @@index([sourceItemId, linkedAt, id])
+}
+
+model ConnectorSyncCursor {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  connectedWorkAccountId String                  @db.Uuid
+  employeeId             String                  @db.Uuid
+  connectedWorkAccount   ConnectedWorkAccount    @relation(fields: [connectedWorkAccountId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee               User                    @relation("ConnectorSyncCursorEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  provider               ConnectedSourceProvider
+  cursorCiphertext       String
+  cursorKeyVersion       String
+  lastSuccessfulSyncAt   DateTime                @db.Timestamptz(6)
+  cursorExpiresAt        DateTime?               @db.Timestamptz(6)
+  createdAt              DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @db.Timestamptz(6)
+
+  @@unique([connectedWorkAccountId, provider])
+  @@index([employeeId, provider, lastSuccessfulSyncAt(sort: Desc)], map: "ConnectorSyncCursor_owner_provider_sync_idx")
+  @@index([cursorExpiresAt])
 }
 
 model WorkItemParticipant {
