@@ -38,6 +38,57 @@ export class ConnectedWorkContextQueryService {
     return Promise.all(rows.map((row) => this.serialize(row)));
   }
 
+  async review(command: Readonly<{ actor: Actor }>) {
+    assertActive(command.actor);
+    const account = await this.database.connectedWorkAccount.findUnique({
+      where: { employeeId: command.actor.userId },
+    });
+    if (
+      account === null ||
+      account.disconnectedAt !== null ||
+      account.contentInaccessibleAt !== null
+    ) {
+      return {
+        connection: { status: "disconnected" as const, lastSuccessfulSyncAt: null },
+        items: [],
+      };
+    }
+    const [cursor, rows] = await Promise.all([
+      this.database.connectorSyncCursor.findFirst({
+        where: { connectedWorkAccountId: account.id, employeeId: command.actor.userId },
+        orderBy: { lastSuccessfulSyncAt: "desc" },
+        select: { lastSuccessfulSyncAt: true },
+      }),
+      this.database.connectedSourceItem.findMany({
+        where: {
+          connectedWorkAccountId: account.id,
+          employeeId: command.actor.userId,
+          deletedAt: null,
+        },
+        include: {
+          projectLinks: {
+            where: { unlinkedAt: null },
+            select: { projectId: true },
+            take: 1,
+          },
+        },
+        orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+      }),
+    ]);
+    return {
+      connection: {
+        status: "connected" as const,
+        lastSuccessfulSyncAt: cursor?.lastSuccessfulSyncAt.toISOString() ?? null,
+      },
+      items: await Promise.all(
+        rows.map(async (row) => ({
+          ...(await this.serialize(row)),
+          projectId: row.projectLinks[0]?.projectId ?? null,
+        })),
+      ),
+    };
+  }
+
   async get(command: Readonly<{ actor: Actor; sourceItemId: string }>) {
     assertActive(command.actor);
     const row = await this.database.connectedSourceItem.findUnique({

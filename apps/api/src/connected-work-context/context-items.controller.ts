@@ -26,7 +26,7 @@ type Request = Readonly<{
 
 type ContextQuery = Pick<
   import("@evaluation/connected-work-context").ConnectedWorkContextQueryService,
-  "list"
+  "review"
 >;
 type ContextConnection = Pick<
   import("@evaluation/connected-work-context").ConnectedWorkConnectionService,
@@ -60,11 +60,12 @@ export class ContextItemsController {
   }
 
   async list(request: Request) {
-    const items = await this.query.list({ actor: actor(request) });
+    const review = await this.query.review({ actor: actor(request) });
     return {
       mode: this.configuration.mode,
       synthetic: this.configuration.mode === "synthetic",
-      items: items.map((item) => ({
+      connection: review.connection,
+      items: review.items.map((item) => ({
         id: item.id,
         provider: item.provider,
         occurredAt: item.occurredAt,
@@ -73,6 +74,7 @@ export class ContextItemsController {
         sourceUrl: item.sourceUrl,
         privacy: item.privacy,
         excluded: item.excluded,
+        projectId: item.projectId,
       })),
     };
   }

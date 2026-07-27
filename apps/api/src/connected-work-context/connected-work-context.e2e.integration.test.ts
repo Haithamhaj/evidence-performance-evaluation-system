@@ -29,6 +29,7 @@ import { ContextItemsController } from "./context-items.controller.js";
 const redirectUri = "http://127.0.0.1:3300/api/connected-work/google/callback";
 const ownerId = crypto.randomUUID();
 const otherEmployeeId = crypto.randomUUID();
+const managerId = crypto.randomUUID();
 const inactiveEmployeeId = crypto.randomUUID();
 const sourceItemId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
@@ -311,6 +312,8 @@ describe("connected work protected API", () => {
   });
 });
 
+let activeProjectId: string | null = projectId;
+
 const connectionService = {
   connect: vi.fn(async () => ({ connected: true })),
   disconnect: vi.fn(async ({ actor }: { actor: { userId: string } }) => {
@@ -342,6 +345,7 @@ const connectionService = {
       projectId: string;
     }) => {
       enforceOwnedItem(actor.userId, requestedId);
+      activeProjectId = requestedProjectId;
       return { sourceItemId: requestedId, projectId: requestedProjectId };
     },
   ),
@@ -354,29 +358,37 @@ const connectionService = {
       sourceItemId: string;
     }) => {
       enforceOwnedItem(actor.userId, requestedId);
+      activeProjectId = null;
       return { sourceItemId: requestedId, projectId };
     },
   ),
 };
 
 const queryService = {
-  list: vi.fn(async ({ actor }: { actor: { userId: string } }) =>
+  review: vi.fn(async ({ actor }: { actor: { userId: string } }) =>
     actor.userId === ownerId
-      ? [
-          {
-            id: sourceItemId,
-            employeeId: ownerId,
-            provider: "GOOGLE_GMAIL",
-            providerSourceId: "synthetic-owner-thread",
-            occurredAt: "2026-07-20T09:00:00.000Z",
-            title: privateTitle,
-            summary: privateSummary,
-            sourceUrl: privateSourceUrl,
-            privacy: "PRIVATE",
-            excluded: false,
+      ? {
+          connection: {
+            status: "connected" as const,
+            lastSuccessfulSyncAt: "2026-07-20T10:00:00.000Z",
           },
-        ]
-      : [],
+          items: [
+            {
+              id: sourceItemId,
+              employeeId: ownerId,
+              provider: "GOOGLE_GMAIL",
+              providerSourceId: "synthetic-owner-thread",
+              occurredAt: "2026-07-20T09:00:00.000Z",
+              title: privateTitle,
+              summary: privateSummary,
+              sourceUrl: privateSourceUrl,
+              privacy: "PRIVATE",
+              excluded: false,
+              projectId: activeProjectId,
+            },
+          ],
+        }
+      : { connection: { status: "disconnected" as const, lastSuccessfulSyncAt: null }, items: [] },
   ),
 };
 
@@ -504,6 +516,10 @@ describe("connected work composed HTTP API", () => {
     expect(owner.body).toEqual({
       mode: "synthetic",
       synthetic: true,
+      connection: {
+        status: "connected",
+        lastSuccessfulSyncAt: "2026-07-20T10:00:00.000Z",
+      },
       items: [
         {
           id: sourceItemId,
@@ -514,15 +530,33 @@ describe("connected work composed HTTP API", () => {
           sourceUrl: privateSourceUrl,
           privacy: "PRIVATE",
           excluded: false,
+          projectId,
         },
       ],
     });
 
     const other = await apiRequest("GET", "/api/v1/connected-work/items", otherEmployeeId);
     expect(other.response.status).toBe(200);
-    expect(other.body).toEqual({ mode: "synthetic", synthetic: true, items: [] });
+    expect(other.body).toEqual({
+      mode: "synthetic",
+      synthetic: true,
+      connection: { status: "disconnected", lastSuccessfulSyncAt: null },
+      items: [],
+    });
     expect(JSON.stringify(other.body)).not.toContain(privateSummary);
     expect(JSON.stringify(other.body)).not.toContain(privateSourceUrl);
+
+    const manager = await apiRequest("GET", "/api/v1/connected-work/items", managerId);
+    expect(manager.response.status).toBe(200);
+    expect(manager.body).toEqual({
+      mode: "synthetic",
+      synthetic: true,
+      connection: { status: "disconnected", lastSuccessfulSyncAt: null },
+      items: [],
+    });
+    expect(JSON.stringify(manager.body)).not.toContain(privateSummary);
+    expect(JSON.stringify(manager.body)).not.toContain(privateSourceUrl);
+    expect(JSON.stringify(manager.body)).not.toContain(projectId);
   });
 
   it("denies cross-user item mutation while allowing the owner exclusion", async () => {
@@ -583,6 +617,13 @@ describe("connected work composed HTTP API", () => {
     );
     expect(unlinked.response.status).toBe(200);
     expect(unlinked.body).toEqual({ id: sourceItemId, linked: false });
+
+    const reloaded = await apiRequest("GET", "/api/v1/connected-work/items", ownerId);
+    expect(reloaded.response.status).toBe(200);
+    expect(reloaded.body).toMatchObject({
+      connection: { status: "connected", lastSuccessfulSyncAt: "2026-07-20T10:00:00.000Z" },
+      items: [{ id: sourceItemId, projectId: null }],
+    });
   });
 
   it("completes the synthetic OAuth route without returning the authorization code", async () => {

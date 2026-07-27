@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ConnectedContextView } from "./connected-context.js";
-import { SourceReviewSheetView } from "./source-review-sheet.js";
+import { SourceReviewSheet, SourceReviewSheetView } from "./source-review-sheet.js";
 import { GoogleWorkspaceCardView } from "../settings/connections/google-workspace-card.js";
 
 const project = { id: "11111111-1111-4111-8111-111111111111", name: "Atlas Delivery" };
@@ -17,6 +17,7 @@ const item = {
   sourceUrl: "https://mail.google.com/mail/u/0/#inbox/synthetic",
   privacy: "PRIVATE" as const,
   excluded: false,
+  projectId: "11111111-1111-4111-8111-111111111111",
 };
 
 describe("ConnectedContextView", () => {
@@ -25,8 +26,14 @@ describe("ConnectedContextView", () => {
     const markup = renderToStaticMarkup(
       createElement(ConnectedContextView, {
         catalog,
-        context: { mode: "synthetic", synthetic: true, items: [item] },
+        context: {
+          mode: "synthetic",
+          synthetic: true,
+          connection: { status: "connected", lastSuccessfulSyncAt: "2026-07-20T10:00:00.000Z" },
+          items: [item],
+        },
         onReview: () => undefined,
+        projects: [project],
       }),
     );
 
@@ -34,6 +41,8 @@ describe("ConnectedContextView", () => {
     expect(markup).toContain("Synthetic local data");
     expect(markup).toContain("Project decision");
     expect(markup).toContain("Gmail context");
+    expect(markup).toContain("Last successful sync");
+    expect(markup).toContain("Atlas Delivery");
     expect(markup).toContain("Private to you");
     expect(markup).not.toContain("Done");
   });
@@ -43,8 +52,14 @@ describe("ConnectedContextView", () => {
     const markup = renderToStaticMarkup(
       createElement(ConnectedContextView, {
         catalog,
-        context: { mode: "synthetic", synthetic: true, items: [{ ...item, excluded: true }] },
+        context: {
+          mode: "synthetic",
+          synthetic: true,
+          connection: { status: "connected", lastSuccessfulSyncAt: "2026-07-20T10:00:00.000Z" },
+          items: [{ ...item, excluded: true }],
+        },
         onReview: () => undefined,
+        projects: [project],
       }),
     );
 
@@ -74,6 +89,23 @@ describe("SourceReviewSheetView", () => {
   });
 });
 
+describe("SourceReviewSheet", () => {
+  it("restores the persisted Project link when the employee reopens source review", async () => {
+    const catalog = await getCatalog("en");
+    const markup = renderToStaticMarkup(
+      createElement(SourceReviewSheet, {
+        catalog,
+        item,
+        projects: [project],
+        onClose: () => undefined,
+        onChanged: async () => undefined,
+      }),
+    );
+
+    expect(markup).toContain("Unlink from Atlas Delivery");
+  });
+});
+
 describe("GoogleWorkspaceCardView", () => {
   it("explains private storage and offers disconnect recovery without exposing credentials", async () => {
     const catalog = await getCatalog("en");
@@ -82,10 +114,12 @@ describe("GoogleWorkspaceCardView", () => {
         catalog,
         status: "connected",
         stale: true,
+        lastSuccessfulSyncAt: "2026-07-20T10:00:00.000Z",
       }),
     );
 
     expect(markup).toContain("Last successful sync");
+    expect(markup).toContain('dateTime="2026-07-20T10:00:00.000Z"');
     expect(markup).toContain("Context may be out of date");
     expect(markup).toContain("Disconnect and delete private context");
     expect(markup).toContain("Managers and other roles cannot view it");

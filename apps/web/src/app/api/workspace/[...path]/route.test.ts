@@ -23,6 +23,7 @@ describe("same-origin workspace GET allowlist", () => {
     mocks.fetchProtectedUpstream.mockResolvedValue({
       mode: "synthetic",
       synthetic: true,
+      connection: { status: "disconnected", lastSuccessfulSyncAt: null },
       items: [],
     });
 
@@ -37,6 +38,7 @@ describe("same-origin workspace GET allowlist", () => {
     await expect(response.json()).resolves.toEqual({
       mode: "synthetic",
       synthetic: true,
+      connection: { status: "disconnected", lastSuccessfulSyncAt: null },
       items: [],
     });
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(

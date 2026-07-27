@@ -1,11 +1,12 @@
 "use client";
 
 import type { Catalog } from "@evaluation/localization";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   completeGoogleConnection,
   disconnectGoogleConnection,
+  listConnectedWorkContext,
   startGoogleConnection,
 } from "../../../../platform/connected-work-context-api";
 
@@ -15,6 +16,7 @@ type CardViewProperties = Readonly<{
   catalog: Catalog;
   onConnect?: () => void;
   onDisconnect?: () => void;
+  lastSuccessfulSyncAt?: string;
   stale?: boolean;
   status: Status;
 }>;
@@ -22,6 +24,22 @@ type CardViewProperties = Readonly<{
 export function GoogleWorkspaceCard({ catalog }: CardProperties) {
   const [status, setStatus] = useState<Status>("disconnected");
   const [stale, setStale] = useState(false);
+  const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = useState<string | null>(null);
+
+  async function refreshStatus() {
+    try {
+      const context = await listConnectedWorkContext();
+      setStatus(context.connection.status);
+      setLastSuccessfulSyncAt(context.connection.lastSuccessfulSyncAt);
+      setStale(false);
+    } catch {
+      setStale(true);
+    }
+  }
+
+  useEffect(() => {
+    void refreshStatus();
+  }, []);
 
   async function connect() {
     setStatus("connecting");
@@ -35,8 +53,7 @@ export function GoogleWorkspaceCard({ catalog }: CardProperties) {
           redirectUri,
           state: callback.searchParams.get("state") ?? "",
         });
-        setStatus("connected");
-        setStale(false);
+        await refreshStatus();
         return;
       }
       window.location.assign(result.authorizationUrl);
@@ -52,6 +69,7 @@ export function GoogleWorkspaceCard({ catalog }: CardProperties) {
       await disconnectGoogleConnection();
       setStatus("disconnected");
       setStale(false);
+      setLastSuccessfulSyncAt(null);
     } catch {
       setStatus("error");
       setStale(true);
@@ -63,6 +81,7 @@ export function GoogleWorkspaceCard({ catalog }: CardProperties) {
       catalog={catalog}
       onConnect={() => void connect()}
       onDisconnect={() => void disconnect()}
+      {...(lastSuccessfulSyncAt === null ? {} : { lastSuccessfulSyncAt })}
       stale={stale}
       status={status}
     />
@@ -73,6 +92,7 @@ export function GoogleWorkspaceCardView({
   catalog,
   onConnect,
   onDisconnect,
+  lastSuccessfulSyncAt,
   stale = false,
   status,
 }: CardViewProperties) {
@@ -92,14 +112,16 @@ export function GoogleWorkspaceCardView({
               : catalog["connections.google.disconnected"]}
           </dd>
         </div>
-        {connected ? (
+        {connected && lastSuccessfulSyncAt !== undefined ? (
           <div>
             <dt>{catalog["connections.google.sync"]}</dt>
             <dd>
-              {new Intl.DateTimeFormat(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }).format(new Date())}
+              <time dateTime={lastSuccessfulSyncAt}>
+                {new Intl.DateTimeFormat(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }).format(new Date(lastSuccessfulSyncAt))}
+              </time>
             </dd>
           </div>
         ) : null}

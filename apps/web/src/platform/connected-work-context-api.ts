@@ -11,6 +11,7 @@ const ContextItemSchema = z
     sourceUrl: z.url().nullable(),
     privacy: z.literal("PRIVATE"),
     excluded: z.boolean(),
+    projectId: UuidSchema.nullable(),
   })
   .strict();
 
@@ -18,6 +19,12 @@ const ContextListSchema = z
   .object({
     mode: z.enum(["synthetic", "live"]),
     synthetic: z.boolean(),
+    connection: z
+      .object({
+        status: z.enum(["connected", "disconnected"]),
+        lastSuccessfulSyncAt: z.iso.datetime({ offset: true }).nullable(),
+      })
+      .strict(),
     items: z.array(ContextItemSchema),
   })
   .strict();

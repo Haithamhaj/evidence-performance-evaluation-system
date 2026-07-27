@@ -113,7 +113,9 @@ export function SourceReviewSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [excluded, setExcluded] = useState(item.excluded);
-  const [linkedProject, setLinkedProject] = useState<ProjectOption | undefined>();
+  const [linkedProject, setLinkedProject] = useState<ProjectOption | undefined>(() =>
+    item.projectId === null ? undefined : projects.find((project) => project.id === item.projectId),
+  );
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {

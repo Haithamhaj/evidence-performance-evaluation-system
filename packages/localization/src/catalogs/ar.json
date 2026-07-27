@@ -29,6 +29,8 @@
   "connectedContext.exclude": "استبعاد هذا المصدر",
   "connectedContext.restore": "استعادة هذا المصدر",
   "connectedContext.openSource": "فتح المصدر",
+  "connectedContext.lastSuccessfulSync": "آخر مزامنة ناجحة",
+  "connectedContext.linkedProject": "المشروع المرتبط",
   "connectedContext.source.GOOGLE_GMAIL": "سياق Gmail",
   "connectedContext.source.GOOGLE_CALENDAR": "سياق Calendar",
   "connections.title": "الاتصالات",

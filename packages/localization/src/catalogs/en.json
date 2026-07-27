@@ -29,6 +29,8 @@
   "connectedContext.exclude": "Exclude this source",
   "connectedContext.restore": "Restore this source",
   "connectedContext.openSource": "Open source",
+  "connectedContext.lastSuccessfulSync": "Last successful sync",
+  "connectedContext.linkedProject": "Linked Project",
   "connectedContext.source.GOOGLE_GMAIL": "Gmail context",
   "connectedContext.source.GOOGLE_CALENDAR": "Calendar context",
   "connections.title": "Connections",

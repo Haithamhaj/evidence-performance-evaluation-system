@@ -312,6 +312,12 @@ const ConnectedWorkContextSchema = z
   .object({
     mode: z.enum(["synthetic", "live"]),
     synthetic: z.boolean(),
+    connection: z
+      .object({
+        status: z.enum(["connected", "disconnected"]),
+        lastSuccessfulSyncAt: UtcInstantSchema.nullable(),
+      })
+      .strict(),
     items: z.array(
       z
         .object({
@@ -323,6 +329,7 @@ const ConnectedWorkContextSchema = z
           sourceUrl: z.url().nullable(),
           privacy: z.literal("PRIVATE"),
           excluded: z.boolean(),
+          projectId: UuidSchema.nullable(),
         })
         .strict(),
     ),

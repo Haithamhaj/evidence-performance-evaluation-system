@@ -40,6 +40,7 @@ export function ConnectedContext({ catalog, projects }: Properties) {
           error={error}
           onReview={setSelected}
           onRetry={refresh}
+          projects={projects}
         />
         {createElement(SourceReviewSheet, {
           catalog,
@@ -59,6 +60,7 @@ export function ConnectedContext({ catalog, projects }: Properties) {
       error={error}
       onReview={setSelected}
       onRetry={refresh}
+      projects={projects}
     />
   );
 }
@@ -69,12 +71,14 @@ export function ConnectedContextView({
   error = false,
   onReview,
   onRetry,
+  projects = [],
 }: Readonly<{
   catalog: Catalog;
   context: ConnectedWorkContext | null;
   error?: boolean;
   onReview?: (item: ConnectedWorkContextItem) => void;
   onRetry?: () => void;
+  projects?: readonly ProjectOption[];
 }>) {
   if (error) {
     return (
@@ -100,6 +104,16 @@ export function ConnectedContextView({
           <span className="syntheticLabel">{catalog["connectedContext.synthetic"]}</span>
         ) : null}
       </header>
+      {context.connection.lastSuccessfulSyncAt === null ? null : (
+        <p className="formHint">
+          {catalog["connectedContext.lastSuccessfulSync"]}:{" "}
+          <time dateTime={context.connection.lastSuccessfulSyncAt}>
+            {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(
+              new Date(context.connection.lastSuccessfulSyncAt),
+            )}
+          </time>
+        </p>
+      )}
       <ul className="connectedContextList">
         {context.items.map((item) => (
           <li key={item.id}>
@@ -114,6 +128,12 @@ export function ConnectedContextView({
                   ? catalog["connectedContext.excluded"]
                   : catalog["connectedContext.privateLabel"]}
               </span>
+              {item.projectId === null ? null : (
+                <small className="connectedContextProjectLabel">
+                  {projects.find((project) => project.id === item.projectId)?.name ??
+                    catalog["connectedContext.linkedProject"]}
+                </small>
+              )}
             </button>
           </li>
         ))}
