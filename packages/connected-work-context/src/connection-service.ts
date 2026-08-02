@@ -325,6 +325,12 @@ export class ConnectedWorkConnectionService {
     assertActive(command.actor);
     const current = validClock(this.clock());
     await assertAccessibleConnectedSource(transaction, command);
+    await this.authorizeDerivedProjectLink(
+      transaction,
+      command.actor.userId,
+      command.projectId,
+      current,
+    );
     const activeLink = await transaction.sourceProjectLink.findFirst({
       where: { sourceItemId: command.sourceItemId, unlinkedAt: null },
     });
@@ -332,12 +338,6 @@ export class ConnectedWorkConnectionService {
       if (activeLink.projectId === command.projectId) return activeLink;
       throw linkConflictError();
     }
-    await this.authorizeDerivedProjectLink(
-      transaction,
-      command.actor.userId,
-      command.projectId,
-      current,
-    );
     await assertValidContextSuggestion(transaction, {
       employeeId: command.actor.userId,
       sourceItemId: command.sourceItemId,
@@ -390,16 +390,16 @@ export class ConnectedWorkConnectionService {
     assertActive(command.actor);
     const current = validClock(this.clock());
     await assertAccessibleConnectedSource(transaction, command);
-    const activeLink = await transaction.sourceProjectLink.findFirst({
-      where: { sourceItemId: command.sourceItemId, unlinkedAt: null },
-    });
-    if (activeLink?.origin === "EMPLOYEE_MANUAL") return activeLink;
     await this.authorizeDerivedProjectLink(
       transaction,
       command.actor.userId,
       command.projectId,
       current,
     );
+    const activeLink = await transaction.sourceProjectLink.findFirst({
+      where: { sourceItemId: command.sourceItemId, unlinkedAt: null },
+    });
+    if (activeLink?.origin === "EMPLOYEE_MANUAL") return activeLink;
     await assertValidContextSuggestion(transaction, {
       employeeId: command.actor.userId,
       sourceItemId: command.sourceItemId,

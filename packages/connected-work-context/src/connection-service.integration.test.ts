@@ -490,6 +490,52 @@ describe("connected work connection commands", () => {
       }),
     );
     await expect(
+      client.$transaction((transaction) =>
+        derivedCommands.confirmSuggestedProject(transaction, {
+          actor,
+          correlationId: crypto.randomUUID(),
+          sourceItemId: manualSource.id,
+          projectId: graph.projectId,
+          suggestionId: confirmedSuggestionId,
+        }),
+      ),
+    ).resolves.toMatchObject({ id: manual.id, unlinkedAt: null });
+    await expect(
+      client.sourceProjectLink.findUniqueOrThrow({ where: { id: manual.id } }),
+    ).resolves.toMatchObject({ projectId: graph.projectId, unlinkedAt: null });
+
+    await client.projectMember.updateMany({
+      where: {
+        employeeId: graph.employeeId,
+        projectId: { in: [graph.projectId, graph.otherProjectId] },
+        endsAt: null,
+      },
+      data: { endsAt: now },
+    });
+    await expect(
+      client.$transaction((transaction) =>
+        derivedCommands.confirmSuggestedProject(transaction, {
+          actor,
+          correlationId: crypto.randomUUID(),
+          sourceItemId: manualSource.id,
+          projectId: graph.projectId,
+          suggestionId: confirmedSuggestionId,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_FORBIDDEN" });
+    await expect(
+      client.$transaction((transaction) =>
+        derivedCommands.replaceSuggestedProject(transaction, {
+          actor,
+          correlationId: crypto.randomUUID(),
+          sourceItemId: manualSource.id,
+          expectedSuggestionId: confirmedSuggestionId,
+          replacementSuggestionId: correctedSuggestionId,
+          projectId: graph.otherProjectId,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_FORBIDDEN" });
+    await expect(
       client.sourceProjectLink.findUniqueOrThrow({ where: { id: manual.id } }),
     ).resolves.toMatchObject({ projectId: graph.projectId, unlinkedAt: null });
   });
