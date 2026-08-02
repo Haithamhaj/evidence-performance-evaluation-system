@@ -202,3 +202,139 @@ are absent when the protected audit fails.
 None. This bounded API task advances the existing Slice 3 goal without changing architecture,
 protected decisions, active risks, or the recommended slice-level next action. The parent Slice 3
 checkpoint should update project state when the full slice reaches its meaningful boundary.
+
+---
+
+# Fix Round 1 — Confirmation Authorization, Privacy, and Link Provenance
+
+## Status
+
+Complete.
+
+- Fix commit: `a3f4b393d8dc9bd8e63e3a3c3b29aaca382b3789`
+- Commit message: `fix(context-ai): harden confirmation boundaries`
+- Push: not performed
+
+## RED evidence
+
+All RED/GREEN commands used the repository-pinned Node.js `24.18.0` and pnpm `11.13.0`.
+
+- The real Work Items database suite produced the two intended failures: an actor whose Project
+  membership ended still created a confirmed Task through a lingering contributor role, and the
+  private employee reason appeared in both the Work Item audit and assignment history. The run
+  reported `2 failed | 22 passed`.
+- The protected API/application suite produced four intended failures: manager-only review returned
+  `200`, a source revoked after the precheck still allowed Task creation, a changed protected reason
+  replay succeeded, and private reason text appeared in Context/Work Items audit rows. The run
+  reported `4 failed | 171 passed | 1 skipped`.
+- The Connected Context production integration failed because the required transaction-aware
+  derived-link lifecycle did not exist: `confirmSuggestedProject is not a function`.
+- The final review-queue race mutation failed when the last source authorization was removed: the
+  service attempted to materialize the protected suggestion instead of returning an empty queue.
+
+## What changed
+
+1. Confirmed official Task creation now requires the actor to be a current Project member inside
+   the caller's Serializable transaction. A lingering `contributor` role no longer substitutes for
+   a current membership. Current-member confirmation remains supported.
+2. Connected Context now exposes one public transaction-aware source authorization boundary. It
+   locks and revalidates the owning employee, active user, account connection/content access, item
+   exclusion, deletion, and private classification before Context writes or decryption. Task,
+   Project-suggestion confirmation/correction, and review queue use this boundary.
+3. Employee-entered reasons remain only in encrypted Context Intelligence rows. Work Items,
+   Context Intelligence, and derived-link audits/history use fixed safe lifecycle summaries; raw
+   employee text is absent from `AuditEvent.reason` and Work Item assignment history.
+4. Response-loss replay compares both the complete official Task payload and the decrypted
+   protected reason identity. An identical retry returns the original result; a changed payload or
+   reason returns `IDEMPOTENCY_CONFLICT` without another Task or confirmation revision.
+5. The Context Intelligence HTTP guard now loads persisted server-side role assignments. Active
+   employee/contributor personas are allowed; manager-only and system-administrator-only personas
+   are denied before queue or mutation work, regardless of token-side role claims or owned source
+   rows.
+6. `SourceProjectLink` now records immutable provenance. Confirmation creates a derived link,
+   correction closes that derived row and appends the corrected derived link, and rejection closes
+   only the matching derived row. Employee-manual mappings are preserved. Link lifecycle and
+   Context correction rows commit in the same transaction.
+
+The six exact endpoint paths are unchanged. No rating, performance metric, progress input, ranking,
+or AI-created official Task behavior was added.
+
+## Files changed
+
+- `apps/api/src/context-intelligence/context-intelligence-policy.guard.ts`
+- `apps/api/src/context-intelligence/context-intelligence.module.ts`
+- `apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts`
+- `packages/connected-work-context/src/source-authorization.ts`
+- `packages/connected-work-context/src/query-service.ts`
+- `packages/connected-work-context/src/query-service.integration.test.ts`
+- `packages/connected-work-context/src/connection-service.ts`
+- `packages/connected-work-context/src/connection-service.integration.test.ts`
+- `packages/context-intelligence/src/project-link-suggestion-service.ts`
+- `packages/context-intelligence/src/project-link-suggestion-service.test.ts`
+- `packages/work-items/src/service-authorization.ts`
+- `packages/work-items/src/service.ts`
+- `packages/work-items/src/service.integration.test.ts`
+- `packages/database/prisma/schema.prisma`
+- `packages/database/prisma/migrations/0020_context_intelligence_security_boundaries/migration.sql`
+- `packages/database/prisma/migrations/0021_align_context_link_constraint_name/migration.sql`
+
+## Database changes
+
+- Added `SourceProjectLinkOrigin` with `EMPLOYEE_MANUAL` and `CONTEXT_SUGGESTION` values.
+- Added immutable `SourceProjectLink.origin` and `contextSuggestionId` provenance.
+- Added an ownership-preserving composite foreign key to the originating
+  `ProjectLinkSuggestion`, a provenance-shape check, and a lookup index.
+- Extended the existing Source Project Link immutability trigger so provenance cannot be rewritten.
+- Migration `0021` aligns the composite foreign-key name with the generated Prisma schema so drift
+  verification remains clean.
+- No historical link was reclassified: existing rows receive the `EMPLOYEE_MANUAL` default.
+
+## Verification
+
+| Check                                                                         | Result                                                                                |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Focused final production integrations                                         | 4 files, 25 tests passed                                                              |
+| Full API package                                                              | 38 files passed, 1 intentionally skipped; 176 tests passed, 1 skipped                 |
+| Full Work Items package                                                       | 5 files, 24 tests passed                                                              |
+| Context Intelligence package                                                  | 7 files, 54 tests passed                                                              |
+| Focused Connected Context query/link lifecycle                                | 2 files, 6 tests passed                                                               |
+| Database migration verification                                               | empty DB, prior snapshot, drift, rebuild equivalence passed; 49 database tests passed |
+| Database, Context Intelligence, Connected Context, Work Items, API typechecks | passed                                                                                |
+| Database, Context Intelligence, Connected Context, Work Items, API lint       | passed                                                                                |
+| AI/module boundary scan                                                       | 586 source files valid                                                                |
+| Protected performance-input scan                                              | 482 files valid                                                                       |
+| Secret scan                                                                   | 963 files valid                                                                       |
+| Repository format and `git diff --check`                                      | passed                                                                                |
+
+The package-wide Connected Context command also reaches one unrelated pre-existing failure in
+`sync-service.integration.test.ts`: its fixed clock is `2026-07-20`, while the database creates the
+exclusion row at the current `2026-08-02` timestamp, so the existing immutable-history trigger
+correctly rejects a `revokedAt` earlier than `createdAt`. This round did not alter that test or the
+exclusion lifecycle. The changed Connected Context query and link lifecycle suites pass against the
+real database.
+
+## Security and privacy impact
+
+- Source revocation is now authoritative at the last database boundary before a write or protected
+  materialization, not only at an earlier application precheck.
+- The row locks keep exclusion, disconnect, deletion, and user deactivation changes from racing a
+  protected decrypt/write decision.
+- Private employee reason text is encrypted at rest in the governed Context revision/correction and
+  is absent from plaintext audit/history fields.
+- Manager-only and administrator-only personas cannot use Context Intelligence as an alternate
+  route to private derived data.
+- Manual employee mappings and AI-derived suggestion mappings have explicit, immutable provenance;
+  correction/rejection cannot silently remove the manual mapping.
+- AI still cannot create or assign an official Task. Human confirmation remains the only gate.
+
+## Remaining risk
+
+- Live model execution and live Google connectivity remain behind the previously documented Router,
+  OAuth, vault, cryptographic-key, consent, retention, and deployment configuration gates.
+- The unrelated fixed-clock Connected Context exclusion test should be corrected in its own bounded
+  maintenance task; changing it was outside this six-finding fix round.
+
+## Project-state update
+
+None in this fix commit. The parent Slice 3 checkpoint should record the completed slice and its new
+link-provenance migration as the next meaningful project-state update.
