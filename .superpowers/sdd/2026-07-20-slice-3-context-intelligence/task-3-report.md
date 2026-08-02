@@ -407,3 +407,127 @@ entailment remains outside this task.
 
 None. Fix Round 1 restores the already-approved Task 3 behavior and does not change a protected
 product rule, architecture direction, current goal, active risk, or next recommended Slice action.
+
+---
+
+## Fix Round 2
+
+### Status and commit
+
+Complete.
+
+- Production fix commit: `e9a03c440b836a9fa35441b735fd5233602d1281`
+- Commit message: `fix(context-ai): validate project match recovery`
+- Scope: the two remaining original P1 findings only
+- Push: not performed
+
+### Root cause
+
+1. The Project-link service encrypted `suggestion.explanation`, which was a formatted display string
+   combining the deterministic reason, AI label, AI explanation, and uncertainty prose. Although
+   encrypted, it was not the exact Router-validated four-field Project-match output, so decryption
+   could not recover that structured object or its exact citations and uncertainty arrays.
+2. Both idempotent lookup paths returned `findOwnedSuggestion` results directly. The persistence
+   query accepted an employee and suggestion ID, but the service did not independently parse the
+   returned value with the Task 1 `ProjectLinkSuggestionSchema` or bind it to the stable operation's
+   source item, analysis, revision, route, schema, prompt, decision, Project, anchors, and governed
+   provenance.
+
+### RED evidence
+
+The regression tests were written and observed failing before the production change:
+
+```text
+pnpm exec vitest run \
+  packages/context-intelligence/src/project-link-suggestion-service.test.ts \
+  packages/context-intelligence/src/analysis-service.integration.test.ts
+
+Test Files  2 failed (2)
+Tests       10 failed | 10 passed (20)
+```
+
+The failures were the intended behaviors:
+
+- Two structured-payload regressions failed because parsing the project-match sealer input raised
+  `SyntaxError`; the protected value began with the formatted deterministic explanation instead of
+  canonical JSON.
+- Seven table-driven retry regressions resolved instead of rejecting a returned suggestion with a
+  wrong ID, employee, source item, revision, analysis lineage, route lineage, or source provenance.
+- The response-loss lookup regression also resolved a source-mismatched suggestion instead of
+  rejecting it through the public `findRecordedDecision` path.
+- The pre-existing valid-reuse test passed in RED, confirming the new negative cases isolated the
+  missing validation rather than breaking the intended idempotent behavior.
+
+### What changed
+
+- The Project-link service reconstructs the exact four-field structured output from the validated
+  Router result, validates that shape with `ContextProjectMatchAiOutputSchema`, serializes it in one
+  explicit deterministic field order, and passes only that canonical JSON to the protector.
+- Parsing the captured sealer input now recovers an object deeply equal to `matchRun.output`,
+  including `interpretationLabel`, `explanation`, `sourceReferences`, and `uncertainties`.
+- The persistence port remains ciphertext plus key version. Its separately governed record still
+  excludes plaintext explanation content and retains only the approved lineage, decision, anchors,
+  and opaque provenance fields.
+- A shared initial-suggestion gate now validates every idempotent/recovery lookup with the Task 1
+  schema and the stable operation binding before reuse. It requires exact ID, employee, source item,
+  revision `1`, analysis ID, schema/prompt versions, initial review/origin state, deterministic
+  decision/Project/anchors, governed sources, and route lineage.
+- The append-return path uses the same gate. The direct response-loss lookup requires sources to
+  remain within the current governed set and requires every deterministic anchor reference.
+- Any malformed or mismatched reused value fails with the single sanitized message
+  `Persisted Project link suggestion does not match the stable operation`; schema details or row
+  contents are not exposed.
+- `ContextAnalysisService` now computes the bounded Project-match provenance before the retry lookup
+  and supplies the exact expected analysis, source, route, version, decision, and authorized source
+  context to that gate. No additional Router call or provider path was introduced.
+
+### Files changed
+
+- `packages/context-intelligence/src/project-link-suggestion-service.ts`
+- `packages/context-intelligence/src/project-link-suggestion-service.test.ts`
+- `packages/context-intelligence/src/analysis-service.ts`
+- `packages/context-intelligence/src/analysis-service.integration.test.ts`
+
+### Database changes
+
+None. No schema, migration, index, constraint, seed, or persistence-provider implementation changed.
+
+### GREEN verification
+
+All commands used the repository-pinned Node.js `24.18.0` and pnpm `11.13.0`.
+
+| Check                                            | Result                   |
+| ------------------------------------------------ | ------------------------ |
+| Exact RED pair after implementation              | 2 files, 20 tests passed |
+| Full Context Intelligence package tests          | 7 files, 54 tests passed |
+| Context Intelligence Router-backed AI evaluation | 1 file, 16 tests passed  |
+| Context Intelligence package typecheck           | passed                   |
+| Context Intelligence package lint                | passed                   |
+| Affected-file ESLint                             | passed                   |
+| AI boundary scan                                 | 580 source files valid   |
+| Affected-file Prettier check                     | passed                   |
+| `git diff --check`                               | passed                   |
+
+### Security and privacy impact
+
+- The sealed payload is now recoverable as the exact validated structured Project-match output;
+  citations and uncertainty are no longer flattened into display prose.
+- Plaintext protected model output remains absent from the persistence record and port contract.
+- Retry recovery now fails closed if persistence returns a malformed, cross-employee, cross-source,
+  wrong-revision, wrong-analysis, wrong-route, wrong-decision, wrong-Project, wrong-anchor, or
+  out-of-scope provenance value.
+- Failure is sanitized and does not disclose the rejected row or Task 1 schema diagnostics.
+- No provider SDK, endpoint, credential, new AI route, permission change, or live-model call was
+  added. The AI boundary scan remained green.
+
+### Remaining risk and concerns
+
+No new P1 concern remains within this fix-round scope. The previously documented P2 post-`AiRun`
+atomicity gap remains unchanged: a succeeded immutable AI run can exist if later semantic checking,
+encryption, or feature append fails. The deeper semantic-entailment P2 also remains outside this
+bounded round.
+
+### Project-state update
+
+None. Fix Round 2 repairs protected recovery and retry validation without changing product rules,
+architecture direction, active decisions, current goal, or the recommended next Slice action.
