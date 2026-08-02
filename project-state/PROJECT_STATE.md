@@ -2,8 +2,8 @@
 
 ## Current Goal
 
-Hold the verified Slice 3 implementation at the Product Owner trust gate. Do not begin Slice 4
-without Product Owner approval.
+Hold Slice 3 before push and the Product Owner trust gate until the final confirmed-sender anchor
+P1 is resolved. Do not begin Slice 4.
 
 ## Current Reality
 
@@ -95,6 +95,12 @@ without Product Owner approval.
 - The optional live Context Intelligence smoke was not run: the route registrar dry-run passes, but
   the current local database has none of the three route registrations and the current process has
   no available provider credential. No route configuration or provider result was simulated.
+- The scoped final re-review confirmed the five remediation findings are closed, then found one new
+  load-bearing P1 in that remediation: an email address merely mentioned in untrusted Gmail title
+  or summary text can be emitted as `CONFIRMED_SENDER_DOMAIN` and combine with an explicit Project
+  reference to authorize `AUTO_LINK`, although provider-authenticated sender metadata is not stored.
+  The branch is intentionally unpushed after that finding; Slice 3 is not yet at the Product Owner
+  trust gate.
 
 ## Active Decisions
 
@@ -142,8 +148,9 @@ without Product Owner approval.
 
 ## Next Recommended Action
 
-Obtain Product Owner trust approval for Slice 3. Keep Slice 4 stopped until that approval is
-explicit.
+Resolve the final confirmed-sender anchor P1 by removing that automatic anchor until governed
+provider-authenticated sender metadata or an employee-confirmed mapping exists. Re-run only the
+scoped regression and final review, then push and update Pull Request #5 if clean.
 
 ## Critical References
 
