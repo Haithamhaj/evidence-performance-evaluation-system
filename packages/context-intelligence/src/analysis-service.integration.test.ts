@@ -40,6 +40,12 @@ type PersistOutput = (
 
 describe("ContextAnalysisService", () => {
   it("routes both analyses, preserves deterministic REVIEW, and persists sealed source-labelled output", async () => {
+    const matchOutput = {
+      interpretationLabel: "AI_DRAFT_INTERPRETATION" as const,
+      explanation: "One Project anchor exists, so employee review is still required.",
+      uncertainties: ["A second independent anchor is missing."],
+      sourceReferences: [sourceReference, anchorReference],
+    };
     const fixture = harness({
       summaryOutput: {
         interpretationLabel: "AI_DRAFT_INTERPRETATION",
@@ -50,12 +56,7 @@ describe("ContextAnalysisService", () => {
         uncertainties: ["The Project is not confirmed."],
         sourceReferences: [sourceReference],
       },
-      matchOutput: {
-        interpretationLabel: "AI_DRAFT_INTERPRETATION",
-        explanation: "One Project anchor exists, so employee review is still required.",
-        uncertainties: ["A second independent anchor is missing."],
-        sourceReferences: [sourceReference, anchorReference],
-      },
+      matchOutput,
     });
 
     const result = await fixture.service.analyze(command());
@@ -77,10 +78,7 @@ describe("ContextAnalysisService", () => {
         routeConfigVersion: 7,
       },
     });
-    expect(result.suggestion.explanation).toContain("INSUFFICIENT_INDEPENDENT_ANCHORS");
-    expect(result.suggestion.explanation).toContain("AI_DRAFT_INTERPRETATION");
     expect(result.suggestion.explanation).toContain("employee review is still required");
-    expect(result.suggestion.explanation).toContain("A second independent anchor is missing.");
     expect(fixture.outputReferences).toEqual([
       `context-analysis:${analysisId}`,
       `project-link-suggestion:${suggestionId}`,
@@ -110,6 +108,7 @@ describe("ContextAnalysisService", () => {
     expect(fixture.suggestionRows[0]?.explanationCiphertext).not.toContain(
       "employee review is still required",
     );
+    expect(JSON.parse(fixture.suggestionProtectedValues[0]!)).toEqual(matchOutput);
     expect(JSON.stringify(fixture.analysisRows)).not.toMatch(
       /credential|accessToken|refreshToken|apiKey/iu,
     );
@@ -310,6 +309,7 @@ function harness(
   };
   const analysisRows: any[] = [];
   const suggestionRows: any[] = [];
+  const suggestionProtectedValues: string[] = [];
   let loseAnalysisResponse = options.loseAnalysisAppendResponseOnce ?? false;
   let loseSuggestionResponse = options.loseSuggestionAppendResponseOnce ?? false;
   const suggestionPersistence = {
@@ -339,10 +339,13 @@ function harness(
     persistence: suggestionPersistence,
     projectAuthorization: { canLink: async () => true },
     protector: {
-      seal: async (value: string) => ({
-        ciphertext: `sealed:${Buffer.from(value).toString("base64url")}`,
-        keyVersion: "context-key-v7",
-      }),
+      seal: async (value: string) => {
+        suggestionProtectedValues.push(value);
+        return {
+          ciphertext: `sealed:${Buffer.from(value).toString("base64url")}`,
+          keyVersion: "context-key-v7",
+        };
+      },
     },
     clock: () => now,
     idFactory: () => suggestionId,
@@ -356,6 +359,7 @@ function harness(
     outputReferences,
     analysisRows,
     suggestionRows,
+    suggestionProtectedValues,
     service: new ContextAnalysisService({
       router: router as never,
       promptArtifacts: {
@@ -405,8 +409,16 @@ function harness(
 function materializeSuggestion(row: any) {
   if (row.record === undefined) return row;
   const encoded = String(row.explanationCiphertext).replace(/^sealed:/u, "");
+  const protectedValue = Buffer.from(encoded, "base64url").toString();
+  let explanation = protectedValue;
+  try {
+    const structured = JSON.parse(protectedValue) as { explanation?: unknown };
+    if (typeof structured.explanation === "string") explanation = structured.explanation;
+  } catch {
+    // Fix-round RED compatibility: the pre-fix payload is a non-JSON formatted string.
+  }
   return {
     ...row.record,
-    explanation: Buffer.from(encoded, "base64url").toString(),
+    explanation,
   };
 }

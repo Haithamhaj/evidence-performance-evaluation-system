@@ -192,9 +192,21 @@ export class ContextAnalysisService {
       );
     }
 
+    const matchSources = boundedReferences([
+      ...summarySources,
+      ...decisionSourceReferences(decision),
+      ...command.semanticContexts.flatMap(({ sourceReferences }) => sourceReferences),
+    ]);
     const recordedSuggestion = await this.dependencies.suggestions.findRecordedDecision({
       actor: command.actor,
       suggestionId,
+      analysisId: analysis.id,
+      sourceItemId: command.sourceItemId,
+      schemaVersion: CONTEXT_PROJECT_MATCH_OUTPUT_SCHEMA_VERSION,
+      promptVersion: CONTEXT_PROJECT_MATCH_PROMPT_VERSION,
+      routeKey: CONTEXT_PROJECT_MATCH_ROUTE,
+      decision,
+      allowedSourceReferences: matchSources,
     });
     if (recordedSuggestion !== null) {
       return { analysis, decision, suggestion: recordedSuggestion } as const;
@@ -212,11 +224,6 @@ export class ContextAnalysisService {
       decision,
       semanticContexts: command.semanticContexts,
     });
-    const matchSources = boundedReferences([
-      ...summarySources,
-      ...decisionSourceReferences(decision),
-      ...command.semanticContexts.flatMap(({ sourceReferences }) => sourceReferences),
-    ]);
     const matchReference = `project-link-suggestion:${suggestionId}`;
     const matchRun = await this.dependencies.router.run(
       {

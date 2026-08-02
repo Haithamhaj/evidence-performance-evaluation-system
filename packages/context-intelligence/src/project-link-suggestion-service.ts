@@ -1,11 +1,14 @@
 import { ProjectLinkSuggestionSchema, SourceLinkCorrectionSchema } from "@evaluation/contracts";
 
+import { ContextProjectMatchAiOutputSchema } from "./prompts.js";
+
 type LinkDecision = import("./matching-policy.js").LinkDecision;
 type ProjectAnchor = import("@evaluation/contracts").ProjectAnchor;
 type ProjectLinkSuggestion = import("@evaluation/contracts").ProjectLinkSuggestion;
 type PersistedProjectLinkSuggestion = Omit<ProjectLinkSuggestion, "explanation">;
 type SourceLinkCorrection = import("@evaluation/contracts").SourceLinkCorrection;
 type RouteTrace = import("@evaluation/contracts").ContextIntelligenceRouteTrace;
+type ContextProjectMatchOutput = import("zod").infer<typeof ContextProjectMatchAiOutputSchema>;
 type Actor = Readonly<{ userId: string; active: boolean }>;
 
 export interface ProjectLinkSuggestionPersistence {
@@ -68,6 +71,20 @@ type RecordDecisionCommand = Readonly<{
   }>;
 }>;
 
+type InitialSuggestionExpectation = Readonly<{
+  suggestionId: string;
+  employeeId: string;
+  sourceItemId: string;
+  analysisId: string;
+  schemaVersion: string;
+  promptVersion: string;
+  routeKey: string;
+  decision: LinkDecision;
+  allowedSourceReferences: readonly string[];
+  exactSourceReferences?: readonly string[];
+  routeTrace?: RouteTrace;
+}>;
+
 export class ProjectLinkSuggestionService {
   private readonly persistence: ProjectLinkSuggestionPersistence;
   private readonly projectAuthorization: ProjectLinkAuthorizationPublicReader;
@@ -85,11 +102,31 @@ export class ProjectLinkSuggestionService {
 
   async recordDecision(command: RecordDecisionCommand): Promise<ProjectLinkSuggestion> {
     assertActive(command.actor);
+    const anchors = decisionAnchors(command.decision);
+    const protectedOutput = validatedProjectMatchOutput(command, anchors);
+    const expectedSourceReferences = unique([
+      ...command.sourceReferences,
+      ...protectedOutput.sourceReferences,
+      ...anchors.map(({ reference }) => reference),
+    ]);
+    const expectation: InitialSuggestionExpectation = {
+      suggestionId: command.suggestionId,
+      employeeId: command.actor.userId,
+      sourceItemId: command.sourceItemId,
+      analysisId: command.analysisId,
+      schemaVersion: command.schemaVersion,
+      promptVersion: command.promptVersion,
+      routeKey: command.routeTrace.routeKey,
+      decision: command.decision,
+      allowedSourceReferences: expectedSourceReferences,
+      exactSourceReferences: expectedSourceReferences,
+      routeTrace: command.routeTrace,
+    };
     const existing = await this.persistence.findOwnedSuggestion({
       employeeId: command.actor.userId,
       suggestionId: command.suggestionId,
     });
-    if (existing !== null) return existing;
+    if (existing !== null) return requireInitialSuggestion(existing, expectation);
     const createdAt = this.clock();
     if (
       command.decision.kind === "AUTO_LINK" &&
@@ -102,7 +139,6 @@ export class ProjectLinkSuggestionService {
       throw unauthorizedProject();
     }
 
-    const anchors = decisionAnchors(command.decision);
     const suggestion = ProjectLinkSuggestionSchema.parse({
       id: command.suggestionId,
       employeeId: command.actor.userId,
@@ -123,11 +159,11 @@ export class ProjectLinkSuggestionService {
       analysisId: command.analysisId,
       projectId: decisionProjectId(command.decision),
       decision: command.decision.kind,
-      explanation: combinedExplanation(command.decision, command.aiExplanation),
+      explanation: combinedExplanation(command.decision, protectedOutput),
       anchors,
       supersedesSuggestionId: null,
     });
-    const sealed = await this.protector.seal(suggestion.explanation);
+    const sealed = await this.protector.seal(canonicalProjectMatchOutput(protectedOutput));
     const record: PersistedProjectLinkSuggestion = {
       id: suggestion.id,
       employeeId: suggestion.employeeId,
@@ -147,29 +183,45 @@ export class ProjectLinkSuggestionService {
       anchors: suggestion.anchors,
       supersedesSuggestionId: suggestion.supersedesSuggestionId,
     };
-    const persisted = ProjectLinkSuggestionSchema.parse(
+    return requireInitialSuggestion(
       await this.persistence.appendInitial({
         record,
         explanationCiphertext: sealed.ciphertext,
         explanationKeyVersion: sealed.keyVersion,
       }),
+      expectation,
     );
-    if (
-      persisted.id !== suggestion.id ||
-      persisted.employeeId !== suggestion.employeeId ||
-      persisted.sourceItemId !== suggestion.sourceItemId ||
-      persisted.revision !== 1
-    ) {
-      throw new Error("Persisted Project link suggestion does not match the stable operation");
-    }
-    return persisted;
   }
 
-  async findRecordedDecision(input: Readonly<{ actor: Actor; suggestionId: string }>) {
+  async findRecordedDecision(
+    input: Readonly<{
+      actor: Actor;
+      suggestionId: string;
+      analysisId: string;
+      sourceItemId: string;
+      schemaVersion: string;
+      promptVersion: string;
+      routeKey: string;
+      decision: LinkDecision;
+      allowedSourceReferences: readonly string[];
+    }>,
+  ) {
     assertActive(input.actor);
-    return this.persistence.findOwnedSuggestion({
+    const existing = await this.persistence.findOwnedSuggestion({
       employeeId: input.actor.userId,
       suggestionId: input.suggestionId,
+    });
+    if (existing === null) return null;
+    return requireInitialSuggestion(existing, {
+      suggestionId: input.suggestionId,
+      employeeId: input.actor.userId,
+      sourceItemId: input.sourceItemId,
+      analysisId: input.analysisId,
+      schemaVersion: input.schemaVersion,
+      promptVersion: input.promptVersion,
+      routeKey: input.routeKey,
+      decision: input.decision,
+      allowedSourceReferences: input.allowedSourceReferences,
     });
   }
 
@@ -326,18 +378,115 @@ function decisionExplanation(decision: LinkDecision): string {
     : "AUTO_LINK_TWO_INDEPENDENT_ANCHORS";
 }
 
-function combinedExplanation(
-  decision: LinkDecision,
-  explanation: RecordDecisionCommand["aiExplanation"],
-): string {
+function combinedExplanation(decision: LinkDecision, output: ContextProjectMatchOutput): string {
   const governedReason = decisionExplanation(decision);
-  if (explanation === undefined) return governedReason;
-  const uncertainties = explanation.uncertainties.map((value) => `- ${value}`).join("\n");
+  const uncertainties = output.uncertainties.map((value) => `- ${value}`).join("\n");
   return [
     governedReason,
-    `${explanation.label}: ${explanation.text}`,
+    `${output.interpretationLabel}: ${output.explanation}`,
     ...(uncertainties.length === 0 ? [] : [`UNCERTAINTIES:\n${uncertainties}`]),
   ].join("\n");
+}
+
+function validatedProjectMatchOutput(
+  command: RecordDecisionCommand,
+  anchors: readonly ProjectAnchor[],
+): ContextProjectMatchOutput {
+  return ContextProjectMatchAiOutputSchema.parse(
+    command.aiExplanation === undefined
+      ? {
+          interpretationLabel: "AI_DRAFT_INTERPRETATION",
+          explanation: decisionExplanation(command.decision),
+          uncertainties: [],
+          sourceReferences: unique([
+            ...command.sourceReferences,
+            ...anchors.map(({ reference }) => reference),
+          ]),
+        }
+      : {
+          interpretationLabel: command.aiExplanation.label,
+          explanation: command.aiExplanation.text,
+          uncertainties: [...command.aiExplanation.uncertainties],
+          sourceReferences: [...command.aiExplanation.sourceReferences],
+        },
+  );
+}
+
+function canonicalProjectMatchOutput(output: ContextProjectMatchOutput): string {
+  return JSON.stringify({
+    interpretationLabel: output.interpretationLabel,
+    explanation: output.explanation,
+    uncertainties: [...output.uncertainties],
+    sourceReferences: [...output.sourceReferences],
+  });
+}
+
+function requireInitialSuggestion(
+  value: ProjectLinkSuggestion,
+  expected: InitialSuggestionExpectation,
+): ProjectLinkSuggestion {
+  const result = ProjectLinkSuggestionSchema.safeParse(value);
+  if (!result.success) throw initialSuggestionMismatch();
+  const suggestion = result.data;
+  const expectedAnchors = decisionAnchors(expected.decision);
+  const allowedSources = new Set(expected.allowedSourceReferences);
+  const sourceReferencesMatch =
+    expected.exactSourceReferences === undefined
+      ? suggestion.sourceReferences.every((reference) => allowedSources.has(reference)) &&
+        expectedAnchors.every(({ reference }) => suggestion.sourceReferences.includes(reference))
+      : sameValues(suggestion.sourceReferences, expected.exactSourceReferences);
+  const routeTraceMatches =
+    expected.routeTrace === undefined
+      ? suggestion.routeTrace.routeKey === expected.routeKey
+      : sameRouteTrace(suggestion.routeTrace, expected.routeTrace);
+  if (
+    suggestion.id !== expected.suggestionId ||
+    suggestion.employeeId !== expected.employeeId ||
+    suggestion.sourceItemId !== expected.sourceItemId ||
+    suggestion.revision !== 1 ||
+    suggestion.analysisId !== expected.analysisId ||
+    suggestion.schemaVersion !== expected.schemaVersion ||
+    suggestion.promptVersion !== expected.promptVersion ||
+    suggestion.decision !== expected.decision.kind ||
+    suggestion.projectId !== decisionProjectId(expected.decision) ||
+    suggestion.reviewStatus !== "PENDING" ||
+    suggestion.revisionOrigin !== "AI" ||
+    suggestion.correctionReason !== null ||
+    suggestion.supersedesSuggestionId !== null ||
+    !sameAnchors(suggestion.anchors, expectedAnchors) ||
+    !sourceReferencesMatch ||
+    !routeTraceMatches
+  ) {
+    throw initialSuggestionMismatch();
+  }
+  return suggestion;
+}
+
+function sameRouteTrace(left: RouteTrace, right: RouteTrace): boolean {
+  return (
+    left.aiRunId === right.aiRunId &&
+    left.routeKey === right.routeKey &&
+    left.routeConfigId === right.routeConfigId &&
+    left.routeConfigVersion === right.routeConfigVersion
+  );
+}
+
+function sameAnchors(left: readonly ProjectAnchor[], right: readonly ProjectAnchor[]): boolean {
+  return sameValues(left.map(anchorIdentity), right.map(anchorIdentity));
+}
+
+function anchorIdentity(anchor: ProjectAnchor): string {
+  return `${anchor.kind}:${anchor.reference}:${String(anchor.conflicts)}`;
+}
+
+function sameValues(left: readonly string[], right: readonly string[]): boolean {
+  const a = [...new Set(left)].sort();
+  const b = [...new Set(right)].sort();
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+function initialSuggestionMismatch(): Error {
+  return new Error("Persisted Project link suggestion does not match the stable operation");
 }
 
 function unique(values: readonly string[]): string[] {
