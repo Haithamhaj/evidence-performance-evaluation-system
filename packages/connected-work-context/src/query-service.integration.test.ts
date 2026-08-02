@@ -208,7 +208,10 @@ describe("private connected-context queries", () => {
       auditWriter: {
         append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }),
       },
-      projectAuthorization: { canLink: async () => false },
+      projectAuthorization: {
+        canLink: async () => false,
+        authorizeCurrentMemberInTransaction: async () => undefined,
+      },
       clock: () => now,
     });
 

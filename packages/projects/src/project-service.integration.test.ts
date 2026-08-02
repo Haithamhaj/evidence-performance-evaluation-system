@@ -490,6 +490,38 @@ describe("ProjectService", () => {
     ).resolves.toMatchObject({ id: project.id });
   });
 
+  it("authorizes only a current member from the caller's Serializable transaction", async () => {
+    const service = createProjectService(client, databaseAuditWriter as never, () => now);
+    const project = await service.createProject(command());
+    await service.addProjectMember({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      input: {
+        userId: fixture.memberId,
+        startsAt: "2026-07-17T07:00:00Z",
+        reason: "Approved project contribution",
+      },
+    });
+    const authorize = () =>
+      client.$transaction(
+        (transaction) =>
+          service.authorizeCurrentMemberInTransaction(transaction, {
+            actor: { userId: fixture.memberId, active: true },
+            projectId: project.id,
+            at: now,
+          }),
+        { isolationLevel: "Serializable" },
+      );
+
+    await expect(authorize()).resolves.toBeUndefined();
+    await client.projectMember.updateMany({
+      where: { projectId: project.id, employeeId: fixture.memberId, endsAt: null },
+      data: { endsAt: now },
+    });
+    await expect(authorize()).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH" });
+  });
+
   it("allows exactly one of two concurrent member-end commands", async () => {
     const service = createProjectService(client, databaseAuditWriter as never, () => now);
     const project = await service.createProject(command());

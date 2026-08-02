@@ -552,6 +552,30 @@ describe("connected work context schema", () => {
     await expect(
       client.$executeRaw`
         UPDATE "SourceProjectLink"
+        SET
+          "unlinkedAt" = NULL,
+          "unlinkedById" = NULL,
+          "unlinkReason" = NULL
+        WHERE "id" = ${linkId}::uuid
+      `,
+    ).rejects.toSatisfy(databaseConstraint);
+    await expect(
+      client.$executeRaw`
+        UPDATE "SourceProjectLink"
+        SET "unlinkedAt" = "unlinkedAt" + INTERVAL '1 second'
+        WHERE "id" = ${linkId}::uuid
+      `,
+    ).rejects.toSatisfy(databaseConstraint);
+    await expect(
+      client.$executeRaw`
+        UPDATE "SourceProjectLink"
+        SET "unlinkedById" = ${fixture.otherEmployeeId}::uuid
+        WHERE "id" = ${linkId}::uuid
+      `,
+    ).rejects.toSatisfy(databaseConstraint);
+    await expect(
+      client.$executeRaw`
+        UPDATE "SourceProjectLink"
         SET "unlinkReason" = 'Silently rewritten reason'
         WHERE "id" = ${linkId}::uuid
       `,

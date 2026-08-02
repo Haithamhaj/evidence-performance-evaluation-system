@@ -84,7 +84,10 @@ describe("connected work synchronization", () => {
       database: client,
       credentialVault: vault,
       auditWriter: databaseAuditWriter,
-      projectAuthorization: { canLink: async () => false },
+      projectAuthorization: {
+        canLink: async () => false,
+        authorizeCurrentMemberInTransaction: async () => undefined,
+      },
       clock: () => now,
     });
     const syncResult = syncService.sync({
@@ -128,7 +131,10 @@ describe("connected work synchronization", () => {
       database: client,
       credentialVault: vault,
       auditWriter: databaseAuditWriter,
-      projectAuthorization: { canLink: async () => false },
+      projectAuthorization: {
+        canLink: async () => false,
+        authorizeCurrentMemberInTransaction: async () => undefined,
+      },
       clock: () => new Date("2026-07-28T09:00:00.000Z"),
     });
     const actor = { userId: graph.employeeId, active: true };

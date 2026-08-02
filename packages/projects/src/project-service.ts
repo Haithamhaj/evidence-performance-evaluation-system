@@ -210,6 +210,33 @@ export class ProjectService {
     });
   }
 
+  async authorizeCurrentMemberInTransaction(
+    transaction: Transaction,
+    input: Readonly<{
+      actor: Readonly<{ userId: string; active: boolean }>;
+      projectId: string;
+      at: Date;
+    }>,
+  ): Promise<void> {
+    const current = validClock(input.at);
+    if (!input.actor.active) throw authorizationError("INACTIVE");
+    const rows = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT project.id
+      FROM "Project" project
+      JOIN "ProjectMember" membership
+        ON membership."projectId" = project.id
+       AND membership."employeeId" = ${input.actor.userId}::uuid
+      JOIN "User" employee ON employee.id = membership."employeeId"
+      WHERE project.id = ${input.projectId}::uuid
+        AND project.status IN ('active', 'paused')
+        AND employee.active = true
+        AND membership."startsAt" <= ${current}
+        AND (membership."endsAt" IS NULL OR membership."endsAt" > ${current})
+      FOR SHARE OF project, membership, employee
+    `;
+    if (rows[0] === undefined) throw authorizationError("SCOPE_MISMATCH");
+  }
+
   async getWorkspace(command: unknown): Promise<import("@evaluation/contracts").ProjectWorkspace> {
     const parsed = GetProjectCommandSchema.parse(command);
     const current = validClock(this.clock());

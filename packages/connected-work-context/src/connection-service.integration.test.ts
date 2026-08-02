@@ -1,4 +1,5 @@
 import { databaseAuditWriter } from "@evaluation/audit";
+import { AppError } from "@evaluation/contracts";
 import { createDatabaseClient } from "@evaluation/database";
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -7,6 +8,27 @@ import { DevelopmentOnlyMemoryCredentialVault } from "./credential-vault.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 const now = new Date("2026-07-20T09:00:00.000Z");
+
+function databaseConstraint(error: unknown): boolean {
+  if (error instanceof Error && /constraint|current confirmed|foreign key/iu.test(error.message)) {
+    return true;
+  }
+  if (typeof error !== "object" || error === null) return false;
+  if ("code" in error && ["P2003", "P2004", "P2010"].includes(String(error.code))) return true;
+  if ("cause" in error) return databaseConstraint(error.cause);
+  if ("meta" in error) return databaseConstraint(error.meta);
+  return "driverAdapterError" in error && databaseConstraint(error.driverAdapterError);
+}
+
+function hasNestedCode(error: unknown, code: string, seen: Set<object> = new Set()): boolean {
+  if (typeof error !== "object" || error === null || seen.has(error)) return false;
+  seen.add(error);
+  if ("code" in error && error.code === code) return true;
+  if ("originalCode" in error && error.originalCode === code) return true;
+  if ("cause" in error && hasNestedCode(error.cause, code, seen)) return true;
+  if ("meta" in error && hasNestedCode(error.meta, code, seen)) return true;
+  return "driverAdapterError" in error && hasNestedCode(error.driverAdapterError, code, seen);
+}
 
 async function seedConnectionGraph() {
   const suffix = crypto.randomUUID();
@@ -105,7 +127,7 @@ async function seedConnectionGraph() {
 async function seedSuggestionLineage(
   graph: Awaited<ReturnType<typeof seedConnectionGraph>>,
   sourceItemId: string,
-  suggestionIds: readonly [string, string],
+  input: Readonly<{ suggestionId: string; projectId: string }>,
 ) {
   const suffix = crypto.randomUUID();
   const systemScope = await client.authorizationScope.create({
@@ -206,48 +228,81 @@ async function seedSuggestionLineage(
       createdById: graph.employeeId,
     },
   });
-  await client.projectLinkSuggestion.createMany({
-    data: [
-      {
-        id: suggestionIds[0],
-        analysisId: analysis.id,
-        sourceItemId,
-        employeeId: graph.employeeId,
-        projectId: null,
-        decision: "NO_MATCH",
-        explanationCiphertext: "protected-suggestion-one",
-        explanationKeyVersion: "test-only",
-        anchors: [],
-        revision: 1,
-        schemaVersion,
-        promptVersion,
-        aiRunTraceId: run.id,
-        sourceReferences: [`connected-source:${sourceItemId}`],
-        reviewStatus: "PENDING",
-        revisionOrigin: "AI",
-        createdById: graph.employeeId,
-      },
-      {
-        id: suggestionIds[1],
-        analysisId: analysis.id,
-        sourceItemId,
-        employeeId: graph.employeeId,
-        projectId: null,
-        decision: "NO_MATCH",
-        explanationCiphertext: "protected-suggestion-two",
-        explanationKeyVersion: "test-only",
-        anchors: [],
-        revision: 2,
-        schemaVersion,
-        promptVersion,
-        aiRunTraceId: run.id,
-        sourceReferences: [`connected-source:${sourceItemId}`],
-        reviewStatus: "PENDING",
-        revisionOrigin: "AI",
-        supersedesSuggestionId: suggestionIds[0],
-        createdById: graph.employeeId,
-      },
-    ],
+  await client.projectLinkSuggestion.create({
+    data: {
+      id: input.suggestionId,
+      analysisId: analysis.id,
+      sourceItemId,
+      employeeId: graph.employeeId,
+      projectId: input.projectId,
+      decision: "AUTO_LINK",
+      explanationCiphertext: "protected-initial-suggestion",
+      explanationKeyVersion: "test-only",
+      anchors: [
+        {
+          kind: "EXPLICIT_USER_MAPPING",
+          reference: `source-link-correction:${input.suggestionId}`,
+          conflicts: false,
+        },
+      ],
+      revision: 1,
+      schemaVersion,
+      promptVersion,
+      aiRunTraceId: run.id,
+      sourceReferences: [`connected-source:${sourceItemId}`],
+      reviewStatus: "PENDING",
+      revisionOrigin: "AI",
+      createdById: graph.employeeId,
+    },
+  });
+  return { analysisId: analysis.id, runId: run.id, schemaVersion, promptVersion };
+}
+
+async function appendReviewedSuggestion(
+  graph: Awaited<ReturnType<typeof seedConnectionGraph>>,
+  sourceItemId: string,
+  lineage: Awaited<ReturnType<typeof seedSuggestionLineage>>,
+  input: Readonly<{
+    suggestionId: string;
+    supersedesSuggestionId: string;
+    revision: number;
+    reviewStatus: "CONFIRMED" | "CORRECTED" | "REJECTED";
+    projectId: string | null;
+  }>,
+) {
+  const correctionReference = `source-link-correction:${input.suggestionId}`;
+  await client.projectLinkSuggestion.create({
+    data: {
+      id: input.suggestionId,
+      analysisId: lineage.analysisId,
+      sourceItemId,
+      employeeId: graph.employeeId,
+      projectId: input.projectId,
+      decision: input.projectId === null ? "NO_MATCH" : "AUTO_LINK",
+      explanationCiphertext: "protected-reviewed-suggestion",
+      explanationKeyVersion: "test-only",
+      anchors:
+        input.projectId === null
+          ? []
+          : [
+              {
+                kind: "EXPLICIT_USER_MAPPING",
+                reference: correctionReference,
+                conflicts: false,
+              },
+            ],
+      revision: input.revision,
+      schemaVersion: lineage.schemaVersion,
+      promptVersion: lineage.promptVersion,
+      aiRunTraceId: lineage.runId,
+      sourceReferences: [`connected-source:${sourceItemId}`, correctionReference],
+      reviewStatus: input.reviewStatus,
+      revisionOrigin: "EMPLOYEE",
+      correctionReasonCiphertext: "protected-review-reason",
+      correctionReasonKeyVersion: "test-only",
+      supersedesSuggestionId: input.supersedesSuggestionId,
+      createdById: graph.employeeId,
+    },
   });
 }
 
@@ -262,8 +317,47 @@ function projectAuthorization() {
           OR: [{ endsAt: null }, { endsAt: { gt: at } }],
         },
       })) > 0,
+    authorizeCurrentMemberInTransaction: async (
+      transaction: import("@evaluation/database").DatabaseTransaction,
+      employeeId: string,
+      projectId: string,
+      at: Date,
+    ) => {
+      const rows = await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT project.id
+        FROM "Project" project
+        JOIN "ProjectMember" membership
+          ON membership."projectId" = project.id
+         AND membership."employeeId" = ${employeeId}::uuid
+        JOIN "User" employee ON employee.id = membership."employeeId"
+        WHERE project.id = ${projectId}::uuid
+          AND project.status IN ('active', 'paused')
+          AND employee.active = true
+          AND membership."startsAt" <= ${at}
+          AND (membership."endsAt" IS NULL OR membership."endsAt" > ${at})
+        FOR SHARE OF project, membership, employee
+      `;
+      if (rows[0] === undefined) {
+        throw new AppError("AUTHZ_SCOPE_MISMATCH", "errors.authorization.denied", 403);
+      }
+    },
   };
 }
+
+type DerivedLinkCommands = {
+  confirmSuggestedProject(
+    transaction: import("@evaluation/database").DatabaseTransaction,
+    command: Record<string, unknown>,
+  ): Promise<unknown>;
+  replaceSuggestedProject(
+    transaction: import("@evaluation/database").DatabaseTransaction,
+    command: Record<string, unknown>,
+  ): Promise<unknown>;
+  removeSuggestedProject(
+    transaction: import("@evaluation/database").DatabaseTransaction,
+    command: Record<string, unknown>,
+  ): Promise<unknown>;
+};
 
 afterAll(async () => client.$disconnect());
 
@@ -305,26 +399,20 @@ describe("connected work connection commands", () => {
     if (derivedSource === undefined || manualSource === undefined) {
       throw new Error("Connected Context source fixture is incomplete");
     }
-    const firstSuggestionId = crypto.randomUUID();
+    const initialSuggestionId = crypto.randomUUID();
+    const confirmedSuggestionId = crypto.randomUUID();
     const correctedSuggestionId = crypto.randomUUID();
-    await seedSuggestionLineage(graph, derivedSource.id, [
-      firstSuggestionId,
-      correctedSuggestionId,
-    ]);
-    type DerivedLinkCommands = {
-      confirmSuggestedProject(
-        transaction: import("@evaluation/database").DatabaseTransaction,
-        command: Record<string, unknown>,
-      ): Promise<unknown>;
-      replaceSuggestedProject(
-        transaction: import("@evaluation/database").DatabaseTransaction,
-        command: Record<string, unknown>,
-      ): Promise<unknown>;
-      removeSuggestedProject(
-        transaction: import("@evaluation/database").DatabaseTransaction,
-        command: Record<string, unknown>,
-      ): Promise<unknown>;
-    };
+    const lineage = await seedSuggestionLineage(graph, derivedSource.id, {
+      suggestionId: initialSuggestionId,
+      projectId: graph.projectId,
+    });
+    await appendReviewedSuggestion(graph, derivedSource.id, lineage, {
+      suggestionId: confirmedSuggestionId,
+      supersedesSuggestionId: initialSuggestionId,
+      revision: 2,
+      reviewStatus: "CONFIRMED",
+      projectId: graph.projectId,
+    });
     const derivedCommands = service as unknown as DerivedLinkCommands;
 
     await client.$transaction((transaction) =>
@@ -333,15 +421,22 @@ describe("connected work connection commands", () => {
         correlationId: crypto.randomUUID(),
         sourceItemId: derivedSource.id,
         projectId: graph.projectId,
-        suggestionId: firstSuggestionId,
+        suggestionId: confirmedSuggestionId,
       }),
     );
+    await appendReviewedSuggestion(graph, derivedSource.id, lineage, {
+      suggestionId: correctedSuggestionId,
+      supersedesSuggestionId: confirmedSuggestionId,
+      revision: 3,
+      reviewStatus: "CORRECTED",
+      projectId: graph.otherProjectId,
+    });
     await client.$transaction((transaction) =>
       derivedCommands.replaceSuggestedProject(transaction, {
         actor,
         correlationId: crypto.randomUUID(),
         sourceItemId: derivedSource.id,
-        expectedSuggestionId: firstSuggestionId,
+        expectedSuggestionId: confirmedSuggestionId,
         replacementSuggestionId: correctedSuggestionId,
         projectId: graph.otherProjectId,
       }),
@@ -381,7 +476,7 @@ describe("connected work connection commands", () => {
         actor,
         correlationId: crypto.randomUUID(),
         sourceItemId: manualSource.id,
-        expectedSuggestionId: firstSuggestionId,
+        expectedSuggestionId: confirmedSuggestionId,
         replacementSuggestionId: correctedSuggestionId,
         projectId: graph.otherProjectId,
       }),
@@ -397,6 +492,232 @@ describe("connected work connection commands", () => {
     await expect(
       client.sourceProjectLink.findUniqueOrThrow({ where: { id: manual.id } }),
     ).resolves.toMatchObject({ projectId: graph.projectId, unlinkedAt: null });
+  });
+
+  it("rejects pending, rejected, superseded, and wrong-Project suggestion provenance", async () => {
+    const graph = await seedConnectionGraph();
+    const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    const service = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: databaseAuditWriter,
+      projectAuthorization: projectAuthorization(),
+      clock: () => now,
+    });
+    const actor = { userId: graph.employeeId, active: true };
+    const account = await client.connectedWorkAccount.create({
+      data: {
+        employeeId: graph.employeeId,
+        credentialRef: `vault://${crypto.randomUUID()}`,
+        connectedAt: now,
+      },
+    });
+    const sources = await Promise.all(
+      ["pending", "rejected", "superseded", "wrong-project"].map((providerSourceId) =>
+        client.connectedSourceItem.create({
+          data: {
+            connectedWorkAccountId: account.id,
+            employeeId: graph.employeeId,
+            provider: "GOOGLE_GMAIL",
+            providerSourceId,
+            occurredAt: now,
+            titleCiphertext: "protected",
+            titleKeyVersion: "test-only",
+          },
+        }),
+      ),
+    );
+    const [pendingSource, rejectedSource, supersededSource, wrongProjectSource] = sources;
+    if (
+      pendingSource === undefined ||
+      rejectedSource === undefined ||
+      supersededSource === undefined ||
+      wrongProjectSource === undefined
+    ) {
+      throw new Error("Suggestion provenance fixture is incomplete");
+    }
+
+    const pendingSuggestionId = crypto.randomUUID();
+    await seedSuggestionLineage(graph, pendingSource.id, {
+      suggestionId: pendingSuggestionId,
+      projectId: graph.projectId,
+    });
+
+    const rejectedInitialId = crypto.randomUUID();
+    const rejectedSuggestionId = crypto.randomUUID();
+    const rejectedLineage = await seedSuggestionLineage(graph, rejectedSource.id, {
+      suggestionId: rejectedInitialId,
+      projectId: graph.projectId,
+    });
+    await appendReviewedSuggestion(graph, rejectedSource.id, rejectedLineage, {
+      suggestionId: rejectedSuggestionId,
+      supersedesSuggestionId: rejectedInitialId,
+      revision: 2,
+      reviewStatus: "REJECTED",
+      projectId: null,
+    });
+
+    const supersededInitialId = crypto.randomUUID();
+    const supersededSuggestionId = crypto.randomUUID();
+    const currentSuggestionId = crypto.randomUUID();
+    const supersededLineage = await seedSuggestionLineage(graph, supersededSource.id, {
+      suggestionId: supersededInitialId,
+      projectId: graph.projectId,
+    });
+    await appendReviewedSuggestion(graph, supersededSource.id, supersededLineage, {
+      suggestionId: supersededSuggestionId,
+      supersedesSuggestionId: supersededInitialId,
+      revision: 2,
+      reviewStatus: "CONFIRMED",
+      projectId: graph.projectId,
+    });
+    await appendReviewedSuggestion(graph, supersededSource.id, supersededLineage, {
+      suggestionId: currentSuggestionId,
+      supersedesSuggestionId: supersededSuggestionId,
+      revision: 3,
+      reviewStatus: "CORRECTED",
+      projectId: graph.projectId,
+    });
+
+    const wrongProjectInitialId = crypto.randomUUID();
+    const wrongProjectSuggestionId = crypto.randomUUID();
+    const wrongProjectLineage = await seedSuggestionLineage(graph, wrongProjectSource.id, {
+      suggestionId: wrongProjectInitialId,
+      projectId: graph.otherProjectId,
+    });
+    await appendReviewedSuggestion(graph, wrongProjectSource.id, wrongProjectLineage, {
+      suggestionId: wrongProjectSuggestionId,
+      supersedesSuggestionId: wrongProjectInitialId,
+      revision: 2,
+      reviewStatus: "CONFIRMED",
+      projectId: graph.otherProjectId,
+    });
+
+    const commands = service as unknown as DerivedLinkCommands;
+    await expect(
+      client.sourceProjectLink.create({
+        data: {
+          sourceItemId: pendingSource.id,
+          employeeId: graph.employeeId,
+          projectId: graph.projectId,
+          origin: "CONTEXT_SUGGESTION",
+          contextSuggestionId: pendingSuggestionId,
+          linkedById: graph.employeeId,
+          linkedAt: now,
+        },
+      }),
+    ).rejects.toSatisfy(databaseConstraint);
+    for (const invalid of [
+      { sourceItemId: pendingSource.id, suggestionId: pendingSuggestionId },
+      { sourceItemId: rejectedSource.id, suggestionId: rejectedSuggestionId },
+      { sourceItemId: supersededSource.id, suggestionId: supersededSuggestionId },
+      { sourceItemId: wrongProjectSource.id, suggestionId: wrongProjectSuggestionId },
+    ]) {
+      await expect(
+        client.$transaction((transaction) =>
+          commands.confirmSuggestedProject(transaction, {
+            actor,
+            correlationId: crypto.randomUUID(),
+            sourceItemId: invalid.sourceItemId,
+            projectId: graph.projectId,
+            suggestionId: invalid.suggestionId,
+          }),
+        ),
+      ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_INVALID_SUGGESTION" });
+    }
+    await expect(
+      client.sourceProjectLink.count({ where: { employeeId: graph.employeeId } }),
+    ).resolves.toBe(0);
+  });
+
+  it("rechecks current Project membership in the caller transaction after revocation", async () => {
+    const graph = await seedConnectionGraph();
+    const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    const baselineAuthorization = projectAuthorization();
+    let revoked = false;
+    const revokeMembership = async () => {
+      if (revoked) return;
+      revoked = true;
+      await client.projectMember.updateMany({
+        where: { employeeId: graph.employeeId, projectId: graph.projectId, endsAt: null },
+        data: { endsAt: now },
+      });
+    };
+    const service = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: databaseAuditWriter,
+      projectAuthorization: {
+        canLink: async () => {
+          await revokeMembership();
+          return true;
+        },
+        authorizeCurrentMemberInTransaction: async (transaction, employeeId, projectId, at) => {
+          await revokeMembership();
+          return baselineAuthorization.authorizeCurrentMemberInTransaction(
+            transaction,
+            employeeId,
+            projectId,
+            at,
+          );
+        },
+      },
+      clock: () => now,
+    });
+    const actor = { userId: graph.employeeId, active: true };
+    const account = await client.connectedWorkAccount.create({
+      data: {
+        employeeId: graph.employeeId,
+        credentialRef: `vault://${crypto.randomUUID()}`,
+        connectedAt: now,
+      },
+    });
+    const source = await client.connectedSourceItem.create({
+      data: {
+        connectedWorkAccountId: account.id,
+        employeeId: graph.employeeId,
+        provider: "GOOGLE_GMAIL",
+        providerSourceId: "membership-revocation-race",
+        occurredAt: now,
+        titleCiphertext: "protected",
+        titleKeyVersion: "test-only",
+      },
+    });
+    const initialSuggestionId = crypto.randomUUID();
+    const confirmedSuggestionId = crypto.randomUUID();
+    const lineage = await seedSuggestionLineage(graph, source.id, {
+      suggestionId: initialSuggestionId,
+      projectId: graph.projectId,
+    });
+    await appendReviewedSuggestion(graph, source.id, lineage, {
+      suggestionId: confirmedSuggestionId,
+      supersedesSuggestionId: initialSuggestionId,
+      revision: 2,
+      reviewStatus: "CONFIRMED",
+      projectId: graph.projectId,
+    });
+
+    const commands = service as unknown as DerivedLinkCommands;
+    await expect(
+      client.$transaction(
+        (transaction) =>
+          commands.confirmSuggestedProject(transaction, {
+            actor,
+            correlationId: crypto.randomUUID(),
+            sourceItemId: source.id,
+            projectId: graph.projectId,
+            suggestionId: confirmedSuggestionId,
+          }),
+        { isolationLevel: "Serializable" },
+      ),
+    ).rejects.toSatisfy((error: unknown) =>
+      error instanceof AppError
+        ? error.code === "CONNECTED_CONTEXT_FORBIDDEN"
+        : hasNestedCode(error, "P2034") || hasNestedCode(error, "40001"),
+    );
+    await expect(
+      client.sourceProjectLink.count({ where: { sourceItemId: source.id } }),
+    ).resolves.toBe(0);
   });
 
   it("audits connection, exclusions, reversible Project links, disconnection, and credential revocation without private content", async () => {

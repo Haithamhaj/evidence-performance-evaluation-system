@@ -139,6 +139,12 @@ Module({
                 throw error;
               }
             },
+            authorizeCurrentMemberInTransaction: (transaction, employeeId, projectId, at) =>
+              projects.authorizeCurrentMemberInTransaction(transaction, {
+                actor: { userId: employeeId, active: true },
+                projectId,
+                at,
+              }),
           },
         });
       },

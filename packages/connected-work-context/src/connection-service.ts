@@ -21,6 +21,12 @@ type SourceProjectLinkRecord = Readonly<{
 
 export interface ProjectLinkAuthorization {
   canLink(employeeId: string, projectId: string, at: Date): Promise<boolean>;
+  authorizeCurrentMemberInTransaction(
+    transaction: Transaction,
+    employeeId: string,
+    projectId: string,
+    at: Date,
+  ): Promise<void>;
 }
 
 type ConnectionServiceDependencies = Readonly<{
@@ -318,20 +324,27 @@ export class ConnectedWorkConnectionService {
   ): Promise<SourceProjectLinkRecord> {
     assertActive(command.actor);
     const current = validClock(this.clock());
-    if (
-      !(await this.projectAuthorization.canLink(command.actor.userId, command.projectId, current))
-    ) {
-      throw forbiddenError();
-    }
     await assertAccessibleConnectedSource(transaction, command);
     const activeLink = await transaction.sourceProjectLink.findFirst({
       where: { sourceItemId: command.sourceItemId, unlinkedAt: null },
     });
+    if (activeLink?.origin === "EMPLOYEE_MANUAL") {
+      if (activeLink.projectId === command.projectId) return activeLink;
+      throw linkConflictError();
+    }
+    await this.authorizeDerivedProjectLink(
+      transaction,
+      command.actor.userId,
+      command.projectId,
+      current,
+    );
+    await assertValidContextSuggestion(transaction, {
+      employeeId: command.actor.userId,
+      sourceItemId: command.sourceItemId,
+      projectId: command.projectId,
+      suggestionId: command.suggestionId,
+    });
     if (activeLink !== null) {
-      if (activeLink.origin === "EMPLOYEE_MANUAL") {
-        if (activeLink.projectId === command.projectId) return activeLink;
-        throw linkConflictError();
-      }
       if (
         activeLink.projectId === command.projectId &&
         activeLink.contextSuggestionId === command.suggestionId
@@ -376,16 +389,23 @@ export class ConnectedWorkConnectionService {
   ): Promise<SourceProjectLinkRecord> {
     assertActive(command.actor);
     const current = validClock(this.clock());
-    if (
-      !(await this.projectAuthorization.canLink(command.actor.userId, command.projectId, current))
-    ) {
-      throw forbiddenError();
-    }
     await assertAccessibleConnectedSource(transaction, command);
     const activeLink = await transaction.sourceProjectLink.findFirst({
       where: { sourceItemId: command.sourceItemId, unlinkedAt: null },
     });
     if (activeLink?.origin === "EMPLOYEE_MANUAL") return activeLink;
+    await this.authorizeDerivedProjectLink(
+      transaction,
+      command.actor.userId,
+      command.projectId,
+      current,
+    );
+    await assertValidContextSuggestion(transaction, {
+      employeeId: command.actor.userId,
+      sourceItemId: command.sourceItemId,
+      projectId: command.projectId,
+      suggestionId: command.replacementSuggestionId,
+    });
     if (activeLink !== null && activeLink.contextSuggestionId !== command.expectedSuggestionId) {
       throw linkConflictError();
     }
@@ -528,6 +548,25 @@ export class ConnectedWorkConnectionService {
     return account;
   }
 
+  private async authorizeDerivedProjectLink(
+    transaction: Transaction,
+    employeeId: string,
+    projectId: string,
+    at: Date,
+  ): Promise<void> {
+    try {
+      await this.projectAuthorization.authorizeCurrentMemberInTransaction(
+        transaction,
+        employeeId,
+        projectId,
+        at,
+      );
+    } catch (error) {
+      if (error instanceof AppError && error.status === 403) throw forbiddenError();
+      throw error;
+    }
+  }
+
   private appendAudit(
     transaction: Transaction,
     input: Readonly<{
@@ -553,6 +592,40 @@ export class ConnectedWorkConnectionService {
       correlationId: input.correlationId,
       source: "api",
     });
+  }
+}
+
+async function assertValidContextSuggestion(
+  transaction: Transaction,
+  input: Readonly<{
+    employeeId: string;
+    sourceItemId: string;
+    projectId: string;
+    suggestionId: string;
+  }>,
+): Promise<void> {
+  const rows = await transaction.$queryRaw<Array<{ id: string }>>`
+    SELECT suggestion.id
+    FROM "ProjectLinkSuggestion" suggestion
+    WHERE suggestion.id = ${input.suggestionId}::uuid
+      AND suggestion."sourceItemId" = ${input.sourceItemId}::uuid
+      AND suggestion."employeeId" = ${input.employeeId}::uuid
+      AND suggestion."projectId" = ${input.projectId}::uuid
+      AND suggestion."reviewStatus" IN ('CONFIRMED', 'CORRECTED')
+      AND suggestion."revisionOrigin" = 'EMPLOYEE'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM "ProjectLinkSuggestion" superseding
+        WHERE superseding."supersedesSuggestionId" = suggestion.id
+      )
+    FOR SHARE OF suggestion
+  `;
+  if (rows[0] === undefined) {
+    throw new AppError(
+      "CONNECTED_CONTEXT_INVALID_SUGGESTION",
+      "errors.connectedContext.invalidSuggestion",
+      409,
+    );
   }
 }
 
