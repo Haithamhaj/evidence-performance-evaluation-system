@@ -16,6 +16,74 @@ CREATE TYPE "ProjectLinkDecision" AS ENUM ('AUTO_LINK', 'REVIEW', 'NO_MATCH');
 -- CreateEnum
 CREATE TYPE "SourceLinkCorrectionAction" AS ENUM ('CORRECT', 'REJECT');
 
+-- Keep Project-link anchors structurally aligned with the governed contract.
+CREATE FUNCTION "is_valid_project_link_anchors"(items JSONB) RETURNS BOOLEAN
+LANGUAGE plpgsql IMMUTABLE STRICT
+AS $$
+DECLARE
+  anchor JSONB;
+BEGIN
+  IF jsonb_typeof(items) <> 'array' OR jsonb_array_length(items) > 20 THEN
+    RETURN FALSE;
+  END IF;
+
+  FOR anchor IN SELECT * FROM jsonb_array_elements(items)
+  LOOP
+    IF jsonb_typeof(anchor) IS DISTINCT FROM 'object'
+      OR (SELECT count(*) FROM jsonb_object_keys(anchor)) <> 3
+      OR jsonb_typeof(anchor -> 'kind') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(anchor -> 'reference') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(anchor -> 'conflicts') IS DISTINCT FROM 'boolean'
+      OR anchor ->> 'kind' NOT IN (
+        'EXPLICIT_USER_MAPPING',
+        'CONFIRMED_SENDER_DOMAIN',
+        'CALENDAR_CONTEXT',
+        'EXPLICIT_PROJECT_REFERENCE',
+        'PRIOR_EMPLOYEE_CORRECTION',
+        'GOVERNED_REPOSITORY_BINDING'
+      )
+      OR NOT "is_safe_ai_reference"(anchor ->> 'reference')
+    THEN
+      RETURN FALSE;
+    END IF;
+  END LOOP;
+
+  RETURN TRUE;
+END;
+$$;
+
+CREATE FUNCTION "has_project_auto_link_authority"(items JSONB) RETURNS BOOLEAN
+LANGUAGE plpgsql IMMUTABLE STRICT
+AS $$
+DECLARE
+  independent_kind_count INTEGER;
+BEGIN
+  IF NOT "is_valid_project_link_anchors"(items)
+    OR EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(items) AS entry(anchor)
+      WHERE (anchor ->> 'conflicts')::BOOLEAN
+    )
+  THEN
+    RETURN FALSE;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(items) AS entry(anchor)
+    WHERE anchor ->> 'kind' = 'EXPLICIT_USER_MAPPING'
+  ) THEN
+    RETURN TRUE;
+  END IF;
+
+  SELECT count(DISTINCT anchor ->> 'kind')
+  INTO independent_kind_count
+  FROM jsonb_array_elements(items) AS entry(anchor);
+
+  RETURN independent_kind_count >= 2;
+END;
+$$;
+
 -- CreateTable
 CREATE TABLE "ContextAnalysis" (
   "id" UUID NOT NULL,
@@ -99,7 +167,11 @@ CREATE TABLE "ProjectLinkSuggestion" (
   CONSTRAINT "ProjectLinkSuggestion_positive_revision" CHECK ("revision" > 0),
   CONSTRAINT "ProjectLinkSuggestion_versioned_lineage" CHECK (
     ("revision" = 1 AND "supersedesSuggestionId" IS NULL)
-    OR ("revision" > 1 AND "supersedesSuggestionId" IS NOT NULL)
+    OR (
+      "revision" > 1
+      AND "supersedesSuggestionId" IS NOT NULL
+      AND "id" <> "supersedesSuggestionId"
+    )
   ),
   CONSTRAINT "ProjectLinkSuggestion_version_tags" CHECK (
     char_length(btrim("schemaVersion")) BETWEEN 3 AND 160
@@ -110,20 +182,13 @@ CREATE TABLE "ProjectLinkSuggestion" (
     AND char_length(btrim("explanationKeyVersion")) BETWEEN 1 AND 200
   ),
   CONSTRAINT "ProjectLinkSuggestion_anchor_array" CHECK (
-    jsonb_typeof("anchors") = 'array'
+    "is_valid_project_link_anchors"("anchors")
   ),
   CONSTRAINT "ProjectLinkSuggestion_auto_link_anchors" CHECK (
     "decision" <> 'AUTO_LINK'
     OR (
       "projectId" IS NOT NULL
-      AND jsonb_typeof("anchors") = 'array'
-      AND (
-        "anchors" @? '$[*] ? (@.kind == "EXPLICIT_USER_MAPPING" && @.conflicts == false)'
-        OR (
-          jsonb_array_length("anchors") >= 2
-          AND NOT "anchors" @? '$[*] ? (@.conflicts == true)'
-        )
-      )
+      AND "has_project_auto_link_authority"("anchors")
     )
   ),
   CONSTRAINT "ProjectLinkSuggestion_nonempty_sources" CHECK (
@@ -310,6 +375,10 @@ ON "SourceLinkCorrection"("suggestionId", "createdAt");
 CREATE INDEX "SourceLinkCorrection_correctedProjectId_createdAt_idx"
 ON "SourceLinkCorrection"("correctedProjectId", "createdAt" DESC);
 
+-- Allow governed outputs to bind their claimed versions to the immutable AI run trace.
+CREATE UNIQUE INDEX "AiRun_id_outputSchemaVersion_promptTemplateVersion_key"
+ON "AiRun"("id", "outputSchemaVersion", "promptTemplateVersion");
+
 -- Preserve every analysis, suggestion, draft, and employee correction as append-only history.
 CREATE FUNCTION "guard_context_intelligence_history"() RETURNS trigger AS $$
 BEGIN
@@ -343,6 +412,51 @@ CREATE TRIGGER "SourceLinkCorrection_guard_delete"
 BEFORE DELETE ON "SourceLinkCorrection"
 FOR EACH ROW EXECUTE FUNCTION "guard_context_intelligence_history"();
 
+-- A correction must point to the direct next suggestion revision and its corrected Project.
+CREATE FUNCTION "validate_source_link_correction_lineage"() RETURNS trigger AS $$
+DECLARE
+  original_revision INTEGER;
+  superseding_revision INTEGER;
+  superseding_parent_id UUID;
+  superseding_project_id UUID;
+BEGIN
+  IF NEW."action" <> 'CORRECT' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT "revision"
+  INTO original_revision
+  FROM "ProjectLinkSuggestion"
+  WHERE "id" = NEW."suggestionId"
+    AND "sourceItemId" = NEW."sourceItemId"
+    AND "employeeId" = NEW."employeeId";
+
+  SELECT "revision", "supersedesSuggestionId", "projectId"
+  INTO superseding_revision, superseding_parent_id, superseding_project_id
+  FROM "ProjectLinkSuggestion"
+  WHERE "id" = NEW."supersedingSuggestionId"
+    AND "sourceItemId" = NEW."sourceItemId"
+    AND "employeeId" = NEW."employeeId";
+
+  IF original_revision IS NULL
+    OR superseding_revision IS NULL
+    OR NEW."suggestionId" = NEW."supersedingSuggestionId"
+    OR superseding_parent_id IS DISTINCT FROM NEW."suggestionId"
+    OR superseding_revision <> original_revision + 1
+    OR superseding_project_id IS DISTINCT FROM NEW."correctedProjectId"
+  THEN
+    RAISE EXCEPTION 'Source-link correction lineage is invalid'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "SourceLinkCorrection_validate_lineage"
+BEFORE INSERT ON "SourceLinkCorrection"
+FOR EACH ROW EXECUTE FUNCTION "validate_source_link_correction_lineage"();
+
 -- Restrictive foreign keys preserve source ownership, AI route trace, and revision lineage.
 ALTER TABLE "ContextAnalysis"
 ADD CONSTRAINT "ContextAnalysis_sourceItemId_employeeId_fkey"
@@ -352,8 +466,9 @@ ON DELETE RESTRICT ON UPDATE CASCADE,
 ADD CONSTRAINT "ContextAnalysis_employeeId_fkey"
 FOREIGN KEY ("employeeId") REFERENCES "User"("id")
 ON DELETE RESTRICT ON UPDATE CASCADE,
-ADD CONSTRAINT "ContextAnalysis_aiRunTraceId_fkey"
-FOREIGN KEY ("aiRunTraceId") REFERENCES "AiRun"("id")
+ADD CONSTRAINT "ContextAnalysis_aiRunTraceId_schemaVersion_promptVersion_fkey"
+FOREIGN KEY ("aiRunTraceId", "schemaVersion", "promptVersion")
+REFERENCES "AiRun"("id", "outputSchemaVersion", "promptTemplateVersion")
 ON DELETE RESTRICT ON UPDATE CASCADE,
 ADD CONSTRAINT "ContextAnalysis_supersedesAnalysisId_sourceItemId_employee_fkey"
 FOREIGN KEY ("supersedesAnalysisId", "sourceItemId", "employeeId")
@@ -378,8 +493,9 @@ ON DELETE RESTRICT ON UPDATE CASCADE,
 ADD CONSTRAINT "ProjectLinkSuggestion_projectId_fkey"
 FOREIGN KEY ("projectId") REFERENCES "Project"("id")
 ON DELETE RESTRICT ON UPDATE CASCADE,
-ADD CONSTRAINT "ProjectLinkSuggestion_aiRunTraceId_fkey"
-FOREIGN KEY ("aiRunTraceId") REFERENCES "AiRun"("id")
+ADD CONSTRAINT "ProjectLinkSuggestion_aiRunTraceId_schemaVersion_promptVer_fkey"
+FOREIGN KEY ("aiRunTraceId", "schemaVersion", "promptVersion")
+REFERENCES "AiRun"("id", "outputSchemaVersion", "promptTemplateVersion")
 ON DELETE RESTRICT ON UPDATE CASCADE,
 ADD CONSTRAINT "ProjectLinkSuggestion_supersedesSuggestionId_sourceItemId__fkey"
 FOREIGN KEY ("supersedesSuggestionId", "sourceItemId", "employeeId")
@@ -407,8 +523,9 @@ ON DELETE RESTRICT ON UPDATE CASCADE,
 ADD CONSTRAINT "TaskDraft_proposedAssigneeId_fkey"
 FOREIGN KEY ("proposedAssigneeId") REFERENCES "User"("id")
 ON DELETE RESTRICT ON UPDATE CASCADE,
-ADD CONSTRAINT "TaskDraft_aiRunTraceId_fkey"
-FOREIGN KEY ("aiRunTraceId") REFERENCES "AiRun"("id")
+ADD CONSTRAINT "TaskDraft_aiRunTraceId_schemaVersion_promptVersion_fkey"
+FOREIGN KEY ("aiRunTraceId", "schemaVersion", "promptVersion")
+REFERENCES "AiRun"("id", "outputSchemaVersion", "promptTemplateVersion")
 ON DELETE RESTRICT ON UPDATE CASCADE,
 ADD CONSTRAINT "TaskDraft_supersedesTaskDraftId_sourceItemId_employeeId_fkey"
 FOREIGN KEY ("supersedesTaskDraftId", "sourceItemId", "employeeId")

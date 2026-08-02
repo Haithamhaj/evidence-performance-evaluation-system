@@ -177,6 +177,18 @@ export const TaskDraftRecordSchema = z
   .strict()
   .superRefine((value, context) => {
     requireEmployeeRevisionLineage(value, value.supersedesTaskDraftId, context);
+    const governedSources = [...value.sourceReferences].sort();
+    const draftSources = [...value.draft.sourceReferences].sort();
+    if (
+      governedSources.length !== draftSources.length ||
+      governedSources.some((source, index) => source !== draftSources[index])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["draft", "sourceReferences"],
+        message: "Task draft provenance must identify the same sources as its governed record",
+      });
+    }
   });
 
 export const SourceLinkCorrectionActionSchema = z.enum(["CORRECT", "REJECT"]);

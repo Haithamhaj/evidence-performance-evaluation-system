@@ -737,7 +737,7 @@ model ContextAnalysis {
   schemaVersion        String
   promptVersion        String
   aiRunTraceId         String                            @db.Uuid
-  aiRunTrace           AiRun                             @relation(fields: [aiRunTraceId], references: [id], onDelete: Restrict)
+  aiRunTrace           AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
   outputCiphertext     String
   outputKeyVersion     String
   sourceReferences     Json
@@ -779,7 +779,7 @@ model ProjectLinkSuggestion {
   schemaVersion          String
   promptVersion          String
   aiRunTraceId           String                            @db.Uuid
-  aiRunTrace             AiRun                             @relation(fields: [aiRunTraceId], references: [id], onDelete: Restrict)
+  aiRunTrace             AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
   sourceReferences       Json
   reviewStatus           ContextIntelligenceReviewStatus   @default(PENDING)
   revisionOrigin         ContextIntelligenceRevisionOrigin
@@ -823,7 +823,7 @@ model TaskDraft {
   schemaVersion         String
   promptVersion         String
   aiRunTraceId          String                            @db.Uuid
-  aiRunTrace            AiRun                             @relation(fields: [aiRunTraceId], references: [id], onDelete: Restrict)
+  aiRunTrace            AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
   sourceReferences      Json
   reviewStatus          ContextIntelligenceReviewStatus   @default(PENDING)
   revisionOrigin        ContextIntelligenceRevisionOrigin
@@ -2645,6 +2645,7 @@ model AiRun {
   createdAt              DateTime                        @default(now()) @db.Timestamptz(6)
 
   @@index([routeId, routeConfigVersion, createdAt])
+  @@unique([id, outputSchemaVersion, promptTemplateVersion])
   @@index([routeKey, createdAt])
   @@index([state, createdAt])
   @@index([scopeId, createdAt])

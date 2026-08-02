@@ -188,4 +188,36 @@ describe("context intelligence contracts", () => {
       }),
     ).toMatchObject({ revision: 2, supersedesTaskDraftId: taskDraftId });
   });
+
+  it("requires wrapper and nested Task-draft source provenance to identify the same sources", () => {
+    const secondSourceReference = "connected-source:00000000-0000-4000-8000-000000000314";
+    const draftRecord = {
+      id: taskDraftId,
+      ...governedMetadata,
+      sourceReferences: [sourceReferences[0], secondSourceReference],
+      schemaVersion: "task-draft-output.v1",
+      promptVersion: "task-draft-prompt.v1",
+      routeTrace: { ...governedMetadata.routeTrace, routeKey: "task.draft.v1" },
+      draft: {
+        title: "Prepare rollout checklist",
+        description: "Draft only; no official Task has been created.",
+        projectId,
+        workstreamId: null,
+        proposedAssigneeId: employeeId,
+        dueAt: null,
+        acceptanceConditions: ["Employee confirms the final Task before creation."],
+        sourceReferences: [secondSourceReference, sourceReferences[0]],
+        uncertainties: [],
+      },
+      supersedesTaskDraftId: null,
+    } as const;
+
+    expect(TaskDraftRecordSchema.parse(draftRecord)).toEqual(draftRecord);
+    expect(() =>
+      TaskDraftRecordSchema.parse({
+        ...draftRecord,
+        draft: { ...draftRecord.draft, sourceReferences: [sourceReferences[0]] },
+      }),
+    ).toThrow(/same sources/iu);
+  });
 });
