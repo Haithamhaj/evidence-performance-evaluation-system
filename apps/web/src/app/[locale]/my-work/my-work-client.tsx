@@ -74,7 +74,7 @@ export function MyWorkClient({
         onSelect: select,
       })}
 
-      {createElement(SmartReviewQueue, { catalog, locale, projects })}
+      {createElement(SmartReviewQueue, { catalog, locale })}
 
       {createElement(DailyBrief, {
         catalog,

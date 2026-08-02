@@ -5,8 +5,7 @@ import { createContextReviewDraftStorage } from "./context-review-draft-storage.
 const draft = {
   title: "Prepared title",
   description: "Employee edit that must survive reauthentication.",
-  projectId: "33333333-3333-4333-8333-333333333333",
-  assigneeId: "11111111-1111-4111-8111-111111111111",
+  projectHandle: `opaque-project-${"x".repeat(40)}`,
 };
 
 describe("context review draft storage", () => {
@@ -19,15 +18,16 @@ describe("context review draft storage", () => {
     };
     const drafts = createContextReviewDraftStorage(storage);
 
-    drafts.save("44444444-4444-4444-8444-444444444444", draft);
+    const draftHandle = `opaque-task_draft-${"x".repeat(40)}`;
+    drafts.save(draftHandle, draft);
 
-    expect(drafts.load("44444444-4444-4444-8444-444444444444")).toEqual(draft);
+    expect(drafts.load(draftHandle)).toEqual(draft);
     expect(JSON.stringify([...values.values()])).not.toContain("connected-source");
   });
 
   it("drops malformed browser storage instead of trusting it", () => {
     const values = new Map([
-      ["context-review-draft:44444444-4444-4444-8444-444444444444", '{"title":true}'],
+      [`context-review-draft:opaque-task_draft-${"x".repeat(40)}`, '{"title":true}'],
     ]);
     const drafts = createContextReviewDraftStorage({
       getItem: (key: string) => values.get(key) ?? null,
@@ -35,7 +35,7 @@ describe("context review draft storage", () => {
       setItem: (key: string, value: string) => values.set(key, value),
     });
 
-    expect(drafts.load("44444444-4444-4444-8444-444444444444")).toBeNull();
+    expect(drafts.load(`opaque-task_draft-${"x".repeat(40)}`)).toBeNull();
     expect(values.size).toBe(0);
   });
 });

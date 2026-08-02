@@ -35,7 +35,7 @@ export interface OidcSettings {
 }
 
 interface AuthCookiePayload {
-  readonly kind: "transaction" | "session";
+  readonly kind: "transaction" | "session" | "context_handle";
   readonly expiresAt: number;
   readonly [key: string]: unknown;
 }

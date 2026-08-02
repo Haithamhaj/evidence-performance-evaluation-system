@@ -3,12 +3,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   fetchProtectedUpstream: vi.fn(),
   uploadProtectedSource: vi.fn(),
+  seal: vi.fn((input: { action: string }) => `opaque-${input.action}-${"x".repeat(40)}`),
+  open: vi.fn(),
 }));
 
 vi.mock("../../../../platform/workspace-api.js", () => ({
   fetchProtectedUpstream: mocks.fetchProtectedUpstream,
   safeWorkspaceError: (error: unknown) => error,
   uploadProtectedSource: mocks.uploadProtectedSource,
+}));
+
+vi.mock("../../../../platform/context-intelligence-handles.js", () => ({
+  openContextReviewHandle: mocks.open,
+  sealContextReviewHandle: mocks.seal,
 }));
 
 import { GET, PATCH, POST } from "./route.js";
@@ -21,7 +28,15 @@ afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
   it("proxies only the bounded Context Intelligence review route without exposing a browser token", async () => {
-    mocks.fetchProtectedUpstream.mockResolvedValue({ items: [] });
+    mocks.fetchProtectedUpstream
+      .mockResolvedValueOnce({ items: [] })
+      .mockResolvedValueOnce({
+        mode: "synthetic",
+        synthetic: true,
+        connection: { status: "connected", lastSuccessfulSyncAt: null },
+        items: [],
+      })
+      .mockResolvedValueOnce([]);
 
     const response = await GET(
       new Request("http://localhost:3000/api/daily-work/context/review-queue"),
@@ -34,28 +49,120 @@ describe("daily-work same-origin gateway", () => {
       path: "/api/v1/context/review-queue",
       schema: expect.anything(),
     });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/connected-work/items",
+      schema: expect.anything(),
+    });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/projects",
+      schema: expect.anything(),
+    });
   });
 
-  it("forwards a strictly scoped Task-draft request without caller-controlled identity", async () => {
-    const sourceItemId = "22222222-2222-4222-8222-222222222222";
-    mocks.fetchProtectedUpstream.mockResolvedValue({});
+  it("projects the review network response to opaque handles and display-safe source context", async () => {
+    const employeeId = "22222222-2222-4222-8222-222222222222";
+    const sourceItemId = "33333333-3333-4333-8333-333333333333";
+    const suggestionId = "44444444-4444-4444-8444-444444444444";
+    const routeConfigId = "55555555-5555-4555-8555-555555555555";
+    const aiRunId = "66666666-6666-4666-8666-666666666666";
+    const projectId = "77777777-7777-4777-8777-777777777777";
+    mocks.fetchProtectedUpstream
+      .mockResolvedValueOnce({
+        items: [
+          {
+            kind: "PROJECT_SUGGESTION",
+            id: suggestionId,
+            employeeId,
+            sourceItemId,
+            revision: 1,
+            schemaVersion: "project-link-suggestion-output.v1",
+            promptVersion: "context-project-match-prompt.v1",
+            routeTrace: {
+              aiRunId,
+              routeKey: "context.project-match.v1",
+              routeConfigId,
+              routeConfigVersion: 1,
+            },
+            sourceReferences: [`connected-source:${sourceItemId}`],
+            reviewStatus: "PENDING",
+            revisionOrigin: "AI",
+            correctionReason: null,
+            createdAt: "2026-08-02T08:30:00Z",
+            analysisId: "88888888-8888-4888-8888-888888888888",
+            projectId,
+            decision: "AUTO_LINK",
+            explanation: "Two approved anchors match this Project.",
+            anchors: [],
+            supersedesSuggestionId: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        mode: "synthetic",
+        synthetic: true,
+        connection: { status: "connected", lastSuccessfulSyncAt: null },
+        items: [
+          {
+            id: sourceItemId,
+            provider: "GOOGLE_GMAIL",
+            occurredAt: "2026-08-02T08:00:00Z",
+            title: "Customer rollout note",
+            summary: "A safe employee-visible summary.",
+            sourceUrl: "https://mail.google.com/example",
+            privacy: "PRIVATE",
+            excluded: false,
+            projectId: null,
+            sourceExclusion: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce([
+        {
+          id: projectId,
+          departmentId: "99999999-9999-4999-8999-999999999999",
+          name: "Atlas Delivery",
+          description: "",
+          status: "active",
+          version: 1,
+          primaryOwnerId: null,
+        },
+      ]);
 
-    const response = await POST(
-      new Request("http://localhost:3000/api/daily-work/context/task-drafts", {
-        method: "POST",
-        body: JSON.stringify({ sourceItemId }),
-      }),
-      { params: Promise.resolve({ path: ["context", "task-drafts"] }) },
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/context/review-queue"),
+      { params: Promise.resolve({ path: ["context", "review-queue"] }) },
     );
+    const body = await response.json();
+    const serialized = JSON.stringify(body);
 
     expect(response.status).toBe(200);
-    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(
-      expect.objectContaining({
-        method: "POST",
-        path: "/api/v1/context/task-drafts",
-        body: { sourceItemId },
-      }),
-    );
+    expect(body).toMatchObject({
+      items: [
+        {
+          kind: "project_match",
+          handle: `opaque-project_suggestion-${"x".repeat(40)}`,
+          projectName: "Atlas Delivery",
+          source: { title: "Customer rollout note" },
+        },
+      ],
+      projects: [{ handle: `opaque-project-${"x".repeat(40)}`, name: "Atlas Delivery" }],
+    });
+    for (const forbidden of [
+      employeeId,
+      sourceItemId,
+      suggestionId,
+      projectId,
+      routeConfigId,
+      aiRunId,
+      "sourceReferences",
+      "routeTrace",
+      "employeeId",
+      "sourceItemId",
+    ]) {
+      expect(serialized).not.toContain(forbidden);
+    }
   });
 
   it("rejects direct official Task creation without one responsible assignee", async () => {

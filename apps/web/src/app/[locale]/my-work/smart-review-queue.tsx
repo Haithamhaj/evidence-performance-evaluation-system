@@ -8,61 +8,39 @@ import {
   confirmTaskDraft,
   correctProjectSuggestion,
   listContextReviewQueue,
+  type ContextReviewQueue,
   type ContextTaskDraft,
 } from "../../../platform/context-intelligence-api";
-import {
-  listConnectedWorkContext,
-  type ConnectedWorkContextItem,
-} from "../../../platform/connected-work-context-api";
-import type { ProjectOption } from "./connected-context";
 import { ProjectMatchCard } from "./project-match-card";
 import { TaskDraftSheet } from "./task-draft-sheet";
 
-type Properties = Readonly<{
-  catalog: Catalog;
-  locale: Locale;
-  projects: readonly ProjectOption[];
-}>;
+type Properties = Readonly<{ catalog: Catalog; locale: Locale }>;
 
-export function SmartReviewQueue({ catalog, locale, projects }: Properties) {
-  const [items, setItems] = useState<Awaited<ReturnType<typeof listContextReviewQueue>>["items"]>(
-    [],
-  );
-  const [sources, setSources] = useState<readonly ConnectedWorkContextItem[]>([]);
+export function SmartReviewQueue({ catalog, locale }: Properties) {
+  const [queue, setQueue] = useState<ContextReviewQueue>({ items: [], projects: [] });
   const [error, setError] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [selectedDraft, setSelectedDraft] = useState<ContextTaskDraft | null>(null);
-
+  const [busy, setBusy] = useState<string | null>(null);
+  const [draft, setDraft] = useState<ContextTaskDraft | null>(null);
   async function refresh() {
-    setError(false);
     try {
-      const [queue, context] = await Promise.all([
-        listContextReviewQueue(),
-        listConnectedWorkContext(),
-      ]);
-      setItems(queue.items);
-      setSources(context.items);
+      setError(false);
+      setQueue(await listContextReviewQueue());
     } catch {
       setError(true);
     }
   }
-
   useEffect(() => {
     void refresh();
   }, []);
-
-  async function act(id: string, operation: () => Promise<unknown>) {
-    setBusyId(id);
+  async function act(handle: string, operation: () => Promise<unknown>) {
+    setBusy(handle);
     try {
       await operation();
       await refresh();
     } finally {
-      setBusyId(null);
+      setBusy(null);
     }
   }
-
-  const sourceFor = (sourceItemId: string) => sources.find(({ id }) => id === sourceItemId);
-
   return (
     <>
       <section className="smartReviewQueue panel" aria-labelledby="smart-review-queue-heading">
@@ -74,89 +52,85 @@ export function SmartReviewQueue({ catalog, locale, projects }: Properties) {
           </div>
         </header>
         {error ? (
-          <div className="smartReviewRecovery" role="alert">
+          <div role="alert">
             <p>{catalog["contextReview.recovery"]}</p>
             <button className="secondaryAction" onClick={() => void refresh()} type="button">
               {catalog["actions.retry"]}
             </button>
           </div>
         ) : null}
-        {items.length === 0 ? <p className="emptyRow">{catalog["contextReview.empty"]}</p> : null}
+        {queue.items.length === 0 ? (
+          <p className="emptyRow">{catalog["contextReview.empty"]}</p>
+        ) : null}
         <div className="smartReviewList">
-          {items.map((item) => {
-            if (item.kind === "PROJECT_SUGGESTION") {
-              return createElement(ProjectMatchCard, {
-                busy: busyId === item.id,
+          {queue.items.map((item) =>
+            item.kind === "project_match" ? (
+              createElement(ProjectMatchCard, {
+                key: item.handle,
                 catalog,
-                key: item.id,
                 locale,
-                projects,
-                source: sourceFor(item.sourceItemId),
+                projects: queue.projects,
                 suggestion: item,
+                busy: busy === item.handle,
                 onConfirm: () =>
-                  void act(item.id, () =>
+                  void act(item.handle, () =>
                     confirmProjectSuggestion({
-                      id: item.id,
-                      expectedRevision: item.revision,
+                      handle: item.handle,
                       reason: catalog["contextReview.confirmLinkReason"],
                     }),
                   ),
-                onCorrect: (projectId) =>
-                  void act(item.id, () =>
+                onCorrect: (projectHandle) =>
+                  void act(item.handle, () =>
                     correctProjectSuggestion({
-                      id: item.id,
-                      expectedRevision: item.revision,
-                      projectId,
+                      handle: item.handle,
+                      projectHandle,
                       reason: catalog["contextReview.correctLinkReason"],
                     }),
                   ),
                 onReject: () =>
-                  void act(item.id, () =>
+                  void act(item.handle, () =>
                     correctProjectSuggestion({
-                      id: item.id,
-                      expectedRevision: item.revision,
-                      projectId: null,
+                      handle: item.handle,
+                      projectHandle: null,
                       reason: catalog["contextReview.rejectLinkReason"],
                     }),
                   ),
-              });
-            }
-            return (
-              <article className="smartReviewItem" key={item.id}>
+              })
+            ) : (
+              <article className="smartReviewItem" key={item.handle}>
                 <p className="aiDraftLabel">{catalog["contextReview.needsReview"]}</p>
-                <h3>{item.draft.title}</h3>
+                <h3>{item.title}</h3>
                 <p>{catalog["contextReview.taskDraftIntro"]}</p>
-                <button
-                  className="primaryAction"
-                  onClick={() => setSelectedDraft(item)}
-                  type="button"
-                >
+                <button className="primaryAction" onClick={() => setDraft(item)} type="button">
                   {catalog["contextReview.reviewTaskDraft"]}
                 </button>
               </article>
-            );
-          })}
+            ),
+          )}
         </div>
       </section>
-      {selectedDraft === null
+      {draft === null
         ? null
         : createElement(TaskDraftSheet, {
             catalog,
-            draft: selectedDraft,
             locale,
-            onClose: () => setSelectedDraft(null),
-            onConfirm: async (draft) => {
+            draft,
+            projects: queue.projects,
+            onClose: () => setDraft(null),
+            onConfirm: async (value) => {
               await confirmTaskDraft({
-                id: selectedDraft.id,
-                expectedRevision: selectedDraft.revision,
+                handle: draft.handle,
                 reason: catalog["contextReview.confirmTaskReason"],
-                draft,
+                draft: {
+                  title: value.title,
+                  description: value.description,
+                  projectHandle: value.projectHandle,
+                  assignToYou: true,
+                },
               });
-              setSelectedDraft(null);
+              setDraft(null);
               await refresh();
             },
-            projects,
-            source: sourceFor(selectedDraft.sourceItemId),
           })}
     </>
   );

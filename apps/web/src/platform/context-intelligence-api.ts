@@ -2,13 +2,12 @@ import { z } from "zod";
 
 import {
   ContextConfirmTaskResultSchema,
-  ContextProjectSuggestionSchema,
+  ContextProjectMatchSchema,
   ContextReviewQueueSchema,
   ContextTaskDraftSchema,
 } from "./context-intelligence-contracts";
 
-const UuidSchema = z.string().uuid();
-export type ContextProjectSuggestion = z.infer<typeof ContextProjectSuggestionSchema>;
+export type ContextProjectSuggestion = z.infer<typeof ContextProjectMatchSchema>;
 export type ContextTaskDraft = z.infer<typeof ContextTaskDraftSchema>;
 export type ContextReviewQueue = z.infer<typeof ContextReviewQueueSchema>;
 
@@ -21,74 +20,50 @@ export async function listContextReviewQueue(): Promise<ContextReviewQueue> {
   );
 }
 
-export async function analyzeContextItem(sourceItemId: string) {
-  return request(
-    `/api/daily-work/context/items/${UuidSchema.parse(sourceItemId)}/analyze`,
-    "POST",
-    {},
-    z.unknown(),
-  );
-}
-
 export async function confirmProjectSuggestion(input: {
-  readonly id: string;
-  readonly expectedRevision: number;
+  readonly handle: string;
   readonly reason: string;
 }) {
   return request(
-    `/api/daily-work/context/project-suggestions/${UuidSchema.parse(input.id)}/confirm`,
+    "/api/daily-work/context/project-suggestions/confirm",
     "POST",
-    { expectedRevision: input.expectedRevision, reason: input.reason },
-    ContextProjectSuggestionSchema,
+    { handle: input.handle, reason: input.reason },
+    z.object({}).strict(),
   );
 }
 
 export async function correctProjectSuggestion(input: {
-  readonly id: string;
-  readonly expectedRevision: number;
-  readonly projectId: string | null;
+  readonly handle: string;
+  readonly projectHandle: string | null;
   readonly reason: string;
 }) {
   return request(
-    `/api/daily-work/context/project-suggestions/${UuidSchema.parse(input.id)}/correct`,
+    "/api/daily-work/context/project-suggestions/correct",
     "POST",
     {
-      expectedRevision: input.expectedRevision,
-      projectId: input.projectId === null ? null : UuidSchema.parse(input.projectId),
+      handle: input.handle,
+      projectHandle: input.projectHandle,
       reason: input.reason,
     },
-    ContextProjectSuggestionSchema,
-  );
-}
-
-export async function prepareTaskDraft(sourceItemId: string): Promise<ContextTaskDraft> {
-  return request(
-    "/api/daily-work/context/task-drafts",
-    "POST",
-    { sourceItemId: UuidSchema.parse(sourceItemId) },
-    ContextTaskDraftSchema.extend({ kind: z.literal("TASK_DRAFT") }).strict(),
+    z.object({}).strict(),
   );
 }
 
 export async function confirmTaskDraft(input: {
-  readonly id: string;
-  readonly expectedRevision: number;
+  readonly handle: string;
   readonly reason: string;
   readonly draft: {
     readonly title: string;
     readonly description: string;
-    readonly projectId: string;
-    readonly workstreamId: string | null;
-    readonly assigneeId: string;
-    readonly dueAt: string | null;
-    readonly acceptanceConditions: readonly string[];
+    readonly projectHandle: string;
+    readonly assignToYou: true;
   };
 }) {
   return request(
-    `/api/daily-work/context/task-drafts/${UuidSchema.parse(input.id)}/confirm`,
+    "/api/daily-work/context/task-drafts/confirm",
     "POST",
     {
-      expectedRevision: input.expectedRevision,
+      handle: input.handle,
       reason: input.reason,
       draft: input.draft,
     },

@@ -41,13 +41,14 @@ import {
 import {
   ContextConfirmTaskInputSchema,
   ContextConfirmTaskResultSchema,
-  ContextPrepareTaskInputSchema,
-  ContextProjectSuggestionSchema,
   ContextReviewQueueSchema,
   ContextSuggestionCorrectionInputSchema,
   ContextSuggestionInputSchema,
-  ContextTaskDraftSchema,
 } from "../../../../platform/context-intelligence-contracts";
+import {
+  openContextReviewHandle,
+  sealContextReviewHandle,
+} from "../../../../platform/context-intelligence-handles";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -60,6 +61,70 @@ import {
 type Context = { readonly params: Promise<{ readonly path: string[] }> };
 
 const UuidSchema = z.string().uuid();
+const RawQueueSchema = z
+  .object({
+    items: z.array(
+      z
+        .object({
+          kind: z.enum(["PROJECT_SUGGESTION", "TASK_DRAFT"]),
+          id: UuidSchema,
+          employeeId: UuidSchema,
+          sourceItemId: UuidSchema,
+          revision: z.number().int().positive(),
+          projectId: UuidSchema.nullable().optional(),
+          explanation: z.string().optional(),
+          draft: z
+            .object({
+              title: z.string(),
+              description: z.string(),
+              projectId: UuidSchema.nullable(),
+              workstreamId: UuidSchema.nullable(),
+              proposedAssigneeId: UuidSchema.nullable(),
+              dueAt: z.iso.datetime({ offset: true }).nullable(),
+              acceptanceConditions: z.array(z.string()),
+              uncertainties: z.array(z.string()),
+            })
+            .strict()
+            .optional(),
+          clarification: z
+            .object({
+              nextQuestion: z
+                .object({ field: z.enum(["projectId", "assigneeId"]) })
+                .strict()
+                .nullable(),
+            })
+            .strict()
+            .optional(),
+        })
+        .passthrough(),
+    ),
+  })
+  .strict();
+const RawSourcesSchema = z
+  .object({
+    mode: z.enum(["synthetic", "live"]),
+    synthetic: z.boolean(),
+    connection: z
+      .object({
+        status: z.enum(["connected", "disconnected"]),
+        lastSuccessfulSyncAt: z.iso.datetime({ offset: true }).nullable(),
+      })
+      .strict(),
+    items: z.array(
+      z
+        .object({
+          id: UuidSchema,
+          title: z.string(),
+          summary: z.string().nullable(),
+          sourceUrl: z.url().nullable(),
+        })
+        .passthrough(),
+    ),
+  })
+  .strict();
+const RawProjectsSchema = z.array(
+  z.object({ id: UuidSchema, name: z.string().trim().min(1).max(240) }).passthrough(),
+);
 const TimelineQuerySchema = z
   .object({
     projectId: UuidSchema,
@@ -99,13 +164,24 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
       );
     }
     if (path.length === 2 && path[0] === "context" && path[1] === "review-queue") {
-      return json(
-        await fetchProtectedUpstream({
+      const [queue, sources, projects] = await Promise.all([
+        fetchProtectedUpstream({
           method: "GET",
           path: "/api/v1/context/review-queue",
-          schema: ContextReviewQueueSchema,
+          schema: RawQueueSchema,
         }),
-      );
+        fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/connected-work/items",
+          schema: RawSourcesSchema,
+        }),
+        fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/projects",
+          schema: RawProjectsSchema,
+        }),
+      ]);
+      return json(ContextReviewQueueSchema.parse(projectReviewQueue(queue, sources, projects)));
     }
     if (new URL(request.url).search !== "") return notFound();
     if (
@@ -162,41 +238,72 @@ export async function POST(request: Request, context: Context): Promise<NextResp
   let body: unknown;
   try {
     body = await request.json();
-    if (path.length === 2 && path[0] === "context" && path[1] === "task-drafts") {
-      return await post(
-        "/api/v1/context/task-drafts",
-        ContextPrepareTaskInputSchema.parse(body),
-        ContextTaskDraftSchema.extend({ kind: z.literal("TASK_DRAFT") }).strict(),
-      );
-    }
     if (
-      path.length === 4 &&
+      path.length === 3 &&
       path[0] === "context" &&
       path[1] === "project-suggestions" &&
-      isUuid(path[2]) &&
-      ["confirm", "correct"].includes(path[3]!)
+      ["confirm", "correct"].includes(path[2]!)
     ) {
       const schema =
-        path[3] === "confirm"
+        path[2] === "confirm"
           ? ContextSuggestionInputSchema
           : ContextSuggestionCorrectionInputSchema;
-      return await post(
-        `/api/v1/context/project-suggestions/${path[2]}/${path[3]}`,
-        schema.parse(body),
-        ContextProjectSuggestionSchema,
+      const input = schema.parse(body);
+      const suggestion = openContextReviewHandle(input.handle, "project_suggestion");
+      const projectHandle = (input as z.infer<typeof ContextSuggestionCorrectionInputSchema>)
+        .projectHandle;
+      const project =
+        path[2] === "correct" && projectHandle !== null
+          ? openContextReviewHandle(projectHandle, "project")
+          : null;
+      await post(
+        `/api/v1/context/project-suggestions/${suggestion.id}/${path[2]}`,
+        path[2] === "confirm"
+          ? { expectedRevision: suggestion.revision, reason: input.reason }
+          : {
+              expectedRevision: suggestion.revision,
+              projectId: project?.projectId ?? null,
+              reason: input.reason,
+            },
+        z.object({}).passthrough(),
       );
+      return json({});
     }
     if (
-      path.length === 4 &&
+      path.length === 3 &&
       path[0] === "context" &&
       path[1] === "task-drafts" &&
-      isUuid(path[2]) &&
-      path[3] === "confirm"
+      path[2] === "confirm"
     ) {
-      return await post(
-        `/api/v1/context/task-drafts/${path[2]}/confirm`,
-        ContextConfirmTaskInputSchema.parse(body),
-        ContextConfirmTaskResultSchema,
+      const input = ContextConfirmTaskInputSchema.parse(body);
+      const draft = openContextReviewHandle(input.handle, "task_draft");
+      const project = openContextReviewHandle(input.draft.projectHandle, "project");
+      const upstream = await fetchProtectedUpstream({
+        method: "POST",
+        path: `/api/v1/context/task-drafts/${draft.id}/confirm`,
+        body: {
+          expectedRevision: draft.revision,
+          reason: input.reason,
+          draft: {
+            title: input.draft.title,
+            description: input.draft.description,
+            projectId: project.projectId,
+            workstreamId: draft.workstreamId ?? null,
+            assigneeId: draft.employeeId,
+            dueAt: draft.dueAt ?? null,
+            acceptanceConditions: draft.acceptanceConditions ?? [],
+          },
+        },
+        schema: z
+          .object({
+            workItem: z
+              .object({ title: z.string().trim().min(1).max(200), projectId: UuidSchema })
+              .passthrough(),
+          })
+          .passthrough(),
+      });
+      return json(
+        ContextConfirmTaskResultSchema.parse({ task: { title: upstream.workItem.title } }),
       );
     }
   } catch {
@@ -432,6 +539,80 @@ async function post<T>(
       body,
     }),
   );
+}
+
+function projectReviewQueue(
+  queue: z.infer<typeof RawQueueSchema>,
+  sources: z.infer<typeof RawSourcesSchema>,
+  projects: z.infer<typeof RawProjectsSchema>,
+) {
+  const projectById = new Map(projects.map((project) => [project.id, project]));
+  const sourceById = new Map(sources.items.map((source) => [source.id, source]));
+  const safeSource = (sourceItemId: string) => {
+    const source = sourceById.get(sourceItemId);
+    return source === undefined
+      ? { title: "Private source context", summary: null, sourceUrl: null }
+      : { title: source.title, summary: source.summary, sourceUrl: source.sourceUrl };
+  };
+  const projectHandle = (projectId: string | null) =>
+    projectId === null
+      ? null
+      : sealContextReviewHandle({ action: "project", id: projectId, projectId });
+  return {
+    items: queue.items.map((item) => {
+      if (item.kind === "PROJECT_SUGGESTION") {
+        const project =
+          item.projectId === undefined || item.projectId === null
+            ? undefined
+            : projectById.get(item.projectId);
+        return {
+          kind: "project_match" as const,
+          handle: sealContextReviewHandle({
+            action: "project_suggestion",
+            id: item.id,
+            revision: item.revision,
+          }),
+          projectName: project?.name ?? null,
+          explanation: item.explanation ?? "Prepared Project link needs your review.",
+          source: safeSource(item.sourceItemId),
+        };
+      }
+      const draft = item.draft!;
+      const project = draft.projectId === null ? undefined : projectById.get(draft.projectId);
+      return {
+        kind: "task_draft" as const,
+        handle: sealContextReviewHandle({
+          action: "task_draft",
+          id: item.id,
+          revision: item.revision,
+          employeeId: item.employeeId,
+          workstreamId: draft.workstreamId,
+          dueAt: draft.dueAt,
+          acceptanceConditions: draft.acceptanceConditions,
+        }),
+        title: draft.title,
+        description: draft.description,
+        projectHandle: projectHandle(draft.projectId),
+        projectName: project?.name ?? null,
+        dueAt: draft.dueAt,
+        acceptanceConditions: draft.acceptanceConditions,
+        uncertainties: draft.uncertainties,
+        clarification: {
+          nextQuestion:
+            item.clarification?.nextQuestion === null
+              ? null
+              : item.clarification?.nextQuestion?.field === "projectId"
+                ? "project"
+                : "assignee",
+        },
+        source: safeSource(item.sourceItemId),
+      };
+    }),
+    projects: projects.map((project) => ({
+      handle: sealContextReviewHandle({ action: "project", id: project.id, projectId: project.id }),
+      name: project.name,
+    })),
+  };
 }
 
 function safeRequestPath(request: Request, path: readonly string[]): boolean {

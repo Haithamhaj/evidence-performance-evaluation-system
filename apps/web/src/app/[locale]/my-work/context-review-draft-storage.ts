@@ -1,12 +1,11 @@
 import { z } from "zod";
 
-const UuidSchema = z.string().uuid();
+const HandleSchema = z.string().min(32).max(10_000);
 const StoredContextTaskDraftSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
     description: z.string().trim().max(8_000),
-    projectId: UuidSchema.or(z.literal("")),
-    assigneeId: UuidSchema.or(z.literal("")),
+    projectHandle: HandleSchema.or(z.literal("")),
   })
   .strict();
 
@@ -16,8 +15,8 @@ type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
 export function createContextReviewDraftStorage(storage: BrowserStorage) {
   return {
-    load(draftId: string): StoredContextTaskDraft | null {
-      const key = storageKey(draftId);
+    load(draftHandle: string): StoredContextTaskDraft | null {
+      const key = storageKey(draftHandle);
       const serialized = storage.getItem(key);
       if (serialized === null) return null;
       try {
@@ -27,18 +26,18 @@ export function createContextReviewDraftStorage(storage: BrowserStorage) {
         return null;
       }
     },
-    save(draftId: string, draft: StoredContextTaskDraft): void {
+    save(draftHandle: string, draft: StoredContextTaskDraft): void {
       storage.setItem(
-        storageKey(draftId),
+        storageKey(draftHandle),
         JSON.stringify(StoredContextTaskDraftSchema.parse(draft)),
       );
     },
-    clear(draftId: string): void {
-      storage.removeItem(storageKey(draftId));
+    clear(draftHandle: string): void {
+      storage.removeItem(storageKey(draftHandle));
     },
   };
 }
 
-function storageKey(draftId: string): string {
-  return `context-review-draft:${UuidSchema.parse(draftId)}`;
+function storageKey(draftHandle: string): string {
+  return `context-review-draft:${HandleSchema.parse(draftHandle)}`;
 }

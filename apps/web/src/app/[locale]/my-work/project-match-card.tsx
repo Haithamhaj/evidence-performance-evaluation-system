@@ -4,18 +4,15 @@ import { localeMetadata, type Catalog, type Locale } from "@evaluation/localizat
 import { useState } from "react";
 
 import type { ContextProjectSuggestion } from "../../../platform/context-intelligence-api";
-import type { ConnectedWorkContextItem } from "../../../platform/connected-work-context-api";
-import type { ProjectOption } from "./connected-context";
 
 type Properties = Readonly<{
   catalog: Catalog;
   locale: Locale;
-  projects: readonly ProjectOption[];
+  projects: readonly { readonly handle: string; readonly name: string }[];
   suggestion: ContextProjectSuggestion;
-  source?: ConnectedWorkContextItem | undefined;
   busy?: boolean;
   onConfirm?: () => void;
-  onCorrect?: (projectId: string) => void;
+  onCorrect?: (projectHandle: string) => void;
   onReject?: () => void;
 }>;
 
@@ -27,36 +24,28 @@ export function ProjectMatchCard({
   onCorrect,
   onReject,
   projects,
-  source,
   suggestion,
 }: Properties) {
-  const [correctedProjectId, setCorrectedProjectId] = useState("");
-  const project = projects.find(({ id }) => id === suggestion.projectId);
-  const canConfirm = suggestion.projectId !== null && project !== undefined;
+  const [correctedProjectHandle, setCorrectedProjectHandle] = useState("");
+  const canConfirm = suggestion.projectName !== null;
 
   return (
     <article className="smartReviewItem" dir={localeMetadata[locale].direction}>
       <div>
         <p className="aiDraftLabel">{catalog["contextReview.prepared"]}</p>
-        <h3>{project?.name ?? catalog["contextReview.noProjectSelected"]}</h3>
+        <h3>{suggestion.projectName ?? catalog["contextReview.noProjectSelected"]}</h3>
         <p>
           <strong>{catalog["contextReview.likelyLinkedBecause"]}</strong> {suggestion.explanation}
         </p>
       </div>
       <details className="smartReviewSource">
         <summary>{catalog["contextReview.inspectSource"]}</summary>
-        {source === undefined ? (
-          <p>{catalog["contextReview.sourceUnavailable"]}</p>
-        ) : (
-          <>
-            <strong dir="auto">{source.title}</strong>
-            {source.summary === null ? null : <p dir="auto">{source.summary}</p>}
-            {source.sourceUrl === null ? null : (
-              <a href={source.sourceUrl} rel="noreferrer" target="_blank">
-                {catalog["connectedContext.openSource"]}
-              </a>
-            )}
-          </>
+        <strong dir="auto">{suggestion.source.title}</strong>
+        {suggestion.source.summary === null ? null : <p dir="auto">{suggestion.source.summary}</p>}
+        {suggestion.source.sourceUrl === null ? null : (
+          <a href={suggestion.source.sourceUrl} rel="noreferrer" target="_blank">
+            {catalog["connectedContext.openSource"]}
+          </a>
         )}
       </details>
       <div className="smartReviewActions">
@@ -73,14 +62,14 @@ export function ProjectMatchCard({
           <select
             disabled={busy}
             onChange={(event) => {
-              setCorrectedProjectId(event.target.value);
+              setCorrectedProjectHandle(event.target.value);
               if (event.target.value !== "") onCorrect?.(event.target.value);
             }}
-            value={correctedProjectId}
+            value={correctedProjectHandle}
           >
             <option value="">{catalog["tasks.selectProject"]}</option>
             {projects.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
+              <option key={candidate.handle} value={candidate.handle}>
                 {candidate.name}
               </option>
             ))}
