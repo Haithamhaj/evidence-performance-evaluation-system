@@ -105,6 +105,32 @@ describe("TaskDraftService", () => {
     expect(fixture.rows).toHaveLength(0);
     expect(fixture.officialTasks).toHaveLength(0);
   });
+
+  it("reuses a committed draft when the append response is lost and the operation is retried", async () => {
+    const fixture = harness(
+      {
+        title: "Prepare follow-up",
+        description: "Prepare the requested follow-up for employee review.",
+        projectId: null,
+        workstreamId: null,
+        proposedAssigneeId: null,
+        dueAt: null,
+        acceptanceConditions: [],
+        sourceReferences: [sourceReference],
+        uncertainties: ["The Project is not confirmed."],
+      },
+      { loseAppendResponseOnce: true },
+    );
+
+    await expect(fixture.service.prepare(command("REVIEW"))).rejects.toThrow("draft response lost");
+    await expect(fixture.service.prepare(command("REVIEW"))).resolves.toMatchObject({
+      id: draftId,
+      revision: 1,
+    });
+
+    expect(fixture.rows).toHaveLength(1);
+    expect(fixture.router.requests).toHaveLength(1);
+  });
 });
 
 function command(kind: "AUTO_LINK" | "REVIEW" | "NO_MATCH") {
@@ -148,7 +174,7 @@ function command(kind: "AUTO_LINK" | "REVIEW" | "NO_MATCH") {
   };
 }
 
-function harness(output: unknown) {
+function harness(output: unknown, options: Readonly<{ loseAppendResponseOnce?: boolean }> = {}) {
   const traces = new Map<string, Record<string, unknown>>();
   const requests: RouterRequest[] = [];
   const router = {
@@ -179,6 +205,7 @@ function harness(output: unknown) {
     }),
   };
   const rows: any[] = [];
+  let loseAppendResponse = options.loseAppendResponseOnce ?? false;
   const officialTasks: unknown[] = [];
   return {
     router,
@@ -197,9 +224,15 @@ function harness(output: unknown) {
       },
       aiRuns: { readSucceeded: async (runId: string) => traces.get(runId) as never },
       drafts: {
+        findInitial: async () => rows[0]?.record ?? null,
         append: async (row) => {
-          rows.push(row);
-          return row.record;
+          const existing = rows.find(({ record }) => record.id === row.record.id);
+          if (existing === undefined) rows.push(row);
+          if (loseAppendResponse) {
+            loseAppendResponse = false;
+            throw new Error("draft response lost");
+          }
+          return (existing ?? row).record;
         },
       },
       protector: {

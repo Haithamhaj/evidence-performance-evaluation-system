@@ -30,8 +30,20 @@ const routeTrace = {
 class InMemorySuggestionPersistence implements Persistence {
   readonly suggestions: ProjectLinkSuggestion[] = [];
   readonly corrections: SourceLinkCorrection[] = [];
+  readonly persistedInitial: unknown[] = [];
 
-  async appendInitial(suggestion: ProjectLinkSuggestion): Promise<ProjectLinkSuggestion> {
+  async appendInitial(input: any): Promise<ProjectLinkSuggestion> {
+    this.persistedInitial.push(input);
+    const suggestion =
+      input.record === undefined
+        ? input
+        : {
+            ...input.record,
+            explanation: Buffer.from(
+              String(input.explanationCiphertext).replace(/^sealed:/u, ""),
+              "base64url",
+            ).toString(),
+          };
     this.suggestions.push(suggestion);
     return suggestion;
   }
@@ -77,13 +89,17 @@ function service(
   persistence: InMemorySuggestionPersistence,
   canLink: (employee: string, project: string, at: Date) => Promise<boolean> = async () => true,
 ) {
-  const suggestionIds = [initialSuggestionId, supersedingSuggestionId];
   return new ProjectLinkSuggestionService({
     persistence,
     projectAuthorization: { canLink },
+    protector: {
+      seal: async (value: string) => ({
+        ciphertext: `sealed:${Buffer.from(value).toString("base64url")}`,
+        keyVersion: "context-key-v5",
+      }),
+    },
     clock: () => now,
-    idFactory: (kind) =>
-      kind === "correction" ? correctionId : (suggestionIds.shift() ?? crypto.randomUUID()),
+    idFactory: (kind) => (kind === "correction" ? correctionId : supersedingSuggestionId),
   });
 }
 
@@ -107,6 +123,7 @@ async function persistInitial(
     promptVersion: "context-project-match.v1",
     routeTrace,
     sourceReferences: [analysisSource],
+    suggestionId: initialSuggestionId,
   });
 }
 
@@ -138,6 +155,16 @@ describe("ProjectLinkSuggestionService", () => {
         supersedesSuggestionId: null,
       },
     ]);
+    expect(persistence.persistedInitial).toEqual([
+      expect.objectContaining({
+        record: expect.objectContaining({ id: initialSuggestionId }),
+        explanationCiphertext: expect.stringMatching(/^sealed:/u),
+        explanationKeyVersion: "context-key-v5",
+      }),
+    ]);
+    expect(JSON.stringify((persistence.persistedInitial[0] as any).record)).not.toContain(
+      "AUTO_LINK_EXPLICIT_USER_MAPPING",
+    );
   });
 
   it("corrects an auto-link through one atomic correction and superseding revision", async () => {

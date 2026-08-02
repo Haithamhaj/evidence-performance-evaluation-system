@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { outputSchemaDescriptor } from "@evaluation/ai-routing";
+
 import {
   CONTEXT_INTELLIGENCE_AI_ROUTES,
   CONTEXT_PROJECT_MATCH_OUTPUT_SCHEMA_VERSION,
@@ -14,6 +16,9 @@ import {
   TASK_DRAFT_PROMPT_VERSION,
   TASK_DRAFT_ROUTE,
   TaskDraftAiOutputSchema,
+  assertContextProjectMatchSemantics,
+  assertContextSummarySemantics,
+  assertTaskDraftSemantics,
   buildContextProjectMatchRequest,
   buildContextSummaryRequest,
   buildTaskDraftRequest,
@@ -26,6 +31,14 @@ const prompt = {
 const sourceReferences = ["connected-source:00000000-0000-4000-8000-000000000702"] as const;
 
 describe("Context Intelligence routed prompts", () => {
+  it("registers all three strict output schemas through the real AI Router descriptor", () => {
+    for (const route of CONTEXT_INTELLIGENCE_AI_ROUTES) {
+      expect(() =>
+        outputSchemaDescriptor(route.routeKey, route.outputSchemaVersion, route.outputSchema),
+      ).not.toThrow();
+    }
+  });
+
   it("pins the exact three routes and their independent prompt and output-schema versions", () => {
     expect(CONTEXT_INTELLIGENCE_AI_ROUTES.map(({ routeKey }) => routeKey)).toEqual([
       "context.summarize.v1",
@@ -122,11 +135,116 @@ describe("Context Intelligence routed prompts", () => {
       kind: "REVIEW",
       projectId: null,
       reasons: ["INSUFFICIENT_INDEPENDENT_ANCHORS"],
+      candidates: [],
     });
     expect(draft.input.untrustedContent.deterministicDecision).toEqual(
       match.input.untrustedContent.deterministicDecision,
     );
     expect(JSON.stringify(match.input.trustedInstruction)).not.toContain("REVIEW");
+  });
+
+  it("shows the model only bounded governed AUTO_LINK anchors and accessible REVIEW candidates", () => {
+    const source = {
+      kind: "EMAIL" as const,
+      reference: sourceReferences[0],
+      mediaType: "text/plain",
+      content: "Please prepare the acceptance checklist.",
+    };
+    const auto = buildContextProjectMatchRequest({
+      prompt,
+      sources: [source],
+      decision: {
+        kind: "AUTO_LINK",
+        projectId: "00000000-0000-4000-8000-000000000731",
+        anchors: [
+          {
+            kind: "EXPLICIT_USER_MAPPING",
+            reference: sourceReferences[0],
+            conflicts: false,
+          },
+        ],
+      },
+    });
+    expect(auto.input.untrustedContent.deterministicDecision).toEqual({
+      kind: "AUTO_LINK",
+      projectId: "00000000-0000-4000-8000-000000000731",
+      reasons: [],
+      anchors: [
+        {
+          kind: "EXPLICIT_USER_MAPPING",
+          reference: sourceReferences[0],
+          conflicts: false,
+        },
+      ],
+    });
+
+    const review = buildContextProjectMatchRequest({
+      prompt,
+      sources: [source],
+      decision: {
+        kind: "REVIEW",
+        reasons: ["INSUFFICIENT_INDEPENDENT_ANCHORS"],
+        candidates: [
+          {
+            projectId: "00000000-0000-4000-8000-000000000732",
+            accessible: true,
+            anchors: [
+              {
+                current: true,
+                anchor: {
+                  kind: "CALENDAR_CONTEXT",
+                  reference: sourceReferences[0],
+                  conflicts: false,
+                },
+              },
+            ],
+          },
+          {
+            projectId: "00000000-0000-4000-8000-000000000733",
+            accessible: false,
+            anchors: [],
+          },
+        ],
+      },
+    });
+    expect(review.input.untrustedContent.deterministicDecision).toEqual({
+      kind: "REVIEW",
+      projectId: null,
+      reasons: ["INSUFFICIENT_INDEPENDENT_ANCHORS"],
+      candidates: [
+        {
+          projectId: "00000000-0000-4000-8000-000000000732",
+          anchors: [
+            {
+              current: true,
+              anchor: {
+                kind: "CALENDAR_CONTEXT",
+                reference: sourceReferences[0],
+                conflicts: false,
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("rejects approved semantic context that is not correlated to the deterministic Project set", () => {
+    expect(() =>
+      buildContextProjectMatchRequest({
+        prompt,
+        sources: [
+          {
+            kind: "DOCUMENT",
+            reference: sourceReferences[0],
+            mediaType: "text/plain",
+            content: "Approved Project context.",
+          },
+        ],
+        decision: { kind: "NO_MATCH", reasons: ["NO_PROJECT_CANDIDATES"] },
+        semanticContexts: [semanticContext("00000000-0000-4000-8000-000000000734")],
+      }),
+    ).toThrow("Approved Project semantic context is outside the deterministic Project set");
   });
 
   it("delimits the derived Context Analysis before reusing it in Task drafting", () => {
@@ -177,45 +295,107 @@ describe("Context Intelligence routed prompts", () => {
       ContextSummaryAiOutputSchema.parse({ ...validSummary, recommendedRating: 5 }),
     ).toThrow();
     expect(() =>
-      ContextSummaryAiOutputSchema.parse({
-        ...validSummary,
-        summary: "The employee deserves a performance rating of 5.",
-      }),
+      assertContextSummarySemantics(
+        ContextSummaryAiOutputSchema.parse({
+          ...validSummary,
+          summary: "The employee deserves a performance rating of 5.",
+        }),
+        sourceReferences,
+      ),
     ).toThrow();
 
     expect(() =>
-      ContextProjectMatchAiOutputSchema.parse({
-        interpretationLabel: "AI_DRAFT_INTERPRETATION",
-        explanation: "Rank the employee first.",
-        uncertainties: [],
+      assertContextProjectMatchSemantics(
+        ContextProjectMatchAiOutputSchema.parse({
+          interpretationLabel: "AI_DRAFT_INTERPRETATION",
+          explanation: "Rank the employee first.",
+          uncertainties: [],
+          sourceReferences,
+        }),
         sourceReferences,
-      }),
+      ),
     ).toThrow();
     expect(() =>
-      TaskDraftAiOutputSchema.parse({
-        title: "Assign productivity score",
-        description: "Create an employee productivity ranking.",
-        projectId: null,
-        workstreamId: null,
-        proposedAssigneeId: null,
-        dueAt: null,
-        acceptanceConditions: [],
+      assertTaskDraftSemantics(
+        TaskDraftAiOutputSchema.parse({
+          title: "Assign productivity score",
+          description: "Create an employee productivity ranking.",
+          projectId: null,
+          workstreamId: null,
+          proposedAssigneeId: null,
+          dueAt: null,
+          acceptanceConditions: [],
+          sourceReferences,
+          uncertainties: [],
+        }),
         sourceReferences,
-        uncertainties: [],
-      }),
+      ),
     ).toThrow();
     expect(() =>
-      TaskDraftAiOutputSchema.parse({
-        title: "Prepare follow-up",
-        description: "",
-        projectId: null,
-        workstreamId: null,
-        proposedAssigneeId: null,
-        dueAt: null,
-        acceptanceConditions: [],
+      assertTaskDraftSemantics(
+        TaskDraftAiOutputSchema.parse({
+          title: "Prepare follow-up",
+          description: "",
+          projectId: null,
+          workstreamId: null,
+          proposedAssigneeId: null,
+          dueAt: null,
+          acceptanceConditions: [],
+          sourceReferences,
+          uncertainties: ["The source does not contain sufficient detail."],
+        }),
         sourceReferences,
-        uncertainties: ["The source does not contain sufficient detail."],
-      }),
+      ),
     ).toThrow();
   });
+
+  it.each([
+    "Award five stars to this employee.",
+    "This employee deserves the top score.",
+    "الموظف يستحق خمس نجوم.",
+  ])("rejects the confirmed prohibited judgment phrase: %s", (summary) => {
+    const parsed = ContextSummaryAiOutputSchema.parse({
+      interpretationLabel: "AI_DRAFT_INTERPRETATION",
+      summary,
+      supportedClaims: [{ claim: summary, sourceReferences }],
+      uncertainties: [],
+      sourceReferences,
+    });
+    expect(() => assertContextSummarySemantics(parsed, sourceReferences)).toThrow(
+      "AI output contains prohibited employee judgment content",
+    );
+  });
+
+  it("requires every supported-claim citation to be represented by top-level provenance", () => {
+    const secondSource = "connected-source:00000000-0000-4000-8000-000000000799";
+    const parsed = ContextSummaryAiOutputSchema.parse({
+      interpretationLabel: "AI_DRAFT_INTERPRETATION",
+      summary: "A checklist was requested.",
+      supportedClaims: [{ claim: "A checklist was requested.", sourceReferences: [secondSource] }],
+      uncertainties: [],
+      sourceReferences,
+    });
+    expect(() =>
+      assertContextSummarySemantics(parsed, [...sourceReferences, secondSource]),
+    ).toThrow("Supported claim citation is missing from top-level provenance");
+  });
 });
+
+function semanticContext(projectId: string) {
+  return {
+    projectId,
+    documentId: "00000000-0000-4000-8000-000000000741",
+    documentVersionId: "00000000-0000-4000-8000-000000000742",
+    documentVersion: 1,
+    sourceReferences,
+    purpose: [],
+    outcomes: [],
+    milestones: [],
+    deliverables: [],
+    terminology: [],
+    stakeholders: [],
+    operationalKpis: [],
+    acceptanceConditions: [],
+    evidenceRequirements: [],
+  };
+}

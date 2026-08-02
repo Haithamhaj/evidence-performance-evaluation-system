@@ -80,6 +80,11 @@ describe("ContextAnalysisService", () => {
     expect(result.suggestion.explanation).toContain("INSUFFICIENT_INDEPENDENT_ANCHORS");
     expect(result.suggestion.explanation).toContain("AI_DRAFT_INTERPRETATION");
     expect(result.suggestion.explanation).toContain("employee review is still required");
+    expect(result.suggestion.explanation).toContain("A second independent anchor is missing.");
+    expect(fixture.outputReferences).toEqual([
+      `context-analysis:${analysisId}`,
+      `project-link-suggestion:${suggestionId}`,
+    ]);
     expect(fixture.analysisRows).toHaveLength(1);
     expect(fixture.analysisRows[0]).toMatchObject({
       record: {
@@ -94,6 +99,17 @@ describe("ContextAnalysisService", () => {
       outputKeyVersion: "context-key-v7",
     });
     expect(fixture.analysisRows[0]?.outputCiphertext).not.toContain("acceptance checklist");
+    expect(fixture.suggestionRows[0]).toMatchObject({
+      record: { id: suggestionId, decision: "REVIEW" },
+      explanationCiphertext: expect.stringMatching(/^sealed:/u),
+      explanationKeyVersion: "context-key-v7",
+    });
+    expect(JSON.stringify(fixture.suggestionRows[0]?.record)).not.toContain(
+      "employee review is still required",
+    );
+    expect(fixture.suggestionRows[0]?.explanationCiphertext).not.toContain(
+      "employee review is still required",
+    );
     expect(JSON.stringify(fixture.analysisRows)).not.toMatch(
       /credential|accessToken|refreshToken|apiKey/iu,
     );
@@ -137,7 +153,86 @@ describe("ContextAnalysisService", () => {
     expect(fixture.analysisRows).toHaveLength(0);
     expect(fixture.suggestionRows).toHaveLength(0);
   });
+
+  it("reuses the persisted initial analysis when Project matching fails and is retried", async () => {
+    const fixture = harness({
+      summaryOutput: validSummary(),
+      matchOutput: [new Error("Project match unavailable"), validMatch()],
+    });
+
+    await expect(fixture.service.analyze(command())).rejects.toThrow("Project match unavailable");
+    await expect(fixture.service.analyze(command())).resolves.toMatchObject({
+      analysis: { id: analysisId },
+      suggestion: { id: suggestionId },
+    });
+
+    expect(fixture.analysisRows).toHaveLength(1);
+    expect(fixture.router.requests.map(({ routeKey }) => routeKey)).toEqual([
+      CONTEXT_SUMMARY_ROUTE,
+      CONTEXT_PROJECT_MATCH_ROUTE,
+      CONTEXT_PROJECT_MATCH_ROUTE,
+    ]);
+  });
+
+  it("recovers an analysis append that committed before its response was lost", async () => {
+    const fixture = harness(
+      { summaryOutput: validSummary(), matchOutput: validMatch() },
+      { loseAnalysisAppendResponseOnce: true },
+    );
+
+    await expect(fixture.service.analyze(command())).rejects.toThrow("analysis response lost");
+    await expect(fixture.service.analyze(command())).resolves.toMatchObject({
+      analysis: { id: analysisId },
+      suggestion: { id: suggestionId },
+    });
+
+    expect(fixture.analysisRows).toHaveLength(1);
+    expect(fixture.router.requests.map(({ routeKey }) => routeKey)).toEqual([
+      CONTEXT_SUMMARY_ROUTE,
+      CONTEXT_PROJECT_MATCH_ROUTE,
+    ]);
+  });
+
+  it("returns the persisted suggestion after its committed append response was lost", async () => {
+    const fixture = harness(
+      { summaryOutput: validSummary(), matchOutput: validMatch() },
+      { loseSuggestionAppendResponseOnce: true },
+    );
+
+    await expect(fixture.service.analyze(command())).rejects.toThrow("suggestion response lost");
+    await expect(fixture.service.analyze(command())).resolves.toMatchObject({
+      suggestion: { id: suggestionId },
+    });
+
+    expect(fixture.analysisRows).toHaveLength(1);
+    expect(fixture.suggestionRows).toHaveLength(1);
+    expect(fixture.router.requests.map(({ routeKey }) => routeKey)).toEqual([
+      CONTEXT_SUMMARY_ROUTE,
+      CONTEXT_PROJECT_MATCH_ROUTE,
+    ]);
+  });
 });
+
+function validSummary() {
+  return {
+    interpretationLabel: "AI_DRAFT_INTERPRETATION",
+    summary: "The source asks for an acceptance checklist.",
+    supportedClaims: [
+      { claim: "An acceptance checklist was requested.", sourceReferences: [sourceReference] },
+    ],
+    uncertainties: ["The Project is not confirmed."],
+    sourceReferences: [sourceReference],
+  };
+}
+
+function validMatch() {
+  return {
+    interpretationLabel: "AI_DRAFT_INTERPRETATION",
+    explanation: "One Project anchor exists, so employee review is still required.",
+    uncertainties: ["A second independent anchor is missing."],
+    sourceReferences: [sourceReference, anchorReference],
+  };
+}
 
 function command(content = "Please prepare the acceptance checklist.") {
   return {
@@ -169,21 +264,30 @@ function command(content = "Please prepare the acceptance checklist.") {
   };
 }
 
-function harness(input: { summaryOutput: unknown; matchOutput: unknown }) {
+function harness(
+  input: { summaryOutput: unknown; matchOutput: unknown | unknown[] },
+  options: Readonly<{
+    loseAnalysisAppendResponseOnce?: boolean;
+    loseSuggestionAppendResponseOnce?: boolean;
+  }> = {},
+) {
   const outputs = new Map([
     [CONTEXT_SUMMARY_ROUTE, input.summaryOutput],
     [CONTEXT_PROJECT_MATCH_ROUTE, input.matchOutput],
   ]);
   const traces = new Map<string, Record<string, unknown>>();
+  const outputReferences: string[] = [];
   const requests: RouterRequest[] = [];
   const router = {
     requests,
     run: vi.fn(async (request: RouterRequest, persist: PersistOutput) => {
       requests.push(request);
-      const output = outputs.get(request.routeKey);
+      const configured = outputs.get(request.routeKey);
+      const output = Array.isArray(configured) ? configured.shift() : configured;
       if (output instanceof Error) throw output;
       const validated = request.outputSchema.parse(output);
       const persisted = await persist(undefined, validated);
+      outputReferences.push(persisted.outputReference);
       const runId = crypto.randomUUID();
       traces.set(runId, {
         id: runId,
@@ -206,17 +310,40 @@ function harness(input: { summaryOutput: unknown; matchOutput: unknown }) {
   };
   const analysisRows: any[] = [];
   const suggestionRows: any[] = [];
+  let loseAnalysisResponse = options.loseAnalysisAppendResponseOnce ?? false;
+  let loseSuggestionResponse = options.loseSuggestionAppendResponseOnce ?? false;
   const suggestionPersistence = {
-    appendInitial: vi.fn(async (suggestion) => {
-      suggestionRows.push(suggestion);
-      return suggestion;
+    appendInitial: vi.fn(async (inputRow: any) => {
+      const existing = suggestionRows.find(
+        (row) => (row.record?.id ?? row.id) === (inputRow.record?.id ?? inputRow.id),
+      );
+      if (existing === undefined) suggestionRows.push(inputRow);
+      const stored = existing ?? inputRow;
+      if (loseSuggestionResponse) {
+        loseSuggestionResponse = false;
+        throw new Error("suggestion response lost");
+      }
+      return materializeSuggestion(stored);
     }),
-    findOwnedSuggestion: vi.fn(),
+    findOwnedSuggestion: vi.fn(async ({ employeeId: ownerId, suggestionId: id }) => {
+      const row = suggestionRows.find(
+        (candidate) =>
+          (candidate.record?.id ?? candidate.id) === id &&
+          (candidate.record?.employeeId ?? candidate.employeeId) === ownerId,
+      );
+      return row === undefined ? null : materializeSuggestion(row);
+    }),
     appendCorrectionRevision: vi.fn(),
   };
   const suggestionService = new ProjectLinkSuggestionService({
     persistence: suggestionPersistence,
     projectAuthorization: { canLink: async () => true },
+    protector: {
+      seal: async (value: string) => ({
+        ciphertext: `sealed:${Buffer.from(value).toString("base64url")}`,
+        keyVersion: "context-key-v7",
+      }),
+    },
     clock: () => now,
     idFactory: () => suggestionId,
   });
@@ -226,6 +353,7 @@ function harness(input: { summaryOutput: unknown; matchOutput: unknown }) {
   ]);
   return {
     router,
+    outputReferences,
     analysisRows,
     suggestionRows,
     service: new ContextAnalysisService({
@@ -244,9 +372,15 @@ function harness(input: { summaryOutput: unknown; matchOutput: unknown }) {
       },
       aiRuns: { readSucceeded: async (runId: string) => traces.get(runId) as never },
       analyses: {
+        findInitial: async () => analysisRows[0]?.record ?? null,
         append: async (row) => {
-          analysisRows.push(row);
-          return row.record;
+          const existing = analysisRows.find(({ record }) => record.id === row.record.id);
+          if (existing === undefined) analysisRows.push(row);
+          if (loseAnalysisResponse) {
+            loseAnalysisResponse = false;
+            throw new Error("analysis response lost");
+          }
+          return (existing ?? row).record;
         },
       },
       suggestions: suggestionService,
@@ -257,8 +391,22 @@ function harness(input: { summaryOutput: unknown; matchOutput: unknown }) {
         }),
       },
       clock: () => now,
-      idFactory: (kind) => (kind === "analysis" ? analysisId : crypto.randomUUID()),
+      idFactory: (kind) =>
+        kind === "analysis"
+          ? analysisId
+          : kind === "suggestion"
+            ? suggestionId
+            : crypto.randomUUID(),
       timeoutMs: 10_000,
     }),
+  };
+}
+
+function materializeSuggestion(row: any) {
+  if (row.record === undefined) return row;
+  const encoded = String(row.explanationCiphertext).replace(/^sealed:/u, "");
+  return {
+    ...row.record,
+    explanation: Buffer.from(encoded, "base64url").toString(),
   };
 }

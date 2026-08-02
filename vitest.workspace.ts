@@ -21,6 +21,7 @@ export default [
         "tests/integration/**/*.test.ts",
         "apps/**/*.integration.test.ts",
         "packages/**/*.integration.test.ts",
+        "scripts/**/*.integration.test.ts",
       ],
     },
   }),

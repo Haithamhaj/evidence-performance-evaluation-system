@@ -17,7 +17,8 @@ import {
   CONTEXT_SUMMARY_TRUSTED_PROMPT,
   ContextProjectMatchAiOutputSchema,
   ContextSummaryAiOutputSchema,
-  assertGroundedSourceReferences,
+  assertContextProjectMatchSemantics,
+  assertContextSummarySemantics,
   buildContextProjectMatchRequest,
   buildContextSummaryRequest,
   type ContextSourceInput,
@@ -62,6 +63,13 @@ export interface PrivateContextOutputProtector {
 }
 
 export interface ContextAnalysisPersistence {
+  findInitial(
+    input: Readonly<{
+      id: string;
+      employeeId: string;
+      sourceItemId: string;
+    }>,
+  ): Promise<ContextAnalysis | null>;
   append(
     input: Readonly<{
       record: ContextAnalysis;
@@ -76,11 +84,11 @@ type Dependencies = Readonly<{
   promptArtifacts: ContextPromptArtifactPublicReader;
   aiRuns: SucceededAiRunTracePublicReader;
   analyses: ContextAnalysisPersistence;
-  suggestions: Pick<ProjectLinkSuggestionService, "recordDecision">;
+  suggestions: Pick<ProjectLinkSuggestionService, "findRecordedDecision" | "recordDecision">;
   protector: PrivateContextOutputProtector;
   timeoutMs: number;
   clock?: () => Date;
-  idFactory?: (kind: "analysis" | "output") => string;
+  idFactory?: (kind: "analysis" | "suggestion") => string;
 }>;
 
 export type AnalyzeContextCommand = Readonly<{
@@ -104,69 +112,93 @@ export class ContextAnalysisService {
   async analyze(command: AnalyzeContextCommand) {
     if (!command.actor.active) throw new Error("Active employee required");
     const decision = decideProjectLink(command.candidates);
-    const summaryPrompt = await requirePrompt(
-      this.dependencies.promptArtifacts,
-      CONTEXT_SUMMARY_ROUTE,
-      CONTEXT_SUMMARY_PROMPT_VERSION,
-      CONTEXT_SUMMARY_TRUSTED_PROMPT,
-    );
-    const summaryRequest = buildContextSummaryRequest({
-      prompt: { artifactId: summaryPrompt.id, sha256: summaryPrompt.bodyHash },
-      sources: command.sources,
-    });
-    const analysisId = this.id("analysis");
-    const summaryReference = `context-analysis:${analysisId}`;
-    const summarySources = unique(command.sources.map(({ reference }) => reference));
-    const summaryRun = await this.dependencies.router.run(
-      {
-        routeKey: CONTEXT_SUMMARY_ROUTE,
-        departmentId: command.departmentId,
-        systemId: command.systemId,
-        input: summaryRequest.input,
-        inputReference: `connected-source:${command.sourceItemId}`,
-        inputSchemaVersion: summaryRequest.inputSchemaVersion,
-        outputSchemaVersion: CONTEXT_SUMMARY_OUTPUT_SCHEMA_VERSION,
-        promptTemplateVersion: CONTEXT_SUMMARY_PROMPT_VERSION,
-        outputSchema: ContextSummaryAiOutputSchema,
-        sourceReferences: summarySources,
-        classification: "confidential",
-        timeoutMs: this.dependencies.timeoutMs,
-        requiresHumanApproval: true,
-        correlationId: command.correlationId,
-      },
-      async () => ({ outputReference: summaryReference }),
-    );
-    assertGroundedSourceReferences(summaryRun.output, summarySources);
-    const summaryTrace = await requireTrace(this.dependencies.aiRuns, summaryRun, {
-      routeKey: CONTEXT_SUMMARY_ROUTE,
-      outputSchemaVersion: CONTEXT_SUMMARY_OUTPUT_SCHEMA_VERSION,
-      promptTemplateVersion: CONTEXT_SUMMARY_PROMPT_VERSION,
-      sourceReferences: summarySources,
-    });
-    const sealedSummary = await this.dependencies.protector.seal(JSON.stringify(summaryRun.output));
-    const createdAt = (this.dependencies.clock ?? (() => new Date()))();
-    const analysis = ContextAnalysisSchema.parse({
+    const analysisId = this.id("analysis", command);
+    const suggestionId = this.id("suggestion", command);
+    const summarySources = boundedReferences(command.sources.map(({ reference }) => reference));
+    let analysis = await this.dependencies.analyses.findInitial({
       id: analysisId,
       employeeId: command.actor.userId,
       sourceItemId: command.sourceItemId,
-      revision: 1,
-      schemaVersion: CONTEXT_SUMMARY_OUTPUT_SCHEMA_VERSION,
-      promptVersion: CONTEXT_SUMMARY_PROMPT_VERSION,
-      routeTrace: publicTrace(summaryTrace),
-      sourceReferences: summaryRun.output.sourceReferences,
-      reviewStatus: "PENDING",
-      revisionOrigin: "AI",
-      correctionReason: null,
-      createdAt: createdAt.toISOString(),
-      summary: summaryRun.output.summary,
-      uncertainties: summaryRun.output.uncertainties,
-      supersedesAnalysisId: null,
     });
-    await this.dependencies.analyses.append({
-      record: analysis,
-      outputCiphertext: sealedSummary.ciphertext,
-      outputKeyVersion: sealedSummary.keyVersion,
+    if (analysis !== null) {
+      analysis = requireInitialAnalysis(analysis, analysisId, command);
+    } else {
+      const summaryPrompt = await requirePrompt(
+        this.dependencies.promptArtifacts,
+        CONTEXT_SUMMARY_ROUTE,
+        CONTEXT_SUMMARY_PROMPT_VERSION,
+        CONTEXT_SUMMARY_TRUSTED_PROMPT,
+      );
+      const summaryRequest = buildContextSummaryRequest({
+        prompt: { artifactId: summaryPrompt.id, sha256: summaryPrompt.bodyHash },
+        sources: command.sources,
+      });
+      const summaryReference = `context-analysis:${analysisId}`;
+      const summaryRun = await this.dependencies.router.run(
+        {
+          routeKey: CONTEXT_SUMMARY_ROUTE,
+          departmentId: command.departmentId,
+          systemId: command.systemId,
+          input: summaryRequest.input,
+          inputReference: `connected-source:${command.sourceItemId}`,
+          inputSchemaVersion: summaryRequest.inputSchemaVersion,
+          outputSchemaVersion: CONTEXT_SUMMARY_OUTPUT_SCHEMA_VERSION,
+          promptTemplateVersion: CONTEXT_SUMMARY_PROMPT_VERSION,
+          outputSchema: ContextSummaryAiOutputSchema,
+          sourceReferences: summarySources,
+          classification: "confidential",
+          timeoutMs: this.dependencies.timeoutMs,
+          requiresHumanApproval: true,
+          correlationId: command.correlationId,
+        },
+        async () => ({ outputReference: summaryReference }),
+      );
+      assertContextSummarySemantics(summaryRun.output, summarySources);
+      const summaryTrace = await requireTrace(this.dependencies.aiRuns, summaryRun, {
+        routeKey: CONTEXT_SUMMARY_ROUTE,
+        outputSchemaVersion: CONTEXT_SUMMARY_OUTPUT_SCHEMA_VERSION,
+        promptTemplateVersion: CONTEXT_SUMMARY_PROMPT_VERSION,
+        sourceReferences: summarySources,
+      });
+      const sealedSummary = await this.dependencies.protector.seal(
+        JSON.stringify(summaryRun.output),
+      );
+      const createdAt = (this.dependencies.clock ?? (() => new Date()))();
+      const pending = ContextAnalysisSchema.parse({
+        id: analysisId,
+        employeeId: command.actor.userId,
+        sourceItemId: command.sourceItemId,
+        revision: 1,
+        schemaVersion: CONTEXT_SUMMARY_OUTPUT_SCHEMA_VERSION,
+        promptVersion: CONTEXT_SUMMARY_PROMPT_VERSION,
+        routeTrace: publicTrace(summaryTrace),
+        sourceReferences: summaryRun.output.sourceReferences,
+        reviewStatus: "PENDING",
+        revisionOrigin: "AI",
+        correctionReason: null,
+        createdAt: createdAt.toISOString(),
+        summary: summaryRun.output.summary,
+        uncertainties: summaryRun.output.uncertainties,
+        supersedesAnalysisId: null,
+      });
+      analysis = requireInitialAnalysis(
+        await this.dependencies.analyses.append({
+          record: pending,
+          outputCiphertext: sealedSummary.ciphertext,
+          outputKeyVersion: sealedSummary.keyVersion,
+        }),
+        analysisId,
+        command,
+      );
+    }
+
+    const recordedSuggestion = await this.dependencies.suggestions.findRecordedDecision({
+      actor: command.actor,
+      suggestionId,
     });
+    if (recordedSuggestion !== null) {
+      return { analysis, decision, suggestion: recordedSuggestion } as const;
+    }
 
     const matchPrompt = await requirePrompt(
       this.dependencies.promptArtifacts,
@@ -180,12 +212,12 @@ export class ContextAnalysisService {
       decision,
       semanticContexts: command.semanticContexts,
     });
-    const matchSources = unique([
+    const matchSources = boundedReferences([
       ...summarySources,
       ...decisionSourceReferences(decision),
       ...command.semanticContexts.flatMap(({ sourceReferences }) => sourceReferences),
     ]);
-    const matchReference = `project-link-suggestion:${this.id("output")}`;
+    const matchReference = `project-link-suggestion:${suggestionId}`;
     const matchRun = await this.dependencies.router.run(
       {
         routeKey: CONTEXT_PROJECT_MATCH_ROUTE,
@@ -206,7 +238,7 @@ export class ContextAnalysisService {
       },
       async () => ({ outputReference: matchReference }),
     );
-    assertGroundedSourceReferences(matchRun.output, matchSources);
+    assertContextProjectMatchSemantics(matchRun.output, matchSources);
     const matchTrace = await requireTrace(this.dependencies.aiRuns, matchRun, {
       routeKey: CONTEXT_PROJECT_MATCH_ROUTE,
       outputSchemaVersion: CONTEXT_PROJECT_MATCH_OUTPUT_SCHEMA_VERSION,
@@ -222,17 +254,22 @@ export class ContextAnalysisService {
       promptVersion: CONTEXT_PROJECT_MATCH_PROMPT_VERSION,
       routeTrace: publicTrace(matchTrace),
       sourceReferences: matchRun.output.sourceReferences,
+      suggestionId,
       aiExplanation: {
         label: matchRun.output.interpretationLabel,
         text: matchRun.output.explanation,
         sourceReferences: matchRun.output.sourceReferences,
+        uncertainties: matchRun.output.uncertainties,
       },
     });
     return { analysis, decision, suggestion } as const;
   }
 
-  private id(kind: "analysis" | "output"): string {
-    return this.dependencies.idFactory?.(kind) ?? crypto.randomUUID();
+  private id(kind: "analysis" | "suggestion", command: AnalyzeContextCommand): string {
+    return (
+      this.dependencies.idFactory?.(kind) ??
+      stableInitialId(kind, command.actor.userId, command.sourceItemId)
+    );
   }
 }
 
@@ -319,8 +356,44 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
+function boundedReferences(values: readonly string[]): string[] {
+  const references = unique(values);
+  if (references.length === 0 || references.length > 50) {
+    throw new Error("Context Intelligence AI source references exceed the Router limit");
+  }
+  return references;
+}
+
 function sameReferences(left: readonly string[], right: readonly string[]): boolean {
   const a = unique(left).sort();
   const b = unique(right).sort();
   return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+function stableInitialId(kind: string, employeeId: string, sourceItemId: string): string {
+  const bytes = createHash("sha256")
+    .update(`context-intelligence:${kind}:${employeeId}:${sourceItemId}`)
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function requireInitialAnalysis(
+  value: ContextAnalysis,
+  id: string,
+  command: AnalyzeContextCommand,
+): ContextAnalysis {
+  const analysis = ContextAnalysisSchema.parse(value);
+  if (
+    analysis.id !== id ||
+    analysis.employeeId !== command.actor.userId ||
+    analysis.sourceItemId !== command.sourceItemId ||
+    analysis.revision !== 1
+  ) {
+    throw new Error("Persisted Context Analysis does not match the stable operation");
+  }
+  return analysis;
 }

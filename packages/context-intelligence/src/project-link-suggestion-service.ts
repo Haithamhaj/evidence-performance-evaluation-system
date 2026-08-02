@@ -3,12 +3,19 @@ import { ProjectLinkSuggestionSchema, SourceLinkCorrectionSchema } from "@evalua
 type LinkDecision = import("./matching-policy.js").LinkDecision;
 type ProjectAnchor = import("@evaluation/contracts").ProjectAnchor;
 type ProjectLinkSuggestion = import("@evaluation/contracts").ProjectLinkSuggestion;
+type PersistedProjectLinkSuggestion = Omit<ProjectLinkSuggestion, "explanation">;
 type SourceLinkCorrection = import("@evaluation/contracts").SourceLinkCorrection;
 type RouteTrace = import("@evaluation/contracts").ContextIntelligenceRouteTrace;
 type Actor = Readonly<{ userId: string; active: boolean }>;
 
 export interface ProjectLinkSuggestionPersistence {
-  appendInitial(suggestion: ProjectLinkSuggestion): Promise<ProjectLinkSuggestion>;
+  appendInitial(
+    input: Readonly<{
+      record: PersistedProjectLinkSuggestion;
+      explanationCiphertext: string;
+      explanationKeyVersion: string;
+    }>,
+  ): Promise<ProjectLinkSuggestion>;
   findOwnedSuggestion(
     input: Readonly<{
       employeeId: string;
@@ -36,6 +43,9 @@ export interface ProjectLinkAuthorizationPublicReader {
 type Dependencies = Readonly<{
   persistence: ProjectLinkSuggestionPersistence;
   projectAuthorization: ProjectLinkAuthorizationPublicReader;
+  protector: Readonly<{
+    seal(value: string): Promise<Readonly<{ ciphertext: string; keyVersion: string }>>;
+  }>;
   clock?: () => Date;
   idFactory?: (kind: "suggestion" | "correction") => string;
 }>;
@@ -49,28 +59,37 @@ type RecordDecisionCommand = Readonly<{
   promptVersion: string;
   routeTrace: RouteTrace;
   sourceReferences: readonly string[];
+  suggestionId: string;
   aiExplanation?: Readonly<{
     label: "AI_DRAFT_INTERPRETATION";
     text: string;
     sourceReferences: readonly string[];
+    uncertainties: readonly string[];
   }>;
 }>;
 
 export class ProjectLinkSuggestionService {
   private readonly persistence: ProjectLinkSuggestionPersistence;
   private readonly projectAuthorization: ProjectLinkAuthorizationPublicReader;
+  private readonly protector: Dependencies["protector"];
   private readonly clock: () => Date;
   private readonly idFactory: (kind: "suggestion" | "correction") => string;
 
   constructor(dependencies: Dependencies) {
     this.persistence = dependencies.persistence;
     this.projectAuthorization = dependencies.projectAuthorization;
+    this.protector = dependencies.protector;
     this.clock = dependencies.clock ?? (() => new Date());
     this.idFactory = dependencies.idFactory ?? (() => crypto.randomUUID());
   }
 
   async recordDecision(command: RecordDecisionCommand): Promise<ProjectLinkSuggestion> {
     assertActive(command.actor);
+    const existing = await this.persistence.findOwnedSuggestion({
+      employeeId: command.actor.userId,
+      suggestionId: command.suggestionId,
+    });
+    if (existing !== null) return existing;
     const createdAt = this.clock();
     if (
       command.decision.kind === "AUTO_LINK" &&
@@ -85,7 +104,7 @@ export class ProjectLinkSuggestionService {
 
     const anchors = decisionAnchors(command.decision);
     const suggestion = ProjectLinkSuggestionSchema.parse({
-      id: this.idFactory("suggestion"),
+      id: command.suggestionId,
       employeeId: command.actor.userId,
       sourceItemId: command.sourceItemId,
       revision: 1,
@@ -108,7 +127,50 @@ export class ProjectLinkSuggestionService {
       anchors,
       supersedesSuggestionId: null,
     });
-    return this.persistence.appendInitial(suggestion);
+    const sealed = await this.protector.seal(suggestion.explanation);
+    const record: PersistedProjectLinkSuggestion = {
+      id: suggestion.id,
+      employeeId: suggestion.employeeId,
+      sourceItemId: suggestion.sourceItemId,
+      revision: suggestion.revision,
+      schemaVersion: suggestion.schemaVersion,
+      promptVersion: suggestion.promptVersion,
+      routeTrace: suggestion.routeTrace,
+      sourceReferences: suggestion.sourceReferences,
+      reviewStatus: suggestion.reviewStatus,
+      revisionOrigin: suggestion.revisionOrigin,
+      correctionReason: suggestion.correctionReason,
+      createdAt: suggestion.createdAt,
+      analysisId: suggestion.analysisId,
+      projectId: suggestion.projectId,
+      decision: suggestion.decision,
+      anchors: suggestion.anchors,
+      supersedesSuggestionId: suggestion.supersedesSuggestionId,
+    };
+    const persisted = ProjectLinkSuggestionSchema.parse(
+      await this.persistence.appendInitial({
+        record,
+        explanationCiphertext: sealed.ciphertext,
+        explanationKeyVersion: sealed.keyVersion,
+      }),
+    );
+    if (
+      persisted.id !== suggestion.id ||
+      persisted.employeeId !== suggestion.employeeId ||
+      persisted.sourceItemId !== suggestion.sourceItemId ||
+      persisted.revision !== 1
+    ) {
+      throw new Error("Persisted Project link suggestion does not match the stable operation");
+    }
+    return persisted;
+  }
+
+  async findRecordedDecision(input: Readonly<{ actor: Actor; suggestionId: string }>) {
+    assertActive(input.actor);
+    return this.persistence.findOwnedSuggestion({
+      employeeId: input.actor.userId,
+      suggestionId: input.suggestionId,
+    });
   }
 
   async correct(
@@ -269,9 +331,13 @@ function combinedExplanation(
   explanation: RecordDecisionCommand["aiExplanation"],
 ): string {
   const governedReason = decisionExplanation(decision);
-  return explanation === undefined
-    ? governedReason
-    : `${governedReason}\n${explanation.label}: ${explanation.text}`;
+  if (explanation === undefined) return governedReason;
+  const uncertainties = explanation.uncertainties.map((value) => `- ${value}`).join("\n");
+  return [
+    governedReason,
+    `${explanation.label}: ${explanation.text}`,
+    ...(uncertainties.length === 0 ? [] : [`UNCERTAINTIES:\n${uncertainties}`]),
+  ].join("\n");
 }
 
 function unique(values: readonly string[]): string[] {

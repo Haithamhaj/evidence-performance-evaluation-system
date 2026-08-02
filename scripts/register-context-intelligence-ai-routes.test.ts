@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+
+import { registerContextIntelligenceAiRoutes } from "./register-context-intelligence-ai-routes.js";
+
+describe("Context Intelligence AI route registration", () => {
+  it("plans exactly three representable governed artifacts without configuring a provider", async () => {
+    const plan = await registerContextIntelligenceAiRoutes({ dryRun: true });
+
+    expect(plan).toEqual({
+      routes: [
+        expect.objectContaining({
+          routeKey: "context.summarize.v1",
+          promptVersion: "context-summary-prompt.v1",
+          outputSchemaVersion: "context-analysis-output.v1",
+          outputSchemaHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        }),
+        expect.objectContaining({
+          routeKey: "context.project-match.v1",
+          promptVersion: "context-project-match-prompt.v1",
+          outputSchemaVersion: "project-link-suggestion-output.v1",
+          outputSchemaHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        }),
+        expect.objectContaining({
+          routeKey: "task.draft.v1",
+          promptVersion: "task-draft-prompt.v1",
+          outputSchemaVersion: "task-draft-output.v1",
+          outputSchemaHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        }),
+      ],
+    });
+    expect(JSON.stringify(plan)).not.toMatch(/provider|endpoint|credential|token/iu);
+  });
+
+  it("requires authorized production registration context outside dry-run", async () => {
+    await expect(registerContextIntelligenceAiRoutes({ dryRun: false })).rejects.toMatchObject({
+      code: "AI_ROUTE_REGISTRATION_CONTEXT_REQUIRED",
+    });
+  });
+});

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { AiRouter } from "@evaluation/ai-routing";
 import { TaskDraftRecordSchema } from "@evaluation/contracts";
 
@@ -17,7 +19,7 @@ import {
   TASK_DRAFT_ROUTE,
   TASK_DRAFT_TRUSTED_PROMPT,
   TaskDraftAiOutputSchema,
-  assertGroundedSourceReferences,
+  assertTaskDraftSemantics,
   buildTaskDraftRequest,
   type ContextSourceInput,
 } from "./prompts.js";
@@ -26,6 +28,13 @@ type Router = Pick<AiRouter, "run">;
 type TaskDraftRecord = import("@evaluation/contracts").TaskDraftRecord;
 
 export interface TaskDraftPersistence {
+  findInitial(
+    input: Readonly<{
+      id: string;
+      employeeId: string;
+      sourceItemId: string;
+    }>,
+  ): Promise<TaskDraftRecord | null>;
   append(
     input: Readonly<{
       record: TaskDraftRecord;
@@ -71,6 +80,15 @@ export class TaskDraftService {
 
   async prepare(command: PrepareTaskDraftCommand): Promise<TaskDraftRecord> {
     if (!command.actor.active) throw new Error("Active employee required");
+    const draftId =
+      this.dependencies.idFactory?.() ??
+      stableInitialId(command.actor.userId, command.sourceItemId);
+    const existing = await this.dependencies.drafts.findInitial({
+      id: draftId,
+      employeeId: command.actor.userId,
+      sourceItemId: command.sourceItemId,
+    });
+    if (existing !== null) return requireInitialDraft(existing, draftId, command);
     const prompt = await requirePrompt(
       this.dependencies.promptArtifacts,
       TASK_DRAFT_ROUTE,
@@ -84,13 +102,12 @@ export class TaskDraftService {
       semanticContexts: command.semanticContexts,
       analysis: command.analysis,
     });
-    const sourceReferences = unique([
+    const sourceReferences = boundedReferences([
       ...command.sources.map(({ reference }) => reference),
       ...command.analysis.sourceReferences,
       ...decisionSourceReferences(command.decision),
       ...command.semanticContexts.flatMap((context) => context.sourceReferences),
     ]);
-    const draftId = this.dependencies.idFactory?.() ?? crypto.randomUUID();
     const outputReference = `task-draft:${draftId}`;
     const run = await this.dependencies.router.run(
       {
@@ -112,7 +129,7 @@ export class TaskDraftService {
       },
       async () => ({ outputReference }),
     );
-    assertGroundedSourceReferences(run.output, sourceReferences);
+    assertTaskDraftSemantics(run.output, sourceReferences);
     assertDeterministicTaskProject(command.decision, run.output);
     const trace = await requireTrace(this.dependencies.aiRuns, run, {
       routeKey: TASK_DRAFT_ROUTE,
@@ -142,11 +159,15 @@ export class TaskDraftService {
       draft: run.output,
       supersedesTaskDraftId: null,
     });
-    return this.dependencies.drafts.append({
-      record,
-      draftCiphertext: sealed.ciphertext,
-      draftKeyVersion: sealed.keyVersion,
-    });
+    return requireInitialDraft(
+      await this.dependencies.drafts.append({
+        record,
+        draftCiphertext: sealed.ciphertext,
+        draftKeyVersion: sealed.keyVersion,
+      }),
+      draftId,
+      command,
+    );
   }
 }
 
@@ -160,4 +181,40 @@ function decisionSourceReferences(decision: LinkDecision): string[] {
 
 function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
+}
+
+function boundedReferences(values: readonly string[]): string[] {
+  const references = unique(values);
+  if (references.length === 0 || references.length > 50) {
+    throw new Error("Context Intelligence AI source references exceed the Router limit");
+  }
+  return references;
+}
+
+function stableInitialId(employeeId: string, sourceItemId: string): string {
+  const bytes = createHash("sha256")
+    .update(`context-intelligence:task-draft:${employeeId}:${sourceItemId}`)
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function requireInitialDraft(
+  value: TaskDraftRecord,
+  id: string,
+  command: PrepareTaskDraftCommand,
+): TaskDraftRecord {
+  const draft = TaskDraftRecordSchema.parse(value);
+  if (
+    draft.id !== id ||
+    draft.employeeId !== command.actor.userId ||
+    draft.sourceItemId !== command.sourceItemId ||
+    draft.revision !== 1
+  ) {
+    throw new Error("Persisted Task draft does not match the stable operation");
+  }
+  return draft;
 }

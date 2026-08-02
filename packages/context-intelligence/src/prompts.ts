@@ -1,4 +1,8 @@
-import { SourceReferenceSchema, TaskDraftSchema } from "@evaluation/contracts";
+import {
+  PROJECT_ANCHOR_KINDS,
+  SourceReferenceSchema,
+  TaskDraftSchema,
+} from "@evaluation/contracts";
 import { z } from "zod";
 
 export const CONTEXT_SUMMARY_ROUTE = "context.summarize.v1";
@@ -36,20 +40,12 @@ Never assign, predict, recommend, or discuss a performance rating, employee rank
 Return exactly the governed Task draft JSON fields: title, description, projectId, workstreamId, proposedAssigneeId, dueAt, acceptanceConditions, sourceReferences, and uncertainties. Return no extra keys.`;
 
 const DraftInterpretationLabelSchema = z.literal("AI_DRAFT_INTERPRETATION");
-const SafeDraftTextSchema = (maximum: number) =>
-  z
-    .string()
-    .trim()
-    .min(1)
-    .max(maximum)
-    .refine((value) => !containsProhibitedJudgment(value), {
-      message: "AI draft contains prohibited performance or employee judgment content",
-    });
-const GroundedReferencesSchema = z.array(SourceReferenceSchema).min(1).max(100);
+const DraftTextSchema = (maximum: number) => z.string().min(1).max(maximum);
+const GroundedReferencesSchema = z.array(SourceReferenceSchema).min(1).max(50);
 
 const SupportedClaimSchema = z
   .object({
-    claim: SafeDraftTextSchema(2_000),
+    claim: DraftTextSchema(2_000),
     sourceReferences: GroundedReferencesSchema,
   })
   .strict();
@@ -57,9 +53,9 @@ const SupportedClaimSchema = z
 export const ContextSummaryAiOutputSchema = z
   .object({
     interpretationLabel: DraftInterpretationLabelSchema,
-    summary: SafeDraftTextSchema(8_000),
+    summary: DraftTextSchema(8_000),
     supportedClaims: z.array(SupportedClaimSchema).min(1).max(100),
-    uncertainties: z.array(SafeDraftTextSchema(2_000)).max(100),
+    uncertainties: z.array(DraftTextSchema(2_000)).max(100),
     sourceReferences: GroundedReferencesSchema,
   })
   .strict();
@@ -67,18 +63,18 @@ export const ContextSummaryAiOutputSchema = z
 export const ContextProjectMatchAiOutputSchema = z
   .object({
     interpretationLabel: DraftInterpretationLabelSchema,
-    explanation: SafeDraftTextSchema(3_000),
-    uncertainties: z.array(SafeDraftTextSchema(2_000)).max(100),
+    explanation: DraftTextSchema(3_000),
+    uncertainties: z.array(DraftTextSchema(240)).max(3),
     sourceReferences: GroundedReferencesSchema,
   })
   .strict();
 
 export const TaskDraftAiOutputSchema = TaskDraftSchema.extend({
-  title: SafeDraftTextSchema(240),
-  description: SafeDraftTextSchema(8_000),
-  acceptanceConditions: z.array(SafeDraftTextSchema(2_000)).max(12),
+  title: DraftTextSchema(240),
+  description: DraftTextSchema(8_000),
+  acceptanceConditions: z.array(DraftTextSchema(2_000)).max(12),
   sourceReferences: GroundedReferencesSchema,
-  uncertainties: z.array(SafeDraftTextSchema(2_000)).max(100),
+  uncertainties: z.array(DraftTextSchema(2_000)).max(100),
 });
 
 export const CONTEXT_INTELLIGENCE_AI_ROUTES = [
@@ -139,25 +135,46 @@ const SourcesSchema = z
       });
     }
   });
+const ProjectAnchorSchema = z
+  .object({
+    kind: z.enum(PROJECT_ANCHOR_KINDS),
+    reference: SourceReferenceSchema,
+    conflicts: z.boolean(),
+  })
+  .strict();
+const ProjectAnchorSignalSchema = z
+  .object({
+    anchor: ProjectAnchorSchema,
+    current: z.boolean(),
+  })
+  .strict();
+const ProjectCandidateSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    accessible: z.boolean(),
+    anchors: z.array(ProjectAnchorSignalSchema).max(20),
+    modelConfidence: z.number().min(0).max(1).optional(),
+  })
+  .strict();
 const DecisionSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("AUTO_LINK"),
       projectId: z.string().uuid(),
-      anchors: z.array(z.unknown()),
+      anchors: z.array(ProjectAnchorSchema).min(1).max(20),
     })
     .strict(),
   z
     .object({
       kind: z.literal("REVIEW"),
-      candidates: z.array(z.unknown()),
-      reasons: z.array(z.string().trim().min(1)).min(1),
+      candidates: z.array(ProjectCandidateSchema).max(20),
+      reasons: z.array(z.string().trim().min(1).max(200)).min(1).max(10),
     })
     .strict(),
   z
     .object({
       kind: z.literal("NO_MATCH"),
-      reasons: z.array(z.string().trim().min(1)).min(1),
+      reasons: z.array(z.string().trim().min(1).max(200)).min(1).max(10),
     })
     .strict(),
 ]);
@@ -167,16 +184,16 @@ const SemanticContextSchema = z
     documentId: z.string().uuid(),
     documentVersionId: z.string().uuid(),
     documentVersion: z.number().int().positive(),
-    sourceReferences: z.array(SourceReferenceSchema).min(1).max(50),
-    purpose: z.array(z.string()),
-    outcomes: z.array(z.string()),
-    milestones: z.array(z.string()),
-    deliverables: z.array(z.string()),
-    terminology: z.array(z.string()),
-    stakeholders: z.array(z.string()),
-    operationalKpis: z.array(z.string()),
-    acceptanceConditions: z.array(z.string()),
-    evidenceRequirements: z.array(z.string()),
+    sourceReferences: z.array(SourceReferenceSchema).min(1).max(20),
+    purpose: semanticTextArray(),
+    outcomes: semanticTextArray(),
+    milestones: semanticTextArray(),
+    deliverables: semanticTextArray(),
+    terminology: semanticTextArray(),
+    stakeholders: semanticTextArray(),
+    operationalKpis: semanticTextArray(),
+    acceptanceConditions: semanticTextArray(),
+    evidenceRequirements: semanticTextArray(),
   })
   .strict();
 
@@ -206,6 +223,7 @@ export function buildContextProjectMatchRequest(input: unknown) {
     })
     .strict()
     .parse(input);
+  assertSemanticContextProjects(parsed.decision, parsed.semanticContexts);
   return {
     routeKey: CONTEXT_PROJECT_MATCH_ROUTE,
     inputSchemaVersion: CONTEXT_PROJECT_MATCH_INPUT_SCHEMA_VERSION,
@@ -232,6 +250,7 @@ export function buildTaskDraftRequest(input: unknown) {
     })
     .strict()
     .parse(input);
+  assertSemanticContextProjects(parsed.decision, parsed.semanticContexts);
   return {
     routeKey: TASK_DRAFT_ROUTE,
     inputSchemaVersion: TASK_DRAFT_INPUT_SCHEMA_VERSION,
@@ -250,6 +269,47 @@ export function assertGroundedSourceReferences(
   if (cited.length === 0 || cited.some((reference) => !allowed.has(reference))) {
     throw new Error("AI output cited a source outside the governed input");
   }
+}
+
+export function assertContextSummarySemantics(
+  output: z.infer<typeof ContextSummaryAiOutputSchema>,
+  allowedSourceReferences: readonly string[],
+): void {
+  assertGroundedSourceReferences(output, allowedSourceReferences);
+  assertSafeDraftTexts([
+    output.summary,
+    ...output.supportedClaims.map(({ claim }) => claim),
+    ...output.uncertainties,
+  ]);
+  const topLevel = new Set(output.sourceReferences);
+  if (
+    output.supportedClaims.some(({ sourceReferences }) =>
+      sourceReferences.some((reference) => !topLevel.has(reference)),
+    )
+  ) {
+    throw new Error("Supported claim citation is missing from top-level provenance");
+  }
+}
+
+export function assertContextProjectMatchSemantics(
+  output: z.infer<typeof ContextProjectMatchAiOutputSchema>,
+  allowedSourceReferences: readonly string[],
+): void {
+  assertGroundedSourceReferences(output, allowedSourceReferences);
+  assertSafeDraftTexts([output.explanation, ...output.uncertainties]);
+}
+
+export function assertTaskDraftSemantics(
+  output: z.infer<typeof TaskDraftAiOutputSchema>,
+  allowedSourceReferences: readonly string[],
+): void {
+  assertGroundedSourceReferences(output, allowedSourceReferences);
+  assertSafeDraftTexts([
+    output.title,
+    output.description,
+    ...output.acceptanceConditions,
+    ...output.uncertainties,
+  ]);
 }
 
 function promptInput(
@@ -327,8 +387,28 @@ function sanitizeUntrustedContent(value: string): string {
 
 function publicDecision(decision: z.infer<typeof DecisionSchema>) {
   return decision.kind === "AUTO_LINK"
-    ? { kind: decision.kind, projectId: decision.projectId, reasons: [] as string[] }
-    : { kind: decision.kind, projectId: null, reasons: [...decision.reasons] };
+    ? {
+        kind: decision.kind,
+        projectId: decision.projectId,
+        reasons: [] as string[],
+        anchors: decision.anchors.map((anchor) => ({ ...anchor })),
+      }
+    : decision.kind === "REVIEW"
+      ? {
+          kind: decision.kind,
+          projectId: null,
+          reasons: [...decision.reasons],
+          candidates: decision.candidates
+            .filter(({ accessible }) => accessible)
+            .map(({ projectId, anchors }) => ({
+              projectId,
+              anchors: anchors.map(({ anchor, current }) => ({
+                anchor: { ...anchor },
+                current,
+              })),
+            })),
+        }
+      : { kind: decision.kind, projectId: null, reasons: [...decision.reasons] };
 }
 
 function collectSourceReferences(value: unknown, seen = new WeakSet<object>()): string[] {
@@ -343,6 +423,7 @@ function collectSourceReferences(value: unknown, seen = new WeakSet<object>()): 
 }
 
 function containsProhibitedJudgment(value: string): boolean {
+  const normalized = normalizePolicyText(value);
   return [
     /\b(?:performance|employee)\s+rating\b/iu,
     /\brating\s+(?:of\s+)?[1-5]\b/iu,
@@ -363,5 +444,49 @@ function containsProhibitedJudgment(value: string): boolean {
     /(?:عدد|كثرة|حجم|تكرار).{0,24}(?:التحديثات|الالتزامات|المشاريع|المهام|الانشطة).{0,48}(?:اداء|انتاجية).{0,20}(?:افضل|اعلي|اقوي|اسوا|اضعف)/iu,
     /(?:[0-9٠-٩]+|خمسة|عشرة).{0,8}(?:تحديثات|التحديثات|التزامات|الالتزامات|مشاريع|المشاريع|مهام|المهام|انشطة|الانشطة).{0,48}(?:اداء|انتاجية).{0,20}(?:افضل|اعلي|اقوي|اسوا|اضعف)/iu,
     /(?:جاهزية|اكتمال).{0,20}(?:التوثيق|الوثائق).{0,32}(?:تعني|تعكس|تدل|تساوي|تثبت).{0,24}(?:اداء|تقييم)/iu,
-  ].some((pattern) => pattern.test(value));
+    /\baward\s+(?:five|5)\s+stars?\s+to\s+(?:this\s+)?employee\b/iu,
+    /\b(?:this\s+)?employee\s+deserves\s+the\s+top\s+score\b/iu,
+    /(?:الموظف|الموظفة)\s+يستحق\s+(?:خمس|خمسة|٥|5)\s+نجوم/iu,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function semanticTextArray() {
+  return z.array(z.string().trim().min(1).max(4_000)).max(50);
+}
+
+function assertSemanticContextProjects(
+  decision: z.infer<typeof DecisionSchema>,
+  contexts: readonly z.infer<typeof SemanticContextSchema>[],
+): void {
+  const allowed = new Set(
+    decision.kind === "AUTO_LINK"
+      ? [decision.projectId]
+      : decision.kind === "REVIEW"
+        ? decision.candidates
+            .filter(({ accessible }) => accessible)
+            .map(({ projectId }) => projectId)
+        : [],
+  );
+  if (contexts.some(({ projectId }) => !allowed.has(projectId))) {
+    throw new Error("Approved Project semantic context is outside the deterministic Project set");
+  }
+}
+
+function assertSafeDraftTexts(values: readonly string[]): void {
+  if (values.some((value) => value.trim().length === 0)) {
+    throw new Error("AI output contains blank required text");
+  }
+  if (values.some(containsProhibitedJudgment)) {
+    throw new Error("AI output contains prohibited employee judgment content");
+  }
+}
+
+function normalizePolicyText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u0640\u064B-\u065F\u0670]/gu, "")
+    .replace(/[إأآٱ]/gu, "ا")
+    .replace(/ى/gu, "ي")
+    .replace(/ؤ/gu, "و")
+    .replace(/ئ/gu, "ي");
 }
