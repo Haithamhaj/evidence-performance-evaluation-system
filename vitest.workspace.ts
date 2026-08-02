@@ -27,7 +27,7 @@ export default [
   defineProject({
     test: {
       name: "ai-evals",
-      include: ["tests/ai-evals/**/*.test.ts"],
+      include: ["tests/ai-evals/**/*.test.ts", "tests/ai/**/*.eval.test.ts"],
     },
   }),
 ];

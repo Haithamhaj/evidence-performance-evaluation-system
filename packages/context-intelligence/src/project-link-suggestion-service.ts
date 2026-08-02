@@ -49,6 +49,11 @@ type RecordDecisionCommand = Readonly<{
   promptVersion: string;
   routeTrace: RouteTrace;
   sourceReferences: readonly string[];
+  aiExplanation?: Readonly<{
+    label: "AI_DRAFT_INTERPRETATION";
+    text: string;
+    sourceReferences: readonly string[];
+  }>;
 }>;
 
 export class ProjectLinkSuggestionService {
@@ -89,6 +94,7 @@ export class ProjectLinkSuggestionService {
       routeTrace: command.routeTrace,
       sourceReferences: unique([
         ...command.sourceReferences,
+        ...(command.aiExplanation?.sourceReferences ?? []),
         ...anchors.map(({ reference }) => reference),
       ]),
       reviewStatus: "PENDING",
@@ -98,7 +104,7 @@ export class ProjectLinkSuggestionService {
       analysisId: command.analysisId,
       projectId: decisionProjectId(command.decision),
       decision: command.decision.kind,
-      explanation: decisionExplanation(command.decision),
+      explanation: combinedExplanation(command.decision, command.aiExplanation),
       anchors,
       supersedesSuggestionId: null,
     });
@@ -256,6 +262,16 @@ function decisionExplanation(decision: LinkDecision): string {
   return decision.anchors.some(({ kind }) => kind === "EXPLICIT_USER_MAPPING")
     ? "AUTO_LINK_EXPLICIT_USER_MAPPING"
     : "AUTO_LINK_TWO_INDEPENDENT_ANCHORS";
+}
+
+function combinedExplanation(
+  decision: LinkDecision,
+  explanation: RecordDecisionCommand["aiExplanation"],
+): string {
+  const governedReason = decisionExplanation(decision);
+  return explanation === undefined
+    ? governedReason
+    : `${governedReason}\n${explanation.label}: ${explanation.text}`;
 }
 
 function unique(values: readonly string[]): string[] {

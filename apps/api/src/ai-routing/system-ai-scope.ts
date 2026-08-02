@@ -1,3 +1,5 @@
+import { CONTEXT_INTELLIGENCE_AI_ROUTES } from "@evaluation/context-intelligence";
+
 type SystemAiScopeDatabase = Readonly<{
   aiRoute: {
     findFirst(input: unknown): Promise<{ readonly scopeId: string } | null>;
@@ -6,6 +8,20 @@ type SystemAiScopeDatabase = Readonly<{
     findUnique(input: unknown): Promise<{ readonly id: string } | null>;
   };
 }>;
+
+export async function resolveContextIntelligenceSystemAiScopes(
+  database: SystemAiScopeDatabase,
+): Promise<Record<(typeof CONTEXT_INTELLIGENCE_AI_ROUTES)[number]["routeKey"], string>> {
+  const entries = await Promise.all(
+    CONTEXT_INTELLIGENCE_AI_ROUTES.map(
+      async ({ routeKey }) => [routeKey, await resolveSystemAiScopeId(database, routeKey)] as const,
+    ),
+  );
+  return Object.fromEntries(entries) as Record<
+    (typeof CONTEXT_INTELLIGENCE_AI_ROUTES)[number]["routeKey"],
+    string
+  >;
+}
 
 export async function resolveSystemAiScopeId(
   database: SystemAiScopeDatabase,

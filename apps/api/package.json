@@ -17,6 +17,7 @@
     "@evaluation/auth": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/connected-work-context": "workspace:*",
+    "@evaluation/context-intelligence": "workspace:*",
     "@evaluation/criteria": "workspace:*",
     "@evaluation/database": "workspace:*",
     "@evaluation/documents": "workspace:*",

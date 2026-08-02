@@ -7,7 +7,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@evaluation/contracts": "workspace:*"
+    "@evaluation/ai-routing": "workspace:*",
+    "@evaluation/contracts": "workspace:*",
+    "zod": "4.4.3"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

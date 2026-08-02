@@ -117,6 +117,9 @@ importers:
       '@evaluation/connected-work-context':
         specifier: workspace:*
         version: link:../../packages/connected-work-context
+      '@evaluation/context-intelligence':
+        specifier: workspace:*
+        version: link:../../packages/context-intelligence
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -367,9 +370,15 @@ importers:
 
   packages/context-intelligence:
     dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../contracts
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/contracts:
     dependencies:

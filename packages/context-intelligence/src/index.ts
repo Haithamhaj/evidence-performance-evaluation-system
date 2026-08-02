@@ -24,7 +24,10 @@ export type {
   TaskDraft,
   TaskDraftRecord,
 } from "@evaluation/contracts";
+export * from "./analysis-service.js";
 export * from "./matching-policy.js";
+export * from "./prompts.js";
 export * from "./project-anchor-reader.js";
 export * from "./project-link-suggestion-service.js";
 export * from "./project-semantic-context-reader.js";
+export * from "./task-draft-service.js";
