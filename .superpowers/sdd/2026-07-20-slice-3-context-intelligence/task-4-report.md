@@ -468,3 +468,78 @@ boundary.
 
 None. This round hardens the already-recorded Slice 3 architecture and protected decisions without
 changing the current goal, risk register, or recommended next slice action.
+
+---
+
+# Fix Round 3 — Authorize Before Preserving Manual Links
+
+## Status
+
+Complete.
+
+- Fix commit: `65b8edf6182166c928b54207df4f1fd9b78bb325`
+- Commit message: `fix(context-ai): authorize manual link no-ops`
+- Push: not performed
+
+## RED evidence
+
+The real Connected Context integration first confirmed that an ended Project membership still let
+`confirmSuggestedProject` return an existing same-Project manual link. The expected forbidden
+rejection instead resolved with the preserved `EMPLOYEE_MANUAL` row. The run reported the one
+intended failure and four existing passes. The test reaches correction next, so the same regression
+also protects `replaceSuggestedProject` from returning a manual mapping after authorization has
+been revoked.
+
+## What changed
+
+- `confirmSuggestedProject` now completes transaction-aware current user, Project membership, and
+  Project-state authorization before its same-Project manual-link return.
+- `replaceSuggestedProject` now completes the same authorization before preserving an active manual
+  mapping.
+- Suggestion provenance validation remains after the manual-link branch. A currently authorized
+  employee can still make an idempotent derived command without converting, removing, or requiring
+  suggestion provenance for the manual mapping.
+- Source authorization remains the first protected check, and the manual row remains unchanged on
+  both authorized no-op and rejected attempts.
+
+## Files changed
+
+- `packages/connected-work-context/src/connection-service.ts`
+- `packages/connected-work-context/src/connection-service.integration.test.ts`
+
+## Database changes
+
+None. No schema, migration, constraint, seed, or backfill changed.
+
+## Verification
+
+| Check                                                     | Result                       |
+| --------------------------------------------------------- | ---------------------------- |
+| RED Connected Context run                                 | 1 intended failure, 4 passed |
+| Focused Connected Context and Context Intelligence suites | 9 files, 72 tests passed     |
+| Connected Context typecheck and lint                      | passed                       |
+| API typecheck and lint                                    | passed                       |
+| Changed-file formatting and `git diff --check`            | passed                       |
+
+The regression verifies three outcomes: a current member receives the unchanged manual link for an
+idempotent confirmation, a revoked member cannot confirm through that early return, and a revoked
+member cannot use correction to return the manual mapping. The link remains open and unchanged.
+
+## Security and privacy impact
+
+- Manual-link preservation is no longer an authorization bypass for inactive/revoked users or
+  out-of-scope Projects.
+- The authorization decision remains inside the caller's transaction and uses the locked Projects
+  boundary added in Round 2.
+- No private content, credentials, suggestion output, or employee-entered reason is exposed or
+  copied into audit data.
+
+## Remaining risk
+
+None specific to this bounded ordering fix. Round 2's documented Serializable caller contract and
+conflict-normalization considerations remain unchanged.
+
+## Project-state update
+
+None. This security ordering correction does not change architecture, protected decisions, active
+risks, or the recommended next action.
