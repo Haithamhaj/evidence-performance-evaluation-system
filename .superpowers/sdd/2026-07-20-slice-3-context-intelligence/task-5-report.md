@@ -183,3 +183,54 @@ This closes the browser-response exposure in the review flow. Opaque handles are
 the server’s existing authentication secret and expire after 15 minutes. They are never interpreted
 in the client, and every mutation still resolves to Task 4’s server-side authorization, ownership,
 revision, audit, and validation checks. No database migration or project-state change is required.
+
+## Fix Round 2 — Strict upstream Context projection
+
+### Status
+
+Complete.
+
+- Fix commit: `49ca5e1b23ef805b09f406f6c6ee751d2fca5cdc`
+- Fix commit message: `fix(web): strictly project context upstream responses`
+- Push: not performed
+
+### RED evidence
+
+The new proxy-contract regression failed against the prior parser because the queue envelope
+rejected an extra top-level field while nested queue/source/project records and action results could
+retain unknown fields through `.passthrough()`.
+
+### What changed
+
+- Replaced every Task 5 upstream `.passthrough()` response schema with an explicit server-side
+  projection followed by a `.strict()` schema.
+- Queue records retain only the fields needed to create opaque review handles and display the
+  employee-safe review DTO. Source records retain only source ID, title, summary, and URL; Project
+  records retain only ID and name.
+- Project confirmation/correction results are projected to an empty strict acknowledgment because
+  the browser needs no returned upstream fields. Task confirmation retains only `workItem.title`
+  before its already-strict browser DTO projection.
+- Added a focused regression test that injects unexpected queue, item, source, Project,
+  acknowledgment, and Task-result fields and proves each strict parser removes them before the
+  response flow continues.
+
+### Files changed in this fix
+
+- `apps/web/src/app/api/daily-work/[...path]/route.ts`
+- `apps/web/src/app/api/daily-work/[...path]/route.test.ts`
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| Focused same-origin gateway proxy tests | 13 tests passed |
+| Web typecheck (`next build --compile` and `tsc`) | passed |
+| Web lint | passed |
+| Focused Prettier check | passed |
+| `git diff --check` | passed |
+
+### Security/privacy impact
+
+Unexpected upstream fields are now explicitly discarded before strict validation, so a future
+upstream expansion cannot silently cross the Task 5 gateway boundary. Browser response DTOs remain
+unchanged and strict. No database migration or project-state update is required.
