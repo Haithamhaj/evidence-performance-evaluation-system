@@ -74,6 +74,15 @@ model User {
   sourceProjectLinks        SourceProjectLink[]                    @relation("SourceProjectLinkEmployee")
   sourceProjectLinksCreated SourceProjectLink[]                    @relation("SourceProjectLinkLinkedBy")
   sourceProjectLinksRemoved SourceProjectLink[]                    @relation("SourceProjectLinkUnlinkedBy")
+  contextAnalyses           ContextAnalysis[]                      @relation("ContextAnalysisEmployee")
+  contextAnalysisRevisions  ContextAnalysis[]                      @relation("ContextAnalysisCreatedBy")
+  projectLinkSuggestions    ProjectLinkSuggestion[]                @relation("ProjectLinkSuggestionEmployee")
+  projectSuggestionRevisions ProjectLinkSuggestion[]               @relation("ProjectLinkSuggestionCreatedBy")
+  taskDrafts                TaskDraft[]                            @relation("TaskDraftEmployee")
+  taskDraftRevisions        TaskDraft[]                            @relation("TaskDraftCreatedBy")
+  proposedTaskAssignments   TaskDraft[]                            @relation("TaskDraftProposedAssignee")
+  sourceLinkCorrections     SourceLinkCorrection[]                 @relation("SourceLinkCorrectionEmployee")
+  correctedSourceLinks      SourceLinkCorrection[]                 @relation("SourceLinkCorrectionCorrectedBy")
   ownedProgressContracts    ProgressContract[]                     @relation("ProgressContractOwner")
   approvedProgressContracts ProgressContract[]                     @relation("ProgressContractApprover")
   createdProgressContracts  ProgressContract[]                     @relation("ProgressContractCreatedBy")
@@ -357,6 +366,10 @@ model Project {
   workItems              WorkItem[]
   privateInboxItems      PrivateInboxItem[]
   sourceProjectLinks     SourceProjectLink[]
+  projectLinkSuggestions ProjectLinkSuggestion[] @relation("ProjectLinkSuggestionProject")
+  taskDrafts             TaskDraft[] @relation("TaskDraftProject")
+  sourceLinkCorrectionsFrom SourceLinkCorrection[] @relation("SourceLinkCorrectionPreviousProject")
+  sourceLinkCorrectionsTo SourceLinkCorrection[] @relation("SourceLinkCorrectionCorrectedProject")
   progressContracts      ProgressContract[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
   updateSources          UpdateSource[]
@@ -436,6 +449,7 @@ model Workstream {
   evidenceRecords        EvidenceRecord[]
   acceptedUpdateEvents   AcceptedUpdateEvent[]
   acceptedEvidenceEvents AcceptedEvidenceEvent[]
+  taskDrafts             TaskDraft[] @relation("TaskDraftWorkstream")
   createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
 
@@ -524,6 +538,30 @@ enum ConnectedSourceExclusionKind {
   GMAIL_THREAD
   CALENDAR
   CALENDAR_EVENT_CATEGORY
+}
+
+enum ContextIntelligenceReviewStatus {
+  PENDING
+  CONFIRMED
+  CORRECTED
+  REJECTED
+  SUPERSEDED
+}
+
+enum ContextIntelligenceRevisionOrigin {
+  AI
+  EMPLOYEE
+}
+
+enum ProjectLinkDecision {
+  AUTO_LINK
+  REVIEW
+  NO_MATCH
+}
+
+enum SourceLinkCorrectionAction {
+  CORRECT
+  REJECT
 }
 
 model WorkItem {
@@ -639,6 +677,9 @@ model ConnectedSourceItem {
   retentionExpiresAt     DateTime?                  @db.Timestamptz(6)
   deletedAt              DateTime?                  @db.Timestamptz(6)
   projectLinks           SourceProjectLink[]
+  contextAnalyses        ContextAnalysis[]
+  projectLinkSuggestions ProjectLinkSuggestion[]
+  taskDrafts             TaskDraft[]
   createdAt              DateTime                   @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                   @updatedAt @db.Timestamptz(6)
 
@@ -684,6 +725,151 @@ model SourceProjectLink {
   @@index([employeeId, unlinkedAt, linkedAt(sort: Desc)])
   @@index([projectId, unlinkedAt, linkedAt(sort: Desc)])
   @@index([sourceItemId, linkedAt, id])
+}
+
+model ContextAnalysis {
+  id                   String                            @id @default(uuid()) @db.Uuid
+  sourceItemId         String                            @db.Uuid
+  employeeId           String                            @db.Uuid
+  sourceItem           ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee             User                              @relation("ContextAnalysisEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  revision             Int
+  schemaVersion        String
+  promptVersion        String
+  aiRunTraceId         String                            @db.Uuid
+  aiRunTrace           AiRun                             @relation(fields: [aiRunTraceId], references: [id], onDelete: Restrict)
+  outputCiphertext     String
+  outputKeyVersion     String
+  sourceReferences     Json
+  reviewStatus         ContextIntelligenceReviewStatus   @default(PENDING)
+  revisionOrigin       ContextIntelligenceRevisionOrigin
+  correctionReasonCiphertext String?
+  correctionReasonKeyVersion String?
+  supersedesAnalysisId String?                           @unique @db.Uuid
+  supersedesAnalysis   ContextAnalysis?                  @relation("ContextAnalysisSupersession", fields: [supersedesAnalysisId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  supersedingAnalysis  ContextAnalysis?                  @relation("ContextAnalysisSupersession")
+  createdById          String                            @db.Uuid
+  createdBy            User                              @relation("ContextAnalysisCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  suggestions          ProjectLinkSuggestion[]
+  createdAt            DateTime                          @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, sourceItemId, employeeId])
+  @@unique([sourceItemId, employeeId, revision])
+  @@unique([supersedesAnalysisId, sourceItemId, employeeId])
+  @@index([employeeId, reviewStatus, createdAt(sort: Desc)])
+  @@index([aiRunTraceId])
+  @@index([createdById, createdAt])
+}
+
+model ProjectLinkSuggestion {
+  id                     String                            @id @default(uuid()) @db.Uuid
+  analysisId             String                            @db.Uuid
+  sourceItemId           String                            @db.Uuid
+  employeeId             String                            @db.Uuid
+  analysis               ContextAnalysis                   @relation(fields: [analysisId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  sourceItem             ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee               User                              @relation("ProjectLinkSuggestionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  projectId              String?                           @db.Uuid
+  project                Project?                          @relation("ProjectLinkSuggestionProject", fields: [projectId], references: [id], onDelete: Restrict)
+  decision               ProjectLinkDecision
+  explanationCiphertext String
+  explanationKeyVersion String
+  anchors                Json
+  revision               Int
+  schemaVersion          String
+  promptVersion          String
+  aiRunTraceId           String                            @db.Uuid
+  aiRunTrace             AiRun                             @relation(fields: [aiRunTraceId], references: [id], onDelete: Restrict)
+  sourceReferences       Json
+  reviewStatus           ContextIntelligenceReviewStatus   @default(PENDING)
+  revisionOrigin         ContextIntelligenceRevisionOrigin
+  correctionReasonCiphertext String?
+  correctionReasonKeyVersion String?
+  supersedesSuggestionId String?                           @unique @db.Uuid
+  supersedesSuggestion   ProjectLinkSuggestion?            @relation("ProjectLinkSuggestionSupersession", fields: [supersedesSuggestionId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  supersedingSuggestion  ProjectLinkSuggestion?            @relation("ProjectLinkSuggestionSupersession")
+  createdById            String                            @db.Uuid
+  createdBy              User                              @relation("ProjectLinkSuggestionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  corrections            SourceLinkCorrection[]            @relation("SourceLinkCorrectionOriginalSuggestion")
+  resultingCorrections   SourceLinkCorrection[]            @relation("SourceLinkCorrectionSupersedingSuggestion")
+  createdAt              DateTime                          @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, sourceItemId, employeeId])
+  @@unique([sourceItemId, employeeId, revision])
+  @@unique([supersedesSuggestionId, sourceItemId, employeeId])
+  @@index([employeeId, reviewStatus, createdAt(sort: Desc)])
+  @@index([projectId, reviewStatus, createdAt(sort: Desc)])
+  @@index([analysisId])
+  @@index([aiRunTraceId])
+  @@index([createdById, createdAt])
+}
+
+model TaskDraft {
+  id                    String                            @id @default(uuid()) @db.Uuid
+  sourceItemId          String                            @db.Uuid
+  employeeId            String                            @db.Uuid
+  sourceItem            ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee              User                              @relation("TaskDraftEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  draftCiphertext       String
+  draftKeyVersion       String
+  projectId             String?                           @db.Uuid
+  project               Project?                          @relation("TaskDraftProject", fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId          String?                           @db.Uuid
+  workstream            Workstream?                       @relation("TaskDraftWorkstream", fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  proposedAssigneeId    String?                           @db.Uuid
+  proposedAssignee      User?                             @relation("TaskDraftProposedAssignee", fields: [proposedAssigneeId], references: [id], onDelete: Restrict)
+  dueAt                 DateTime?                         @db.Timestamptz(6)
+  revision              Int
+  schemaVersion         String
+  promptVersion         String
+  aiRunTraceId          String                            @db.Uuid
+  aiRunTrace            AiRun                             @relation(fields: [aiRunTraceId], references: [id], onDelete: Restrict)
+  sourceReferences      Json
+  reviewStatus          ContextIntelligenceReviewStatus   @default(PENDING)
+  revisionOrigin        ContextIntelligenceRevisionOrigin
+  correctionReasonCiphertext String?
+  correctionReasonKeyVersion String?
+  supersedesTaskDraftId String?                           @unique @db.Uuid
+  supersedesTaskDraft   TaskDraft?                        @relation("TaskDraftSupersession", fields: [supersedesTaskDraftId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  supersedingTaskDraft  TaskDraft?                        @relation("TaskDraftSupersession")
+  createdById           String                            @db.Uuid
+  createdBy             User                              @relation("TaskDraftCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt             DateTime                          @default(now()) @db.Timestamptz(6)
+
+  @@unique([id, sourceItemId, employeeId])
+  @@unique([sourceItemId, employeeId, revision])
+  @@unique([supersedesTaskDraftId, sourceItemId, employeeId])
+  @@index([employeeId, reviewStatus, createdAt(sort: Desc)])
+  @@index([projectId, reviewStatus, createdAt(sort: Desc)])
+  @@index([workstreamId, reviewStatus, createdAt(sort: Desc)])
+  @@index([aiRunTraceId])
+  @@index([createdById, createdAt])
+}
+
+model SourceLinkCorrection {
+  id                      String                     @id @default(uuid()) @db.Uuid
+  suggestionId            String                     @db.Uuid
+  sourceItemId            String                     @db.Uuid
+  employeeId              String                     @db.Uuid
+  suggestion              ProjectLinkSuggestion      @relation("SourceLinkCorrectionOriginalSuggestion", fields: [suggestionId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  employee                User                       @relation("SourceLinkCorrectionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  previousProjectId       String?                    @db.Uuid
+  previousProject         Project?                   @relation("SourceLinkCorrectionPreviousProject", fields: [previousProjectId], references: [id], onDelete: Restrict)
+  correctedProjectId      String?                    @db.Uuid
+  correctedProject        Project?                   @relation("SourceLinkCorrectionCorrectedProject", fields: [correctedProjectId], references: [id], onDelete: Restrict)
+  action                  SourceLinkCorrectionAction
+  reasonCiphertext        String
+  reasonKeyVersion        String
+  sourceReferences        Json
+  supersedingSuggestionId String?                    @unique @db.Uuid
+  supersedingSuggestion   ProjectLinkSuggestion?     @relation("SourceLinkCorrectionSupersedingSuggestion", fields: [supersedingSuggestionId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  correctedById           String                     @db.Uuid
+  correctedBy             User                       @relation("SourceLinkCorrectionCorrectedBy", fields: [correctedById], references: [id], onDelete: Restrict)
+  createdAt               DateTime                   @default(now()) @db.Timestamptz(6)
+
+  @@index([employeeId, createdAt(sort: Desc)])
+  @@index([suggestionId, createdAt])
+  @@index([correctedProjectId, createdAt(sort: Desc)])
 }
 
 model ConnectorSyncCursor {
@@ -2453,6 +2639,9 @@ model AiRun {
   updateDraftRevisions   StructuredUpdateDraftRevision[]
   evidenceRevisions      EvidenceRevision[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
+  contextAnalyses        ContextAnalysis[]
+  projectLinkSuggestions ProjectLinkSuggestion[]
+  taskDrafts             TaskDraft[]
   createdAt              DateTime                        @default(now()) @db.Timestamptz(6)
 
   @@index([routeId, routeConfigVersion, createdAt])
