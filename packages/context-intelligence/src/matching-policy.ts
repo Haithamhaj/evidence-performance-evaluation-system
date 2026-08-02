@@ -36,6 +36,15 @@ export function decideProjectLink(candidates: readonly ProjectCandidate[]): Link
     return { kind: "NO_MATCH", reasons: ["NO_ACCESSIBLE_PROJECTS"] };
   }
 
+  const rejectionReasons = rejectionFirstReasons(accessible);
+  if (rejectionReasons.length > 0) {
+    return {
+      kind: "REVIEW",
+      candidates: [...accessible],
+      reasons: rejectionReasons,
+    };
+  }
+
   const eligible = accessible.filter(isEligibleForAutomaticLink);
   if (eligible.length > 1) {
     return {
@@ -58,7 +67,7 @@ export function decideProjectLink(candidates: readonly ProjectCandidate[]): Link
   return {
     kind: "REVIEW",
     candidates: [...accessible],
-    reasons: rejectionReasons(accessible),
+    reasons: uncertaintyReasons(accessible),
   };
 }
 
@@ -69,20 +78,20 @@ function isEligibleForAutomaticLink(candidate: ProjectCandidate): boolean {
   return new Set(current.map(({ anchor }) => anchor.kind)).size >= 2;
 }
 
-function rejectionReasons(candidates: readonly ProjectCandidate[]): ProjectMatchReason[] {
+function rejectionFirstReasons(candidates: readonly ProjectCandidate[]): ProjectMatchReason[] {
   const hasConflict = candidates.some(({ anchors }) =>
     anchors.some(({ anchor, current }) => current && anchor.conflicts),
   );
   const hasStaleMapping = candidates.some(({ anchors }) =>
     anchors.some(({ anchor, current }) => !current && anchor.kind === "EXPLICIT_USER_MAPPING"),
   );
-  if (hasConflict || hasStaleMapping) {
-    const reasons: ProjectMatchReason[] = [];
-    if (hasConflict) reasons.push("CONFLICTING_ANCHORS");
-    if (hasStaleMapping) reasons.push("STALE_MAPPING");
-    return reasons;
-  }
+  const reasons: ProjectMatchReason[] = [];
+  if (hasConflict) reasons.push("CONFLICTING_ANCHORS");
+  if (hasStaleMapping) reasons.push("STALE_MAPPING");
+  return reasons;
+}
 
+function uncertaintyReasons(candidates: readonly ProjectCandidate[]): ProjectMatchReason[] {
   const hasCurrentAnchor = candidates.some(({ anchors }) => anchors.some(({ current }) => current));
   const hasModelConfidence = candidates.some(
     ({ modelConfidence }) => modelConfidence !== undefined,

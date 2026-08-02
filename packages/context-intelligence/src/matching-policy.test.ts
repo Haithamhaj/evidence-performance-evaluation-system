@@ -8,6 +8,7 @@ type ProjectCandidate = import("./matching-policy.js").ProjectCandidate;
 
 const projectA = "00000000-0000-4000-8000-000000000101";
 const projectB = "00000000-0000-4000-8000-000000000102";
+const projectC = "00000000-0000-4000-8000-000000000103";
 
 function anchor(
   kind: ProjectAnchor["kind"],
@@ -63,6 +64,20 @@ describe("decideProjectLink rejection-first policy", () => {
 
   it("does not auto-link from a stale explicit employee mapping", () => {
     const input = candidate(projectA, [anchor("EXPLICIT_USER_MAPPING", { current: false })]);
+
+    expect(decideProjectLink([input])).toEqual({
+      kind: "REVIEW",
+      candidates: [input],
+      reasons: ["STALE_MAPPING"],
+    });
+  });
+
+  it("keeps a stale mapping in review when two other current anchors agree", () => {
+    const input = candidate(projectA, [
+      anchor("EXPLICIT_USER_MAPPING", { current: false }),
+      anchor("CALENDAR_CONTEXT"),
+      anchor("EXPLICIT_PROJECT_REFERENCE"),
+    ]);
 
     expect(decideProjectLink([input])).toEqual({
       kind: "REVIEW",
@@ -139,6 +154,23 @@ describe("decideProjectLink rejection-first policy", () => {
       kind: "REVIEW",
       candidates: [first, second],
       reasons: ["COMPETING_PROJECTS"],
+    });
+  });
+
+  it("keeps a cross-Project conflict in review without disclosing inaccessible candidates", () => {
+    const eligible = candidate(projectA, [
+      anchor("CONFIRMED_SENDER_DOMAIN"),
+      anchor("EXPLICIT_PROJECT_REFERENCE"),
+    ]);
+    const conflicting = candidate(projectB, [anchor("CALENDAR_CONTEXT", { conflicts: true })]);
+    const inaccessible = candidate(projectC, [anchor("EXPLICIT_USER_MAPPING")], {
+      accessible: false,
+    });
+
+    expect(decideProjectLink([eligible, conflicting, inaccessible])).toEqual({
+      kind: "REVIEW",
+      candidates: [eligible, conflicting],
+      reasons: ["CONFLICTING_ANCHORS"],
     });
   });
 });

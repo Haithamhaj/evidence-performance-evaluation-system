@@ -26,4 +26,5 @@ export type {
 } from "@evaluation/contracts";
 export * from "./matching-policy.js";
 export * from "./project-anchor-reader.js";
+export * from "./project-link-suggestion-service.js";
 export * from "./project-semantic-context-reader.js";
