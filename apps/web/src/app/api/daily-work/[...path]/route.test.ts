@@ -165,6 +165,155 @@ describe("daily-work same-origin gateway", () => {
     }
   });
 
+  it("projects unexpected upstream Context fields away before strict parsing", async () => {
+    const employeeId = "22222222-2222-4222-8222-222222222222";
+    const sourceItemId = "33333333-3333-4333-8333-333333333333";
+    const suggestionId = "44444444-4444-4444-8444-444444444444";
+    const projectId = "77777777-7777-4777-8777-777777777777";
+    mocks.fetchProtectedUpstream
+      .mockResolvedValueOnce({ items: [] })
+      .mockResolvedValueOnce({
+        mode: "synthetic",
+        synthetic: true,
+        connection: { status: "connected", lastSuccessfulSyncAt: null },
+        items: [],
+      })
+      .mockResolvedValueOnce([]);
+
+    await GET(new Request("http://localhost:3000/api/daily-work/context/review-queue"), {
+      params: Promise.resolve({ path: ["context", "review-queue"] }),
+    });
+
+    const schemaFor = (path: string) => {
+      const call = mocks.fetchProtectedUpstream.mock.calls.find(
+        ([input]) => input.path === path,
+      )?.[0] as { schema: { parse: (value: unknown) => unknown } } | undefined;
+      if (call === undefined) throw new Error(`Missing upstream schema for ${path}`);
+      return call.schema;
+    };
+    expect(
+      schemaFor("/api/v1/context/review-queue").parse({
+        ignoredQueueField: true,
+        items: [
+          {
+            kind: "PROJECT_SUGGESTION",
+            id: suggestionId,
+            employeeId,
+            sourceItemId,
+            revision: 1,
+            projectId,
+            explanation: "A safe explanation.",
+            ignoredItemField: true,
+          },
+        ],
+      }),
+    ).toEqual({
+      items: [
+        {
+          kind: "PROJECT_SUGGESTION",
+          id: suggestionId,
+          employeeId,
+          sourceItemId,
+          revision: 1,
+          projectId,
+          explanation: "A safe explanation.",
+        },
+      ],
+    });
+    expect(
+      schemaFor("/api/v1/connected-work/items").parse({
+        mode: "synthetic",
+        synthetic: true,
+        connection: { status: "connected", lastSuccessfulSyncAt: null },
+        items: [
+          {
+            id: sourceItemId,
+            title: "Customer rollout note",
+            summary: null,
+            sourceUrl: null,
+            ignoredSourceField: true,
+          },
+        ],
+      }),
+    ).toEqual({
+      items: [{ id: sourceItemId, title: "Customer rollout note", summary: null, sourceUrl: null }],
+    });
+    expect(
+      schemaFor("/api/v1/projects").parse([
+        { id: projectId, name: "Atlas Delivery", ignoredProjectField: true },
+      ]),
+    ).toEqual([{ id: projectId, name: "Atlas Delivery" }]);
+
+    mocks.open.mockImplementation((_: string, action: string) =>
+      action === "project"
+        ? { id: projectId, projectId }
+        : {
+            id: suggestionId,
+            revision: 1,
+            employeeId,
+            workstreamId: null,
+            dueAt: null,
+            acceptanceConditions: [],
+          },
+    );
+    mocks.fetchProtectedUpstream.mockClear();
+    mocks.fetchProtectedUpstream.mockResolvedValue({ ignoredResultField: true });
+    await POST(
+      new Request("http://localhost:3000/api/daily-work/context/project-suggestions/confirm", {
+        method: "POST",
+        body: JSON.stringify({
+          handle: `opaque-project_suggestion-${"x".repeat(40)}`,
+          reason: "Reviewed",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["context", "project-suggestions", "confirm"] }) },
+    );
+    await POST(
+      new Request("http://localhost:3000/api/daily-work/context/project-suggestions/correct", {
+        method: "POST",
+        body: JSON.stringify({
+          handle: `opaque-project_suggestion-${"x".repeat(40)}`,
+          projectHandle: `opaque-project-${"x".repeat(40)}`,
+          reason: "Reviewed",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["context", "project-suggestions", "correct"] }) },
+    );
+    for (const [, [input]] of mocks.fetchProtectedUpstream.mock.calls.entries()) {
+      if (input.path.includes("project-suggestions")) {
+        expect(input.schema.parse({ ignoredResultField: true })).toEqual({});
+      }
+    }
+
+    mocks.fetchProtectedUpstream.mockClear();
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      workItem: { title: "Prepare launch", projectId, ignoredWorkItemField: true },
+      ignoredTaskResultField: true,
+    });
+    await POST(
+      new Request("http://localhost:3000/api/daily-work/context/task-drafts/confirm", {
+        method: "POST",
+        body: JSON.stringify({
+          handle: `opaque-task_draft-${"x".repeat(40)}`,
+          reason: "Reviewed",
+          draft: {
+            title: "Prepare launch",
+            description: "",
+            projectHandle: `opaque-project-${"x".repeat(40)}`,
+            assignToYou: true,
+          },
+        }),
+      }),
+      { params: Promise.resolve({ path: ["context", "task-drafts", "confirm"] }) },
+    );
+    expect(
+      mocks.fetchProtectedUpstream.mock.calls[0]?.[0].schema.parse({
+        workItem: { title: "Prepare launch", projectId, ignoredWorkItemField: true },
+        ignoredTaskResultField: true,
+      }),
+    ).toEqual({ workItem: { title: "Prepare launch" } });
+  });
+
   it("rejects direct official Task creation without one responsible assignee", async () => {
     const baseBody = {
       title: "Prepare launch evidence",

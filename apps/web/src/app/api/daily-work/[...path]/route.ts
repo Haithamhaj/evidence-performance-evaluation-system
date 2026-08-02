@@ -61,69 +61,75 @@ import {
 type Context = { readonly params: Promise<{ readonly path: string[] }> };
 
 const UuidSchema = z.string().uuid();
-const RawQueueSchema = z
+const StrictQueueItemSchema = z
   .object({
-    items: z.array(
-      z
-        .object({
-          kind: z.enum(["PROJECT_SUGGESTION", "TASK_DRAFT"]),
-          id: UuidSchema,
-          employeeId: UuidSchema,
-          sourceItemId: UuidSchema,
-          revision: z.number().int().positive(),
-          projectId: UuidSchema.nullable().optional(),
-          explanation: z.string().optional(),
-          draft: z
-            .object({
-              title: z.string(),
-              description: z.string(),
-              projectId: UuidSchema.nullable(),
-              workstreamId: UuidSchema.nullable(),
-              proposedAssigneeId: UuidSchema.nullable(),
-              dueAt: z.iso.datetime({ offset: true }).nullable(),
-              acceptanceConditions: z.array(z.string()),
-              uncertainties: z.array(z.string()),
-            })
-            .strict()
-            .optional(),
-          clarification: z
-            .object({
-              nextQuestion: z
-                .object({ field: z.enum(["projectId", "assigneeId"]) })
-                .strict()
-                .nullable(),
-            })
-            .strict()
-            .optional(),
-        })
-        .passthrough(),
-    ),
-  })
-  .strict();
-const RawSourcesSchema = z
-  .object({
-    mode: z.enum(["synthetic", "live"]),
-    synthetic: z.boolean(),
-    connection: z
+    kind: z.enum(["PROJECT_SUGGESTION", "TASK_DRAFT"]),
+    id: UuidSchema,
+    employeeId: UuidSchema,
+    sourceItemId: UuidSchema,
+    revision: z.number().int().positive(),
+    projectId: UuidSchema.nullable().optional(),
+    explanation: z.string().optional(),
+    draft: z
       .object({
-        status: z.enum(["connected", "disconnected"]),
-        lastSuccessfulSyncAt: z.iso.datetime({ offset: true }).nullable(),
+        title: z.string(),
+        description: z.string(),
+        projectId: UuidSchema.nullable(),
+        workstreamId: UuidSchema.nullable(),
+        proposedAssigneeId: UuidSchema.nullable(),
+        dueAt: z.iso.datetime({ offset: true }).nullable(),
+        acceptanceConditions: z.array(z.string()),
+        uncertainties: z.array(z.string()),
       })
-      .strict(),
-    items: z.array(
-      z
-        .object({
-          id: UuidSchema,
-          title: z.string(),
-          summary: z.string().nullable(),
-          sourceUrl: z.url().nullable(),
-        })
-        .passthrough(),
-    ),
+      .strict()
+      .optional(),
+    clarification: z
+      .object({
+        nextQuestion: z
+          .object({ field: z.enum(["projectId", "assigneeId"]) })
+          .strict()
+          .nullable(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
-const RawProjectsSchema = z.array(
-  z.object({ id: UuidSchema, name: z.string().trim().min(1).max(240) }).passthrough(),
+const StrictQueueSchema = z
+  .object({
+    items: z.array(StrictQueueItemSchema),
+  })
+  .strict();
+const RawQueueSchema = z.preprocess(projectQueueResponse, StrictQueueSchema);
+const StrictSourceSchema = z
+  .object({
+    id: UuidSchema,
+    title: z.string(),
+    summary: z.string().nullable(),
+    sourceUrl: z.url().nullable(),
+  })
+  .strict();
+const StrictSourcesSchema = z
+  .object({
+    items: z.array(StrictSourceSchema),
+  })
+  .strict();
+const RawSourcesSchema = z.preprocess(projectSourcesResponse, StrictSourcesSchema);
+const StrictProjectSchema = z
+  .object({ id: UuidSchema, name: z.string().trim().min(1).max(240) })
+  .strict();
+const RawProjectsSchema = z.preprocess(projectProjectsResponse, z.array(StrictProjectSchema));
+const UpstreamAcknowledgementSchema = z.preprocess(
+  projectAcknowledgementResponse,
+  z.object({}).strict(),
+);
+const StrictConfirmedTaskSchema = z
+  .object({
+    workItem: z.object({ title: z.string().trim().min(1).max(200) }).strict(),
+  })
+  .strict();
+const UpstreamConfirmedTaskSchema = z.preprocess(
+  projectConfirmedTaskResponse,
+  StrictConfirmedTaskSchema,
 );
 const TimelineQuerySchema = z
   .object({
@@ -265,7 +271,7 @@ export async function POST(request: Request, context: Context): Promise<NextResp
               projectId: project?.projectId ?? null,
               reason: input.reason,
             },
-        z.object({}).passthrough(),
+        UpstreamAcknowledgementSchema,
       );
       return json({});
     }
@@ -294,13 +300,7 @@ export async function POST(request: Request, context: Context): Promise<NextResp
             acceptanceConditions: draft.acceptanceConditions ?? [],
           },
         },
-        schema: z
-          .object({
-            workItem: z
-              .object({ title: z.string().trim().min(1).max(200), projectId: UuidSchema })
-              .passthrough(),
-          })
-          .passthrough(),
+        schema: UpstreamConfirmedTaskSchema,
       });
       return json(
         ContextConfirmTaskResultSchema.parse({ task: { title: upstream.workItem.title } }),
@@ -539,6 +539,109 @@ async function post<T>(
       body,
     }),
   );
+}
+
+function projectQueueResponse(value: unknown): unknown {
+  const response = objectValue(value);
+  if (response === null) return value;
+  return {
+    items: Array.isArray(response.items) ? response.items.map(projectQueueItem) : response.items,
+  };
+}
+
+function projectQueueItem(value: unknown): unknown {
+  const item = objectValue(value);
+  if (item === null) return value;
+  return {
+    kind: item.kind,
+    id: item.id,
+    employeeId: item.employeeId,
+    sourceItemId: item.sourceItemId,
+    revision: item.revision,
+    ...(item.projectId === undefined ? {} : { projectId: item.projectId }),
+    ...(item.explanation === undefined ? {} : { explanation: item.explanation }),
+    ...(item.draft === undefined ? {} : { draft: projectDraft(item.draft) }),
+    ...(item.clarification === undefined
+      ? {}
+      : { clarification: projectClarification(item.clarification) }),
+  };
+}
+
+function projectDraft(value: unknown): unknown {
+  const draft = objectValue(value);
+  if (draft === null) return value;
+  return {
+    title: draft.title,
+    description: draft.description,
+    projectId: draft.projectId,
+    workstreamId: draft.workstreamId,
+    proposedAssigneeId: draft.proposedAssigneeId,
+    dueAt: draft.dueAt,
+    acceptanceConditions: draft.acceptanceConditions,
+    uncertainties: draft.uncertainties,
+  };
+}
+
+function projectClarification(value: unknown): unknown {
+  const clarification = objectValue(value);
+  if (clarification === null) return value;
+  return {
+    nextQuestion:
+      clarification.nextQuestion === null ? null : projectNextQuestion(clarification.nextQuestion),
+  };
+}
+
+function projectNextQuestion(value: unknown): unknown {
+  const nextQuestion = objectValue(value);
+  if (nextQuestion === null) return value;
+  return { field: nextQuestion.field };
+}
+
+function projectSourcesResponse(value: unknown): unknown {
+  const response = objectValue(value);
+  if (response === null) return value;
+  return {
+    items: Array.isArray(response.items) ? response.items.map(projectSource) : response.items,
+  };
+}
+
+function projectSource(value: unknown): unknown {
+  const source = objectValue(value);
+  if (source === null) return value;
+  return {
+    id: source.id,
+    title: source.title,
+    summary: source.summary,
+    sourceUrl: source.sourceUrl,
+  };
+}
+
+function projectProjectsResponse(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map(projectProject);
+}
+
+function projectProject(value: unknown): unknown {
+  const project = objectValue(value);
+  if (project === null) return value;
+  return { id: project.id, name: project.name };
+}
+
+function projectAcknowledgementResponse(): Record<never, never> {
+  return {};
+}
+
+function projectConfirmedTaskResponse(value: unknown): unknown {
+  const response = objectValue(value);
+  if (response === null) return value;
+  const workItem = objectValue(response.workItem);
+  return { workItem: workItem === null ? response.workItem : { title: workItem.title } };
+}
+
+function objectValue(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function projectReviewQueue(
