@@ -195,3 +195,180 @@ serially after generation and passed with 572 source files inspected.
 None. Task 2 does not change the current goal, architecture direction, protected decisions, or
 Product Owner gate; the parent Slice 3 checkpoint should update project state when the meaningful
 slice boundary changes.
+
+---
+
+# Fix Round 1 — Rejection Ordering and Reversible Persistence
+
+## Status and commit
+
+Complete.
+
+- Fix commit: `c064092d802091b4ad785f4a07571c70ce0b1158`
+- Commit message: `fix(context-ai): enforce reversible project link decisions`
+- Push: not performed
+
+This section supersedes the earlier statement that Task 3/4 must introduce suggestion persistence.
+Task 2 now provides the bounded domain service and atomic persistence port. Later tasks still own
+the concrete database adapter and API/runtime wiring.
+
+## Review findings verified
+
+1. `isEligibleForAutomaticLink` considered only current anchors, so a stale explicit mapping was
+   ignored when two other current anchors made that same Project eligible.
+2. Eligibility was calculated per candidate before any cross-candidate rejection gate, so a
+   conflict on one accessible Project did not prevent a different Project from winning.
+3. Task 1 had the append-only governed schemas and database records, but Task 2 had no domain
+   service or persistence port that emitted those records or created correction/rejection lineage.
+
+## RED evidence
+
+All commands used the pinned Node.js `24.18.0` and pnpm `11.13.0`.
+
+### Mixed stale mapping and cross-Project conflict
+
+```text
+corepack pnpm exec vitest run --root . \
+  packages/context-intelligence/src/matching-policy.test.ts
+
+Test Files  1 failed (1)
+Tests       2 failed | 9 passed (11)
+```
+
+Both new regressions expected `REVIEW` but received `AUTO_LINK`:
+
+- stale `EXPLICIT_USER_MAPPING` plus two current independent anchors;
+- one otherwise eligible Project plus a conflicting accessible Project and one inaccessible
+  Project.
+
+### Missing persistence/reversibility service
+
+```text
+corepack pnpm exec vitest run --root . \
+  packages/context-intelligence/src/project-link-suggestion-service.test.ts
+
+Test Files  1 failed (1)
+Tests       no tests
+Error: Cannot find module './project-link-suggestion-service.js'
+```
+
+The service tests existed before production code and failed because the required domain service
+did not exist.
+
+## Fix behavior
+
+### Rejection-first policy
+
+- Current conflicts and stale explicit mappings are now collected across all accessible candidates
+  before any eligibility calculation.
+- Any relevant stale mapping returns `REVIEW` with `STALE_MAPPING`, including when that candidate
+  also has two other current anchors.
+- Any current conflict on an accessible candidate returns `REVIEW` with
+  `CONFLICTING_ANCHORS`, including when another candidate is otherwise eligible.
+- Inaccessible candidates are filtered before the rejection gate and remain absent from the public
+  `REVIEW` result.
+
+### Governed persistence and reversibility
+
+`ProjectLinkSuggestionService` now:
+
+- validates every emitted suggestion and correction with Task 1's existing
+  `ProjectLinkSuggestionSchema` and `SourceLinkCorrectionSchema`;
+- persists stable deterministic explanation reason codes;
+- persists governed anchors and deduplicated source references;
+- preserves schema version, prompt version, AI route trace, analysis identity, source identity, and
+  revision provenance;
+- checks current Project-link authorization through an injected public reader before persisting an
+  automatic or employee-corrected Project link;
+- scopes correction/rejection loading to the active employee through the persistence boundary;
+- creates an employee correction as one `CORRECT` record plus an `AUTO_LINK` superseding revision
+  with a deterministic `EXPLICIT_USER_MAPPING` correction anchor;
+- creates an employee rejection as one `REJECT` record plus a `NO_MATCH` superseding revision;
+- sends the correction and superseding suggestion through one atomic persistence-port method;
+- never exposes a Project-fact write, Task write, provider call, or second persistence store.
+
+The concrete adapter must implement `appendCorrectionRevision` transactionally against Task 1's
+existing records and use the existing private-content encryption/key-version boundary. That runtime
+adapter remains correctly scoped to later Slice 3 wiring.
+
+## Files changed in Fix Round 1
+
+- `packages/context-intelligence/src/index.ts`
+- `packages/context-intelligence/src/matching-policy.ts`
+- `packages/context-intelligence/src/matching-policy.test.ts`
+- `packages/context-intelligence/src/project-link-suggestion-service.ts`
+- `packages/context-intelligence/src/project-link-suggestion-service.test.ts`
+
+No database schema, migration, API, UI, Project-fact, or official Task file changed.
+
+## GREEN and final verification evidence
+
+| Command | Result |
+| --- | --- |
+| focused `matching-policy.test.ts` after policy fix | 11/11 passed |
+| focused `project-link-suggestion-service.test.ts` after service implementation | 5/5 passed |
+| `pnpm --filter @evaluation/context-intelligence test` | 4 files, 22/22 passed |
+| `pnpm --filter @evaluation/context-intelligence typecheck` | passed |
+| `pnpm --filter @evaluation/context-intelligence lint` | passed |
+| `pnpm typecheck` | 22/22 workspace packages passed |
+| `pnpm scan:ai-boundary` | 574 source files valid |
+| `pnpm scan:performance-inputs` | 470 files valid |
+| `pnpm scan:secrets` | 943 files valid |
+| `pnpm format:check` | passed |
+| `git diff --check` | passed |
+
+## Security and privacy impact
+
+- Cross-Project rejection now evaluates conflicts only after filtering to accessible Projects, so
+  inaccessible candidates neither authorize a link nor appear in the employee review result.
+- The service cannot query database tables; it uses an injected owner-scoped persistence port and
+  Project authorization public reader.
+- A cross-employee correction/rejection receives the same not-found result and creates no revision.
+- A correction to an inaccessible Project creates no correction or suggestion revision.
+- Explanation/reason text is passed only to the Task 1 persistence boundary; the later concrete
+  adapter remains responsible for ciphertext and key-version storage already required by Task 1.
+- The atomic port shape prevents the domain service from partially committing a correction without
+  its superseding revision.
+- No private source content is logged, returned to managers, or converted into a Project fact.
+
+## Protected-rule confirmation
+
+- No rating, recommended rating, rank, productivity score, activity-volume metric, performance
+  judgment, or employee evaluation field was added.
+- No official Project fact, Project progress value, Progress Contract, Evidence, Update, or Task is
+  created or changed.
+- Model confidence still cannot authorize `AUTO_LINK`.
+- No direct provider SDK, database table read, credential, token, or private-mode content path was
+  added.
+- No protected product, privacy, historical-record, localization, or evaluation rule changed.
+
+## Self-review and mutation coverage
+
+- Removing the pre-eligibility stale gate fails the new mixed stale/current-anchor regression.
+- Removing the cross-candidate conflict gate fails the mixed accessible/inaccessible regression.
+- Returning unfiltered candidates fails the inaccessible non-disclosure assertion.
+- Dropping reason codes, anchors, or source references fails initial persistence assertions.
+- Updating rather than superseding fails correction/rejection revision and lineage assertions.
+- Omitting correction authorization or employee ownership fails the negative authorization tests.
+- Removing Task 1 schema validation would allow malformed lineage, but the service currently parses
+  both records before invoking persistence.
+
+## Deferred P2 ledger candidate
+
+The reviewer observation that exported `ProjectAnchorReader.read` can return candidates marked
+`accessible: false` is intentionally deferred. Fix Round 1 preserves the existing internal contract
+because the direct required behavior is already enforced mechanically in `decideProjectLink`:
+inaccessible candidates are removed before reasons and public review candidates are produced.
+
+Candidate follow-up: consider narrowing the exported reader surface or splitting an internal
+diagnostic read from the authorized candidate read when the concrete runtime adapter is wired.
+Any follow-up must preserve fail-closed `NO_MATCH`, avoid leaking Project identity, and retain enough
+internal state to explain why an inaccessible candidate did not qualify.
+
+## Remaining risk
+
+- The later database adapter must use one transaction, enforce the existing supersession uniqueness
+  constraints, seal private explanations/reasons with key versions, and reject a previous revision
+  that has already been superseded.
+- API/runtime wiring must keep the persistence read employee-owned and must not expose the internal
+  inaccessible-candidate diagnostic shape.
