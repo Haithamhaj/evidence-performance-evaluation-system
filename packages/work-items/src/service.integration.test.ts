@@ -154,6 +154,50 @@ async function seedGraph(): Promise<Graph> {
 afterAll(async () => client.$disconnect());
 
 describe("WorkItemService", () => {
+  it("denies confirmed Task creation after membership ends despite a lingering contributor role", async () => {
+    const graph = await seedGraph();
+    const service = new WorkItemService(client, auditWriter, () => now);
+    await client.roleAssignment.create({
+      data: {
+        userId: graph.actorId,
+        role: "contributor",
+        scopeType: "project",
+        scopeId: graph.projectId,
+      },
+    });
+    await client.projectMember.updateMany({
+      where: { projectId: graph.projectId, employeeId: graph.actorId, endsAt: null },
+      data: { endsAt: new Date("2026-07-18T11:59:59.000Z") },
+    });
+
+    await expect(
+      client.$transaction((transaction) =>
+        service.createConfirmedTask(transaction, {
+          actor: { userId: graph.actorId, active: true },
+          correlationId: crypto.randomUUID(),
+          workItemId: crypto.randomUUID(),
+          input: {
+            title: "Must stay a draft",
+            description: "The actor is no longer a current Project member.",
+            projectId: graph.projectId,
+            workstreamId: null,
+            assigneeId: graph.assigneeId,
+            dueAt: null,
+            priority: "normal",
+            requirements: [],
+            acceptanceConditions: [],
+            blocker: null,
+            nextAction: null,
+          },
+          reason: "Private employee confirmation note",
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "SCOPE_MISMATCH", status: 403 });
+    await expect(
+      client.workItem.count({ where: { projectId: graph.projectId, title: "Must stay a draft" } }),
+    ).resolves.toBe(0);
+  });
+
   it("creates one stable official Task through the public transaction boundary", async () => {
     const graph = await seedGraph();
     const service = new WorkItemService(client, auditWriter, () => now);
@@ -201,6 +245,57 @@ describe("WorkItemService", () => {
         }),
       ),
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
+  it("keeps the employee confirmation reason out of Work Items audit and assignment rows", async () => {
+    const graph = await seedGraph();
+    const events: Array<Record<string, unknown>> = [];
+    const service = new WorkItemService(
+      client,
+      {
+        append: async (_transaction, event) => {
+          events.push(event as unknown as Record<string, unknown>);
+          return { id: crypto.randomUUID(), createdAt: now.toISOString() };
+        },
+      },
+      () => now,
+    );
+    const workItemId = crypto.randomUUID();
+    const privateReason = "Private customer facts explain why I confirmed this Task";
+
+    await client.$transaction((transaction) =>
+      service.createConfirmedTask(transaction, {
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        workItemId,
+        input: {
+          title: "Protected confirmation",
+          description: "",
+          projectId: graph.projectId,
+          workstreamId: null,
+          assigneeId: graph.actorId,
+          dueAt: null,
+          priority: "normal",
+          requirements: [],
+          acceptanceConditions: [],
+          blocker: null,
+          nextAction: null,
+        },
+        reason: privateReason,
+      }),
+    );
+
+    const assignment = await client.workItemAssignmentHistory.findFirstOrThrow({
+      where: { workItemId },
+      select: { reason: true },
+    });
+    expect(JSON.stringify({ events, assignment })).not.toContain(privateReason);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "work_item.created",
+        reason: "Employee confirmed a Context Intelligence Task draft",
+      }),
+    );
   });
 
   it("creates and transitions with append-only history and no automatic progress", async () => {

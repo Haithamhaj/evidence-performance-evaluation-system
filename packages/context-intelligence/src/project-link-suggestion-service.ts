@@ -30,6 +30,7 @@ export interface ProjectLinkSuggestionPersistence {
       previousSuggestionId: string;
       suggestion: ProjectLinkSuggestion;
       correction: SourceLinkCorrection;
+      correlationId: string;
     }>,
   ): Promise<
     Readonly<{
@@ -231,6 +232,7 @@ export class ProjectLinkSuggestionService {
       suggestionId: string;
       correctedProjectId: string;
       reason: string;
+      correlationId: string;
     }>,
   ): Promise<
     Readonly<{
@@ -256,6 +258,7 @@ export class ProjectLinkSuggestionService {
       reason: command.reason,
       action: "CORRECT",
       createdAt,
+      correlationId: command.correlationId,
     });
   }
 
@@ -264,6 +267,7 @@ export class ProjectLinkSuggestionService {
       actor: Actor;
       suggestionId: string;
       reason: string;
+      correlationId: string;
     }>,
   ): Promise<
     Readonly<{
@@ -279,6 +283,7 @@ export class ProjectLinkSuggestionService {
       reason: command.reason,
       action: "REJECT",
       createdAt: this.clock(),
+      correlationId: command.correlationId,
     });
   }
 
@@ -298,6 +303,7 @@ export class ProjectLinkSuggestionService {
       reason: string;
       action: "CORRECT" | "REJECT";
       createdAt: Date;
+      correlationId: string;
     }>,
   ): Promise<
     Readonly<{
@@ -349,6 +355,7 @@ export class ProjectLinkSuggestionService {
       previousSuggestionId: input.previous.id,
       suggestion,
       correction,
+      correlationId: input.correlationId,
     });
   }
 }

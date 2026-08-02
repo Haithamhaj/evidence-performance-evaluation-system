@@ -68,6 +68,40 @@ export async function authorizeProject(
   return project;
 }
 
+export async function authorizeCurrentProjectMember(
+  transaction: Transaction,
+  actor: { userId: string; active: boolean },
+  projectId: string,
+  current: Date,
+): Promise<{ id: string; departmentId: string; status: string }> {
+  if (!actor.active) throw scopeError();
+  const project = await transaction.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      departmentId: true,
+      status: true,
+      members: {
+        where: {
+          employeeId: actor.userId,
+          startsAt: { lte: current },
+          OR: [{ endsAt: null }, { endsAt: { gt: current } }],
+        },
+        select: { id: true },
+        take: 1,
+      },
+    },
+  });
+  if (
+    project === null ||
+    !["active", "paused"].includes(project.status) ||
+    project.members.length === 0
+  ) {
+    throw scopeError();
+  }
+  return project;
+}
+
 export async function loadAuthorizedItem(
   transaction: Transaction,
   actor: { userId: string; active: boolean },

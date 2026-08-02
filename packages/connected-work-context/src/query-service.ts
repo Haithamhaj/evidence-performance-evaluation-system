@@ -1,6 +1,9 @@
 import { AppError, ConnectedSourceItemSchema } from "@evaluation/contracts";
 
+import { assertAccessibleConnectedSource } from "./source-authorization.js";
+
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
+type Transaction = import("@evaluation/database").DatabaseTransaction;
 type Actor = Readonly<{ userId: string; active: boolean }>;
 type ContextReview = Readonly<{
   connection: Readonly<{
@@ -133,6 +136,13 @@ export class ConnectedWorkContextQueryService {
       throw forbiddenError();
     }
     return this.serialize(row);
+  }
+
+  async assertAccessibleInTransaction(
+    transaction: Transaction,
+    command: Readonly<{ actor: Actor; sourceItemId: string }>,
+  ): Promise<void> {
+    await assertAccessibleConnectedSource(transaction, command);
   }
 
   private async serialize(row: {

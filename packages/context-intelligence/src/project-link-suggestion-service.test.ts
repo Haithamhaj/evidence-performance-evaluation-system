@@ -58,6 +58,7 @@ class InMemorySuggestionPersistence implements Persistence {
     previousSuggestionId: string;
     suggestion: ProjectLinkSuggestion;
     correction: SourceLinkCorrection;
+    correlationId: string;
   }): Promise<
     Readonly<{
       suggestion: ProjectLinkSuggestion;
@@ -245,6 +246,7 @@ describe("ProjectLinkSuggestionService", () => {
       suggestionId: initialSuggestionId,
       correctedProjectId: projectB,
       reason: "The source belongs to the second Project.",
+      correlationId: crypto.randomUUID(),
     });
 
     const correctionReference = `source-link-correction:${correctionId}`;
@@ -301,6 +303,7 @@ describe("ProjectLinkSuggestionService", () => {
       actor: { userId: employeeId, active: true },
       suggestionId: initialSuggestionId,
       reason: "This source is unrelated to any Project.",
+      correlationId: crypto.randomUUID(),
     });
 
     expect(persistence.suggestions[1]).toMatchObject({
@@ -336,6 +339,7 @@ describe("ProjectLinkSuggestionService", () => {
         suggestionId: initialSuggestionId,
         correctedProjectId: projectB,
         reason: "Move to an inaccessible Project.",
+        correlationId: crypto.randomUUID(),
       }),
     ).rejects.toThrow("Project link is not authorized");
     expect(persistence.suggestions).toHaveLength(1);
@@ -352,6 +356,7 @@ describe("ProjectLinkSuggestionService", () => {
         actor: { userId: otherEmployeeId, active: true },
         suggestionId: initialSuggestionId,
         reason: "Attempted cross-employee rejection.",
+        correlationId: crypto.randomUUID(),
       }),
     ).rejects.toThrow("Project link suggestion not found");
     expect(persistence.suggestions).toHaveLength(1);

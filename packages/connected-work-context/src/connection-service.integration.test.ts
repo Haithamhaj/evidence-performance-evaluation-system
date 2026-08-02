@@ -15,6 +15,7 @@ async function seedConnectionGraph() {
   const employeeId = crypto.randomUUID();
   const otherEmployeeId = crypto.randomUUID();
   const projectId = crypto.randomUUID();
+  const otherProjectId = crypto.randomUUID();
 
   await client.organization.create({
     data: { id: organizationId, key: `context-org-${suffix}`, name: "Context" },
@@ -41,37 +42,213 @@ async function seedConnectionGraph() {
       },
     ],
   });
-  await client.authorizationScope.create({
-    data: {
-      id: projectId,
-      key: `context-project-${suffix}`,
-      scopeType: "project",
-      departmentId,
-    },
+  await client.authorizationScope.createMany({
+    data: [
+      {
+        id: projectId,
+        key: `context-project-${suffix}`,
+        scopeType: "project",
+        departmentId,
+      },
+      {
+        id: otherProjectId,
+        key: `context-other-project-${suffix}`,
+        scopeType: "project",
+        departmentId,
+      },
+    ],
   });
-  await client.project.create({
-    data: {
-      id: projectId,
-      organizationId,
-      departmentId,
-      authorizationScopeId: projectId,
-      name: "Private context project",
-      description: "",
-      status: "active",
-      createdById: employeeId,
-    },
+  await client.project.createMany({
+    data: [
+      {
+        id: projectId,
+        organizationId,
+        departmentId,
+        authorizationScopeId: projectId,
+        name: "Private context project",
+        description: "",
+        status: "active",
+        createdById: employeeId,
+      },
+      {
+        id: otherProjectId,
+        organizationId,
+        departmentId,
+        authorizationScopeId: otherProjectId,
+        name: "Corrected private context project",
+        description: "",
+        status: "active",
+        createdById: employeeId,
+      },
+    ],
   });
-  await client.projectMember.create({
-    data: {
-      projectId,
+  await client.projectMember.createMany({
+    data: [projectId, otherProjectId].map((memberProjectId) => ({
+      projectId: memberProjectId,
       employeeId,
       startsAt: new Date("2026-07-01T00:00:00.000Z"),
       reason: "Active contributor",
       createdById: employeeId,
-    },
+    })),
   });
 
-  return { employeeId, otherEmployeeId, projectId };
+  return {
+    organizationId,
+    departmentId,
+    employeeId,
+    otherEmployeeId,
+    projectId,
+    otherProjectId,
+  };
+}
+
+async function seedSuggestionLineage(
+  graph: Awaited<ReturnType<typeof seedConnectionGraph>>,
+  sourceItemId: string,
+  suggestionIds: readonly [string, string],
+) {
+  const suffix = crypto.randomUUID();
+  const systemScope = await client.authorizationScope.create({
+    data: { key: `context-link-system-${suffix}`, scopeType: "system" },
+  });
+  const routeKey = `context.link.fixture.${suffix}`;
+  const route = await client.aiRoute.create({
+    data: { routeKey, level: "system", scopeId: systemScope.id },
+  });
+  const routeConfig = await client.aiRouteConfig.create({
+    data: {
+      routeId: route.id,
+      version: 1,
+      reason: "Derived-link fixture",
+      createdById: graph.employeeId,
+    },
+  });
+  const provider = await client.aiProviderConfig.create({
+    data: {
+      providerKey: `context-link-provider-${suffix}`,
+      version: 1,
+      adapterKey: "fixture",
+      modelKey: "fixture-model",
+      locality: "external",
+      endpoint: "https://provider.example.invalid/v1/chat/completions",
+      endpointProtocol: "https",
+      endpointHost: "provider.example.invalid",
+      reason: "Derived-link fixture",
+      createdById: graph.employeeId,
+    },
+  });
+  const routeProvider = await client.aiRouteConfigProvider.create({
+    data: {
+      routeConfigId: routeConfig.id,
+      position: 0,
+      providerConfigId: provider.id,
+      providerConfigVersion: provider.version,
+    },
+  });
+  const schemaVersion = "context-link-fixture-output.v1";
+  const promptVersion = "context-link-fixture-prompt.v1";
+  const artifact = await client.aiOutputSchemaArtifact.create({
+    data: {
+      routeKey,
+      version: schemaVersion,
+      schemaHash: "a".repeat(64),
+      schemaArtifact: {},
+      reason: "Derived-link fixture",
+      expectedBehavior: "Provides governed lineage for a derived-link integration fixture.",
+      evaluationEvidenceReferences: [`ai-eval:${crypto.randomUUID()}`],
+      humanApprovalPolicy: "feature_defined",
+      createdById: graph.employeeId,
+    },
+  });
+  const run = await client.aiRun.create({
+    data: {
+      routeKey,
+      routeId: route.id,
+      routeConfigId: routeConfig.id,
+      routeConfigVersion: routeConfig.version,
+      routeLevel: "system",
+      scopeId: systemScope.id,
+      routeConfigProviderId: routeProvider.id,
+      providerConfigId: provider.id,
+      providerConfigVersion: provider.version,
+      classification: "confidential",
+      inputReference: `connected-source:${sourceItemId}`,
+      inputSchemaVersion: "context-input.v1",
+      outputSchemaVersion: schemaVersion,
+      outputSchemaArtifactId: artifact.id,
+      outputSchemaHash: artifact.schemaHash,
+      promptTemplateVersion: promptVersion,
+      sourceReferences: [`connected-source:${sourceItemId}`],
+      outputReference: `context-output:${crypto.randomUUID()}`,
+      startedAt: now,
+      completedAt: now,
+      latencyMs: 0,
+      state: "succeeded",
+      fallbackChain: [],
+      humanApprovalState: "pending",
+      correlationId: crypto.randomUUID(),
+      validationIssueCodes: [],
+    },
+  });
+  const analysis = await client.contextAnalysis.create({
+    data: {
+      sourceItemId,
+      employeeId: graph.employeeId,
+      revision: 1,
+      schemaVersion,
+      promptVersion,
+      aiRunTraceId: run.id,
+      outputCiphertext: "protected-analysis",
+      outputKeyVersion: "test-only",
+      sourceReferences: [`connected-source:${sourceItemId}`],
+      reviewStatus: "PENDING",
+      revisionOrigin: "AI",
+      createdById: graph.employeeId,
+    },
+  });
+  await client.projectLinkSuggestion.createMany({
+    data: [
+      {
+        id: suggestionIds[0],
+        analysisId: analysis.id,
+        sourceItemId,
+        employeeId: graph.employeeId,
+        projectId: null,
+        decision: "NO_MATCH",
+        explanationCiphertext: "protected-suggestion-one",
+        explanationKeyVersion: "test-only",
+        anchors: [],
+        revision: 1,
+        schemaVersion,
+        promptVersion,
+        aiRunTraceId: run.id,
+        sourceReferences: [`connected-source:${sourceItemId}`],
+        reviewStatus: "PENDING",
+        revisionOrigin: "AI",
+        createdById: graph.employeeId,
+      },
+      {
+        id: suggestionIds[1],
+        analysisId: analysis.id,
+        sourceItemId,
+        employeeId: graph.employeeId,
+        projectId: null,
+        decision: "NO_MATCH",
+        explanationCiphertext: "protected-suggestion-two",
+        explanationKeyVersion: "test-only",
+        anchors: [],
+        revision: 2,
+        schemaVersion,
+        promptVersion,
+        aiRunTraceId: run.id,
+        sourceReferences: [`connected-source:${sourceItemId}`],
+        reviewStatus: "PENDING",
+        revisionOrigin: "AI",
+        supersedesSuggestionId: suggestionIds[0],
+        createdById: graph.employeeId,
+      },
+    ],
+  });
 }
 
 function projectAuthorization() {
@@ -91,6 +268,137 @@ function projectAuthorization() {
 afterAll(async () => client.$disconnect());
 
 describe("connected work connection commands", () => {
+  it("replaces and removes only derived Project links while preserving manual mappings", async () => {
+    const graph = await seedConnectionGraph();
+    const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    const service = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: databaseAuditWriter,
+      projectAuthorization: projectAuthorization(),
+      clock: () => now,
+    });
+    const actor = { userId: graph.employeeId, active: true };
+    const credentialRef = (
+      await vault.put({
+        credential: { accessToken: "derived-link", refreshToken: null, expiresAt: null },
+      })
+    ).credentialRef;
+    const account = await client.connectedWorkAccount.create({
+      data: { employeeId: graph.employeeId, credentialRef, connectedAt: now },
+    });
+    const [derivedSource, manualSource] = await Promise.all(
+      ["derived-source", "manual-source"].map((providerSourceId) =>
+        client.connectedSourceItem.create({
+          data: {
+            connectedWorkAccountId: account.id,
+            employeeId: graph.employeeId,
+            provider: "GOOGLE_GMAIL",
+            providerSourceId,
+            occurredAt: now,
+            titleCiphertext: "protected",
+            titleKeyVersion: "test-only",
+          },
+        }),
+      ),
+    );
+    if (derivedSource === undefined || manualSource === undefined) {
+      throw new Error("Connected Context source fixture is incomplete");
+    }
+    const firstSuggestionId = crypto.randomUUID();
+    const correctedSuggestionId = crypto.randomUUID();
+    await seedSuggestionLineage(graph, derivedSource.id, [
+      firstSuggestionId,
+      correctedSuggestionId,
+    ]);
+    type DerivedLinkCommands = {
+      confirmSuggestedProject(
+        transaction: import("@evaluation/database").DatabaseTransaction,
+        command: Record<string, unknown>,
+      ): Promise<unknown>;
+      replaceSuggestedProject(
+        transaction: import("@evaluation/database").DatabaseTransaction,
+        command: Record<string, unknown>,
+      ): Promise<unknown>;
+      removeSuggestedProject(
+        transaction: import("@evaluation/database").DatabaseTransaction,
+        command: Record<string, unknown>,
+      ): Promise<unknown>;
+    };
+    const derivedCommands = service as unknown as DerivedLinkCommands;
+
+    await client.$transaction((transaction) =>
+      derivedCommands.confirmSuggestedProject(transaction, {
+        actor,
+        correlationId: crypto.randomUUID(),
+        sourceItemId: derivedSource.id,
+        projectId: graph.projectId,
+        suggestionId: firstSuggestionId,
+      }),
+    );
+    await client.$transaction((transaction) =>
+      derivedCommands.replaceSuggestedProject(transaction, {
+        actor,
+        correlationId: crypto.randomUUID(),
+        sourceItemId: derivedSource.id,
+        expectedSuggestionId: firstSuggestionId,
+        replacementSuggestionId: correctedSuggestionId,
+        projectId: graph.otherProjectId,
+      }),
+    );
+    await expect(
+      client.sourceProjectLink.findFirstOrThrow({
+        where: { sourceItemId: derivedSource.id, unlinkedAt: null },
+      }),
+    ).resolves.toMatchObject({
+      projectId: graph.otherProjectId,
+      origin: "CONTEXT_SUGGESTION",
+      contextSuggestionId: correctedSuggestionId,
+    });
+    await client.$transaction((transaction) =>
+      derivedCommands.removeSuggestedProject(transaction, {
+        actor,
+        correlationId: crypto.randomUUID(),
+        sourceItemId: derivedSource.id,
+        expectedSuggestionId: correctedSuggestionId,
+      }),
+    );
+    await expect(
+      client.sourceProjectLink.count({
+        where: { sourceItemId: derivedSource.id, unlinkedAt: null },
+      }),
+    ).resolves.toBe(0);
+
+    const manual = await service.linkProject({
+      actor,
+      correlationId: crypto.randomUUID(),
+      sourceItemId: manualSource.id,
+      projectId: graph.projectId,
+      reason: "Employee selected this mapping manually",
+    });
+    await client.$transaction((transaction) =>
+      derivedCommands.replaceSuggestedProject(transaction, {
+        actor,
+        correlationId: crypto.randomUUID(),
+        sourceItemId: manualSource.id,
+        expectedSuggestionId: firstSuggestionId,
+        replacementSuggestionId: correctedSuggestionId,
+        projectId: graph.otherProjectId,
+      }),
+    );
+    await client.$transaction((transaction) =>
+      derivedCommands.removeSuggestedProject(transaction, {
+        actor,
+        correlationId: crypto.randomUUID(),
+        sourceItemId: manualSource.id,
+        expectedSuggestionId: correctedSuggestionId,
+      }),
+    );
+    await expect(
+      client.sourceProjectLink.findUniqueOrThrow({ where: { id: manual.id } }),
+    ).resolves.toMatchObject({ projectId: graph.projectId, unlinkedAt: null });
+  });
+
   it("audits connection, exclusions, reversible Project links, disconnection, and credential revocation without private content", async () => {
     const graph = await seedConnectionGraph();
     const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });

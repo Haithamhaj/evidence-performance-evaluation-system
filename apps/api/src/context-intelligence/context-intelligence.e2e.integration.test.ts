@@ -15,13 +15,17 @@ import {
   CONTEXT_INTELLIGENCE_WORKFLOW,
   ContextAnalysisController,
 } from "./context-analysis.controller.js";
-import { ContextIntelligencePolicyGuard } from "./context-intelligence-policy.guard.js";
+import {
+  CONTEXT_INTELLIGENCE_POLICY_DATABASE,
+  ContextIntelligencePolicyGuard,
+} from "./context-intelligence-policy.guard.js";
 import { TaskDraftsController } from "./task-drafts.controller.js";
 import { ContextIntelligenceApplicationService } from "./context-intelligence.module.js";
 
 const ownerId = crypto.randomUUID();
 const otherEmployeeId = crypto.randomUUID();
 const managerId = crypto.randomUUID();
+const systemAdministratorId = crypto.randomUUID();
 const inactiveEmployeeId = crypto.randomUUID();
 const sourceItemId = crypto.randomUUID();
 const suggestionId = crypto.randomUUID();
@@ -207,10 +211,28 @@ Module({
         active: external.oidcSubject !== inactiveEmployeeId,
         email: external.email,
         oidcSubject: external.oidcSubject,
-        roles: external.oidcSubject === managerId ? ["manager"] : ["employee"],
+        roles:
+          external.oidcSubject === managerId
+            ? ["manager"]
+            : external.oidcSubject === systemAdministratorId
+              ? ["system_administrator"]
+              : ["employee"],
       }),
     },
     AuthGuard,
+    {
+      provide: CONTEXT_INTELLIGENCE_POLICY_DATABASE,
+      useValue: {
+        roleAssignment: {
+          findFirst: async (input: { where: { userId: string } }) =>
+            ([ownerId, otherEmployeeId, inactiveEmployeeId] as string[]).includes(
+              input.where.userId,
+            )
+              ? { id: crypto.randomUUID() }
+              : null,
+        },
+      },
+    },
     ContextIntelligencePolicyGuard,
     { provide: CONTEXT_INTELLIGENCE_WORKFLOW, useValue: workflow },
   ],
@@ -322,16 +344,41 @@ describe("Context Intelligence protected HTTP API", () => {
     expect(task.response.status).toBe(201);
   });
 
-  it("returns owner-only review data and no private derived content to another employee or manager", async () => {
+  it("returns owner-only review data and denies manager-only and administrator-only personas", async () => {
     const owner = await apiRequest("GET", "/api/v1/context/review-queue", ownerId);
     const other = await apiRequest("GET", "/api/v1/context/review-queue", otherEmployeeId);
     const manager = await apiRequest("GET", "/api/v1/context/review-queue", managerId);
+    const administrator = await apiRequest(
+      "GET",
+      "/api/v1/context/review-queue",
+      systemAdministratorId,
+    );
 
     expect(owner.body).toMatchObject({ items: [{ id: suggestionId }] });
     expect(other.body).toEqual({ items: [] });
-    expect(manager.body).toEqual({ items: [] });
+    expect(manager.response.status).toBe(403);
+    expect(administrator.response.status).toBe(403);
     expect(JSON.stringify(other.body)).not.toContain("Private source-backed explanation");
     expect(JSON.stringify(manager.body)).not.toContain(sourceItemId);
+    expect(JSON.stringify(administrator.body)).not.toContain(sourceItemId);
+  });
+
+  it("denies Context Intelligence mutations to a manager-only persona", async () => {
+    const analyzed = await apiRequest(
+      "POST",
+      `/api/v1/context/items/${sourceItemId}/analyze`,
+      managerId,
+      {},
+    );
+    const confirmed = await apiRequest(
+      "POST",
+      `/api/v1/context/task-drafts/${draftId}/confirm`,
+      managerId,
+      confirmedDraft(),
+    );
+
+    expect(analyzed.response.status).toBe(403);
+    expect(confirmed.response.status).toBe(403);
   });
 
   it("denies cross-employee, inactive, and inaccessible private source analysis", async () => {
@@ -451,9 +498,90 @@ describe("Context Intelligence Task confirmation transaction", () => {
     expect(fixture.state.taskDrafts).toHaveLength(1);
     expect(fixture.state.assignments).toHaveLength(0);
   });
+
+  it("revalidates source access inside the write transaction after the precheck", async () => {
+    const fixture = confirmationHarness({ revokeSourceAfterPrecheck: true });
+
+    await expect(fixture.service.confirmTaskDraft(fixture.command)).rejects.toMatchObject({
+      code: "CONNECTED_CONTEXT_FORBIDDEN",
+    });
+    expect(fixture.state.workItems).toHaveLength(0);
+    expect(fixture.state.taskDrafts).toHaveLength(1);
+  });
+
+  it("treats a changed protected reason as an idempotency conflict after response loss", async () => {
+    const fixture = confirmationHarness();
+    await fixture.service.confirmTaskDraft(fixture.command);
+
+    await expect(
+      fixture.service.confirmTaskDraft({
+        ...fixture.command,
+        reason: "A different private confirmation reason",
+      }),
+    ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+    expect(fixture.state.workItems).toHaveLength(1);
+    expect(fixture.state.taskDrafts).toHaveLength(2);
+  });
+
+  it("stores the employee reason only in the protected Task Draft revision", async () => {
+    const fixture = confirmationHarness();
+    await fixture.service.confirmTaskDraft(fixture.command);
+
+    expect(fixture.state.taskDrafts[1]?.correctionReasonCiphertext).toBe(fixture.command.reason);
+    expect(JSON.stringify(fixture.state.audits)).not.toContain(fixture.command.reason);
+    expect(JSON.stringify(fixture.state.assignments)).not.toContain(fixture.command.reason);
+  });
 });
 
-function confirmationHarness(options: Readonly<{ failAuditAt?: number }> = {}) {
+describe("Context Intelligence review queue transaction", () => {
+  it("does not decrypt or return a row whose source access is revoked after selection", async () => {
+    let protectedOpenCount = 0;
+    const transaction = {
+      projectLinkSuggestion: {
+        findMany: async () => [
+          {
+            id: suggestionId,
+            sourceItemId,
+            employeeId: ownerId,
+          },
+        ],
+      },
+      taskDraft: { findMany: async () => [] },
+    };
+    const database = {
+      $transaction: async (operation: (value: typeof transaction) => Promise<unknown>) =>
+        operation(transaction),
+    };
+    const context = {
+      assertAccessibleInTransaction: async () => {
+        throw new AppError("CONNECTED_CONTEXT_FORBIDDEN", "errors.connectedContext.forbidden", 403);
+      },
+    };
+    const protector = {
+      seal: async (value: string) => ({ ciphertext: value, keyVersion: "test-key-v1" }),
+      open: async () => {
+        protectedOpenCount += 1;
+        return "private-derived-content";
+      },
+    };
+    const service = new ContextIntelligenceApplicationService(
+      database as never,
+      context as never,
+      {} as never,
+      protector,
+      { router: { run: async () => undefined } as never, systemId: crypto.randomUUID() },
+    );
+
+    await expect(
+      service.reviewQueue({ actor: { userId: ownerId, active: true } }),
+    ).resolves.toEqual({ items: [] });
+    expect(protectedOpenCount).toBe(0);
+  });
+});
+
+function confirmationHarness(
+  options: Readonly<{ failAuditAt?: number; revokeSourceAfterPrecheck?: boolean }> = {},
+) {
   const now = new Date("2026-08-02T12:00:00.000Z");
   const aiRunTrace = {
     id: crypto.randomUUID(),
@@ -502,6 +630,7 @@ function confirmationHarness(options: Readonly<{ failAuditAt?: number }> = {}) {
     audits: [] as Array<Record<string, any>>,
   };
   let auditAttempt = 0;
+  let sourceAccessible = true;
 
   const findTaskDraft = async (input: Record<string, any>) => {
     const row = state.taskDrafts.find(({ id }) => id === input.where.id);
@@ -602,13 +731,14 @@ function confirmationHarness(options: Readonly<{ failAuditAt?: number }> = {}) {
   };
   const context = {
     get: async ({ actor, sourceItemId: requestedId }: { actor: Actor; sourceItemId: string }) => {
-      if (actor.userId !== ownerId || requestedId !== sourceItemId) {
+      if (!sourceAccessible || actor.userId !== ownerId || requestedId !== sourceItemId) {
         throw new AppError(
           "CONTEXT_INTELLIGENCE_FORBIDDEN",
           "errors.contextIntelligence.forbidden",
           403,
         );
       }
+      if (options.revokeSourceAfterPrecheck === true) sourceAccessible = false;
       return {
         id: sourceItemId,
         employeeId: ownerId,
@@ -621,6 +751,14 @@ function confirmationHarness(options: Readonly<{ failAuditAt?: number }> = {}) {
         privacy: "PRIVATE" as const,
         excluded: false,
       };
+    },
+    assertAccessibleInTransaction: async (
+      _transaction: unknown,
+      { actor, sourceItemId: requestedId }: { actor: Actor; sourceItemId: string },
+    ) => {
+      if (!sourceAccessible || actor.userId !== ownerId || requestedId !== sourceItemId) {
+        throw new AppError("CONNECTED_CONTEXT_FORBIDDEN", "errors.connectedContext.forbidden", 403);
+      }
     },
   };
   const service = new ContextIntelligenceApplicationService(

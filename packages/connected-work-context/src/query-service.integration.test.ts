@@ -41,6 +41,62 @@ async function seedUsers() {
 afterAll(async () => client.$disconnect());
 
 describe("private connected-context queries", () => {
+  it("revalidates owner, account, exclusion, deletion, and content access in the caller transaction", async () => {
+    const users = await seedUsers();
+    const protector = createPrivateContextProtector({ mode: "development" });
+    const title = await protector.seal("Transaction-protected source");
+    const account = await client.connectedWorkAccount.create({
+      data: {
+        employeeId: users.ownerId,
+        credentialRef: `vault://${crypto.randomUUID()}`,
+        connectedAt: now,
+      },
+    });
+    const item = await client.connectedSourceItem.create({
+      data: {
+        connectedWorkAccountId: account.id,
+        employeeId: users.ownerId,
+        provider: "GOOGLE_GMAIL",
+        providerSourceId: "transaction-source",
+        occurredAt: now,
+        titleCiphertext: title.ciphertext,
+        titleKeyVersion: title.keyVersion,
+      },
+    });
+    const query = new ConnectedWorkContextQueryService(client, protector) as unknown as {
+      assertAccessibleInTransaction(
+        transaction: import("@evaluation/database").DatabaseTransaction,
+        command: { actor: { userId: string; active: boolean }; sourceItemId: string },
+      ): Promise<void>;
+    };
+
+    await expect(
+      client.$transaction((transaction) =>
+        query.assertAccessibleInTransaction(transaction, {
+          actor: { userId: users.ownerId, active: true },
+          sourceItemId: item.id,
+        }),
+      ),
+    ).resolves.toBeUndefined();
+    await client.connectedSourceItem.update({ where: { id: item.id }, data: { excluded: true } });
+    await expect(
+      client.$transaction((transaction) =>
+        query.assertAccessibleInTransaction(transaction, {
+          actor: { userId: users.ownerId, active: true },
+          sourceItemId: item.id,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_FORBIDDEN" });
+    await expect(
+      client.$transaction((transaction) =>
+        query.assertAccessibleInTransaction(transaction, {
+          actor: { userId: users.otherEmployeeId, active: true },
+          sourceItemId: item.id,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_FORBIDDEN" });
+  });
+
   it("returns decrypted summaries only to the owning active employee", async () => {
     const users = await seedUsers();
     const protector = createPrivateContextProtector({ mode: "development" });

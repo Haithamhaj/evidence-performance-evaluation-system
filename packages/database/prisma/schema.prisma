@@ -712,9 +712,12 @@ model SourceProjectLink {
   employeeId   String              @db.Uuid
   sourceItem   ConnectedSourceItem @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
   employee     User                @relation("SourceProjectLinkEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  projectId    String              @db.Uuid
-  project      Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  linkedById   String              @db.Uuid
+  projectId           String                  @db.Uuid
+  project             Project                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  origin              SourceProjectLinkOrigin @default(EMPLOYEE_MANUAL)
+  contextSuggestionId String?                 @db.Uuid
+  contextSuggestion   ProjectLinkSuggestion?  @relation("SourceProjectLinkContextSuggestion", fields: [contextSuggestionId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  linkedById          String                  @db.Uuid
   linkedBy     User                @relation("SourceProjectLinkLinkedBy", fields: [linkedById], references: [id], onDelete: Restrict)
   linkedAt     DateTime            @db.Timestamptz(6)
   unlinkedAt   DateTime?           @db.Timestamptz(6)
@@ -725,6 +728,12 @@ model SourceProjectLink {
   @@index([employeeId, unlinkedAt, linkedAt(sort: Desc)])
   @@index([projectId, unlinkedAt, linkedAt(sort: Desc)])
   @@index([sourceItemId, linkedAt, id])
+  @@index([contextSuggestionId])
+}
+
+enum SourceProjectLinkOrigin {
+  EMPLOYEE_MANUAL
+  CONTEXT_SUGGESTION
 }
 
 model ContextAnalysis {
@@ -792,6 +801,7 @@ model ProjectLinkSuggestion {
   createdBy              User                              @relation("ProjectLinkSuggestionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   corrections            SourceLinkCorrection[]            @relation("SourceLinkCorrectionOriginalSuggestion")
   resultingCorrections   SourceLinkCorrection[]            @relation("SourceLinkCorrectionSupersedingSuggestion")
+  contextProjectLinks    SourceProjectLink[]                @relation("SourceProjectLinkContextSuggestion")
   createdAt              DateTime                          @default(now()) @db.Timestamptz(6)
 
   @@unique([id, sourceItemId, employeeId])

@@ -11,6 +11,7 @@ import { z } from "zod";
 import { assertWorkItemScope, assertWorkItemTransition } from "./invariants.js";
 import {
   assertEligibleAssignee,
+  authorizeCurrentProjectMember,
   authorizeProject,
   loadAuthorizedItem,
   lockWorkItem,
@@ -133,7 +134,7 @@ export class WorkItemService {
   ): Promise<import("@evaluation/contracts").WorkItemDetail> {
     const parsed = ConfirmedTaskCommandSchema.parse(command);
     const current = validClock(this.clock());
-    const project = await authorizeProject(
+    const project = await authorizeCurrentProjectMember(
       transaction,
       parsed.actor,
       parsed.input.projectId,
@@ -182,7 +183,7 @@ export class WorkItemService {
         fromAssigneeId: null,
         toAssigneeId: parsed.input.assigneeId,
         actorId: parsed.actor.userId,
-        reason: parsed.reason,
+        reason: "Employee confirmed a Context Intelligence Task draft",
         resultingVersion: 1,
       },
     });
@@ -194,7 +195,7 @@ export class WorkItemService {
       scopeId: project.id,
       targetType: "work_item",
       targetId: item.id,
-      reason: parsed.reason,
+      reason: "Employee confirmed a Context Intelligence Task draft",
       safeDiff: {
         projectId: project.id,
         workstreamId: workstream?.id ?? null,

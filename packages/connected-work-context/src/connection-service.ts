@@ -1,8 +1,23 @@
 import { AppError } from "@evaluation/contracts";
 
+import { assertAccessibleConnectedSource } from "./source-authorization.js";
+
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
 type Actor = Readonly<{ userId: string; active: boolean }>;
+type SourceProjectLinkRecord = Readonly<{
+  id: string;
+  sourceItemId: string;
+  employeeId: string;
+  projectId: string;
+  origin: "EMPLOYEE_MANUAL" | "CONTEXT_SUGGESTION";
+  contextSuggestionId: string | null;
+  linkedById: string;
+  linkedAt: Date;
+  unlinkedAt: Date | null;
+  unlinkedById: string | null;
+  unlinkReason: string | null;
+}>;
 
 export interface ProjectLinkAuthorization {
   canLink(employeeId: string, projectId: string, at: Date): Promise<boolean>;
@@ -240,7 +255,7 @@ export class ConnectedWorkConnectionService {
       projectId: string;
       reason: string;
     }>,
-  ) {
+  ): Promise<SourceProjectLinkRecord> {
     assertActive(command.actor);
     const account = await this.loadOwnedAccount(command.actor.userId, true);
     const current = validClock(this.clock());
@@ -273,6 +288,7 @@ export class ConnectedWorkConnectionService {
           sourceItemId: item.id,
           employeeId: command.actor.userId,
           projectId: command.projectId,
+          origin: "EMPLOYEE_MANUAL",
           linkedById: command.actor.userId,
           linkedAt: current,
         },
@@ -290,6 +306,170 @@ export class ConnectedWorkConnectionService {
     });
   }
 
+  async confirmSuggestedProject(
+    transaction: Transaction,
+    command: Readonly<{
+      actor: Actor;
+      correlationId: string;
+      sourceItemId: string;
+      projectId: string;
+      suggestionId: string;
+    }>,
+  ): Promise<SourceProjectLinkRecord> {
+    assertActive(command.actor);
+    const current = validClock(this.clock());
+    if (
+      !(await this.projectAuthorization.canLink(command.actor.userId, command.projectId, current))
+    ) {
+      throw forbiddenError();
+    }
+    await assertAccessibleConnectedSource(transaction, command);
+    const activeLink = await transaction.sourceProjectLink.findFirst({
+      where: { sourceItemId: command.sourceItemId, unlinkedAt: null },
+    });
+    if (activeLink !== null) {
+      if (activeLink.origin === "EMPLOYEE_MANUAL") {
+        if (activeLink.projectId === command.projectId) return activeLink;
+        throw linkConflictError();
+      }
+      if (
+        activeLink.projectId === command.projectId &&
+        activeLink.contextSuggestionId === command.suggestionId
+      ) {
+        return activeLink;
+      }
+      throw linkConflictError();
+    }
+    const link = await transaction.sourceProjectLink.create({
+      data: {
+        sourceItemId: command.sourceItemId,
+        employeeId: command.actor.userId,
+        projectId: command.projectId,
+        origin: "CONTEXT_SUGGESTION",
+        contextSuggestionId: command.suggestionId,
+        linkedById: command.actor.userId,
+        linkedAt: current,
+      },
+    });
+    await this.appendAudit(transaction, {
+      eventType: "connected_work_context.context_suggestion_linked",
+      actor: command.actor,
+      correlationId: command.correlationId,
+      targetType: "source_project_link",
+      targetId: link.id,
+      safeDiff: { linked: true, origin: "CONTEXT_SUGGESTION" },
+      reason: "Employee confirmed a Context Intelligence Project suggestion",
+    });
+    return link;
+  }
+
+  async replaceSuggestedProject(
+    transaction: Transaction,
+    command: Readonly<{
+      actor: Actor;
+      correlationId: string;
+      sourceItemId: string;
+      expectedSuggestionId: string;
+      replacementSuggestionId: string;
+      projectId: string;
+    }>,
+  ): Promise<SourceProjectLinkRecord> {
+    assertActive(command.actor);
+    const current = validClock(this.clock());
+    if (
+      !(await this.projectAuthorization.canLink(command.actor.userId, command.projectId, current))
+    ) {
+      throw forbiddenError();
+    }
+    await assertAccessibleConnectedSource(transaction, command);
+    const activeLink = await transaction.sourceProjectLink.findFirst({
+      where: { sourceItemId: command.sourceItemId, unlinkedAt: null },
+    });
+    if (activeLink?.origin === "EMPLOYEE_MANUAL") return activeLink;
+    if (activeLink !== null && activeLink.contextSuggestionId !== command.expectedSuggestionId) {
+      throw linkConflictError();
+    }
+    if (activeLink !== null) {
+      const closed = await transaction.sourceProjectLink.update({
+        where: { id: activeLink.id },
+        data: {
+          unlinkedAt: current,
+          unlinkedById: command.actor.userId,
+          unlinkReason: "Context Intelligence Project suggestion corrected",
+        },
+      });
+      await this.appendAudit(transaction, {
+        eventType: "connected_work_context.context_suggestion_replaced",
+        actor: command.actor,
+        correlationId: command.correlationId,
+        targetType: "source_project_link",
+        targetId: closed.id,
+        safeDiff: { linked: false, origin: "CONTEXT_SUGGESTION" },
+        reason: "Employee corrected a Context Intelligence Project suggestion",
+      });
+    }
+    const replacement = await transaction.sourceProjectLink.create({
+      data: {
+        sourceItemId: command.sourceItemId,
+        employeeId: command.actor.userId,
+        projectId: command.projectId,
+        origin: "CONTEXT_SUGGESTION",
+        contextSuggestionId: command.replacementSuggestionId,
+        linkedById: command.actor.userId,
+        linkedAt: current,
+      },
+    });
+    await this.appendAudit(transaction, {
+      eventType: "connected_work_context.context_suggestion_linked",
+      actor: command.actor,
+      correlationId: command.correlationId,
+      targetType: "source_project_link",
+      targetId: replacement.id,
+      safeDiff: { linked: true, origin: "CONTEXT_SUGGESTION" },
+      reason: "Employee confirmed a corrected Context Intelligence Project suggestion",
+    });
+    return replacement;
+  }
+
+  async removeSuggestedProject(
+    transaction: Transaction,
+    command: Readonly<{
+      actor: Actor;
+      correlationId: string;
+      sourceItemId: string;
+      expectedSuggestionId: string;
+    }>,
+  ): Promise<SourceProjectLinkRecord | null> {
+    assertActive(command.actor);
+    const current = validClock(this.clock());
+    await assertAccessibleConnectedSource(transaction, command);
+    const activeLink = await transaction.sourceProjectLink.findFirst({
+      where: { sourceItemId: command.sourceItemId, unlinkedAt: null },
+    });
+    if (activeLink === null || activeLink.origin === "EMPLOYEE_MANUAL") return activeLink;
+    if (activeLink.contextSuggestionId !== command.expectedSuggestionId) {
+      throw linkConflictError();
+    }
+    const closed = await transaction.sourceProjectLink.update({
+      where: { id: activeLink.id },
+      data: {
+        unlinkedAt: current,
+        unlinkedById: command.actor.userId,
+        unlinkReason: "Context Intelligence Project suggestion rejected",
+      },
+    });
+    await this.appendAudit(transaction, {
+      eventType: "connected_work_context.context_suggestion_removed",
+      actor: command.actor,
+      correlationId: command.correlationId,
+      targetType: "source_project_link",
+      targetId: closed.id,
+      safeDiff: { linked: false, origin: "CONTEXT_SUGGESTION" },
+      reason: "Employee rejected a Context Intelligence Project suggestion",
+    });
+    return closed;
+  }
+
   async unlinkProject(
     command: Readonly<{
       actor: Actor;
@@ -297,7 +477,7 @@ export class ConnectedWorkConnectionService {
       sourceItemId: string;
       reason: string;
     }>,
-  ) {
+  ): Promise<SourceProjectLinkRecord | null> {
     assertActive(command.actor);
     if (command.reason.trim().length === 0) throw invalidInputError();
     const account = await this.loadOwnedAccount(command.actor.userId, true);
@@ -430,5 +610,13 @@ function invalidInputError(): AppError {
     "CONNECTED_CONTEXT_INPUT_INVALID",
     "errors.connectedContext.inputInvalid",
     400,
+  );
+}
+
+function linkConflictError(): AppError {
+  return new AppError(
+    "CONNECTED_CONTEXT_LINK_CONFLICT",
+    "errors.connectedContext.linkConflict",
+    409,
   );
 }

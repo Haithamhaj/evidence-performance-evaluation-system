@@ -44,7 +44,10 @@ import {
   CONTEXT_INTELLIGENCE_WORKFLOW,
   ContextAnalysisController,
 } from "./context-analysis.controller.js";
-import { ContextIntelligencePolicyGuard } from "./context-intelligence-policy.guard.js";
+import {
+  CONTEXT_INTELLIGENCE_POLICY_DATABASE,
+  ContextIntelligencePolicyGuard,
+} from "./context-intelligence-policy.guard.js";
 import { TaskDraftsController } from "./task-drafts.controller.js";
 
 const CONTEXT_INTELLIGENCE_DATABASE = Symbol("CONTEXT_INTELLIGENCE_DATABASE");
@@ -101,7 +104,12 @@ export class ContextIntelligenceApplicationService {
     this.projectService = createProjectService(database, databaseAuditWriter as never);
     this.workItems = new WorkItemService(database, databaseAuditWriter as never);
     this.analysisPersistence = new PrismaContextAnalysisPersistence(database, protector);
-    this.suggestionPersistence = new PrismaProjectSuggestionPersistence(database, protector);
+    this.suggestionPersistence = new PrismaProjectSuggestionPersistence(
+      database,
+      protector,
+      context,
+      connections,
+    );
     this.taskDraftPersistence = new PrismaTaskDraftPersistence(database, protector);
     this.suggestions = new ProjectLinkSuggestionService({
       persistence: this.suggestionPersistence,
@@ -203,46 +211,45 @@ export class ContextIntelligenceApplicationService {
 
   async reviewQueue(input: { actor: Actor }) {
     assertActive(input.actor);
-    const review = await this.context.review({ actor: input.actor });
-    if (review.connection.status !== "connected") return { items: [] };
-    const sourceIds = review.items.filter(({ excluded }) => !excluded).map(({ id }) => id);
-    if (sourceIds.length === 0) return { items: [] };
-    const [suggestions, drafts] = await Promise.all([
-      this.database.projectLinkSuggestion.findMany({
-        where: {
-          employeeId: input.actor.userId,
-          sourceItemId: { in: sourceIds },
-          supersedingSuggestion: null,
-        },
-        include: { aiRunTrace: true },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      }),
-      this.database.taskDraft.findMany({
-        where: {
-          employeeId: input.actor.userId,
-          sourceItemId: { in: sourceIds },
-          supersedingTaskDraft: null,
-        },
-        include: { aiRunTrace: true },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      }),
-    ]);
-    return {
-      items: [
-        ...(await Promise.all(
-          suggestions.map(async (row) => ({
+    return this.database.$transaction(
+      async (transaction) => {
+        const [suggestions, drafts] = await Promise.all([
+          transaction.projectLinkSuggestion.findMany({
+            where: {
+              employeeId: input.actor.userId,
+              supersedingSuggestion: null,
+            },
+            include: { aiRunTrace: true },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          }),
+          transaction.taskDraft.findMany({
+            where: {
+              employeeId: input.actor.userId,
+              supersedingTaskDraft: null,
+            },
+            include: { aiRunTrace: true },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          }),
+        ]);
+        const items: Array<Record<string, unknown>> = [];
+        for (const row of suggestions) {
+          if (!(await this.canReturnSource(transaction, input.actor, row.sourceItemId))) continue;
+          items.push({
             kind: "PROJECT_SUGGESTION" as const,
             ...(await this.suggestionPersistence.materialize(row)),
-          })),
-        )),
-        ...(await Promise.all(
-          drafts.map(async (row) => ({
+          });
+        }
+        for (const row of drafts) {
+          if (!(await this.canReturnSource(transaction, input.actor, row.sourceItemId))) continue;
+          items.push({
             kind: "TASK_DRAFT" as const,
             ...taskDraftView(await this.taskDraftPersistence.materialize(row)),
-          })),
-        )),
-      ],
-    };
+          });
+        }
+        return { items };
+      },
+      { isolationLevel: "Serializable" },
+    );
   }
 
   async confirmProjectSuggestion(input: {
@@ -254,20 +261,16 @@ export class ContextIntelligenceApplicationService {
   }) {
     assertActive(input.actor);
     const current = await this.loadCurrentSuggestion(input.actor, input.suggestionId);
-    if (current.replay !== null) return current.replay;
+    if (current.replay !== null) {
+      if (current.replay.correctionReason !== input.reason) throw idempotencyConflict();
+      return current.replay;
+    }
     if (current.suggestion.revision !== input.expectedRevision) throw versionConflict();
     if (current.suggestion.projectId === null) throw confirmationRequired();
     await this.requireSource(input.actor, current.suggestion.sourceItemId);
     if (!(await this.canAccessProject(input.actor.userId, current.suggestion.projectId))) {
       throw forbidden();
     }
-    await this.connections.linkProject({
-      actor: input.actor,
-      correlationId: input.correlationId,
-      sourceItemId: current.suggestion.sourceItemId,
-      projectId: current.suggestion.projectId,
-      reason: input.reason,
-    });
     const id = stableUuid("project-suggestion-confirmation", current.suggestion.id);
     const createdAt = new Date();
     const confirmed = ProjectLinkSuggestionSchema.parse({
@@ -293,12 +296,25 @@ export class ContextIntelligenceApplicationService {
         });
         if (existing !== null) {
           const replay = await this.suggestionPersistence.materialize(existing);
-          if (replay.reviewStatus !== "CONFIRMED") throw versionConflict();
+          if (replay.reviewStatus !== "CONFIRMED" || replay.correctionReason !== input.reason) {
+            throw idempotencyConflict();
+          }
           return replay;
         }
+        await this.context.assertAccessibleInTransaction(transaction, {
+          actor: input.actor,
+          sourceItemId: current.suggestion.sourceItemId,
+        });
         const row = await transaction.projectLinkSuggestion.create({
           data: suggestionData(confirmed, sealedExplanation, sealedReason),
           include: { aiRunTrace: true },
+        });
+        await this.connections.confirmSuggestedProject(transaction, {
+          actor: input.actor,
+          correlationId: input.correlationId,
+          sourceItemId: confirmed.sourceItemId,
+          projectId: confirmed.projectId!,
+          suggestionId: confirmed.id,
         });
         await databaseAuditWriter.append(transaction, {
           eventType: "context_intelligence.project_suggestion_confirmed",
@@ -308,7 +324,7 @@ export class ContextIntelligenceApplicationService {
           scopeId: confirmed.projectId!,
           targetType: "project_link_suggestion",
           targetId: confirmed.id,
-          reason: input.reason,
+          reason: "Employee confirmed a Context Intelligence Project suggestion",
           safeDiff: { reviewStatus: "CONFIRMED", revision: confirmed.revision },
           correlationId: input.correlationId,
           source: "api",
@@ -338,12 +354,14 @@ export class ContextIntelligenceApplicationService {
           actor: input.actor,
           suggestionId: input.suggestionId,
           reason: input.reason,
+          correlationId: input.correlationId,
         })
       : this.suggestions.correct({
           actor: input.actor,
           suggestionId: input.suggestionId,
           correctedProjectId: input.projectId,
           reason: input.reason,
+          correlationId: input.correlationId,
         });
   }
 
@@ -419,14 +437,18 @@ export class ContextIntelligenceApplicationService {
         });
         if (row === null || row.employeeId !== command.actor.userId) throw forbidden();
         if (row.revision !== command.expectedRevision) throw versionConflict();
+        await this.context.assertAccessibleInTransaction(transaction, {
+          actor: command.actor,
+          sourceItemId: row.sourceItemId,
+        });
         const workItemId = stableUuid("confirmed-context-task", row.id);
         if (row.supersedingTaskDraft !== null) {
           const confirmed = await this.taskDraftPersistence.materialize(row.supersedingTaskDraft);
           if (
             confirmed.reviewStatus !== "CONFIRMED" ||
-            !sameOfficialContent(confirmed, command.draft)
+            !sameOfficialContent(confirmed, command.draft, command.reason)
           ) {
-            throw versionConflict();
+            throw idempotencyConflict();
           }
           const workItem = await this.workItems.createConfirmedTask(
             transaction,
@@ -479,7 +501,7 @@ export class ContextIntelligenceApplicationService {
           scopeId: command.draft.projectId,
           targetType: "task_draft",
           targetId: confirmed.id,
-          reason: command.reason,
+          reason: "Employee confirmed a Context Intelligence Task draft",
           safeDiff: {
             reviewStatus: "CONFIRMED",
             revision: confirmed.revision,
@@ -516,6 +538,20 @@ export class ContextIntelligenceApplicationService {
     });
     if (row === null || row.employeeId !== actor.userId) throw forbidden();
     return row.sourceItemId;
+  }
+
+  private async canReturnSource(
+    transaction: Transaction,
+    actor: Actor,
+    sourceItemId: string,
+  ): Promise<boolean> {
+    try {
+      await this.context.assertAccessibleInTransaction(transaction, { actor, sourceItemId });
+      return true;
+    } catch (error) {
+      if (error instanceof AppError && error.code === "CONNECTED_CONTEXT_FORBIDDEN") return false;
+      throw error;
+    }
   }
 
   private async canAccessProject(employeeId: string, projectId: string): Promise<boolean> {
@@ -619,10 +655,19 @@ class PrismaContextAnalysisPersistence implements AnalysisPersistence {
 class PrismaProjectSuggestionPersistence implements SuggestionPersistence {
   private readonly database: Database;
   private readonly protector: Protector;
+  private readonly context: ConnectedWorkContextQueryService;
+  private readonly connections: ConnectedWorkConnectionService;
 
-  constructor(database: Database, protector: Protector) {
+  constructor(
+    database: Database,
+    protector: Protector,
+    context: ConnectedWorkContextQueryService,
+    connections: ConnectedWorkConnectionService,
+  ) {
     this.database = database;
     this.protector = protector;
+    this.context = context;
+    this.connections = connections;
   }
 
   async appendInitial(input: {
@@ -653,6 +698,7 @@ class PrismaProjectSuggestionPersistence implements SuggestionPersistence {
     previousSuggestionId: string;
     suggestion: ProjectSuggestion;
     correction: import("@evaluation/contracts").SourceLinkCorrection;
+    correlationId: string;
   }) {
     const [sealedExplanation, sealedReason] = await Promise.all([
       this.protector.seal(input.suggestion.explanation),
@@ -666,6 +712,10 @@ class PrismaProjectSuggestionPersistence implements SuggestionPersistence {
           include: { aiRunTrace: true },
         });
         if (existing !== null) throw versionConflict();
+        await this.context.assertAccessibleInTransaction(transaction, {
+          actor: { userId: input.correction.employeeId, active: true },
+          sourceItemId: input.suggestion.sourceItemId,
+        });
         const suggestion = await transaction.projectLinkSuggestion.create({
           data: suggestionData(input.suggestion, sealedExplanation, sealedReason),
           include: { aiRunTrace: true },
@@ -686,6 +736,44 @@ class PrismaProjectSuggestionPersistence implements SuggestionPersistence {
             correctedById: input.correction.employeeId,
             createdAt: new Date(input.correction.createdAt),
           },
+        });
+        if (input.correction.action === "CORRECT") {
+          await this.connections.replaceSuggestedProject(transaction, {
+            actor: { userId: input.correction.employeeId, active: true },
+            correlationId: input.correlationId,
+            sourceItemId: input.suggestion.sourceItemId,
+            expectedSuggestionId: input.previousSuggestionId,
+            replacementSuggestionId: input.suggestion.id,
+            projectId: input.correction.correctedProjectId!,
+          });
+        } else {
+          await this.connections.removeSuggestedProject(transaction, {
+            actor: { userId: input.correction.employeeId, active: true },
+            correlationId: input.correlationId,
+            sourceItemId: input.suggestion.sourceItemId,
+            expectedSuggestionId: input.previousSuggestionId,
+          });
+        }
+        const auditProjectId =
+          input.correction.correctedProjectId ?? input.correction.previousProjectId;
+        await databaseAuditWriter.append(transaction, {
+          eventType: `context_intelligence.project_suggestion_${input.correction.action.toLowerCase()}`,
+          actor: { kind: "human", id: input.correction.employeeId },
+          effectiveSubjectId: input.correction.employeeId,
+          scopeType: auditProjectId === null ? "system" : "project",
+          scopeId: auditProjectId ?? input.correction.employeeId,
+          targetType: "project_link_suggestion",
+          targetId: input.suggestion.id,
+          reason:
+            input.correction.action === "CORRECT"
+              ? "Employee corrected a Context Intelligence Project suggestion"
+              : "Employee rejected a Context Intelligence Project suggestion",
+          safeDiff: {
+            reviewStatus: input.suggestion.reviewStatus,
+            revision: input.suggestion.revision,
+          },
+          correlationId: input.correlationId,
+          source: "api",
         });
         return {
           suggestion: await this.materialize(suggestion),
@@ -882,8 +970,10 @@ function workItemCommand(command: z.infer<typeof ConfirmTaskCommandSchema>, work
 function sameOfficialContent(
   record: TaskDraftRecord,
   draft: z.infer<typeof ConfirmTaskCommandSchema>["draft"],
+  protectedReason: string,
 ) {
   return (
+    record.correctionReason === protectedReason &&
     record.draft.title === draft.title &&
     record.draft.description === draft.description &&
     record.draft.projectId === draft.projectId &&
@@ -1036,6 +1126,10 @@ function versionConflict(): AppError {
   );
 }
 
+function idempotencyConflict(): AppError {
+  return new AppError("IDEMPOTENCY_CONFLICT", "errors.idempotency.conflict", 409);
+}
+
 function confirmationRequired(): AppError {
   return new AppError(
     "CONTEXT_CONFIRMATION_REQUIRED",
@@ -1143,6 +1237,10 @@ Module({
       provide: CONTEXT_INTELLIGENCE_DATABASE_LIFECYCLE,
       useFactory: (database: Database) => ({ onModuleDestroy: () => database.$disconnect() }),
       inject: [CONTEXT_INTELLIGENCE_DATABASE],
+    },
+    {
+      provide: CONTEXT_INTELLIGENCE_POLICY_DATABASE,
+      useExisting: CONTEXT_INTELLIGENCE_DATABASE,
     },
     {
       provide: CONTEXT_INTELLIGENCE_RUNTIME,
