@@ -115,3 +115,71 @@ None. This task uses Task 1's append-only Context Intelligence records and Task 
   cross-device recovery of unconfirmed local edits would require a new append-only draft-edit API.
 - No project-state update: this bounded web task does not change architecture, protected decisions,
   or the slice-level recommended action.
+
+## Fix Round 1 — Browser-safe review boundary
+
+### Status
+
+Complete.
+
+- Fix commit: `3c0c3130d2be30c46fe54f5c5fa4cdbac65caf3c`
+- Fix commit message: `fix(web): minimize context review responses`
+- Push: not performed
+
+### RED evidence
+
+A new same-origin gateway network-contract test initially failed because the review queue returned
+the full upstream suggestion record. That response included employee, source-item, project,
+suggestion, and AI route identifiers, along with source references and route trace data.
+
+### What changed
+
+- Replaced all review-item and project IDs exposed to the browser with encrypted, expiring opaque
+  action handles. The server opens a handle only for the matching confirmation/correction action
+  and then calls the existing protected Task 4 API with the resolved internal identity.
+- Projected the queue at the same-origin gateway into an exact employee-review DTO: safe Project
+  name and explanation, safe source title/summary/link, editable Task content, and opaque handles.
+  The browser receives no employee/source-item/source-reference IDs, database IDs, AI run IDs,
+  route configuration IDs, or route keys.
+- Removed the unused browser analyzer and source-ID task-preparation API. Browser mutations now
+  accept only opaque review/project handles plus bounded human edits and reasons.
+- Made every browser response contract used by the review feature strict. Upstream records are
+  parsed privately and then projected before the gateway returns JSON; task confirmation returns
+  only the safe task title.
+- Updated the browser’s temporary draft recovery to store opaque handles rather than project,
+  assignee, or draft identifiers.
+- Replaced obsolete raw-DTO component/API tests with a gateway network-contract test that verifies
+  the actual JSON response has none of the forbidden keys or raw identifier values.
+
+### Files changed in this fix
+
+- `apps/web/src/platform/context-intelligence-handles.ts`
+- `apps/web/src/platform/context-intelligence-contracts.ts`
+- `apps/web/src/platform/context-intelligence-api.ts`
+- `apps/web/src/auth/oidc.ts`
+- `apps/web/src/app/api/daily-work/[...path]/route.ts`
+- `apps/web/src/app/api/daily-work/[...path]/route.test.ts`
+- `apps/web/src/app/[locale]/my-work/my-work-client.tsx`
+- `apps/web/src/app/[locale]/my-work/smart-review-queue.tsx`
+- `apps/web/src/app/[locale]/my-work/project-match-card.tsx`
+- `apps/web/src/app/[locale]/my-work/task-draft-sheet.tsx`
+- `apps/web/src/app/[locale]/my-work/context-review-draft-storage.ts`
+- `apps/web/src/app/[locale]/my-work/context-review-draft-storage.test.ts`
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| Focused same-origin proxy, My Work, and safe-draft-storage tests | 3 files, 16 tests passed |
+| Localized home-route test (`en`, `ar`) | 1 file, 2 tests passed |
+| Web typecheck (`next build --compile` and `tsc`) | passed |
+| Web lint | passed |
+| Focused Prettier check | passed |
+| `git diff --check` | passed |
+
+### Security/privacy impact
+
+This closes the browser-response exposure in the review flow. Opaque handles are encrypted with
+the server’s existing authentication secret and expire after 15 minutes. They are never interpreted
+in the client, and every mutation still resolves to Task 4’s server-side authorization, ownership,
+revision, audit, and validation checks. No database migration or project-state change is required.
