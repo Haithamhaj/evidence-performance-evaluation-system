@@ -11,7 +11,6 @@ import { z } from "zod";
 import { assertWorkItemScope, assertWorkItemTransition } from "./invariants.js";
 import {
   assertEligibleAssignee,
-  authorizeCurrentProjectMember,
   authorizeProject,
   loadAuthorizedItem,
   lockWorkItem,
@@ -20,6 +19,14 @@ import {
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
 type AuditWriter = import("@evaluation/contracts").AuditWriter<Transaction>;
+type Actor = Readonly<{ userId: string; active: boolean }>;
+
+export interface ConfirmedTaskProjectAuthorization {
+  authorizeCurrentMemberInTransaction(
+    transaction: Transaction,
+    input: Readonly<{ actor: Actor; projectId: string; at: Date }>,
+  ): Promise<Readonly<{ id: string; departmentId: string; status: string }>>;
+}
 
 const ActorSchema = z.object({ userId: z.string().uuid(), active: z.boolean() }).strict();
 const CommandBaseSchema = z
@@ -50,15 +57,18 @@ export class WorkItemService {
   private readonly client: DatabaseClient;
   private readonly auditWriter: AuditWriter;
   private readonly clock: () => Date;
+  private readonly confirmedTaskProjectAuthorization: ConfirmedTaskProjectAuthorization;
 
   constructor(
     client: DatabaseClient,
     auditWriter: AuditWriter,
     clock: () => Date = () => new Date(),
+    confirmedTaskProjectAuthorization: ConfirmedTaskProjectAuthorization,
   ) {
     this.client = client;
     this.auditWriter = auditWriter;
     this.clock = clock;
+    this.confirmedTaskProjectAuthorization = confirmedTaskProjectAuthorization;
   }
 
   async create(command: unknown): Promise<import("@evaluation/contracts").WorkItemDetail> {
@@ -134,12 +144,11 @@ export class WorkItemService {
   ): Promise<import("@evaluation/contracts").WorkItemDetail> {
     const parsed = ConfirmedTaskCommandSchema.parse(command);
     const current = validClock(this.clock());
-    const project = await authorizeCurrentProjectMember(
-      transaction,
-      parsed.actor,
-      parsed.input.projectId,
-      current,
-    );
+    const project =
+      await this.confirmedTaskProjectAuthorization.authorizeCurrentMemberInTransaction(
+        transaction,
+        { actor: parsed.actor, projectId: parsed.input.projectId, at: current },
+      );
     const workstream =
       parsed.input.workstreamId === null
         ? null

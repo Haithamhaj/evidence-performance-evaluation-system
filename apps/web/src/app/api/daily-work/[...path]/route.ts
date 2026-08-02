@@ -61,6 +61,7 @@ import {
 type Context = { readonly params: Promise<{ readonly path: string[] }> };
 
 const UuidSchema = z.string().uuid();
+const ContextPrepareItemSchema = z.object({ sourceItemId: UuidSchema }).strict();
 const StrictQueueItemSchema = z
   .object({
     kind: z.enum(["PROJECT_SUGGESTION", "TASK_DRAFT"]),
@@ -244,6 +245,22 @@ export async function POST(request: Request, context: Context): Promise<NextResp
   let body: unknown;
   try {
     body = await request.json();
+    if (path.length === 3 && path.join("/") === "context/items/prepare") {
+      const input = ContextPrepareItemSchema.parse(body);
+      await fetchProtectedUpstream({
+        method: "POST",
+        path: `/api/v1/context/items/${input.sourceItemId}/analyze`,
+        body: {},
+        schema: UpstreamAcknowledgementSchema,
+      });
+      await fetchProtectedUpstream({
+        method: "POST",
+        path: "/api/v1/context/task-drafts",
+        body: { sourceItemId: input.sourceItemId },
+        schema: UpstreamAcknowledgementSchema,
+      });
+      return json({});
+    }
     if (
       path.length === 3 &&
       path[0] === "context" &&

@@ -10,10 +10,14 @@ import {
 } from "../../../platform/connected-work-context-api";
 import { SourceReviewSheet } from "./source-review-sheet";
 
-type Properties = Readonly<{ catalog: Catalog; projects: readonly ProjectOption[] }>;
+type Properties = Readonly<{
+  catalog: Catalog;
+  projects: readonly ProjectOption[];
+  onReviewPrepared?: () => void;
+}>;
 export type ProjectOption = Readonly<{ id: string; name: string }>;
 
-export function ConnectedContext({ catalog, projects }: Properties) {
+export function ConnectedContext({ catalog, onReviewPrepared, projects }: Properties) {
   const [context, setContext] = useState<ConnectedWorkContext | null>(null);
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<ConnectedWorkContextItem | null>(null);
@@ -48,6 +52,7 @@ export function ConnectedContext({ catalog, projects }: Properties) {
           projects,
           onClose: () => setSelected(null),
           onChanged: refresh,
+          ...(onReviewPrepared === undefined ? {} : { onPrepared: onReviewPrepared }),
         })}
       </>
     );

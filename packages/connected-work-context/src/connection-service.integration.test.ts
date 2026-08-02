@@ -308,15 +308,6 @@ async function appendReviewedSuggestion(
 
 function projectAuthorization() {
   return {
-    canLink: async (employeeId: string, projectId: string, at: Date) =>
-      (await client.projectMember.count({
-        where: {
-          employeeId,
-          projectId,
-          startsAt: { lte: at },
-          OR: [{ endsAt: null }, { endsAt: { gt: at } }],
-        },
-      })) > 0,
     authorizeCurrentMemberInTransaction: async (
       transaction: import("@evaluation/database").DatabaseTransaction,
       employeeId: string,
@@ -362,6 +353,63 @@ type DerivedLinkCommands = {
 afterAll(async () => client.$disconnect());
 
 describe("connected work connection commands", () => {
+  it("authorizes a manual Project link only inside the serializable write transaction", async () => {
+    const graph = await seedConnectionGraph();
+    const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    let outsideAuthorizationCalls = 0;
+    let transactionAuthorizationCalls = 0;
+    const projectAuthorization = {
+      canLink: async () => {
+        outsideAuthorizationCalls += 1;
+        return true;
+      },
+      authorizeCurrentMemberInTransaction: async () => {
+        transactionAuthorizationCalls += 1;
+        throw new AppError("AUTHZ_SCOPE_MISMATCH", "errors.authorization.denied", 403);
+      },
+    };
+    const service = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: databaseAuditWriter,
+      projectAuthorization,
+      clock: () => now,
+    });
+    const account = await client.connectedWorkAccount.create({
+      data: {
+        employeeId: graph.employeeId,
+        credentialRef: `vault://${crypto.randomUUID()}`,
+        connectedAt: now,
+      },
+    });
+    const source = await client.connectedSourceItem.create({
+      data: {
+        connectedWorkAccountId: account.id,
+        employeeId: graph.employeeId,
+        provider: "GOOGLE_CALENDAR",
+        providerSourceId: "manual-link-transaction-authorization",
+        occurredAt: now,
+        titleCiphertext: "protected",
+        titleKeyVersion: "test-only",
+      },
+    });
+
+    await expect(
+      service.linkProject({
+        actor: { userId: graph.employeeId, active: true },
+        correlationId: crypto.randomUUID(),
+        sourceItemId: source.id,
+        projectId: graph.projectId,
+        reason: "Employee selected this Project",
+      }),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_FORBIDDEN" });
+    expect(outsideAuthorizationCalls).toBe(0);
+    expect(transactionAuthorizationCalls).toBe(1);
+    await expect(
+      client.sourceProjectLink.count({ where: { sourceItemId: source.id } }),
+    ).resolves.toBe(0);
+  });
+
   it("replaces and removes only derived Project links while preserving manual mappings", async () => {
     const graph = await seedConnectionGraph();
     const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
@@ -694,10 +742,6 @@ describe("connected work connection commands", () => {
       credentialVault: vault,
       auditWriter: databaseAuditWriter,
       projectAuthorization: {
-        canLink: async () => {
-          await revokeMembership();
-          return true;
-        },
         authorizeCurrentMemberInTransaction: async (transaction, employeeId, projectId, at) => {
           await revokeMembership();
           return baselineAuthorization.authorizeCurrentMemberInTransaction(

@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 
+import { AppError } from "@evaluation/contracts";
 import { createDatabaseClient } from "@evaluation/database";
 
 import { WorkItemService } from "./service.js";
@@ -11,6 +12,41 @@ const auditWriter: import("@evaluation/contracts").AuditWriter<
   import("@evaluation/database").DatabaseTransaction
 > = {
   append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }),
+};
+
+const confirmedTaskProjectAuthorization = {
+  authorizeCurrentMemberInTransaction: async (
+    transaction: import("@evaluation/database").DatabaseTransaction,
+    input: Readonly<{
+      actor: Readonly<{ userId: string; active: boolean }>;
+      projectId: string;
+      at: Date;
+    }>,
+  ) => {
+    if (!input.actor.active) {
+      throw new AppError("AUTHZ_SCOPE_MISMATCH", "errors.authorization.denied", 403);
+    }
+    const rows = await transaction.$queryRaw<
+      Array<{ id: string; departmentId: string; status: string }>
+    >`
+      SELECT project.id, project."departmentId", project.status::text AS status
+      FROM "Project" project
+      JOIN "ProjectMember" membership
+        ON membership."projectId" = project.id
+       AND membership."employeeId" = ${input.actor.userId}::uuid
+      JOIN "User" employee ON employee.id = membership."employeeId"
+      WHERE project.id = ${input.projectId}::uuid
+        AND project.status IN ('active', 'paused')
+        AND employee.active = true
+        AND membership."startsAt" <= ${input.at}
+        AND (membership."endsAt" IS NULL OR membership."endsAt" > ${input.at})
+      FOR SHARE OF project, membership, employee
+    `;
+    if (rows[0] === undefined) {
+      throw new AppError("AUTHZ_SCOPE_MISMATCH", "errors.authorization.denied", 403);
+    }
+    return rows[0];
+  },
 };
 
 type Graph = Readonly<{
@@ -156,7 +192,12 @@ afterAll(async () => client.$disconnect());
 describe("WorkItemService", () => {
   it("denies confirmed Task creation after membership ends despite a lingering contributor role", async () => {
     const graph = await seedGraph();
-    const service = new WorkItemService(client, auditWriter, () => now);
+    const service = new WorkItemService(
+      client,
+      auditWriter,
+      () => now,
+      confirmedTaskProjectAuthorization,
+    );
     await client.roleAssignment.create({
       data: {
         userId: graph.actorId,
@@ -192,7 +233,7 @@ describe("WorkItemService", () => {
           reason: "Private employee confirmation note",
         }),
       ),
-    ).rejects.toMatchObject({ code: "SCOPE_MISMATCH", status: 403 });
+    ).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH", status: 403 });
     await expect(
       client.workItem.count({ where: { projectId: graph.projectId, title: "Must stay a draft" } }),
     ).resolves.toBe(0);
@@ -200,7 +241,12 @@ describe("WorkItemService", () => {
 
   it("creates one stable official Task through the public transaction boundary", async () => {
     const graph = await seedGraph();
-    const service = new WorkItemService(client, auditWriter, () => now);
+    const service = new WorkItemService(
+      client,
+      auditWriter,
+      () => now,
+      confirmedTaskProjectAuthorization,
+    );
     const workItemId = crypto.randomUUID();
     const correlationId = crypto.randomUUID();
     const command = {
@@ -259,6 +305,7 @@ describe("WorkItemService", () => {
         },
       },
       () => now,
+      confirmedTaskProjectAuthorization,
     );
     const workItemId = crypto.randomUUID();
     const privateReason = "Private customer facts explain why I confirmed this Task";
@@ -300,7 +347,12 @@ describe("WorkItemService", () => {
 
   it("creates and transitions with append-only history and no automatic progress", async () => {
     const graph = await seedGraph();
-    const service = new WorkItemService(client, auditWriter, () => now);
+    const service = new WorkItemService(
+      client,
+      auditWriter,
+      () => now,
+      confirmedTaskProjectAuthorization,
+    );
     const created = await service.create({
       actor: { userId: graph.actorId, active: true },
       correlationId: crypto.randomUUID(),
@@ -342,7 +394,12 @@ describe("WorkItemService", () => {
 
   it("rejects a cross-Project Workstream and stale assignment", async () => {
     const graph = await seedGraph();
-    const service = new WorkItemService(client, auditWriter, () => now);
+    const service = new WorkItemService(
+      client,
+      auditWriter,
+      () => now,
+      confirmedTaskProjectAuthorization,
+    );
     await expect(
       service.create({
         actor: { userId: graph.actorId, active: true },
@@ -406,7 +463,12 @@ describe("WorkItemService", () => {
         return { id: crypto.randomUUID(), createdAt: now.toISOString() };
       },
     };
-    const service = new WorkItemService(client, recordingAuditWriter as never, () => now);
+    const service = new WorkItemService(
+      client,
+      recordingAuditWriter as never,
+      () => now,
+      confirmedTaskProjectAuthorization,
+    );
     const created = await service.create({
       actor: { userId: graph.actorId, active: true },
       correlationId: crypto.randomUUID(),

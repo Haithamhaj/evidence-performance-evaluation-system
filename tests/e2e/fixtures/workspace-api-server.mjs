@@ -531,6 +531,7 @@ const contextReviewItems = [
     employeeId: ownerId,
     sourceItemId: contextHighConfidenceItemId,
     revision: 1,
+    reviewStatus: "PENDING",
     projectId: contextProjectId,
     explanation:
       "Two independent anchors agree: known Project participant and approved Project term.",
@@ -541,6 +542,7 @@ const contextReviewItems = [
     employeeId: ownerId,
     sourceItemId: contextUncertainItemId,
     revision: 1,
+    reviewStatus: "PENDING",
     projectId: null,
     explanation: "One Project term matched, but a second independent anchor is missing.",
   },
@@ -550,6 +552,7 @@ const contextReviewItems = [
     employeeId: ownerId,
     sourceItemId: contextRejectedItemId,
     revision: 1,
+    reviewStatus: "PENDING",
     projectId: null,
     explanation: "No governed Project anchor was found.",
   },
@@ -559,6 +562,7 @@ const contextReviewItems = [
     employeeId: ownerId,
     sourceItemId: contextTaskItemId,
     revision: 1,
+    reviewStatus: "PENDING",
     draft: {
       title: "Document the accepted release decision",
       description: "Record the approved decision and its agreed follow-up.",
@@ -628,7 +632,13 @@ const server = createServer(async (request, response) => {
     if (!contextAiAvailable) {
       return json(response, 503, { messageKey: "errors.internal" });
     }
-    return json(response, 200, { items: contextReviewItems });
+    return json(response, 200, {
+      items: contextReviewItems.filter(
+        (item) =>
+          item.reviewStatus === "PENDING" ||
+          (item.kind === "TASK_DRAFT" && item.reviewStatus === "CORRECTED"),
+      ),
+    });
   }
   if (
     request.method === "GET" &&
@@ -746,7 +756,10 @@ const server = createServer(async (request, response) => {
     const suggestionId = segments[5];
     const action = segments[6];
     const suggestionIndex = contextReviewItems.findIndex(
-      (item) => item.kind === "PROJECT_SUGGESTION" && item.id === suggestionId,
+      (item) =>
+        item.kind === "PROJECT_SUGGESTION" &&
+        item.id === suggestionId &&
+        item.reviewStatus === "PENDING",
     );
     const suggestion = contextReviewItems[suggestionIndex];
     if (
@@ -770,7 +783,7 @@ const server = createServer(async (request, response) => {
     const source = connectedWorkItems.find(({ id }) => id === suggestion.sourceItemId);
     if (source === undefined) return json(response, 404, { messageKey: "errors.notFound" });
     source.projectId = targetProjectId ?? null;
-    contextReviewItems.splice(suggestionIndex, 1);
+    suggestion.reviewStatus = action === "confirm" ? "CONFIRMED" : "CORRECTED";
     return json(response, 200, { accepted: true });
   }
   if (
@@ -779,7 +792,10 @@ const server = createServer(async (request, response) => {
   ) {
     const body = await readJson(request);
     const draftIndex = contextReviewItems.findIndex(
-      (item) => item.kind === "TASK_DRAFT" && item.id === contextTaskDraftId,
+      (item) =>
+        item.kind === "TASK_DRAFT" &&
+        item.id === contextTaskDraftId &&
+        ["PENDING", "CORRECTED"].includes(item.reviewStatus),
     );
     if (
       body === null ||
@@ -804,7 +820,7 @@ const server = createServer(async (request, response) => {
       acceptanceConditions: body.draft.acceptanceConditions ?? [],
     };
     workItems.unshift(item);
-    contextReviewItems.splice(draftIndex, 1);
+    contextReviewItems[draftIndex].reviewStatus = "CONFIRMED";
     return json(response, 200, { workItem: item });
   }
   if (request.method === "GET" && url.pathname === "/api/v1/me") {

@@ -6,11 +6,12 @@
 
 **Task:** Slice 3 Task 6 (`S3-T6`)
 
-**Decision state:** Product Owner review required before Slice 4
+**Decision state:** Final P1 remediation verified; Product Owner trust review required before Slice 4
 
 ## Acceptance outcome
 
-The deterministic Slice 3 journey is ready for Product Owner review. An employee can understand
+The deterministic Slice 3 journey and its production foundations are ready for Product Owner
+review. An employee can understand
 why a strong Project suggestion was made, correct an uncertain suggestion, reject an irrelevant
 suggestion, edit a prepared Task, and create that official Task only through an explicit final
 confirmation. The same workspace remains useful when Context Intelligence is unavailable: private
@@ -23,6 +24,31 @@ AI smoke was not run: the three governed route artifacts compile and their regis
 passes, but the current local database has none of those route registrations and the current
 process has no available provider credential. Acceptance did not mutate local route configuration
 or simulate a paid result merely to satisfy the optional smoke.
+
+## Final bounded-review remediation
+
+The final specification/AI and security/code-quality reviews found five P1 production-path gaps.
+All five are remediated and have focused regression coverage:
+
+1. Context analysis now composes `ProjectAnchorReader` with owner-authorized Connected Context
+   facts and Projects access, and composes `ProjectSemanticContextReader` with the Documents public
+   boundary. Unlinked sources can produce a one-anchor review decision or a deterministic
+   two-independent-anchor auto-link; no model confidence is promoted into an anchor.
+2. The normal employee source-review sheet now offers **Prepare smart review**. Its same-origin BFF
+   calls the protected analysis endpoint and then the protected Task-draft preparation endpoint;
+   neither raw IDs nor upstream private results are returned to the browser response.
+3. Review-queue queries select only actionable current leaves before decrypting content. Confirmed,
+   corrected, and rejected Project suggestions disappear; confirmed Task drafts disappear. The E2E
+   fixture now models terminal state and filters it instead of deleting rows by splice.
+4. Project-suggestion confirmation and response-loss replay now lock the suggestion, source, current
+   Project membership, Project state, and employee state in one serializable transaction before
+   protected content is decrypted or a minimal acknowledgment is returned.
+5. Manual Connected Context Project linking and employee-confirmed official Task creation now use
+   the Projects public transaction-aware membership/state lock. The weaker out-of-transaction link
+   precheck and Work Items' local unlocked Project authorization are no longer used for these paths.
+
+No migration, rating behavior, readiness behavior, ranking behavior, or protected product rule
+changed. The bounded final reviews have no remaining P0/P1 finding.
 
 ## Exact review routes
 
@@ -139,18 +165,17 @@ quality and provider behavior remain deployment-time concerns.
 
 ## Verification evidence
 
-All final checks used Node.js `24.18.0` and pnpm `11.13.0`:
+All final remediation checks used Node.js `24.18.0` and pnpm `11.13.0`:
 
-- Context Intelligence and web boundary unit suites: **7 files, 59 tests passed**.
-- Database-backed Context Intelligence/API/manual-path suites: **8 files, 46 tests passed**.
-- Context Intelligence AI evaluations: **1 file, 16 tests passed**.
-- Migration verification: empty database, previous snapshot, drift, and rebuild equivalence passed;
-  the embedded database regression run passed **5 files and 49 tests**.
-- Affected lint and typecheck task graph: **36/36 tasks passed**.
-- Slice 3 browser journeys: **4/4 passed**.
+- Full unit suite: **132 files, 903 tests passed**.
+- Full database-backed integration suite: **79 files passed, 2 intentionally skipped; 517 tests
+  passed, 13 intentionally skipped**.
+- Full AI evaluation suite: **6 files, 166 tests passed, 1 intentional skip**.
+- Full lint and typecheck task graphs: **22/22 tasks passed** in each graph.
+- Slice 3 browser journeys: **4/4 passed in 7.7 seconds**.
 - Context route registrar dry-run: exact three routes and versioned prompt/schema artifacts passed.
-- E2E fixture lint, changed-file format validation, and Git diff validation passed.
-- Secret scan: **981 files**; performance-input scan: **490 files**; AI boundary scan: **594 source
+- Repository formatting and task-graph validation passed.
+- Secret scan: **986 files**; performance-input scan: **494 files**; AI boundary scan: **598 source
   files** — all passed.
 
 Exact executed commands and results are also recorded in the Slice 3 Task 6 report.

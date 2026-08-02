@@ -20,7 +20,6 @@ type SourceProjectLinkRecord = Readonly<{
 }>;
 
 export interface ProjectLinkAuthorization {
-  canLink(employeeId: string, projectId: string, at: Date): Promise<boolean>;
   authorizeCurrentMemberInTransaction(
     transaction: Transaction,
     employeeId: string,
@@ -265,51 +264,54 @@ export class ConnectedWorkConnectionService {
     assertActive(command.actor);
     const account = await this.loadOwnedAccount(command.actor.userId, true);
     const current = validClock(this.clock());
-    if (
-      !(await this.projectAuthorization.canLink(command.actor.userId, command.projectId, current))
-    ) {
-      throw forbiddenError();
-    }
-
-    return this.database.$transaction(async (transaction) => {
-      const item = await loadOwnedSourceItem(
-        transaction,
-        account.id,
-        command.actor.userId,
-        command.sourceItemId,
-      );
-      const activeLink = await transaction.sourceProjectLink.findFirst({
-        where: { sourceItemId: item.id, unlinkedAt: null },
-      });
-      if (activeLink !== null) {
-        if (activeLink.projectId === command.projectId) return activeLink;
-        throw new AppError(
-          "CONNECTED_CONTEXT_LINK_CONFLICT",
-          "errors.connectedContext.linkConflict",
-          409,
+    return this.database.$transaction(
+      async (transaction) => {
+        const item = await loadOwnedSourceItem(
+          transaction,
+          account.id,
+          command.actor.userId,
+          command.sourceItemId,
         );
-      }
-      const link = await transaction.sourceProjectLink.create({
-        data: {
-          sourceItemId: item.id,
-          employeeId: command.actor.userId,
-          projectId: command.projectId,
-          origin: "EMPLOYEE_MANUAL",
-          linkedById: command.actor.userId,
-          linkedAt: current,
-        },
-      });
-      await this.appendAudit(transaction, {
-        eventType: "connected_work_context.project_linked",
-        actor: command.actor,
-        correlationId: command.correlationId,
-        targetType: "source_project_link",
-        targetId: link.id,
-        safeDiff: { linked: true },
-        reason: "Employee manually linked private context to a Project",
-      });
-      return link;
-    });
+        await this.authorizeDerivedProjectLink(
+          transaction,
+          command.actor.userId,
+          command.projectId,
+          current,
+        );
+        const activeLink = await transaction.sourceProjectLink.findFirst({
+          where: { sourceItemId: item.id, unlinkedAt: null },
+        });
+        if (activeLink !== null) {
+          if (activeLink.projectId === command.projectId) return activeLink;
+          throw new AppError(
+            "CONNECTED_CONTEXT_LINK_CONFLICT",
+            "errors.connectedContext.linkConflict",
+            409,
+          );
+        }
+        const link = await transaction.sourceProjectLink.create({
+          data: {
+            sourceItemId: item.id,
+            employeeId: command.actor.userId,
+            projectId: command.projectId,
+            origin: "EMPLOYEE_MANUAL",
+            linkedById: command.actor.userId,
+            linkedAt: current,
+          },
+        });
+        await this.appendAudit(transaction, {
+          eventType: "connected_work_context.project_linked",
+          actor: command.actor,
+          correlationId: command.correlationId,
+          targetType: "source_project_link",
+          targetId: link.id,
+          safeDiff: { linked: true },
+          reason: "Employee manually linked private context to a Project",
+        });
+        return link;
+      },
+      { isolationLevel: "Serializable" },
+    );
   }
 
   async confirmSuggestedProject(

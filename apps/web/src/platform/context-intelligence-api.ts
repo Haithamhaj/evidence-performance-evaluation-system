@@ -20,6 +20,15 @@ export async function listContextReviewQueue(): Promise<ContextReviewQueue> {
   );
 }
 
+export async function prepareContextReview(sourceItemId: string) {
+  return request(
+    "/api/daily-work/context/items/prepare",
+    "POST",
+    { sourceItemId },
+    z.object({}).strict(),
+  );
+}
+
 export async function confirmProjectSuggestion(input: {
   readonly handle: string;
   readonly reason: string;

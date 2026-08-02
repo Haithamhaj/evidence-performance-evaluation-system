@@ -90,6 +90,8 @@ describe("SourceReviewSheetView", () => {
     expect(markup).toContain("connectedContextBottomSheet");
     expect(markup).toContain("Unlink from Atlas Delivery");
     expect(markup).toContain("Link to Project");
+    expect(markup).toContain("Prepare smart review");
+    expect(markup).toContain("Nothing becomes shared work until you confirm it.");
     expect(markup).toContain("Hide this item from review");
     expect(markup).toContain("Exclude this Gmail label from future sync");
     expect(markup).not.toContain(item.id);

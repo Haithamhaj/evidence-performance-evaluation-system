@@ -514,7 +514,11 @@ describe("ProjectService", () => {
         { isolationLevel: "Serializable" },
       );
 
-    await expect(authorize()).resolves.toBeUndefined();
+    await expect(authorize()).resolves.toMatchObject({
+      id: project.id,
+      departmentId: fixture.departmentId,
+      status: "active",
+    });
     await client.projectMember.updateMany({
       where: { projectId: project.id, employeeId: fixture.memberId, endsAt: null },
       data: { endsAt: now },

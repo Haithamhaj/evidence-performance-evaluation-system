@@ -217,11 +217,13 @@ export class ProjectService {
       projectId: string;
       at: Date;
     }>,
-  ): Promise<void> {
+  ): Promise<Readonly<{ id: string; departmentId: string; status: string }>> {
     const current = validClock(input.at);
     if (!input.actor.active) throw authorizationError("INACTIVE");
-    const rows = await transaction.$queryRaw<Array<{ id: string }>>`
-      SELECT project.id
+    const rows = await transaction.$queryRaw<
+      Array<{ id: string; departmentId: string; status: string }>
+    >`
+      SELECT project.id, project."departmentId", project.status::text AS status
       FROM "Project" project
       JOIN "ProjectMember" membership
         ON membership."projectId" = project.id
@@ -235,6 +237,7 @@ export class ProjectService {
       FOR SHARE OF project, membership, employee
     `;
     if (rows[0] === undefined) throw authorizationError("SCOPE_MISMATCH");
+    return rows[0];
   }
 
   async getWorkspace(command: unknown): Promise<import("@evaluation/contracts").ProjectWorkspace> {

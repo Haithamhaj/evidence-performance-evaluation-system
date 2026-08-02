@@ -1,5 +1,6 @@
 import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
+import { createProjectService } from "@evaluation/projects";
 import {
   PrivateInboxQueryService,
   PrivateInboxService,
@@ -33,7 +34,12 @@ Module({
     {
       provide: WorkItemService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
-        new WorkItemService(client, databaseAuditWriter as never),
+        new WorkItemService(
+          client,
+          databaseAuditWriter as never,
+          () => new Date(),
+          createProjectService(client, databaseAuditWriter as never),
+        ),
       inject: [WORK_ITEMS_DATABASE],
     },
     {

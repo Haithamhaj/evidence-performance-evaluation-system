@@ -27,6 +27,34 @@ const draftRequestId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
+  it("prepares Context review through the bounded analysis and draft APIs", async () => {
+    const sourceItemId = "33333333-3333-4333-8333-333333333333";
+    mocks.fetchProtectedUpstream.mockResolvedValue({ ignoredPrivateResult: true });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/context/items/prepare", {
+        method: "POST",
+        body: JSON.stringify({ sourceItemId }),
+      }),
+      { params: Promise.resolve({ path: ["context", "items", "prepare"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(1, {
+      method: "POST",
+      path: `/api/v1/context/items/${sourceItemId}/analyze`,
+      body: {},
+      schema: expect.anything(),
+    });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(2, {
+      method: "POST",
+      path: "/api/v1/context/task-drafts",
+      body: { sourceItemId },
+      schema: expect.anything(),
+    });
+  });
+
   it("proxies only the bounded Context Intelligence review route without exposing a browser token", async () => {
     mocks.fetchProtectedUpstream
       .mockResolvedValueOnce({ items: [] })

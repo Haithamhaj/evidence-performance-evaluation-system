@@ -10,6 +10,7 @@ export * from "./file-inspection.js";
 export * from "./model.js";
 export * from "./progress-document-reader.js";
 export * from "./progress-contract-draft-source-reader.js";
+export * from "./project-semantic-context-reader.js";
 export * from "./s3-private-storage.js";
 export * from "./safe-source-extraction.js";
 export * from "./readiness-service.js";

@@ -10,6 +10,7 @@ import {
   unlinkContextProject,
   type ConnectedWorkContextItem,
 } from "../../../platform/connected-work-context-api";
+import { prepareContextReview } from "../../../platform/context-intelligence-api";
 import type { ProjectOption } from "./connected-context";
 
 type ViewProperties = Readonly<{
@@ -22,6 +23,7 @@ type ViewProperties = Readonly<{
   onClose?: () => void;
   onExclude?: () => void;
   onLink?: (projectId: string) => void;
+  onPrepare?: () => void;
   onSourceExclude?: () => void;
   onUnlink?: () => void;
 }>;
@@ -35,6 +37,7 @@ export function SourceReviewSheetView({
   onClose,
   onExclude,
   onLink,
+  onPrepare,
   onSourceExclude,
   onUnlink,
   projects,
@@ -65,6 +68,18 @@ export function SourceReviewSheetView({
             {catalog["connectedContext.recovery"]}
           </p>
         ) : null}
+        <section className="drawerSection">
+          <h3>{catalog["connectedContext.prepareReview"]}</h3>
+          <p>{catalog["connectedContext.prepareReviewHelp"]}</p>
+          <button
+            className="primaryAction"
+            disabled={busy || item.excluded}
+            onClick={onPrepare}
+            type="button"
+          >
+            {catalog["connectedContext.prepareReviewAction"]}
+          </button>
+        </section>
         <section className="drawerSection">
           <h3>{catalog["connectedContext.projectLink"]}</h3>
           <p>{catalog["connectedContext.projectControl"]}</p>
@@ -114,12 +129,14 @@ export function SourceReviewSheet({
   item,
   onChanged,
   onClose,
+  onPrepared,
   projects,
 }: Readonly<{
   catalog: Catalog;
   item: ConnectedWorkContextItem;
   onChanged: () => Promise<void>;
   onClose: () => void;
+  onPrepared?: () => void;
   projects: readonly ProjectOption[];
 }>) {
   const [busy, setBusy] = useState(false);
@@ -167,6 +184,12 @@ export function SourceReviewSheet({
       busy={busy}
       error={error}
       onClose={onClose}
+      onPrepare={() =>
+        void change(async () => {
+          await prepareContextReview(item.id);
+          onPrepared?.();
+        })
+      }
       onExclude={() =>
         void change(async () => {
           await setContextExclusion(item.id, !excluded);

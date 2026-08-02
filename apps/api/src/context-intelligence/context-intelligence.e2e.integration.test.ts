@@ -534,6 +534,58 @@ describe("Context Intelligence Task confirmation transaction", () => {
 });
 
 describe("Context Intelligence review queue transaction", () => {
+  it("selects only actionable current leaves before any protected content is opened", async () => {
+    const selected: Array<Record<string, unknown>> = [];
+    const transaction = {
+      projectLinkSuggestion: {
+        findMany: async (input: Record<string, unknown>) => {
+          selected.push(input);
+          return [];
+        },
+      },
+      taskDraft: {
+        findMany: async (input: Record<string, unknown>) => {
+          selected.push(input);
+          return [];
+        },
+      },
+    };
+    const database = {
+      $transaction: async (operation: (value: typeof transaction) => Promise<unknown>) =>
+        operation(transaction),
+    };
+    const service = new ContextIntelligenceApplicationService(
+      database as never,
+      {} as never,
+      {} as never,
+      {
+        seal: async (value: string) => ({ ciphertext: value, keyVersion: "test-key-v1" }),
+        open: async () => {
+          throw new Error("No terminal record may be decrypted");
+        },
+      },
+      { router: { run: async () => undefined } as never, systemId: crypto.randomUUID() },
+    );
+
+    await expect(
+      service.reviewQueue({ actor: { userId: ownerId, active: true } }),
+    ).resolves.toEqual({ items: [] });
+    expect(selected[0]).toMatchObject({
+      where: {
+        employeeId: ownerId,
+        reviewStatus: "PENDING",
+        supersedingSuggestion: null,
+      },
+    });
+    expect(selected[1]).toMatchObject({
+      where: {
+        employeeId: ownerId,
+        reviewStatus: { in: ["PENDING", "CORRECTED"] },
+        supersedingTaskDraft: null,
+      },
+    });
+  });
+
   it("does not decrypt or return a row whose source access is revoked after selection", async () => {
     let protectedOpenCount = 0;
     const transaction = {
@@ -575,6 +627,100 @@ describe("Context Intelligence review queue transaction", () => {
     await expect(
       service.reviewQueue({ actor: { userId: ownerId, active: true } }),
     ).resolves.toEqual({ items: [] });
+    expect(protectedOpenCount).toBe(0);
+  });
+});
+
+describe("Context Intelligence Project confirmation transaction", () => {
+  it("reauthorizes the source before decrypting or acknowledging an idempotent replay", async () => {
+    const reason = "I reviewed this Project link.";
+    const aiRunTrace = {
+      id: crypto.randomUUID(),
+      routeKey: "context.project-match.v1",
+      routeConfigId: crypto.randomUUID(),
+      routeConfigVersion: 1,
+    };
+    const original = {
+      id: suggestionId,
+      analysisId: crypto.randomUUID(),
+      sourceItemId,
+      employeeId: ownerId,
+      projectId,
+      decision: "AUTO_LINK" as const,
+      explanationCiphertext: "private explanation",
+      explanationKeyVersion: "test-key-v1",
+      anchors: [
+        {
+          kind: "EXPLICIT_USER_MAPPING",
+          reference: `source-project-link:${sourceItemId}`,
+          conflicts: false,
+        },
+      ],
+      revision: 1,
+      schemaVersion: "context-project-match-output.v1",
+      promptVersion: "context-project-match-prompt.v1",
+      aiRunTraceId: aiRunTrace.id,
+      sourceReferences: [`connected-source:${sourceItemId}`],
+      reviewStatus: "PENDING" as const,
+      revisionOrigin: "AI" as const,
+      correctionReasonCiphertext: null,
+      correctionReasonKeyVersion: null,
+      supersedesSuggestionId: null,
+      createdById: ownerId,
+      createdAt: new Date("2026-08-02T12:00:00.000Z"),
+      aiRunTrace,
+    };
+    const confirmed = {
+      ...original,
+      id: crypto.randomUUID(),
+      revision: 2,
+      reviewStatus: "CONFIRMED" as const,
+      revisionOrigin: "EMPLOYEE" as const,
+      correctionReasonCiphertext: reason,
+      correctionReasonKeyVersion: "test-key-v1",
+      supersedesSuggestionId: original.id,
+      createdAt: new Date("2026-08-02T12:01:00.000Z"),
+    };
+    const stored = { ...original, supersedingSuggestion: confirmed };
+    const transaction = {
+      $queryRaw: async () => [],
+      projectLinkSuggestion: { findUnique: async () => stored },
+    };
+    const database = {
+      projectLinkSuggestion: { findUnique: async () => stored },
+      $transaction: async (operation: (value: typeof transaction) => Promise<unknown>) =>
+        operation(transaction),
+    };
+    let protectedOpenCount = 0;
+    const protector = {
+      seal: async (value: string) => ({ ciphertext: value, keyVersion: "test-key-v1" }),
+      open: async ({ ciphertext }: { ciphertext: string }) => {
+        protectedOpenCount += 1;
+        return ciphertext;
+      },
+    };
+    const context = {
+      assertAccessibleInTransaction: async () => {
+        throw new AppError("CONNECTED_CONTEXT_FORBIDDEN", "errors.connectedContext.forbidden", 403);
+      },
+    };
+    const service = new ContextIntelligenceApplicationService(
+      database as never,
+      context as never,
+      {} as never,
+      protector,
+      { router: { run: async () => undefined } as never, systemId: crypto.randomUUID() },
+    );
+
+    await expect(
+      service.confirmProjectSuggestion({
+        actor: { userId: ownerId, active: true },
+        suggestionId,
+        expectedRevision: 1,
+        reason,
+        correlationId: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_FORBIDDEN" });
     expect(protectedOpenCount).toBe(0);
   });
 });
@@ -653,7 +799,7 @@ function confirmationHarness(
     };
   };
   const transaction = {
-    $queryRaw: async () => [],
+    $queryRaw: async () => [{ id: projectId, departmentId: crypto.randomUUID(), status: "active" }],
     project: {
       findUnique: async () => ({
         id: projectId,

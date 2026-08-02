@@ -127,24 +127,13 @@ Module({
           credentialVault,
           auditWriter: databaseAuditWriter as never,
           projectAuthorization: {
-            canLink: async (employeeId, projectId) => {
-              try {
-                await projects.getProject({
-                  actor: { userId: employeeId, active: true },
-                  projectId,
-                });
-                return true;
-              } catch (error) {
-                if (error instanceof AppError && error.status === 403) return false;
-                throw error;
-              }
-            },
-            authorizeCurrentMemberInTransaction: (transaction, employeeId, projectId, at) =>
-              projects.authorizeCurrentMemberInTransaction(transaction, {
+            authorizeCurrentMemberInTransaction: async (transaction, employeeId, projectId, at) => {
+              await projects.authorizeCurrentMemberInTransaction(transaction, {
                 actor: { userId: employeeId, active: true },
                 projectId,
                 at,
-              }),
+              });
+            },
           },
         });
       },

@@ -29,6 +29,7 @@ export function MyWorkClient({
   updateContext,
 }: Properties) {
   const [selectedId, setSelectedId] = useState(initialSelectedId);
+  const [contextReviewRevision, setContextReviewRevision] = useState(0);
   const allItems = [
     ...response.needsMyAction,
     ...response.today,
@@ -74,7 +75,7 @@ export function MyWorkClient({
         onSelect: select,
       })}
 
-      {createElement(SmartReviewQueue, { catalog, locale })}
+      {createElement(SmartReviewQueue, { catalog, key: contextReviewRevision, locale })}
 
       {createElement(DailyBrief, {
         catalog,
@@ -91,7 +92,11 @@ export function MyWorkClient({
         locale,
       })}
 
-      {createElement(ConnectedContext, { catalog, projects })}
+      {createElement(ConnectedContext, {
+        catalog,
+        projects,
+        onReviewPrepared: () => setContextReviewRevision((revision) => revision + 1),
+      })}
 
       {createElement(PrivateInbox, {
         catalog,

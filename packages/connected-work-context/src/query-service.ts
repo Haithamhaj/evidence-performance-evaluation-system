@@ -145,6 +145,59 @@ export class ConnectedWorkContextQueryService {
     await assertAccessibleConnectedSource(transaction, command);
   }
 
+  async readProjectAnchorFacts(command: Readonly<{ actor: Actor; sourceItemId: string }>): Promise<
+    Readonly<{
+      links: readonly Readonly<{
+        id: string;
+        projectId: string;
+        linkedAt: Date;
+        unlinkedAt: Date | null;
+      }>[];
+      corrections: readonly Readonly<{
+        id: string;
+        action: "CORRECT" | "REJECT";
+        previousProjectId: string | null;
+        correctedProjectId: string | null;
+        createdAt: Date;
+      }>[];
+    }>
+  > {
+    assertActive(command.actor);
+    return this.database.$transaction(async (transaction) => {
+      await assertAccessibleConnectedSource(transaction, command);
+      const [links, corrections] = await Promise.all([
+        transaction.sourceProjectLink.findMany({
+          where: {
+            sourceItemId: command.sourceItemId,
+            employeeId: command.actor.userId,
+          },
+          select: {
+            id: true,
+            projectId: true,
+            linkedAt: true,
+            unlinkedAt: true,
+          },
+          orderBy: [{ linkedAt: "desc" }, { id: "desc" }],
+        }),
+        transaction.sourceLinkCorrection.findMany({
+          where: {
+            sourceItemId: command.sourceItemId,
+            employeeId: command.actor.userId,
+          },
+          select: {
+            id: true,
+            action: true,
+            previousProjectId: true,
+            correctedProjectId: true,
+            createdAt: true,
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        }),
+      ]);
+      return { links, corrections };
+    });
+  }
+
   private async serialize(row: {
     id: string;
     employeeId: string;

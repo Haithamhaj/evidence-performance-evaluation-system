@@ -78,6 +78,19 @@ describe("private connected-context queries", () => {
         }),
       ),
     ).resolves.toBeUndefined();
+    const facts = new ConnectedWorkContextQueryService(client, protector);
+    await expect(
+      facts.readProjectAnchorFacts({
+        actor: { userId: users.ownerId, active: true },
+        sourceItemId: item.id,
+      }),
+    ).resolves.toEqual({ links: [], corrections: [] });
+    await expect(
+      facts.readProjectAnchorFacts({
+        actor: { userId: users.otherEmployeeId, active: true },
+        sourceItemId: item.id,
+      }),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_FORBIDDEN" });
     await client.connectedSourceItem.update({ where: { id: item.id }, data: { excluded: true } });
     await expect(
       client.$transaction((transaction) =>
@@ -209,7 +222,6 @@ describe("private connected-context queries", () => {
         append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }),
       },
       projectAuthorization: {
-        canLink: async () => false,
         authorizeCurrentMemberInTransaction: async () => undefined,
       },
       clock: () => now,

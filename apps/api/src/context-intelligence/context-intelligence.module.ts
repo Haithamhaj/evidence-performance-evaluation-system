@@ -23,11 +23,15 @@ import {
   ContextAnalysisService,
   ContextProjectMatchAiOutputSchema,
   ContextSummaryAiOutputSchema,
+  decideProjectLink,
+  ProjectAnchorReader,
   ProjectLinkSuggestionService,
+  ProjectSemanticContextReader,
   TASK_DRAFT_ROUTE,
   TaskDraftService,
 } from "@evaluation/context-intelligence";
 import { createDatabaseClient } from "@evaluation/database";
+import { DocumentProjectSemanticContextReader } from "@evaluation/documents";
 import { createProjectService } from "@evaluation/projects";
 import { WorkItemService } from "@evaluation/work-items";
 import { Module } from "@nestjs/common";
@@ -40,6 +44,7 @@ import {
   CONNECTED_WORK_PROTECTOR,
   ConnectedWorkContextModule,
 } from "../connected-work-context/connected-work-context.module.js";
+import { DocumentsModule } from "../documents/documents.module.js";
 import {
   CONTEXT_INTELLIGENCE_WORKFLOW,
   ContextAnalysisController,
@@ -53,11 +58,11 @@ import { TaskDraftsController } from "./task-drafts.controller.js";
 const CONTEXT_INTELLIGENCE_DATABASE = Symbol("CONTEXT_INTELLIGENCE_DATABASE");
 const CONTEXT_INTELLIGENCE_DATABASE_LIFECYCLE = Symbol("CONTEXT_INTELLIGENCE_DATABASE_LIFECYCLE");
 const CONTEXT_INTELLIGENCE_RUNTIME = Symbol("CONTEXT_INTELLIGENCE_RUNTIME");
+const CONTEXT_INTELLIGENCE_SEMANTIC_READER = Symbol("CONTEXT_INTELLIGENCE_SEMANTIC_READER");
 
 type Database = ReturnType<typeof createDatabaseClient>;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
 type Protector = import("@evaluation/connected-work-context").PrivateContextProtector;
-type AnalyzeCommand = import("@evaluation/context-intelligence").AnalyzeContextCommand;
 type AnalysisPersistence = import("@evaluation/context-intelligence").ContextAnalysisPersistence;
 type SuggestionPersistence =
   import("@evaluation/context-intelligence").ProjectLinkSuggestionPersistence;
@@ -73,6 +78,151 @@ type Runtime = Readonly<{
   systemId: string;
 }>;
 
+type ProjectService = ReturnType<typeof createProjectService>;
+type SemanticReader = ProjectSemanticContextReader;
+
+export class ContextIntelligenceProjectAnchorAdapter {
+  private readonly context: ConnectedWorkContextQueryService;
+  private readonly projects: ProjectService;
+  private readonly semantics: SemanticReader;
+
+  constructor(
+    context: ConnectedWorkContextQueryService,
+    projects: ProjectService,
+    semantics: SemanticReader,
+  ) {
+    this.context = context;
+    this.projects = projects;
+    this.semantics = semantics;
+  }
+
+  async readProjectAnchors(input: Readonly<{ employeeId: string; sourceItemId: string }>) {
+    const actor = { userId: input.employeeId, active: true } as const;
+    const [source, facts, projects] = await Promise.all([
+      this.context.get({ actor, sourceItemId: input.sourceItemId }),
+      this.context.readProjectAnchorFacts({ actor, sourceItemId: input.sourceItemId }),
+      this.projects.listProjects({ actor }),
+    ]);
+    const sourceText = `${source.title}\n${source.summary ?? ""}`;
+    const effectiveFrom = validDate(source.occurredAt);
+    const records: import("@evaluation/context-intelligence").GovernedProjectAnchor[] = [];
+
+    for (const link of facts.links) {
+      records.push({
+        projectId: link.projectId,
+        kind: "EXPLICIT_USER_MAPPING",
+        reference: `source-project-link:${link.id}`,
+        conflicts: false,
+        effectiveFrom: link.linkedAt,
+        effectiveUntil: link.unlinkedAt,
+      });
+    }
+    for (const correction of facts.corrections) {
+      if (correction.action === "CORRECT" && correction.correctedProjectId !== null) {
+        records.push({
+          projectId: correction.correctedProjectId,
+          kind: "PRIOR_EMPLOYEE_CORRECTION",
+          reference: `source-link-correction:${correction.id}`,
+          conflicts: false,
+          effectiveFrom: correction.createdAt,
+          effectiveUntil: null,
+        });
+      }
+      if (correction.action === "REJECT" && correction.previousProjectId !== null) {
+        records.push({
+          projectId: correction.previousProjectId,
+          kind: "PRIOR_EMPLOYEE_CORRECTION",
+          reference: `source-link-correction:${correction.id}`,
+          conflicts: true,
+          effectiveFrom: correction.createdAt,
+          effectiveUntil: null,
+        });
+      }
+    }
+
+    const semanticContexts = await Promise.all(
+      projects.map(async (project) => ({
+        project,
+        semantic: await this.semantics.read({ actor, projectId: project.id }),
+      })),
+    );
+    for (const { project, semantic } of semanticContexts) {
+      const explicitTerms = [project.name, ...(semantic?.terminology ?? [])];
+      if (explicitTerms.some((term) => containsPhrase(sourceText, term))) {
+        records.push({
+          projectId: project.id,
+          kind: "EXPLICIT_PROJECT_REFERENCE",
+          reference: `explicit-project-reference:${source.id}`,
+          conflicts: false,
+          effectiveFrom,
+          effectiveUntil: null,
+        });
+      }
+      if (source.provider === "GOOGLE_CALENDAR" && semantic !== null) {
+        const calendarTerms = [
+          ...semantic.milestones,
+          ...semantic.deliverables,
+          ...semantic.stakeholders,
+          ...semantic.outcomes,
+        ];
+        if (calendarTerms.some((term) => containsPhrase(sourceText, term))) {
+          records.push({
+            projectId: project.id,
+            kind: "CALENDAR_CONTEXT",
+            reference: `calendar-context:${source.id}`,
+            conflicts: false,
+            effectiveFrom,
+            effectiveUntil: null,
+          });
+        }
+      }
+      if (source.provider === "GOOGLE_GMAIL" && semantic !== null) {
+        const sourceDomains = emailDomains(sourceText);
+        const approvedDomains = new Set(emailDomains(semantic.stakeholders.join("\n")));
+        if ([...sourceDomains].some((domain) => approvedDomains.has(domain))) {
+          records.push({
+            projectId: project.id,
+            kind: "CONFIRMED_SENDER_DOMAIN",
+            reference: `sender-domain:${source.id}`,
+            conflicts: false,
+            effectiveFrom,
+            effectiveUntil: null,
+          });
+        }
+      }
+    }
+    return records.slice(0, 100);
+  }
+}
+
+function containsPhrase(text: string, phrase: string): boolean {
+  const normalizedPhrase = normalizeMatchText(phrase);
+  return normalizedPhrase.length >= 4 && normalizeMatchText(text).includes(normalizedPhrase);
+}
+
+function normalizeMatchText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase("en")
+    .replace(/[^\p{L}\p{N}@.]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function emailDomains(value: string): Set<string> {
+  return new Set(
+    [...value.matchAll(/\b[A-Z0-9._%+-]+@([A-Z0-9.-]+\.[A-Z]{2,})\b/giu)].map((match) =>
+      match[1]!.toLocaleLowerCase("en"),
+    ),
+  );
+}
+
+function validDate(value: string): Date {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error("Connected source occurrence time is invalid");
+  return date;
+}
+
 export class ContextIntelligenceApplicationService {
   private readonly analyses: ContextAnalysisService;
   private readonly suggestions: ProjectLinkSuggestionService;
@@ -82,6 +232,8 @@ export class ContextIntelligenceApplicationService {
   private readonly analysisPersistence: PrismaContextAnalysisPersistence;
   private readonly suggestionPersistence: PrismaProjectSuggestionPersistence;
   private readonly taskDraftPersistence: PrismaTaskDraftPersistence;
+  private readonly projectAnchors: ProjectAnchorReader;
+  private readonly projectSemantics: ProjectSemanticContextReader;
 
   private readonly database: Database;
   private readonly context: ConnectedWorkContextQueryService;
@@ -95,6 +247,7 @@ export class ContextIntelligenceApplicationService {
     connections: ConnectedWorkConnectionService,
     protector: Protector,
     runtime: Runtime,
+    semanticReader?: ProjectSemanticContextReader,
   ) {
     this.database = database;
     this.context = context;
@@ -102,7 +255,27 @@ export class ContextIntelligenceApplicationService {
     this.protector = protector;
     this.runtime = runtime;
     this.projectService = createProjectService(database, databaseAuditWriter as never);
-    this.workItems = new WorkItemService(database, databaseAuditWriter as never);
+    this.projectSemantics =
+      semanticReader ??
+      new ProjectSemanticContextReader({
+        readApprovedProjectSemanticContext: async () => null,
+      });
+    this.projectAnchors = new ProjectAnchorReader(
+      new ContextIntelligenceProjectAnchorAdapter(
+        context,
+        this.projectService,
+        this.projectSemantics,
+      ),
+      {
+        canAccessProject: (employeeId, projectId) => this.canAccessProject(employeeId, projectId),
+      },
+    );
+    this.workItems = new WorkItemService(
+      database,
+      databaseAuditWriter as never,
+      () => new Date(),
+      this.projectService,
+    );
     this.analysisPersistence = new PrismaContextAnalysisPersistence(database, protector);
     this.suggestionPersistence = new PrismaProjectSuggestionPersistence(
       database,
@@ -160,32 +333,27 @@ export class ContextIntelligenceApplicationService {
 
   async analyze(input: { actor: Actor; sourceItemId: string; correlationId: string }) {
     const prepared = await this.prepareSource(input.actor, input.sourceItemId);
-    const projects = await this.projectService.listProjects({ actor: input.actor });
+    const [projects, candidates] = await Promise.all([
+      this.projectService.listProjects({ actor: input.actor }),
+      this.projectAnchors.read({
+        employeeId: input.actor.userId,
+        sourceItemId: input.sourceItemId,
+        at: new Date(),
+      }),
+    ]);
+    const decision = decideProjectLink(candidates);
+    const decisionProjectId =
+      decision.kind === "AUTO_LINK"
+        ? decision.projectId
+        : decision.kind === "REVIEW"
+          ? decision.candidates.find(({ accessible }) => accessible)?.projectId
+          : undefined;
     const scopeProject =
-      prepared.linkedProjectId === null
-        ? projects[0]
-        : projects.find(({ id }) => id === prepared.linkedProjectId);
+      projects.find(({ id }) => id === (prepared.linkedProjectId ?? decisionProjectId)) ??
+      projects[0];
     if (scopeProject === undefined) throw forbidden();
     const sourceReference = connectedSourceReference(input.sourceItemId);
-    const candidates: AnalyzeCommand["candidates"] =
-      prepared.linkedProjectId === null
-        ? []
-        : [
-            {
-              projectId: prepared.linkedProjectId,
-              accessible: true,
-              anchors: [
-                {
-                  anchor: {
-                    kind: "EXPLICIT_USER_MAPPING",
-                    reference: `source-project-link:${input.sourceItemId}`,
-                    conflicts: false,
-                  },
-                  current: true,
-                },
-              ],
-            },
-          ];
+    const semanticContexts = await this.semanticContextsForDecision(input.actor, decision);
     return this.analyses.analyze({
       actor: input.actor,
       sourceItemId: input.sourceItemId,
@@ -205,7 +373,7 @@ export class ContextIntelligenceApplicationService {
         },
       ],
       candidates,
-      semanticContexts: [],
+      semanticContexts,
     });
   }
 
@@ -217,6 +385,7 @@ export class ContextIntelligenceApplicationService {
           transaction.projectLinkSuggestion.findMany({
             where: {
               employeeId: input.actor.userId,
+              reviewStatus: "PENDING",
               supersedingSuggestion: null,
             },
             include: { aiRunTrace: true },
@@ -225,6 +394,7 @@ export class ContextIntelligenceApplicationService {
           transaction.taskDraft.findMany({
             where: {
               employeeId: input.actor.userId,
+              reviewStatus: { in: ["PENDING", "CORRECTED"] },
               supersedingTaskDraft: null,
             },
             include: { aiRunTrace: true },
@@ -260,54 +430,57 @@ export class ContextIntelligenceApplicationService {
     correlationId: string;
   }) {
     assertActive(input.actor);
-    const current = await this.loadCurrentSuggestion(input.actor, input.suggestionId);
-    if (current.replay !== null) {
-      if (current.replay.correctionReason !== input.reason) throw idempotencyConflict();
-      return current.replay;
-    }
-    if (current.suggestion.revision !== input.expectedRevision) throw versionConflict();
-    if (current.suggestion.projectId === null) throw confirmationRequired();
-    await this.requireSource(input.actor, current.suggestion.sourceItemId);
-    if (!(await this.canAccessProject(input.actor.userId, current.suggestion.projectId))) {
-      throw forbidden();
-    }
-    const id = stableUuid("project-suggestion-confirmation", current.suggestion.id);
-    const createdAt = new Date();
-    const confirmed = ProjectLinkSuggestionSchema.parse({
-      ...current.suggestion,
-      id,
-      revision: current.suggestion.revision + 1,
-      reviewStatus: "CONFIRMED",
-      revisionOrigin: "EMPLOYEE",
-      correctionReason: input.reason,
-      supersedesSuggestionId: current.suggestion.id,
-      createdAt: createdAt.toISOString(),
-    });
-    const [sealedExplanation, sealedReason] = await Promise.all([
-      this.protector.seal(current.suggestion.explanation),
-      this.protector.seal(input.reason),
-    ]);
     return this.database.$transaction(
       async (transaction) => {
-        await lockSuggestion(transaction, current.suggestion.id);
-        const existing = await transaction.projectLinkSuggestion.findUnique({
-          where: { supersedesSuggestionId: current.suggestion.id },
-          include: { aiRunTrace: true },
+        await lockSuggestion(transaction, input.suggestionId);
+        const row = await transaction.projectLinkSuggestion.findUnique({
+          where: { id: input.suggestionId },
+          include: {
+            aiRunTrace: true,
+            supersedingSuggestion: { include: { aiRunTrace: true } },
+          },
         });
-        if (existing !== null) {
-          const replay = await this.suggestionPersistence.materialize(existing);
-          if (replay.reviewStatus !== "CONFIRMED" || replay.correctionReason !== input.reason) {
-            throw idempotencyConflict();
-          }
-          return replay;
-        }
+        if (row === null || row.employeeId !== input.actor.userId) throw forbidden();
         await this.context.assertAccessibleInTransaction(transaction, {
           actor: input.actor,
-          sourceItemId: current.suggestion.sourceItemId,
+          sourceItemId: row.sourceItemId,
         });
-        const row = await transaction.projectLinkSuggestion.create({
+        if (row.projectId === null) throw confirmationRequired();
+        await this.projectService.authorizeCurrentMemberInTransaction(transaction, {
+          actor: input.actor,
+          projectId: row.projectId,
+          at: new Date(),
+        });
+        if (row.supersedingSuggestion !== null) {
+          if (row.supersedingSuggestion.reviewStatus !== "CONFIRMED") throw versionConflict();
+          const replayReason = await openNullable(
+            this.protector,
+            row.supersedingSuggestion.correctionReasonCiphertext,
+            row.supersedingSuggestion.correctionReasonKeyVersion,
+          );
+          if (replayReason !== input.reason) throw idempotencyConflict();
+          return { acknowledged: true } as const;
+        }
+        if (row.revision !== input.expectedRevision || row.reviewStatus !== "PENDING") {
+          throw versionConflict();
+        }
+        const current = await this.suggestionPersistence.materialize(row);
+        const confirmed = ProjectLinkSuggestionSchema.parse({
+          ...current,
+          id: stableUuid("project-suggestion-confirmation", current.id),
+          revision: current.revision + 1,
+          reviewStatus: "CONFIRMED",
+          revisionOrigin: "EMPLOYEE",
+          correctionReason: input.reason,
+          supersedesSuggestionId: current.id,
+          createdAt: new Date().toISOString(),
+        });
+        const [sealedExplanation, sealedReason] = await Promise.all([
+          this.protector.seal(current.explanation),
+          this.protector.seal(input.reason),
+        ]);
+        await transaction.projectLinkSuggestion.create({
           data: suggestionData(confirmed, sealedExplanation, sealedReason),
-          include: { aiRunTrace: true },
         });
         await this.connections.confirmSuggestedProject(transaction, {
           actor: input.actor,
@@ -329,7 +502,7 @@ export class ContextIntelligenceApplicationService {
           correlationId: input.correlationId,
           source: "api",
         });
-        return this.suggestionPersistence.materialize(row);
+        return { acknowledged: true } as const;
       },
       { isolationLevel: "Serializable" },
     );
@@ -386,16 +559,17 @@ export class ContextIntelligenceApplicationService {
       orderBy: [{ revision: "desc" }, { id: "desc" }],
     });
     if (analysisRow === null || suggestionRow === null) throw analysisRequired();
-    const [analysis, suggestion, projects] = await Promise.all([
+    const [analysis, suggestion, projects, candidates] = await Promise.all([
       this.analysisPersistence.materialize(analysisRow),
       this.suggestionPersistence.materialize(suggestionRow),
       this.projectService.listProjects({ actor: input.actor }),
+      this.projectAnchors.read({
+        employeeId: input.actor.userId,
+        sourceItemId: input.sourceItemId,
+        at: new Date(),
+      }),
     ]);
-    const scopeProject =
-      suggestion.projectId === null
-        ? projects[0]
-        : projects.find(({ id }) => id === suggestion.projectId);
-    if (scopeProject === undefined) throw forbidden();
+    const currentDecision = decideProjectLink(candidates);
     const decision: import("@evaluation/context-intelligence").LinkDecision =
       suggestion.decision === "AUTO_LINK" && suggestion.projectId !== null
         ? {
@@ -403,7 +577,25 @@ export class ContextIntelligenceApplicationService {
             projectId: suggestion.projectId,
             anchors: suggestion.anchors,
           }
-        : { kind: "REVIEW", candidates: [], reasons: ["EMPLOYEE_REVIEW_REQUIRED"] };
+        : suggestion.decision === "NO_MATCH"
+          ? { kind: "NO_MATCH", reasons: ["EMPLOYEE_REJECTED_PROJECT_LINK"] }
+          : currentDecision.kind === "REVIEW"
+            ? currentDecision
+            : {
+                kind: "REVIEW",
+                candidates,
+                reasons: ["EMPLOYEE_REVIEW_REQUIRED"],
+              };
+    const decisionProjectId =
+      decision.kind === "AUTO_LINK"
+        ? decision.projectId
+        : decision.kind === "REVIEW"
+          ? decision.candidates.find(({ accessible }) => accessible)?.projectId
+          : undefined;
+    const scopeProject =
+      projects.find(({ id }) => id === (suggestion.projectId ?? decisionProjectId)) ?? projects[0];
+    if (scopeProject === undefined) throw forbidden();
+    const semanticContexts = await this.semanticContextsForDecision(input.actor, decision);
     const record = await this.drafts.prepare({
       actor: input.actor,
       sourceItemId: input.sourceItemId,
@@ -412,7 +604,7 @@ export class ContextIntelligenceApplicationService {
       correlationId: input.correlationId,
       sources: [sourceInput(prepared.item)],
       decision,
-      semanticContexts: [],
+      semanticContexts,
       analysis: {
         summary: analysis.summary,
         uncertainties: analysis.uncertainties,
@@ -565,6 +757,24 @@ export class ContextIntelligenceApplicationService {
       if (error instanceof AppError && error.status === 403) return false;
       throw error;
     }
+  }
+
+  private async semanticContextsForDecision(
+    actor: Actor,
+    decision: import("@evaluation/context-intelligence").LinkDecision,
+  ) {
+    const projectIds =
+      decision.kind === "AUTO_LINK"
+        ? [decision.projectId]
+        : decision.kind === "REVIEW"
+          ? decision.candidates
+              .filter(({ accessible }) => accessible)
+              .map(({ projectId }) => projectId)
+          : [];
+    const contexts = await Promise.all(
+      [...new Set(projectIds)].map((projectId) => this.projectSemantics.read({ actor, projectId })),
+    );
+    return contexts.filter((context): context is NonNullable<typeof context> => context !== null);
   }
 
   private async loadCurrentSuggestion(actor: Actor, suggestionId: string) {
@@ -1222,7 +1432,7 @@ type TaskDraftRow = Readonly<{
 export class ContextIntelligenceModule {}
 
 Module({
-  imports: [AuthModule, ConnectedWorkContextModule],
+  imports: [AuthModule, ConnectedWorkContextModule, DocumentsModule],
   controllers: [ContextAnalysisController, TaskDraftsController],
   providers: [
     {
@@ -1241,6 +1451,12 @@ Module({
     {
       provide: CONTEXT_INTELLIGENCE_POLICY_DATABASE,
       useExisting: CONTEXT_INTELLIGENCE_DATABASE,
+    },
+    {
+      provide: CONTEXT_INTELLIGENCE_SEMANTIC_READER,
+      useFactory: (documents: DocumentProjectSemanticContextReader) =>
+        new ProjectSemanticContextReader(documents),
+      inject: [DocumentProjectSemanticContextReader],
     },
     {
       provide: CONTEXT_INTELLIGENCE_RUNTIME,
@@ -1263,6 +1479,7 @@ Module({
         connections: ConnectedWorkConnectionService,
         protector: Protector,
         runtime: Runtime,
+        semanticReader: ProjectSemanticContextReader,
       ) =>
         new ContextIntelligenceApplicationService(
           database,
@@ -1270,6 +1487,7 @@ Module({
           connections,
           protector,
           runtime,
+          semanticReader,
         ),
       inject: [
         CONTEXT_INTELLIGENCE_DATABASE,
@@ -1277,6 +1495,7 @@ Module({
         ConnectedWorkConnectionService,
         CONNECTED_WORK_PROTECTOR,
         CONTEXT_INTELLIGENCE_RUNTIME,
+        CONTEXT_INTELLIGENCE_SEMANTIC_READER,
       ],
     },
     ContextIntelligencePolicyGuard,

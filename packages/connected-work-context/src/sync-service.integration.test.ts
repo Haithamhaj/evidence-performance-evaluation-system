@@ -85,7 +85,6 @@ describe("connected work synchronization", () => {
       credentialVault: vault,
       auditWriter: databaseAuditWriter,
       projectAuthorization: {
-        canLink: async () => false,
         authorizeCurrentMemberInTransaction: async () => undefined,
       },
       clock: () => now,
@@ -132,10 +131,9 @@ describe("connected work synchronization", () => {
       credentialVault: vault,
       auditWriter: databaseAuditWriter,
       projectAuthorization: {
-        canLink: async () => false,
         authorizeCurrentMemberInTransaction: async () => undefined,
       },
-      clock: () => new Date("2026-07-28T09:00:00.000Z"),
+      clock: () => new Date(Date.now() + 1_000),
     });
     const actor = { userId: graph.employeeId, active: true };
     await connection.setSourceExclusion({

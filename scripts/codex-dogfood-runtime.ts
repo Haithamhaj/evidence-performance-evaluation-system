@@ -208,7 +208,12 @@ async function localServices(databaseUrl: string) {
   const storage = new S3PrivateStorage(s3, config.storage.bucket);
   const projects = createProjectService(client, databaseAuditWriter as never);
   const workstreams = createWorkstreamService(client, databaseAuditWriter as never);
-  const workItems = new WorkItemService(client, databaseAuditWriter as never);
+  const workItems = new WorkItemService(
+    client,
+    databaseAuditWriter as never,
+    () => new Date(),
+    projects,
+  );
   const privateInbox = new PrivateInboxService(client, databaseAuditWriter as never);
   const templates = new TemplateService(client, databaseAuditWriter as never);
   const uploads = new UploadService(
