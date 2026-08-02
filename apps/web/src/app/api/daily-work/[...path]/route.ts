@@ -38,6 +38,16 @@ import {
   WebPrivateInboxItemSchema,
   WebWorkItemSchema,
 } from "../../../../platform/task-workspace-contracts";
+import {
+  ContextConfirmTaskInputSchema,
+  ContextConfirmTaskResultSchema,
+  ContextPrepareTaskInputSchema,
+  ContextProjectSuggestionSchema,
+  ContextReviewQueueSchema,
+  ContextSuggestionCorrectionInputSchema,
+  ContextSuggestionInputSchema,
+  ContextTaskDraftSchema,
+} from "../../../../platform/context-intelligence-contracts";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -85,6 +95,15 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
         await fetchProtectedUpstream({
           path: `/api/v1/timeline?${params.toString()}`,
           schema: TimelineResponseSchema,
+        }),
+      );
+    }
+    if (path.length === 2 && path[0] === "context" && path[1] === "review-queue") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/context/review-queue",
+          schema: ContextReviewQueueSchema,
         }),
       );
     }
@@ -143,6 +162,43 @@ export async function POST(request: Request, context: Context): Promise<NextResp
   let body: unknown;
   try {
     body = await request.json();
+    if (path.length === 2 && path[0] === "context" && path[1] === "task-drafts") {
+      return await post(
+        "/api/v1/context/task-drafts",
+        ContextPrepareTaskInputSchema.parse(body),
+        ContextTaskDraftSchema.extend({ kind: z.literal("TASK_DRAFT") }).strict(),
+      );
+    }
+    if (
+      path.length === 4 &&
+      path[0] === "context" &&
+      path[1] === "project-suggestions" &&
+      isUuid(path[2]) &&
+      ["confirm", "correct"].includes(path[3]!)
+    ) {
+      const schema =
+        path[3] === "confirm"
+          ? ContextSuggestionInputSchema
+          : ContextSuggestionCorrectionInputSchema;
+      return await post(
+        `/api/v1/context/project-suggestions/${path[2]}/${path[3]}`,
+        schema.parse(body),
+        ContextProjectSuggestionSchema,
+      );
+    }
+    if (
+      path.length === 4 &&
+      path[0] === "context" &&
+      path[1] === "task-drafts" &&
+      isUuid(path[2]) &&
+      path[3] === "confirm"
+    ) {
+      return await post(
+        `/api/v1/context/task-drafts/${path[2]}/confirm`,
+        ContextConfirmTaskInputSchema.parse(body),
+        ContextConfirmTaskResultSchema,
+      );
+    }
   } catch {
     return invalid();
   }

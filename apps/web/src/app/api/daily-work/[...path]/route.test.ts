@@ -20,6 +20,44 @@ const draftRequestId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
+  it("proxies only the bounded Context Intelligence review route without exposing a browser token", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({ items: [] });
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/context/review-queue"),
+      { params: Promise.resolve({ path: ["context", "review-queue"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/context/review-queue",
+      schema: expect.anything(),
+    });
+  });
+
+  it("forwards a strictly scoped Task-draft request without caller-controlled identity", async () => {
+    const sourceItemId = "22222222-2222-4222-8222-222222222222";
+    mocks.fetchProtectedUpstream.mockResolvedValue({});
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/context/task-drafts", {
+        method: "POST",
+        body: JSON.stringify({ sourceItemId }),
+      }),
+      { params: Promise.resolve({ path: ["context", "task-drafts"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/api/v1/context/task-drafts",
+        body: { sourceItemId },
+      }),
+    );
+  });
+
   it("rejects direct official Task creation without one responsible assignee", async () => {
     const baseBody = {
       title: "Prepare launch evidence",

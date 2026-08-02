@@ -10,6 +10,7 @@ import { ConnectedContext } from "./connected-context";
 import { PrivateInbox } from "./private-inbox";
 import { ProjectPulse } from "./project-pulse";
 import { ReviewQueue } from "./review-queue";
+import { SmartReviewQueue } from "./smart-review-queue";
 import { WorkItemDrawer } from "./work-item-drawer";
 
 type Properties = Readonly<{
@@ -72,6 +73,8 @@ export function MyWorkClient({
         items: response.reviewQueue,
         onSelect: select,
       })}
+
+      {createElement(SmartReviewQueue, { catalog, locale, projects })}
 
       {createElement(DailyBrief, {
         catalog,
