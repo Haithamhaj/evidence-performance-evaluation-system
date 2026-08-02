@@ -190,3 +190,220 @@ creation only after that confirmation. Live Google remains outside this task's s
 None. This bounded Task 3 implementation does not change the current Slice 3 goal, architecture
 direction, protected decisions, or external Product Owner gates. The parent Slice 3 checkpoint owns
 the meaningful project-state update after the slice boundary is integrated.
+
+---
+
+## Fix Round 1
+
+### Status and commit
+
+Complete.
+
+- Fix commit: `2de9667230dead1077fe658092d14fc1f12340ab`
+- Commit message: `fix(context-ai): harden routed AI boundaries`
+- Push: not performed
+
+### RED evidence for the seven confirmed findings
+
+The regressions were added before their corresponding production fixes. Commands used the
+repository-pinned Node.js `24.18.0` and pnpm `11.13.0`.
+
+The prompt/schema RED run was:
+
+```text
+pnpm exec vitest run packages/context-intelligence/src/prompts.test.ts
+
+Test Files  1 failed (1)
+Tests       7 failed | 5 passed (12)
+```
+
+It covered Findings 1, 4, and 6, and supplied the real-Router precondition for Finding 7:
+
+- **Finding 1 — real Router-representable schemas.** `outputSchemaDescriptor`, the same descriptor
+  called by `AiRouter.run`, rejected all three real output schemas with
+  `AI_SCHEMA_SEMANTICS_UNREPRESENTABLE`. The schemas embedded trim/refinement behavior that JSON
+  Schema could not represent, so a real Router invocation could not reach a provider.
+- **Finding 4 — provider-visible governed decision evidence.** The Project-match request did not
+  expose the deterministic `AUTO_LINK` anchors or bounded, accessible `REVIEW` candidates and
+  reasons to the provider. The RED tests also showed that semantic Project context was not
+  correlated to the deterministic Project set.
+- **Finding 6 — exact prohibited phrases.** The policy guard did not reject “Award five stars to
+  this employee”, “This employee deserves the top score”, or “الموظف يستحق خمس نجوم”. The same RED
+  group also caught a supported-claim citation absent from top-level provenance.
+
+The service RED run was:
+
+```text
+pnpm exec vitest run \
+  packages/context-intelligence/src/analysis-service.integration.test.ts \
+  packages/context-intelligence/src/task-draft-service.integration.test.ts \
+  packages/context-intelligence/src/project-link-suggestion-service.test.ts
+
+Test Files  3 failed (3)
+Tests       6 failed | 10 passed (16)
+```
+
+It covered Findings 2 and 3:
+
+- **Finding 2 — exact lineage and ciphertext-only persistence.** Project-link persistence still
+  accepted a domain record containing plaintext explanation text; the exact suggestion ID was not
+  preallocated through the Router output reference, and AI uncertainty text was not retained in
+  the saved explanation.
+- **Finding 3 — retry safety after response loss.** A response lost after an append caused duplicate
+  Router work on retry. The RED fixtures failed for a committed Context Analysis followed by a lost
+  response, a committed Project suggestion followed by a lost response, and the equivalent
+  Task-draft case. They also showed that the services relied on locally constructed values instead
+  of the persistence port's authoritative return value.
+
+The production-registration RED run was:
+
+```text
+pnpm exec vitest run \
+  scripts/register-context-intelligence-ai-routes.test.ts \
+  scripts/register-context-intelligence-ai-routes.integration.test.ts
+
+Test Files  2 failed (2)
+Tests       no tests
+Error       register-context-intelligence-ai-routes.js did not exist
+```
+
+**Finding 5 — authorized production registration.** There was no production path that registered
+the exact three prompt/schema artifacts and authorized system routes. After the module was
+introduced, its first database RED also rejected the test-only `databaseUrl` option as an
+unrecognized registration argument; the input boundary was corrected without weakening the CLI
+schema.
+
+**Finding 7 — actual Router-backed AI evaluations.** This was a test-boundary defect in addition to
+the real-schema failure above. The pre-fix AI evaluation constructed outputs and called Zod schemas
+directly; it never invoked `AiRouter` or a provider adapter. The three descriptor failures are the
+executable RED evidence that replacing that shortcut with the real Router would fail before
+provider execution. The evaluation was then rewritten to use the existing `AiRouter` and
+deterministic `FakeAiProviderAdapter`; it now exercises route resolution, governed schema-artifact
+matching, provider invocation, Router parsing, quarantine traces, validated persistence callbacks,
+and the explicit post-parse semantic guards.
+
+### What changed
+
+1. **Representable Router schemas and explicit semantics.** The three persisted output schemas now
+   contain only JSON-Schema-representable structural constraints. Grounding, prohibited-judgment
+   policy, claim/top-level citation correlation, and deterministic Task/Project correlation remain
+   explicit post-parse service guards rather than hidden Zod refinements.
+2. **Exact suggestion lineage and protected persistence.** The suggestion ID is stable and
+   preallocated before the match run; the exact Router output reference is
+   `project-link-suggestion:<suggestion-id>`. Match uncertainties are retained in the explanation.
+   The initial persistence port accepts a record with no `explanation` property plus sealed
+   ciphertext and key version, so its contract cannot persist plaintext explanation content.
+3. **Response-loss retry safety.** Context Analysis, Project suggestion, and Task draft use stable
+   operation IDs, read an already-committed initial record before invoking the Router, and return
+   the authoritative persistence result after validating its identity and revision. Retrying after
+   a committed append and lost response therefore skips duplicate AI work and duplicate initial
+   rows.
+4. **Provider-visible governed decision evidence.** `AUTO_LINK` prompts include the bounded
+   deterministic anchors. `REVIEW` prompts include only accessible candidates, their bounded
+   anchors/current state, and deterministic reasons. Inaccessible Projects and model-confidence
+   values are omitted. Approved Project semantic context is rejected unless its Project belongs to
+   the deterministic visible Project set.
+5. **Authorized production registration.** A new production registrar registers the exact three
+   versioned output-schema artifacts, prompt artifacts, and system routes through the existing
+   authorized governance functions. It reuses the ordered provider selection already configured
+   on the governed system `update.structure` route. It does not register a provider, import a
+   provider SDK, read credentials, or return provider/endpoint/token data in its dry-run plan.
+6. **Confirmed phrase rejection.** The post-parse policy normalization now rejects the exact English
+   five-star and top-score forms and the Arabic `خمس نجوم` form, in addition to the existing rating,
+   ranking, productivity, readiness-conversion, activity-volume, and employee-quality forms.
+7. **Real Router AI evaluations.** Context Intelligence AI evaluations now run deterministic
+   responses through the existing Router adapter fixture. Strict extra fields are quarantined
+   before persistence; safe outputs generate succeeded traces; grounding and judgment policy run
+   explicitly after the Router's structural parse, matching the production service sequence.
+
+### Files changed in Fix Round 1
+
+- `packages/context-intelligence/src/prompts.ts`
+- `packages/context-intelligence/src/prompts.test.ts`
+- `packages/context-intelligence/src/analysis-service.ts`
+- `packages/context-intelligence/src/analysis-service.integration.test.ts`
+- `packages/context-intelligence/src/project-link-suggestion-service.ts`
+- `packages/context-intelligence/src/project-link-suggestion-service.test.ts`
+- `packages/context-intelligence/src/task-draft-service.ts`
+- `packages/context-intelligence/src/task-draft-service.integration.test.ts`
+- `scripts/register-context-intelligence-ai-routes.ts`
+- `scripts/register-context-intelligence-ai-routes.test.ts`
+- `scripts/register-context-intelligence-ai-routes.integration.test.ts`
+- `tests/ai/context-intelligence.eval.test.ts`
+- `vitest.workspace.ts`
+
+### Database changes
+
+None. The database-backed registration test writes only governed fixture/configuration rows to the
+existing test schema. No migration, model, constraint, index, or production seed changed.
+
+### Verification
+
+| Check                                                        | Result                                                 |
+| ------------------------------------------------------------ | ------------------------------------------------------ |
+| Focused prompt, service, registrar-unit, and Router-eval run | 6 files, 46 tests passed                               |
+| Production registrar database integration                    | 1 file, 1 test passed                                  |
+| Context Intelligence package typecheck                       | passed                                                 |
+| Repository typecheck                                         | 22/22 packages passed                                  |
+| Repository lint                                              | 22/22 packages; boundaries and user-copy checks passed |
+| AI evaluations                                               | 6 files; 166 passed, 1 skipped                         |
+| AI boundary scan                                             | 580 source files valid                                 |
+| Secret scan                                                  | 954 files valid                                        |
+| Performance-input scan                                       | 476 files valid                                        |
+| Format check                                                 | passed                                                 |
+| Registrar dry-run through `tsx`                              | passed                                                 |
+| `git diff --check`                                           | passed                                                 |
+
+One non-focused full parallel unit run ended with `127` files passed, `1` file failed, and `862`
+tests passed before bail. The single failure was the repository test named “excludes generated
+output from source-boundary validation”. Its boundary subprocess observed transient
+`.boundary-forbidden-fixture-*` directories created by other concurrently running negative-fixture
+tests; the failure did not identify a changed Context Intelligence file. No transient fixture or
+background Vitest process remained afterward, and the Git worktree was clean.
+
+The affected repository test was then rerun alone from that clean worktree:
+
+```text
+pnpm exec vitest run --project unit tests/repository/workspace.test.ts \
+  -t 'excludes generated output from source-boundary validation'
+
+Test Files  1 passed (1)
+Tests       1 passed | 23 skipped (24)
+```
+
+The focused 46-test run and the independent `pnpm scan:ai-boundary` run were also green after the
+boundary-safe explicit ciphertext-record construction. This records the full-suite result as a
+transient concurrent test-fixture collision, not as a passing full unit suite.
+
+### Security and privacy impact
+
+- No direct provider SDK, provider endpoint, credential, access token, or live paid-model call was
+  introduced. All production model execution remains behind the governed AI Router.
+- Provider input includes only deterministic, bounded, accessible Project evidence. Inaccessible
+  candidates and model confidence are not disclosed.
+- Project-link explanation persistence is now ciphertext-only by contract; Context Analysis and
+  Task draft continue to be sealed before append.
+- Stable operation IDs prevent retries after a lost response from creating duplicate AI outputs or
+  initial feature records.
+- Exact route, prompt, schema, source, and output-reference lineage remains validated. AI outputs
+  remain source-labelled drafts pending human review and cannot create an official Task.
+- The added policy forms strengthen the prohibition on ratings, ranking, productivity scoring, and
+  employee-quality judgment in English and Arabic.
+
+### Remaining risk and deferred P2
+
+The previously recorded narrow post-`AiRun` atomicity gap remains: the Router can commit a succeeded
+immutable run before later semantic checking, encryption, or feature-row append fails. This can
+leave an orphan succeeded run but cannot persist an invalid feature row or alter the source/manual
+workflow. Fixing it requires a shared Router transaction extension or reconciler and remains the
+explicitly deferred P2; it was not expanded into this bounded fix round.
+
+The mechanical P2 of deeper citation-to-claim and semantic-Project correlation is partially
+strengthened here: each supported-claim citation must appear in top-level provenance, and semantic
+Project contexts must belong to the deterministic visible Project set. More granular semantic
+entailment remains outside this task.
+
+### Project-state update
+
+None. Fix Round 1 restores the already-approved Task 3 behavior and does not change a protected
+product rule, architecture direction, current goal, active risk, or next recommended Slice action.
