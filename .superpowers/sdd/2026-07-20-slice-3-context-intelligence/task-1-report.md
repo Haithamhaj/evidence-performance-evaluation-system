@@ -172,3 +172,92 @@ Intelligence, and bundle-level project-state continuity is coordinated by the ro
 ## Commit SHA
 
 Implementation commit: `e2d8ed06fdd08d495bd9478aa28387a93e7ee95b`
+
+## Fix Round 1
+
+### Status
+
+DONE — all four independently confirmed P1 findings are fixed without expanding Task 1 scope.
+
+### RED evidence
+
+- Contract command:
+  `pnpm exec vitest run packages/contracts/src/context-intelligence.test.ts`
+  - Result: 1 failed and 4 passed.
+  - Expected failure: `TaskDraftRecordSchema` accepted contradictory wrapper and nested
+    `sourceReferences`; the new assertion reported that the parser did not throw.
+- Database command, with the repository test environment loaded:
+  `pnpm exec vitest run packages/database/src/context-intelligence-schema.integration.test.ts`
+  - Result: 3 failed and 4 passed.
+  - Expected failures: duplicate anchor kinds were accepted for `AUTO_LINK`; a governed analysis
+    with a schema version mismatching its `AiRun` was accepted; and a self-linked correction was
+    accepted.
+
+These failures reproduced the reviewed boundary defects before any production fix was applied.
+
+### Fixes and exact files
+
+- `packages/contracts/src/context-intelligence.ts`
+  - Canonically compares sorted wrapper and nested Task-draft source references, preserving the
+    exact required `TaskDraftSchema` while accepting equal references in any order.
+- `packages/contracts/src/context-intelligence.test.ts`
+  - Adds equal/reordered and contradictory-provenance regressions.
+- `packages/database/prisma/migrations/0019_context_intelligence/migration.sql`
+  - Validates every anchor as an exact governed object with an allowed kind, safe opaque reference,
+    and Boolean conflict marker.
+  - Requires either one non-conflicting explicit employee mapping or two distinct, non-conflicting
+    governed anchor kinds for `AUTO_LINK`.
+  - Rejects self-supersession and validates corrections against the direct next suggestion revision
+    and its corrected Project target while retaining append-only triggers.
+  - Replaces id-only AI-run foreign keys with composite foreign keys binding the stored schema and
+    prompt versions to `AiRun.outputSchemaVersion` and `AiRun.promptTemplateVersion`.
+- `packages/database/prisma/schema.prisma`
+  - Mirrors the composite AI-run version relations and their supporting immutable-run unique key.
+- `packages/database/src/context-intelligence-schema.integration.test.ts`
+  - Adds real PostgreSQL regressions for duplicate, malformed, and conflicting anchors; both valid
+    automatic-link authority paths; mismatched and matching AI-run versions for all three governed
+    outputs; and self, unrelated, wrong-target, and valid correction lineage.
+
+The unshared, unpushed `0019_context_intelligence` task migration remains the single Slice 3 Task 1
+migration; no `0020` migration was added.
+
+### Verification evidence
+
+- Focused contract and database suites: 2 files passed, 12/12 tests passed.
+- Complete contracts suite: 15 files passed, 100/100 tests passed.
+- Affected typechecks passed for `@evaluation/contracts`,
+  `@evaluation/context-intelligence`, and `@evaluation/database`.
+- Affected lint passed for the same three packages.
+- `pnpm scan:performance-inputs`: 462 files inspected; valid.
+- `pnpm scan:ai-boundary`: 566 source files inspected; valid.
+- `pnpm scan:secrets`: 934 files inspected; valid.
+- `pnpm format:check`: passed.
+- `pnpm db:verify`: all 19 migrations passed empty-database deployment, previous snapshot through
+  `0018` then `0019`, drift detection, rebuild equivalence, and the existing 49/49 migration
+  integration tests.
+- A final reset applying the exact current `0019` followed by the focused suites again passed
+  12/12. `git diff --check` also passed before commit.
+
+### Security and privacy impact
+
+- Unsafe or malformed model-produced anchor JSON can no longer authorize a Project link at the
+  database boundary.
+- A correction cannot redirect history through a self, unrelated revision, or Project target that
+  differs from the employee's direct superseding suggestion.
+- Persisted prompt/schema claims are now cryptographically-content-neutral metadata bound to the
+  immutable AI Router trace; no provider credentials, tokens, or raw private content were added.
+- Existing ciphertext storage, restrictive ownership foreign keys, and append-only history remain
+  unchanged.
+- No rating, ranking, productivity, employee-judgment, readiness-scoring, or official Task-creation
+  capability was added.
+
+### Deferred P2 parity
+
+Broader Zod/database parity beyond the four P1 fixes is deferred under Fast Controlled Execution.
+Only direct mechanical parity required by these fixes was added: exact anchor shape/kinds/reference
+safety and the composite AI-run version identity. Existing wider source-array and revision-policy
+parity remains outside this review round.
+
+### Commit SHA
+
+Fix commit: `e19576a3beb79125cbe911cacfc2eabeadac197f`
