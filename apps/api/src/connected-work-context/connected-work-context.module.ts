@@ -28,7 +28,7 @@ import {
 const CONNECTED_WORK_DATABASE = "CONNECTED_WORK_DATABASE";
 const CONNECTED_WORK_DATABASE_LIFECYCLE = "CONNECTED_WORK_DATABASE_LIFECYCLE";
 const CONNECTED_WORK_CREDENTIAL_VAULT = "CONNECTED_WORK_CREDENTIAL_VAULT";
-const CONNECTED_WORK_PROTECTOR = "CONNECTED_WORK_PROTECTOR";
+export const CONNECTED_WORK_PROTECTOR = "CONNECTED_WORK_PROTECTOR";
 const CONNECTED_WORK_SOURCE_ADAPTER = "CONNECTED_WORK_SOURCE_ADAPTER";
 
 type Environment = Readonly<Record<string, string | undefined>>;
@@ -196,7 +196,11 @@ Module({
     },
     ConnectedWorkContextPolicyGuard,
   ],
-  exports: [ConnectedWorkContextQueryService],
+  exports: [
+    ConnectedWorkConnectionService,
+    ConnectedWorkContextQueryService,
+    CONNECTED_WORK_PROTECTOR,
+  ],
 })(ConnectedWorkContextModule);
 
 export function createSyntheticGoogleWorkspaceAdapter(): FakeGoogleWorkspaceAdapter {

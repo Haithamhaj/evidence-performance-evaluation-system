@@ -27,6 +27,11 @@ const CommandBaseSchema = z
 const CreateCommandSchema = CommandBaseSchema.extend({
   input: CreateWorkItemInputSchema,
 }).strict();
+const ConfirmedTaskCommandSchema = CommandBaseSchema.extend({
+  workItemId: z.string().uuid(),
+  input: CreateWorkItemInputSchema,
+  reason: z.string().trim().min(1).max(1_000),
+}).strict();
 const TransitionCommandSchema = CommandBaseSchema.extend({
   workItemId: z.string().uuid(),
   input: TransitionWorkItemInputSchema,
@@ -120,6 +125,87 @@ export class WorkItemService {
       });
       return serialize(item);
     });
+  }
+
+  async createConfirmedTask(
+    transaction: Transaction,
+    command: unknown,
+  ): Promise<import("@evaluation/contracts").WorkItemDetail> {
+    const parsed = ConfirmedTaskCommandSchema.parse(command);
+    const current = validClock(this.clock());
+    const project = await authorizeProject(
+      transaction,
+      parsed.actor,
+      parsed.input.projectId,
+      current,
+    );
+    const workstream =
+      parsed.input.workstreamId === null
+        ? null
+        : await transaction.workstream.findUnique({
+            where: { id: parsed.input.workstreamId },
+            select: { id: true, projectId: true, status: true },
+          });
+    assertWorkItemScope({ projectId: project.id, workstream });
+    if (workstream !== null && !["active", "paused"].includes(workstream.status)) {
+      throw stateError();
+    }
+    await assertEligibleAssignee(
+      transaction,
+      parsed.input.assigneeId,
+      project.id,
+      workstream?.id ?? null,
+      current,
+    );
+
+    const existing = await transaction.workItem.findUnique({
+      where: { id: parsed.workItemId },
+    });
+    if (existing !== null) {
+      if (!sameConfirmedTask(existing, parsed.actor.userId, parsed.input)) {
+        throw idempotencyError();
+      }
+      return serialize(existing);
+    }
+
+    const item = await transaction.workItem.create({
+      data: {
+        id: parsed.workItemId,
+        ...parsed.input,
+        dueAt: parsed.input.dueAt === null ? null : new Date(parsed.input.dueAt),
+        createdById: parsed.actor.userId,
+      },
+    });
+    await transaction.workItemAssignmentHistory.create({
+      data: {
+        workItemId: item.id,
+        fromAssigneeId: null,
+        toAssigneeId: parsed.input.assigneeId,
+        actorId: parsed.actor.userId,
+        reason: parsed.reason,
+        resultingVersion: 1,
+      },
+    });
+    await this.auditWriter.append(transaction, {
+      eventType: "work_item.created",
+      actor: { kind: "human", id: parsed.actor.userId },
+      effectiveSubjectId: parsed.input.assigneeId,
+      scopeType: "project",
+      scopeId: project.id,
+      targetType: "work_item",
+      targetId: item.id,
+      reason: parsed.reason,
+      safeDiff: {
+        projectId: project.id,
+        workstreamId: workstream?.id ?? null,
+        status: "planned",
+        version: 1,
+        source: "employee_confirmed_context_draft",
+      },
+      correlationId: parsed.correlationId,
+      source: "api",
+    });
+    return serialize(item);
   }
 
   async transition(command: unknown): Promise<import("@evaluation/contracts").WorkItemDetail> {
@@ -462,4 +548,42 @@ function stateError(): AppError {
 
 function versionError(): AppError {
   return new AppError("VERSION_CONFLICT", "errors.versionConflict", 409);
+}
+
+function idempotencyError(): AppError {
+  return new AppError("IDEMPOTENCY_CONFLICT", "errors.idempotency.conflict", 409);
+}
+
+function sameConfirmedTask(
+  item: {
+    projectId: string;
+    workstreamId: string | null;
+    title: string;
+    description: string;
+    priority: import("@evaluation/contracts").WorkItemPriority;
+    assigneeId: string | null;
+    dueAt: Date | null;
+    requirements: unknown;
+    acceptanceConditions: unknown;
+    blocker: string | null;
+    nextAction: string | null;
+    createdById: string;
+  },
+  actorId: string,
+  input: z.infer<typeof CreateWorkItemInputSchema>,
+): boolean {
+  return (
+    item.createdById === actorId &&
+    item.projectId === input.projectId &&
+    item.workstreamId === input.workstreamId &&
+    item.title === input.title &&
+    item.description === input.description &&
+    item.priority === input.priority &&
+    item.assigneeId === input.assigneeId &&
+    (item.dueAt?.toISOString() ?? null) === input.dueAt &&
+    JSON.stringify(item.requirements) === JSON.stringify(input.requirements) &&
+    JSON.stringify(item.acceptanceConditions) === JSON.stringify(input.acceptanceConditions) &&
+    item.blocker === input.blocker &&
+    item.nextAction === input.nextAction
+  );
 }

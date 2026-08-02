@@ -154,6 +154,55 @@ async function seedGraph(): Promise<Graph> {
 afterAll(async () => client.$disconnect());
 
 describe("WorkItemService", () => {
+  it("creates one stable official Task through the public transaction boundary", async () => {
+    const graph = await seedGraph();
+    const service = new WorkItemService(client, auditWriter, () => now);
+    const workItemId = crypto.randomUUID();
+    const correlationId = crypto.randomUUID();
+    const command = {
+      actor: { userId: graph.actorId, active: true },
+      correlationId,
+      workItemId,
+      input: {
+        title: "Confirm the context decision",
+        description: "Created only after employee confirmation.",
+        projectId: graph.projectId,
+        workstreamId: graph.workstreamId,
+        assigneeId: graph.actorId,
+        dueAt: null,
+        priority: "normal" as const,
+        requirements: [],
+        acceptanceConditions: ["Decision is recorded"],
+        blocker: null,
+        nextAction: null,
+      },
+      reason: "Employee confirmed the Context Intelligence Task draft",
+    };
+
+    const first = await client.$transaction((transaction) =>
+      service.createConfirmedTask(transaction, command),
+    );
+    const retried = await client.$transaction((transaction) =>
+      service.createConfirmedTask(transaction, command),
+    );
+
+    expect(first).toEqual(retried);
+    expect(first).toMatchObject({ id: workItemId, projectId: graph.projectId });
+    await expect(client.workItem.count({ where: { id: workItemId } })).resolves.toBe(1);
+    await expect(client.workItemAssignmentHistory.count({ where: { workItemId } })).resolves.toBe(
+      1,
+    );
+
+    await expect(
+      client.$transaction((transaction) =>
+        service.createConfirmedTask(transaction, {
+          ...command,
+          input: { ...command.input, title: "Conflicting retry" },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
   it("creates and transitions with append-only history and no automatic progress", async () => {
     const graph = await seedGraph();
     const service = new WorkItemService(client, auditWriter, () => now);
