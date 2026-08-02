@@ -338,3 +338,133 @@ real database.
 
 None in this fix commit. The parent Slice 3 checkpoint should record the completed slice and its new
 link-provenance migration as the next meaningful project-state update.
+
+---
+
+# Fix Round 2 — Immutable Closure, Transactional Project Authorization, and Exact Provenance
+
+## Status
+
+Complete.
+
+- Fix commit: `9c8b3eab2e2c39ff02fb1a5557de98db8a386102`
+- Commit message: `fix(context-ai): enforce derived link integrity`
+- Push: not performed
+
+## RED evidence
+
+All RED/GREEN commands used the repository-pinned Node.js `24.18.0` and pnpm `11.13.0`.
+
+- The real Connected Work Context schema suite proved the amended `0020` trigger had lost its
+  original one-way closure condition: reopening a closed link resolved with one updated row instead
+  of rejecting. The run reported `1 failed | 5 passed`.
+- The real Connected Context command suite proved a matching suggestion ID was insufficient
+  provenance: a `PENDING` suggestion created a derived link instead of failing. The same suite also
+  proved the pre-transaction membership check was vulnerable to revocation between authorization
+  and insert. It reported the two intended failures and three existing passes.
+- After implementation, the same three suites reported `23 passed` with no failures. The closure
+  test now continues past reopen and independently rejects changes to the stored closure timestamp,
+  actor, and reason.
+
+## What changed
+
+1. `SourceProjectLink` now permits exactly one open-to-closed transition. A closed link cannot be
+   reopened or have its closure timestamp, actor, or reason rewritten. Existing identity and
+   provenance fields remain immutable.
+2. Projects exposes a public transaction-aware current-member authorization method. It checks the
+   persisted active user, current membership window, and active/paused Project state while taking
+   share locks on the User, ProjectMember, and Project rows in the caller's Serializable
+   transaction.
+3. Derived confirmation and replacement call that Projects boundary inside the same transaction as
+   the source recheck and link write. The prior separate-client membership read is no longer used
+   for derived links.
+4. Derived links accept only the exact suggestion, source, employee, and Project tuple. The
+   suggestion must be the current employee-authored `CONFIRMED` or `CORRECTED` revision. Pending,
+   rejected, superseded, cross-source, cross-employee, and wrong-Project suggestions fail closed.
+5. The same provenance rule is enforced in PostgreSQL by an exact four-column foreign key and a
+   guarded insert trigger. Service validation provides the stable domain error; the database remains
+   the final integrity boundary for alternate writers.
+6. Existing employee-manual links remain unaffected. Derived replace/remove commands still preserve
+   an active manual mapping and cannot relabel it as suggestion-derived.
+
+## Files changed
+
+- `apps/api/src/connected-work-context/connected-work-context.module.ts`
+- `packages/projects/src/project-service.ts`
+- `packages/projects/src/project-service.integration.test.ts`
+- `packages/connected-work-context/src/connection-service.ts`
+- `packages/connected-work-context/src/connection-service.integration.test.ts`
+- `packages/connected-work-context/src/query-service.integration.test.ts`
+- `packages/connected-work-context/src/sync-service.integration.test.ts`
+- `packages/database/prisma/schema.prisma`
+- `packages/database/prisma/migrations/0020_context_intelligence_security_boundaries/migration.sql`
+- `packages/database/src/connected-work-context-schema.integration.test.ts`
+
+## Database changes
+
+- Amended the unpushed `0020_context_intelligence_security_boundaries` migration; no new migration
+  was added and the already-correct constraint-name alignment in `0021` remains unchanged.
+- Added a unique candidate key on
+  `ProjectLinkSuggestion(id, sourceItemId, employeeId, projectId)`.
+- Extended the derived-link foreign key to reference that exact four-column tuple.
+- Added an insert trigger that accepts only a current employee-authored `CONFIRMED` or `CORRECTED`
+  suggestion revision.
+- Restored the original open-to-closed checks in `guard_source_project_link_update` while retaining
+  Round 1's origin and suggestion-provenance immutability.
+- No backfill, deletion, or historical reclassification was introduced. Pre-existing links retain
+  the `EMPLOYEE_MANUAL` default established in Round 1.
+
+## Verification
+
+| Check                                                            | Result                                                                           |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Focused Connected Context, Projects, and real schema regressions | 3 files, 23 tests passed                                                         |
+| Focused Context Intelligence package and protected API suite     | 8 files, 67 tests passed                                                         |
+| Database migration verification                                  | empty, previous, rebuild equivalence, and drift passed; 49 database tests passed |
+| Database, Connected Context, Projects, and API typechecks        | passed                                                                           |
+| Database, Connected Context, Projects, and API lint              | passed                                                                           |
+| Prisma schema validation and client generation                   | passed                                                                           |
+| AI/module boundary scan                                          | 586 source files valid                                                           |
+| Protected performance-input scan                                 | 482 files valid                                                                  |
+| Secret scan                                                      | 963 files valid                                                                  |
+| Changed-file formatting and `git diff --check`                   | passed                                                                           |
+
+The revocation test ends Project membership after the legacy precheck point. The caller's
+Serializable transaction now rejects or serialization-aborts and leaves no link. A separate current
+member test confirms that valid active membership still authorizes through the public Projects
+boundary.
+
+## Security and privacy impact
+
+- A derived-link write can no longer use stale Project membership from a separate transaction.
+- Project status, membership, and user deactivation races fail closed under row locking and
+  Serializable conflict detection.
+- Suggestion IDs are no longer bearer-like references: source owner, source item, Project, review
+  lifecycle, employee authorship, and currentness must all match.
+- Historical closure and provenance cannot be silently rewritten after the employee's decision.
+- Manual mappings remain isolated from AI-derived lifecycle commands.
+- No private source content, correction reason, credentials, or AI output was added to audit data or
+  response payloads.
+
+## Protected-rule confirmation
+
+- AI still does not assign, recommend, or predict a performance rating and cannot create an
+  official Task without the existing human gate.
+- No activity count, employee ranking, readiness score, Project average, evaluation weight, rubric,
+  visibility mode, or retention rule changed.
+- No historical Context Intelligence or Source Project Link row can be updated beyond its single
+  append-only closure transition.
+
+## Remaining risk
+
+- The public derived-link methods depend on their documented Serializable caller contract. The
+  production Context Intelligence confirmation/correction flows satisfy it, and the race regression
+  exercises it, but the TypeScript type system cannot encode transaction isolation level.
+- A genuine serialization conflict safely aborts the write and may surface through the database
+  adapter's conflict shape. A future shared API conflict normalizer could provide a more specific
+  retry response without changing the fail-closed behavior.
+
+## Project-state update
+
+None. This round hardens the already-recorded Slice 3 architecture and protected decisions without
+changing the current goal, risk register, or recommended next slice action.
