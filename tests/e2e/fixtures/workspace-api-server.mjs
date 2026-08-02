@@ -1,3 +1,5 @@
+/* global structuredClone */
+
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
@@ -20,6 +22,7 @@ const sourceHash = "a".repeat(64);
 const progressContractId = "e1111111-1111-4111-8111-111111111111";
 const progressSnapshotId = "e2222222-2222-4222-8222-222222222222";
 const dogfoodProjectId = "d1111111-1111-4111-8111-111111111111";
+const contextProjectId = "c1111111-1111-4111-8111-111111111111";
 const dogfoodDocumentVersionId = "d2222222-2222-4222-8222-222222222222";
 const dogfoodDraftRequestId = "d3333333-3333-4333-8333-333333333333";
 const updateSessionId = "e5555555-5555-4555-8555-555555555555";
@@ -34,6 +37,14 @@ const acceptedUpdateId = "ea444444-4444-4444-8444-444444444444";
 const acceptedEvidenceId = "ea555555-5555-4555-8555-555555555555";
 const connectedGmailItemId = "ca111111-1111-4111-8111-111111111111";
 const connectedCalendarItemId = "ca222222-2222-4222-8222-222222222222";
+const contextHighConfidenceItemId = "ca333333-3333-4333-8333-333333333333";
+const contextUncertainItemId = "ca444444-4444-4444-8444-444444444444";
+const contextRejectedItemId = "ca555555-5555-4555-8555-555555555555";
+const contextTaskItemId = "ca666666-6666-4666-8666-666666666666";
+const highConfidenceSuggestionId = "cb111111-1111-4111-8111-111111111111";
+const uncertainSuggestionId = "cb222222-2222-4222-8222-222222222222";
+const rejectedSuggestionId = "cb333333-3333-4333-8333-333333333333";
+const contextTaskDraftId = "cb444444-4444-4444-8444-444444444444";
 const ownerAccessToken = "e2e-access-token";
 const managerAccessToken = "e2e-manager-access-token";
 const otherEmployeeAccessToken = "e2e-other-employee-access-token";
@@ -49,6 +60,7 @@ let updateDraftRevision = 1;
 let evidenceRevision = 1;
 let updateLocale = "ar";
 let connectedWorkConnected = true;
+let contextAiAvailable = true;
 let currentUpdateContext = {
   projectId,
   workstreamId: null,
@@ -90,6 +102,74 @@ const connectedWorkItems = [
       excluded: false,
     },
   },
+  {
+    id: contextHighConfidenceItemId,
+    provider: "GOOGLE_GMAIL",
+    occurredAt: "2026-07-20T11:00:00.000Z",
+    title: "[Synthetic AI] Release decision",
+    summary: "The Atlas delivery owner and approved Project term identify one Project.",
+    sourceUrl: "https://mail.google.com/mail/u/0/#inbox/synthetic-ai-release-decision",
+    privacy: "PRIVATE",
+    excluded: false,
+    projectId: null,
+    sourceExclusion: {
+      provider: "GOOGLE_GMAIL",
+      kind: "GMAIL_LABEL",
+      providerExclusionId: "synthetic-ai-context",
+      excluded: false,
+    },
+  },
+  {
+    id: contextUncertainItemId,
+    provider: "GOOGLE_CALENDAR",
+    occurredAt: "2026-07-20T11:30:00.000Z",
+    title: "[Synthetic AI] Follow-up with two possible Projects",
+    summary: "One approved Project term appears, but the context is not independently anchored.",
+    sourceUrl: "https://calendar.google.com/calendar/event?eid=synthetic-ai-uncertain",
+    privacy: "PRIVATE",
+    excluded: false,
+    projectId: null,
+    sourceExclusion: {
+      provider: "GOOGLE_CALENDAR",
+      kind: "CALENDAR",
+      providerExclusionId: "synthetic-ai-review-calendar",
+      excluded: false,
+    },
+  },
+  {
+    id: contextRejectedItemId,
+    provider: "GOOGLE_GMAIL",
+    occurredAt: "2026-07-20T12:00:00.000Z",
+    title: "[Synthetic AI] Personal reminder",
+    summary: "No governed Project anchor is present in this private reminder.",
+    sourceUrl: "https://mail.google.com/mail/u/0/#inbox/synthetic-ai-personal-reminder",
+    privacy: "PRIVATE",
+    excluded: false,
+    projectId: null,
+    sourceExclusion: {
+      provider: "GOOGLE_GMAIL",
+      kind: "GMAIL_THREAD",
+      providerExclusionId: "synthetic-ai-personal-reminder",
+      excluded: false,
+    },
+  },
+  {
+    id: contextTaskItemId,
+    provider: "GOOGLE_CALENDAR",
+    occurredAt: "2026-07-20T12:30:00.000Z",
+    title: "[Synthetic AI] Acceptance follow-up",
+    summary: "The accepted release decision needs one documented follow-up.",
+    sourceUrl: "https://calendar.google.com/calendar/event?eid=synthetic-ai-task-draft",
+    privacy: "PRIVATE",
+    excluded: false,
+    projectId: null,
+    sourceExclusion: {
+      provider: "GOOGLE_CALENDAR",
+      kind: "CALENDAR",
+      providerExclusionId: "synthetic-ai-task-calendar",
+      excluded: false,
+    },
+  },
 ];
 
 const project = {
@@ -106,6 +186,15 @@ const dogfoodProject = {
   departmentId,
   name: "Evidence Performance System — Phase 2",
   description: "Real Codex employee acceptance Project.",
+  status: "active",
+  version: 1,
+  primaryOwnerId: ownerId,
+};
+const contextProject = {
+  id: contextProjectId,
+  departmentId,
+  name: "Atlas Delivery",
+  description: "Synthetic English Project for Context Intelligence acceptance.",
   status: "active",
   version: 1,
   primaryOwnerId: ownerId,
@@ -308,6 +397,10 @@ const privateInboxItems = [
   },
 ];
 
+const baseWorkItems = [...workItems];
+const basePrivateInboxItems = structuredClone(privateInboxItems);
+const baseConnectedWorkItems = structuredClone(connectedWorkItems);
+
 function dailyWorkspace() {
   return {
     needsMyAction: myWork.groups[0].items,
@@ -431,10 +524,80 @@ function dogfoodDraft() {
   };
 }
 
+const contextReviewItems = [
+  {
+    kind: "PROJECT_SUGGESTION",
+    id: highConfidenceSuggestionId,
+    employeeId: ownerId,
+    sourceItemId: contextHighConfidenceItemId,
+    revision: 1,
+    projectId: contextProjectId,
+    explanation:
+      "Two independent anchors agree: known Project participant and approved Project term.",
+  },
+  {
+    kind: "PROJECT_SUGGESTION",
+    id: uncertainSuggestionId,
+    employeeId: ownerId,
+    sourceItemId: contextUncertainItemId,
+    revision: 1,
+    projectId: null,
+    explanation: "One Project term matched, but a second independent anchor is missing.",
+  },
+  {
+    kind: "PROJECT_SUGGESTION",
+    id: rejectedSuggestionId,
+    employeeId: ownerId,
+    sourceItemId: contextRejectedItemId,
+    revision: 1,
+    projectId: null,
+    explanation: "No governed Project anchor was found.",
+  },
+  {
+    kind: "TASK_DRAFT",
+    id: contextTaskDraftId,
+    employeeId: ownerId,
+    sourceItemId: contextTaskItemId,
+    revision: 1,
+    draft: {
+      title: "Document the accepted release decision",
+      description: "Record the approved decision and its agreed follow-up.",
+      projectId: contextProjectId,
+      workstreamId: null,
+      proposedAssigneeId: null,
+      dueAt: null,
+      acceptanceConditions: ["The approved release decision is documented"],
+      uncertainties: ["Confirm who should own the follow-up"],
+    },
+    clarification: { nextQuestion: { field: "assigneeId" } },
+  },
+];
+const baseContextReviewItems = structuredClone(contextReviewItems);
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://127.0.0.1:3101");
   if (request.method === "GET" && url.pathname === "/health") {
     return json(response, 200, { status: "ok" });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/__e2e/context/reset" &&
+    request.headers["x-e2e-control"] === "context-intelligence"
+  ) {
+    resetContextAcceptanceState();
+    return empty(response, 204);
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/__e2e/context/ai-availability" &&
+    request.headers["x-e2e-control"] === "context-intelligence"
+  ) {
+    const body = await readJson(request);
+    if (body === null || typeof body.available !== "boolean") {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    contextAiAvailable = body.available;
+    return empty(response, 204);
   }
   const accessToken = request.headers.authorization?.replace(/^Bearer /u, "") ?? "";
   if (!connectedWorkAccessTokens.has(accessToken)) {
@@ -459,6 +622,20 @@ const server = createServer(async (request, response) => {
       },
       items: connectedWorkItems,
     });
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/context/review-queue") {
+    if (accessToken !== ownerAccessToken) return json(response, 200, { items: [] });
+    if (!contextAiAvailable) {
+      return json(response, 503, { messageKey: "errors.internal" });
+    }
+    return json(response, 200, { items: contextReviewItems });
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === "/api/v1/projects" &&
+    accessToken !== ownerAccessToken
+  ) {
+    return json(response, 200, []);
   }
   if (
     request.method === "POST" &&
@@ -558,7 +735,77 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === "GET" && url.pathname === "/api/v1/projects") {
-    return json(response, 200, [project, dogfoodProject]);
+    return json(response, 200, [project, dogfoodProject, contextProject]);
+  }
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/context\/project-suggestions\/[0-9a-f-]+\/(?:confirm|correct)$/u.test(url.pathname)
+  ) {
+    const body = await readJson(request);
+    const segments = url.pathname.split("/");
+    const suggestionId = segments[5];
+    const action = segments[6];
+    const suggestionIndex = contextReviewItems.findIndex(
+      (item) => item.kind === "PROJECT_SUGGESTION" && item.id === suggestionId,
+    );
+    const suggestion = contextReviewItems[suggestionIndex];
+    if (
+      body === null ||
+      suggestionIndex < 0 ||
+      suggestion === undefined ||
+      body.expectedRevision !== suggestion.revision ||
+      typeof body.reason !== "string"
+    ) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    const targetProjectId = action === "confirm" ? suggestion.projectId : body.projectId;
+    if (
+      targetProjectId !== null &&
+      targetProjectId !== projectId &&
+      targetProjectId !== dogfoodProjectId &&
+      targetProjectId !== contextProjectId
+    ) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    const source = connectedWorkItems.find(({ id }) => id === suggestion.sourceItemId);
+    if (source === undefined) return json(response, 404, { messageKey: "errors.notFound" });
+    source.projectId = targetProjectId ?? null;
+    contextReviewItems.splice(suggestionIndex, 1);
+    return json(response, 200, { accepted: true });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/context/task-drafts/${contextTaskDraftId}/confirm`
+  ) {
+    const body = await readJson(request);
+    const draftIndex = contextReviewItems.findIndex(
+      (item) => item.kind === "TASK_DRAFT" && item.id === contextTaskDraftId,
+    );
+    if (
+      body === null ||
+      draftIndex < 0 ||
+      body.expectedRevision !== 1 ||
+      typeof body.reason !== "string" ||
+      body.draft?.projectId !== contextProjectId ||
+      body.draft?.assigneeId !== ownerId ||
+      typeof body.draft?.title !== "string" ||
+      typeof body.draft?.description !== "string"
+    ) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    const item = {
+      ...workItem(workItems.length + 1, "planned", body.draft.dueAt ?? null, null),
+      id: randomUUID(),
+      projectId: body.draft.projectId,
+      workstreamId: body.draft.workstreamId ?? null,
+      title: body.draft.title,
+      description: body.draft.description,
+      assigneeId: body.draft.assigneeId,
+      acceptanceConditions: body.draft.acceptanceConditions ?? [],
+    };
+    workItems.unshift(item);
+    contextReviewItems.splice(draftIndex, 1);
+    return json(response, 200, { workItem: item });
   }
   if (request.method === "GET" && url.pathname === "/api/v1/me") {
     return json(response, 200, { userId: ownerId });
@@ -1064,6 +1311,28 @@ function json(response, status, body) {
     "cache-control": "no-store",
   });
   response.end(JSON.stringify(body));
+}
+
+function empty(response, status) {
+  response.writeHead(status, { "cache-control": "no-store" });
+  response.end();
+}
+
+function resetContextAcceptanceState() {
+  contextAiAvailable = true;
+  connectedWorkConnected = true;
+  workItems.splice(0, workItems.length, ...baseWorkItems);
+  privateInboxItems.splice(0, privateInboxItems.length, ...structuredClone(basePrivateInboxItems));
+  connectedWorkItems.splice(
+    0,
+    connectedWorkItems.length,
+    ...structuredClone(baseConnectedWorkItems),
+  );
+  contextReviewItems.splice(
+    0,
+    contextReviewItems.length,
+    ...structuredClone(baseContextReviewItems),
+  );
 }
 
 function structuredDraft(overrides = {}) {
