@@ -27,6 +27,8 @@ export interface ProductionCryptographicKeyProvider extends PrivateContextProtec
   readonly runtimeMode: "live";
 }
 
+const developmentOnlyCiphertextPrefix = "development-only:";
+
 type PrivateContextProtectorConfiguration =
   | Readonly<{ mode: "development" }>
   | Readonly<{
@@ -40,7 +42,6 @@ type PrivateContextProtectorConfiguration =
  */
 export class DevelopmentOnlyDeterministicPrivateContextProtector implements PrivateContextProtector {
   static readonly keyVersion = "development-only-v1";
-  private static readonly prefix = "development-only:";
 
   constructor(input: Readonly<{ runtimeMode: "development" }>) {
     if (input.runtimeMode !== "development") {
@@ -50,25 +51,13 @@ export class DevelopmentOnlyDeterministicPrivateContextProtector implements Priv
 
   async seal(value: string): Promise<{ ciphertext: string; keyVersion: string }> {
     return {
-      ciphertext: `${DevelopmentOnlyDeterministicPrivateContextProtector.prefix}${encodeURIComponent(value)}`,
+      ciphertext: `${developmentOnlyCiphertextPrefix}${encodeURIComponent(value)}`,
       keyVersion: DevelopmentOnlyDeterministicPrivateContextProtector.keyVersion,
     };
   }
 
   async open(input: { ciphertext: string; keyVersion: string }): Promise<string> {
-    if (
-      input.keyVersion !== DevelopmentOnlyDeterministicPrivateContextProtector.keyVersion ||
-      !input.ciphertext.startsWith(DevelopmentOnlyDeterministicPrivateContextProtector.prefix)
-    ) {
-      throw new AppError(
-        "PRIVATE_CONTEXT_PROTECTION_MISMATCH",
-        "errors.connectedContext.protectionMismatch",
-        500,
-      );
-    }
-    return decodeURIComponent(
-      input.ciphertext.slice(DevelopmentOnlyDeterministicPrivateContextProtector.prefix.length),
-    );
+    return openDevelopmentOnlyDeterministicValue(input);
   }
 }
 
@@ -136,9 +125,6 @@ const googleLocalCiphertextPrefix = "aesgcm:";
  */
 export class GoogleLocalPrivateContextProtector implements PrivateContextProtector {
   private readonly key: Buffer;
-  private readonly fixtureProtector = new DevelopmentOnlyDeterministicPrivateContextProtector({
-    runtimeMode: "development",
-  });
 
   constructor(input: GoogleLocalRuntimeGuard & Readonly<{ clientSecret: string }>) {
     assertGoogleLocalRuntime(input);
@@ -169,7 +155,7 @@ export class GoogleLocalPrivateContextProtector implements PrivateContextProtect
 
   async open(input: { ciphertext: string; keyVersion: string }): Promise<string> {
     if (input.keyVersion === DevelopmentOnlyDeterministicPrivateContextProtector.keyVersion) {
-      return this.fixtureProtector.open(input);
+      return openDevelopmentOnlyDeterministicValue(input);
     }
     if (
       input.keyVersion !== googleLocalKeyVersion ||
@@ -234,6 +220,19 @@ export class GoogleLocalMemoryCredentialVault implements CredentialVault {
       // Local credential use is already disabled. Provider unavailability cannot undo disconnect.
     }
   }
+}
+
+function openDevelopmentOnlyDeterministicValue(input: {
+  ciphertext: string;
+  keyVersion: string;
+}): string {
+  if (
+    input.keyVersion !== DevelopmentOnlyDeterministicPrivateContextProtector.keyVersion ||
+    !input.ciphertext.startsWith(developmentOnlyCiphertextPrefix)
+  ) {
+    throw protectionMismatchError();
+  }
+  return decodeURIComponent(input.ciphertext.slice(developmentOnlyCiphertextPrefix.length));
 }
 
 function assertGoogleLocalRuntime(input: GoogleLocalRuntimeGuard): void {
