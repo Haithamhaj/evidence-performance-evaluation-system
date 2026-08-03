@@ -15,6 +15,6 @@ export default async function ConnectionsPage({
   return createElement(
     WorkspaceShell,
     { catalog, locale, localeSwitchHref: `/${alternateLocale}/settings/connections` },
-    createElement(GoogleWorkspaceCard, { catalog }),
+    createElement(GoogleWorkspaceCard, { catalog, locale }),
   );
 }

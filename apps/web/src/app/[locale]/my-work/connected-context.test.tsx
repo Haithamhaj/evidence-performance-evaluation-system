@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 
 import { ConnectedContextView } from "./connected-context.js";
 import { SourceReviewSheet, SourceReviewSheetView } from "./source-review-sheet.js";
-import { GoogleWorkspaceCardView } from "../settings/connections/google-workspace-card.js";
+import {
+  GoogleWorkspaceCardView,
+  localizedConnectionReturnUri,
+} from "../settings/connections/google-workspace-card.js";
 
 const project = { id: "11111111-1111-4111-8111-111111111111", name: "Atlas Delivery" };
 const item = {
@@ -116,6 +119,15 @@ describe("SourceReviewSheet", () => {
 });
 
 describe("GoogleWorkspaceCardView", () => {
+  it("starts from the actual localized Connections route", () => {
+    expect(localizedConnectionReturnUri("http://localhost:3000", "ar")).toBe(
+      "http://localhost:3000/ar/settings/connections",
+    );
+    expect(localizedConnectionReturnUri("http://localhost:3000", "en")).toBe(
+      "http://localhost:3000/en/settings/connections",
+    );
+  });
+
   it("explains private storage and offers disconnect recovery without exposing credentials", async () => {
     const catalog = await getCatalog("en");
     const markup = renderToStaticMarkup(

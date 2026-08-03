@@ -40,6 +40,10 @@ export class CalendarRestAdapter implements ConnectedSourceAdapterPort {
     const url = new URL(calendarApiBase);
     url.searchParams.set("maxResults", String(this.pageSize));
     url.searchParams.set("singleEvents", "true");
+    url.searchParams.set(
+      "fields",
+      "nextPageToken,nextSyncToken,items(id,summary,start,htmlLink,eventType)",
+    );
     let initialTimeMin: string | null = null;
     let providerPageCursor = input.pageCursor;
     if (input.syncCursor === null) {

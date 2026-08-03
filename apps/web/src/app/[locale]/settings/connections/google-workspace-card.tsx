@@ -1,6 +1,6 @@
 "use client";
 
-import type { Catalog } from "@evaluation/localization";
+import type { Catalog, Locale } from "@evaluation/localization";
 import { useEffect, useState } from "react";
 
 import {
@@ -11,7 +11,7 @@ import {
 } from "../../../../platform/connected-work-context-api";
 
 type Status = "connected" | "connecting" | "disconnected" | "error";
-type CardProperties = Readonly<{ catalog: Catalog }>;
+type CardProperties = Readonly<{ catalog: Catalog; locale: Locale }>;
 type CardViewProperties = Readonly<{
   catalog: Catalog;
   onConnect?: () => void;
@@ -21,7 +21,7 @@ type CardViewProperties = Readonly<{
   status: Status;
 }>;
 
-export function GoogleWorkspaceCard({ catalog }: CardProperties) {
+export function GoogleWorkspaceCard({ catalog, locale }: CardProperties) {
   const [status, setStatus] = useState<Status>("disconnected");
   const [stale, setStale] = useState(false);
   const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export function GoogleWorkspaceCard({ catalog }: CardProperties) {
   async function connect() {
     setStatus("connecting");
     try {
-      const redirectUri = `${window.location.origin}/settings/connections`;
+      const redirectUri = localizedConnectionReturnUri(window.location.origin, locale);
       const result = await startGoogleConnection(redirectUri);
       if (result.synthetic) {
         const callback = new URL(result.authorizationUrl);
@@ -86,6 +86,10 @@ export function GoogleWorkspaceCard({ catalog }: CardProperties) {
       status={status}
     />
   );
+}
+
+export function localizedConnectionReturnUri(origin: string, locale: Locale): string {
+  return new URL(`/${locale}/settings/connections`, origin).toString().replace(/\/$/u, "");
 }
 
 export function GoogleWorkspaceCardView({

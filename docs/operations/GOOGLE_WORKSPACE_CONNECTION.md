@@ -2,12 +2,12 @@
 
 ## Status
 
-The live Google REST adapters exist, but production connection remains deliberately disabled with
-`EXTERNAL_CONFIGURATION_REQUIRED`.
+The live Google REST adapters exist. A guarded `google-local` mode now supports a real personal
+Google consent journey for local product acceptance only. Production connection remains
+deliberately disabled with `EXTERNAL_CONFIGURATION_REQUIRED`.
 
-Deterministic Gmail and Calendar acceptance remains the supported runnable path until every
-production gate below is approved and implemented. Creating an OAuth client for local testing does
-not satisfy the production gate.
+Deterministic Gmail and Calendar acceptance remains available. Creating an OAuth client or using
+the local preview does not satisfy any production gate below.
 
 ## Production activation gate
 
@@ -80,7 +80,7 @@ The current credential-vault port cannot persist a rotated access credential. Th
 therefore caches refreshed access credentials only in process memory. Production wiring must keep
 the refresh credential in the approved vault and tolerate a refresh after process restart.
 
-## Local test procedure
+## Automated local test procedure
 
 Provider-adapter tests use a mocked HTTP transport and require no Google or OpenAI credential:
 
@@ -88,9 +88,70 @@ Provider-adapter tests use a mocked HTTP transport and require no Google or Open
 pnpm exec vitest run --project unit packages/connected-work-context/src/google/google-adapters.test.ts
 ```
 
-Do not source, print, copy, or commit `.env.google.local` while running these tests. A future local
-live callback may be enabled only through an explicit development composition that preserves the
-same privacy boundary; it must not change the production gate.
+Do not source, print, copy, or commit `.env.google.local` while running these tests.
+
+## Real local acceptance preview
+
+The real preview is fail-closed unless all of these conditions are present together:
+
+- `APP_ENV=local`.
+- `NODE_ENV=development` (or `test` in automated composition checks).
+- `CONNECTED_WORK_CONTEXT_MODE=google-local`.
+- `CONNECTED_WORK_CONTEXT_REDIRECT_URIS` contains only exact localized return URIs, normally
+  `http://localhost:3000/ar/settings/connections` and
+  `http://localhost:3000/en/settings/connections`.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_OAUTH_REDIRECT_URI` are present.
+- `GOOGLE_OAUTH_REDIRECT_URI` is exactly
+  `http://localhost:3000/api/workspace/connected-work/google/callback` and is registered on the
+  Google OAuth web client.
+- `GOOGLE_OAUTH_SCOPES` contains exactly the four scopes in **Requested scopes**, without
+  `gmail.readonly` or any broader substitute.
+- The personal Google account is an authorized test user while the consent screen is in testing.
+
+Keep the real values only in the ignored, mode-`0600` project reference file
+`.env.google.local`. Never paste a value into source, `.env.example`, terminal history, issue text,
+or screenshots. From the active worktree, load the ordinary local environment and that ignored
+reference file into the process, then set only the non-secret mode values:
+
+```text
+APP_ENV=local \
+NODE_ENV=development \
+CONNECTED_WORK_CONTEXT_MODE=google-local \
+CONNECTED_WORK_CONTEXT_REDIRECT_URIS=http://localhost:3000/ar/settings/connections,http://localhost:3000/en/settings/connections \
+/opt/homebrew/opt/node@24/bin/node \
+  --env-file=./.env.example \
+  --env-file=/Users/haitham/development/evidence-performance-evaluation-system/.env.google.local \
+  /Users/haitham/.cache/node/corepack/v1/pnpm/11.13.0/bin/pnpm.mjs dev
+```
+
+Use Node's environment-file loader rather than sourcing `.env.google.local` in the shell; scope
+lists contain spaces and the secret file is not a shell script.
+
+Open `http://localhost:3000/ar/settings/connections` or the English equivalent while signed in as
+the employee. The app sends Google to the fixed registered callback. The callback sends the
+authorization code to the API in an authenticated internal POST body, removes provider parameters
+from the browser URL, and returns to the exact localized Connections page. The status then reloads
+from the private connected-context API.
+
+### Local preview limits
+
+- OAuth credentials exist only in API-process memory and disappear on process restart.
+- Disconnect disables local credential use first and then makes a best-effort Google revocation
+  request. A provider outage cannot restore local credential use.
+- New private titles use AES-256-GCM with an in-memory key derived from the local Google client
+  secret. Rotating that secret makes earlier local AES rows unreadable; this is not a production
+  key-rotation design.
+- The initial Gmail snapshot requests at most 25 recent message identifiers, reads only Subject
+  metadata, and retains only messages dated within the previous 14 days. It deliberately does not
+  use Gmail's `q` parameter because `gmail.metadata` does not permit that query capability.
+- Gmail summaries stay `null`; bodies, snippets, MIME parts, attachment names, and attachment
+  contents are never read or stored.
+- Calendar imports future events with a page size of 25 and retains only title, time, link, and
+  opaque event ID. Descriptions and attendees are not read or stored.
+- Context remains private to the employee. It is not a Task, completion signal, Project progress
+  value, performance input, or manager projection.
+- Disconnect makes derived context inaccessible; it does not claim database deletion. Production
+  retention/deletion policy is still required.
 
 ## Disconnect and deletion
 

@@ -36,6 +36,8 @@ const projectId = crypto.randomUUID();
 const privateTitle = "Synthetic project decision";
 const privateSummary = "Synthetic owner-only follow-up";
 const privateSourceUrl = "https://mail.example.invalid/synthetic-owner-thread";
+const localReturnUri = "http://localhost:3000/en/settings/connections";
+const localCallbackUri = "http://localhost:3000/api/workspace/connected-work/google/callback";
 
 function createFlow() {
   return new GoogleConnectionFlowService({
@@ -81,6 +83,238 @@ describe("connected work protected API", () => {
       allowedRedirectUris: [redirectUri],
       stateTtlMs: 600_000,
     });
+  });
+
+  it("enables google-local only when every local runtime, URI, credential, and scope guard passes", () => {
+    expect(
+      parseConnectedWorkContextRuntimeConfiguration({
+        APP_ENV: "local",
+        NODE_ENV: "development",
+        CONNECTED_WORK_CONTEXT_MODE: "google-local",
+        CONNECTED_WORK_CONTEXT_REDIRECT_URIS: localReturnUri,
+        GOOGLE_CLIENT_ID: "local-client-id",
+        GOOGLE_CLIENT_SECRET: "local-client-secret",
+        GOOGLE_OAUTH_REDIRECT_URI: localCallbackUri,
+        GOOGLE_OAUTH_SCOPES:
+          "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.metadata https://www.googleapis.com/auth/calendar.events.readonly",
+      }),
+    ).toEqual({
+      mode: "google-local",
+      appEnvironment: "local",
+      nodeEnvironment: "development",
+      allowedRedirectUris: [localReturnUri],
+      stateTtlMs: 600_000,
+      oauthConfiguration: {
+        externalConfigurationReady: true,
+        clientId: "local-client-id",
+        clientSecret: "local-client-secret",
+        redirectUri: localCallbackUri,
+      },
+    });
+  });
+
+  it.each([
+    ["missing client secret", { GOOGLE_CLIENT_SECRET: undefined }],
+    ["production node", { NODE_ENV: "production" }],
+    ["non-local app", { APP_ENV: "production" }],
+    [
+      "broader Gmail scope",
+      {
+        GOOGLE_OAUTH_SCOPES:
+          "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.events.readonly",
+      },
+    ],
+    [
+      "unlocalized return",
+      { CONNECTED_WORK_CONTEXT_REDIRECT_URIS: "http://localhost:3000/settings/connections" },
+    ],
+  ])("keeps google-local fail-closed for %s", (_name, override) => {
+    const configuration = parseConnectedWorkContextRuntimeConfiguration({
+      APP_ENV: "local",
+      NODE_ENV: "development",
+      CONNECTED_WORK_CONTEXT_MODE: "google-local",
+      CONNECTED_WORK_CONTEXT_REDIRECT_URIS: localReturnUri,
+      GOOGLE_CLIENT_ID: "local-client-id",
+      GOOGLE_CLIENT_SECRET: "local-client-secret",
+      GOOGLE_OAUTH_REDIRECT_URI: localCallbackUri,
+      GOOGLE_OAUTH_SCOPES:
+        "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.metadata https://www.googleapis.com/auth/calendar.events.readonly",
+      ...override,
+    });
+
+    expect(configuration).toEqual({
+      mode: "live",
+      allowedRedirectUris:
+        "CONNECTED_WORK_CONTEXT_REDIRECT_URIS" in override
+          ? [override.CONNECTED_WORK_CONTEXT_REDIRECT_URIS]
+          : [localReturnUri],
+      stateTtlMs: 600_000,
+      externalConfigurationReady: false,
+    });
+  });
+
+  it("uses fixed provider callback and one-time employee-bound state for google-local completion", async () => {
+    const exchangedCredential = {
+      accessToken: "exchanged-access",
+      refreshToken: "exchanged-refresh",
+      expiresAt: "2026-08-03T13:00:00.000Z",
+    };
+    const oauthClient = {
+      createAuthorizationUrl: vi.fn(
+        ({ state }: { state: string }) =>
+          `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({
+            client_id: "local-client-id",
+            code_challenge_method: "S256",
+            redirect_uri: localCallbackUri,
+            response_type: "code",
+            state,
+          }).toString()}`,
+      ),
+      exchangeAuthorizationCode: vi.fn(async () => exchangedCredential),
+      revoke: vi.fn(async () => undefined),
+    };
+    const connection = {
+      connect: vi.fn(async () => ({ connected: true })),
+      disconnect: vi.fn(async () => ({ connected: false })),
+    };
+    const sync = {
+      sync: vi.fn(async () => ({
+        processedCount: 1,
+        normalizedItemCount: 1,
+        recoveredFromExpiredCursor: false,
+      })),
+    };
+    const flow = new GoogleConnectionFlowService({
+      configuration: {
+        mode: "google-local",
+        appEnvironment: "local",
+        nodeEnvironment: "development",
+        allowedRedirectUris: [localReturnUri],
+        stateTtlMs: 60_000,
+        oauthConfiguration: {
+          externalConfigurationReady: true,
+          clientId: "local-client-id",
+          clientSecret: "local-client-secret",
+          redirectUri: localCallbackUri,
+        },
+      },
+      connection: connection as never,
+      sync: sync as never,
+      oauthClient: oauthClient as never,
+    });
+
+    const started = flow.start({
+      actor: { userId: ownerId, active: true },
+      redirectUri: localReturnUri,
+    });
+    const providerUrl = new URL(started.authorizationUrl);
+    const state = providerUrl.searchParams.get("state")!;
+    expect(started).toMatchObject({ mode: "live", synthetic: false });
+    expect(providerUrl.searchParams.get("redirect_uri")).toBe(localCallbackUri);
+    expect(providerUrl.searchParams.get("redirect_uri")).not.toBe(localReturnUri);
+
+    await expect(
+      flow.completeLocal({
+        actor: { userId: otherEmployeeId, active: true },
+        correlationId: crypto.randomUUID(),
+        code: "provider-code",
+        state,
+      }),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_OAUTH_PRINCIPAL_MISMATCH" });
+
+    const completed = await flow.completeLocal({
+      actor: { userId: ownerId, active: true },
+      correlationId: crypto.randomUUID(),
+      code: "provider-code",
+      state,
+    });
+
+    expect(completed).toEqual({
+      mode: "live",
+      synthetic: false,
+      connected: true,
+      returnUri: localReturnUri,
+      synchronizedProviders: ["GOOGLE_GMAIL", "GOOGLE_CALENDAR"],
+    });
+    expect(oauthClient.exchangeAuthorizationCode).toHaveBeenCalledWith("provider-code");
+    expect(connection.connect).toHaveBeenCalledWith(
+      expect.objectContaining({ credential: exchangedCredential }),
+    );
+    expect(sync.sync).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(completed)).not.toContain("provider-code");
+    await expect(
+      flow.completeLocal({
+        actor: { userId: ownerId, active: true },
+        correlationId: crypto.randomUUID(),
+        code: "provider-code",
+        state,
+      }),
+    ).rejects.toMatchObject({ code: "CONNECTED_CONTEXT_OAUTH_STATE_INVALID" });
+  });
+
+  it("disconnects the local account when either provider synchronization fails", async () => {
+    let credentialUsable = false;
+    const oauthClient = {
+      createAuthorizationUrl: ({ state }: { state: string }) =>
+        `https://accounts.google.com/o/oauth2/v2/auth?state=${encodeURIComponent(state)}`,
+      exchangeAuthorizationCode: async () => ({
+        accessToken: "exchanged-access",
+        refreshToken: "exchanged-refresh",
+        expiresAt: null,
+      }),
+      revoke: vi.fn(async () => undefined),
+    };
+    const connection = {
+      connect: vi.fn(async () => {
+        credentialUsable = true;
+        return { connected: true };
+      }),
+      disconnect: vi.fn(async () => {
+        credentialUsable = false;
+        return { connected: false };
+      }),
+    };
+    const flow = new GoogleConnectionFlowService({
+      configuration: {
+        mode: "google-local",
+        appEnvironment: "local",
+        nodeEnvironment: "development",
+        allowedRedirectUris: [localReturnUri],
+        stateTtlMs: 60_000,
+        oauthConfiguration: {
+          externalConfigurationReady: true,
+          clientId: "local-client-id",
+          clientSecret: "local-client-secret",
+          redirectUri: localCallbackUri,
+        },
+      },
+      connection: connection as never,
+      sync: { sync: vi.fn(async () => Promise.reject(new Error("provider failed"))) } as never,
+      oauthClient: oauthClient as never,
+    });
+    const state = new URL(
+      flow.start({
+        actor: { userId: ownerId, active: true },
+        redirectUri: localReturnUri,
+      }).authorizationUrl,
+    ).searchParams.get("state")!;
+
+    const completed = await flow.completeLocal({
+      actor: { userId: ownerId, active: true },
+      correlationId: crypto.randomUUID(),
+      code: "provider-code",
+      state,
+    });
+
+    expect(completed).toEqual({
+      mode: "live",
+      synthetic: false,
+      connected: false,
+      returnUri: localReturnUri,
+      synchronizedProviders: [],
+    });
+    expect(connection.disconnect).toHaveBeenCalledOnce();
+    expect(credentialUsable).toBe(false);
   });
 
   it("provides deterministic minimal Gmail and Calendar fixtures for synthetic review", async () => {
@@ -753,6 +987,21 @@ describe("connected work composed HTTP API", () => {
     );
     expect(replay.response.status).toBe(403);
     expect(replay.body).toMatchObject({ code: "CONNECTED_CONTEXT_OAUTH_STATE_INVALID" });
+  });
+
+  it("exposes real provider completion as POST-only and never echoes the submitted code", async () => {
+    const authorizationCode = "never-echo-local-provider-code";
+    const posted = await apiRequest("POST", "/api/v1/connected-work/google/complete", ownerId, {
+      state: "opaque-state",
+      code: authorizationCode,
+    });
+    const fetched = await apiRequest("GET", "/api/v1/connected-work/google/complete", ownerId);
+
+    expect(posted.response.status).toBe(503);
+    expect(posted.body).toMatchObject({ code: "EXTERNAL_CONFIGURATION_REQUIRED" });
+    expect(JSON.stringify(posted.body)).not.toContain(authorizationCode);
+    expect(fetched.response.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(fetched.body)).not.toContain(authorizationCode);
   });
 
   it("denies inactive principals and exposes the protected disconnect route", async () => {

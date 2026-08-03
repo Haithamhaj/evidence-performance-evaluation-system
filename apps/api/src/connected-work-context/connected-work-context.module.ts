@@ -4,8 +4,15 @@ import {
   ConnectedWorkContextQueryService,
   ConnectedWorkSyncService,
   createPrivateContextProtector,
+  CalendarRestAdapter,
   DevelopmentOnlyMemoryCredentialVault,
   FakeGoogleWorkspaceAdapter,
+  GmailRestAdapter,
+  GoogleLocalMemoryCredentialVault,
+  GoogleLocalPrivateContextProtector,
+  GoogleOAuthClient,
+  GoogleWorkspaceRestAdapter,
+  GOOGLE_WORKSPACE_READ_SCOPES,
 } from "@evaluation/connected-work-context";
 import { AppError } from "@evaluation/contracts";
 import { createDatabaseClient } from "@evaluation/database";
@@ -30,6 +37,7 @@ const CONNECTED_WORK_DATABASE_LIFECYCLE = "CONNECTED_WORK_DATABASE_LIFECYCLE";
 const CONNECTED_WORK_CREDENTIAL_VAULT = "CONNECTED_WORK_CREDENTIAL_VAULT";
 export const CONNECTED_WORK_PROTECTOR = "CONNECTED_WORK_PROTECTOR";
 const CONNECTED_WORK_SOURCE_ADAPTER = "CONNECTED_WORK_SOURCE_ADAPTER";
+const CONNECTED_WORK_GOOGLE_OAUTH_CLIENT = "CONNECTED_WORK_GOOGLE_OAUTH_CLIENT";
 
 type Environment = Readonly<Record<string, string | undefined>>;
 type CredentialVaultPort = import("@evaluation/connected-work-context").CredentialVault;
@@ -50,6 +58,24 @@ export function parseConnectedWorkContextRuntimeConfiguration(
       mode: "synthetic",
       allowedRedirectUris,
       stateTtlMs: 600_000,
+    };
+  }
+  if (
+    environment.CONNECTED_WORK_CONTEXT_MODE?.trim() === "google-local" &&
+    isCompleteGoogleLocalConfiguration(environment, allowedRedirectUris)
+  ) {
+    return {
+      mode: "google-local",
+      appEnvironment: "local",
+      nodeEnvironment: environment.NODE_ENV as "development" | "test",
+      allowedRedirectUris,
+      stateTtlMs: 600_000,
+      oauthConfiguration: {
+        externalConfigurationReady: true,
+        clientId: environment.GOOGLE_CLIENT_ID!.trim(),
+        clientSecret: environment.GOOGLE_CLIENT_SECRET!.trim(),
+        redirectUri: environment.GOOGLE_OAUTH_REDIRECT_URI!.trim(),
+      },
     };
   }
   return {
@@ -86,14 +112,35 @@ Module({
       inject: [CONNECTED_WORK_DATABASE],
     },
     {
+      provide: CONNECTED_WORK_GOOGLE_OAUTH_CLIENT,
+      useFactory: (
+        configuration: import("./connections.controller.js").GoogleConnectionFlowConfiguration,
+      ) =>
+        new GoogleOAuthClient({
+          configuration:
+            configuration.mode === "google-local"
+              ? configuration.oauthConfiguration
+              : { externalConfigurationReady: false },
+        }),
+      inject: [CONNECTED_WORK_RUNTIME_CONFIGURATION],
+    },
+    {
       provide: CONNECTED_WORK_CREDENTIAL_VAULT,
       useFactory: (
         configuration: import("./connections.controller.js").GoogleConnectionFlowConfiguration,
+        oauthClient: GoogleOAuthClient,
       ): import("@evaluation/connected-work-context").CredentialVault =>
         configuration.mode === "synthetic"
           ? new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" })
-          : new ExternallyGatedCredentialVault(),
-      inject: [CONNECTED_WORK_RUNTIME_CONFIGURATION],
+          : configuration.mode === "google-local"
+            ? new GoogleLocalMemoryCredentialVault({
+                appEnvironment: configuration.appEnvironment,
+                nodeEnvironment: configuration.nodeEnvironment,
+                runtimeMode: configuration.mode,
+                revokeProviderCredential: (credential) => oauthClient.revoke(credential),
+              })
+            : new ExternallyGatedCredentialVault(),
+      inject: [CONNECTED_WORK_RUNTIME_CONFIGURATION, CONNECTED_WORK_GOOGLE_OAUTH_CLIENT],
     },
     {
       provide: CONNECTED_WORK_PROTECTOR,
@@ -102,18 +149,34 @@ Module({
       ): import("@evaluation/connected-work-context").PrivateContextProtector =>
         configuration.mode === "synthetic"
           ? createPrivateContextProtector({ mode: "development" })
-          : new ExternallyGatedPrivateContextProtector(),
+          : configuration.mode === "google-local"
+            ? new GoogleLocalPrivateContextProtector({
+                appEnvironment: configuration.appEnvironment,
+                clientSecret: configuration.oauthConfiguration.clientSecret,
+                nodeEnvironment: configuration.nodeEnvironment,
+                runtimeMode: configuration.mode,
+              })
+            : new ExternallyGatedPrivateContextProtector(),
       inject: [CONNECTED_WORK_RUNTIME_CONFIGURATION],
     },
     {
       provide: CONNECTED_WORK_SOURCE_ADAPTER,
       useFactory: (
         configuration: import("./connections.controller.js").GoogleConnectionFlowConfiguration,
+        oauthClient: GoogleOAuthClient,
       ): import("@evaluation/connected-work-context").ConnectedSourceAdapter =>
         configuration.mode === "synthetic"
           ? createSyntheticGoogleWorkspaceAdapter()
-          : new ExternallyGatedSourceAdapter(),
-      inject: [CONNECTED_WORK_RUNTIME_CONFIGURATION],
+          : configuration.mode === "google-local"
+            ? new GoogleWorkspaceRestAdapter({
+                gmail: new GmailRestAdapter({
+                  oauthClient,
+                  initialSnapshot: { maximumMessages: 25, newerThanDays: 14 },
+                }),
+                calendar: new CalendarRestAdapter({ oauthClient, pageSize: 25 }),
+              })
+            : new ExternallyGatedSourceAdapter(),
+      inject: [CONNECTED_WORK_RUNTIME_CONFIGURATION, CONNECTED_WORK_GOOGLE_OAUTH_CLIENT],
     },
     {
       provide: ConnectedWorkConnectionService,
@@ -174,11 +237,13 @@ Module({
         configuration: import("./connections.controller.js").GoogleConnectionFlowConfiguration,
         connection: ConnectedWorkConnectionService,
         sync: ConnectedWorkSyncService,
-      ) => new GoogleConnectionFlowService({ configuration, connection, sync }),
+        oauthClient: GoogleOAuthClient,
+      ) => new GoogleConnectionFlowService({ configuration, connection, sync, oauthClient }),
       inject: [
         CONNECTED_WORK_RUNTIME_CONFIGURATION,
         ConnectedWorkConnectionService,
         ConnectedWorkSyncService,
+        CONNECTED_WORK_GOOGLE_OAUTH_CLIENT,
       ],
     },
     {
@@ -272,5 +337,77 @@ function externalConfigurationRequired(): never {
     "EXTERNAL_CONFIGURATION_REQUIRED",
     "errors.connectedContext.externalConfigurationRequired",
     503,
+  );
+}
+
+function isCompleteGoogleLocalConfiguration(
+  environment: Environment,
+  allowedRedirectUris: readonly string[],
+): boolean {
+  if (
+    environment.APP_ENV !== "local" ||
+    (environment.NODE_ENV !== "development" && environment.NODE_ENV !== "test") ||
+    allowedRedirectUris.length === 0 ||
+    !allowedRedirectUris.every(isAllowedLocalReturnUri)
+  ) {
+    return false;
+  }
+  const clientId = environment.GOOGLE_CLIENT_ID?.trim() ?? "";
+  const clientSecret = environment.GOOGLE_CLIENT_SECRET?.trim() ?? "";
+  const redirectUri = environment.GOOGLE_OAUTH_REDIRECT_URI?.trim() ?? "";
+  if (
+    clientId.length === 0 ||
+    clientSecret.length === 0 ||
+    !isAllowedLocalCallbackUri(redirectUri)
+  ) {
+    return false;
+  }
+  const scopes = (environment.GOOGLE_OAUTH_SCOPES ?? "")
+    .split(/[\s,]+/u)
+    .map((scope) => scope.trim())
+    .filter((scope) => scope.length > 0);
+  return (
+    scopes.length === GOOGLE_WORKSPACE_READ_SCOPES.length &&
+    new Set(scopes).size === scopes.length &&
+    GOOGLE_WORKSPACE_READ_SCOPES.every((scope) => scopes.includes(scope))
+  );
+}
+
+function isAllowedLocalReturnUri(value: string): boolean {
+  const url = safeUrl(value);
+  return (
+    url !== null &&
+    isLoopbackHttp(url) &&
+    /^\/(?:ar|en)\/settings\/connections$/u.test(url.pathname) &&
+    url.search === "" &&
+    url.hash === ""
+  );
+}
+
+function isAllowedLocalCallbackUri(value: string): boolean {
+  const url = safeUrl(value);
+  return (
+    url !== null &&
+    isLoopbackHttp(url) &&
+    url.pathname === "/api/workspace/connected-work/google/callback" &&
+    url.search === "" &&
+    url.hash === ""
+  );
+}
+
+function safeUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+function isLoopbackHttp(url: URL): boolean {
+  return (
+    url.protocol === "http:" &&
+    url.username === "" &&
+    url.password === "" &&
+    (url.hostname === "localhost" || url.hostname === "127.0.0.1")
   );
 }

@@ -21,18 +21,33 @@ export type GoogleConnectionFlowConfiguration =
       allowedRedirectUris: readonly string[];
       stateTtlMs: number;
       externalConfigurationReady: false;
+    }>
+  | Readonly<{
+      mode: "google-local";
+      appEnvironment: "local";
+      nodeEnvironment: "development" | "test";
+      allowedRedirectUris: readonly string[];
+      stateTtlMs: number;
+      oauthConfiguration: Extract<
+        import("@evaluation/connected-work-context").GoogleOAuthConfiguration,
+        { externalConfigurationReady: true }
+      >;
     }>;
 
 type GoogleConnectionFlowDependencies = Readonly<{
   configuration: GoogleConnectionFlowConfiguration;
   connection: import("@evaluation/connected-work-context").ConnectedWorkConnectionService;
   sync: import("@evaluation/connected-work-context").ConnectedWorkSyncService;
+  oauthClient?: Pick<
+    import("@evaluation/connected-work-context").GoogleOAuthClient,
+    "createAuthorizationUrl" | "exchangeAuthorizationCode" | "revoke"
+  >;
   clock?: () => number;
 }>;
 
 type PendingOAuthState = Readonly<{
   employeeId: string;
-  nonceHash: string;
+  nonceHash: string | null;
   redirectUri: string;
   expiresAt: number;
 }>;
@@ -64,20 +79,26 @@ export class GoogleConnectionFlowService {
       );
     }
     const state = crypto.randomUUID();
-    const nonce = crypto.randomUUID();
+    const nonce = this.dependencies.configuration.mode === "synthetic" ? crypto.randomUUID() : null;
     this.pendingStates.set(hash(state), {
       employeeId: command.actor.userId,
-      nonceHash: hash(nonce),
+      nonceHash: nonce === null ? null : hash(nonce),
       redirectUri: command.redirectUri,
       expiresAt: this.clock() + this.dependencies.configuration.stateTtlMs,
     });
-    const authorizationUrl = new URL(command.redirectUri);
-    authorizationUrl.searchParams.set("state", state);
-    authorizationUrl.searchParams.set("nonce", nonce);
+    let authorizationUrl: string;
+    if (this.dependencies.configuration.mode === "synthetic") {
+      const syntheticUrl = new URL(command.redirectUri);
+      syntheticUrl.searchParams.set("state", state);
+      syntheticUrl.searchParams.set("nonce", nonce!);
+      authorizationUrl = syntheticUrl.toString();
+    } else {
+      authorizationUrl = this.requireLocalOAuthClient().createAuthorizationUrl({ state });
+    }
     return {
-      mode: this.dependencies.configuration.mode,
+      mode: publicMode(this.dependencies.configuration),
       synthetic: this.dependencies.configuration.mode === "synthetic",
-      authorizationUrl: authorizationUrl.toString(),
+      authorizationUrl,
     };
   }
 
@@ -91,7 +112,108 @@ export class GoogleConnectionFlowService {
     }>,
   ) {
     assertActive(command.actor);
-    const stateKey = hash(command.state);
+    if (this.dependencies.configuration.mode !== "synthetic") {
+      throw externalConfigurationRequiredError();
+    }
+    const pending = this.requirePendingState(command.actor, command.state);
+    if (
+      pending.redirectUri !== command.redirectUri ||
+      !this.dependencies.configuration.allowedRedirectUris.includes(command.redirectUri)
+    ) {
+      throw new AppError(
+        "CONNECTED_CONTEXT_REDIRECT_FORBIDDEN",
+        "errors.connectedContext.redirectForbidden",
+        400,
+      );
+    }
+    if (pending.nonceHash === null || !sameHash(pending.nonceHash, hash(command.nonce))) {
+      throw new AppError(
+        "CONNECTED_CONTEXT_OAUTH_NONCE_INVALID",
+        "errors.connectedContext.oauthNonceInvalid",
+        403,
+      );
+    }
+    this.pendingStates.delete(hash(command.state));
+    await this.dependencies.connection.connect({
+      actor: command.actor,
+      correlationId: command.correlationId,
+      credential: {
+        accessToken: crypto.randomUUID(),
+        refreshToken: null,
+        expiresAt: null,
+      },
+    });
+    const synchronizedProviders = await this.synchronize(command.actor);
+    return {
+      mode: "synthetic" as const,
+      synthetic: true,
+      connected: true,
+      synchronizedProviders,
+    };
+  }
+
+  async completeLocal(
+    command: Readonly<{
+      actor: Actor;
+      correlationId: string;
+      state: string;
+      code: string;
+    }>,
+  ) {
+    assertActive(command.actor);
+    if (this.dependencies.configuration.mode !== "google-local") {
+      throw externalConfigurationRequiredError();
+    }
+    const pending = this.requirePendingState(command.actor, command.state);
+    this.pendingStates.delete(hash(command.state));
+    const oauthClient = this.requireLocalOAuthClient();
+    let credential: import("@evaluation/connected-work-context").OAuthCredential | null = null;
+    let connected = false;
+    try {
+      credential = await oauthClient.exchangeAuthorizationCode(command.code);
+      await this.dependencies.connection.connect({
+        actor: command.actor,
+        correlationId: command.correlationId,
+        credential,
+      });
+      connected = true;
+      const synchronizedProviders = await this.synchronize(command.actor);
+      return {
+        mode: "live" as const,
+        synthetic: false,
+        connected: true,
+        returnUri: pending.redirectUri,
+        synchronizedProviders,
+      };
+    } catch {
+      if (connected) {
+        try {
+          await this.dependencies.connection.disconnect({
+            actor: command.actor,
+            correlationId: command.correlationId,
+          });
+        } catch {
+          // ConnectionService and local vault fail closed before provider revocation is attempted.
+        }
+      } else if (credential !== null) {
+        try {
+          await oauthClient.revoke(credential);
+        } catch {
+          // The credential was never made usable by a connected account.
+        }
+      }
+      return {
+        mode: "live" as const,
+        synthetic: false,
+        connected: false,
+        returnUri: pending.redirectUri,
+        synchronizedProviders: [] as const,
+      };
+    }
+  }
+
+  private requirePendingState(actor: Actor, state: string): PendingOAuthState {
+    const stateKey = hash(state);
     const pending = this.pendingStates.get(stateKey);
     if (pending === undefined) {
       throw new AppError(
@@ -108,52 +230,28 @@ export class GoogleConnectionFlowService {
         403,
       );
     }
-    if (pending.employeeId !== command.actor.userId) {
+    if (pending.employeeId !== actor.userId) {
       throw new AppError(
         "CONNECTED_CONTEXT_OAUTH_PRINCIPAL_MISMATCH",
         "errors.connectedContext.oauthPrincipalMismatch",
         403,
       );
     }
-    if (
-      pending.redirectUri !== command.redirectUri ||
-      !this.dependencies.configuration.allowedRedirectUris.includes(command.redirectUri)
-    ) {
-      throw new AppError(
-        "CONNECTED_CONTEXT_REDIRECT_FORBIDDEN",
-        "errors.connectedContext.redirectForbidden",
-        400,
-      );
+    return pending;
+  }
+
+  private requireLocalOAuthClient() {
+    if (this.dependencies.oauthClient === undefined) throw externalConfigurationRequiredError();
+    return this.dependencies.oauthClient;
+  }
+
+  private async synchronize(actor: Actor) {
+    const synchronizedProviders: Array<"GOOGLE_GMAIL" | "GOOGLE_CALENDAR"> = [];
+    for (const provider of ["GOOGLE_GMAIL", "GOOGLE_CALENDAR"] as const) {
+      await this.dependencies.sync.sync({ actor, provider });
+      synchronizedProviders.push(provider);
     }
-    if (!sameHash(pending.nonceHash, hash(command.nonce))) {
-      throw new AppError(
-        "CONNECTED_CONTEXT_OAUTH_NONCE_INVALID",
-        "errors.connectedContext.oauthNonceInvalid",
-        403,
-      );
-    }
-    this.pendingStates.delete(stateKey);
-    await this.dependencies.connection.connect({
-      actor: command.actor,
-      correlationId: command.correlationId,
-      credential: {
-        accessToken: crypto.randomUUID(),
-        refreshToken: null,
-        expiresAt: null,
-      },
-    });
-    const synchronizedProviders = await Promise.all(
-      (["GOOGLE_GMAIL", "GOOGLE_CALENDAR"] as const).map(async (provider) => {
-        await this.dependencies.sync.sync({ actor: command.actor, provider });
-        return provider;
-      }),
-    );
-    return {
-      mode: this.dependencies.configuration.mode,
-      synthetic: this.dependencies.configuration.mode === "synthetic",
-      connected: true,
-      synchronizedProviders,
-    };
+    return synchronizedProviders;
   }
 }
 
@@ -172,6 +270,12 @@ const CallbackInputSchema = z
     nonce: z.string().min(1).max(2_000),
     redirectUri: z.string().min(1).max(2_000),
     code: z.string().min(1).max(10_000).optional(),
+  })
+  .strict();
+const LocalCompletionInputSchema = z
+  .object({
+    state: z.string().min(1).max(2_000),
+    code: z.string().min(1).max(10_000),
   })
   .strict();
 
@@ -206,13 +310,23 @@ export class ConnectionsController {
     });
   }
 
+  completeLocal(request: Request, body: unknown) {
+    const input = parseInput(LocalCompletionInputSchema, body);
+    return this.flow.completeLocal({
+      actor: actor(request),
+      correlationId: request.correlationId,
+      code: input.code,
+      state: input.state,
+    });
+  }
+
   async disconnect(request: Request) {
     await this.connection.disconnect({
       actor: actor(request),
       correlationId: request.correlationId,
     });
     return {
-      mode: this.configuration.mode,
+      mode: publicMode(this.configuration),
       synthetic: this.configuration.mode === "synthetic",
       connected: false,
     };
@@ -239,6 +353,14 @@ Req()(ConnectionsController.prototype, "callback", 0);
 Query()(ConnectionsController.prototype, "callback", 1);
 Get("callback")(ConnectionsController.prototype, "callback", callback);
 
+const completeLocal = Object.getOwnPropertyDescriptor(
+  ConnectionsController.prototype,
+  "completeLocal",
+)!;
+Req()(ConnectionsController.prototype, "completeLocal", 0);
+Body()(ConnectionsController.prototype, "completeLocal", 1);
+Post("complete")(ConnectionsController.prototype, "completeLocal", completeLocal);
+
 const disconnect = Object.getOwnPropertyDescriptor(ConnectionsController.prototype, "disconnect")!;
 Req()(ConnectionsController.prototype, "disconnect", 0);
 Delete()(ConnectionsController.prototype, "disconnect", disconnect);
@@ -257,6 +379,18 @@ function assertActive(actor: Actor): void {
   if (!actor.active) {
     throw new AppError("CONNECTED_CONTEXT_FORBIDDEN", "errors.connectedContext.forbidden", 403);
   }
+}
+
+export function publicMode(configuration: GoogleConnectionFlowConfiguration): "synthetic" | "live" {
+  return configuration.mode === "synthetic" ? "synthetic" : "live";
+}
+
+function externalConfigurationRequiredError(): AppError {
+  return new AppError(
+    "EXTERNAL_CONFIGURATION_REQUIRED",
+    "errors.connectedContext.externalConfigurationRequired",
+    503,
+  );
 }
 
 function parseInput<T>(schema: z.ZodType<T>, value: unknown): T {

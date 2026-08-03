@@ -69,6 +69,60 @@ describe("same-origin workspace GET allowlist", () => {
     );
   });
 
+  it("completes a real Google callback through an internal POST body and strips provider parameters", async () => {
+    const returnUri = "http://localhost:3000/ar/settings/connections";
+    const authorizationCode = "provider-authorization-code";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      mode: "live",
+      synthetic: false,
+      connected: true,
+      returnUri,
+      synchronizedProviders: ["GOOGLE_GMAIL", "GOOGLE_CALENDAR"],
+    });
+
+    const response = await GET(
+      new Request(
+        `http://localhost:3000/api/workspace/connected-work/google/callback?${new URLSearchParams({
+          code: authorizationCode,
+          state: "opaque-state",
+          scope: "approved-scope",
+          authuser: "0",
+          prompt: "consent",
+        }).toString()}`,
+      ),
+      { params: Promise.resolve({ path: ["connected-work", "google", "callback"] }) },
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(returnUri);
+    expect(response.headers.get("location")).not.toContain(authorizationCode);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/v1/connected-work/google/complete",
+      body: { code: authorizationCode, state: "opaque-state" },
+      schema: expect.anything(),
+    });
+  });
+
+  it("rejects unknown or duplicate provider callback parameters without internal access", async () => {
+    const unknown = await GET(
+      new Request(
+        "http://localhost:3000/api/workspace/connected-work/google/callback?code=a&state=b&redirect_uri=https%3A%2F%2Fevil.example",
+      ),
+      { params: Promise.resolve({ path: ["connected-work", "google", "callback"] }) },
+    );
+    const duplicate = await GET(
+      new Request(
+        "http://localhost:3000/api/workspace/connected-work/google/callback?code=a&code=b&state=c",
+      ),
+      { params: Promise.resolve({ path: ["connected-work", "google", "callback"] }) },
+    );
+
+    expect(unknown.status).toBe(404);
+    expect(duplicate.status).toBe(404);
+    expect(mocks.fetchProtectedUpstream).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       path: ["projects"],

@@ -369,6 +369,15 @@ const ConnectionCallbackSchema = z
     synchronizedProviders: z.array(z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"])),
   })
   .strict();
+const LocalConnectionCallbackSchema = z
+  .object({
+    mode: z.literal("live"),
+    synthetic: z.literal(false),
+    connected: z.boolean(),
+    returnUri: z.url(),
+    synchronizedProviders: z.array(z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"])),
+  })
+  .strict();
 const StartBodySchema = z.object({ redirectUri: z.url().max(2_000) }).strict();
 const ExclusionBodySchema = z.object({ excluded: z.boolean() }).strict();
 const ProjectLinkBodySchema = z
@@ -382,6 +391,20 @@ type RouteContext = {
 
 export async function GET(request: Request, context: RouteContext): Promise<NextResponse> {
   const path = (await context.params).path;
+  const localCallback = approvedGoogleProviderCallback(request, path);
+  if (localCallback !== null) {
+    try {
+      const result = await fetchProtectedUpstream({
+        method: "POST",
+        path: "/api/v1/connected-work/google/complete",
+        body: localCallback,
+        schema: LocalConnectionCallbackSchema,
+      });
+      return NextResponse.redirect(safeLocalizedConnectionReturnUri(request, result.returnUri));
+    } catch {
+      return NextResponse.redirect(new URL("/en/settings/connections", request.url));
+    }
+  }
   const callbackPath = approvedConnectedCallbackPath(request, path);
   if (callbackPath !== null) {
     try {
@@ -562,6 +585,42 @@ function approvedConnectedCallbackPath(request: Request, path: readonly string[]
     .safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success || Array.from(url.searchParams.keys()).length !== 3) return null;
   return `/api/v1/connected-work/google/callback?${new URLSearchParams(parsed.data).toString()}`;
+}
+
+function approvedGoogleProviderCallback(
+  request: Request,
+  path: readonly string[],
+): Readonly<{ code: string; state: string }> | null {
+  const url = new URL(request.url);
+  if (path.join("/") !== "connected-work/google/callback" || /%(?:2e|2f|5c)/iu.test(url.pathname)) {
+    return null;
+  }
+  const known = new Set(["authuser", "code", "hd", "prompt", "scope", "state"]);
+  const seen = new Set<string>();
+  for (const key of url.searchParams.keys()) {
+    if (!known.has(key) || seen.has(key)) return null;
+    seen.add(key);
+  }
+  const parsed = z
+    .object({ code: z.string().min(1).max(10_000), state: z.string().min(1).max(2_000) })
+    .safeParse({ code: url.searchParams.get("code"), state: url.searchParams.get("state") });
+  return parsed.success ? parsed.data : null;
+}
+
+function safeLocalizedConnectionReturnUri(request: Request, value: string): URL {
+  const requestedOrigin = new URL(request.url).origin;
+  const target = new URL(value);
+  if (
+    target.origin !== requestedOrigin ||
+    !/^\/(?:ar|en)\/settings\/connections$/u.test(target.pathname) ||
+    target.search !== "" ||
+    target.hash !== "" ||
+    target.username !== "" ||
+    target.password !== ""
+  ) {
+    throw new Error("INVALID_CONNECTED_WORK_RETURN_URI");
+  }
+  return target;
 }
 
 function isUuid(value: string | undefined): value is string {

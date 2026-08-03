@@ -100,6 +100,11 @@ without Product Owner approval.
   only in that untrusted text cannot combine with `EXPLICIT_PROJECT_REFERENCE` to authorize
   `AUTO_LINK`. No provider-authenticated sender metadata was added. Focused verification passed 41
   Context Intelligence unit tests, 15 API/database integration tests, and API lint/typecheck.
+- A real Google OAuth preview is now available only under the explicit `google-local` guards. It
+  keeps credentials in process memory, encrypts new private titles with local AES-256-GCM, imports
+  bounded Gmail metadata and future Calendar titles, and returns through a clean localized URL.
+  Production `live` mode remains fail-closed behind the approved vault, key, policy, and review
+  gates.
 
 ## Active Decisions
 
@@ -133,6 +138,9 @@ without Product Owner approval.
 - Live Google remains blocked on the approved OAuth client, exact redirect URIs, minimum scopes,
   administrator consent, retention/deletion policy, production credential vault, and production
   cryptographic key provider.
+- The local Google preview is deliberately non-durable: process restart loses OAuth credentials,
+  client-secret rotation makes earlier local AES rows unreadable, and disconnect hides rather than
+  claims deletion of derived rows.
 - Live Context Intelligence model quality remains unverified in this local environment because the
   governed routes and provider credential are not configured; deterministic route, schema, and
   recovery behavior is verified.
@@ -147,8 +155,9 @@ without Product Owner approval.
 
 ## Next Recommended Action
 
-Obtain Product Owner trust approval for Slice 3. Keep Slice 4 stopped until that approval is
-explicit.
+Run the protected human Google consent step for the local employee preview, verify private Gmail
+and Calendar context in My Work, then return to the Product Owner Slice 3 trust gate. Keep Slice 4
+stopped until that approval is explicit.
 
 ## Critical References
 

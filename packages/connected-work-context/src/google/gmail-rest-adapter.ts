@@ -8,6 +8,8 @@ type GoogleOAuthClientPort = import("./google-oauth-client.js").GoogleOAuthClien
 type GmailRestAdapterDependencies = Readonly<{
   oauthClient: GoogleOAuthClientPort;
   pageSize?: number;
+  initialSnapshot?: Readonly<{ maximumMessages: number; newerThanDays: number }>;
+  now?: () => Date;
 }>;
 
 type GmailMessage = Readonly<{
@@ -24,10 +26,25 @@ const gmailApiBase = "https://gmail.googleapis.com/gmail/v1/users/me";
 export class GmailRestAdapter implements ConnectedSourceAdapterPort {
   private readonly oauthClient: GoogleOAuthClientPort;
   private readonly pageSize: number;
+  private readonly initialSnapshot:
+    Readonly<{ maximumMessages: number; newerThanDays: number }> | undefined;
+  private readonly now: () => Date;
 
   constructor(dependencies: GmailRestAdapterDependencies) {
     this.oauthClient = dependencies.oauthClient;
     this.pageSize = positivePageSize(dependencies.pageSize ?? 50);
+    this.initialSnapshot = dependencies.initialSnapshot;
+    this.now = dependencies.now ?? (() => new Date());
+    if (this.initialSnapshot !== undefined) {
+      positivePageSize(this.initialSnapshot.maximumMessages);
+      if (
+        !Number.isSafeInteger(this.initialSnapshot.newerThanDays) ||
+        this.initialSnapshot.newerThanDays < 1 ||
+        this.initialSnapshot.newerThanDays > 365
+      ) {
+        throw new Error("Invalid Gmail initial snapshot range");
+      }
+    }
   }
 
   async pull(input: PullSourceInput): Promise<SourceDeltaPage> {
@@ -37,23 +54,38 @@ export class GmailRestAdapter implements ConnectedSourceAdapterPort {
 
   private async pullInitial(input: PullSourceInput): Promise<SourceDeltaPage> {
     const url = new URL(`${gmailApiBase}/messages`);
-    url.searchParams.set("maxResults", String(this.pageSize));
+    url.searchParams.set(
+      "maxResults",
+      String(this.initialSnapshot?.maximumMessages ?? this.pageSize),
+    );
     url.searchParams.set("includeSpamTrash", "false");
-    if (input.pageCursor !== null) url.searchParams.set("pageToken", input.pageCursor);
+    if (this.initialSnapshot !== undefined) {
+      if (input.pageCursor !== null) throw providerError();
+    } else if (input.pageCursor !== null) url.searchParams.set("pageToken", input.pageCursor);
     const response = await this.oauthClient.authorizedFetch(input.credential, url.toString());
     if (!response.ok) throw providerError();
     const payload = await readObject(response);
-    const messageReferences = readMessageReferences(payload.messages);
+    const messageReferences = readMessageReferences(payload.messages).slice(
+      0,
+      this.initialSnapshot?.maximumMessages,
+    );
     const messages = await this.loadMessages(
       input,
       messageReferences.map((message) => message.id),
     );
-    const nextPageCursor = optionalString(payload, "nextPageToken");
+    const recentMessages =
+      this.initialSnapshot === undefined
+        ? messages
+        : messages.filter((message) =>
+            isWithinRecentDays(message, this.initialSnapshot!.newerThanDays, this.now()),
+          );
+    const nextPageCursor =
+      this.initialSnapshot === undefined ? optionalString(payload, "nextPageToken") : null;
     const checkpointCursor =
       nextPageCursor === null ? await this.loadCurrentHistoryId(input) : "gmail-initial-pending";
     return {
       kind: "page",
-      items: messages.filter((message) => !isExcluded(message, input)).map(normalizeMessage),
+      items: recentMessages.filter((message) => !isExcluded(message, input)).map(normalizeMessage),
       nextPageCursor,
       checkpointCursor,
       cursorExpiresAt: null,
@@ -105,6 +137,12 @@ export class GmailRestAdapter implements ConnectedSourceAdapterPort {
     if (!response.ok) throw providerError();
     return requiredString(await readObject(response), "historyId");
   }
+}
+
+function isWithinRecentDays(message: GmailMessage, days: number, now: Date): boolean {
+  const occurredAt = Number(message.internalDate);
+  if (!Number.isFinite(occurredAt) || Number.isNaN(now.getTime())) throw providerError();
+  return occurredAt >= now.getTime() - days * 24 * 60 * 60 * 1_000 && occurredAt <= now.getTime();
 }
 
 function parseMessage(payload: Record<string, unknown>): GmailMessage {

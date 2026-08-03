@@ -160,6 +160,57 @@ describe("Google OAuth client", () => {
 });
 
 describe("Gmail REST adapter", () => {
+  it("bounds a local initial snapshot to 25 message candidates and filters metadata to the last 14 days", async () => {
+    const requestedUrls: string[] = [];
+    const adapter = new GmailRestAdapter({
+      oauthClient: liveOAuth(async (url) => {
+        requestedUrls.push(url);
+        const parsed = new URL(url);
+        if (parsed.pathname.endsWith("/messages")) {
+          return jsonResponse({
+            messages: Array.from({ length: 30 }, (_, index) => ({ id: `message-${index}` })),
+            nextPageToken: "must-not-be-followed",
+          });
+        }
+        if (parsed.pathname.endsWith("/profile")) return jsonResponse({ historyId: "history-25" });
+        const id = parsed.pathname.split("/").at(-1)!;
+        return jsonResponse({
+          id,
+          internalDate: String(
+            Date.parse(
+              id === "message-24" ? "2026-07-01T09:00:00.000Z" : "2026-08-03T09:00:00.000Z",
+            ),
+          ),
+          payload: { headers: [{ name: "Subject", value: `Subject ${id}` }] },
+        });
+      }),
+      initialSnapshot: { maximumMessages: 25, newerThanDays: 14 },
+      now: () => new Date("2026-08-03T10:00:00.000Z"),
+    });
+
+    const page = await adapter.pull({
+      provider: "GOOGLE_GMAIL",
+      credential: activeCredential,
+      syncCursor: null,
+      pageCursor: null,
+      exclusions: [],
+    });
+
+    expect(page).toMatchObject({
+      kind: "page",
+      nextPageCursor: null,
+      checkpointCursor: "history-25",
+    });
+    if (page.kind !== "page") throw new Error("expected page");
+    expect(page.items).toHaveLength(24);
+    const listUrl = new URL(requestedUrls[0]!);
+    expect(listUrl.searchParams.get("maxResults")).toBe("25");
+    expect(listUrl.searchParams.get("q")).toBeNull();
+    expect(requestedUrls.some((url) => new URL(url).searchParams.get("pageToken") !== null)).toBe(
+      false,
+    );
+  });
+
   it("paginates metadata-only messages and never normalizes snippets, bodies, or attachments", async () => {
     const requestedUrls: string[] = [];
     const transport: import("./google-oauth-client.js").GoogleHttpTransport = async (url) => {
@@ -395,6 +446,9 @@ describe("Calendar REST adapter", () => {
     });
     expect(new URL(requestedUrls[0]!).searchParams.get("syncToken")).toBe("calendar-sync-8");
     expect(new URL(requestedUrls[0]!).searchParams.get("showDeleted")).toBeNull();
+    expect(new URL(requestedUrls[0]!).searchParams.get("fields")).toBe(
+      "nextPageToken,nextSyncToken,items(id,summary,start,htmlLink,eventType)",
+    );
     expect(new URL(requestedUrls[1]!).searchParams.get("pageToken")).toBe("calendar-page-2");
   });
 

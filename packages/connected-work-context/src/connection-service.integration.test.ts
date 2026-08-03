@@ -353,6 +353,97 @@ type DerivedLinkCommands = {
 afterAll(async () => client.$disconnect());
 
 describe("connected work connection commands", () => {
+  it("rotates an active account to the newest credential and revokes the replaced reference", async () => {
+    const graph = await seedConnectionGraph();
+    const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    const service = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: databaseAuditWriter,
+      projectAuthorization: projectAuthorization(),
+      clock: () => now,
+    });
+    const actor = { userId: graph.employeeId, active: true };
+
+    const first = await service.connect({
+      actor,
+      correlationId: crypto.randomUUID(),
+      credential: { accessToken: "first-access", refreshToken: "first-refresh", expiresAt: null },
+    });
+    const firstStored = await client.connectedWorkAccount.findUniqueOrThrow({
+      where: { id: first.id },
+    });
+
+    const second = await service.connect({
+      actor,
+      correlationId: crypto.randomUUID(),
+      credential: {
+        accessToken: "second-access",
+        refreshToken: "second-refresh",
+        expiresAt: null,
+      },
+    });
+    const secondStored = await client.connectedWorkAccount.findUniqueOrThrow({
+      where: { id: second.id },
+    });
+
+    expect(second.id).toBe(first.id);
+    expect(secondStored.credentialRef).not.toBe(firstStored.credentialRef);
+    await expect(
+      vault.use(secondStored.credentialRef, async (credential) => credential.accessToken),
+    ).resolves.toBe("second-access");
+    await expect(
+      vault.use(firstStored.credentialRef, async () => "available"),
+    ).rejects.toMatchObject({ code: "CREDENTIAL_REVOKED" });
+  });
+
+  it("revokes a newly stored credential when the connection transaction fails", async () => {
+    const graph = await seedConnectionGraph();
+    const backingVault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    const storedReferences: string[] = [];
+    const revokedReferences: string[] = [];
+    const vault: import("./credential-vault.js").CredentialVault = {
+      put: async (input) => {
+        const stored = await backingVault.put(input);
+        storedReferences.push(stored.credentialRef);
+        return stored;
+      },
+      use: (credentialRef, operation) => backingVault.use(credentialRef, operation),
+      revoke: async (credentialRef) => {
+        revokedReferences.push(credentialRef);
+        await backingVault.revoke(credentialRef);
+      },
+    };
+    const service = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: {
+        append: async () => {
+          throw new Error("forced audit failure");
+        },
+      },
+      projectAuthorization: projectAuthorization(),
+      clock: () => now,
+    });
+
+    await expect(
+      service.connect({
+        actor: { userId: graph.employeeId, active: true },
+        correlationId: crypto.randomUUID(),
+        credential: { accessToken: "unused-access", refreshToken: null, expiresAt: null },
+      }),
+    ).rejects.toThrow("forced audit failure");
+
+    expect(storedReferences).toHaveLength(1);
+    expect(revokedReferences).toEqual(storedReferences);
+    await expect(
+      backingVault.use(storedReferences[0]!, async () => "available"),
+    ).rejects.toMatchObject({ code: "CREDENTIAL_REVOKED" });
+    await expect(
+      client.connectedWorkAccount.findUnique({ where: { employeeId: graph.employeeId } }),
+    ).resolves.toBeNull();
+  });
+
   it("authorizes a manual Project link only inside the serializable write transaction", async () => {
     const graph = await seedConnectionGraph();
     const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });

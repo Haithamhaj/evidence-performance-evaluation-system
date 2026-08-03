@@ -13,6 +13,8 @@ export {
   createPrivateContextProtector,
   DevelopmentOnlyDeterministicPrivateContextProtector,
   DevelopmentOnlyMemoryCredentialVault,
+  GoogleLocalMemoryCredentialVault,
+  GoogleLocalPrivateContextProtector,
   type CredentialVault,
   type OAuthCredential,
   type PrivateContextProtector,
@@ -22,6 +24,7 @@ export {
 export { FakeGoogleWorkspaceAdapter } from "./fake-google-workspace-adapter.js";
 export { CalendarRestAdapter } from "./google/calendar-rest-adapter.js";
 export { GmailRestAdapter } from "./google/gmail-rest-adapter.js";
+export { GoogleWorkspaceRestAdapter } from "./google/google-workspace-rest-adapter.js";
 export {
   GOOGLE_WORKSPACE_READ_SCOPES,
   GoogleOAuthClient,

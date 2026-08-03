@@ -60,56 +60,59 @@ export class ConnectedWorkConnectionService {
   ) {
     assertActive(command.actor);
     const current = validClock(this.clock());
-    const existing = await this.database.connectedWorkAccount.findUnique({
-      where: { employeeId: command.actor.userId },
-    });
-    if (
-      existing !== null &&
-      existing.disconnectedAt === null &&
-      existing.contentInaccessibleAt === null
-    ) {
-      return serializeConnection(existing);
-    }
-
     const { credentialRef } = await this.credentialVault.put({
       credential: command.credential,
     });
+    let replacedCredentialRef: string | null = null;
+    let connection: ReturnType<typeof serializeConnection>;
     try {
-      return await this.database.$transaction(async (transaction) => {
-        const account =
-          existing === null
-            ? await transaction.connectedWorkAccount.create({
-                data: {
-                  employeeId: command.actor.userId,
-                  credentialRef,
-                  connectedAt: current,
-                },
-              })
-            : await transaction.connectedWorkAccount.update({
-                where: { id: existing.id },
-                data: {
-                  credentialRef,
-                  connectedAt: current,
-                  disconnectedAt: null,
-                  contentInaccessibleAt: null,
-                  deletionDueAt: null,
-                },
-              });
-        await this.appendAudit(transaction, {
-          eventType: "connected_work_context.connected",
-          actor: command.actor,
-          correlationId: command.correlationId,
-          targetType: "connected_work_account",
-          targetId: account.id,
-          safeDiff: { connected: true },
-          reason: "Employee connected a private work-context account",
-        });
-        return serializeConnection(account);
-      });
+      connection = await this.database.$transaction(
+        async (transaction) => {
+          await lockConnectedWorkAccountByEmployee(transaction, command.actor.userId);
+          const existing = await transaction.connectedWorkAccount.findUnique({
+            where: { employeeId: command.actor.userId },
+          });
+          replacedCredentialRef = existing?.credentialRef ?? null;
+          const account =
+            existing === null
+              ? await transaction.connectedWorkAccount.create({
+                  data: {
+                    employeeId: command.actor.userId,
+                    credentialRef,
+                    connectedAt: current,
+                  },
+                })
+              : await transaction.connectedWorkAccount.update({
+                  where: { id: existing.id },
+                  data: {
+                    credentialRef,
+                    connectedAt: current,
+                    disconnectedAt: null,
+                    contentInaccessibleAt: null,
+                    deletionDueAt: null,
+                  },
+                });
+          await this.appendAudit(transaction, {
+            eventType: "connected_work_context.connected",
+            actor: command.actor,
+            correlationId: command.correlationId,
+            targetType: "connected_work_account",
+            targetId: account.id,
+            safeDiff: { connected: true },
+            reason: "Employee connected a private work-context account",
+          });
+          return serializeConnection(account);
+        },
+        { isolationLevel: "Serializable" },
+      );
     } catch (error) {
       await this.credentialVault.revoke(credentialRef);
       throw error;
     }
+    if (replacedCredentialRef !== null && replacedCredentialRef !== credentialRef) {
+      await this.credentialVault.revoke(replacedCredentialRef);
+    }
+    return connection;
   }
 
   async disconnect(command: Readonly<{ actor: Actor; correlationId: string }>) {
@@ -595,6 +598,18 @@ export class ConnectedWorkConnectionService {
       source: "api",
     });
   }
+}
+
+async function lockConnectedWorkAccountByEmployee(
+  transaction: Transaction,
+  employeeId: string,
+): Promise<void> {
+  await transaction.$queryRaw`
+    SELECT id
+    FROM "ConnectedWorkAccount"
+    WHERE "employeeId" = ${employeeId}::uuid
+    FOR UPDATE
+  `;
 }
 
 async function assertValidContextSuggestion(

@@ -14,7 +14,7 @@ import {
 import { z } from "zod";
 
 import { ConnectedWorkContextPolicyGuard } from "./connected-work-context-policy.guard.js";
-import { CONNECTED_WORK_RUNTIME_CONFIGURATION } from "./connections.controller.js";
+import { CONNECTED_WORK_RUNTIME_CONFIGURATION, publicMode } from "./connections.controller.js";
 
 export const CONNECTED_WORK_QUERY_SERVICE = "CONNECTED_WORK_QUERY_SERVICE";
 export const CONNECTED_WORK_CONNECTION_SERVICE = "CONNECTED_WORK_CONNECTION_SERVICE";
@@ -62,7 +62,7 @@ export class ContextItemsController {
   async list(request: Request) {
     const review = await this.query.review({ actor: actor(request) });
     return {
-      mode: this.configuration.mode,
+      mode: publicMode(this.configuration),
       synthetic: this.configuration.mode === "synthetic",
       connection: review.connection,
       items: review.items.map((item) => {

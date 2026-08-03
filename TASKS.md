@@ -296,7 +296,8 @@ Execution status:
 - The previous employee My Work and long Update interaction were rejected and are not accepted as the new Slice 1 experience.
 - **New Slice 1 is implemented and accepted by the Product Owner.**
 - **Slice 2 deterministic implementation and privacy acceptance are complete at the Product Owner
-  gate and accepted by the Product Owner. Live Google remains blocked by the approved
+  gate and accepted by the Product Owner. A guarded real-personal-account preview exists only for
+  explicit local acceptance; production Google remains blocked by the approved
   external-configuration gate.**
 - **Slice 3 Tasks 1–6, deterministic acceptance, and all bounded final-review P1 remediations are
   implemented and verified. Untrusted Gmail title/summary text cannot act as a confirmed
