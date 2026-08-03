@@ -119,7 +119,7 @@ export class PromptAwareOpenAiCompatibleAdapter {
             }),
             signal,
           }
-        : await this.transcriptionRequest(media, request.modelKey, credential, signal);
+        : await this.transcriptionRequest(media, request.modelKey, artifact.trustedBody, credential, signal);
       response = await raceWithAbort(
         this.fetchImplementation(endpoint, init),
         signal,
@@ -157,6 +157,7 @@ export class PromptAwareOpenAiCompatibleAdapter {
   private async transcriptionRequest(
     media: Readonly<{ reference: string; mediaType: string; byteSize: number }>,
     modelKey: string,
+    trustedPrompt: string,
     credential: string,
     signal: AbortSignal,
   ): Promise<RequestInit> {
@@ -173,6 +174,7 @@ export class PromptAwareOpenAiCompatibleAdapter {
     }
     const form = new FormData();
     form.set("model", modelKey);
+    form.set("prompt", trustedPrompt);
     form.set("file", new Blob([resolved.bytes.buffer.slice(resolved.bytes.byteOffset, resolved.bytes.byteOffset + resolved.bytes.byteLength) as ArrayBuffer], { type: resolved.mediaType }), resolved.filename);
     return { method: "POST", headers: { authorization: `Bearer ${credential}` }, body: form, signal };
   }

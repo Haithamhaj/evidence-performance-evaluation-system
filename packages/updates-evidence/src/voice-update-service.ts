@@ -16,6 +16,7 @@ const StartCommandSchema = z.object({ actor: ActorSchema, correlationId: z.strin
 const RevisionCommandSchema = z.object({ actor: ActorSchema, voiceSessionId: z.string().uuid(), input: ReviseVoiceTranscriptInputSchema }).strict();
 const ConfirmCommandSchema = z.object({ actor: ActorSchema, voiceSessionId: z.string().uuid(), input: ConfirmVoiceTranscriptInputSchema }).strict();
 const SessionCommandSchema = z.object({ actor: ActorSchema, correlationId: z.string().uuid(), voiceSessionId: z.string().uuid() }).strict();
+const IdempotencySessionCommandSchema = z.object({ actor: ActorSchema, correlationId: z.string().uuid(), idempotencyKey: z.string().uuid() }).strict();
 const MAX_VOICE_AUDIO_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_AUDIO_MIME_TYPES = new Set(["audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"]);
 
@@ -75,19 +76,138 @@ export class VoiceUpdateService {
       const created = await transaction.voiceUpdateSession.create({ data: { idempotencyKey: parsed.input.idempotencyKey, projectId: parsed.input.projectId, workstreamId: parsed.input.workstreamId, workItemId: parsed.input.workItemId, employeeId: parsed.actor.userId, uploadedSourceId: upload.id, state: "transcribing", declaredDurationSeconds: parsed.input.declaredDurationSeconds, retentionPolicyKey: "organization_private_upload_policy", retentionMetadata: { governedPrivateUpload: true, temporaryArtifacts: "delete_on_terminal_state" } } });
       return { existing: created, scope, upload };
     });
-    if (prepared.scope === null) return serialize(prepared.existing);
-    let session: Awaited<ReturnType<DatabaseClient["voiceUpdateSession"]["update"]>>;
+    if (prepared.scope === null || prepared.upload === null) {
+      if (prepared.existing.state === "failed" || prepared.existing.state === "transcribing") {
+        return this.retry({
+          actor: parsed.actor,
+          correlationId: parsed.correlationId,
+          voiceSessionId: prepared.existing.id,
+        });
+      }
+      return serialize(prepared.existing);
+    }
+    return this.transcribePrepared({
+      correlationId: parsed.correlationId,
+      sessionId: prepared.existing.id,
+      scope: prepared.scope,
+      upload: prepared.upload,
+    });
+  }
+
+  async retry(command: unknown) {
+    const parsed = SessionCommandSchema.parse(command);
+    const prepared = await this.client.$transaction(async (transaction) => {
+      const session = await authorizedOwnedSession(
+        transaction,
+        this.scopeReader,
+        parsed.actor,
+        parsed.voiceSessionId,
+        this.clock(),
+      );
+      if (["transcript_ready", "transcript_confirmed", "cancelled"].includes(session.state)) {
+        return { session, scope: null, upload: null };
+      }
+      if (session.state !== "failed" && session.state !== "transcribing") {
+        throw new AppError("VOICE_RETRY_INVALID", "errors.voice.retryInvalid", 409);
+      }
+      const scope = await this.scopeReader.authorizeIn(transaction, {
+        actor: parsed.actor,
+        projectId: session.projectId,
+        workstreamId: session.workstreamId,
+        workItemId: session.workItemId,
+        at: this.clock(),
+      });
+      const upload = await validatedSessionUpload(transaction, session);
+      const retrying = session.state === "failed"
+        ? await transaction.voiceUpdateSession.update({
+            where: { id: session.id },
+            data: { state: "transcribing", temporaryArtifactsCleanedAt: null },
+            include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true },
+          })
+        : session;
+      return { session: retrying, scope, upload };
+    }, { isolationLevel: "Serializable" });
+    if (prepared.scope === null || prepared.upload === null) return serialize(prepared.session);
+    return this.transcribePrepared({
+      correlationId: parsed.correlationId,
+      sessionId: prepared.session.id,
+      scope: prepared.scope,
+      upload: prepared.upload,
+    });
+  }
+
+  private async transcribePrepared(input: Readonly<{
+    correlationId: string;
+    sessionId: string;
+    scope: Awaited<ReturnType<UpdateScopeReader["authorizeIn"]>>;
+    upload: Readonly<{ id: string; detectedMime: string; byteSize: number }>;
+  }>) {
+    let session: Awaited<ReturnType<DatabaseClient["voiceUpdateSession"]["findUniqueOrThrow"]>> & {
+      transcriptRevisions: Array<{ revision: number; transcript: string }>;
+      confirmation: unknown | null;
+    };
     try {
-      const upload = prepared.upload;
-      if (upload === null) throw new AppError("VOICE_AUDIO_INVALID", "errors.voice.audioInvalid", 422);
-      const output = await this.transcriber.transcribe({ voiceSessionId: prepared.existing.id, uploadedSourceId: prepared.existing.uploadedSourceId, projectScopeId: prepared.scope.projectScopeId, departmentScopeId: prepared.scope.departmentScopeId, correlationId: parsed.correlationId, mediaType: upload.detectedMime, byteSize: upload.byteSize, declaredDurationSeconds: prepared.existing.declaredDurationSeconds });
-      session = await this.client.$transaction((transaction) => transaction.voiceUpdateSession.update({ where: { id: prepared.existing.id }, data: { state: "transcript_ready", language: output.language, dialect: output.dialect, ...(output.aiRunId === null ? {} : { aiRunId: output.aiRunId }), transcriptRevisions: { create: { revision: 1, origin: "ai", transcript: output.transcript, language: output.language, dialect: output.dialect, ...(output.aiRunId === null ? {} : { aiRunId: output.aiRunId }) } } }, include: { transcriptRevisions: true, confirmation: true } }));
+      const current = await this.client.voiceUpdateSession.findUniqueOrThrow({ where: { id: input.sessionId } });
+      const output = await this.transcriber.transcribe({
+        voiceSessionId: current.id,
+        uploadedSourceId: current.uploadedSourceId,
+        projectScopeId: input.scope.projectScopeId,
+        departmentScopeId: input.scope.departmentScopeId,
+        correlationId: input.correlationId,
+        mediaType: input.upload.detectedMime,
+        byteSize: input.upload.byteSize,
+        declaredDurationSeconds: current.declaredDurationSeconds,
+      });
+      session = await this.client.$transaction(async (transaction) => {
+        await lockSession(transaction, input.sessionId);
+        const locked = await transaction.voiceUpdateSession.findUniqueOrThrow({
+          where: { id: input.sessionId },
+          include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true },
+        });
+        if (locked.state !== "transcribing" || locked.transcriptRevisions.length > 0) return locked;
+        return transaction.voiceUpdateSession.update({
+          where: { id: locked.id },
+          data: {
+            state: "transcript_ready",
+            language: output.language,
+            dialect: output.dialect,
+            ...(output.aiRunId === null ? {} : { aiRunId: output.aiRunId }),
+            transcriptRevisions: {
+              create: {
+                revision: 1,
+                origin: "ai",
+                transcript: output.transcript,
+                language: output.language,
+                dialect: output.dialect,
+                ...(output.aiRunId === null ? {} : { aiRunId: output.aiRunId }),
+              },
+            },
+          },
+          include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true },
+        });
+      }, { isolationLevel: "Serializable" });
     } catch (error) {
-      await this.client.voiceUpdateSession.update({ where: { id: prepared.existing.id }, data: { state: "failed" } });
-      await this.cleaner.cleanup({ voiceSessionId: prepared.existing.id, outcome: "failed" });
-      await this.client.voiceUpdateSession.update({ where: { id: prepared.existing.id }, data: { temporaryArtifactsCleanedAt: this.clock() } });
+      const failed = await this.client.$transaction(async (transaction) => {
+        await lockSession(transaction, input.sessionId);
+        const current = await transaction.voiceUpdateSession.findUniqueOrThrow({
+          where: { id: input.sessionId },
+          include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true },
+        });
+        if (current.state !== "transcribing") return current;
+        return transaction.voiceUpdateSession.update({
+          where: { id: current.id },
+          data: { state: "failed" },
+          include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true },
+        });
+      }, { isolationLevel: "Serializable" });
+      if (failed.state === "cancelled") return serialize(failed);
+      if (failed.state === "failed" && failed.temporaryArtifactsCleanedAt === null) {
+        await this.cleaner.cleanup({ voiceSessionId: failed.id, outcome: "failed" });
+        await this.client.voiceUpdateSession.update({ where: { id: failed.id }, data: { temporaryArtifactsCleanedAt: this.clock() } });
+      }
       throw error;
     }
+    if (session.state !== "transcript_ready") return serialize(session);
     await this.cleaner.cleanup({ voiceSessionId: session.id, outcome: "success" });
     const cleaned = await this.client.voiceUpdateSession.update({ where: { id: session.id }, data: { temporaryArtifactsCleanedAt: this.clock() }, include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true } });
     return serialize(cleaned);
@@ -129,6 +249,22 @@ export class VoiceUpdateService {
     }
     return serialize(session);
   }
+
+  async cancelByIdempotencyKey(command: unknown) {
+    const parsed = IdempotencySessionCommandSchema.parse(command);
+    const session = await this.client.voiceUpdateSession.findUnique({
+      where: { idempotencyKey: parsed.idempotencyKey },
+      select: { id: true, employeeId: true },
+    });
+    if (session === null || session.employeeId !== parsed.actor.userId) {
+      throw new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
+    }
+    return this.cancel({
+      actor: parsed.actor,
+      correlationId: parsed.correlationId,
+      voiceSessionId: session.id,
+    });
+  }
 }
 
 async function ownedSession(transaction: Transaction, actor: { userId: string; active: boolean }, id: string) {
@@ -157,7 +293,39 @@ async function authorizedOwnedSession(
     workItemId: candidate.workItemId,
     at,
   });
-  await transaction.$queryRaw`SELECT id FROM "VoiceUpdateSession" WHERE id = ${id}::uuid FOR UPDATE`;
+  await lockSession(transaction, id);
   return ownedSession(transaction, actor, id);
+}
+
+async function lockSession(transaction: Transaction, id: string) {
+  await transaction.$queryRaw`SELECT id FROM "VoiceUpdateSession" WHERE id = ${id}::uuid FOR UPDATE`;
+}
+
+async function validatedSessionUpload(
+  transaction: Transaction,
+  session: Readonly<{ uploadedSourceId: string; employeeId: string; projectId: string; workstreamId: string | null }>,
+) {
+  const upload = await transaction.uploadedSource.findFirst({
+    where: { id: session.uploadedSourceId, createdById: session.employeeId },
+    select: {
+      id: true,
+      detectedMime: true,
+      byteSize: true,
+      projectId: true,
+      workstreamId: true,
+      workstream: { select: { projectId: true } },
+    },
+  });
+  if (
+    upload === null ||
+    (upload.projectId ?? upload.workstream?.projectId) !== session.projectId ||
+    upload.workstreamId !== session.workstreamId ||
+    !ACCEPTED_AUDIO_MIME_TYPES.has(upload.detectedMime) ||
+    upload.byteSize < 1 ||
+    upload.byteSize > MAX_VOICE_AUDIO_BYTES
+  ) {
+    throw new AppError("VOICE_AUDIO_INVALID", "errors.voice.audioInvalid", 422);
+  }
+  return upload;
 }
 function serialize(session: { id: string; state: string; language: string | null; dialect: string | null; transcriptRevisions: Array<{ revision: number; transcript: string }>; confirmation?: unknown | null }) { const latest = session.transcriptRevisions[0]; return { sessionId: session.id, state: session.state, transcript: latest?.transcript ?? null, revision: latest?.revision ?? null, language: session.language, dialect: session.dialect, transcriptConfirmed: session.confirmation !== null && session.confirmation !== undefined }; }

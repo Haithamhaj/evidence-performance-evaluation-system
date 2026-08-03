@@ -3,7 +3,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { startBrowserVoiceRecording, VoiceCapture } from "./voice-capture.js";
+import {
+  canCancelVoice,
+  canRetryVoice,
+  startBrowserVoiceRecording,
+  VoiceCapture,
+} from "./voice-capture.js";
 
 describe("VoiceCapture", () => {
   it("keeps transcript confirmation separate from final Update confirmation", async () => {
@@ -40,5 +45,16 @@ describe("VoiceCapture", () => {
     expect(audio.type).toBe("audio/mp4");
     expect(requestStream).toHaveBeenCalledOnce();
     expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("keeps cancellation available through active capture states and retry explicit after failure", () => {
+    expect(
+      (["requesting", "recording", "uploading", "transcribing"] as const).every((status) =>
+        canCancelVoice(status),
+      ),
+    ).toBe(true);
+    expect(canCancelVoice("ready")).toBe(false);
+    expect(canRetryVoice("error", true)).toBe(true);
+    expect(canRetryVoice("error", false)).toBe(false);
   });
 });

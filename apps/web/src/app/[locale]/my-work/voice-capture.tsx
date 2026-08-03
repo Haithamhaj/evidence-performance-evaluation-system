@@ -26,13 +26,27 @@ type BrowserRecorder = Readonly<{
 
 type VoiceSession = Readonly<{
   sessionId: string;
-  state: "transcribing" | "transcript_ready" | "transcript_confirmed" | "failed";
+  state: "transcribing" | "transcript_ready" | "transcript_confirmed" | "cancelled" | "failed";
   transcript: string | null;
   revision: number | null;
   transcriptConfirmed: boolean;
 }>;
 
 const ACCEPTED_AUDIO_TYPES = new Set(["audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"]);
+type VoiceStatus = "idle" | "requesting" | "recording" | "uploading" | "transcribing" | "ready" | "cancelled" | "error";
+type StartVoiceRequest = Scope & Readonly<{
+  idempotencyKey: string;
+  uploadedSourceId: string;
+  declaredDurationSeconds: number;
+}>;
+
+export function canCancelVoice(status: VoiceStatus): boolean {
+  return ["requesting", "recording", "uploading", "transcribing"].includes(status);
+}
+
+export function canRetryVoice(status: VoiceStatus, hasRetryRequest: boolean): boolean {
+  return status === "error" && hasRetryRequest;
+}
 
 export function VoiceCapture({
   catalog,
@@ -47,12 +61,15 @@ export function VoiceCapture({
   adapter?: VoiceCaptureAdapter;
   fetcher?: Fetcher;
 }>) {
-  const [status, setStatus] = useState<"idle" | "requesting" | "recording" | "uploading" | "transcribing" | "ready" | "cancelled" | "error">("idle");
+  const [status, setStatus] = useState<VoiceStatus>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [session, setSession] = useState<VoiceSession | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const recording = useRef<VoiceRecording | null>(null);
+  const retryRequest = useRef<StartVoiceRequest | null>(null);
+  const activeIdempotencyKey = useRef<string | null>(null);
+  const cancelRequested = useRef(false);
   useEffect(() => {
     if (status !== "recording") return;
     const timer = window.setInterval(() => setElapsed((value) => value + 1), 1_000);
@@ -60,10 +77,20 @@ export function VoiceCapture({
   }, [status]);
 
   async function startRecording() {
+    cancelRequested.current = false;
+    retryRequest.current = null;
+    activeIdempotencyKey.current = null;
+    setSession(null);
     setPermissionDenied(false);
     setStatus("requesting");
     try {
-      recording.current = await adapter.start();
+      const nextRecording = await adapter.start();
+      if (cancelRequested.current) {
+        nextRecording.cancel();
+        setStatus("cancelled");
+        return;
+      }
+      recording.current = nextRecording;
       setElapsed(0);
       setStatus("recording");
     } catch {
@@ -86,10 +113,21 @@ export function VoiceCapture({
   }
 
   async function cancelRecording() {
+    cancelRequested.current = true;
     recording.current?.cancel();
     recording.current = null;
     if (session !== null) {
       try { await postVoice(fetcher, `/api/daily-work/voice-updates/${session.sessionId}/cancel`, {}); } catch { setStatus("error"); return; }
+    } else if (activeIdempotencyKey.current !== null) {
+      try {
+        await postVoice(
+          fetcher,
+          `/api/daily-work/voice-updates/idempotency/${activeIdempotencyKey.current}/cancel`,
+          {},
+        );
+      } catch {
+        // The upload may still be finishing before a server session exists. The local cancellation gate prevents submission.
+      }
     }
     setStatus("cancelled");
   }
@@ -97,19 +135,57 @@ export function VoiceCapture({
   async function uploadAndTranscribe(file: File) {
     if (!ACCEPTED_AUDIO_TYPES.has(file.type)) throw new Error("unsupported-audio");
     const uploadedSourceId = await uploadVoiceFile(file, scope, fetcher);
-    setStatus("transcribing");
-    const next = await postVoice<VoiceSession>(fetcher, "/api/daily-work/voice-updates", {
+    if (cancelRequested.current) return;
+    const request: StartVoiceRequest = {
       idempotencyKey: crypto.randomUUID(),
       uploadedSourceId,
       ...scope,
       declaredDurationSeconds: await declaredDurationSeconds(file),
-    });
+    };
+    retryRequest.current = request;
+    activeIdempotencyKey.current = request.idempotencyKey;
+    setStatus("transcribing");
+    const next = await postVoice<VoiceSession>(fetcher, "/api/daily-work/voice-updates", request);
+    if (cancelRequested.current || next.state === "cancelled") {
+      setSession(next);
+      setStatus("cancelled");
+      return;
+    }
+    if (next.state === "failed") {
+      setSession(next);
+      throw new Error("transcription-failed");
+    }
+    applyReadySession(next);
+  }
+
+  function applyReadySession(next: VoiceSession) {
     if (next.transcript === null || next.revision === null || next.state !== "transcript_ready") {
       throw new Error("transcription-unavailable");
     }
     setSession(next);
     setTranscript(next.transcript);
     setStatus("ready");
+  }
+
+  async function retryTranscription() {
+    const request = retryRequest.current;
+    if (request === null) return;
+    cancelRequested.current = false;
+    setPermissionDenied(false);
+    setStatus("transcribing");
+    try {
+      const next = session?.state === "failed"
+        ? await postVoice<VoiceSession>(fetcher, `/api/daily-work/voice-updates/${session.sessionId}/retry`, {})
+        : await postVoice<VoiceSession>(fetcher, "/api/daily-work/voice-updates", request);
+      if (next.state === "cancelled") {
+        setSession(next);
+        setStatus("cancelled");
+        return;
+      }
+      applyReadySession(next);
+    } catch {
+      setStatus("error");
+    }
   }
 
   async function confirmTranscript() {
@@ -146,13 +222,13 @@ export function VoiceCapture({
     <section aria-label={catalog["voice.title"]} className="voiceCapture">
       <h3>{catalog["voice.title"]}</h3>
       <div className="formActions">
-        <button disabled={status === "requesting" || status === "recording" || status === "uploading"} onClick={startRecording} type="button">
+        <button disabled={canCancelVoice(status)} onClick={startRecording} type="button">
           {catalog["voice.start"]}
         </button>
         <button disabled={status !== "recording"} onClick={stopRecording} type="button">
           {catalog["voice.stop"]}
         </button>
-        <button disabled={status !== "recording"} onClick={cancelRecording} type="button">
+        <button disabled={!canCancelVoice(status)} onClick={cancelRecording} type="button">
           {catalog["voice.cancel"]}
         </button>
       </div>
@@ -160,10 +236,14 @@ export function VoiceCapture({
         <span>{catalog["voice.upload"]}</span>
         <input
           accept=".wav,.mp3,.m4a,audio/wav,audio/mpeg,audio/mp4"
-          disabled={status === "requesting" || status === "recording" || status === "uploading"}
+          disabled={canCancelVoice(status)}
           onChange={async (event) => {
             const file = event.currentTarget.files?.[0];
             if (file === undefined) return;
+            cancelRequested.current = false;
+            retryRequest.current = null;
+            activeIdempotencyKey.current = null;
+            setSession(null);
             setPermissionDenied(false);
             setStatus("uploading");
             try {
@@ -178,8 +258,14 @@ export function VoiceCapture({
         />
       </label>
       {status === "recording" ? <p>{catalog["voice.recording"]}: {elapsed}s</p> : null}
-      {status === "requesting" || status === "uploading" || status === "transcribing" ? <p>{catalog["voice.ready"]}</p> : null}
+      {status === "requesting" ? <p>{catalog["voice.requestingPermission"]}</p> : null}
+      {status === "uploading" ? <p>{catalog["voice.uploading"]}</p> : null}
+      {status === "transcribing" ? <p>{catalog["voice.transcribing"]}</p> : null}
+      {status === "cancelled" ? <p>{catalog["voice.cancelled"]}</p> : null}
       {status === "error" ? <p className="formError" role="alert">{catalog[permissionDenied ? "voice.permissionDenied" : "voice.retry"]}</p> : null}
+      {canRetryVoice(status, retryRequest.current !== null) ? (
+        <button onClick={retryTranscription} type="button">{catalog["voice.retry"]}</button>
+      ) : null}
       <label>
         <span>{catalog["voice.transcript"]}</span>
         <textarea disabled={session === null || session.transcriptConfirmed} dir="auto" onChange={(event) => setTranscript(event.currentTarget.value)} rows={5} value={transcript} />

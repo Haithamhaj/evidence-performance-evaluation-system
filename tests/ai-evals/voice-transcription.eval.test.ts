@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   VOICE_TRANSCRIBE_PROMPT_VERSION,
+  VOICE_TRANSCRIBE_TRUSTED_PROMPT,
   VoiceTranscriptionAiOutputSchema,
 } from "../../packages/updates-evidence/src/voice-transcriber.js";
 
@@ -18,6 +19,8 @@ describe("voice transcription AI contract", () => {
 
   it("keeps the transcription route versioned and rejects rating-shaped output", () => {
     expect(VOICE_TRANSCRIBE_PROMPT_VERSION).toBe("update-transcribe.v1");
+    expect(VOICE_TRANSCRIBE_TRUSTED_PROMPT).toContain("never infer ratings");
+    expect(VOICE_TRANSCRIBE_TRUSTED_PROMPT).toContain("official Project progress");
     expect(() =>
       VoiceTranscriptionAiOutputSchema.parse({
         transcript: "تم النشر.",

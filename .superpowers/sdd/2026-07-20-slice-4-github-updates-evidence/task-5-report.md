@@ -64,5 +64,30 @@ That call must remain routed and must not log audio or transcripts.
   regressions. Focused adapter/transcriber/UI unit suites and the voice service
   integration suite pass locally. No live provider request was made.
 - Commits through this checkpoint: `701138b`, `d9c652d`, and `5741df2`.
-  The retry/resume endpoint and dedicated current-permission/concurrency proofs
-  remain in progress; P2/P3 follow the established issue #9 backlog.
+  Documentation checkpoint: `5e0ef9c`.
+
+### Fix round 1 continuation
+
+- Added an owner- and current-scope-authorized retry endpoint. Failed or
+  stranded transcription resumes on the same session and idempotency identity;
+  successful replay creates exactly one transcript revision.
+- Added a server cancellation path by session or active idempotency key. A
+  cancelled session wins over a late provider response, so late audio output
+  cannot create a transcript revision or advance the Update lifecycle.
+- The client now distinguishes permission request, recording with elapsed time,
+  secure upload, transcription, ready, cancelled, and failure states. Cancel is
+  available across active states and retry is explicit. Confirmed transcript
+  text remains read-only.
+- Added real PostgreSQL regressions for retry, late-result cancellation,
+  permission loss before revise/confirm, and concurrent revise/confirm
+  serialization.
+- Added the idempotent, audited `register-update-transcribe-ai-route.ts` flow for
+  prompt artifact, portable output schema, `gpt-4o-transcribe` provider, and
+  system route. Dry-run output is credential-free and the script never reads or
+  prints the provider credential.
+- Verification: 14 focused adapter/transcriber/UI/API/registration unit tests,
+  8 voice integration tests, 6 AI contract evals, affected package/API/web
+  typechecks and lint, AI-boundary scan (650 files), secret scan (1,042 files),
+  dry-run route validation, and `git diff --check` all passed.
+- Scoped re-review remains required before Task 5 is marked complete. P2/P3 are
+  recorded in GitHub issue #9 and do not block this round.

@@ -11,6 +11,142 @@ const now = new Date("2026-08-03T12:00:00.000Z");
 afterAll(async () => client.$disconnect());
 
 describe("VoiceUpdateService", () => {
+  it("retries a failed transcription on the same session without duplicate revisions", async () => {
+    const graph = await seedVoiceGraph();
+    const upload = await seedVoiceUpload(graph, 512);
+    const transcribe = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("provider-temporary-failure"))
+      .mockResolvedValueOnce({
+        transcript: "The deployment passed after retry.",
+        language: "en" as const,
+        dialect: "english" as const,
+        aiRunId: null,
+      });
+    const service = serviceFor(graph, { transcribe });
+    const command = voiceCommand(graph, upload.id, crypto.randomUUID());
+
+    await expect(service.start(command)).rejects.toThrow("provider-temporary-failure");
+    const failed = await client.voiceUpdateSession.findUniqueOrThrow({
+      where: { idempotencyKey: command.input.idempotencyKey },
+    });
+    expect(failed.state).toBe("failed");
+
+    await expect(
+      service.retry({
+        actor: command.actor,
+        correlationId: crypto.randomUUID(),
+        voiceSessionId: failed.id,
+      }),
+    ).resolves.toMatchObject({
+      sessionId: failed.id,
+      state: "transcript_ready",
+      revision: 1,
+    });
+    expect(transcribe).toHaveBeenCalledTimes(2);
+    await expect(
+      client.voiceTranscriptRevision.count({ where: { voiceSessionId: failed.id } }),
+    ).resolves.toBe(1);
+  });
+
+  it("does not accept a late provider result after employee cancellation", async () => {
+    const graph = await seedVoiceGraph();
+    const upload = await seedVoiceUpload(graph, 512);
+    let release!: (value: {
+      transcript: string;
+      language: "en";
+      dialect: "english";
+      aiRunId: null;
+    }) => void;
+    const pending = new Promise<{
+      transcript: string;
+      language: "en";
+      dialect: "english";
+      aiRunId: null;
+    }>((resolve) => { release = resolve; });
+    const service = serviceFor(graph, { transcribe: async () => pending });
+    const command = voiceCommand(graph, upload.id, crypto.randomUUID());
+    const starting = service.start(command);
+    const session = await waitForVoiceSession(command.input.idempotencyKey);
+
+    await expect(service.cancel({
+      actor: command.actor,
+      correlationId: crypto.randomUUID(),
+      voiceSessionId: session.id,
+    })).resolves.toMatchObject({ state: "cancelled" });
+    release({ transcript: "Late result", language: "en", dialect: "english", aiRunId: null });
+    await expect(starting).resolves.toMatchObject({ state: "cancelled", transcript: null });
+    await expect(
+      client.voiceTranscriptRevision.count({ where: { voiceSessionId: session.id } }),
+    ).resolves.toBe(0);
+  });
+
+  it("denies transcript revision and confirmation after current scope access is lost", async () => {
+    const graph = await seedVoiceGraph();
+    const upload = await seedVoiceUpload(graph, 512);
+    let authorized = true;
+    const service = serviceFor(graph, {
+      transcribe: async () => ({ transcript: "Ready", language: "en", dialect: "english", aiRunId: null }),
+      authorizeIn: async () => {
+        if (!authorized) throw new Error("scope-ended");
+        return authorizedScope(graph);
+      },
+    });
+    const command = voiceCommand(graph, upload.id, crypto.randomUUID());
+    const started = await service.start(command);
+    authorized = false;
+
+    await expect(service.reviseTranscript({
+      actor: command.actor,
+      voiceSessionId: started.sessionId,
+      input: { expectedRevision: 1, transcript: "Changed" },
+    })).rejects.toThrow("scope-ended");
+    await expect(service.confirmTranscript({
+      actor: command.actor,
+      voiceSessionId: started.sessionId,
+      input: { expectedRevision: 1, reason: "Reviewed" },
+    })).rejects.toThrow("scope-ended");
+  });
+
+  it("serializes concurrent revision and confirmation without confirming a stale revision", async () => {
+    const graph = await seedVoiceGraph();
+    const upload = await seedVoiceUpload(graph, 512);
+    const service = serviceFor(graph, {
+      transcribe: async () => ({ transcript: "Ready", language: "en", dialect: "english", aiRunId: null }),
+    });
+    const command = voiceCommand(graph, upload.id, crypto.randomUUID());
+    const started = await service.start(command);
+
+    const outcomes = await Promise.allSettled([
+      service.reviseTranscript({
+        actor: command.actor,
+        voiceSessionId: started.sessionId,
+        input: { expectedRevision: 1, transcript: "Concurrent revision" },
+      }),
+      service.confirmTranscript({
+        actor: command.actor,
+        voiceSessionId: started.sessionId,
+        input: { expectedRevision: 1, reason: "Concurrent confirmation" },
+      }),
+    ]);
+    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+    const persisted = await client.voiceUpdateSession.findUniqueOrThrow({
+      where: { id: started.sessionId },
+      include: {
+        transcriptRevisions: { orderBy: { revision: "desc" } },
+        confirmation: true,
+      },
+    });
+    if (persisted.state === "transcript_confirmed") {
+      expect(persisted.transcriptRevisions).toHaveLength(1);
+      expect(persisted.confirmation?.transcriptRevisionId).toBe(persisted.transcriptRevisions[0]?.id);
+    } else {
+      expect(persisted.state).toBe("transcript_ready");
+      expect(persisted.transcriptRevisions[0]?.revision).toBe(2);
+      expect(persisted.confirmation).toBeNull();
+    }
+  });
+
   it("uses inspected audio metadata, preserves transcript revisions, and requires employee confirmation", async () => {
     const graph = await seedVoiceGraph();
     const upload = await seedVoiceUpload(graph, 512);
@@ -130,22 +266,34 @@ function serviceFor(
       aiRunId: null;
     }>;
     cleanup?: (input: unknown) => Promise<void>;
+    authorizeIn?: () => Promise<ReturnType<typeof authorizedScope>>;
   }>,
 ) {
   return new VoiceUpdateService(
     client,
-    {
-      authorizeIn: async () => ({
-        organizationId: graph.organizationId,
-        projectScopeId: graph.projectId,
-        departmentScopeId: graph.departmentId,
-        activeContract: null,
-      }),
-    },
+    { authorizeIn: options.authorizeIn ?? (async () => authorizedScope(graph)) },
     { transcribe: options.transcribe as never },
     { cleanup: options.cleanup ?? (async () => undefined) },
     () => now,
   );
+}
+
+function authorizedScope(graph: VoiceGraph) {
+  return {
+    organizationId: graph.organizationId,
+    projectScopeId: graph.projectId,
+    departmentScopeId: graph.departmentId,
+    activeContract: null,
+  };
+}
+
+async function waitForVoiceSession(idempotencyKey: string) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const session = await client.voiceUpdateSession.findUnique({ where: { idempotencyKey } });
+    if (session !== null) return session;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("voice-session-not-created");
 }
 
 function updateServiceFor(graph: VoiceGraph, captured: import("./update-service.js").UpdateStructureContext[]) {

@@ -29,6 +29,7 @@
     "db:seed": "pnpm --filter @evaluation/database db:seed",
     "db:verify": "node scripts/verify-migrations.mjs",
     "ai:register:project-progress-contract": "tsx scripts/seed-codex-dogfood.ts --register-route",
+    "ai:register:update-transcribe": "tsx scripts/register-update-transcribe-ai-route.ts",
     "dogfood:seed": "tsx scripts/seed-codex-dogfood.ts --seed",
     "dogfood:draft-contract": "tsx scripts/seed-codex-dogfood.ts --draft-contract",
     "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs prettier.config.mjs vitest.config.ts vitest.workspace.ts .github apps packages scripts tests",

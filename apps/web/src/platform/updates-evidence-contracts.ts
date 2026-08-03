@@ -91,7 +91,7 @@ export const ConfirmVoiceTranscriptInputSchema = z
 export const VoiceUpdateSessionSchema = z
   .object({
     sessionId: UuidSchema,
-    state: z.enum(["transcribing", "transcript_ready", "transcript_confirmed", "failed"]),
+    state: z.enum(["transcribing", "transcript_ready", "transcript_confirmed", "cancelled", "failed"]),
     transcript: z.string().nullable(),
     revision: z.number().int().positive().nullable(),
     language: z.enum(["ar", "en", "mixed"]).nullable(),

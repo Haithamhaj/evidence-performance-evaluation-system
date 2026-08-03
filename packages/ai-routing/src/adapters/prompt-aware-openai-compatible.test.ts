@@ -147,6 +147,7 @@ describe("PromptAwareOpenAiCompatibleAdapter", () => {
     expect(init.body).toBeInstanceOf(FormData);
     const form = init.body as FormData;
     expect(form.get("model")).toBe("gpt-4o-transcribe");
+    expect(form.get("prompt")).toBe(voiceBody);
     expect(new Uint8Array(await (form.get("file") as File).arrayBuffer())).toEqual(bytes);
     expect(JSON.stringify(init)).not.toContain("AQIDBA");
   });
