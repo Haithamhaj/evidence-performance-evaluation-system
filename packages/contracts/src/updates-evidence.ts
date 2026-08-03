@@ -30,6 +30,9 @@ export const SourceProvenanceSchema = z.enum([
   "employee_file",
   "employee_code",
   "employee_url",
+  "employee_github_snapshot",
+  "employee_mixed",
+  "human_decision",
 ]);
 export const SourceReviewStateSchema = z.enum([
   "automated_project_fact",
@@ -127,7 +130,10 @@ export const StartVoiceUpdateInputSchema = UpdateContextSchema.extend({
   declaredDurationSeconds: z.number().int().min(1).max(14_400),
 }).strict();
 export const ReviseVoiceTranscriptInputSchema = z
-  .object({ expectedRevision: PositiveVersionSchema, transcript: z.string().trim().min(1).max(50_000) })
+  .object({
+    expectedRevision: PositiveVersionSchema,
+    transcript: z.string().trim().min(1).max(50_000),
+  })
   .strict();
 export const ConfirmVoiceTranscriptInputSchema = z
   .object({ expectedRevision: PositiveVersionSchema, reason: z.string().trim().min(1).max(1_000) })
@@ -474,11 +480,11 @@ export const AcceptedEvidenceEventSchema = z
 export const TimelineItemSchema = z
   .object({
     id: UuidSchema,
-    kind: z.enum(["update", "evidence"]),
+    kind: z.enum(["update", "evidence", "project_fact", "decision"]),
     projectId: UuidSchema,
     workstreamId: UuidSchema.nullable(),
     workItemId: UuidSchema.nullable(),
-    employeeId: UuidSchema,
+    employeeId: UuidSchema.nullable(),
     occurredAt: UtcInstantSchema,
     title: z.string().trim().min(1).max(2_000),
     detail: z.string().trim().min(1).max(4_000),

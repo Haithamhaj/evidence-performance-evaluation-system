@@ -83,7 +83,10 @@ export const StartVoiceUpdateInputSchema = UpdateContextSchema.extend({
   declaredDurationSeconds: z.number().int().min(1).max(14_400),
 }).strict();
 export const ReviseVoiceTranscriptInputSchema = z
-  .object({ expectedRevision: PositiveVersionSchema, transcript: z.string().trim().min(1).max(50_000) })
+  .object({
+    expectedRevision: PositiveVersionSchema,
+    transcript: z.string().trim().min(1).max(50_000),
+  })
   .strict();
 export const ConfirmVoiceTranscriptInputSchema = z
   .object({ expectedRevision: PositiveVersionSchema, reason: z.string().trim().min(1).max(1_000) })
@@ -91,7 +94,13 @@ export const ConfirmVoiceTranscriptInputSchema = z
 export const VoiceUpdateSessionSchema = z
   .object({
     sessionId: UuidSchema,
-    state: z.enum(["transcribing", "transcript_ready", "transcript_confirmed", "cancelled", "failed"]),
+    state: z.enum([
+      "transcribing",
+      "transcript_ready",
+      "transcript_confirmed",
+      "cancelled",
+      "failed",
+    ]),
     transcript: z.string().nullable(),
     revision: z.number().int().positive().nullable(),
     language: z.enum(["ar", "en", "mixed"]).nullable(),
@@ -364,6 +373,9 @@ export const EvidenceReviewSchema = EvidenceDetailSchema.extend({
     "employee_file",
     "employee_code",
     "employee_url",
+    "employee_github_snapshot",
+    "employee_mixed",
+    "human_decision",
   ]),
   project: z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict(),
   workstream: z
@@ -408,11 +420,11 @@ export const TimelineResponseSchema = z
         z
           .object({
             id: UuidSchema,
-            kind: z.enum(["update", "evidence"]),
+            kind: z.enum(["update", "evidence", "project_fact", "decision"]),
             projectId: UuidSchema,
             workstreamId: UuidSchema.nullable(),
             workItemId: UuidSchema.nullable(),
-            employeeId: UuidSchema,
+            employeeId: UuidSchema.nullable(),
             occurredAt: UtcInstantSchema,
             title: z.string().trim().min(1).max(2_000),
             detail: z.string().trim().min(1).max(4_000),
@@ -424,6 +436,9 @@ export const TimelineResponseSchema = z
               "employee_file",
               "employee_code",
               "employee_url",
+              "employee_github_snapshot",
+              "employee_mixed",
+              "human_decision",
             ]),
             reviewState: z.enum([
               "automated_project_fact",
@@ -431,9 +446,7 @@ export const TimelineResponseSchema = z
               "employee_confirmed",
               "human_decision",
             ]),
-            project: z
-              .object({ id: UuidSchema, name: z.string().trim().min(1).max(500) })
-              .strict(),
+            project: z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict(),
             workstream: z
               .object({ id: UuidSchema, name: z.string().trim().min(1).max(500) })
               .strict()
@@ -443,14 +456,10 @@ export const TimelineResponseSchema = z
               .strict()
               .nullable(),
             relatedKpiComponents: z
-              .array(
-                z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict(),
-              )
+              .array(z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict())
               .max(100),
             relatedCriteria: z
-              .array(
-                z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict(),
-              )
+              .array(z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict())
               .max(100),
             verificationState: z
               .enum(["unverified", "pending", "supported", "partial", "conflicting", "rejected"])

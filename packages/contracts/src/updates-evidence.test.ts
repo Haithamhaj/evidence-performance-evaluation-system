@@ -362,6 +362,52 @@ describe("updates and evidence contracts", () => {
         ...shared,
       }),
     ).toMatchObject({ reviewState: "employee_confirmed", ...shared });
+
+    expect(
+      TimelineItemSchema.parse({
+        id: crypto.randomUUID(),
+        kind: "project_fact",
+        projectId,
+        workstreamId: null,
+        workItemId: null,
+        employeeId: null,
+        occurredAt: "2026-07-20T09:00:00.000Z",
+        title: "PR #42",
+        detail: "Merged",
+        sourceReferences: [`github-source-event:${sourceId}`],
+        sourceProvenance: "github_automated",
+        reviewState: "automated_project_fact",
+        project: { id: projectId, name: "Atlas Delivery" },
+        workstream: null,
+        workItem: null,
+        relatedKpiComponents: [],
+        relatedCriteria: [],
+        verificationState: "supported",
+      }),
+    ).toMatchObject({ kind: "project_fact", reviewState: "automated_project_fact" });
+
+    expect(
+      TimelineItemSchema.parse({
+        id: crypto.randomUUID(),
+        kind: "decision",
+        projectId,
+        workstreamId: null,
+        workItemId: null,
+        employeeId: crypto.randomUUID(),
+        occurredAt: "2026-07-20T11:00:00.000Z",
+        title: "Acceptance completion",
+        detail: "Product owner confirmed the milestone.",
+        sourceReferences: [`human-confirmation:${sourceId}`],
+        sourceProvenance: "human_decision",
+        reviewState: "human_decision",
+        project: { id: projectId, name: "Atlas Delivery" },
+        workstream: null,
+        workItem: null,
+        relatedKpiComponents: [{ id: componentId, name: "Acceptance completion" }],
+        relatedCriteria: [],
+        verificationState: null,
+      }),
+    ).toMatchObject({ kind: "decision", reviewState: "human_decision" });
   });
 
   it("returns a readable confirmed result without employee-performance fields", () => {

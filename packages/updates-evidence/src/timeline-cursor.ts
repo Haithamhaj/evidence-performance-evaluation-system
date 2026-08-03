@@ -6,7 +6,7 @@ type TimelineItem = import("@evaluation/contracts").TimelineItem;
 const CursorSchema = z
   .object({
     occurredAt: z.iso.datetime({ offset: true }),
-    kind: z.enum(["update", "evidence"]),
+    kind: z.enum(["update", "evidence", "project_fact", "decision"]),
     id: z.string().uuid(),
   })
   .strict();

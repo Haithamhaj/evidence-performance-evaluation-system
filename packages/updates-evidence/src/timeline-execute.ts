@@ -7,6 +7,7 @@ type TimelineCursor = import("./timeline-cursor.js").TimelineCursor;
 export async function executeTimeline(
   client: DatabaseClient,
   input: Readonly<{
+    actorId: string;
     projectId: string;
     workstreamId: string | null;
     limit: number;

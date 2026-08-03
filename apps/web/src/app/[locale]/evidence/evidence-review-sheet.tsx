@@ -16,14 +16,18 @@ type Review = Readonly<{
     | "employee_voice"
     | "employee_file"
     | "employee_code"
-    | "employee_url";
+    | "employee_url"
+    | "employee_github_snapshot"
+    | "employee_mixed"
+    | "human_decision";
   revisionKind: "ai_draft" | "employee_edit" | "manual_draft";
   project: Readonly<{ id: string; name: string }>;
   workstream: Readonly<{ id: string; name: string }> | null;
   workItem: Readonly<{ id: string; title: string }> | null;
   relatedKpiComponents: readonly Readonly<{ id: string; name: string }>[];
   relatedCriteria: readonly Readonly<{ id: string; name: string }>[];
-  verificationState: "unverified" | "pending" | "supported" | "partial" | "conflicting" | "rejected";
+  verificationState:
+    "unverified" | "pending" | "supported" | "partial" | "conflicting" | "rejected";
 }>;
 type EvidenceContext = Readonly<{
   projectId: string;
@@ -232,13 +236,15 @@ function EvidenceReviewContext({
       <div>
         <span>{catalog["evidence.kpi"]}</span>
         <strong dir="auto">
-          {review.relatedKpiComponents.map((item) => item.name).join(" · ") || catalog["evidence.notLinked"]}
+          {review.relatedKpiComponents.map((item) => item.name).join(" · ") ||
+            catalog["evidence.notLinked"]}
         </strong>
       </div>
       <div>
         <span>{catalog["evidence.criterion"]}</span>
         <strong dir="auto">
-          {review.relatedCriteria.map((item) => item.name).join(" · ") || catalog["evidence.notLinked"]}
+          {review.relatedCriteria.map((item) => item.name).join(" · ") ||
+            catalog["evidence.notLinked"]}
         </strong>
       </div>
       <div>

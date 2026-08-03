@@ -29,9 +29,7 @@ describe("TimelineItems", () => {
             project: { id: crypto.randomUUID(), name: "Atlas Delivery" },
             workstream: { id: crypto.randomUUID(), name: "API readiness" },
             workItem: { id: crypto.randomUUID(), title: "Verify acceptance flow" },
-            relatedKpiComponents: [
-              { id: crypto.randomUUID(), name: "Acceptance completion" },
-            ],
+            relatedKpiComponents: [{ id: crypto.randomUUID(), name: "Acceptance completion" }],
             relatedCriteria: [{ id: crypto.randomUUID(), name: "Reliable delivery" }],
             verificationState: "unverified",
           },
@@ -49,5 +47,66 @@ describe("TimelineItems", () => {
     expect(markup).toContain("Not yet verified");
     expect(markup).not.toContain("productivity");
     expect(markup).not.toContain("score");
+  });
+
+  it("renders automated facts, AI drafts, employee confirmations, and human decisions as distinct states", async () => {
+    const catalog = await getCatalog("en");
+    const base = {
+      projectId: crypto.randomUUID(),
+      workstreamId: null,
+      workItemId: null,
+      employeeId: null,
+      occurredAt: "2026-07-20T10:00:00.000Z",
+      title: "Source lifecycle",
+      detail: "Visible state",
+      sourceReferences: [`source:${crypto.randomUUID()}`],
+      project: { id: crypto.randomUUID(), name: "Atlas Delivery" },
+      workstream: null,
+      workItem: null,
+      relatedKpiComponents: [],
+      relatedCriteria: [],
+      verificationState: null,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(TimelineItems, {
+        catalog,
+        locale: "en",
+        items: [
+          {
+            ...base,
+            id: crypto.randomUUID(),
+            kind: "project_fact",
+            sourceProvenance: "github_automated",
+            reviewState: "automated_project_fact",
+          },
+          {
+            ...base,
+            id: crypto.randomUUID(),
+            kind: "update",
+            sourceProvenance: "employee_text",
+            reviewState: "ai_draft",
+          },
+          {
+            ...base,
+            id: crypto.randomUUID(),
+            kind: "evidence",
+            sourceProvenance: "employee_file",
+            reviewState: "employee_confirmed",
+          },
+          {
+            ...base,
+            id: crypto.randomUUID(),
+            kind: "decision",
+            sourceProvenance: "human_decision",
+            reviewState: "human_decision",
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("Automated Project fact");
+    expect(markup).toContain("AI draft");
+    expect(markup).toContain("Employee confirmed");
+    expect(markup).toContain("Human decision");
   });
 });
