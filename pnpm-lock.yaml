@@ -132,6 +132,9 @@ importers:
       '@evaluation/documents':
         specifier: workspace:*
         version: link:../../packages/documents
+      '@evaluation/github-integration':
+        specifier: workspace:*
+        version: link:../../packages/github-integration
       '@evaluation/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -469,6 +472,10 @@ importers:
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
 
   packages/localization:
     dependencies:

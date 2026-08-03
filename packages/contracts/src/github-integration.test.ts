@@ -1,8 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { GitHubSourceEventSchema } from "./github-integration.js";
+import { GitHubSourceEventSchema, GovernedGitHubFactsSchema } from "./github-integration.js";
 
 describe("GitHub integration contracts", () => {
+  it("accepts only bounded source facts and rejects raw payload and activity-volume fields", () => {
+    expect(
+      GovernedGitHubFactsSchema.parse([
+        { kind: "pull_request", state: "open", title: "Safe bounded title" },
+        { kind: "check", state: "success", name: "unit tests" },
+      ]),
+    ).toEqual([
+      { kind: "pull_request", state: "open", title: "Safe bounded title" },
+      { kind: "check", state: "success", name: "unit tests" },
+    ]);
+    expect(() =>
+      GovernedGitHubFactsSchema.parse([
+        { kind: "pull_request", state: "open", rawPayload: { commits: 99 } },
+      ]),
+    ).toThrow();
+    expect(() =>
+      GovernedGitHubFactsSchema.parse([{ kind: "commit", state: "created", commitCount: 99 }]),
+    ).toThrow();
+  });
   it("accepts only a source-addressable, verified or rejected GitHub event", () => {
     const event = {
       installationId: "installation-123",

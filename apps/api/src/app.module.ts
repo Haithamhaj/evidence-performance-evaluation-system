@@ -13,6 +13,7 @@ import { DocumentsModule } from "./documents/documents.module.js";
 import { DailyWorkModule } from "./daily-work/daily-work.module.js";
 import { WorkItemsModule } from "./work-items/work-items.module.js";
 import { UpdatesEvidenceModule } from "./updates-evidence/updates-evidence.module.js";
+import { GitHubIntegrationModule } from "./github-integration/github-integration.module.js";
 import {
   createEnvironmentReadinessProbes,
   HealthController,
@@ -35,6 +36,7 @@ Module({
     DocumentsModule,
     DailyWorkModule,
     EvaluationEligibilityModule,
+    GitHubIntegrationModule,
     PermissionsModule,
     ProjectsModule,
     WorkItemsModule,
