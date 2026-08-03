@@ -81,6 +81,37 @@ describe("VoiceUpdateService", () => {
     ).resolves.toBe(0);
   });
 
+  it("does not duplicate provider work while a transcription attempt lease is active", async () => {
+    const graph = await seedVoiceGraph();
+    const upload = await seedVoiceUpload(graph, 512);
+    let release!: (value: {
+      transcript: string;
+      language: "en";
+      dialect: "english";
+      aiRunId: null;
+    }) => void;
+    const pending = new Promise<{
+      transcript: string;
+      language: "en";
+      dialect: "english";
+      aiRunId: null;
+    }>((resolve) => { release = resolve; });
+    const transcribe = vi.fn(async () => pending);
+    const service = serviceFor(graph, { transcribe });
+    const command = voiceCommand(graph, upload.id, crypto.randomUUID());
+    const starting = service.start(command);
+    const session = await waitForVoiceSession(command.input.idempotencyKey);
+
+    await expect(service.start(command)).resolves.toMatchObject({
+      sessionId: session.id,
+      state: "transcribing",
+    });
+    expect(transcribe).toHaveBeenCalledTimes(1);
+    await service.cancel({ actor: command.actor, correlationId: crypto.randomUUID(), voiceSessionId: session.id });
+    release({ transcript: "Ignored", language: "en", dialect: "english", aiRunId: null });
+    await expect(starting).resolves.toMatchObject({ state: "cancelled" });
+  });
+
   it("denies transcript revision and confirmation after current scope access is lost", async () => {
     const graph = await seedVoiceGraph();
     const upload = await seedVoiceUpload(graph, 512);

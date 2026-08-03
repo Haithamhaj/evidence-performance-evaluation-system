@@ -1546,6 +1546,8 @@ model VoiceUpdateSession {
   uploadedSourceId           String                  @db.Uuid
   uploadedSource             UploadedSource          @relation(fields: [uploadedSourceId], references: [id], onDelete: Restrict)
   state                      VoiceUpdateSessionState
+  transcriptionAttemptToken String                  @default(uuid()) @db.Uuid
+  transcriptionAttemptStartedAt DateTime             @default(now()) @db.Timestamptz(6)
   declaredDurationSeconds    Int
   language                   String?
   dialect                    String?

@@ -18,6 +18,7 @@ const ConfirmCommandSchema = z.object({ actor: ActorSchema, voiceSessionId: z.st
 const SessionCommandSchema = z.object({ actor: ActorSchema, correlationId: z.string().uuid(), voiceSessionId: z.string().uuid() }).strict();
 const IdempotencySessionCommandSchema = z.object({ actor: ActorSchema, correlationId: z.string().uuid(), idempotencyKey: z.string().uuid() }).strict();
 const MAX_VOICE_AUDIO_BYTES = 10 * 1024 * 1024;
+const TRANSCRIPTION_ATTEMPT_LEASE_MS = 90_000;
 const ACCEPTED_AUDIO_MIME_TYPES = new Set(["audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"]);
 
 export interface VoiceTemporaryArtifactCleaner { cleanup(input: Readonly<{ voiceSessionId: string; outcome: "success" | "cancelled" | "failed" }>): Promise<void>; }
@@ -89,6 +90,7 @@ export class VoiceUpdateService {
     return this.transcribePrepared({
       correlationId: parsed.correlationId,
       sessionId: prepared.existing.id,
+      attemptToken: prepared.existing.transcriptionAttemptToken,
       scope: prepared.scope,
       upload: prepared.upload,
     });
@@ -110,27 +112,38 @@ export class VoiceUpdateService {
       if (session.state !== "failed" && session.state !== "transcribing") {
         throw new AppError("VOICE_RETRY_INVALID", "errors.voice.retryInvalid", 409);
       }
+      const now = this.clock();
+      if (
+        session.state === "transcribing" &&
+        session.transcriptionAttemptStartedAt.getTime() > now.getTime() - TRANSCRIPTION_ATTEMPT_LEASE_MS
+      ) {
+        return { session, scope: null, upload: null };
+      }
       const scope = await this.scopeReader.authorizeIn(transaction, {
         actor: parsed.actor,
         projectId: session.projectId,
         workstreamId: session.workstreamId,
         workItemId: session.workItemId,
-        at: this.clock(),
+        at: now,
       });
       const upload = await validatedSessionUpload(transaction, session);
-      const retrying = session.state === "failed"
-        ? await transaction.voiceUpdateSession.update({
+      const retrying = await transaction.voiceUpdateSession.update({
             where: { id: session.id },
-            data: { state: "transcribing", temporaryArtifactsCleanedAt: null },
+            data: {
+              state: "transcribing",
+              temporaryArtifactsCleanedAt: null,
+              transcriptionAttemptToken: crypto.randomUUID(),
+              transcriptionAttemptStartedAt: now,
+            },
             include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true },
-          })
-        : session;
+          });
       return { session: retrying, scope, upload };
     }, { isolationLevel: "Serializable" });
     if (prepared.scope === null || prepared.upload === null) return serialize(prepared.session);
     return this.transcribePrepared({
       correlationId: parsed.correlationId,
       sessionId: prepared.session.id,
+      attemptToken: prepared.session.transcriptionAttemptToken,
       scope: prepared.scope,
       upload: prepared.upload,
     });
@@ -139,6 +152,7 @@ export class VoiceUpdateService {
   private async transcribePrepared(input: Readonly<{
     correlationId: string;
     sessionId: string;
+    attemptToken: string;
     scope: Awaited<ReturnType<UpdateScopeReader["authorizeIn"]>>;
     upload: Readonly<{ id: string; detectedMime: string; byteSize: number }>;
   }>) {
@@ -164,7 +178,11 @@ export class VoiceUpdateService {
           where: { id: input.sessionId },
           include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true },
         });
-        if (locked.state !== "transcribing" || locked.transcriptRevisions.length > 0) return locked;
+        if (
+          locked.state !== "transcribing" ||
+          locked.transcriptionAttemptToken !== input.attemptToken ||
+          locked.transcriptRevisions.length > 0
+        ) return locked;
         return transaction.voiceUpdateSession.update({
           where: { id: locked.id },
           data: {
@@ -193,7 +211,10 @@ export class VoiceUpdateService {
           where: { id: input.sessionId },
           include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true },
         });
-        if (current.state !== "transcribing") return current;
+        if (
+          current.state !== "transcribing" ||
+          current.transcriptionAttemptToken !== input.attemptToken
+        ) return current;
         return transaction.voiceUpdateSession.update({
           where: { id: current.id },
           data: { state: "failed" },

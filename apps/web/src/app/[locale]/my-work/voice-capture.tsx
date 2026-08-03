@@ -147,7 +147,14 @@ export function VoiceCapture({
     setStatus("transcribing");
     const next = await postVoice<VoiceSession>(fetcher, "/api/daily-work/voice-updates", request);
     if (cancelRequested.current || next.state === "cancelled") {
-      setSession(next);
+      const cancelled = next.state === "cancelled"
+        ? next
+        : await postVoice<VoiceSession>(
+            fetcher,
+            `/api/daily-work/voice-updates/${next.sessionId}/cancel`,
+            {},
+          );
+      setSession(cancelled);
       setStatus("cancelled");
       return;
     }

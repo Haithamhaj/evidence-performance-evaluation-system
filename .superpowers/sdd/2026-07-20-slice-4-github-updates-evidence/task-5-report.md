@@ -91,3 +91,25 @@ That call must remain routed and must not log audio or transcripts.
   dry-run route validation, and `git diff --check` all passed.
 - Scoped re-review remains required before Task 5 is marked complete. P2/P3 are
   recorded in GitHub issue #9 and do not block this round.
+
+### Fix round 2
+
+- The first scoped re-review confirmed six P1s closed and identified two
+  remaining interactions: a cancellation request could precede server-session
+  creation, and route-specific OpenAI model configs conflicted at composition.
+- The client now re-cancels by returned session ID whenever an earlier
+  idempotency-key cancellation raced session creation. The server continues to
+  reject late provider output after cancellation.
+- Migration `0026_voice_transcription_attempt_lease` adds a persisted attempt
+  token and start time. A live attempt has a 90-second lease, so a normal replay
+  returns the existing `transcribing` session without a duplicate provider call;
+  a genuinely stranded attempt can rotate its token and resume safely. Results
+  from an expired token cannot mutate the current session.
+- Runtime composition now shares one adapter/credential transport across
+  route-specific model configs only when provider key, adapter, endpoint,
+  locality, and local-trust policy are identical. It still fails closed for a
+  conflicting endpoint or trust policy.
+- Verification: 16 focused unit tests, 9 real voice integration tests, affected
+  database/AI Router/Updates/API/web typechecks and lint, migration verification
+  from empty and previous `0025` snapshots (including 49 schema tests), AI
+  boundary scan, secret scan, and whitespace check passed.
