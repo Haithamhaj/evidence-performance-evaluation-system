@@ -85,6 +85,7 @@ describe("same-origin workspace GET allowlist", () => {
         `http://localhost:3000/api/workspace/connected-work/google/callback?${new URLSearchParams({
           code: authorizationCode,
           state: "opaque-state",
+          iss: "https://accounts.google.com",
           scope: "approved-scope",
           authuser: "0",
           prompt: "consent",
@@ -120,6 +121,18 @@ describe("same-origin workspace GET allowlist", () => {
 
     expect(unknown.status).toBe(404);
     expect(duplicate.status).toBe(404);
+    expect(mocks.fetchProtectedUpstream).not.toHaveBeenCalled();
+  });
+
+  it("rejects a provider callback with a non-Google issuer", async () => {
+    const response = await GET(
+      new Request(
+        "http://localhost:3000/api/workspace/connected-work/google/callback?code=a&state=b&iss=https%3A%2F%2Fevil.example",
+      ),
+      { params: Promise.resolve({ path: ["connected-work", "google", "callback"] }) },
+    );
+
+    expect(response.status).toBe(404);
     expect(mocks.fetchProtectedUpstream).not.toHaveBeenCalled();
   });
 

@@ -595,12 +595,14 @@ function approvedGoogleProviderCallback(
   if (path.join("/") !== "connected-work/google/callback" || /%(?:2e|2f|5c)/iu.test(url.pathname)) {
     return null;
   }
-  const known = new Set(["authuser", "code", "hd", "prompt", "scope", "state"]);
+  const known = new Set(["authuser", "code", "hd", "iss", "prompt", "scope", "state"]);
   const seen = new Set<string>();
   for (const key of url.searchParams.keys()) {
     if (!known.has(key) || seen.has(key)) return null;
     seen.add(key);
   }
+  const issuer = url.searchParams.get("iss");
+  if (issuer !== null && issuer !== "https://accounts.google.com") return null;
   const parsed = z
     .object({ code: z.string().min(1).max(10_000), state: z.string().min(1).max(2_000) })
     .safeParse({ code: url.searchParams.get("code"), state: url.searchParams.get("state") });
