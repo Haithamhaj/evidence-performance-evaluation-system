@@ -24,6 +24,7 @@ describe("updates and evidence schema", () => {
       "StructuredUpdateDraftRevision",
       "UpdateConfirmation",
       "UpdateSource",
+      "UpdateSourceAttachment",
     ];
     const tables = await client.$queryRaw<Array<{ table_name: string }>>`
       SELECT table_name
@@ -49,6 +50,7 @@ describe("updates and evidence schema", () => {
       "StructuredUpdateDraftRevision",
       "UpdateConfirmation",
       "UpdateSource",
+      "UpdateSourceAttachment",
     ];
     const triggers = await client.$queryRaw<Array<{ table_name: string }>>`
       SELECT DISTINCT event_object_table AS table_name

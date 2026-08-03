@@ -31,6 +31,7 @@ describe("UpdateComposerView", () => {
           context,
           selection: { projectId, workstreamId: null, workItemId: null },
           rawText: "",
+          sources: [],
         },
       }),
     );
@@ -83,6 +84,7 @@ describe("UpdateComposerView", () => {
           context,
           selection: { projectId, workstreamId: null, workItemId: null },
           rawText: "",
+          sources: [{ kind: "github_snapshot" }],
         },
       }),
     );
@@ -101,6 +103,7 @@ describe("UpdateComposerView", () => {
       expect(markup).toContain(label);
     }
     expect(markup).toContain("Available in a later step");
+    expect(markup).toMatch(/<option value="github_snapshot" selected="">GitHub snapshot<\/option>/u);
   });
 
   it.each([

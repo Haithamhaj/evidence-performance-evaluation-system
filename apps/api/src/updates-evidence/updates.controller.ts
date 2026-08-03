@@ -2,7 +2,7 @@ import {
   ClarificationAnswerInputSchema,
   ConfirmUpdateInputSchema,
   ReviseUpdateDraftInputSchema,
-  StartTextUpdateInputSchema,
+  StartUpdateInputSchema,
 } from "@evaluation/contracts";
 import { ActivityReader, UpdateService } from "@evaluation/updates-evidence";
 import { Body, Controller, Get, Inject, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
@@ -37,7 +37,7 @@ export class UpdatesController {
     return this.service.start({
       actor: actor(request),
       correlationId: request.correlationId,
-      input: StartTextUpdateInputSchema.parse(body),
+      input: StartUpdateInputSchema.parse(body),
     });
   }
 

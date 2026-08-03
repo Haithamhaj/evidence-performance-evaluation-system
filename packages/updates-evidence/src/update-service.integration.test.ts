@@ -10,6 +10,81 @@ const now = new Date("2026-07-18T12:00:00.000Z");
 afterAll(async () => client.$disconnect());
 
 describe("UpdateService", () => {
+  it("persists every manual source as ordered immutable update attachments", async () => {
+    const graph = await seedGraph();
+    const seen: import("./update-service.js").UpdateStructureContext[] = [];
+    const service = new UpdateService(
+      client,
+      {
+        authorizeIn: async () => ({
+          organizationId: graph.organizationId,
+          projectScopeId: graph.projectId,
+          departmentScopeId: graph.departmentId,
+          activeContract: null,
+        }),
+      },
+      {
+        structure: async (input, persistValidatedOutput) => {
+          seen.push(input);
+          const output = {
+            state: "ready_for_review" as const,
+            unresolvedFields: [],
+            draft: {
+              summary: "Draft from governed sources",
+              result: "The employee will review the result.",
+              blocker: null,
+              nextAction: "Review the draft.",
+              contributionContext: "Employee-provided source context.",
+              evidenceClaimDrafts: [],
+              documentationNeeds: [],
+              relatedProgressComponentIds: [],
+              comparisonExplanation: "Initial capture.",
+            },
+          };
+          await client.$transaction((transaction) => persistValidatedOutput(transaction, output));
+          return output;
+        },
+      },
+      { append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }) },
+      () => now,
+    );
+    const idempotencyKey = crypto.randomUUID();
+    await service.start({
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+      input: {
+        idempotencyKey,
+        projectId: graph.projectId,
+        workstreamId: null,
+        workItemId: null,
+        rawText: "",
+        sources: [
+          { kind: "pasted_code", text: "expect(result).toBe(true);" },
+          { kind: "cli_snapshot", text: "pnpm test: 24 passed" },
+          { kind: "url", url: "https://example.invalid/acceptance" },
+        ],
+        executionMode: "ai_assisted",
+      },
+    });
+    const update = await client.updateSource.findUniqueOrThrow({ where: { idempotencyKey } });
+    await expect(
+      client.$queryRaw<
+        Array<{ position: number; kind: string; content: string | null; sourceUrl: string | null }>
+      >`
+        SELECT "position", "kind"::text, "content", "sourceUrl"
+        FROM "UpdateSourceAttachment"
+        WHERE "updateSourceId" = ${update.id}::uuid
+        ORDER BY "position" ASC
+      `,
+    ).resolves.toEqual([
+      { position: 1, kind: "pasted_code", content: "expect(result).toBe(true);", sourceUrl: null },
+      { position: 2, kind: "cli_snapshot", content: "pnpm test: 24 passed", sourceUrl: null },
+      { position: 3, kind: "url", content: null, sourceUrl: "https://example.invalid/acceptance" },
+    ]);
+    expect(seen[0]?.rawText).toContain("BEGIN_UNTRUSTED_UPDATE_SOURCE");
+    expect(seen[0]?.rawText).toContain("expect(result).toBe(true);");
+  });
+
   it("resumes a multi-turn update and accepts only the employee-edited revision", async () => {
     const graph = await seedGraph();
     const outputs: import("@evaluation/contracts").UpdateStructureAiOutput[] = [

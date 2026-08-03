@@ -14,13 +14,23 @@ import {
 } from "../../../platform/updates-evidence-contracts";
 import { EvidenceReviewSheet } from "../evidence/evidence-review-sheet";
 import { TimelineList } from "../timeline/timeline-list";
-import { loadUpdateDraft, removeUpdateDraft, saveUpdateDraft } from "./update-draft-storage";
+import {
+  loadUpdateDraft,
+  removeUpdateDraft,
+  saveUpdateDraft,
+  type StoredUpdateSource,
+} from "./update-draft-storage";
 import { UpdateComposerView, type UpdateSelection } from "./update-composer-view";
 
 const DRAFT_STORAGE_KEY = "employee-current";
 
 type InternalStage =
-  | Readonly<{ kind: "entry"; selection: UpdateSelection; rawText: string }>
+  | Readonly<{
+      kind: "entry";
+      selection: UpdateSelection;
+      rawText: string;
+      sources: readonly StoredUpdateSource[];
+    }>
   | Readonly<{
       kind: "draft_with_question";
       selection: UpdateSelection;
@@ -74,6 +84,7 @@ export function UpdateComposer({
     kind: "entry",
     selection: initial,
     rawText: "",
+    sources: [],
   });
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<keyof Catalog | null>(null);
@@ -90,6 +101,7 @@ export function UpdateComposer({
         kind: "entry",
         selection: stored,
         rawText: stored.rawText,
+        sources: stored.sources ?? [],
       });
       return;
     }
@@ -99,6 +111,7 @@ export function UpdateComposer({
             kind: "entry",
             selection: initialSelection(context, initialItemId),
             rawText: current.rawText,
+            sources: current.sources,
           }
         : current,
     );
@@ -120,22 +133,9 @@ export function UpdateComposer({
     const form = new FormData(event.currentTarget);
     const selection = selectionFrom(form, context);
     const rawText = optionalText(form, "rawText") ?? "";
-    const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    const intent = submitter instanceof HTMLButtonElement ? submitter.value : "update";
-    persistEntry(selection, rawText);
-
-    if (intent.startsWith("evidence:")) {
-      setEvidenceContext({
-        ...selection,
-        updateSourceId: null,
-        contextLabel: selectionLabel(context, selection),
-        suggestedClaim: rawText,
-        suggestedContributionContext: "",
-        initialSourceKind: evidenceSourceKind(intent),
-      });
-      return;
-    }
-    if (rawText === "") {
+    const source = sourceFromForm(form);
+    persistEntry(selection, rawText, source === null ? [] : [source]);
+    if (rawText === "" && source === null) {
       setErrorKey("updates.error.validation");
       return;
     }
@@ -147,6 +147,7 @@ export function UpdateComposer({
         workstreamId: selection.workstreamId,
         workItemId: selection.workItemId,
         rawText,
+        ...(source === null ? {} : { sources: [source] }),
         executionMode: "ai_assisted",
       });
       applyClarification(selection, state);
@@ -242,14 +243,19 @@ export function UpdateComposer({
     }
   }
 
-  function persistEntry(selection: UpdateSelection, rawText: string) {
+  function persistEntry(
+    selection: UpdateSelection,
+    rawText: string,
+    sources: readonly StoredUpdateSource[] = [],
+  ) {
     const envelope = {
       ...selection,
       rawText,
+      sources,
       returnPath: `${window.location.pathname}${window.location.search}`,
     };
     saveUpdateDraft(DRAFT_STORAGE_KEY, envelope);
-    setStage({ kind: "entry", selection, rawText });
+    setStage({ kind: "entry", selection, rawText, sources });
   }
 
   const viewStage = toViewStage(stage, context);
@@ -283,11 +289,16 @@ export function UpdateComposer({
         onNew: () => {
           const selection = initialSelection(context, "");
           removeUpdateDraft(DRAFT_STORAGE_KEY);
-          setStage({ kind: "entry", selection, rawText: "" });
+          setStage({ kind: "entry", selection, rawText: "", sources: [] });
         },
         onQuestionSubmit: answer,
         onRawTextChange: (rawText) => {
           if (stage.kind === "entry") persistEntry(stage.selection, rawText);
+        },
+        onSourceChange: (source) => {
+          if (stage.kind === "entry") {
+            persistEntry(stage.selection, stage.rawText, source === null ? [] : [source]);
+          }
         },
         onReviewSubmit: saveReview,
         stage: viewStage,
@@ -322,6 +333,22 @@ export function UpdateComposer({
           })}
     </>
   );
+}
+
+function sourceFromForm(
+  form: FormData,
+):
+  | Readonly<{ kind: "pasted_code" | "cli_snapshot" | "github_snapshot"; text: string }>
+  | Readonly<{ kind: "url"; url: string }>
+  | null {
+  const kind = optionalText(form, "sourceKind");
+  const value = optionalText(form, "sourceText");
+  if (kind === null || value === null) return null;
+  if (kind === "url") return { kind, url: value };
+  if (kind === "pasted_code" || kind === "cli_snapshot" || kind === "github_snapshot") {
+    return { kind, text: value };
+  }
+  return null;
 }
 
 function toViewStage(
@@ -474,14 +501,4 @@ function sourceIdFrom(references: readonly string[]): string | null {
   const value = references.find((reference) => reference.startsWith("update-source:"));
   const id = value?.slice("update-source:".length).split(":")[0] ?? "";
   return /^[0-9a-f-]{36}$/iu.test(id) ? id : null;
-}
-
-function evidenceSourceKind(
-  intent: string,
-): "file" | "pasted_text" | "pasted_code" | "cli_snapshot" | "url" {
-  if (intent === "evidence:code") return "pasted_code";
-  if (intent === "evidence:cli") return "cli_snapshot";
-  if (intent === "evidence:url") return "url";
-  if (intent === "evidence:githubSnapshot") return "pasted_text";
-  return "file";
 }

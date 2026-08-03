@@ -1472,6 +1472,18 @@ enum ProgressRecalculationState {
   failed
 }
 
+enum UpdateSourceAttachmentKind {
+  image
+  screenshot
+  file
+  document
+  pasted_text
+  pasted_code
+  cli_snapshot
+  url
+  github_snapshot
+}
+
 model UpdateSource {
   id                   String                          @id @default(uuid()) @db.Uuid
   idempotencyKey       String                          @unique @db.Uuid
@@ -1487,6 +1499,7 @@ model UpdateSource {
   rawText              String
   executionMode        Phase2ExecutionMode
   sourceVersion        Int                             @default(1)
+  attachments          UpdateSourceAttachment[]
   clarificationSession ClarificationSession?
   draftRevisions       StructuredUpdateDraftRevision[]
   confirmation         UpdateConfirmation?
@@ -1498,6 +1511,25 @@ model UpdateSource {
   @@index([employeeId, createdAt])
   @@index([projectId, workstreamId, createdAt])
   @@index([workItemId, createdAt])
+}
+
+model UpdateSourceAttachment {
+  id               String                     @id @default(uuid()) @db.Uuid
+  updateSourceId   String                     @db.Uuid
+  updateSource     UpdateSource               @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
+  position         Int
+  kind             UpdateSourceAttachmentKind
+  uploadedSourceId String?                    @db.Uuid
+  uploadedSource   UploadedSource?            @relation(fields: [uploadedSourceId], references: [id], onDelete: Restrict)
+  content          String?
+  sourceUrl        String?
+  checksumSha256   String
+  sourceVersion    Int                        @default(1)
+  createdAt        DateTime                   @default(now()) @db.Timestamptz(6)
+
+  @@unique([updateSourceId, position])
+  @@index([uploadedSourceId])
+  @@index([updateSourceId, createdAt])
 }
 
 model ClarificationSession {
@@ -1941,6 +1973,7 @@ model UploadedSource {
   createdBy             User                   @relation("UploadedSourceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   reason                String
   documentVersionSource DocumentVersionSource?
+  updateSourceAttachments UpdateSourceAttachment[]
   createdAt             DateTime               @default(now()) @db.Timestamptz(6)
 
   @@index([projectId, createdAt])

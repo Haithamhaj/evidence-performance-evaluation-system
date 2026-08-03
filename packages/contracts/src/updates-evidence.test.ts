@@ -9,6 +9,7 @@ import {
   EvidenceDraftInputSchema,
   ReviseEvidenceInputSchema,
   ReviseUpdateDraftInputSchema,
+  StartUpdateInputSchema,
   StartTextUpdateInputSchema,
   StructuredUpdateDraftSchema,
   UpdateComposerContextSchema,
@@ -59,6 +60,60 @@ describe("updates and evidence contracts", () => {
       StartTextUpdateInputSchema.parse({
         ...valid,
         projectId: undefined,
+      }),
+    ).toThrow();
+  });
+
+  it("accepts one or more typed manual sources while keeping legacy text capture compatible", () => {
+    const uploadedSourceId = crypto.randomUUID();
+    const valid = {
+      idempotencyKey: crypto.randomUUID(),
+      projectId,
+      workstreamId: null,
+      workItemId: null,
+      rawText: "مختصر التحديث من الموظف.",
+      sources: [
+        { kind: "pasted_code", text: "expect(result).toBe(true);" },
+        { kind: "url", url: "https://example.invalid/acceptance" },
+        { kind: "image", uploadedSourceId },
+        { kind: "github_snapshot", text: "PR #42 merged after required checks passed." },
+      ],
+      executionMode: "ai_assisted",
+    } as const;
+    expect(StartUpdateInputSchema.parse(valid)).toEqual(valid);
+    expect(StartUpdateInputSchema.parse({ ...valid, sources: undefined })).toMatchObject({
+      rawText: valid.rawText,
+    });
+  });
+
+  it.each([
+    [{ kind: "url", url: "https://example.invalid", text: "ambiguous" }],
+    [{ kind: "pasted_code", text: "" }],
+    [{ kind: "file", uploadedSourceId: crypto.randomUUID(), url: "https://example.invalid" }],
+  ])("rejects unsafe or ambiguous update-source representations", (sources) => {
+    expect(() =>
+      StartUpdateInputSchema.parse({
+        idempotencyKey: crypto.randomUUID(),
+        projectId,
+        workstreamId: null,
+        workItemId: null,
+        rawText: "",
+        sources,
+        executionMode: "manual",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects an Update without text or sources", () => {
+    expect(() =>
+      StartUpdateInputSchema.parse({
+        idempotencyKey: crypto.randomUUID(),
+        projectId,
+        workstreamId: null,
+        workItemId: null,
+        rawText: "",
+        sources: [],
+        executionMode: "manual",
       }),
     ).toThrow();
   });

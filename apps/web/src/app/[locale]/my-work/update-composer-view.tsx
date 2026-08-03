@@ -8,6 +8,9 @@ import type {
   UpdateResultCard as UpdateResult,
 } from "../../../platform/updates-evidence-contracts";
 import { UpdateResultCard } from "./update-result-card";
+import type { StoredUpdateSource } from "./update-draft-storage";
+import { UniversalCapture } from "./universal-capture";
+import { UpdateDraftSheet } from "./update-draft-sheet";
 
 export type UpdateSelection = Readonly<{
   projectId: string;
@@ -31,6 +34,7 @@ export type UpdateComposerViewStage =
       context: UpdateComposerContext;
       selection: UpdateSelection;
       rawText: string;
+      sources: readonly StoredUpdateSource[];
     }>
   | Readonly<{
       kind: "draft_with_question";
@@ -64,6 +68,7 @@ type Properties = Readonly<{
   onConfirm?: () => void;
   onNew?: () => void;
   onRawTextChange?: (value: string) => void;
+  onSourceChange?: (source: StoredUpdateSource | null) => void;
   locale?: import("@evaluation/localization").Locale;
 }>;
 
@@ -79,6 +84,7 @@ export function UpdateComposerView({
   onNew,
   onQuestionSubmit,
   onRawTextChange,
+  onSourceChange,
   onReviewSubmit,
   stage,
   timeline,
@@ -114,6 +120,7 @@ export function UpdateComposerView({
             catalog={catalog}
             key={`${stage.selection.projectId}:${stage.selection.workstreamId ?? ""}:${stage.selection.workItemId ?? ""}`}
             onRawTextChange={onRawTextChange}
+            onSourceChange={onSourceChange}
             onSubmit={onEntrySubmit}
             stage={stage}
           />
@@ -173,12 +180,14 @@ export function EntryForm({
   busy,
   catalog,
   onRawTextChange,
+  onSourceChange,
   onSubmit,
   stage,
 }: Readonly<{
   busy: boolean;
   catalog: Catalog;
   onRawTextChange: Properties["onRawTextChange"];
+  onSourceChange: Properties["onSourceChange"];
   onSubmit: Properties["onEntrySubmit"];
   stage: Extract<UpdateComposerViewStage, { kind: "entry" }>;
 }>) {
@@ -259,30 +268,11 @@ export function EntryForm({
           </select>
         </label>
       </div>
-      <fieldset className="sourceChoices">
-        <legend>{catalog["updates.sources"]}</legend>
-        <button aria-pressed="true" className="sourceChoice active" type="button">
-          {catalog["updates.source.text"]}
-        </button>
-        {(["file", "image", "code", "cli", "url", "githubSnapshot"] as const).map((source) => (
-          <button
-            className="sourceChoice"
-            formNoValidate
-            key={source}
-            name="intent"
-            type="submit"
-            value={`evidence:${source}`}
-          >
-            {catalog[`updates.source.${source}`]}
-          </button>
-        ))}
-        {(["voice", "connectedGithub"] as const).map((source) => (
-          <button className="sourceChoice" disabled key={source} type="button">
-            <span>{catalog[`updates.source.${source}`]}</span>
-            <small>{catalog["updates.source.later"]}</small>
-          </button>
-        ))}
-      </fieldset>
+      {createElement(UniversalCapture, {
+        catalog,
+        initialSource: stage.sources.at(0) ?? null,
+        ...(onSourceChange === undefined ? {} : { onSourceKindChange: onSourceChange }),
+      })}
       <label>
         <span>{catalog["updates.rawText"]}</span>
         <textarea
@@ -320,7 +310,7 @@ export function ClarificationForm({
 }>) {
   return (
     <div className="draftClarificationLayout">
-      <DraftPreview catalog={catalog} draft={stage.draft} />
+      {createElement(UpdateDraftSheet, { catalog, draft: stage.draft })}
       <form className="composerForm clarificationCard" onSubmit={onSubmit}>
         <p className="eyebrow">{catalog["updates.question"]}</p>
         <h3 dir="auto">{stage.question}</h3>

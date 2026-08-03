@@ -7,12 +7,14 @@ import {
   ClarificationStateSchema,
   ConfirmUpdateInputSchema,
   ReviseUpdateDraftInputSchema,
-  StartTextUpdateInputSchema,
+  StartUpdateInputSchema,
   StructuredUpdateDraftSchema,
   UpdateComparisonSchema,
   UpdateStructureAiOutputSchema,
 } from "@evaluation/contracts";
 import { z } from "zod";
+
+import { PrismaUpdateSourceLoader } from "./update-source-loader.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
@@ -24,7 +26,7 @@ const StartCommandSchema = z
   .object({
     actor: ActorSchema,
     correlationId: z.string().uuid(),
-    input: StartTextUpdateInputSchema,
+    input: StartUpdateInputSchema,
   })
   .strict();
 const SessionCommandBaseSchema = z
@@ -105,6 +107,7 @@ export class UpdateService {
   private readonly structurer: UpdateStructurer;
   private readonly auditWriter: AuditWriter;
   private readonly clock: () => Date;
+  private readonly sourceLoader: PrismaUpdateSourceLoader;
 
   constructor(
     client: DatabaseClient,
@@ -112,12 +115,14 @@ export class UpdateService {
     structurer: UpdateStructurer,
     auditWriter: AuditWriter,
     clock: () => Date = () => new Date(),
+    sourceLoader: PrismaUpdateSourceLoader = new PrismaUpdateSourceLoader(),
   ) {
     this.client = client;
     this.scopeReader = scopeReader;
     this.structurer = structurer;
     this.auditWriter = auditWriter;
     this.clock = clock;
+    this.sourceLoader = sourceLoader;
   }
 
   async start(command: unknown): Promise<import("@evaluation/contracts").ClarificationState> {
@@ -151,7 +156,7 @@ export class UpdateService {
           kind: "structure" as const,
           source: existing,
           session: existing.clarificationSession,
-          context: await buildStructureContext(transaction, existing, [], scope),
+          context: await buildStructureContext(transaction, existing, [], scope, this.sourceLoader),
           scope,
         };
       }
@@ -165,6 +170,9 @@ export class UpdateService {
           inputKind: "text",
           rawText: parsed.input.rawText,
           executionMode: parsed.input.executionMode,
+          attachments: {
+            create: await attachmentDataIn(transaction, parsed.input, parsed.actor.userId),
+          },
         },
       });
       const session = await transaction.clarificationSession.create({
@@ -174,7 +182,7 @@ export class UpdateService {
         kind: "structure" as const,
         source,
         session,
-        context: await buildStructureContext(transaction, source, [], scope),
+        context: await buildStructureContext(transaction, source, [], scope, this.sourceLoader),
         scope,
       };
     });
@@ -222,7 +230,13 @@ export class UpdateService {
         sessionId: session.id,
         expectedSessionVersion: session.version,
         expectedTurnId: turn.id,
-        context: await buildStructureContext(transaction, session.updateSource, answers, scope),
+        context: await buildStructureContext(
+          transaction,
+          session.updateSource,
+          answers,
+          scope,
+          this.sourceLoader,
+        ),
         scope,
       };
     });
@@ -476,6 +490,7 @@ async function buildStructureContext(
   source: Source,
   answers: ReadonlyArray<{ question: string; answer: string }>,
   scope: Scope,
+  sourceLoader: PrismaUpdateSourceLoader,
 ): Promise<UpdateStructureContext> {
   const previous = await transaction.acceptedUpdateEvent.findFirst({
     where: {
@@ -487,13 +502,20 @@ async function buildStructureContext(
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     include: { confirmation: { include: { draftRevision: true } } },
   });
+  const loaded = await sourceLoader.loadIn(transaction, {
+    updateSourceId: source.id,
+    employeeId: source.employeeId,
+    projectId: source.projectId,
+    workstreamId: source.workstreamId,
+  });
   const sourceReferences = [
     `update-source:${source.id}`,
+    ...loaded.sourceReferences,
     ...(previous === null ? [] : [`accepted-update-event:${previous.id}`]),
     ...(scope.activeContract?.componentReferences ?? []),
   ];
   return {
-    rawText: source.rawText,
+    rawText: loaded.untrustedText,
     answers,
     previousAcceptedState:
       previous === null
@@ -739,6 +761,65 @@ function assertSameSource(existing: Source, command: z.infer<typeof StartCommand
   ) {
     throw new AppError("IDEMPOTENCY_CONFLICT", "errors.idempotency.conflict", 409);
   }
+}
+
+async function attachmentDataIn(
+  transaction: Transaction,
+  input: z.infer<typeof StartUpdateInputSchema>,
+  employeeId: string,
+) {
+  const sourceInputs = [
+    ...(input.rawText.length === 0 ? [] : [{ kind: "pasted_text" as const, text: input.rawText }]),
+    ...(input.sources ?? []),
+  ];
+  const uploadIds = sourceInputs.flatMap((source) =>
+    "uploadedSourceId" in source ? [source.uploadedSourceId] : [],
+  );
+  const uploads =
+    uploadIds.length === 0
+      ? []
+      : await transaction.uploadedSource.findMany({
+          where: { id: { in: uploadIds }, createdById: employeeId },
+          select: { id: true, projectId: true, workstreamId: true, sha256: true },
+        });
+  const uploadsById = new Map(uploads.map((upload) => [upload.id, upload]));
+  return sourceInputs.map((source, index) => {
+    const position = index + 1;
+    if ("uploadedSourceId" in source) {
+      const upload = uploadsById.get(source.uploadedSourceId);
+      if (
+        upload === undefined ||
+        upload.projectId !== input.projectId ||
+        (upload.workstreamId !== null && upload.workstreamId !== input.workstreamId)
+      ) {
+        throw new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
+      }
+      return {
+        position,
+        kind: source.kind,
+        uploadedSourceId: upload.id,
+        checksumSha256: upload.sha256,
+      };
+    }
+    if ("url" in source) {
+      return {
+        position,
+        kind: source.kind,
+        sourceUrl: source.url,
+        checksumSha256: contentChecksum(source.url),
+      };
+    }
+    return {
+      position,
+      kind: source.kind,
+      content: source.text,
+      checksumSha256: contentChecksum(source.text),
+    };
+  });
+}
+
+function contentChecksum(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 function assertOwner(employeeId: string, actor: { userId: string; active: boolean }): void {

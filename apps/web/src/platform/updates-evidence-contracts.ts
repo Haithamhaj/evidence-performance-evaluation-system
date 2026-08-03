@@ -52,11 +52,41 @@ export const UpdateComposerContextSchema = z
   })
   .strict();
 
-export const StartTextUpdateInputSchema = UpdateContextSchema.extend({
+const UploadedUpdateSourceSchema = z
+  .object({
+    kind: z.enum(["image", "screenshot", "file", "document"]),
+    uploadedSourceId: UuidSchema,
+  })
+  .strict();
+const TextUpdateSourceSchema = z
+  .object({
+    kind: z.enum(["pasted_text", "pasted_code", "cli_snapshot", "github_snapshot"]),
+    text: z.string().trim().min(1).max(100_000),
+  })
+  .strict();
+const UrlUpdateSourceSchema = z
+  .object({ kind: z.literal("url"), url: z.url().max(2_000) })
+  .strict();
+const UpdateSourceInputSchema = z.union([
+  UploadedUpdateSourceSchema,
+  TextUpdateSourceSchema,
+  UrlUpdateSourceSchema,
+]);
+
+export const StartUpdateInputSchema = UpdateContextSchema.extend({
   idempotencyKey: UuidSchema,
-  rawText: z.string().trim().min(1).max(50_000),
+  rawText: z.string().trim().max(50_000).optional().default(""),
+  sources: z.array(UpdateSourceInputSchema).min(1).max(20).optional(),
   executionMode: ExecutionModeSchema,
-}).strict();
+})
+  .strict()
+  .superRefine((input, context) => {
+    if (input.rawText.length === 0 && (input.sources === undefined || input.sources.length === 0)) {
+      context.addIssue({ code: "custom", path: ["sources"], message: "An Update needs a source." });
+    }
+  });
+
+export const StartTextUpdateInputSchema = StartUpdateInputSchema;
 
 export const ClarificationAnswerInputSchema = z
   .object({
