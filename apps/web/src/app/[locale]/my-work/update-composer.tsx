@@ -320,9 +320,16 @@ export function UpdateComposer({
         onSourcesChange: (form) => {
           if (stage.kind === "entry") {
             const metadata = recoverableCaptureSources(form);
-            const uploaded = stage.sources.filter((source) => source.uploadedSourceId !== undefined);
+            const uploaded = stage.sources.filter(
+              (source) => source.uploadedSourceId !== undefined || source.voiceSessionId !== undefined,
+            );
             persistEntry(stage.selection, stage.rawText, [...uploaded, ...metadata]);
           }
+        },
+        onVoiceConfirmed: (source) => {
+          if (stage.kind !== "entry") return;
+          const sources = mergeResumedCaptureSources(stage.sources, [source]);
+          persistEntry(stage.selection, stage.rawText, sources);
         },
         onReviewSubmit: saveReview,
         stage: viewStage,

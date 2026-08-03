@@ -18,6 +18,10 @@ import {
   TimelineResponseSchema,
   UpdateResultCardSchema,
   UploadedEvidenceSourceSchema,
+  ConfirmVoiceTranscriptInputSchema,
+  ReviseVoiceTranscriptInputSchema,
+  StartVoiceUpdateInputSchema,
+  VoiceUpdateSessionSchema,
 } from "../../../../platform/updates-evidence-contracts";
 import {
   AppliedProgressContractDraftSchema,
@@ -422,6 +426,29 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         StartTextUpdateInputSchema.parse(body),
         ClarificationStateSchema,
       );
+    }
+    if (path.length === 1 && path[0] === "voice-updates") {
+      return await post(
+        "/api/v1/voice-updates",
+        StartVoiceUpdateInputSchema.parse(body),
+        VoiceUpdateSessionSchema,
+      );
+    }
+    if (path.length === 3 && path[0] === "voice-updates" && isUuid(path[1])) {
+      if (path[2] === "revisions") {
+        return await post(
+          `/api/v1/voice-updates/${path[1]}/revisions`,
+          ReviseVoiceTranscriptInputSchema.parse(body),
+          VoiceUpdateSessionSchema,
+        );
+      }
+      if (path[2] === "confirm") {
+        return await post(
+          `/api/v1/voice-updates/${path[1]}/confirm`,
+          ConfirmVoiceTranscriptInputSchema.parse(body),
+          VoiceUpdateSessionSchema,
+        );
+      }
     }
     if (path.length === 3 && path[0] === "updates" && isUuid(path[1])) {
       if (path[2] === "answers") {

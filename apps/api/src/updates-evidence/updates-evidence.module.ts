@@ -12,6 +12,8 @@ import {
   PrismaSafeEvidenceUploadReader,
   PrismaUpdateScopeReader,
   UpdateService,
+  VoiceUpdateService,
+  AiRouterVoiceTranscriber,
 } from "@evaluation/updates-evidence";
 import { Module } from "@nestjs/common";
 
@@ -21,6 +23,7 @@ import { AuthModule } from "../auth/auth.module.js";
 import { EvidenceController } from "./evidence.controller.js";
 import { TimelineController, UpdatesController } from "./updates.controller.js";
 import { UpdatesEvidencePolicyGuard } from "./updates-evidence-policy.guard.js";
+import { VoiceUpdatesController } from "./voice.controller.js";
 
 const UPDATES_EVIDENCE_DATABASE = Symbol("UPDATES_EVIDENCE_DATABASE");
 const UPDATES_EVIDENCE_STRUCTURER = Symbol("UPDATES_EVIDENCE_STRUCTURER");
@@ -30,7 +33,7 @@ export class UpdatesEvidenceModule {}
 
 Module({
   imports: [AuthModule],
-  controllers: [UpdatesController, EvidenceController, TimelineController],
+  controllers: [UpdatesController, EvidenceController, TimelineController, VoiceUpdatesController],
   providers: [
     {
       provide: UPDATES_EVIDENCE_DATABASE,
@@ -69,6 +72,20 @@ Module({
           databaseAuditWriter as never,
         ),
       inject: [UPDATES_EVIDENCE_DATABASE, UPDATES_EVIDENCE_STRUCTURER],
+    },
+    {
+      provide: VoiceUpdateService,
+      useFactory: async (client: ReturnType<typeof createDatabaseClient>) => {
+        const router = createDeferredRuntimeAiRouter(() =>
+          createRuntimeAiRouter({ database: client, secretResolver: new EnvironmentAiCredentialSecretResolver() }),
+        );
+        return new VoiceUpdateService(
+          client,
+          new PrismaUpdateScopeReader(),
+          new AiRouterVoiceTranscriber(router, { systemId: await resolveSystemAiScopeId(client, "update.transcribe"), timeoutMs: 60_000 }),
+        );
+      },
+      inject: [UPDATES_EVIDENCE_DATABASE],
     },
     {
       provide: EvidenceService,

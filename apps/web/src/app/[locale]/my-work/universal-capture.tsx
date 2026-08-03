@@ -1,13 +1,20 @@
 "use client";
 
+import { VoiceCapture } from "./voice-capture";
+import { createElement } from "react";
+
 export function UniversalCapture({
   catalog,
   sources = [],
   onSourcesChange,
+  onVoiceConfirmed,
+  scope,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
   sources?: readonly Readonly<{ kind: string; url?: string }>[],
   onSourcesChange?: (event: import("react").ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onVoiceConfirmed?: (source: Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>) => void;
+  scope?: Readonly<{ projectId: string; workstreamId: string | null; workItemId: string | null }>;
 }>) {
   const url = sources.find((source) => source.kind === "url")?.url ?? "";
   return (
@@ -27,6 +34,13 @@ export function UniversalCapture({
           </span>
         ))}
       </div>
+      {scope === undefined
+        ? null
+        : createElement(VoiceCapture, {
+            catalog,
+            scope,
+            ...(onVoiceConfirmed === undefined ? {} : { onConfirmed: onVoiceConfirmed }),
+          })}
       <label>
         <span>{catalog["updates.source.file"]}</span>
         <input

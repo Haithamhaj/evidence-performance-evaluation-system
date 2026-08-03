@@ -86,12 +86,30 @@ const BoundedTextUpdateSourceSchema = z
 const UrlUpdateSourceSchema = z
   .object({ kind: z.literal("url"), url: z.url().max(2_000) })
   .strict();
+const VoiceTranscriptUpdateSourceSchema = z
+  .object({ kind: z.literal("voice_transcript"), voiceSessionId: UuidSchema })
+  .strict();
 
 export const UpdateSourceInputSchema = z.union([
   UploadedUpdateSourceSchema,
   BoundedTextUpdateSourceSchema,
   UrlUpdateSourceSchema,
+  VoiceTranscriptUpdateSourceSchema,
 ]);
+
+export const VoiceLanguageSchema = z.enum(["ar", "en", "mixed"]);
+export const VoiceDialectSchema = z.enum(["fusha", "gulf", "levantine", "english", "mixed"]);
+export const StartVoiceUpdateInputSchema = UpdateContextSchema.extend({
+  idempotencyKey: UuidSchema,
+  uploadedSourceId: UuidSchema,
+  declaredDurationSeconds: z.number().int().min(1).max(14_400),
+}).strict();
+export const ReviseVoiceTranscriptInputSchema = z
+  .object({ expectedRevision: PositiveVersionSchema, transcript: z.string().trim().min(1).max(50_000) })
+  .strict();
+export const ConfirmVoiceTranscriptInputSchema = z
+  .object({ expectedRevision: PositiveVersionSchema, reason: z.string().trim().min(1).max(1_000) })
+  .strict();
 
 export const StartUpdateInputSchema = UpdateContextSchema.extend({
   idempotencyKey: UuidSchema,

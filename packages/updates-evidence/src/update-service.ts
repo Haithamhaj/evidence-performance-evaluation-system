@@ -147,6 +147,7 @@ export class UpdateService {
               uploadedSourceId: true,
               content: true,
               sourceUrl: true,
+              voiceSessionId: true,
               checksumSha256: true,
             },
             orderBy: { position: "asc" },
@@ -500,6 +501,7 @@ type IdempotentSource = Source &
       uploadedSourceId: string | null;
       content: string | null;
       sourceUrl: string | null;
+      voiceSessionId: string | null;
       checksumSha256: string;
     }>;
   }>;
@@ -801,6 +803,7 @@ async function assertSameSource(
         persisted.uploadedSourceId === (attachment.uploadedSourceId ?? null) &&
         persisted.content === (attachment.content ?? null) &&
         persisted.sourceUrl === (attachment.sourceUrl ?? null) &&
+        persisted.voiceSessionId === (attachment.voiceSessionId ?? null) &&
         persisted.checksumSha256 === attachment.checksumSha256
       );
     });
@@ -821,6 +824,9 @@ async function attachmentDataIn(
   const uploadIds = sourceInputs.flatMap((source) =>
     "uploadedSourceId" in source ? [source.uploadedSourceId] : [],
   );
+  const voiceSessionIds = sourceInputs.flatMap((source) =>
+    "voiceSessionId" in source ? [source.voiceSessionId] : [],
+  );
   const uploads =
     uploadIds.length === 0
       ? []
@@ -829,6 +835,14 @@ async function attachmentDataIn(
           select: { id: true, projectId: true, workstreamId: true, sha256: true },
         });
   const uploadsById = new Map(uploads.map((upload) => [upload.id, upload]));
+  const voiceSessions =
+    voiceSessionIds.length === 0
+      ? []
+      : await transaction.voiceUpdateSession.findMany({
+          where: { id: { in: voiceSessionIds }, employeeId, state: "transcript_confirmed" },
+          include: { confirmation: true },
+        });
+  const voiceSessionsById = new Map(voiceSessions.map((session) => [session.id, session]));
   return sourceInputs.map((source, index) => {
     const position = index + 1;
     if ("uploadedSourceId" in source) {
@@ -853,6 +867,23 @@ async function attachmentDataIn(
         kind: source.kind,
         sourceUrl: source.url,
         checksumSha256: contentChecksum(source.url),
+      };
+    }
+    if ("voiceSessionId" in source) {
+      const session = voiceSessionsById.get(source.voiceSessionId);
+      if (
+        session === undefined ||
+        session.projectId !== input.projectId ||
+        session.workstreamId !== input.workstreamId ||
+        session.confirmation === null
+      ) {
+        throw new AppError("VOICE_TRANSCRIPT_CONFIRMATION_REQUIRED", "errors.voice.transcriptConfirmationRequired", 409);
+      }
+      return {
+        position,
+        kind: source.kind,
+        voiceSessionId: session.id,
+        checksumSha256: contentChecksum(`voice-session:${session.id}:${session.confirmation.transcriptRevisionId}`),
       };
     }
     return {

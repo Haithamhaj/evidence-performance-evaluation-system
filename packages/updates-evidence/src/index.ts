@@ -5,3 +5,5 @@ export * from "./prompts.js";
 export * from "./scope-readers.js";
 export * from "./update-service.js";
 export * from "./update-source-loader.js";
+export * from "./voice-transcriber.js";
+export * from "./voice-update-service.js";

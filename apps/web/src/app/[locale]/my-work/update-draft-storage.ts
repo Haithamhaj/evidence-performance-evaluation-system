@@ -3,6 +3,7 @@ export const UPDATE_DRAFT_STORAGE_VERSION = 2;
 export type StoredUpdateSource = Readonly<{
   kind: string;
   uploadedSourceId?: string;
+  voiceSessionId?: string;
   url?: string;
 }>;
 
@@ -62,9 +63,13 @@ function isEnvelope(value: unknown): value is UpdateDraftEnvelope {
 
 function storedSource(source: StoredUpdateSource): StoredUpdateSource {
   if (source.url === undefined) {
-    return source.uploadedSourceId === undefined
-      ? { kind: source.kind }
-      : { kind: source.kind, uploadedSourceId: source.uploadedSourceId };
+    if (source.uploadedSourceId !== undefined) {
+      return { kind: source.kind, uploadedSourceId: source.uploadedSourceId };
+    }
+    if (source.voiceSessionId !== undefined) {
+      return { kind: source.kind, voiceSessionId: source.voiceSessionId };
+    }
+    return { kind: source.kind };
   }
   try {
     const parsed = new URL(source.url);
@@ -80,7 +85,8 @@ function isStoredSource(value: unknown): value is StoredUpdateSource {
   return (
     typeof source.kind === "string" &&
     (source.uploadedSourceId === undefined || typeof source.uploadedSourceId === "string") &&
+    (source.voiceSessionId === undefined || typeof source.voiceSessionId === "string") &&
     (source.url === undefined || typeof source.url === "string") &&
-    Object.keys(source).every((key) => ["kind", "uploadedSourceId", "url"].includes(key))
+    Object.keys(source).every((key) => ["kind", "uploadedSourceId", "voiceSessionId", "url"].includes(key))
   );
 }

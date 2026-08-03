@@ -44,6 +44,8 @@ model User {
   createdDocumentTemplates  DocumentTemplate[]                     @relation("DocumentTemplateCreatedBy")
   createdTemplateVersions   DocumentTemplateVersion[]              @relation("DocumentTemplateVersionCreatedBy")
   createdUploadedSources    UploadedSource[]                       @relation("UploadedSourceCreatedBy")
+  voiceUpdateSessions       VoiceUpdateSession[]                 @relation("VoiceUpdateSessionEmployee")
+  voiceTranscriptConfirmations VoiceTranscriptConfirmation[]     @relation("VoiceTranscriptConfirmationEmployee")
   createdDocumentRecords    DocumentRecord[]                       @relation("DocumentRecordCreatedBy")
   createdDocumentVersions   DocumentVersion[]                      @relation("DocumentVersionCreatedBy")
   registeredPromptArtifacts AnalysisPromptArtifact[]               @relation("AnalysisPromptArtifactRegisteredBy")
@@ -373,6 +375,7 @@ model Project {
   progressContracts      ProgressContract[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
   updateSources          UpdateSource[]
+  voiceUpdateSessions    VoiceUpdateSession[]
   evidenceRecords        EvidenceRecord[]
   acceptedUpdateEvents   AcceptedUpdateEvent[]
   acceptedEvidenceEvents AcceptedEvidenceEvent[]
@@ -607,6 +610,7 @@ model Workstream {
   workItems              WorkItem[]
   progressContracts      ProgressContract[]
   updateSources          UpdateSource[]
+  voiceUpdateSessions    VoiceUpdateSession[]
   evidenceRecords        EvidenceRecord[]
   acceptedUpdateEvents   AcceptedUpdateEvent[]
   acceptedEvidenceEvents AcceptedEvidenceEvent[]
@@ -753,6 +757,7 @@ model WorkItem {
   checklistItems       WorkItemChecklistItem[]
   promotedFromInboxItem PrivateInboxItem?            @relation("PrivateInboxPromotion")
   updateSources        UpdateSource[]
+  voiceUpdateSessions  VoiceUpdateSession[]
   evidenceRecords      EvidenceRecord[]
   evidenceLinks        EvidenceLink[]
   acceptedUpdateEvents AcceptedUpdateEvent[]
@@ -1482,6 +1487,20 @@ enum UpdateSourceAttachmentKind {
   cli_snapshot
   url
   github_snapshot
+  voice_transcript
+}
+
+enum VoiceUpdateSessionState {
+  transcribing
+  transcript_ready
+  transcript_confirmed
+  cancelled
+  failed
+}
+
+enum VoiceTranscriptRevisionOrigin {
+  ai
+  employee
 }
 
 model UpdateSource {
@@ -1513,6 +1532,64 @@ model UpdateSource {
   @@index([workItemId, createdAt])
 }
 
+model VoiceUpdateSession {
+  id                         String                  @id @default(uuid()) @db.Uuid
+  idempotencyKey             String                  @unique @db.Uuid
+  projectId                  String                  @db.Uuid
+  project                    Project                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId               String?                 @db.Uuid
+  workstream                 Workstream?             @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  workItemId                 String?                 @db.Uuid
+  workItem                   WorkItem?               @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
+  employeeId                 String                  @db.Uuid
+  employee                   User                    @relation("VoiceUpdateSessionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  uploadedSourceId           String                  @db.Uuid
+  uploadedSource             UploadedSource          @relation(fields: [uploadedSourceId], references: [id], onDelete: Restrict)
+  state                      VoiceUpdateSessionState
+  declaredDurationSeconds    Int
+  language                   String?
+  dialect                    String?
+  aiRunId                    String?                 @db.Uuid
+  aiRun                      AiRun?                  @relation("VoiceSessionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  retentionPolicyKey         String
+  retentionMetadata          Json
+  temporaryArtifactsCleanedAt DateTime?              @db.Timestamptz(6)
+  transcriptRevisions        VoiceTranscriptRevision[]
+  confirmation               VoiceTranscriptConfirmation?
+  updateAttachments          UpdateSourceAttachment[]
+  createdAt                  DateTime                @default(now()) @db.Timestamptz(6)
+  @@index([employeeId, createdAt])
+  @@index([projectId, workstreamId, createdAt])
+}
+
+model VoiceTranscriptRevision {
+  id             String                         @id @default(uuid()) @db.Uuid
+  voiceSessionId String                         @db.Uuid
+  voiceSession   VoiceUpdateSession             @relation(fields: [voiceSessionId], references: [id], onDelete: Restrict)
+  revision       Int
+  origin         VoiceTranscriptRevisionOrigin
+  transcript     String
+  language       String
+  dialect        String
+  aiRunId        String?                        @db.Uuid
+  aiRun          AiRun?                         @relation("VoiceTranscriptRevisionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  createdAt      DateTime                       @default(now()) @db.Timestamptz(6)
+  confirmation   VoiceTranscriptConfirmation?
+  @@unique([voiceSessionId, revision])
+}
+
+model VoiceTranscriptConfirmation {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  voiceSessionId       String                  @unique @db.Uuid
+  voiceSession         VoiceUpdateSession      @relation(fields: [voiceSessionId], references: [id], onDelete: Restrict)
+  transcriptRevisionId String                  @unique @db.Uuid
+  transcriptRevision   VoiceTranscriptRevision @relation(fields: [transcriptRevisionId], references: [id], onDelete: Restrict)
+  employeeId           String                  @db.Uuid
+  employee             User                    @relation("VoiceTranscriptConfirmationEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  reason               String
+  confirmedAt          DateTime                @default(now()) @db.Timestamptz(6)
+}
+
 model UpdateSourceAttachment {
   id               String                     @id @default(uuid()) @db.Uuid
   updateSourceId   String                     @db.Uuid
@@ -1521,6 +1598,8 @@ model UpdateSourceAttachment {
   kind             UpdateSourceAttachmentKind
   uploadedSourceId String?                    @db.Uuid
   uploadedSource   UploadedSource?            @relation(fields: [uploadedSourceId], references: [id], onDelete: Restrict)
+  voiceSessionId   String?                    @db.Uuid
+  voiceSession     VoiceUpdateSession?        @relation(fields: [voiceSessionId], references: [id], onDelete: Restrict)
   content          String?
   sourceUrl        String?
   checksumSha256   String
@@ -1974,6 +2053,7 @@ model UploadedSource {
   reason                String
   documentVersionSource DocumentVersionSource?
   updateSourceAttachments UpdateSourceAttachment[]
+  voiceUpdateSessions VoiceUpdateSession[]
   createdAt             DateTime               @default(now()) @db.Timestamptz(6)
 
   @@index([projectId, createdAt])
@@ -2854,6 +2934,8 @@ model AiRun {
   contextAnalyses        ContextAnalysis[]
   projectLinkSuggestions ProjectLinkSuggestion[]
   taskDrafts             TaskDraft[]
+  voiceSessions          VoiceUpdateSession[]          @relation("VoiceSessionAiRun")
+  voiceTranscriptRevisions VoiceTranscriptRevision[]   @relation("VoiceTranscriptRevisionAiRun")
   createdAt              DateTime                        @default(now()) @db.Timestamptz(6)
 
   @@index([routeId, routeConfigVersion, createdAt])

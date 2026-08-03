@@ -1,10 +1,12 @@
 export type UpdateCaptureSource =
   | Readonly<{ kind: "image" | "file"; uploadedSourceId: string }>
+  | Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>
   | Readonly<{ kind: "pasted_code" | "cli_snapshot" | "github_snapshot"; text: string }>
   | Readonly<{ kind: "url"; url: string }>;
 export type RecoverableCaptureSource = Readonly<{
   kind: string;
   uploadedSourceId?: string;
+  voiceSessionId?: string;
   url?: string;
 }>;
 
@@ -134,6 +136,9 @@ function recoveredSubmitSource(source: RecoverableCaptureSource): readonly Updat
   if (source.kind === "url" && typeof source.url === "string" && isSafeSourceUrl(source.url)) {
     return [{ kind: "url", url: source.url }];
   }
+  if (source.kind === "voice_transcript" && typeof source.voiceSessionId === "string") {
+    return [{ kind: "voice_transcript", voiceSessionId: source.voiceSessionId }];
+  }
   return [];
 }
 
@@ -148,6 +153,7 @@ function isSafeSourceUrl(value: string): boolean {
 
 function sourceKey(source: UpdateCaptureSource): string {
   if ("uploadedSourceId" in source) return `${source.kind}:${source.uploadedSourceId}`;
+  if ("voiceSessionId" in source) return `${source.kind}:${source.voiceSessionId}`;
   if ("url" in source) return `${source.kind}:${source.url}`;
   return `${source.kind}:${source.text}`;
 }

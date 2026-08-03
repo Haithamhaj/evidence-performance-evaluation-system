@@ -69,6 +69,7 @@ type Properties = Readonly<{
   onNew?: () => void;
   onRawTextChange?: (value: string) => void;
   onSourcesChange?: (form: FormData) => void;
+  onVoiceConfirmed?: (source: Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>) => void;
   locale?: import("@evaluation/localization").Locale;
 }>;
 
@@ -85,6 +86,7 @@ export function UpdateComposerView({
   onQuestionSubmit,
   onRawTextChange,
   onSourcesChange,
+  onVoiceConfirmed,
   onReviewSubmit,
   stage,
   timeline,
@@ -121,6 +123,7 @@ export function UpdateComposerView({
             key={`${stage.selection.projectId}:${stage.selection.workstreamId ?? ""}:${stage.selection.workItemId ?? ""}`}
             onRawTextChange={onRawTextChange}
             onSourcesChange={onSourcesChange}
+            onVoiceConfirmed={onVoiceConfirmed}
             onSubmit={onEntrySubmit}
             stage={stage}
           />
@@ -181,6 +184,7 @@ export function EntryForm({
   catalog,
   onRawTextChange,
   onSourcesChange,
+  onVoiceConfirmed,
   onSubmit,
   stage,
 }: Readonly<{
@@ -188,6 +192,7 @@ export function EntryForm({
   catalog: Catalog;
   onRawTextChange: Properties["onRawTextChange"];
   onSourcesChange: Properties["onSourcesChange"];
+  onVoiceConfirmed: Properties["onVoiceConfirmed"];
   onSubmit: Properties["onEntrySubmit"];
   stage: Extract<UpdateComposerViewStage, { kind: "entry" }>;
 }>) {
@@ -271,6 +276,8 @@ export function EntryForm({
       {createElement(UniversalCapture, {
         catalog,
         sources: stage.sources,
+        scope: stage.selection,
+        ...(onVoiceConfirmed === undefined ? {} : { onVoiceConfirmed }),
         ...(onSourcesChange === undefined
           ? {}
           : {
