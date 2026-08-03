@@ -22,6 +22,7 @@ import {
 } from "./update-draft-storage";
 import {
   collectCaptureSources,
+  mergeResumedCaptureSources,
   recoverableCaptureSources,
   updateDraftText,
 } from "./update-capture-sources";
@@ -138,17 +139,22 @@ export function UpdateComposer({
     const form = new FormData(event.currentTarget);
     const selection = selectionFrom(form, context);
     const rawText = optionalText(form, "rawText") ?? "";
+    const recoveredSources = stage.kind === "entry" ? stage.sources : [];
+    const resumableSources = mergeResumedCaptureSources(recoveredSources, []);
     const sourceMetadata = recoverableCaptureSources(form);
     const hasFile = form
       .getAll("sourceFiles")
       .some((value) => value instanceof File && value.name !== "" && value.size > 0);
-    if (rawText === "" && sourceMetadata.length === 0 && !hasFile) {
+    if (rawText === "" && sourceMetadata.length === 0 && !hasFile && resumableSources.length === 0) {
       setErrorKey("updates.error.validation");
       return;
     }
 
     await perform(async () => {
-      const sources = await collectCaptureSources(form, selection);
+      const sources = mergeResumedCaptureSources(
+        recoveredSources,
+        await collectCaptureSources(form, selection),
+      );
       if (rawText === "" && sources.length === 0) {
         setErrorKey("updates.error.validation");
         return;

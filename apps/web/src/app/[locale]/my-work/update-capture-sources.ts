@@ -66,6 +66,20 @@ export function recoverableCaptureSources(form: FormData): readonly RecoverableC
   ];
 }
 
+export function mergeResumedCaptureSources(
+  recovered: readonly RecoverableCaptureSource[],
+  captured: readonly UpdateCaptureSource[],
+): readonly UpdateCaptureSource[] {
+  const merged = [...recovered.flatMap(recoveredSubmitSource), ...captured];
+  const keys = new Set<string>();
+  return merged.filter((source) => {
+    const key = sourceKey(source);
+    if (keys.has(key)) return false;
+    keys.add(key);
+    return true;
+  });
+}
+
 export function updateDraftText<
   T extends Readonly<{ rawText: string; sources: readonly RecoverableCaptureSource[] }>,
 >(
@@ -107,4 +121,33 @@ function optionalText(form: FormData, name: string): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
+}
+
+function recoveredSubmitSource(source: RecoverableCaptureSource): readonly UpdateCaptureSource[] {
+  if (
+    (source.kind === "image" || source.kind === "file") &&
+    typeof source.uploadedSourceId === "string" &&
+    source.uploadedSourceId !== ""
+  ) {
+    return [{ kind: source.kind, uploadedSourceId: source.uploadedSourceId }];
+  }
+  if (source.kind === "url" && typeof source.url === "string" && isSafeSourceUrl(source.url)) {
+    return [{ kind: "url", url: source.url }];
+  }
+  return [];
+}
+
+function isSafeSourceUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function sourceKey(source: UpdateCaptureSource): string {
+  if ("uploadedSourceId" in source) return `${source.kind}:${source.uploadedSourceId}`;
+  if ("url" in source) return `${source.kind}:${source.url}`;
+  return `${source.kind}:${source.text}`;
 }

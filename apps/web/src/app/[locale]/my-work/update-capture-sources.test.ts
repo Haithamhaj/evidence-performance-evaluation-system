@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   collectCaptureSources,
+  mergeResumedCaptureSources,
   updateDraftText,
   uploadUpdateFile,
 } from "./update-capture-sources.js";
@@ -99,5 +100,25 @@ describe("universal Update capture sources", () => {
         { kind: "cli_snapshot" },
       ],
     });
+  });
+
+  it("constructs a retry submission from recovered upload and URL metadata without reviving stripped bodies", () => {
+    expect(
+      mergeResumedCaptureSources(
+        [
+          { kind: "image", uploadedSourceId: "33333333-3333-4333-8333-333333333333" },
+          { kind: "url", url: "https://example.invalid/acceptance" },
+          { kind: "cli_snapshot" },
+        ],
+        [
+          { kind: "image", uploadedSourceId: "33333333-3333-4333-8333-333333333333" },
+          { kind: "pasted_code", text: "expect(ready).toBe(true);" },
+        ],
+      ),
+    ).toEqual([
+      { kind: "image", uploadedSourceId: "33333333-3333-4333-8333-333333333333" },
+      { kind: "url", url: "https://example.invalid/acceptance" },
+      { kind: "pasted_code", text: "expect(ready).toBe(true);" },
+    ]);
   });
 });
