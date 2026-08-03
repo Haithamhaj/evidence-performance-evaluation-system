@@ -138,10 +138,23 @@ export class UpdateService {
       });
       const existing = await transaction.updateSource.findUnique({
         where: { idempotencyKey: parsed.input.idempotencyKey },
-        include: { clarificationSession: true },
+        include: {
+          clarificationSession: true,
+          attachments: {
+            select: {
+              position: true,
+              kind: true,
+              uploadedSourceId: true,
+              content: true,
+              sourceUrl: true,
+              checksumSha256: true,
+            },
+            orderBy: { position: "asc" },
+          },
+        },
       });
       if (existing !== null) {
-        assertSameSource(existing, parsed);
+        await assertSameSource(transaction, existing, parsed);
         if (existing.clarificationSession === null) throw invalidState();
         if (
           existing.clarificationSession.currentTurnNo > 0 ||
@@ -479,6 +492,17 @@ type Source = {
   executionMode: import("@evaluation/contracts").ExecutionMode;
   sourceVersion: number;
 };
+type IdempotentSource = Source &
+  Readonly<{
+    attachments: ReadonlyArray<{
+      position: number;
+      kind: string;
+      uploadedSourceId: string | null;
+      content: string | null;
+      sourceUrl: string | null;
+      checksumSha256: string;
+    }>;
+  }>;
 type Session = {
   id: string;
   version: number;
@@ -750,7 +774,11 @@ function serializeAccepted(
   });
 }
 
-function assertSameSource(existing: Source, command: z.infer<typeof StartCommandSchema>): void {
+async function assertSameSource(
+  transaction: Transaction,
+  existing: IdempotentSource,
+  command: z.infer<typeof StartCommandSchema>,
+): Promise<void> {
   if (
     existing.employeeId !== command.actor.userId ||
     existing.projectId !== command.input.projectId ||
@@ -759,6 +787,24 @@ function assertSameSource(existing: Source, command: z.infer<typeof StartCommand
     existing.rawText !== command.input.rawText ||
     existing.executionMode !== command.input.executionMode
   ) {
+    throw new AppError("IDEMPOTENCY_CONFLICT", "errors.idempotency.conflict", 409);
+  }
+  const incoming = await attachmentDataIn(transaction, command.input, command.actor.userId);
+  const sameAttachments =
+    incoming.length === existing.attachments.length &&
+    incoming.every((attachment, index) => {
+      const persisted = existing.attachments[index];
+      return (
+        persisted !== undefined &&
+        persisted.position === attachment.position &&
+        persisted.kind === attachment.kind &&
+        persisted.uploadedSourceId === (attachment.uploadedSourceId ?? null) &&
+        persisted.content === (attachment.content ?? null) &&
+        persisted.sourceUrl === (attachment.sourceUrl ?? null) &&
+        persisted.checksumSha256 === attachment.checksumSha256
+      );
+    });
+  if (!sameAttachments) {
     throw new AppError("IDEMPOTENCY_CONFLICT", "errors.idempotency.conflict", 409);
   }
 }

@@ -20,6 +20,11 @@ import {
   saveUpdateDraft,
   type StoredUpdateSource,
 } from "./update-draft-storage";
+import {
+  collectCaptureSources,
+  recoverableCaptureSources,
+  updateDraftText,
+} from "./update-capture-sources";
 import { UpdateComposerView, type UpdateSelection } from "./update-composer-view";
 
 const DRAFT_STORAGE_KEY = "employee-current";
@@ -133,21 +138,29 @@ export function UpdateComposer({
     const form = new FormData(event.currentTarget);
     const selection = selectionFrom(form, context);
     const rawText = optionalText(form, "rawText") ?? "";
-    const source = sourceFromForm(form);
-    persistEntry(selection, rawText, source === null ? [] : [source]);
-    if (rawText === "" && source === null) {
+    const sourceMetadata = recoverableCaptureSources(form);
+    const hasFile = form
+      .getAll("sourceFiles")
+      .some((value) => value instanceof File && value.name !== "" && value.size > 0);
+    if (rawText === "" && sourceMetadata.length === 0 && !hasFile) {
       setErrorKey("updates.error.validation");
       return;
     }
 
     await perform(async () => {
+      const sources = await collectCaptureSources(form, selection);
+      if (rawText === "" && sources.length === 0) {
+        setErrorKey("updates.error.validation");
+        return;
+      }
+      persistEntry(selection, rawText, sources);
       const state = await postState("/api/daily-work/updates/text", {
         idempotencyKey: crypto.randomUUID(),
         projectId: selection.projectId,
         workstreamId: selection.workstreamId,
         workItemId: selection.workItemId,
         rawText,
-        ...(source === null ? {} : { sources: [source] }),
+        ...(sources.length === 0 ? {} : { sources }),
         executionMode: "ai_assisted",
       });
       applyClarification(selection, state);
@@ -293,11 +306,16 @@ export function UpdateComposer({
         },
         onQuestionSubmit: answer,
         onRawTextChange: (rawText) => {
-          if (stage.kind === "entry") persistEntry(stage.selection, rawText);
-        },
-        onSourceChange: (source) => {
           if (stage.kind === "entry") {
-            persistEntry(stage.selection, stage.rawText, source === null ? [] : [source]);
+            const entry = updateDraftText(stage, rawText);
+            persistEntry(entry.selection, entry.rawText, entry.sources);
+          }
+        },
+        onSourcesChange: (form) => {
+          if (stage.kind === "entry") {
+            const metadata = recoverableCaptureSources(form);
+            const uploaded = stage.sources.filter((source) => source.uploadedSourceId !== undefined);
+            persistEntry(stage.selection, stage.rawText, [...uploaded, ...metadata]);
           }
         },
         onReviewSubmit: saveReview,
@@ -333,22 +351,6 @@ export function UpdateComposer({
           })}
     </>
   );
-}
-
-function sourceFromForm(
-  form: FormData,
-):
-  | Readonly<{ kind: "pasted_code" | "cli_snapshot" | "github_snapshot"; text: string }>
-  | Readonly<{ kind: "url"; url: string }>
-  | null {
-  const kind = optionalText(form, "sourceKind");
-  const value = optionalText(form, "sourceText");
-  if (kind === null || value === null) return null;
-  if (kind === "url") return { kind, url: value };
-  if (kind === "pasted_code" || kind === "cli_snapshot" || kind === "github_snapshot") {
-    return { kind, text: value };
-  }
-  return null;
 }
 
 function toViewStage(

@@ -68,7 +68,7 @@ type Properties = Readonly<{
   onConfirm?: () => void;
   onNew?: () => void;
   onRawTextChange?: (value: string) => void;
-  onSourceChange?: (source: StoredUpdateSource | null) => void;
+  onSourcesChange?: (form: FormData) => void;
   locale?: import("@evaluation/localization").Locale;
 }>;
 
@@ -84,7 +84,7 @@ export function UpdateComposerView({
   onNew,
   onQuestionSubmit,
   onRawTextChange,
-  onSourceChange,
+  onSourcesChange,
   onReviewSubmit,
   stage,
   timeline,
@@ -120,7 +120,7 @@ export function UpdateComposerView({
             catalog={catalog}
             key={`${stage.selection.projectId}:${stage.selection.workstreamId ?? ""}:${stage.selection.workItemId ?? ""}`}
             onRawTextChange={onRawTextChange}
-            onSourceChange={onSourceChange}
+            onSourcesChange={onSourcesChange}
             onSubmit={onEntrySubmit}
             stage={stage}
           />
@@ -180,14 +180,14 @@ export function EntryForm({
   busy,
   catalog,
   onRawTextChange,
-  onSourceChange,
+  onSourcesChange,
   onSubmit,
   stage,
 }: Readonly<{
   busy: boolean;
   catalog: Catalog;
   onRawTextChange: Properties["onRawTextChange"];
-  onSourceChange: Properties["onSourceChange"];
+  onSourcesChange: Properties["onSourcesChange"];
   onSubmit: Properties["onEntrySubmit"];
   stage: Extract<UpdateComposerViewStage, { kind: "entry" }>;
 }>) {
@@ -270,8 +270,17 @@ export function EntryForm({
       </div>
       {createElement(UniversalCapture, {
         catalog,
-        initialSource: stage.sources.at(0) ?? null,
-        ...(onSourceChange === undefined ? {} : { onSourceKindChange: onSourceChange }),
+        sources: stage.sources,
+        ...(onSourcesChange === undefined
+          ? {}
+          : {
+              onSourcesChange: (
+                event: import("react").ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+              ) => {
+                const form = event.currentTarget.form;
+                if (form !== null) onSourcesChange(new FormData(form));
+              },
+            }),
       })}
       <label>
         <span>{catalog["updates.rawText"]}</span>
@@ -280,7 +289,6 @@ export function EntryForm({
           dir="auto"
           name="rawText"
           onChange={(event) => onRawTextChange?.(event.currentTarget.value)}
-          required
           rows={7}
         />
       </label>

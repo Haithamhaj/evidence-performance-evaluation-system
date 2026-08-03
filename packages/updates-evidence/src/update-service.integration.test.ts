@@ -85,6 +85,102 @@ describe("UpdateService", () => {
     expect(seen[0]?.rawText).toContain("expect(result).toBe(true);");
   });
 
+  it("replays only an identical ordered attachment input for the same idempotency key", async () => {
+    const graph = await seedGraph();
+    const firstUpload = await seedUploadedSource(graph, "first-proof.pdf");
+    const replacementUpload = await seedUploadedSource(graph, "replacement-proof.pdf");
+    const service = new UpdateService(
+      client,
+      {
+        authorizeIn: async () => ({
+          organizationId: graph.organizationId,
+          projectScopeId: graph.projectId,
+          departmentScopeId: graph.departmentId,
+          activeContract: null,
+        }),
+      },
+      {
+        structure: async (_input, persistValidatedOutput) => {
+          const output = {
+            state: "ready_for_review" as const,
+            unresolvedFields: [],
+            draft: {
+              summary: "Source draft",
+              result: "Employee review required.",
+              blocker: null,
+              nextAction: "Review the draft.",
+              contributionContext: "Employee source context.",
+              evidenceClaimDrafts: [],
+              documentationNeeds: [],
+              relatedProgressComponentIds: [],
+              comparisonExplanation: "Initial capture.",
+            },
+          };
+          await client.$transaction((transaction) => persistValidatedOutput(transaction, output));
+          return output;
+        },
+      },
+      { append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }) },
+      () => now,
+    );
+    const idempotencyKey = crypto.randomUUID();
+    const command = {
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+      input: {
+        idempotencyKey,
+        projectId: graph.projectId,
+        workstreamId: null,
+        workItemId: null,
+        rawText: "",
+        sources: [
+          { kind: "file" as const, uploadedSourceId: firstUpload.id },
+          { kind: "pasted_code" as const, text: "expect(result).toBe(true);" },
+          { kind: "url" as const, url: "https://example.invalid/acceptance" },
+        ],
+        executionMode: "ai_assisted" as const,
+      },
+    };
+
+    const first = await service.start(command);
+    await expect(service.start({ ...command, correlationId: crypto.randomUUID() })).resolves.toEqual(first);
+    await expect(
+      service.start({
+        ...command,
+        correlationId: crypto.randomUUID(),
+        input: {
+          ...command.input,
+          sources: [
+            { kind: "file", uploadedSourceId: firstUpload.id },
+            { kind: "pasted_code", text: "expect(result).toBe(false);" },
+            { kind: "url", url: "https://example.invalid/acceptance" },
+          ],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+    await expect(
+      service.start({
+        ...command,
+        correlationId: crypto.randomUUID(),
+        input: {
+          ...command.input,
+          sources: [
+            { kind: "file", uploadedSourceId: replacementUpload.id },
+            { kind: "pasted_code", text: "expect(result).toBe(true);" },
+            { kind: "url", url: "https://example.invalid/acceptance" },
+          ],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+    await expect(
+      service.start({
+        ...command,
+        correlationId: crypto.randomUUID(),
+        input: { ...command.input, sources: [...command.input.sources].reverse() },
+      }),
+    ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
   it("resumes a multi-turn update and accepts only the employee-edited revision", async () => {
     const graph = await seedGraph();
     const outputs: import("@evaluation/contracts").UpdateStructureAiOutput[] = [
@@ -650,6 +746,25 @@ async function seedGraph(): Promise<Graph> {
     contractId,
     componentId,
   };
+}
+
+async function seedUploadedSource(graph: Graph, originalFilename: string) {
+  return client.uploadedSource.create({
+    data: {
+      organizationId: graph.organizationId,
+      departmentId: graph.departmentId,
+      projectId: graph.projectId,
+      workstreamId: null,
+      originalFilename,
+      objectKey: `private-test/${crypto.randomUUID()}/${originalFilename}`,
+      detectedType: "pdf",
+      detectedMime: "application/pdf",
+      byteSize: 128,
+      sha256: crypto.randomUUID().replaceAll("-", "").padEnd(64, "0"),
+      createdById: graph.employeeId,
+      reason: "Test inspected upload",
+    },
+  });
 }
 
 async function seedAcceptedUpdate(graph: Graph) {

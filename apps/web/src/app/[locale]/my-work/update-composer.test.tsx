@@ -103,7 +103,9 @@ describe("UpdateComposerView", () => {
       expect(markup).toContain(label);
     }
     expect(markup).toContain("Available in a later step");
-    expect(markup).toMatch(/<option value="github_snapshot" selected="">GitHub snapshot<\/option>/u);
+    expect(markup).toMatch(/<textarea[^>]*name="sourceGithub"/u);
+    expect(markup).toMatch(/<input[^>]*multiple[^>]*type="file"[^>]*name="sourceFiles"/u);
+    expect(markup).not.toMatch(/<textarea[^>]*name="rawText"[^>]*required/u);
   });
 
   it.each([

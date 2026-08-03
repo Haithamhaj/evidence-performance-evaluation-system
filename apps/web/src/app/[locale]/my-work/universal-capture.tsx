@@ -2,13 +2,14 @@
 
 export function UniversalCapture({
   catalog,
-  initialSource,
-  onSourceKindChange,
+  sources = [],
+  onSourcesChange,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
-  initialSource?: Readonly<{ kind: string; url?: string }> | null;
-  onSourceKindChange?: (source: Readonly<{ kind: string; url?: string }> | null) => void;
+  sources?: readonly Readonly<{ kind: string; url?: string }>[],
+  onSourcesChange?: (event: import("react").ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 }>) {
+  const url = sources.find((source) => source.kind === "url")?.url ?? "";
   return (
     <fieldset className="sourceChoices">
       <legend>{catalog["updates.sources"]}</legend>
@@ -27,31 +28,30 @@ export function UniversalCapture({
         ))}
       </div>
       <label>
-        <span>{catalog["updates.source.text"]}</span>
-        <select
-          defaultValue={initialSource?.kind ?? ""}
-          name="sourceKind"
-          onChange={(event) =>
-            onSourceKindChange?.(
-              event.currentTarget.value === "" ? null : { kind: event.currentTarget.value },
-            )
-          }
-        >
-          <option value="">{catalog["updates.noneOptional"]}</option>
-          <option value="pasted_code">{catalog["updates.source.code"]}</option>
-          <option value="cli_snapshot">{catalog["updates.source.cli"]}</option>
-          <option value="url">{catalog["updates.source.url"]}</option>
-          <option value="github_snapshot">{catalog["updates.source.githubSnapshot"]}</option>
-        </select>
+        <span>{catalog["updates.source.file"]}</span>
+        <input
+          accept=".png,.jpg,.jpeg,.webp,.txt,.pdf,.docx"
+          multiple
+          name="sourceFiles"
+          onChange={onSourcesChange}
+          type="file"
+        />
       </label>
       <label>
-        <span>{catalog["updates.rawText"]}</span>
-        <textarea
-          defaultValue={initialSource?.kind === "url" ? initialSource.url : ""}
-          dir="auto"
-          name="sourceText"
-          rows={3}
-        />
+        <span>{catalog["updates.source.code"]}</span>
+        <textarea dir="auto" name="sourceCode" onChange={onSourcesChange} rows={3} />
+      </label>
+      <label>
+        <span>{catalog["updates.source.cli"]}</span>
+        <textarea dir="auto" name="sourceCli" onChange={onSourcesChange} rows={3} />
+      </label>
+      <label>
+        <span>{catalog["updates.source.url"]}</span>
+        <input defaultValue={url} dir="ltr" name="sourceUrl" onChange={onSourcesChange} type="url" />
+      </label>
+      <label>
+        <span>{catalog["updates.source.githubSnapshot"]}</span>
+        <textarea dir="auto" name="sourceGithub" onChange={onSourcesChange} rows={3} />
       </label>
       <p className="boundaryNote">{catalog["updates.source.later"]}</p>
     </fieldset>

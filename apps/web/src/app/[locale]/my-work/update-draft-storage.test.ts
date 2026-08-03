@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { loadUpdateDraft, removeUpdateDraft, saveUpdateDraft } from "./update-draft-storage.js";
+import { updateDraftText } from "./update-capture-sources.js";
 
 const values = new Map<string, string>();
 
@@ -56,6 +57,32 @@ describe("daily Update draft storage", () => {
     });
     expect(JSON.stringify(recovered)).not.toContain("blob");
     expect(JSON.stringify(recovered)).not.toContain("secret-token");
+  });
+
+  it("keeps allowed source metadata after a raw-text edit and restores it on reload", () => {
+    const original = {
+      projectId: "11111111-1111-4111-8111-111111111111",
+      workstreamId: null,
+      workItemId: null,
+      rawText: "First text",
+      sources: [
+        { kind: "image", uploadedSourceId: "22222222-2222-4222-8222-222222222222" },
+        { kind: "url", url: "https://example.invalid/acceptance?token=discard#fragment" },
+        { kind: "cli_snapshot" },
+      ],
+    } as const;
+    const edited = updateDraftText(original, "Edited text");
+    saveUpdateDraft("employee-current", { ...edited, returnPath: "/en/my-work" });
+
+    expect(loadUpdateDraft("employee-current")).toEqual({
+      ...edited,
+      sources: [
+        { kind: "image", uploadedSourceId: "22222222-2222-4222-8222-222222222222" },
+        { kind: "url", url: "https://example.invalid/acceptance" },
+        { kind: "cli_snapshot" },
+      ],
+      returnPath: "/en/my-work",
+    });
   });
 
   it("fails closed for malformed or differently versioned browser data", () => {
