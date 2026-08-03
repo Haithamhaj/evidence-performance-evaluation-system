@@ -23,6 +23,8 @@ describe("local Google private-context protection", () => {
 
     const first = await protector.seal("Private Gmail subject");
     const second = await protector.seal("Private Gmail subject");
+    const [nonce, authenticationTag, encryptedValue] = first.ciphertext.split(".");
+    const tamperedAuthenticationTag = `${authenticationTag?.startsWith("A") === true ? "B" : "A"}${authenticationTag?.slice(1) ?? ""}`;
 
     expect(first.keyVersion).toBe("google-local-aes-256-gcm-v1");
     expect(first.ciphertext).not.toBe(second.ciphertext);
@@ -34,7 +36,10 @@ describe("local Google private-context protection", () => {
       }),
     ).resolves.toBe("Synthetic fixture");
     await expect(
-      protector.open({ ...first, ciphertext: `${first.ciphertext.slice(0, -1)}A` }),
+      protector.open({
+        ...first,
+        ciphertext: `${nonce}.${tamperedAuthenticationTag}.${encryptedValue}`,
+      }),
     ).rejects.toMatchObject({ code: "PRIVATE_CONTEXT_PROTECTION_MISMATCH" });
   });
 
