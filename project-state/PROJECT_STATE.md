@@ -2,8 +2,8 @@
 
 ## Current Goal
 
-Hold the verified Slice 3 implementation at the Product Owner trust gate. Do not begin Slice 4
-without Product Owner approval.
+Execute Slice 4 GitHub, Updates, Evidence, Voice, and Timeline tasks under Fast Controlled
+Execution. Keep live GitHub installation behind its external human gate.
 
 ## Current Reality
 
@@ -105,6 +105,11 @@ without Product Owner approval.
   bounded Gmail metadata and future Calendar titles, and returns through a clean localized URL.
   Production `live` mode remains fail-closed behind the approved vault, key, policy, and review
   gates.
+- The Product Owner accepted the verified Slice 3 trust gate and authorized continued execution.
+- Slice 4 Task 1 is complete through migration `0022_github_integration`: governed GitHub App
+  installation/Project binding history, delivery idempotency, append-only source events, and
+  reconciliation cursors. The schema stores no raw payload, credential, score, ranking, or
+  activity-volume progress input. Bounded review found no remaining P0/P1.
 
 ## Active Decisions
 
@@ -155,9 +160,9 @@ without Product Owner approval.
 
 ## Next Recommended Action
 
-Run the protected human Google consent step for the local employee preview, verify private Gmail
-and Calendar context in My Work, then return to the Product Owner Slice 3 trust gate. Keep Slice 4
-stopped until that approval is explicit.
+Implement Slice 4 Task 2 webhook signature verification and missed-event reconciliation using the
+Task 1 persistence boundary. Keep GitHub App creation, installation, secret, and organization
+approval behind the external human gate.
 
 ## Critical References
 

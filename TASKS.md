@@ -300,9 +300,11 @@ Execution status:
   explicit local acceptance; production Google remains blocked by the approved
   external-configuration gate.**
 - **Slice 3 Tasks 1–6, deterministic acceptance, and all bounded final-review P1 remediations are
-  implemented and verified. Untrusted Gmail title/summary text cannot act as a confirmed
-  sender-domain anchor. Slice 3 is held at the Product Owner trust gate.**
-  Slices 4–6 have not started under the new plan.
+  implemented, verified, and accepted by the Product Owner. Untrusted Gmail title/summary text
+  cannot act as a confirmed sender-domain anchor.**
+- **Slice 4 Task 1 is implemented and independently reviewed: migration `0022_github_integration`
+  preserves binding history, enforces delivery idempotency, and stores governed source metadata
+  without activity-volume or employee-performance inputs.** Tasks 2–7 remain.
 
 ## AI-first reset task trace
 
@@ -312,8 +314,8 @@ These IDs are execution checkpoints inside the approved plans; they are not new 
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | P2R-S1 | S1-T1 persistence; S1-T2 services; S1-T3 APIs; S1-T4 Today composition; S1-T5 Task UI; S1-T6 acceptance                                             | Accepted by Product Owner                                                |
 | P2R-S2 | S2-T1 schema; S2-T2 connection/sync; S2-T3 APIs; S2-T4 UI; S2-T5 gated live adapters; S2-T6 privacy acceptance                                      | Deterministic complete; Product Owner gate; live Google externally gated |
-| P2R-S3 | S3-T1 governed AI schema; S3-T2 deterministic matching; S3-T3 routed AI; S3-T4 APIs; S3-T5 review queue; S3-T6 acceptance                           | Verified; no remaining P0/P1; held at Product Owner trust gate           |
-| P2R-S4 | S4-T1 GitHub schema; S4-T2 webhook/reconciliation; S4-T3 source suggestions; S4-T4 universal capture; S4-T5 voice; S4-T6 Timeline; S4-T7 acceptance | Planned; external GitHub gate applies                                    |
+| P2R-S3 | S3-T1 governed AI schema; S3-T2 deterministic matching; S3-T3 routed AI; S3-T4 APIs; S3-T5 review queue; S3-T6 acceptance                           | Accepted by Product Owner                                                |
+| P2R-S4 | S4-T1 GitHub schema; S4-T2 webhook/reconciliation; S4-T3 source suggestions; S4-T4 universal capture; S4-T5 voice; S4-T6 Timeline; S4-T7 acceptance | S4-T1 complete; external GitHub gate applies                             |
 | P2R-S5 | S5-T1 owner authorization; S5-T2 setup UI; S5-T3 Project pulse; S5-T4 check-ins/readiness; S5-T5 manager queues; S5-T6 acceptance                   | Planned                                                                  |
 | P2R-S6 | S6-T1 Fact contract; S6-T2 source composition; S6-T3 API; S6-T4 UI; S6-T5 acceptance                                                                | Planned                                                                  |
 
