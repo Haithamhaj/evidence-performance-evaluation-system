@@ -20,6 +20,14 @@ export {
   type SealedCredentialInput,
 } from "./credential-vault.js";
 export { FakeGoogleWorkspaceAdapter } from "./fake-google-workspace-adapter.js";
+export { CalendarRestAdapter } from "./google/calendar-rest-adapter.js";
+export { GmailRestAdapter } from "./google/gmail-rest-adapter.js";
+export {
+  GOOGLE_WORKSPACE_READ_SCOPES,
+  GoogleOAuthClient,
+  type GoogleHttpTransport,
+  type GoogleOAuthConfiguration,
+} from "./google/google-oauth-client.js";
 export { ConnectedWorkContextQueryService } from "./query-service.js";
 export type {
   ConnectedSourceAdapter,
