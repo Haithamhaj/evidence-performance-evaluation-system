@@ -449,6 +449,9 @@ export async function POST(request: Request, context: Context): Promise<NextResp
           VoiceUpdateSessionSchema,
         );
       }
+      if (path[2] === "cancel") {
+        return await post(`/api/v1/voice-updates/${path[1]}/cancel`, {}, VoiceUpdateSessionSchema);
+      }
     }
     if (path.length === 3 && path[0] === "updates" && isUuid(path[1])) {
       if (path[2] === "answers") {

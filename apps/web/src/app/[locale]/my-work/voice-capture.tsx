@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Scope = Readonly<{ projectId: string; workstreamId: string | null; workItemId: string | null }>;
 type VoiceSource = Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>;
@@ -47,17 +47,24 @@ export function VoiceCapture({
   adapter?: VoiceCaptureAdapter;
   fetcher?: Fetcher;
 }>) {
-  const [status, setStatus] = useState<"idle" | "requesting" | "recording" | "uploading" | "ready" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "requesting" | "recording" | "uploading" | "transcribing" | "ready" | "cancelled" | "error">("idle");
+  const [elapsed, setElapsed] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [session, setSession] = useState<VoiceSession | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const recording = useRef<VoiceRecording | null>(null);
+  useEffect(() => {
+    if (status !== "recording") return;
+    const timer = window.setInterval(() => setElapsed((value) => value + 1), 1_000);
+    return () => window.clearInterval(timer);
+  }, [status]);
 
   async function startRecording() {
     setPermissionDenied(false);
     setStatus("requesting");
     try {
       recording.current = await adapter.start();
+      setElapsed(0);
       setStatus("recording");
     } catch {
       recording.current = null;
@@ -78,15 +85,19 @@ export function VoiceCapture({
     }
   }
 
-  function cancelRecording() {
+  async function cancelRecording() {
     recording.current?.cancel();
     recording.current = null;
-    setStatus("idle");
+    if (session !== null) {
+      try { await postVoice(fetcher, `/api/daily-work/voice-updates/${session.sessionId}/cancel`, {}); } catch { setStatus("error"); return; }
+    }
+    setStatus("cancelled");
   }
 
   async function uploadAndTranscribe(file: File) {
     if (!ACCEPTED_AUDIO_TYPES.has(file.type)) throw new Error("unsupported-audio");
     const uploadedSourceId = await uploadVoiceFile(file, scope, fetcher);
+    setStatus("transcribing");
     const next = await postVoice<VoiceSession>(fetcher, "/api/daily-work/voice-updates", {
       idempotencyKey: crypto.randomUUID(),
       uploadedSourceId,
@@ -166,7 +177,8 @@ export function VoiceCapture({
           type="file"
         />
       </label>
-      {status === "requesting" || status === "recording" || status === "uploading" ? <p>{catalog["voice.recording"]}</p> : null}
+      {status === "recording" ? <p>{catalog["voice.recording"]}: {elapsed}s</p> : null}
+      {status === "requesting" || status === "uploading" || status === "transcribing" ? <p>{catalog["voice.ready"]}</p> : null}
       {status === "error" ? <p className="formError" role="alert">{catalog[permissionDenied ? "voice.permissionDenied" : "voice.retry"]}</p> : null}
       <label>
         <span>{catalog["voice.transcript"]}</span>

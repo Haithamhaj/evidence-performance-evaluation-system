@@ -15,6 +15,7 @@ const ActorSchema = z.object({ userId: z.string().uuid(), active: z.boolean() })
 const StartCommandSchema = z.object({ actor: ActorSchema, correlationId: z.string().uuid(), input: StartVoiceUpdateInputSchema }).strict();
 const RevisionCommandSchema = z.object({ actor: ActorSchema, voiceSessionId: z.string().uuid(), input: ReviseVoiceTranscriptInputSchema }).strict();
 const ConfirmCommandSchema = z.object({ actor: ActorSchema, voiceSessionId: z.string().uuid(), input: ConfirmVoiceTranscriptInputSchema }).strict();
+const SessionCommandSchema = z.object({ actor: ActorSchema, correlationId: z.string().uuid(), voiceSessionId: z.string().uuid() }).strict();
 const MAX_VOICE_AUDIO_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_AUDIO_MIME_TYPES = new Set(["audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"]);
 
@@ -82,8 +83,9 @@ export class VoiceUpdateService {
       const output = await this.transcriber.transcribe({ voiceSessionId: prepared.existing.id, uploadedSourceId: prepared.existing.uploadedSourceId, projectScopeId: prepared.scope.projectScopeId, departmentScopeId: prepared.scope.departmentScopeId, correlationId: parsed.correlationId, mediaType: upload.detectedMime, byteSize: upload.byteSize, declaredDurationSeconds: prepared.existing.declaredDurationSeconds });
       session = await this.client.$transaction((transaction) => transaction.voiceUpdateSession.update({ where: { id: prepared.existing.id }, data: { state: "transcript_ready", language: output.language, dialect: output.dialect, ...(output.aiRunId === null ? {} : { aiRunId: output.aiRunId }), transcriptRevisions: { create: { revision: 1, origin: "ai", transcript: output.transcript, language: output.language, dialect: output.dialect, ...(output.aiRunId === null ? {} : { aiRunId: output.aiRunId }) } } }, include: { transcriptRevisions: true, confirmation: true } }));
     } catch (error) {
-      await this.client.voiceUpdateSession.update({ where: { id: prepared.existing.id }, data: { state: "failed", temporaryArtifactsCleanedAt: this.clock() } });
+      await this.client.voiceUpdateSession.update({ where: { id: prepared.existing.id }, data: { state: "failed" } });
       await this.cleaner.cleanup({ voiceSessionId: prepared.existing.id, outcome: "failed" });
+      await this.client.voiceUpdateSession.update({ where: { id: prepared.existing.id }, data: { temporaryArtifactsCleanedAt: this.clock() } });
       throw error;
     }
     await this.cleaner.cleanup({ voiceSessionId: session.id, outcome: "success" });
@@ -111,6 +113,21 @@ export class VoiceUpdateService {
       const confirmed = await transaction.voiceUpdateSession.update({ where: { id: session.id }, data: { state: "transcript_confirmed", confirmation: { create: { transcriptRevisionId: latest.id, employeeId: parsed.actor.userId, reason: parsed.input.reason, confirmedAt: this.clock() } } }, include: { transcriptRevisions: true, confirmation: true } });
       return serialize(confirmed);
     });
+  }
+
+  async cancel(command: unknown) {
+    const parsed = SessionCommandSchema.parse(command);
+    const session = await this.client.$transaction(async (transaction) => {
+      const owned = await authorizedOwnedSession(transaction, this.scopeReader, parsed.actor, parsed.voiceSessionId, this.clock());
+      if (owned.state === "transcript_confirmed") throw new AppError("VOICE_TRANSCRIPT_CONFIRMATION_REQUIRED", "errors.voice.transcriptConfirmationRequired", 409);
+      if (owned.state === "cancelled") return owned;
+      return transaction.voiceUpdateSession.update({ where: { id: owned.id }, data: { state: "cancelled" }, include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true } });
+    });
+    if (session.state === "cancelled" && session.temporaryArtifactsCleanedAt === null) {
+      await this.cleaner.cleanup({ voiceSessionId: session.id, outcome: "cancelled" });
+      return serialize(await this.client.voiceUpdateSession.update({ where: { id: session.id }, data: { temporaryArtifactsCleanedAt: this.clock() }, include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true } }));
+    }
+    return serialize(session);
   }
 }
 
