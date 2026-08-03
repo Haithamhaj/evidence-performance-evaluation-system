@@ -247,6 +247,88 @@ describe("EvidenceService", () => {
       }),
     );
   });
+
+  it("keeps a verified GitHub suggestion as an employee-owned draft until contribution context and confirmation are supplied", async () => {
+    const graph = await seedGraph();
+    const sourceEventId = await seedGitHubSourceEvent(graph);
+    const service = new EvidenceService(
+      client,
+      { authorizeIn: async () => undefined },
+      { getApprovedUploadIn: vi.fn() },
+      auditWriter,
+      () => now,
+      {
+        getVerifiedSourceIn: async (_transaction, input) => {
+          expect(input).toEqual({ sourceEventId, projectId: graph.projectId });
+          return {
+            sourceEventId,
+            sourceUrl: "https://github.com/leapai/atlas/pull/42",
+          };
+        },
+      },
+    );
+    await expect(
+      service.createFromGitHubSuggestion({
+        actor: { userId: graph.employeeId, active: true },
+        correlationId: crypto.randomUUID(),
+        input: {
+          idempotencyKey: crypto.randomUUID(),
+          sourceEventId,
+          projectId: graph.projectId,
+          workstreamId: null,
+          workItemId: null,
+          supportedClaim: "The merged pull request supports this claimed contribution.",
+          contributionContext: "",
+          relatedKpiComponentId: null,
+          relatedCriterionId: null,
+          executionMode: "mixed",
+        },
+      }),
+    ).rejects.toBeDefined();
+
+    const draft = await service.createFromGitHubSuggestion({
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+      input: {
+        idempotencyKey: crypto.randomUUID(),
+        sourceEventId,
+        projectId: graph.projectId,
+        workstreamId: null,
+        workItemId: null,
+        supportedClaim: "The merged pull request supports this claimed contribution.",
+        contributionContext: "I implemented the acceptance-path change and reviewed its merge.",
+        relatedKpiComponentId: null,
+        relatedCriterionId: null,
+        executionMode: "mixed",
+      },
+    });
+    expect(draft).toMatchObject({
+      state: "draft",
+      githubSourceEventId: sourceEventId,
+      sourceKind: "url",
+    });
+    const edited = await service.revise({
+      actor: { userId: graph.employeeId, active: true },
+      correlationId: crypto.randomUUID(),
+      evidenceId: draft.id,
+      input: {
+        expectedRevision: 1,
+        supportedClaim: "I reviewed the merged pull request and its acceptance evidence.",
+        contributionContext: "I implemented the acceptance-path change and reviewed its merge.",
+      },
+    });
+    await expect(
+      service.confirm({
+        actor: { userId: graph.employeeId, active: true },
+        correlationId: crypto.randomUUID(),
+        evidenceId: draft.id,
+        input: {
+          expectedRevision: edited.revision,
+          reason: "I reviewed the source and my contribution context.",
+        },
+      }),
+    ).resolves.toMatchObject({ evidenceId: draft.id });
+  });
 });
 
 const auditWriter: import("@evaluation/contracts").AuditWriter<
@@ -304,4 +386,35 @@ async function seedGraph() {
     },
   });
   return { organizationId, departmentId, employeeId, projectId };
+}
+
+async function seedGitHubSourceEvent(
+  graph: Awaited<ReturnType<typeof seedGraph>>,
+): Promise<string> {
+  const installation = await client.gitHubAppInstallation.create({
+    data: { installationId: `installation-${crypto.randomUUID()}` },
+  });
+  const binding = await client.gitHubProjectBinding.create({
+    data: {
+      projectId: graph.projectId,
+      installationId: installation.id,
+      repositoryId: `repository-${crypto.randomUUID()}`,
+      boundAt: now,
+    },
+  });
+  const event = await client.gitHubSourceEvent.create({
+    data: {
+      bindingId: binding.id,
+      installationId: installation.id,
+      repositoryId: binding.repositoryId,
+      deliveryId: `delivery-${crypto.randomUUID()}`,
+      eventType: "pull_request",
+      sourceId: "PR_42",
+      sourceUrl: "https://github.com/leapai/atlas/pull/42",
+      occurredAt: now,
+      verificationState: "VERIFIED",
+      governedFacts: [{ kind: "pull_request", state: "merged" }],
+    },
+  });
+  return event.id;
 }

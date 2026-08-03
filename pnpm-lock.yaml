@@ -513,6 +513,9 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:../database
+      '@evaluation/github-integration':
+        specifier: workspace:*
+        version: link:../github-integration
       '@evaluation/permissions':
         specifier: workspace:*
         version: link:../permissions

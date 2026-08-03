@@ -19,6 +19,27 @@ const CreateCommandSchema = z
     input: CreateManualEvidenceInputSchema,
   })
   .strict();
+const GitHubSuggestionInputSchema = z
+  .object({
+    idempotencyKey: z.string().uuid(),
+    sourceEventId: z.string().uuid(),
+    projectId: z.string().uuid(),
+    workstreamId: z.string().uuid().nullable(),
+    workItemId: z.string().uuid().nullable(),
+    supportedClaim: z.string().trim().min(1).max(2_000),
+    contributionContext: z.string().trim().min(1).max(2_000),
+    relatedKpiComponentId: z.string().uuid().nullable(),
+    relatedCriterionId: z.string().uuid().nullable(),
+    executionMode: z.enum(["manual", "ai_assisted", "agent_generated", "mixed"]),
+  })
+  .strict();
+const CreateGitHubSuggestionCommandSchema = z
+  .object({
+    actor: ActorSchema,
+    correlationId: z.string().uuid(),
+    input: GitHubSuggestionInputSchema,
+  })
+  .strict();
 const EvidenceCommandSchema = z
   .object({
     actor: ActorSchema,
@@ -68,12 +89,20 @@ export interface SafeEvidenceUploadReader {
   }>;
 }
 
+export interface GitHubEvidenceSourceReader {
+  getVerifiedSourceIn(
+    transaction: Transaction,
+    input: Readonly<{ sourceEventId: string; projectId: string }>,
+  ): Promise<Readonly<{ sourceEventId: string; sourceUrl: string }>>;
+}
+
 export class EvidenceService {
   private readonly client: DatabaseClient;
   private readonly scopeReader: EvidenceScopeReader;
   private readonly uploadReader: SafeEvidenceUploadReader;
   private readonly auditWriter: AuditWriter;
   private readonly clock: () => Date;
+  private readonly githubSourceReader: GitHubEvidenceSourceReader | undefined;
 
   constructor(
     client: DatabaseClient,
@@ -81,85 +110,126 @@ export class EvidenceService {
     uploadReader: SafeEvidenceUploadReader,
     auditWriter: AuditWriter,
     clock: () => Date = () => new Date(),
+    githubSourceReader?: GitHubEvidenceSourceReader,
   ) {
     this.client = client;
     this.scopeReader = scopeReader;
     this.uploadReader = uploadReader;
     this.auditWriter = auditWriter;
     this.clock = clock;
+    this.githubSourceReader = githubSourceReader;
   }
 
   async create(command: unknown): Promise<EvidenceDetail> {
     const parsed = CreateCommandSchema.parse(command);
     const at = validClock(this.clock());
+    return serializable(this.client, (transaction) => this.createIn(transaction, parsed, at));
+  }
+
+  async createFromGitHubSuggestion(command: unknown): Promise<EvidenceDetail> {
+    const parsed = CreateGitHubSuggestionCommandSchema.parse(command);
+    const at = validClock(this.clock());
+    if (this.githubSourceReader === undefined) throw invalidState();
     return serializable(this.client, async (transaction) => {
-      await this.scopeReader.authorizeIn(transaction, {
-        actor: parsed.actor,
+      const source = await this.githubSourceReader!.getVerifiedSourceIn(transaction, {
+        sourceEventId: parsed.input.sourceEventId,
         projectId: parsed.input.projectId,
-        workstreamId: parsed.input.workstreamId,
-        workItemId: parsed.input.workItemId,
-        progressComponentId: parsed.input.relatedKpiComponentId,
-        dynamicCriterionId: parsed.input.relatedCriterionId,
-        at,
       });
-      const existing = await transaction.evidenceRecord.findUnique({
-        where: { idempotencyKey: parsed.input.idempotencyKey },
-        include: { revisions: { orderBy: { revision: "desc" }, take: 1 } },
-      });
-      if (existing !== null) {
-        assertOwner(existing.employeeId, parsed.actor);
-        const revision = existing.revisions[0];
-        if (revision === undefined) throw invalidState();
-        return serialize(existing, revision);
-      }
-      const source = await resolveSource(transaction, this.uploadReader, parsed);
-      const revisionKind = parsed.input.executionMode === "manual" ? "manual_draft" : "ai_draft";
-      const record = await transaction.evidenceRecord.create({
-        data: {
+      const created = CreateCommandSchema.parse({
+        actor: parsed.actor,
+        correlationId: parsed.correlationId,
+        input: {
           idempotencyKey: parsed.input.idempotencyKey,
           projectId: parsed.input.projectId,
           workstreamId: parsed.input.workstreamId,
           workItemId: parsed.input.workItemId,
-          capturedFromWorkItem: parsed.input.capturedFromWorkItem,
-          updateSourceId: parsed.input.updateSourceId,
-          employeeId: parsed.actor.userId,
-          revisions: {
-            create: {
-              revision: 1,
-              revisionKind,
-              sourceKind: parsed.input.source.kind,
-              ...source,
-              supportedClaim: parsed.input.supportedClaim,
-              contributionContext: parsed.input.contributionContext,
-              executionMode: parsed.input.executionMode,
-              createdById: parsed.actor.userId,
-              links: { create: links(parsed.input) },
-              attributions: {
-                create: {
-                  employeeId: parsed.actor.userId,
-                  contributionContext: parsed.input.contributionContext,
-                  state: "acknowledged",
-                  proposedById: parsed.actor.userId,
-                  reason: "Employee-provided contribution context",
-                },
+          capturedFromWorkItem: false,
+          updateSourceId: null,
+          source: { kind: "url", url: source.sourceUrl },
+          supportedClaim: parsed.input.supportedClaim,
+          relatedKpiComponentId: parsed.input.relatedKpiComponentId,
+          relatedCriterionId: parsed.input.relatedCriterionId,
+          contributionContext: parsed.input.contributionContext,
+          executionMode: parsed.input.executionMode,
+        },
+      });
+      return this.createIn(transaction, created, at, source.sourceEventId);
+    });
+  }
+
+  private async createIn(
+    transaction: Transaction,
+    parsed: z.infer<typeof CreateCommandSchema>,
+    at: Date,
+    githubSourceEventId?: string,
+  ): Promise<EvidenceDetail> {
+    await this.scopeReader.authorizeIn(transaction, {
+      actor: parsed.actor,
+      projectId: parsed.input.projectId,
+      workstreamId: parsed.input.workstreamId,
+      workItemId: parsed.input.workItemId,
+      progressComponentId: parsed.input.relatedKpiComponentId,
+      dynamicCriterionId: parsed.input.relatedCriterionId,
+      at,
+    });
+    const existing = await transaction.evidenceRecord.findUnique({
+      where: { idempotencyKey: parsed.input.idempotencyKey },
+      include: { revisions: { orderBy: { revision: "desc" }, take: 1 } },
+    });
+    if (existing !== null) {
+      assertOwner(existing.employeeId, parsed.actor);
+      const revision = existing.revisions[0];
+      if (revision === undefined) throw invalidState();
+      return serialize(existing, revision);
+    }
+    const source = await resolveSource(transaction, this.uploadReader, parsed);
+    const revisionKind = parsed.input.executionMode === "manual" ? "manual_draft" : "ai_draft";
+    const record = await transaction.evidenceRecord.create({
+      data: {
+        idempotencyKey: parsed.input.idempotencyKey,
+        projectId: parsed.input.projectId,
+        workstreamId: parsed.input.workstreamId,
+        workItemId: parsed.input.workItemId,
+        capturedFromWorkItem: parsed.input.capturedFromWorkItem,
+        updateSourceId: parsed.input.updateSourceId,
+        ...(githubSourceEventId === undefined ? {} : { githubSourceEventId }),
+        employeeId: parsed.actor.userId,
+        revisions: {
+          create: {
+            revision: 1,
+            revisionKind,
+            sourceKind: parsed.input.source.kind,
+            ...source,
+            supportedClaim: parsed.input.supportedClaim,
+            contributionContext: parsed.input.contributionContext,
+            executionMode: parsed.input.executionMode,
+            createdById: parsed.actor.userId,
+            links: { create: links(parsed.input) },
+            attributions: {
+              create: {
+                employeeId: parsed.actor.userId,
+                contributionContext: parsed.input.contributionContext,
+                state: "acknowledged",
+                proposedById: parsed.actor.userId,
+                reason: "Employee-provided contribution context",
               },
-              verifications: {
-                create: {
-                  outcome: "unverified",
-                  sourceReferences: [],
-                  actorId: parsed.actor.userId,
-                  reason: "Awaiting evidence review",
-                },
+            },
+            verifications: {
+              create: {
+                outcome: "unverified",
+                sourceReferences: [],
+                actorId: parsed.actor.userId,
+                reason: "Awaiting evidence review",
               },
             },
           },
         },
-        include: { revisions: true },
-      });
-      const revision = record.revisions[0];
-      if (revision === undefined) throw invalidState();
-      return serialize(record, revision);
+      },
+      include: { revisions: true },
     });
+    const revision = record.revisions[0];
+    if (revision === undefined) throw invalidState();
+    return serialize(record, revision);
   }
 
   async revise(command: unknown): Promise<EvidenceDetail> {
@@ -272,7 +342,12 @@ export class EvidenceService {
           evidenceId: record.id,
           projectId: record.projectId,
           workstreamId: record.workstreamId,
-          sourceReferences: [`evidence:${record.id}`],
+          sourceReferences: [
+            `evidence:${record.id}`,
+            ...(record.githubSourceEventId === null
+              ? []
+              : [`github-source-event:${record.githubSourceEventId}`]),
+          ],
           occurredAt: at,
         },
       });
@@ -345,6 +420,7 @@ type EvidenceDetail = Readonly<{
   projectId: string;
   workstreamId: string | null;
   workItemId: string | null;
+  githubSourceEventId: string | null;
   state: "draft" | "confirmed" | "rejected";
   revision: number;
   revisionKind: "ai_draft" | "employee_edit" | "manual_draft";
@@ -416,6 +492,7 @@ function serialize(
     projectId: string;
     workstreamId: string | null;
     workItemId: string | null;
+    githubSourceEventId?: string | null;
     state: "draft" | "confirmed" | "rejected";
   },
   revision: {
@@ -434,6 +511,7 @@ function serialize(
     projectId: record.projectId,
     workstreamId: record.workstreamId,
     workItemId: record.workItemId,
+    githubSourceEventId: record.githubSourceEventId ?? null,
     state: record.state,
     revision: revision.revision,
     revisionKind: revision.revisionKind,

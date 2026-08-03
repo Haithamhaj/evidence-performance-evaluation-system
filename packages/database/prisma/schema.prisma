@@ -377,6 +377,7 @@ model Project {
   acceptedUpdateEvents   AcceptedUpdateEvent[]
   acceptedEvidenceEvents AcceptedEvidenceEvent[]
   githubProjectBindings  GitHubProjectBinding[]
+  githubProgressReviews  GitHubProgressReview[]
   createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
 
@@ -428,6 +429,8 @@ model GitHubProjectBinding {
   boundAt               DateTime                    @db.Timestamptz(6)
   unboundAt             DateTime?                   @db.Timestamptz(6)
   sourceEvents          GitHubSourceEvent[]
+  contractRules         GitHubContractRule[]
+  progressReviews       GitHubProgressReview[]
   reconciliationCursor  GitHubReconciliationCursor?
   createdAt             DateTime                    @default(now()) @db.Timestamptz(6)
   updatedAt             DateTime                    @updatedAt @db.Timestamptz(6)
@@ -450,11 +453,75 @@ model GitHubSourceEvent {
   occurredAt        DateTime                     @db.Timestamptz(6)
   verificationState GitHubEventVerificationState
   governedFacts     Json
+  evidenceRecords   EvidenceRecord[]
+  progressReviews   GitHubProgressReview[]
   createdAt         DateTime                     @default(now()) @db.Timestamptz(6)
 
   @@index([bindingId, occurredAt(sort: Desc), id], map: "GitHubSourceEvent_binding_time_idx")
   @@index([installationId, repositoryId, occurredAt(sort: Desc), id], map: "GitHubSourceEvent_repository_time_idx")
   @@index([sourceId, occurredAt(sort: Desc)], map: "GitHubSourceEvent_source_time_idx")
+}
+
+enum GitHubGovernedEventKind {
+  pull_request
+  commit
+  check
+  deployment
+}
+
+enum GitHubGovernedAcceptanceState {
+  open
+  closed
+  merged
+  created
+  queued
+  in_progress
+  success
+  failure
+  cancelled
+  inactive
+}
+
+enum GitHubProgressReviewDisposition {
+  no_match
+  ambiguous
+}
+
+model GitHubContractRule {
+  id              String                   @id @default(uuid()) @db.Uuid
+  bindingId       String                   @db.Uuid
+  binding         GitHubProjectBinding     @relation(fields: [bindingId], references: [id], onDelete: Restrict)
+  contractId      String                   @db.Uuid
+  contractVersion Int
+  contract        ProgressContract         @relation(fields: [contractId, contractVersion], references: [id, contractVersion], onDelete: Restrict)
+  componentId     String                   @db.Uuid
+  component       ProgressContractComponent @relation(fields: [componentId, contractId], references: [id, contractId], onDelete: Restrict)
+  sourceId        String
+  eventKind       GitHubGovernedEventKind
+  acceptanceState GitHubGovernedAcceptanceState
+  effectiveAt     DateTime                 @db.Timestamptz(6)
+  expiresAt       DateTime?                @db.Timestamptz(6)
+  createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@unique([bindingId, contractId, componentId, sourceId, eventKind, acceptanceState, effectiveAt], map: "GitHubContractRule_unique_identity")
+  @@index([bindingId, contractId, contractVersion, effectiveAt], map: "GitHubContractRule_binding_contract_effective_idx")
+  @@index([contractId, componentId, effectiveAt], map: "GitHubContractRule_contract_component_effective_idx")
+}
+
+model GitHubProgressReview {
+  id               String                           @id @default(uuid()) @db.Uuid
+  sourceEventId    String                           @unique @db.Uuid
+  sourceEvent      GitHubSourceEvent                @relation(fields: [sourceEventId], references: [id], onDelete: Restrict)
+  bindingId        String                           @db.Uuid
+  binding          GitHubProjectBinding             @relation(fields: [bindingId], references: [id], onDelete: Restrict)
+  projectId        String                           @db.Uuid
+  project          Project                          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  disposition      GitHubProgressReviewDisposition
+  candidateRuleIds Json
+  createdAt        DateTime                         @default(now()) @db.Timestamptz(6)
+
+  @@index([projectId, createdAt(sort: Desc), id], map: "GitHubProgressReview_project_time_idx")
+  @@index([bindingId, createdAt(sort: Desc), id], map: "GitHubProgressReview_binding_time_idx")
 }
 
 model GitHubReconciliationCursor {
@@ -1122,6 +1189,7 @@ model ProgressContract {
   createdById              String                         @db.Uuid
   createdBy                User                           @relation("ProgressContractCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   components               ProgressContractComponent[]
+  githubRules              GitHubContractRule[]
   transitions              ProgressContractTransition[]
   confirmations            ProgressHumanConfirmation[]
   snapshots                ProgressSnapshot[]
@@ -1134,6 +1202,7 @@ model ProgressContract {
   @@index([workstreamId, state, effectiveAt])
   @@index([sourceDocumentVersionId])
   @@index([ownerId, state])
+  @@unique([id, contractVersion])
 }
 
 model ProgressContractAiDraftRequest {
@@ -1227,6 +1296,7 @@ model ProgressContractComponent {
   snapshotSources      ProgressSnapshotSource[]
   evidenceLinks        EvidenceLink[]
   appliedAiDraftMappings ProgressContractAiDraftAppliedComponent[]
+  githubRules            GitHubContractRule[]
   createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
 
   @@unique([contractId, position])
@@ -1550,6 +1620,8 @@ model EvidenceRecord {
   capturedFromWorkItem Boolean                @default(false)
   updateSourceId       String?                @db.Uuid
   updateSource         UpdateSource?          @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
+  githubSourceEventId  String?                @db.Uuid
+  githubSourceEvent    GitHubSourceEvent?     @relation(fields: [githubSourceEventId], references: [id], onDelete: Restrict)
   employeeId           String                 @db.Uuid
   employee             User                   @relation("EvidenceRecordEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
   state                EvidenceRecordState    @default(draft)
@@ -1565,6 +1637,7 @@ model EvidenceRecord {
   @@index([projectId, workstreamId, state, createdAt])
   @@index([workItemId, createdAt])
   @@index([updateSourceId])
+  @@index([githubSourceEventId])
 }
 
 model EvidenceRevision {

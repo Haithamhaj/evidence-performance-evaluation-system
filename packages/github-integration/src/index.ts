@@ -27,3 +27,10 @@ export type {
   GitHubReceiptWriter,
   NormalizedGitHubReceipt,
 } from "./webhook-service.js";
+export { GitHubEvidenceSuggestionService } from "./evidence-suggestion-service.js";
+export type {
+  GitHubEvidenceSuggestion,
+  GitHubEvidenceSuggestionWriter,
+} from "./evidence-suggestion-service.js";
+export { matchProgressConditions } from "./progress-condition-matcher.js";
+export type { ProgressConditionMatch } from "./progress-condition-matcher.js";

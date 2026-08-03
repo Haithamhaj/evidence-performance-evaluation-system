@@ -11,6 +11,7 @@
     "@evaluation/audit": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",
+    "@evaluation/github-integration": "workspace:*",
     "@evaluation/permissions": "workspace:*",
     "zod": "4.4.3"
   },

@@ -52,7 +52,7 @@ function harness() {
     }),
     findFirst: vi.fn(async (): Promise<any> => null),
   };
-  const transaction = {
+  const transaction: any = {
     $queryRaw: vi.fn(async () => []),
     progressContract: contract,
     progressContractTransition: { create: vi.fn(async () => ({})) },
@@ -241,5 +241,59 @@ describe("ProgressContractService", () => {
       }),
     ).rejects.toMatchObject({ code: "SCOPE_MISMATCH" });
     expect(context.transaction.progressContractTransition.create).not.toHaveBeenCalled();
+  });
+
+  it("uses only persisted active-contract GitHub rules and queues ambiguous source events for Project-owner review", async () => {
+    const context = harness();
+    const sourceEventId = crypto.randomUUID();
+    context.transaction.gitHubSourceEvent = {
+      findUnique: vi.fn(async () => ({
+        id: sourceEventId,
+        bindingId: crypto.randomUUID(),
+        installationId: crypto.randomUUID(),
+        repositoryId: "repository-42",
+        sourceId: "PR_42",
+        occurredAt: now,
+        verificationState: "VERIFIED",
+        governedFacts: [{ kind: "pull_request", state: "merged" }],
+        binding: { projectId: context.projectId },
+      })),
+    };
+    context.transaction.progressContract.findFirst.mockResolvedValueOnce({
+      id: crypto.randomUUID(),
+      contractVersion: 3,
+      state: "active",
+      ownerId: context.actorId,
+    });
+    context.transaction.gitHubContractRule = {
+      findMany: vi.fn(async () =>
+        ["one", "two"].map((id) => ({
+          id,
+          componentId: crypto.randomUUID(),
+          sourceId: "PR_42",
+          eventKind: "pull_request",
+          acceptanceState: "merged",
+        })),
+      ),
+    };
+    context.transaction.gitHubProgressReview = {
+      findUnique: vi.fn(async () => null),
+      create: vi.fn(async () => ({ id: crypto.randomUUID() })),
+    };
+
+    await expect(context.service.evaluateGitHubSource({ sourceEventId })).resolves.toMatchObject({
+      state: "owner_review_required",
+      sourceEventId,
+      projectId: context.projectId,
+    });
+    expect(context.transaction.gitHubProgressReview.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sourceEventId,
+          disposition: "ambiguous",
+          candidateRuleIds: ["one", "two"],
+        }),
+      }),
+    );
   });
 });
