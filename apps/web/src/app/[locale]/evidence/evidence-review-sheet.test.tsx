@@ -36,11 +36,25 @@ describe("EvidenceReviewSheetView", () => {
           contributionContext: "نفذت الاختبارات وراجعت النتيجة.",
           revision: 2,
           sourceKind: "pasted_text",
+          sourceProvenance: "employee_text",
+          revisionKind: "employee_edit",
+          project: { id: crypto.randomUUID(), name: "منصة التقييم" },
+          workstream: { id: crypto.randomUUID(), name: "جاهزية API" },
+          workItem: { id: crypto.randomUUID(), title: "إغلاق مسار القبول" },
+          relatedKpiComponents: [{ id: crypto.randomUUID(), name: "اكتمال القبول" }],
+          relatedCriteria: [{ id: crypto.randomUUID(), name: "التسليم الموثوق" }],
+          verificationState: "unverified",
         },
       }),
     );
     expect(markup).toContain("تأكيد الدليل");
     expect(markup).toContain("مراجعتك وتأكيدك إلزاميان");
+    expect(markup).toContain("منصة التقييم");
+    expect(markup).toContain("جاهزية API");
+    expect(markup).toContain("إغلاق مسار القبول");
+    expect(markup).toContain("اكتمال القبول");
+    expect(markup).toContain("التسليم الموثوق");
+    expect(markup).toContain("غير متحقق بعد");
     expect(markup).not.toContain("تقييم أداء");
   });
 

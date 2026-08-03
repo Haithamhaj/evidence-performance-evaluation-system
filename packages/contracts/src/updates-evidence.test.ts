@@ -7,11 +7,13 @@ import {
   ConfirmEvidenceInputSchema,
   CreateManualEvidenceInputSchema,
   EvidenceDraftInputSchema,
+  EvidenceReviewSchema,
   ReviseEvidenceInputSchema,
   ReviseUpdateDraftInputSchema,
   StartUpdateInputSchema,
   StartTextUpdateInputSchema,
   StructuredUpdateDraftSchema,
+  TimelineItemSchema,
   UpdateComposerContextSchema,
   UpdateResultCardSchema,
   UpdateStructureAiOutputSchema,
@@ -306,6 +308,60 @@ describe("updates and evidence contracts", () => {
         sourceReferences: draft.sourceReferences,
       }),
     ).toMatchObject({ updateSourceId: sourceId, workItemId });
+  });
+
+  it("requires source review and Timeline items to carry readable scope and provenance", () => {
+    const workstreamId = crypto.randomUUID();
+    const componentId = crypto.randomUUID();
+    const criterionId = crypto.randomUUID();
+    const shared = {
+      project: { id: projectId, name: "Atlas Delivery" },
+      workstream: { id: workstreamId, name: "API readiness" },
+      workItem: { id: workItemId, title: "Verify acceptance flow" },
+      relatedKpiComponents: [{ id: componentId, name: "Acceptance completion" }],
+      relatedCriteria: [{ id: criterionId, name: "Reliable delivery" }],
+      verificationState: "unverified",
+    } as const;
+
+    expect(
+      EvidenceReviewSchema.parse({
+        id: crypto.randomUUID(),
+        revisionId: crypto.randomUUID(),
+        projectId,
+        workstreamId,
+        workItemId,
+        state: "draft",
+        revision: 1,
+        revisionKind: "ai_draft",
+        sourceKind: "url",
+        sourceProvenance: "github_automated",
+        sourceText: null,
+        sourceUrl: "https://github.com/acme/atlas/pull/42",
+        mediaType: null,
+        supportedClaim: "Required checks passed.",
+        contributionContext: "Implemented and reviewed the acceptance path.",
+        executionMode: "ai_assisted",
+        ...shared,
+      }),
+    ).toMatchObject({ sourceProvenance: "github_automated", ...shared });
+
+    expect(
+      TimelineItemSchema.parse({
+        id: crypto.randomUUID(),
+        kind: "evidence",
+        projectId,
+        workstreamId,
+        workItemId,
+        employeeId: crypto.randomUUID(),
+        occurredAt: "2026-07-20T10:00:00.000Z",
+        title: "Required checks passed.",
+        detail: "Implemented and reviewed the acceptance path.",
+        sourceReferences: [`evidence:${sourceId}`],
+        sourceProvenance: "github_automated",
+        reviewState: "employee_confirmed",
+        ...shared,
+      }),
+    ).toMatchObject({ reviewState: "employee_confirmed", ...shared });
   });
 
   it("returns a readable confirmed result without employee-performance fields", () => {

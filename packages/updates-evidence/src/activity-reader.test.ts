@@ -116,6 +116,64 @@ describe("ActivityReader", () => {
       }),
     ).rejects.toMatchObject({ code: "SCOPE_MISMATCH", status: 403 });
   });
+
+  it("returns readable evidence scope, rule links, provenance, and verification state", async () => {
+    const evidenceId = "77777777-7777-4777-8777-777777777777";
+    const revisionId = "88888888-8888-4888-8888-888888888888";
+    const componentId = "99999999-9999-4999-8999-999999999999";
+    const criterionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const reader = new ActivityReader({
+      evidenceRecord: {
+        findFirst: vi.fn(async () => ({
+          id: evidenceId,
+          employeeId: actorId,
+          projectId,
+          workstreamId,
+          workItemId: null,
+          githubSourceEventId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+          state: "draft",
+          project: { id: projectId, name: "Atlas Delivery" },
+          workstream: { id: workstreamId, name: "API readiness" },
+          workItem: null,
+          revisions: [
+            {
+              id: revisionId,
+              revision: 1,
+              revisionKind: "ai_draft",
+              sourceKind: "url",
+              sourceText: null,
+              sourceUrl: "https://github.com/acme/atlas/pull/42",
+              mediaType: null,
+              supportedClaim: "Required checks passed.",
+              contributionContext: "Implemented and reviewed the acceptance path.",
+              executionMode: "ai_assisted",
+              links: [
+                {
+                  progressComponent: { id: componentId, name: "Acceptance completion" },
+                  dynamicCriterion: null,
+                },
+                {
+                  progressComponent: null,
+                  dynamicCriterion: { id: criterionId, name: "Reliable delivery" },
+                },
+              ],
+              verifications: [{ outcome: "unverified" }],
+            },
+          ],
+        })),
+      },
+    } as never);
+
+    await expect(reader.evidenceReview({ actorId, evidenceId })).resolves.toMatchObject({
+      project: { id: projectId, name: "Atlas Delivery" },
+      workstream: { id: workstreamId, name: "API readiness" },
+      workItem: null,
+      sourceProvenance: "github_automated",
+      relatedKpiComponents: [{ id: componentId, name: "Acceptance completion" }],
+      relatedCriteria: [{ id: criterionId, name: "Reliable delivery" }],
+      verificationState: "unverified",
+    });
+  });
 });
 
 function timelineItem(id: string, kind: "update" | "evidence", occurredAt: string) {
@@ -130,5 +188,13 @@ function timelineItem(id: string, kind: "update" | "evidence", occurredAt: strin
     title: kind === "update" ? "تحديث" : "دليل",
     detail: kind === "update" ? "نتيجة التحديث" : "سياق المساهمة",
     sourceReferences: [`${kind === "update" ? "update-source" : "evidence"}:${id}`],
+    sourceProvenance: kind === "update" ? "employee_text" : "employee_file",
+    reviewState: "employee_confirmed",
+    project: { id: projectId, name: "Atlas Delivery" },
+    workstream: { id: workstreamId, name: "API readiness" },
+    workItem: null,
+    relatedKpiComponents: [],
+    relatedCriteria: [],
+    verificationState: kind === "evidence" ? "unverified" : null,
   };
 }

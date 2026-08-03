@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
+
+import { EvidenceReviewSchema } from "../../../platform/updates-evidence-contracts";
 
 type SourceKind = "file" | "pasted_text" | "pasted_code" | "cli_snapshot" | "url";
 type Review = Readonly<{
@@ -8,6 +10,20 @@ type Review = Readonly<{
   contributionContext: string;
   revision: number;
   sourceKind: string;
+  sourceProvenance:
+    | "github_automated"
+    | "employee_text"
+    | "employee_voice"
+    | "employee_file"
+    | "employee_code"
+    | "employee_url";
+  revisionKind: "ai_draft" | "employee_edit" | "manual_draft";
+  project: Readonly<{ id: string; name: string }>;
+  workstream: Readonly<{ id: string; name: string }> | null;
+  workItem: Readonly<{ id: string; title: string }> | null;
+  relatedKpiComponents: readonly Readonly<{ id: string; name: string }>[];
+  relatedCriteria: readonly Readonly<{ id: string; name: string }>[];
+  verificationState: "unverified" | "pending" | "supported" | "partial" | "conflicting" | "rejected";
 }>;
 type EvidenceContext = Readonly<{
   projectId: string;
@@ -142,6 +158,7 @@ export function EvidenceReviewSheetView({
             key={`evidence-review-${review.revision}`}
             onSubmit={onRevise}
           >
+            {createElement(EvidenceReviewContext, { catalog, review })}
             <label>
               <span>{catalog["evidence.claim"]}</span>
               <textarea
@@ -183,6 +200,52 @@ export function EvidenceReviewSheetView({
         )}
       </aside>
     </div>
+  );
+}
+
+function EvidenceReviewContext({
+  catalog,
+  review,
+}: Readonly<{ catalog: import("@evaluation/localization").Catalog; review: Review }>) {
+  return (
+    <section aria-label={catalog["evidence.context"]} className="evidenceReviewContext">
+      <div>
+        <span>{catalog["evidence.provenance"]}</span>
+        <strong>{catalog[`evidence.provenance.${review.sourceProvenance}`]}</strong>
+      </div>
+      <div>
+        <span>{catalog["evidence.reviewState"]}</span>
+        <strong>{catalog[`evidence.revision.${review.revisionKind}`]}</strong>
+      </div>
+      <div>
+        <span>{catalog["evidence.project"]}</span>
+        <strong dir="auto">{review.project.name}</strong>
+      </div>
+      <div>
+        <span>{catalog["evidence.workstream"]}</span>
+        <strong dir="auto">{review.workstream?.name ?? catalog["evidence.notLinked"]}</strong>
+      </div>
+      <div>
+        <span>{catalog["evidence.workItem"]}</span>
+        <strong dir="auto">{review.workItem?.title ?? catalog["evidence.notLinked"]}</strong>
+      </div>
+      <div>
+        <span>{catalog["evidence.kpi"]}</span>
+        <strong dir="auto">
+          {review.relatedKpiComponents.map((item) => item.name).join(" · ") || catalog["evidence.notLinked"]}
+        </strong>
+      </div>
+      <div>
+        <span>{catalog["evidence.criterion"]}</span>
+        <strong dir="auto">
+          {review.relatedCriteria.map((item) => item.name).join(" · ") || catalog["evidence.notLinked"]}
+        </strong>
+      </div>
+      <div>
+        <span>{catalog["evidence.verification"]}</span>
+        <strong>{catalog[`evidence.verification.${review.verificationState}`]}</strong>
+      </div>
+    </section>
   );
 }
 
@@ -236,8 +299,9 @@ export function EvidenceReviewSheet({
         contributionContext: requiredText(form, "contributionContext"),
         executionMode: "ai_assisted",
       });
-      setEvidenceId(requiredString(response, "id"));
-      setReview(toReview(response));
+      const createdEvidenceId = requiredString(response, "id");
+      setEvidenceId(createdEvidenceId);
+      setReview(await requestReview(createdEvidenceId));
     } catch {
       setError(true);
     } finally {
@@ -252,12 +316,12 @@ export function EvidenceReviewSheet({
     setError(false);
     try {
       const form = new FormData(event.currentTarget);
-      const response = await requestJson(`/api/daily-work/evidence/${evidenceId}/revisions`, {
+      await requestJson(`/api/daily-work/evidence/${evidenceId}/revisions`, {
         expectedRevision: review.revision,
         supportedClaim: requiredText(form, "supportedClaim"),
         contributionContext: requiredText(form, "contributionContext"),
       });
-      setReview(toReview(response));
+      setReview(await requestReview(evidenceId));
     } catch {
       setError(true);
     } finally {
@@ -375,12 +439,25 @@ function requiredString(value: Record<string, unknown>, key: string): string {
 }
 
 function toReview(value: Record<string, unknown>): Review {
-  const revision = value.revision;
-  if (typeof revision !== "number") throw new Error("revision");
+  const parsed = EvidenceReviewSchema.parse(value);
   return {
-    supportedClaim: requiredString(value, "supportedClaim"),
-    contributionContext: requiredString(value, "contributionContext"),
-    revision,
-    sourceKind: requiredString(value, "sourceKind"),
+    supportedClaim: parsed.supportedClaim,
+    contributionContext: parsed.contributionContext,
+    revision: parsed.revision,
+    sourceKind: parsed.sourceKind,
+    sourceProvenance: parsed.sourceProvenance,
+    revisionKind: parsed.revisionKind,
+    project: parsed.project,
+    workstream: parsed.workstream,
+    workItem: parsed.workItem,
+    relatedKpiComponents: parsed.relatedKpiComponents,
+    relatedCriteria: parsed.relatedCriteria,
+    verificationState: parsed.verificationState,
   };
+}
+
+async function requestReview(evidenceId: string): Promise<Review> {
+  const response = await fetch(`/api/daily-work/evidence/${evidenceId}`, { cache: "no-store" });
+  if (!response.ok) throw new Error("review");
+  return toReview((await response.json()) as Record<string, unknown>);
 }

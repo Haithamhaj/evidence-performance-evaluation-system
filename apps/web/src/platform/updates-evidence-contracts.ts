@@ -357,6 +357,37 @@ export const EvidenceReviewSchema = EvidenceDetailSchema.extend({
   sourceText: z.string().nullable(),
   sourceUrl: z.url().nullable(),
   mediaType: z.string().nullable(),
+  sourceProvenance: z.enum([
+    "github_automated",
+    "employee_text",
+    "employee_voice",
+    "employee_file",
+    "employee_code",
+    "employee_url",
+  ]),
+  project: z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict(),
+  workstream: z
+    .object({ id: UuidSchema, name: z.string().trim().min(1).max(500) })
+    .strict()
+    .nullable(),
+  workItem: z
+    .object({ id: UuidSchema, title: z.string().trim().min(1).max(500) })
+    .strict()
+    .nullable(),
+  relatedKpiComponents: z
+    .array(z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict())
+    .max(100),
+  relatedCriteria: z
+    .array(z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict())
+    .max(100),
+  verificationState: z.enum([
+    "unverified",
+    "pending",
+    "supported",
+    "partial",
+    "conflicting",
+    "rejected",
+  ]),
 }).strict();
 
 export const AcceptedEvidenceEventSchema = z
@@ -386,6 +417,44 @@ export const TimelineResponseSchema = z
             title: z.string().trim().min(1).max(2_000),
             detail: z.string().trim().min(1).max(4_000),
             sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
+            sourceProvenance: z.enum([
+              "github_automated",
+              "employee_text",
+              "employee_voice",
+              "employee_file",
+              "employee_code",
+              "employee_url",
+            ]),
+            reviewState: z.enum([
+              "automated_project_fact",
+              "ai_draft",
+              "employee_confirmed",
+              "human_decision",
+            ]),
+            project: z
+              .object({ id: UuidSchema, name: z.string().trim().min(1).max(500) })
+              .strict(),
+            workstream: z
+              .object({ id: UuidSchema, name: z.string().trim().min(1).max(500) })
+              .strict()
+              .nullable(),
+            workItem: z
+              .object({ id: UuidSchema, title: z.string().trim().min(1).max(500) })
+              .strict()
+              .nullable(),
+            relatedKpiComponents: z
+              .array(
+                z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict(),
+              )
+              .max(100),
+            relatedCriteria: z
+              .array(
+                z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict(),
+              )
+              .max(100),
+            verificationState: z
+              .enum(["unverified", "pending", "supported", "partial", "conflicting", "rejected"])
+              .nullable(),
           })
           .strict(),
       )

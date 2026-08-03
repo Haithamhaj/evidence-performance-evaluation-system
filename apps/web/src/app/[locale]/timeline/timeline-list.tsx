@@ -65,26 +65,7 @@ export function TimelineList({
       ) : items.length === 0 ? (
         <p>{catalog["timeline.empty"]}</p>
       ) : (
-        <ol className="timelineList">
-          {items.map((item) => (
-            <li key={item.id}>
-              <span className={`timelineKind timelineKind-${item.kind}`}>
-                {catalog[`timeline.${item.kind}`]}
-              </span>
-              <div>
-                <strong dir="auto">{item.title}</strong>
-                <p dir="auto">{item.detail}</p>
-              </div>
-              <time dateTime={item.occurredAt}>
-                {new Intl.DateTimeFormat(localeMetadata[locale].dateLocale, {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                  timeZone: defaultTimeZone,
-                }).format(new Date(item.occurredAt))}
-              </time>
-            </li>
-          ))}
-        </ol>
+        <TimelineItems catalog={catalog} items={items} locale={locale} />
       )}
       {nextCursor === null ? null : (
         <button className="quietButton" disabled={loading} onClick={loadMore} type="button">
@@ -92,6 +73,87 @@ export function TimelineList({
         </button>
       )}
     </section>
+  );
+}
+
+export function TimelineItems({
+  catalog,
+  items,
+  locale,
+}: Readonly<{
+  catalog: import("@evaluation/localization").Catalog;
+  items: readonly TimelineItem[];
+  locale: import("@evaluation/localization").Locale;
+}>) {
+  return (
+    <ol className="timelineList">
+      {items.map((item) => (
+        <li key={item.id}>
+          <div className="timelineLabels">
+            <span className={`timelineKind timelineKind-${item.kind}`}>
+              {catalog[`timeline.${item.kind}`]}
+            </span>
+            <span className="timelineSource">
+              {catalog[`timeline.source.${item.sourceProvenance}`]}
+            </span>
+            <span className="timelineReviewState">
+              {catalog[`timeline.state.${item.reviewState}`]}
+            </span>
+          </div>
+          <div className="timelineBody">
+            <strong dir="auto">{item.title}</strong>
+            <p dir="auto">{item.detail}</p>
+            <dl className="timelineContext">
+              <div>
+                <dt>{catalog["timeline.project"]}</dt>
+                <dd dir="auto">{item.project.name}</dd>
+              </div>
+              {item.workstream === null ? null : (
+                <div>
+                  <dt>{catalog["timeline.workstream"]}</dt>
+                  <dd dir="auto">{item.workstream.name}</dd>
+                </div>
+              )}
+              {item.workItem === null ? null : (
+                <div>
+                  <dt>{catalog["timeline.workItem"]}</dt>
+                  <dd dir="auto">{item.workItem.title}</dd>
+                </div>
+              )}
+              {item.relatedKpiComponents.length === 0 ? null : (
+                <div>
+                  <dt>{catalog["timeline.kpi"]}</dt>
+                  <dd dir="auto">
+                    {item.relatedKpiComponents.map((component) => component.name).join(" · ")}
+                  </dd>
+                </div>
+              )}
+              {item.relatedCriteria.length === 0 ? null : (
+                <div>
+                  <dt>{catalog["timeline.criterion"]}</dt>
+                  <dd dir="auto">
+                    {item.relatedCriteria.map((criterion) => criterion.name).join(" · ")}
+                  </dd>
+                </div>
+              )}
+              {item.verificationState === null ? null : (
+                <div>
+                  <dt>{catalog["timeline.verification"]}</dt>
+                  <dd>{catalog[`evidence.verification.${item.verificationState}`]}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+          <time dateTime={item.occurredAt}>
+            {new Intl.DateTimeFormat(localeMetadata[locale].dateLocale, {
+              dateStyle: "medium",
+              timeStyle: "short",
+              timeZone: defaultTimeZone,
+            }).format(new Date(item.occurredAt))}
+          </time>
+        </li>
+      ))}
+    </ol>
   );
 }
 

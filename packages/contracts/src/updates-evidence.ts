@@ -23,6 +23,28 @@ export const EvidenceVerificationStateSchema = z.enum([
   "conflicting",
   "rejected",
 ]);
+export const SourceProvenanceSchema = z.enum([
+  "github_automated",
+  "employee_text",
+  "employee_voice",
+  "employee_file",
+  "employee_code",
+  "employee_url",
+]);
+export const SourceReviewStateSchema = z.enum([
+  "automated_project_fact",
+  "ai_draft",
+  "employee_confirmed",
+  "human_decision",
+]);
+const NamedReferenceSchema = z
+  .object({ id: UuidSchema, name: z.string().trim().min(1).max(500) })
+  .strict();
+const ProjectReferenceSchema = NamedReferenceSchema;
+const WorkstreamReferenceSchema = NamedReferenceSchema;
+const WorkItemReferenceSchema = z
+  .object({ id: UuidSchema, title: z.string().trim().min(1).max(500) })
+  .strict();
 export const ClarificationAffectsSchema = z.enum([
   "result",
   "progress_context",
@@ -411,6 +433,13 @@ export const EvidenceReviewSchema = z
     supportedClaim: z.string().trim().min(1).max(2_000),
     contributionContext: z.string().trim().min(1).max(2_000),
     executionMode: ExecutionModeSchema,
+    sourceProvenance: SourceProvenanceSchema,
+    project: ProjectReferenceSchema,
+    workstream: WorkstreamReferenceSchema.nullable(),
+    workItem: WorkItemReferenceSchema.nullable(),
+    relatedKpiComponents: z.array(NamedReferenceSchema).max(100),
+    relatedCriteria: z.array(NamedReferenceSchema).max(100),
+    verificationState: EvidenceVerificationStateSchema,
   })
   .strict();
 
@@ -454,6 +483,14 @@ export const TimelineItemSchema = z
     title: z.string().trim().min(1).max(2_000),
     detail: z.string().trim().min(1).max(4_000),
     sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
+    sourceProvenance: SourceProvenanceSchema,
+    reviewState: SourceReviewStateSchema,
+    project: ProjectReferenceSchema,
+    workstream: WorkstreamReferenceSchema.nullable(),
+    workItem: WorkItemReferenceSchema.nullable(),
+    relatedKpiComponents: z.array(NamedReferenceSchema).max(100),
+    relatedCriteria: z.array(NamedReferenceSchema).max(100),
+    verificationState: EvidenceVerificationStateSchema.nullable(),
   })
   .strict();
 

@@ -109,7 +109,24 @@ export class ActivityReader {
   async evidenceReview(input: Readonly<{ actorId: string; evidenceId: string }>) {
     const record = await this.client.evidenceRecord.findFirst({
       where: { id: input.evidenceId, employeeId: input.actorId },
-      include: { revisions: { orderBy: { revision: "desc" }, take: 1 } },
+      include: {
+        project: { select: { id: true, name: true } },
+        workstream: { select: { id: true, name: true } },
+        workItem: { select: { id: true, title: true } },
+        revisions: {
+          orderBy: { revision: "desc" },
+          take: 1,
+          include: {
+            links: {
+              include: {
+                progressComponent: { select: { id: true, name: true } },
+                dynamicCriterion: { select: { id: true, name: true } },
+              },
+            },
+            verifications: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 },
+          },
+        },
+      },
     });
     const revision = record?.revisions[0];
     if (record === null || revision === undefined) throw scopeError();
@@ -129,12 +146,34 @@ export class ActivityReader {
       supportedClaim: revision.supportedClaim,
       contributionContext: revision.contributionContext,
       executionMode: revision.executionMode,
+      sourceProvenance: evidenceSourceProvenance(record.githubSourceEventId, revision.sourceKind),
+      project: record.project,
+      workstream: record.workstream,
+      workItem: record.workItem,
+      relatedKpiComponents: revision.links.flatMap((link) =>
+        link.progressComponent === null ? [] : [link.progressComponent],
+      ),
+      relatedCriteria: revision.links.flatMap((link) =>
+        link.dynamicCriterion === null ? [] : [link.dynamicCriterion],
+      ),
+      verificationState: revision.verifications[0]?.outcome ?? "unverified",
     });
   }
 
   async timeline(input: unknown): Promise<import("@evaluation/contracts").TimelineResponse> {
     return prepareTimeline(this.client, new Date(), input);
   }
+}
+
+function evidenceSourceProvenance(
+  githubSourceEventId: string | null,
+  sourceKind: string,
+): "github_automated" | "employee_text" | "employee_file" | "employee_code" | "employee_url" {
+  if (githubSourceEventId !== null) return "github_automated";
+  if (sourceKind === "pasted_text") return "employee_text";
+  if (sourceKind === "pasted_code" || sourceKind === "cli_snapshot") return "employee_code";
+  if (sourceKind === "url") return "employee_url";
+  return "employee_file";
 }
 
 function stringArray(value: unknown): string[] {
