@@ -104,6 +104,20 @@ describe("VoiceUpdateService", () => {
     await expect(service.start(voiceCommand(graph, upload.id, crypto.randomUUID()))).rejects.toMatchObject({ code: "VOICE_AUDIO_INVALID" });
     expect(transcribe).not.toHaveBeenCalled();
   });
+
+  it("accepts a workstream-scoped upload whose project is derived from the workstream", async () => {
+    const graph = await seedVoiceGraph();
+    const upload = await client.uploadedSource.create({
+      data: {
+        organizationId: graph.organizationId, departmentId: graph.departmentId, projectId: null, workstreamId: graph.workstreamId,
+        originalFilename: "stream.m4a", objectKey: `private-test/${crypto.randomUUID()}/stream.m4a`, detectedType: "audio", detectedMime: "audio/mp4", byteSize: 512,
+        sha256: crypto.randomUUID().replaceAll("-", "").padEnd(64, "0"), createdById: graph.employeeId, reason: "Test voice upload",
+      },
+    });
+    const service = serviceFor(graph, { transcribe: async () => ({ transcript: "تم النشر.", language: "ar", dialect: "fusha", aiRunId: null }) });
+    const command = voiceCommand(graph, upload.id, crypto.randomUUID());
+    await expect(service.start({ ...command, input: { ...command.input, workstreamId: graph.workstreamId } })).resolves.toMatchObject({ state: "transcript_ready" });
+  });
 });
 
 function serviceFor(
@@ -203,7 +217,7 @@ function voiceCommand(graph: VoiceGraph, uploadedSourceId: string, idempotencyKe
   };
 }
 
-type VoiceGraph = Readonly<{ organizationId: string; departmentId: string; employeeId: string; projectId: string }>;
+type VoiceGraph = Readonly<{ organizationId: string; departmentId: string; employeeId: string; projectId: string; workstreamId: string }>;
 
 async function seedVoiceGraph(): Promise<VoiceGraph> {
   const suffix = crypto.randomUUID();
@@ -211,6 +225,7 @@ async function seedVoiceGraph(): Promise<VoiceGraph> {
   const departmentId = crypto.randomUUID();
   const employeeId = crypto.randomUUID();
   const projectId = crypto.randomUUID();
+  const workstreamId = crypto.randomUUID();
   await client.organization.create({ data: { id: organizationId, key: `voice-org-${suffix}`, name: "Voice" } });
   await client.department.create({ data: { id: departmentId, key: `voice-dept-${suffix}`, name: "Voice", organizationId } });
   await client.user.create({ data: { id: employeeId, email: `voice-${suffix}@example.invalid`, displayName: "Employee" } });
@@ -218,6 +233,7 @@ async function seedVoiceGraph(): Promise<VoiceGraph> {
     data: [
       { id: departmentId, key: `voice-department-${suffix}`, scopeType: "department", departmentId },
       { id: projectId, key: `voice-project-${suffix}`, scopeType: "project", departmentId },
+      { id: workstreamId, key: `voice-workstream-${suffix}`, scopeType: "workstream", departmentId },
     ],
   });
   await client.project.create({
@@ -232,7 +248,8 @@ async function seedVoiceGraph(): Promise<VoiceGraph> {
       createdById: employeeId,
     },
   });
-  return { organizationId, departmentId, employeeId, projectId };
+  await client.workstream.create({ data: { id: workstreamId, projectId, authorizationScopeId: workstreamId, name: "Voice stream", description: "", status: "active", createdById: employeeId } });
+  return { organizationId, departmentId, employeeId, projectId, workstreamId };
 }
 
 async function seedVoiceUpload(graph: VoiceGraph, byteSize: number) {

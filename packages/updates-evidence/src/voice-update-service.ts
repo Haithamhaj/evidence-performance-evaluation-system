@@ -57,9 +57,14 @@ export class VoiceUpdateService {
         }
         return { existing, scope: null, upload: null };
       }
-      const upload = await transaction.uploadedSource.findFirst({ where: { id: parsed.input.uploadedSourceId, createdById: parsed.actor.userId, projectId: parsed.input.projectId, workstreamId: parsed.input.workstreamId }, select: { id: true, detectedMime: true, byteSize: true } });
+      const upload = await transaction.uploadedSource.findFirst({
+        where: { id: parsed.input.uploadedSourceId, createdById: parsed.actor.userId },
+        select: { id: true, detectedMime: true, byteSize: true, projectId: true, workstreamId: true, workstream: { select: { projectId: true } } },
+      });
       if (
         upload === null ||
+        (upload.projectId ?? upload.workstream?.projectId) !== parsed.input.projectId ||
+        upload.workstreamId !== parsed.input.workstreamId ||
         !ACCEPTED_AUDIO_MIME_TYPES.has(upload.detectedMime) ||
         upload.byteSize < 1 ||
         upload.byteSize > MAX_VOICE_AUDIO_BYTES
@@ -89,7 +94,7 @@ export class VoiceUpdateService {
   async reviseTranscript(command: unknown) {
     const parsed = RevisionCommandSchema.parse(command);
     return this.client.$transaction(async (transaction) => {
-      const session = await ownedSession(transaction, parsed.actor, parsed.voiceSessionId);
+      const session = await authorizedOwnedSession(transaction, this.scopeReader, parsed.actor, parsed.voiceSessionId, this.clock());
       const latest = session.transcriptRevisions[0];
       if (session.state !== "transcript_ready" || latest === undefined || latest.revision !== parsed.input.expectedRevision) throw new AppError("VOICE_TRANSCRIPT_VERSION_CONFLICT", "errors.voice.transcriptVersionConflict", 409);
       const revised = await transaction.voiceUpdateSession.update({ where: { id: session.id }, data: { transcriptRevisions: { create: { revision: latest.revision + 1, origin: "employee", transcript: parsed.input.transcript, language: latest.language, dialect: latest.dialect } } }, include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true } });
@@ -100,7 +105,7 @@ export class VoiceUpdateService {
   async confirmTranscript(command: unknown) {
     const parsed = ConfirmCommandSchema.parse(command);
     return this.client.$transaction(async (transaction) => {
-      const session = await ownedSession(transaction, parsed.actor, parsed.voiceSessionId);
+      const session = await authorizedOwnedSession(transaction, this.scopeReader, parsed.actor, parsed.voiceSessionId, this.clock());
       const latest = session.transcriptRevisions[0];
       if (session.state !== "transcript_ready" || latest === undefined || latest.revision !== parsed.input.expectedRevision) throw new AppError("VOICE_TRANSCRIPT_CONFIRMATION_REQUIRED", "errors.voice.transcriptConfirmationRequired", 409);
       const confirmed = await transaction.voiceUpdateSession.update({ where: { id: session.id }, data: { state: "transcript_confirmed", confirmation: { create: { transcriptRevisionId: latest.id, employeeId: parsed.actor.userId, reason: parsed.input.reason, confirmedAt: this.clock() } } }, include: { transcriptRevisions: true, confirmation: true } });
@@ -113,5 +118,29 @@ async function ownedSession(transaction: Transaction, actor: { userId: string; a
   const session = await transaction.voiceUpdateSession.findUnique({ where: { id }, include: { transcriptRevisions: { orderBy: { revision: "desc" }, take: 1 }, confirmation: true } });
   if (!actor.active || session === null || session.employeeId !== actor.userId) throw new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
   return session;
+}
+async function authorizedOwnedSession(
+  transaction: Transaction,
+  scopeReader: UpdateScopeReader,
+  actor: { userId: string; active: boolean },
+  id: string,
+  at: Date,
+) {
+  const candidate = await transaction.voiceUpdateSession.findUnique({
+    where: { id },
+    select: { id: true, employeeId: true, projectId: true, workstreamId: true, workItemId: true },
+  });
+  if (!actor.active || candidate === null || candidate.employeeId !== actor.userId) {
+    throw new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
+  }
+  await scopeReader.authorizeIn(transaction, {
+    actor,
+    projectId: candidate.projectId,
+    workstreamId: candidate.workstreamId,
+    workItemId: candidate.workItemId,
+    at,
+  });
+  await transaction.$queryRaw`SELECT id FROM "VoiceUpdateSession" WHERE id = ${id}::uuid FOR UPDATE`;
+  return ownedSession(transaction, actor, id);
 }
 function serialize(session: { id: string; state: string; language: string | null; dialect: string | null; transcriptRevisions: Array<{ revision: number; transcript: string }>; confirmation?: unknown | null }) { const latest = session.transcriptRevisions[0]; return { sessionId: session.id, state: session.state, transcript: latest?.transcript ?? null, revision: latest?.revision ?? null, language: session.language, dialect: session.dialect, transcriptConfirmed: session.confirmation !== null && session.confirmation !== undefined }; }

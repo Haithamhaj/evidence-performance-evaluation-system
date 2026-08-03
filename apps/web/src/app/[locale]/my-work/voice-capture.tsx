@@ -170,7 +170,7 @@ export function VoiceCapture({
       {status === "error" ? <p className="formError" role="alert">{catalog[permissionDenied ? "voice.permissionDenied" : "voice.retry"]}</p> : null}
       <label>
         <span>{catalog["voice.transcript"]}</span>
-        <textarea disabled={session === null} dir="auto" onChange={(event) => setTranscript(event.currentTarget.value)} rows={5} value={transcript} />
+        <textarea disabled={session === null || session.transcriptConfirmed} dir="auto" onChange={(event) => setTranscript(event.currentTarget.value)} rows={5} value={transcript} />
       </label>
       <button disabled={session === null || status !== "ready" || session.transcriptConfirmed || transcript.trim() === ""} onClick={confirmTranscript} type="button">
         {catalog["voice.confirmTranscript"]}

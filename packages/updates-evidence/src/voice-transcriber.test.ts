@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 
 import { AiRouterVoiceTranscriber, VoiceTranscriptionAiOutputSchema } from "./voice-transcriber.js";
 
@@ -8,10 +9,24 @@ describe("governed voice transcriber", () => {
       runId: crypto.randomUUID(),
       output: { transcript: "تم نشر الإصلاح على staging.", language: "ar", dialect: "gulf" },
     }));
-    const transcriber = new AiRouterVoiceTranscriber({ run } as never, {
-      systemId: crypto.randomUUID(),
-      timeoutMs: 30_000,
-    });
+    const artifactId = crypto.randomUUID();
+    const trustedBody = "Approved transcription prompt.";
+    const sha256 = createHash("sha256").update(trustedBody).digest("hex");
+    const transcriber = new AiRouterVoiceTranscriber(
+      { run } as never,
+      {
+        analysisPromptArtifact: {
+          findUnique: vi.fn(async () => ({
+            id: artifactId,
+            routeKey: "update.transcribe",
+            version: "update-transcribe.v1",
+            bodyHash: sha256,
+            trustedBody,
+          })),
+        },
+      } as never,
+      { systemId: crypto.randomUUID(), timeoutMs: 30_000 },
+    );
 
     await expect(
       transcriber.transcribe({
@@ -30,6 +45,14 @@ describe("governed voice transcriber", () => {
         routeKey: "update.transcribe",
         inputReference: expect.stringMatching(/^voice-session:/u),
         requiresHumanApproval: true,
+        input: expect.objectContaining({
+          trustedInstruction: {
+            routeKey: "update.transcribe",
+            artifactId,
+            version: "update-transcribe.v1",
+            sha256,
+          },
+        }),
       }),
       expect.any(Function),
     );

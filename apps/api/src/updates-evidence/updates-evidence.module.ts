@@ -3,6 +3,7 @@ import {
   EnvironmentAiCredentialSecretResolver,
 } from "@evaluation/ai-routing";
 import { databaseAuditWriter } from "@evaluation/audit";
+import { parseDocumentRuntimeConfig, S3PrivateStorage } from "@evaluation/documents";
 import { createDatabaseClient } from "@evaluation/database";
 import {
   ActivityReader,
@@ -14,7 +15,9 @@ import {
   UpdateService,
   VoiceUpdateService,
   AiRouterVoiceTranscriber,
+  PrivateVoiceMediaResolver,
 } from "@evaluation/updates-evidence";
+import { S3Client } from "@aws-sdk/client-s3";
 import { Module } from "@nestjs/common";
 
 import { createDeferredRuntimeAiRouter } from "../ai-routing/deferred-runtime-ai-router.js";
@@ -28,6 +31,7 @@ import { VoiceUpdatesController } from "./voice.controller.js";
 const UPDATES_EVIDENCE_DATABASE = Symbol("UPDATES_EVIDENCE_DATABASE");
 const UPDATES_EVIDENCE_STRUCTURER = Symbol("UPDATES_EVIDENCE_STRUCTURER");
 const UPDATES_EVIDENCE_DATABASE_LIFECYCLE = Symbol("UPDATES_EVIDENCE_DATABASE_LIFECYCLE");
+const VOICE_PRIVATE_MEDIA_RESOLVER = Symbol("VOICE_PRIVATE_MEDIA_RESOLVER");
 
 export class UpdatesEvidenceModule {}
 
@@ -74,18 +78,32 @@ Module({
       inject: [UPDATES_EVIDENCE_DATABASE, UPDATES_EVIDENCE_STRUCTURER],
     },
     {
+      provide: VOICE_PRIVATE_MEDIA_RESOLVER,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) => {
+        const config = parseDocumentRuntimeConfig(process.env);
+        const s3 = new S3Client({
+          credentials: { accessKeyId: config.storage.accessKeyId, secretAccessKey: config.storage.secretAccessKey },
+          endpoint: config.storage.endpoint,
+          forcePathStyle: true,
+          region: config.storage.region,
+        });
+        return { resolver: new PrivateVoiceMediaResolver(client, new S3PrivateStorage(s3, config.storage.bucket)), s3 };
+      },
+      inject: [UPDATES_EVIDENCE_DATABASE],
+    },
+    {
       provide: VoiceUpdateService,
-      useFactory: async (client: ReturnType<typeof createDatabaseClient>) => {
+      useFactory: async (client: ReturnType<typeof createDatabaseClient>, media: { resolver: PrivateVoiceMediaResolver }) => {
         const router = createDeferredRuntimeAiRouter(() =>
-          createRuntimeAiRouter({ database: client, secretResolver: new EnvironmentAiCredentialSecretResolver() }),
+          createRuntimeAiRouter({ database: client, secretResolver: new EnvironmentAiCredentialSecretResolver(), privateMediaResolver: media.resolver }),
         );
         return new VoiceUpdateService(
           client,
           new PrismaUpdateScopeReader(),
-          new AiRouterVoiceTranscriber(router, { systemId: await resolveSystemAiScopeId(client, "update.transcribe"), timeoutMs: 60_000 }),
+          new AiRouterVoiceTranscriber(router, client, { systemId: await resolveSystemAiScopeId(client, "update.transcribe"), timeoutMs: 60_000 }),
         );
       },
-      inject: [UPDATES_EVIDENCE_DATABASE],
+      inject: [UPDATES_EVIDENCE_DATABASE, VOICE_PRIVATE_MEDIA_RESOLVER],
     },
     {
       provide: EvidenceService,

@@ -12,6 +12,7 @@ export interface AiCredentialSecretResolver {
 export async function createRuntimeAiRouter(input: {
   database: import("@evaluation/database").DatabaseClient;
   secretResolver: AiCredentialSecretResolver;
+  privateMediaResolver?: import("./adapters/prompt-aware-openai-compatible.js").PrivateMediaResolver;
 }): Promise<AiRouter<import("@evaluation/database").DatabaseTransaction>> {
   const routes = await input.database.aiRoute.findMany({
     include: {
@@ -66,6 +67,7 @@ export async function createRuntimeAiRouter(input: {
       locality: provider.locality,
       baseUrl: provider.endpoint,
       credentialProvider: () => input.secretResolver.get(provider.providerKey),
+      ...(input.privateMediaResolver === undefined ? {} : { privateMediaResolver: input.privateMediaResolver }),
       ...(provider.localTrustPolicyId === null ||
       provider.localTrustPolicyVersion === null ||
       provider.localTrustAllowedIp === null
