@@ -159,6 +159,36 @@ describe("GitHub integration schema", () => {
     ).rejects.toSatisfy(databaseConstraint);
   });
 
+  it("does not allow an event-free binding history row to be deleted", async () => {
+    const fixture = await seedFixture();
+    const bindingId = await insertBinding(fixture, {
+      repositoryId: `repository-${crypto.randomUUID()}`,
+    });
+
+    await expect(
+      client.$executeRaw`
+        DELETE FROM "GitHubProjectBinding"
+        WHERE "id" = ${bindingId}::uuid
+      `,
+    ).rejects.toSatisfy(databaseConstraint);
+  });
+
+  it("does not allow creation history to change while closing a binding", async () => {
+    const fixture = await seedFixture();
+    const bindingId = await insertBinding(fixture, {
+      repositoryId: `repository-${crypto.randomUUID()}`,
+    });
+
+    await expect(
+      client.$executeRaw`
+        UPDATE "GitHubProjectBinding"
+        SET "unboundAt" = CURRENT_TIMESTAMP,
+            "createdAt" = CURRENT_TIMESTAMP + INTERVAL '1 hour'
+        WHERE "id" = ${bindingId}::uuid
+      `,
+    ).rejects.toSatisfy(databaseConstraint);
+  });
+
   it("makes deliveries idempotent and preserves source identity, URL, verification, and governed facts", async () => {
     const fixture = await seedFixture();
     const repositoryId = `repository-${crypto.randomUUID()}`;

@@ -112,3 +112,54 @@ Results: 101 contract tests passed; 4 GitHub schema integration tests passed; af
 ## Project state
 
 No `project-state/PROJECT_STATE.md` update: this is a bounded persistence foundation within an active Slice, not a completed architectural phase or a protected-rule change.
+
+## Fix Round 1 — binding-history immutability
+
+### Finding addressed
+
+The initial binding-history trigger protected updates but allowed an event-free/cursor-free binding to be deleted. It also allowed `createdAt` to change during the single permitted close transition. Both paths violated preserved binding history.
+
+### RED evidence
+
+Added two integration regressions, then ran:
+
+```sh
+set -a; source .env.test; set +a
+PATH=/opt/homebrew/opt/node@24/bin:$PATH corepack pnpm exec vitest run --project integration packages/database/src/github-integration-schema.integration.test.ts
+```
+
+Result: 2 failures, both expected:
+
+```text
+does not allow an event-free binding history row to be deleted
+AssertionError: promise resolved "1" instead of rejecting
+
+does not allow creation history to change while closing a binding
+AssertionError: promise resolved "1" instead of rejecting
+```
+
+### GREEN implementation and evidence
+
+- Extended `GitHubProjectBinding_guard_history` to run `BEFORE UPDATE OR DELETE`.
+- Deleted bindings now always raise `23514`.
+- The one permitted close transition now compares `createdAt` along with every other immutable binding field; it therefore permits only `unboundAt` and `updatedAt` to change.
+
+After applying the changed migration definition to the local test schema, the focused test command passed:
+
+```text
+Test Files  1 passed (1)
+Tests  6 passed (6)
+```
+
+Follow-up verification also passed:
+
+```sh
+PATH=/opt/homebrew/opt/node@24/bin:$PATH corepack pnpm --filter @evaluation/database lint
+PATH=/opt/homebrew/opt/node@24/bin:$PATH corepack pnpm --filter @evaluation/database typecheck
+PATH=/opt/homebrew/opt/node@24/bin:$PATH corepack pnpm scan:performance-inputs
+PATH=/opt/homebrew/opt/node@24/bin:$PATH corepack pnpm format:check
+set -a; source .env.local; set +a
+PATH=/opt/homebrew/opt/node@24/bin:$PATH corepack pnpm db:verify
+```
+
+Results: database lint/typecheck passed; performance scan inspected 504 files with no violations; formatting passed; and migration verification passed for empty database, previous snapshot, drift, and rebuild equivalence.

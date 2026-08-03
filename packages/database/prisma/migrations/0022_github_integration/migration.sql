@@ -129,12 +129,17 @@ ON "GitHubReconciliationCursor"("installationId", "repositoryId", "lastReconcile
 
 CREATE FUNCTION "guard_github_project_binding_update"() RETURNS trigger AS $$
 BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'GitHubProjectBinding history is immutable'
+      USING ERRCODE = '23514';
+  END IF;
+
   IF OLD."unboundAt" IS NOT NULL
     OR NEW."unboundAt" IS NULL
     OR ROW(
-      NEW."id", NEW."projectId", NEW."installationId", NEW."repositoryId", NEW."boundAt"
+      NEW."id", NEW."projectId", NEW."installationId", NEW."repositoryId", NEW."boundAt", NEW."createdAt"
     ) IS DISTINCT FROM ROW(
-      OLD."id", OLD."projectId", OLD."installationId", OLD."repositoryId", OLD."boundAt"
+      OLD."id", OLD."projectId", OLD."installationId", OLD."repositoryId", OLD."boundAt", OLD."createdAt"
     )
   THEN
     RAISE EXCEPTION 'GitHubProjectBinding history is immutable'
@@ -145,7 +150,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER "GitHubProjectBinding_guard_history"
-BEFORE UPDATE ON "GitHubProjectBinding"
+BEFORE UPDATE OR DELETE ON "GitHubProjectBinding"
 FOR EACH ROW EXECUTE FUNCTION "guard_github_project_binding_update"();
 
 CREATE FUNCTION "prevent_github_source_event_mutation"() RETURNS trigger AS $$
