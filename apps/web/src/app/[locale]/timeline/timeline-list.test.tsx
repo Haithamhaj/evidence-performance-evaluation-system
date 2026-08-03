@@ -32,6 +32,7 @@ describe("TimelineItems", () => {
             relatedKpiComponents: [{ id: crypto.randomUUID(), name: "Acceptance completion" }],
             relatedCriteria: [{ id: crypto.randomUUID(), name: "Reliable delivery" }],
             verificationState: "unverified",
+            decisionOutcome: null,
           },
         ],
       }),
@@ -66,6 +67,7 @@ describe("TimelineItems", () => {
       relatedKpiComponents: [],
       relatedCriteria: [],
       verificationState: null,
+      decisionOutcome: null,
     };
     const markup = renderToStaticMarkup(
       createElement(TimelineItems, {
@@ -99,6 +101,7 @@ describe("TimelineItems", () => {
             kind: "decision",
             sourceProvenance: "human_decision",
             reviewState: "human_decision",
+            decisionOutcome: "not_satisfied",
           },
         ],
       }),
@@ -108,5 +111,44 @@ describe("TimelineItems", () => {
     expect(markup).toContain("AI draft");
     expect(markup).toContain("Employee confirmed");
     expect(markup).toContain("Human decision");
+    expect(markup).toContain("Not satisfied");
+  });
+
+  it("offers a verified GitHub fact for employee evidence review", async () => {
+    const catalog = await getCatalog("en");
+    const sourceEventId = crypto.randomUUID();
+    const markup = renderToStaticMarkup(
+      createElement(TimelineItems, {
+        catalog,
+        locale: "en",
+        onReviewGitHubSuggestion: () => undefined,
+        items: [
+          {
+            id: crypto.randomUUID(),
+            kind: "project_fact",
+            projectId: crypto.randomUUID(),
+            workstreamId: null,
+            workItemId: null,
+            employeeId: null,
+            occurredAt: "2026-08-03T10:00:00.000Z",
+            title: "Verified pull request",
+            detail: "A verified GitHub event is available for review.",
+            sourceReferences: [`github-source-event:${sourceEventId}`],
+            sourceProvenance: "github_automated",
+            reviewState: "automated_project_fact",
+            project: { id: crypto.randomUUID(), name: "Atlas Delivery" },
+            workstream: null,
+            workItem: null,
+            relatedKpiComponents: [],
+            relatedCriteria: [],
+            verificationState: null,
+            decisionOutcome: null,
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("Review as evidence");
+    expect(markup).toContain("Verified pull request");
   });
 });

@@ -1026,13 +1026,18 @@ h1 {
 
 .timelineList > li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "labels time"
+    "body body"
+    "action action";
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
   padding-block: 0.75rem;
   border-block-start: 0.0625rem solid var(--color-border);
 }
 
 .timelineLabels {
+  grid-area: labels;
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
@@ -1056,6 +1061,7 @@ h1 {
 
 .timelineBody {
   display: grid;
+  grid-area: body;
   gap: 0.5rem;
 }
 
@@ -1065,9 +1071,15 @@ h1 {
 }
 
 .timelineList time {
+  grid-area: time;
   color: var(--color-muted);
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+.timelineList > li > button {
+  grid-area: action;
+  justify-self: start;
 }
 
 .timelineKind {
@@ -1476,6 +1488,14 @@ button {
   .timelineContext {
     align-items: stretch;
     grid-template-columns: 1fr;
+  }
+
+  .timelineList > li {
+    grid-template-areas:
+      "labels"
+      "body"
+      "time"
+      "action";
   }
 
   .composerContext {

@@ -35,6 +35,7 @@ const evidenceRevisionId = "ea222222-2222-4222-8222-222222222222";
 const uploadedSourceId = "ea333333-3333-4333-8333-333333333333";
 const acceptedUpdateId = "ea444444-4444-4444-8444-444444444444";
 const acceptedEvidenceId = "ea555555-5555-4555-8555-555555555555";
+const voiceSessionId = "ea666666-6666-4666-8666-666666666666";
 const connectedGmailItemId = "ca111111-1111-4111-8111-111111111111";
 const connectedCalendarItemId = "ca222222-2222-4222-8222-222222222222";
 const contextHighConfidenceItemId = "ca333333-3333-4333-8333-333333333333";
@@ -58,6 +59,14 @@ const connectedWorkNonce = "synthetic-connected-work-nonce";
 let clarificationTurn = 0;
 let updateDraftRevision = 1;
 let evidenceRevision = 1;
+let voiceRevision = 1;
+let voiceTranscript = "The automated GitHub checks passed and the closure evidence is attached.";
+let voiceTranscriptConfirmed = false;
+let latestEvidenceInput = {};
+let capturedUpdateSourceKinds = [];
+let officialProjectProgressPercent = 62.5;
+let ambiguousProgressReviewQueued = false;
+let employeePerformanceWrites = [];
 let updateLocale = "ar";
 let connectedWorkConnected = true;
 let contextAiAvailable = true;
@@ -371,6 +380,7 @@ const workItems = Array.from({ length: 20 }, (_, offset) => {
     );
   return workItem(index, "planned", "2026-07-24T12:00:00.000Z", "Prepare implementation");
 });
+timelineItems.push(...initialSliceFourTimeline());
 
 const myWork = {
   groups: [
@@ -411,7 +421,7 @@ function dailyWorkspace() {
     projectPulse: [
       {
         id: projectId,
-        name: project.name,
+        name: "Atlas Delivery",
         status: "active",
         progress: {
           state: "accepted",
@@ -590,6 +600,60 @@ const server = createServer(async (request, response) => {
   ) {
     resetContextAcceptanceState();
     return empty(response, 204);
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/__e2e/slice-4/reset" &&
+    request.headers["x-e2e-control"] === "slice-4"
+  ) {
+    resetSliceFourAcceptanceState();
+    return empty(response, 204);
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === "/__e2e/slice-4/state" &&
+    request.headers["x-e2e-control"] === "slice-4"
+  ) {
+    return json(response, 200, {
+      capturedUpdateSourceKinds,
+      officialProjectProgressPercent,
+      ambiguousProgressReviewQueued,
+      employeePerformanceWrites: employeePerformanceWrites.length,
+    });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/__e2e/slice-4/github-events" &&
+    request.headers["x-e2e-control"] === "slice-4"
+  ) {
+    const body = await readJson(request);
+    if (body === null || !Array.isArray(body.matchedRuleIds)) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    ambiguousProgressReviewQueued = body.matchedRuleIds.length > 1;
+    timelineItems.unshift(githubProjectFact());
+    return json(response, 200, {
+      receivedCommitCount: body.commitCount ?? 0,
+      receivedChangedFileCount: body.changedFileCount ?? 0,
+      officialProjectProgressPercent,
+      ambiguousProgressReviewQueued,
+    });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/__e2e/slice-4/owner-decisions" &&
+    request.headers["x-e2e-control"] === "slice-4"
+  ) {
+    const body = await readJson(request);
+    if (body === null || typeof body.sourceRef !== "string") {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    ambiguousProgressReviewQueued = false;
+    timelineItems.unshift(ownerProgressDecision(body.sourceRef, body.satisfied === true));
+    return json(response, 200, {
+      officialProjectProgressPercent,
+      satisfied: body.satisfied === true,
+    });
   }
   if (
     request.method === "POST" &&
@@ -1002,9 +1066,13 @@ const server = createServer(async (request, response) => {
       workstreamId: body.workstreamId,
       workItemId: body.workItemId,
     };
+    capturedUpdateSourceKinds = (body.sources ?? []).map((source) => source.kind);
     updateLocale = /[\u0600-\u06ff]/u.test(body.rawText) ? "ar" : "en";
     clarificationTurn = 1;
     updateDraftRevision = 1;
+    if (!timelineItems.some((item) => item.id === "eb311111-1111-4111-8111-111111111111")) {
+      timelineItems.unshift(aiDraftTimeline());
+    }
     return json(response, 200, {
       state: "draft_with_question",
       sessionId: updateSessionId,
@@ -1032,6 +1100,30 @@ const server = createServer(async (request, response) => {
       affects: ["result", "progress_context"],
       remainingFieldCount: 2,
     });
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/voice-updates") {
+    voiceRevision = 1;
+    voiceTranscriptConfirmed = false;
+    return json(response, 200, voiceSession());
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/voice-updates/${voiceSessionId}/revisions`
+  ) {
+    const body = await readJson(request);
+    if (body === null || typeof body.transcript !== "string") {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    voiceRevision += 1;
+    voiceTranscript = body.transcript;
+    return json(response, 200, voiceSession());
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/voice-updates/${voiceSessionId}/confirm`
+  ) {
+    voiceTranscriptConfirmed = true;
+    return json(response, 200, voiceSession());
   }
   if (request.method === "POST" && url.pathname === `/api/v1/updates/${updateSessionId}/answers`) {
     const body = await readJson(request);
@@ -1089,6 +1181,10 @@ const server = createServer(async (request, response) => {
     return json(response, 200, structuredDraft(body));
   }
   if (request.method === "POST" && url.pathname === `/api/v1/updates/${updateSessionId}/confirm`) {
+    const draftIndex = timelineItems.findIndex(
+      (item) => item.id === "eb311111-1111-4111-8111-111111111111",
+    );
+    if (draftIndex >= 0) timelineItems.splice(draftIndex, 1);
     if (!timelineItems.some((item) => item.id === acceptedUpdateId)) {
       timelineItems.unshift({
         id: acceptedUpdateId,
@@ -1107,6 +1203,26 @@ const server = createServer(async (request, response) => {
             ? "نجحت 12 من 12 حالة قبول واتُفق على خطوة الإغلاق."
             : "All 12 acceptance scenarios passed and the closure step was agreed.",
         sourceReferences: [`update-source:${updateSourceId}`],
+        sourceProvenance: "employee_mixed",
+        reviewState: "employee_confirmed",
+        project: { id: projectId, name: "Atlas Delivery" },
+        workstream:
+          currentUpdateContext.workstreamId === null
+            ? null
+            : { id: workstreamId, name: "API readiness" },
+        workItem:
+          currentUpdateContext.workItemId === null
+            ? null
+            : {
+                id: currentUpdateContext.workItemId,
+                title:
+                  workItems.find((item) => item.id === currentUpdateContext.workItemId)?.title ??
+                  "Delivery task",
+              },
+        relatedKpiComponents: [],
+        relatedCriteria: [],
+        verificationState: null,
+        decisionOutcome: null,
       });
     }
     return json(response, 200, {
@@ -1186,12 +1302,28 @@ const server = createServer(async (request, response) => {
     const body = await readJson(request);
     if (body === null) return json(response, 400, { messageKey: "errors.validation" });
     evidenceRevision = 1;
+    latestEvidenceInput = body;
     return json(response, 200, evidenceDetail(body));
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/evidence/github-suggestions") {
+    const body = await readJson(request);
+    if (body === null) return json(response, 400, { messageKey: "errors.validation" });
+    evidenceRevision = 1;
+    latestEvidenceInput = {
+      ...body,
+      githubSourceEventId: body.sourceEventId,
+      source: { kind: "url", url: "https://github.com/example/atlas/pull/125" },
+    };
+    return json(response, 200, evidenceDetail(latestEvidenceInput));
+  }
+  if (request.method === "GET" && url.pathname === `/api/v1/evidence/${evidenceId}`) {
+    return json(response, 200, evidenceReview());
   }
   if (request.method === "POST" && url.pathname === `/api/v1/evidence/${evidenceId}/revisions`) {
     const body = await readJson(request);
     if (body === null) return json(response, 400, { messageKey: "errors.validation" });
     evidenceRevision += 1;
+    latestEvidenceInput = { ...latestEvidenceInput, ...body };
     return json(response, 200, evidenceDetail(body));
   }
   if (request.method === "POST" && url.pathname === `/api/v1/evidence/${evidenceId}/confirm`) {
@@ -1204,9 +1336,29 @@ const server = createServer(async (request, response) => {
         workItemId: workItems[0].id,
         employeeId: ownerId,
         occurredAt: "2026-07-18T14:04:00.000Z",
-        title: "نجحت سيناريوهات القبول المتفق عليها",
-        detail: "نفذت السيناريوهات وراجعت سجل الاختبار.",
+        title:
+          updateLocale === "ar"
+            ? "نجحت سيناريوهات القبول المتفق عليها"
+            : "The agreed acceptance scenarios passed",
+        detail:
+          updateLocale === "ar"
+            ? "نفذت السيناريوهات وراجعت سجل الاختبار."
+            : "The employee ran the scenarios and reviewed the test log.",
         sourceReferences: [`evidence:${evidenceId}`],
+        sourceProvenance:
+          latestEvidenceInput.githubSourceEventId === undefined
+            ? "employee_code"
+            : "github_automated",
+        reviewState: "employee_confirmed",
+        project: { id: projectId, name: "Atlas Delivery" },
+        workstream: { id: workstreamId, name: "API readiness" },
+        workItem: { id: workItems[0].id, title: workItems[0].title },
+        relatedKpiComponents: [
+          { id: "e3333333-3333-4333-8333-333333333333", name: "Acceptance readiness" },
+        ],
+        relatedCriteria: [],
+        verificationState: "unverified",
+        decisionOutcome: null,
       });
     }
     return json(response, 200, {
@@ -1351,6 +1503,126 @@ function resetContextAcceptanceState() {
   );
 }
 
+function resetSliceFourAcceptanceState() {
+  clarificationTurn = 0;
+  updateDraftRevision = 1;
+  evidenceRevision = 1;
+  voiceRevision = 1;
+  voiceTranscript = "The automated GitHub checks passed and the closure evidence is attached.";
+  voiceTranscriptConfirmed = false;
+  latestEvidenceInput = {};
+  capturedUpdateSourceKinds = [];
+  officialProjectProgressPercent = 62.5;
+  ambiguousProgressReviewQueued = false;
+  employeePerformanceWrites = [];
+  currentUpdateContext = { projectId, workstreamId: null, workItemId: null };
+  timelineItems.splice(0, timelineItems.length, ...initialSliceFourTimeline());
+}
+
+function initialSliceFourTimeline(includeExamples = false) {
+  return includeExamples
+    ? [
+        {
+          id: "eb111111-1111-4111-8111-111111111111",
+          kind: "project_fact",
+          projectId,
+          workstreamId: null,
+          workItemId: null,
+          employeeId: null,
+          occurredAt: "2026-07-18T13:00:00.000Z",
+          title: "Required checks passed",
+          detail:
+            "A verified GitHub check suite matched one measurable rule in the active Progress Contract.",
+          sourceReferences: ["github-source-event:eb211111-1111-4111-8111-111111111111"],
+          sourceProvenance: "github_automated",
+          reviewState: "automated_project_fact",
+          project: { id: projectId, name: "Atlas Delivery" },
+          workstream: null,
+          workItem: null,
+          relatedKpiComponents: [
+            { id: "e3333333-3333-4333-8333-333333333333", name: "Acceptance readiness" },
+          ],
+          relatedCriteria: [],
+          verificationState: null,
+          decisionOutcome: null,
+        },
+        {
+          id: "eb311111-1111-4111-8111-111111111111",
+          kind: "update",
+          projectId,
+          workstreamId: null,
+          workItemId: null,
+          employeeId: ownerId,
+          occurredAt: "2026-07-18T13:01:00.000Z",
+          title: "AI-prepared closure draft",
+          detail: "Private draft awaiting the employee's review and confirmation.",
+          sourceReferences: ["update-source:eb411111-1111-4111-8111-111111111111"],
+          sourceProvenance: "employee_mixed",
+          reviewState: "ai_draft",
+          project: { id: projectId, name: "Atlas Delivery" },
+          workstream: null,
+          workItem: null,
+          relatedKpiComponents: [],
+          relatedCriteria: [],
+          verificationState: null,
+          decisionOutcome: null,
+        },
+        {
+          id: "eb511111-1111-4111-8111-111111111111",
+          kind: "decision",
+          projectId,
+          workstreamId: null,
+          workItemId: null,
+          employeeId: ownerId,
+          occurredAt: "2026-07-18T13:02:00.000Z",
+          title: "Project owner kept official progress at 42%",
+          detail:
+            "An ambiguous GitHub event remains queued for review; raw commit and file volume did not change progress.",
+          sourceReferences: ["progress-human-confirmation:eb611111-1111-4111-8111-111111111111"],
+          sourceProvenance: "human_decision",
+          reviewState: "human_decision",
+          project: { id: projectId, name: "Atlas Delivery" },
+          workstream: null,
+          workItem: null,
+          relatedKpiComponents: [
+            { id: "e3333333-3333-4333-8333-333333333333", name: "Acceptance readiness" },
+          ],
+          relatedCriteria: [],
+          verificationState: null,
+          decisionOutcome: "not_satisfied",
+        },
+      ]
+    : [];
+}
+
+function githubProjectFact() {
+  return structuredClone(initialSliceFourTimeline(true)[0]);
+}
+
+function aiDraftTimeline() {
+  return structuredClone(initialSliceFourTimeline(true)[1]);
+}
+
+function ownerProgressDecision(sourceRef, satisfied) {
+  const decision = structuredClone(initialSliceFourTimeline(true)[2]);
+  decision.title = `Project owner kept official progress at ${officialProjectProgressPercent}%`;
+  decision.sourceReferences = [sourceRef];
+  decision.decisionOutcome = satisfied ? "satisfied" : "not_satisfied";
+  return decision;
+}
+
+function voiceSession() {
+  return {
+    sessionId: voiceSessionId,
+    state: voiceTranscriptConfirmed ? "transcript_confirmed" : "transcript_ready",
+    transcript: voiceTranscript,
+    revision: voiceRevision,
+    language: "en",
+    dialect: "english",
+    transcriptConfirmed: voiceTranscriptConfirmed,
+  };
+}
+
 function structuredDraft(overrides = {}) {
   const isArabic = updateLocale === "ar";
   return {
@@ -1396,6 +1668,7 @@ function structuredDraft(overrides = {}) {
 }
 
 function evidenceDetail(overrides) {
+  const sourceKind = overrides.source?.kind ?? latestEvidenceInput.source?.kind ?? "cli_snapshot";
   return {
     id: evidenceId,
     revisionId: evidenceRevisionId,
@@ -1404,11 +1677,45 @@ function evidenceDetail(overrides) {
     workItemId: workItems[0].id,
     state: "draft",
     revision: evidenceRevision,
-    revisionKind: evidenceRevision === 1 ? "manual_draft" : "employee_edit",
-    sourceKind: "cli_snapshot",
+    revisionKind:
+      evidenceRevision === 1
+        ? latestEvidenceInput.githubSourceEventId === undefined
+          ? "manual_draft"
+          : "ai_draft"
+        : "employee_edit",
+    sourceKind,
     supportedClaim: overrides.supportedClaim ?? "نجحت سيناريوهات القبول المتفق عليها.",
     contributionContext: overrides.contributionContext ?? "نفذت السيناريوهات وراجعت النتيجة.",
-    executionMode: "manual",
+    executionMode: latestEvidenceInput.githubSourceEventId === undefined ? "manual" : "ai_assisted",
+  };
+}
+
+function evidenceReview() {
+  const detail = evidenceDetail(latestEvidenceInput);
+  const source = latestEvidenceInput.source ?? {};
+  return {
+    ...detail,
+    sourceText: typeof source.text === "string" ? source.text : null,
+    sourceUrl: typeof source.url === "string" ? source.url : null,
+    mediaType: "uploadedSourceId" in source ? "application/octet-stream" : null,
+    sourceProvenance:
+      latestEvidenceInput.githubSourceEventId !== undefined
+        ? "github_automated"
+        : detail.sourceKind === "pasted_text"
+          ? "employee_text"
+          : detail.sourceKind === "url"
+            ? "employee_url"
+            : ["pasted_code", "cli_snapshot"].includes(detail.sourceKind)
+              ? "employee_code"
+              : "employee_file",
+    project: { id: projectId, name: "Atlas Delivery" },
+    workstream: { id: workstreamId, name: "API readiness" },
+    workItem: { id: workItems[0].id, title: workItems[0].title },
+    relatedKpiComponents: [
+      { id: "e3333333-3333-4333-8333-333333333333", name: "Acceptance readiness" },
+    ],
+    relatedCriteria: [],
+    verificationState: evidenceRevision > 1 ? "supported" : "pending",
   };
 }
 

@@ -74,4 +74,23 @@ describe("EvidenceReviewSheetView", () => {
     expect(markup).toContain("All 12 agreed acceptance scenarios passed.");
     expect(markup).toContain("Implemented the scenarios and reviewed the results.");
   });
+
+  it("keeps a GitHub event as a suggestion until employee review", async () => {
+    const catalog = await getCatalog("en");
+    const markup = renderToStaticMarkup(
+      createElement(EvidenceReviewSheetView, {
+        catalog,
+        contextLabel: "Atlas Delivery",
+        githubSuggestion: true,
+        review: null,
+        sourceKind: "url",
+        suggestedClaim: "The verified pull request completed the acceptance path.",
+        suggestedContributionContext: "Review and describe your contribution.",
+      }),
+    );
+
+    expect(markup).toContain("only a suggested source");
+    expect(markup).toContain("The verified pull request completed the acceptance path.");
+    expect(markup).not.toContain("Source type");
+  });
 });

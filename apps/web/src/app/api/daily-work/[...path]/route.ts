@@ -8,6 +8,7 @@ import {
   ConfirmEvidenceInputSchema,
   ConfirmUpdateInputSchema,
   CreateManualEvidenceInputSchema,
+  CreateGitHubEvidenceInputSchema,
   EvidenceDetailSchema,
   EvidenceReviewSchema,
   RejectEvidenceInputSchema,
@@ -496,6 +497,13 @@ export async function POST(request: Request, context: Context): Promise<NextResp
       return await post(
         "/api/v1/evidence",
         CreateManualEvidenceInputSchema.parse(body),
+        EvidenceDetailSchema,
+      );
+    }
+    if (path.length === 2 && path[0] === "evidence" && path[1] === "github-suggestions") {
+      return await post(
+        "/api/v1/evidence/github-suggestions",
+        CreateGitHubEvidenceInputSchema.parse(body),
         EvidenceDetailSchema,
       );
     }

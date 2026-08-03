@@ -64,6 +64,7 @@ type EvidenceContext = Readonly<{
   suggestedClaim: string;
   suggestedContributionContext: string;
   initialSourceKind: "file" | "pasted_text" | "pasted_code" | "cli_snapshot" | "url";
+  githubSourceEventId?: string;
 }>;
 
 export function UpdateComposer({
@@ -78,12 +79,10 @@ export function UpdateComposer({
   catalog: Catalog;
   context: import("../../../platform/updates-evidence-contracts").UpdateComposerContext;
   initialItemId: string;
-  items: readonly import("@evaluation/contracts").WorkItemDetail[];
   locale: import("@evaluation/localization").Locale;
   onAccepted: () => void;
   onClose: () => void;
   open: boolean;
-  projectNames: Readonly<Record<string, string>>;
 }>) {
   const initial = initialSelection(context, initialItemId);
   const [stage, setStage] = useState<InternalStage>({
@@ -145,7 +144,12 @@ export function UpdateComposer({
     const hasFile = form
       .getAll("sourceFiles")
       .some((value) => value instanceof File && value.name !== "" && value.size > 0);
-    if (rawText === "" && sourceMetadata.length === 0 && !hasFile && resumableSources.length === 0) {
+    if (
+      rawText === "" &&
+      sourceMetadata.length === 0 &&
+      !hasFile &&
+      resumableSources.length === 0
+    ) {
       setErrorKey("updates.error.validation");
       return;
     }
@@ -235,6 +239,7 @@ export function UpdateComposer({
   }
 
   function applyClarification(selection: UpdateSelection, state: ClarificationState) {
+    setTimelineKey((value) => value + 1);
     if (state.state === "draft_with_question") {
       setStage({ kind: "draft_with_question", selection, state });
       return;
@@ -321,7 +326,8 @@ export function UpdateComposer({
           if (stage.kind === "entry") {
             const metadata = recoverableCaptureSources(form);
             const uploaded = stage.sources.filter(
-              (source) => source.uploadedSourceId !== undefined || source.voiceSessionId !== undefined,
+              (source) =>
+                source.uploadedSourceId !== undefined || source.voiceSessionId !== undefined,
             );
             persistEntry(stage.selection, stage.rawText, [...uploaded, ...metadata]);
           }
@@ -339,6 +345,18 @@ export function UpdateComposer({
             : createElement(TimelineList, {
                 catalog,
                 locale,
+                onReviewGitHubSuggestion: (item, githubSourceEventId) =>
+                  setEvidenceContext({
+                    projectId: item.project.id,
+                    workstreamId: item.workstream?.id ?? null,
+                    workItemId: item.workItem?.id ?? null,
+                    updateSourceId: null,
+                    contextLabel: item.project.name,
+                    suggestedClaim: item.detail,
+                    suggestedContributionContext: catalog["evidence.githubSuggestedContribution"],
+                    initialSourceKind: "url",
+                    githubSourceEventId,
+                  }),
                 projectId: activeSelection.projectId,
                 refreshKey: timelineKey,
                 workstreamId: activeSelection.workstreamId,

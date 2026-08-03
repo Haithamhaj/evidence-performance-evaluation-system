@@ -2,8 +2,8 @@
 
 ## Current Goal
 
-Execute Slice 4 GitHub, Updates, Evidence, Voice, and Timeline tasks under Fast Controlled
-Execution. Keep live GitHub installation behind its external human gate.
+Hold at the Product Owner review gate for the completed Slice 4 GitHub, Updates, Evidence, Voice,
+and Timeline journey. Keep live GitHub installation behind its external human gate.
 
 ## Current Reality
 
@@ -110,6 +110,20 @@ Execution. Keep live GitHub installation behind its external human gate.
   installation/Project binding history, delivery idempotency, append-only source events, and
   reconciliation cursors. The schema stores no raw payload, credential, score, ranking, or
   activity-volume progress input. Bounded review found no remaining P0/P1.
+- Slice 4 Tasks 2–7 are complete on Pull Request #5: signed idempotent webhook ingestion and
+  reconciliation, governed source suggestions, universal text/voice/image/file/code capture,
+  employee-confirmed GitHub evidence, and one authorization-scoped Timeline.
+- Deterministic acceptance keeps official Project progress at 62.5% after a raw event with 18
+  commits and 42 changed files, routes the ambiguous contract match to the Project owner, records
+  the human decision source/outcome, and creates zero employee-performance writes.
+- Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_4.md`; five screenshots
+  cover English desktop, mobile evidence review, compact results, Arabic RTL at 390px, and the
+  final GitHub/evidence/decision Timeline.
+- Comprehensive local verification passed 988 unit/coverage tests, 569 integration tests with 13
+  intentional skips, 172 AI checks with one intentional skip, 49 migration integration checks,
+  34 browser journeys with four intentional skips, all 23 lint/typecheck/build workspace tasks,
+  and protected boundary, secret, task-graph, and performance-input scans. Both bounded final
+  reviews report no remaining P0/P1 finding.
 
 ## Active Decisions
 
@@ -135,7 +149,9 @@ Execution. Keep live GitHub installation behind its external human gate.
 - Live-model quality and production queue/storage operations still require deployment-time evaluation and monitoring; deterministic verification confirms governed contracts, not provider output quality.
 - Arabic employee release remains blocked at T016's protected human semantic-review gate.
 - The known non-blocking T013 recovered-running attempt-count telemetry issue remains outside Phase 1 scope.
-- The prototype remains reference-only. Production update structuring now uses the governed AI Router; connected GitHub automation, voice, check-ins/readiness, manager operations, and Fact View preparation remain in later bundles.
+- The prototype remains reference-only. Production Update structuring and voice use the governed
+  AI Router. Live GitHub installation remains externally gated; check-ins/readiness, manager
+  operations, and Fact View preparation remain in later slices.
 - The production plan contains multiple security-, migration-, AI-, privacy-, and immutability-critical slices. Fast Controlled Execution remains the default, with bounded critical reviews only where those boundaries are touched.
 - CI remains the hosted confirmation after this checkpoint is pushed; local verification used the exact repository-pinned Node.js 24.18.0 and pnpm 11.13.0.
 - Production Google Workspace integration requires organization-approved OAuth configuration, minimum scopes, retention/deletion policy, and administrator consent.
@@ -160,9 +176,10 @@ Execution. Keep live GitHub installation behind its external human gate.
 
 ## Next Recommended Action
 
-Implement Slice 4 Task 2 webhook signature verification and missed-event reconciliation using the
-Task 1 persistence boundary. Keep GitHub App creation, installation, secret, and organization
-approval behind the external human gate.
+Product Owner reviews the completed Slice 4 acceptance journey and report. After explicit
+acceptance, begin Slice 5 without weakening the operational-progress/employee-performance
+boundary. Live GitHub App creation, installation, secret, and organization approval remain behind
+the external human gate.
 
 ## Critical References
 

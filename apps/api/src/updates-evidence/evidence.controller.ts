@@ -1,5 +1,6 @@
 import {
   ConfirmEvidenceInputSchema,
+  CreateGitHubEvidenceInputSchema,
   CreateManualEvidenceInputSchema,
   RejectEvidenceInputSchema,
   ReviseEvidenceInputSchema,
@@ -29,6 +30,14 @@ export class EvidenceController {
       actor: actor(request),
       correlationId: request.correlationId,
       input: CreateManualEvidenceInputSchema.parse(body),
+    });
+  }
+
+  createFromGitHubSuggestion(request: Request, body: unknown) {
+    return this.service.createFromGitHubSuggestion({
+      actor: actor(request),
+      correlationId: request.correlationId,
+      input: CreateGitHubEvidenceInputSchema.parse(body),
     });
   }
 
@@ -78,6 +87,7 @@ Inject(ActivityReader)(EvidenceController, undefined, 1);
 
 for (const [method, verb, path] of [
   ["create", "post", ""],
+  ["createFromGitHubSuggestion", "post", "github-suggestions"],
   ["review", "get", ":evidenceId"],
   ["revise", "post", ":evidenceId/revisions"],
   ["confirm", "post", ":evidenceId/confirm"],
@@ -85,9 +95,15 @@ for (const [method, verb, path] of [
 ] as const) {
   const descriptor = Object.getOwnPropertyDescriptor(EvidenceController.prototype, method)!;
   Req()(EvidenceController.prototype, method, 0);
-  if (method !== "create") Param("evidenceId")(EvidenceController.prototype, method, 1);
+  if (!["create", "createFromGitHubSuggestion"].includes(method)) {
+    Param("evidenceId")(EvidenceController.prototype, method, 1);
+  }
   if (method !== "review") {
-    Body()(EvidenceController.prototype, method, method === "create" ? 1 : 2);
+    Body()(
+      EvidenceController.prototype,
+      method,
+      ["create", "createFromGitHubSuggestion"].includes(method) ? 1 : 2,
+    );
   }
   (verb === "get" ? Get(path) : Post(path))(EvidenceController.prototype, method, descriptor);
 }

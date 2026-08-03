@@ -11,6 +11,7 @@ import { PrivateInbox } from "./private-inbox";
 import { ProjectPulse } from "./project-pulse";
 import { ReviewQueue } from "./review-queue";
 import { SmartReviewQueue } from "./smart-review-queue";
+import { UpdateComposer } from "./update-composer";
 import { WorkItemDrawer } from "./work-item-drawer";
 
 type Properties = Readonly<{
@@ -29,6 +30,8 @@ export function MyWorkClient({
   updateContext,
 }: Properties) {
   const [selectedId, setSelectedId] = useState(initialSelectedId);
+  const [updateItemId, setUpdateItemId] = useState("");
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [contextReviewRevision, setContextReviewRevision] = useState(0);
   const allItems = [
     ...response.needsMyAction,
@@ -56,6 +59,12 @@ export function MyWorkClient({
     }
   }
 
+  function openUpdate(itemId = "") {
+    if (selectedId !== null) select(null);
+    setUpdateItemId(itemId);
+    setUpdateOpen(true);
+  }
+
   return (
     <section className="dailyWorkPage" aria-labelledby="my-work-heading">
       <header className="compactPageHeading">
@@ -64,9 +73,16 @@ export function MyWorkClient({
           <h1 id="my-work-heading">{catalog["myWork.title"]}</h1>
           <p>{catalog["myWork.subtitle"]}</p>
         </div>
-        <a className="primaryLink" href={`/${locale}/tasks?new=1`}>
-          {catalog["tasks.add"]}
-        </a>
+        <div className="formActions">
+          {updateContext === undefined || updateContext.projects.length === 0 ? null : (
+            <button className="secondaryAction" onClick={() => openUpdate()} type="button">
+              {catalog["updates.add"]}
+            </button>
+          )}
+          <a className="primaryLink" href={`/${locale}/tasks?new=1`}>
+            {catalog["tasks.add"]}
+          </a>
+        </div>
       </header>
 
       {createElement(ReviewQueue, {
@@ -126,7 +142,21 @@ export function MyWorkClient({
         : createElement(WorkItemDrawer, {
             catalog,
             item: selected,
+            ...(updateContext !== undefined && selected.allowedActions.includes("add_update")
+              ? { onAddUpdate: () => openUpdate(selected.id) }
+              : {}),
             onClose: () => select(null),
+          })}
+      {updateContext === undefined
+        ? null
+        : createElement(UpdateComposer, {
+            catalog,
+            context: updateContext,
+            initialItemId: updateItemId,
+            locale,
+            onAccepted: () => undefined,
+            onClose: () => setUpdateOpen(false),
+            open: updateOpen,
           })}
     </section>
   );

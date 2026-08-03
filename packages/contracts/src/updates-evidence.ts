@@ -225,6 +225,16 @@ export const CreateManualEvidenceInputSchema = UpdateContextSchema.extend({
     }
   });
 
+export const CreateGitHubEvidenceInputSchema = UpdateContextSchema.extend({
+  idempotencyKey: UuidSchema,
+  sourceEventId: UuidSchema,
+  supportedClaim: z.string().trim().min(1).max(2_000),
+  relatedKpiComponentId: UuidSchema.nullable(),
+  relatedCriterionId: UuidSchema.nullable(),
+  contributionContext: z.string().trim().min(1).max(2_000),
+  executionMode: ExecutionModeSchema,
+}).strict();
+
 export const ReviseEvidenceInputSchema = z
   .object({
     expectedRevision: PositiveVersionSchema,
@@ -497,6 +507,7 @@ export const TimelineItemSchema = z
     relatedKpiComponents: z.array(NamedReferenceSchema).max(100),
     relatedCriteria: z.array(NamedReferenceSchema).max(100),
     verificationState: EvidenceVerificationStateSchema.nullable(),
+    decisionOutcome: z.enum(["satisfied", "not_satisfied"]).nullable(),
   })
   .strict();
 

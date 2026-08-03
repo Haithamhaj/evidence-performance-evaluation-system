@@ -1,5 +1,6 @@
 import { authorizeTimelineProject } from "./timeline-authorization.js";
-import { executeTimeline } from "./timeline-execute.js";
+import { encodeTimelineCursor } from "./timeline-cursor.js";
+import { queryTimelineRows } from "./timeline-query.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type TimelineCursor = import("./timeline-cursor.js").TimelineCursor;
@@ -16,5 +17,12 @@ export async function readAuthorizedTimeline(
   }>,
 ): Promise<import("@evaluation/contracts").TimelineResponse> {
   await authorizeTimelineProject(client, input.actorId, input.projectId, input.now);
-  return executeTimeline(client, input);
+  const items = await queryTimelineRows(client, input);
+  return {
+    items,
+    nextCursor:
+      items.length < input.limit || items.length === 0
+        ? null
+        : encodeTimelineCursor(items[items.length - 1]!),
+  };
 }

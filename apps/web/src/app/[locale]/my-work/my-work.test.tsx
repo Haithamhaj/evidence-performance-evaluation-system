@@ -65,7 +65,7 @@ describe("MyWorkClient", () => {
     expect(markup.indexOf("Needs my action")).toBeLessThan(markup.indexOf("Project pulse"));
     expect(markup.indexOf("Project pulse")).toBeLessThan(markup.indexOf("Quick capture"));
     expect(markup).toContain("Confirm pilot flow");
-    expect(markup).not.toContain("Share a progress update");
+    expect(markup).toContain("Add update");
   });
 
   it("opens a focused Task review panel", async () => {
@@ -76,10 +76,21 @@ describe("MyWorkClient", () => {
         initialSelectedId: item.id,
         locale: "en",
         response: snapshot,
+        updateContext: {
+          projects: [
+            {
+              id: item.projectId,
+              name: "Atlas Delivery",
+              workstreams: [],
+              workItems: [{ id: item.id, title: item.title, workstreamId: null }],
+            },
+          ],
+        },
       }),
     );
 
     expect(markup).toContain('role="dialog"');
     expect(markup).toContain("Confirm pilot flow");
+    expect(markup).toContain("Add update");
   });
 });

@@ -3,8 +3,10 @@ import {
   EnvironmentAiCredentialSecretResolver,
 } from "@evaluation/ai-routing";
 import { databaseAuditWriter } from "@evaluation/audit";
+import { AppError } from "@evaluation/contracts";
 import { parseDocumentRuntimeConfig, S3PrivateStorage } from "@evaluation/documents";
 import { createDatabaseClient } from "@evaluation/database";
+import { DatabaseGitHubGovernedSourceReader } from "@evaluation/github-integration";
 import {
   ActivityReader,
   AiRouterUpdateStructurer,
@@ -82,25 +84,44 @@ Module({
       useFactory: (client: ReturnType<typeof createDatabaseClient>) => {
         const config = parseDocumentRuntimeConfig(process.env);
         const s3 = new S3Client({
-          credentials: { accessKeyId: config.storage.accessKeyId, secretAccessKey: config.storage.secretAccessKey },
+          credentials: {
+            accessKeyId: config.storage.accessKeyId,
+            secretAccessKey: config.storage.secretAccessKey,
+          },
           endpoint: config.storage.endpoint,
           forcePathStyle: true,
           region: config.storage.region,
         });
-        return { resolver: new PrivateVoiceMediaResolver(client, new S3PrivateStorage(s3, config.storage.bucket)), s3 };
+        return {
+          resolver: new PrivateVoiceMediaResolver(
+            client,
+            new S3PrivateStorage(s3, config.storage.bucket),
+          ),
+          s3,
+        };
       },
       inject: [UPDATES_EVIDENCE_DATABASE],
     },
     {
       provide: VoiceUpdateService,
-      useFactory: async (client: ReturnType<typeof createDatabaseClient>, media: { resolver: PrivateVoiceMediaResolver }) => {
+      useFactory: async (
+        client: ReturnType<typeof createDatabaseClient>,
+        media: { resolver: PrivateVoiceMediaResolver },
+      ) => {
         const router = createDeferredRuntimeAiRouter(() =>
-          createRuntimeAiRouter({ database: client, secretResolver: new EnvironmentAiCredentialSecretResolver(), privateMediaResolver: media.resolver }),
+          createRuntimeAiRouter({
+            database: client,
+            secretResolver: new EnvironmentAiCredentialSecretResolver(),
+            privateMediaResolver: media.resolver,
+          }),
         );
         return new VoiceUpdateService(
           client,
           new PrismaUpdateScopeReader(),
-          new AiRouterVoiceTranscriber(router, client, { systemId: await resolveSystemAiScopeId(client, "update.transcribe"), timeoutMs: 60_000 }),
+          new AiRouterVoiceTranscriber(router, client, {
+            systemId: await resolveSystemAiScopeId(client, "update.transcribe"),
+            timeoutMs: 60_000,
+          }),
         );
       },
       inject: [UPDATES_EVIDENCE_DATABASE, VOICE_PRIVATE_MEDIA_RESOLVER],
@@ -113,6 +134,22 @@ Module({
           new PrismaEvidenceScopeReader(),
           new PrismaSafeEvidenceUploadReader(),
           databaseAuditWriter as never,
+          undefined,
+          {
+            getVerifiedSourceIn: async (transaction, input) => {
+              const source = await new DatabaseGitHubGovernedSourceReader(
+                client,
+              ).getVerifiedSourceIn(transaction, { sourceEventId: input.sourceEventId });
+              if (source === null || source.projectId !== input.projectId) {
+                throw new AppError(
+                  "GITHUB_EVIDENCE_SOURCE_UNAVAILABLE",
+                  "errors.evidence.stateInvalid",
+                  409,
+                );
+              }
+              return { sourceEventId: source.sourceEventId, sourceUrl: source.sourceUrl };
+            },
+          },
         ),
       inject: [UPDATES_EVIDENCE_DATABASE],
     },

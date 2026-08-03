@@ -644,6 +644,53 @@ describe("daily-work same-origin gateway", () => {
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
   });
 
+  it("forwards a bounded GitHub suggestion for employee evidence review", async () => {
+    const sourceEventId = "77777777-7777-4777-8777-777777777777";
+    const evidenceId = "88888888-8888-4888-8888-888888888888";
+    const body = {
+      idempotencyKey: "99999999-9999-4999-8999-999999999999",
+      sourceEventId,
+      projectId,
+      workstreamId: null,
+      workItemId: null,
+      supportedClaim: "The verified pull request completed the approved acceptance path.",
+      relatedKpiComponentId: null,
+      relatedCriterionId: null,
+      contributionContext: "I implemented and verified the acceptance path.",
+      executionMode: "ai_assisted",
+    };
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      id: evidenceId,
+      revisionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      projectId,
+      workstreamId: null,
+      workItemId: null,
+      state: "draft",
+      revision: 1,
+      revisionKind: "ai_draft",
+      sourceKind: "url",
+      supportedClaim: body.supportedClaim,
+      contributionContext: body.contributionContext,
+      executionMode: "ai_assisted",
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/evidence/github-suggestions", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ path: ["evidence", "github-suggestions"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      path: "/api/v1/evidence/github-suggestions",
+      schema: expect.anything(),
+      method: "POST",
+      body,
+    });
+  });
+
   it("forwards a confirmed Update result through its strict reader path", async () => {
     const acceptedEventId = "66666666-6666-4666-8666-666666666666";
     mocks.fetchProtectedUpstream.mockResolvedValue({

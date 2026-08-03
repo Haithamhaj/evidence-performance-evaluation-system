@@ -1,6 +1,7 @@
 import {
   AppError,
   ConfirmEvidenceInputSchema,
+  CreateGitHubEvidenceInputSchema,
   CreateManualEvidenceInputSchema,
   RejectEvidenceInputSchema,
   ReviseEvidenceInputSchema,
@@ -19,25 +20,11 @@ const CreateCommandSchema = z
     input: CreateManualEvidenceInputSchema,
   })
   .strict();
-const GitHubSuggestionInputSchema = z
-  .object({
-    idempotencyKey: z.string().uuid(),
-    sourceEventId: z.string().uuid(),
-    projectId: z.string().uuid(),
-    workstreamId: z.string().uuid().nullable(),
-    workItemId: z.string().uuid().nullable(),
-    supportedClaim: z.string().trim().min(1).max(2_000),
-    contributionContext: z.string().trim().min(1).max(2_000),
-    relatedKpiComponentId: z.string().uuid().nullable(),
-    relatedCriterionId: z.string().uuid().nullable(),
-    executionMode: z.enum(["manual", "ai_assisted", "agent_generated", "mixed"]),
-  })
-  .strict();
 const CreateGitHubSuggestionCommandSchema = z
   .object({
     actor: ActorSchema,
     correlationId: z.string().uuid(),
-    input: GitHubSuggestionInputSchema,
+    input: CreateGitHubEvidenceInputSchema,
   })
   .strict();
 const EvidenceCommandSchema = z

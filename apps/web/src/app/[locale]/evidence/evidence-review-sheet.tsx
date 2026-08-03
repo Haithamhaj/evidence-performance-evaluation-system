@@ -37,6 +37,7 @@ type EvidenceContext = Readonly<{
   contextLabel: string;
   suggestedClaim: string;
   suggestedContributionContext: string;
+  githubSourceEventId?: string;
 }>;
 
 type ViewProperties = Readonly<{
@@ -48,6 +49,7 @@ type ViewProperties = Readonly<{
   suggestedContributionContext?: string;
   busy?: boolean;
   error?: boolean;
+  githubSuggestion?: boolean;
   onClose?: () => void;
   onSourceKindChange?: (kind: SourceKind) => void;
   onCreate?: (event: import("react").FormEvent<HTMLFormElement>) => void;
@@ -61,6 +63,7 @@ export function EvidenceReviewSheetView({
   catalog,
   contextLabel,
   error = false,
+  githubSuggestion = false,
   onClose,
   onConfirm,
   onCreate,
@@ -97,21 +100,25 @@ export function EvidenceReviewSheetView({
         ) : null}
         {review === null ? (
           <form className="composerForm" onSubmit={onCreate}>
-            <label>
-              <span>{catalog["evidence.sourceKind"]}</span>
-              <select
-                name="sourceKind"
-                onChange={(event) => onSourceKindChange?.(event.target.value as SourceKind)}
-                value={sourceKind}
-              >
-                <option value="file">{catalog["evidence.source.file"]}</option>
-                <option value="pasted_text">{catalog["evidence.source.pasted_text"]}</option>
-                <option value="pasted_code">{catalog["evidence.source.pasted_code"]}</option>
-                <option value="cli_snapshot">{catalog["evidence.source.cli_snapshot"]}</option>
-                <option value="url">{catalog["evidence.source.url"]}</option>
-              </select>
-            </label>
-            {sourceKind === "file" ? (
+            {githubSuggestion ? (
+              <p className="boundaryNote">{catalog["evidence.githubSuggestion"]}</p>
+            ) : (
+              <label>
+                <span>{catalog["evidence.sourceKind"]}</span>
+                <select
+                  name="sourceKind"
+                  onChange={(event) => onSourceKindChange?.(event.target.value as SourceKind)}
+                  value={sourceKind}
+                >
+                  <option value="file">{catalog["evidence.source.file"]}</option>
+                  <option value="pasted_text">{catalog["evidence.source.pasted_text"]}</option>
+                  <option value="pasted_code">{catalog["evidence.source.pasted_code"]}</option>
+                  <option value="cli_snapshot">{catalog["evidence.source.cli_snapshot"]}</option>
+                  <option value="url">{catalog["evidence.source.url"]}</option>
+                </select>
+              </label>
+            )}
+            {githubSuggestion ? null : sourceKind === "file" ? (
               <label>
                 <span>{catalog["evidence.file"]}</span>
                 <input
@@ -290,21 +297,31 @@ export function EvidenceReviewSheet({
     setError(false);
     try {
       const form = new FormData(event.currentTarget);
-      const source = await evidenceSource(form, sourceKind, context);
-      const response = await requestJson("/api/daily-work/evidence", {
-        idempotencyKey: crypto.randomUUID(),
-        projectId: context.projectId,
-        workstreamId: context.workstreamId,
-        workItemId: context.workItemId,
-        capturedFromWorkItem: context.workItemId !== null,
-        updateSourceId: context.updateSourceId,
-        source,
-        supportedClaim: requiredText(form, "supportedClaim"),
-        relatedKpiComponentId: null,
-        relatedCriterionId: null,
-        contributionContext: requiredText(form, "contributionContext"),
-        executionMode: "ai_assisted",
-      });
+      const githubSuggestion = context.githubSourceEventId !== undefined;
+      const source = githubSuggestion ? undefined : await evidenceSource(form, sourceKind, context);
+      const response = await requestJson(
+        githubSuggestion
+          ? "/api/daily-work/evidence/github-suggestions"
+          : "/api/daily-work/evidence",
+        {
+          idempotencyKey: crypto.randomUUID(),
+          projectId: context.projectId,
+          workstreamId: context.workstreamId,
+          workItemId: context.workItemId,
+          ...(githubSuggestion
+            ? { sourceEventId: context.githubSourceEventId }
+            : {
+                capturedFromWorkItem: context.workItemId !== null,
+                updateSourceId: context.updateSourceId,
+                source,
+              }),
+          supportedClaim: requiredText(form, "supportedClaim"),
+          relatedKpiComponentId: null,
+          relatedCriterionId: null,
+          contributionContext: requiredText(form, "contributionContext"),
+          executionMode: "ai_assisted",
+        },
+      );
       const createdEvidenceId = requiredString(response, "id");
       setEvidenceId(createdEvidenceId);
       setReview(await requestReview(createdEvidenceId));
@@ -375,6 +392,7 @@ export function EvidenceReviewSheet({
       catalog={catalog}
       contextLabel={context.contextLabel}
       error={error}
+      githubSuggestion={context.githubSourceEventId !== undefined}
       onClose={onClose}
       onConfirm={confirm}
       onCreate={create}

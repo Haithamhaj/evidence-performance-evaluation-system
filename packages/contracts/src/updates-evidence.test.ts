@@ -359,6 +359,7 @@ describe("updates and evidence contracts", () => {
         sourceReferences: [`evidence:${sourceId}`],
         sourceProvenance: "github_automated",
         reviewState: "employee_confirmed",
+        decisionOutcome: null,
         ...shared,
       }),
     ).toMatchObject({ reviewState: "employee_confirmed", ...shared });
@@ -382,7 +383,8 @@ describe("updates and evidence contracts", () => {
         workItem: null,
         relatedKpiComponents: [],
         relatedCriteria: [],
-        verificationState: "supported",
+        verificationState: null,
+        decisionOutcome: null,
       }),
     ).toMatchObject({ kind: "project_fact", reviewState: "automated_project_fact" });
 
@@ -397,7 +399,7 @@ describe("updates and evidence contracts", () => {
         occurredAt: "2026-07-20T11:00:00.000Z",
         title: "Acceptance completion",
         detail: "Product owner confirmed the milestone.",
-        sourceReferences: [`human-confirmation:${sourceId}`],
+        sourceReferences: [`github-source-event:${sourceId}`],
         sourceProvenance: "human_decision",
         reviewState: "human_decision",
         project: { id: projectId, name: "Atlas Delivery" },
@@ -406,8 +408,14 @@ describe("updates and evidence contracts", () => {
         relatedKpiComponents: [{ id: componentId, name: "Acceptance completion" }],
         relatedCriteria: [],
         verificationState: null,
+        decisionOutcome: "satisfied",
       }),
-    ).toMatchObject({ kind: "decision", reviewState: "human_decision" });
+    ).toMatchObject({
+      kind: "decision",
+      reviewState: "human_decision",
+      decisionOutcome: "satisfied",
+      sourceReferences: [`github-source-event:${sourceId}`],
+    });
   });
 
   it("returns a readable confirmed result without employee-performance fields", () => {

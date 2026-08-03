@@ -10,8 +10,8 @@ export function queryTimelineRows(
     limit: number;
     cursor: TimelineCursor | null;
   }>,
-): Promise<import("./timeline-row.js").TimelineRow[]> {
-  return client.$queryRaw<import("./timeline-row.js").TimelineRow[]>`
+): Promise<import("@evaluation/contracts").TimelineItem[]> {
+  return client.$queryRaw<import("@evaluation/contracts").TimelineItem[]>`
     SELECT
       activity.id,
       activity.kind,
@@ -26,14 +26,26 @@ export function queryTimelineRows(
       activity.title,
       activity.detail,
       activity."sourceReferences",
-      activity."sourceKinds",
+      CASE
+        WHEN cardinality(activity."sourceKinds") > 1 THEN 'employee_mixed'
+        WHEN activity."sourceKinds"[1] = 'github_automated' THEN 'github_automated'
+        WHEN activity."sourceKinds"[1] = 'human_decision' THEN 'human_decision'
+        WHEN activity."sourceKinds"[1] = 'pasted_text' THEN 'employee_text'
+        WHEN activity."sourceKinds"[1] = 'voice_transcript' THEN 'employee_voice'
+        WHEN activity."sourceKinds"[1] IN ('image', 'screenshot', 'file', 'document')
+          THEN 'employee_file'
+        WHEN activity."sourceKinds"[1] IN ('pasted_code', 'cli_snapshot') THEN 'employee_code'
+        WHEN activity."sourceKinds"[1] = 'url' THEN 'employee_url'
+        WHEN activity."sourceKinds"[1] = 'github_snapshot' THEN 'employee_github_snapshot'
+      END::text AS "sourceProvenance",
       activity."reviewState",
       activity.project,
       activity.workstream,
       activity."workItem",
       activity."relatedKpiComponents",
       activity."relatedCriteria",
-      activity."verificationState"
+      activity."verificationState",
+      activity."decisionOutcome"
     FROM (
       SELECT
         event.id,
@@ -78,7 +90,8 @@ export function queryTimelineRows(
           )
         ), '[]'::jsonb) AS "relatedKpiComponents",
         '[]'::jsonb AS "relatedCriteria",
-        NULL::text AS "verificationState"
+        NULL::text AS "verificationState",
+        NULL::text AS "decisionOutcome"
       FROM "AcceptedUpdateEvent" event
       INNER JOIN "UpdateSource" source
         ON source.id = event."updateSourceId"
@@ -152,7 +165,8 @@ export function queryTimelineRows(
           WHERE verification."evidenceRevisionId" = revision.id
           ORDER BY verification."createdAt" DESC, verification.id DESC
           LIMIT 1
-        ), 'unverified') AS "verificationState"
+        ), 'unverified') AS "verificationState",
+        NULL::text AS "decisionOutcome"
       FROM "AcceptedEvidenceEvent" event
       INNER JOIN "EvidenceRecord" evidence
         ON evidence.id = event."evidenceId"
@@ -212,7 +226,8 @@ export function queryTimelineRows(
           )
         ), '[]'::jsonb) AS "relatedKpiComponents",
         '[]'::jsonb AS "relatedCriteria",
-        NULL::text AS "verificationState"
+        NULL::text AS "verificationState",
+        NULL::text AS "decisionOutcome"
       FROM "StructuredUpdateDraftRevision" draft
       INNER JOIN "UpdateSource" source
         ON source.id = draft."updateSourceId"
@@ -272,7 +287,8 @@ export function queryTimelineRows(
           ) linked
         ), '[]'::jsonb) AS "relatedKpiComponents",
         '[]'::jsonb AS "relatedCriteria",
-        'supported'::text AS "verificationState"
+        NULL::text AS "verificationState",
+        NULL::text AS "decisionOutcome"
       FROM "GitHubSourceEvent" source_event
       INNER JOIN "GitHubProjectBinding" binding
         ON binding.id = source_event."bindingId"
@@ -292,10 +308,7 @@ export function queryTimelineRows(
         decision."createdAt" AS "occurredAtValue",
         component.name AS title,
         decision.reason AS detail,
-        jsonb_build_array(
-          'human-confirmation:' || decision.id::text,
-          'progress-component:' || component.id::text
-        ) AS "sourceReferences",
+        jsonb_build_array(decision."sourceRef") AS "sourceReferences",
         ARRAY['human_decision']::text[] AS "sourceKinds",
         'human_decision'::text AS "reviewState",
         jsonb_build_object('id', project.id, 'name', project.name) AS project,
@@ -306,7 +319,9 @@ export function queryTimelineRows(
         jsonb_build_array(jsonb_build_object('id', component.id, 'name', component.name))
           AS "relatedKpiComponents",
         '[]'::jsonb AS "relatedCriteria",
-        NULL::text AS "verificationState"
+        NULL::text AS "verificationState",
+        CASE WHEN decision.satisfied THEN 'satisfied' ELSE 'not_satisfied' END::text
+          AS "decisionOutcome"
       FROM "ProgressHumanConfirmation" decision
       INNER JOIN "ProgressContract" contract
         ON contract.id = decision."contractId"

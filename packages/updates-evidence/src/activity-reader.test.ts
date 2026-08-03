@@ -188,7 +188,7 @@ function timelineItem(id: string, kind: "update" | "evidence", occurredAt: strin
     title: kind === "update" ? "تحديث" : "دليل",
     detail: kind === "update" ? "نتيجة التحديث" : "سياق المساهمة",
     sourceReferences: [`${kind === "update" ? "update-source" : "evidence"}:${id}`],
-    sourceKinds: [kind === "update" ? "pasted_text" : "file"],
+    sourceProvenance: kind === "update" ? "employee_text" : "employee_file",
     reviewState: "employee_confirmed",
     project: { id: projectId, name: "Atlas Delivery" },
     workstream: { id: workstreamId, name: "API readiness" },
@@ -196,5 +196,6 @@ function timelineItem(id: string, kind: "update" | "evidence", occurredAt: strin
     relatedKpiComponents: [],
     relatedCriteria: [],
     verificationState: kind === "evidence" ? "unverified" : null,
+    decisionOutcome: null,
   };
 }

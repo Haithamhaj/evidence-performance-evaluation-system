@@ -116,6 +116,35 @@ describe("updates and evidence protected API contracts", () => {
     }
   });
 
+  it("creates a GitHub suggestion draft through the verified source service", async () => {
+    const sourceEventId = crypto.randomUUID();
+    const createFromGitHubSuggestion = vi.fn(async () => ({ id: evidenceId }));
+    const controller = new EvidenceController({ createFromGitHubSuggestion } as never, {} as never);
+    const body = {
+      idempotencyKey: crypto.randomUUID(),
+      sourceEventId,
+      projectId,
+      workstreamId,
+      workItemId,
+      supportedClaim: "The verified pull request completed the approved acceptance path.",
+      relatedKpiComponentId: null,
+      relatedCriterionId: null,
+      contributionContext: "I implemented and verified the acceptance path.",
+      executionMode: "ai_assisted",
+    };
+
+    await controller.createFromGitHubSuggestion(request, body);
+
+    expect(createFromGitHubSuggestion).toHaveBeenCalledWith({
+      actor: { userId: actorId, active: true },
+      correlationId,
+      input: body,
+    });
+    expect(() =>
+      controller.createFromGitHubSuggestion(request, { ...body, suggestedRating: 5 }),
+    ).toThrow();
+  });
+
   it("binds evidence review, edit, confirmation, and rejection to one route identity", async () => {
     const query = { evidenceReview: vi.fn(async () => ({ id: evidenceId })) };
     const service = {
