@@ -43,12 +43,20 @@
 - `pnpm db:verify` passed empty database, upgrade from `0024`, drift, and rebuild.
 - Affected lint, AI-boundary, secret scan, and whitespace check passed.
 
-## Operational gate
+## Operational acceptance
 
-The implementation intentionally did not make a live model call. Before a live
-voice smoke/eval, deployment must register the approved `update.transcribe` AI
-route and its output-schema artifact in the governed AI Router configuration.
-That call must remain routed and must not log audio or transcripts.
+- Registered the approved `update.transcribe` prompt, output schema,
+  `gpt-4o-transcribe` provider configuration, and system route in the local
+  governed AI Router. Registration was audited and did not read, print, move, or
+  persist the provider credential.
+- Generated a synthetic WAV containing no personal or production data and sent
+  it through `AiRouterVoiceTranscriber` with the project's private-media
+  boundary. The live OpenAI request succeeded, returned the expected transcript,
+  and persisted an AI-run trace.
+- The local live check exercised route resolution, artifact validation,
+  credential resolution, multipart media delivery, output validation, and AI-run
+  recording together. Arabic dialect fixtures remain a separate deferred live
+  evaluation item in GitHub issue #9.
 
 ## Fix round 1
 
@@ -113,3 +121,5 @@ That call must remain routed and must not log audio or transcripts.
   database/AI Router/Updates/API/web typechecks and lint, migration verification
   from empty and previous `0025` snapshots (including 49 schema tests), AI
   boundary scan, secret scan, and whitespace check passed.
+- The bounded corrected-finding re-review approved the cancellation/retry
+  lifecycle and provider-composition fixes with no remaining P0/P1 findings.
