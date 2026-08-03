@@ -71,7 +71,9 @@ export async function createRuntimeAiRouter(input: {
       locality: provider.locality,
       baseUrl: provider.endpoint,
       credentialProvider: () => input.secretResolver.get(provider.providerKey),
-      ...(input.privateMediaResolver === undefined ? {} : { privateMediaResolver: input.privateMediaResolver }),
+      ...(input.privateMediaResolver === undefined
+        ? {}
+        : { privateMediaResolver: input.privateMediaResolver }),
       ...(provider.localTrustPolicyId === null ||
       provider.localTrustPolicyVersion === null ||
       provider.localTrustAllowedIp === null

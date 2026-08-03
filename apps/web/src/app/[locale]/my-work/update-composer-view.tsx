@@ -69,7 +69,9 @@ type Properties = Readonly<{
   onNew?: () => void;
   onRawTextChange?: (value: string) => void;
   onSourcesChange?: (form: FormData) => void;
-  onVoiceConfirmed?: (source: Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>) => void;
+  onVoiceConfirmed?: (
+    source: Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>,
+  ) => void;
   locale?: import("@evaluation/localization").Locale;
 }>;
 

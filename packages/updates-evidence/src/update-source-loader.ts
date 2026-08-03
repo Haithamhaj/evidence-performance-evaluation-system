@@ -71,7 +71,15 @@ export class PrismaUpdateSourceLoader {
         content = `[inspected upload: ${upload.originalFilename}; ${upload.detectedMime}; ${upload.byteSize} bytes; sha256 ${upload.sha256}]`;
       } else if (attachment.voiceSessionId !== null) {
         const voice = attachment.voiceSession;
-        if (voice === null || voice.state !== "transcript_confirmed" || voice.employeeId !== input.employeeId || voice.projectId !== input.projectId || voice.workstreamId !== input.workstreamId || voice.confirmation === null) throw scopeError();
+        if (
+          voice === null ||
+          voice.state !== "transcript_confirmed" ||
+          voice.employeeId !== input.employeeId ||
+          voice.projectId !== input.projectId ||
+          voice.workstreamId !== input.workstreamId ||
+          voice.confirmation === null
+        )
+          throw scopeError();
         content = voice.confirmation.transcriptRevision.transcript;
       } else {
         content = attachment.content ?? attachment.sourceUrl ?? "";

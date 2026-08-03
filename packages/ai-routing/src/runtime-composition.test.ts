@@ -50,7 +50,20 @@ describe("createRuntimeAiRouter", () => {
           },
           {
             routeKey: "document.compare",
-            configs: [{ providers: [{ providerConfig: provider("provider-a", 2, "model-b", "https://other.example/v1") }] }],
+            configs: [
+              {
+                providers: [
+                  {
+                    providerConfig: provider(
+                      "provider-a",
+                      2,
+                      "model-b",
+                      "https://other.example/v1",
+                    ),
+                  },
+                ],
+              },
+            ],
           },
         ]),
       },
@@ -70,21 +83,27 @@ describe("createRuntimeAiRouter", () => {
         findMany: vi.fn(async () => [
           {
             routeKey: "update.structure",
-            configs: [{ providers: [{ providerConfig: provider("openai", 1, "gpt-5.5-2026-04-23") }] }],
+            configs: [
+              { providers: [{ providerConfig: provider("openai", 1, "gpt-5.5-2026-04-23") }] },
+            ],
           },
           {
             routeKey: "update.transcribe",
-            configs: [{ providers: [{ providerConfig: provider("openai", 2, "gpt-4o-transcribe") }] }],
+            configs: [
+              { providers: [{ providerConfig: provider("openai", 2, "gpt-4o-transcribe") }] },
+            ],
           },
         ]),
       },
       ...artifactsForRoutes(),
     };
 
-    await expect(createRuntimeAiRouter({
-      database: database as never,
-      secretResolver: { get: vi.fn() },
-    })).resolves.toBeInstanceOf(AiRouter);
+    await expect(
+      createRuntimeAiRouter({
+        database: database as never,
+        secretResolver: { get: vi.fn() },
+      }),
+    ).resolves.toBeInstanceOf(AiRouter);
   });
 
   it.each([

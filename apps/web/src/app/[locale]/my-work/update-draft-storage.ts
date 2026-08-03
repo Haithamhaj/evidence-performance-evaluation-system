@@ -87,6 +87,8 @@ function isStoredSource(value: unknown): value is StoredUpdateSource {
     (source.uploadedSourceId === undefined || typeof source.uploadedSourceId === "string") &&
     (source.voiceSessionId === undefined || typeof source.voiceSessionId === "string") &&
     (source.url === undefined || typeof source.url === "string") &&
-    Object.keys(source).every((key) => ["kind", "uploadedSourceId", "voiceSessionId", "url"].includes(key))
+    Object.keys(source).every((key) =>
+      ["kind", "uploadedSourceId", "voiceSessionId", "url"].includes(key),
+    )
   );
 }

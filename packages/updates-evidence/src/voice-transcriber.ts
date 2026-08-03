@@ -20,19 +20,26 @@ export const VoiceTranscriptionAiOutputSchema = z
   .strict();
 
 type Router = Pick<AiRouter<DatabaseTransaction>, "run">;
-type PromptArtifactReader = Pick<import("@evaluation/database").DatabaseClient, "analysisPromptArtifact">;
+type PromptArtifactReader = Pick<
+  import("@evaluation/database").DatabaseClient,
+  "analysisPromptArtifact"
+>;
 
 export type VoiceTranscriber = Readonly<{
-  transcribe(input: Readonly<{
-    voiceSessionId: string;
-    uploadedSourceId: string;
-    projectScopeId: string;
-    departmentScopeId: string;
-    correlationId: string;
-    mediaType: string;
-    byteSize: number;
-    declaredDurationSeconds: number;
-  }>): Promise<z.infer<typeof VoiceTranscriptionAiOutputSchema> & Readonly<{ aiRunId: string | null }>>;
+  transcribe(
+    input: Readonly<{
+      voiceSessionId: string;
+      uploadedSourceId: string;
+      projectScopeId: string;
+      departmentScopeId: string;
+      correlationId: string;
+      mediaType: string;
+      byteSize: number;
+      declaredDurationSeconds: number;
+    }>,
+  ): Promise<
+    z.infer<typeof VoiceTranscriptionAiOutputSchema> & Readonly<{ aiRunId: string | null }>
+  >;
 }>;
 
 export class AiRouterVoiceTranscriber implements VoiceTranscriber {
@@ -43,11 +50,20 @@ export class AiRouterVoiceTranscriber implements VoiceTranscriber {
     router: Router,
     promptReader: PromptArtifactReader,
     options: Readonly<{ systemId: string; timeoutMs: number }>,
-  ) { this.router = router; this.promptReader = promptReader; this.options = options; }
+  ) {
+    this.router = router;
+    this.promptReader = promptReader;
+    this.options = options;
+  }
 
   async transcribe(input: Parameters<VoiceTranscriber["transcribe"]>[0]) {
     const prompt = await this.promptReader.analysisPromptArtifact.findUnique({
-      where: { routeKey_version: { routeKey: "update.transcribe", version: VOICE_TRANSCRIBE_PROMPT_VERSION } },
+      where: {
+        routeKey_version: {
+          routeKey: "update.transcribe",
+          version: VOICE_TRANSCRIBE_PROMPT_VERSION,
+        },
+      },
       select: { id: true, routeKey: true, version: true, bodyHash: true, trustedBody: true },
     });
     if (
@@ -55,7 +71,8 @@ export class AiRouterVoiceTranscriber implements VoiceTranscriber {
       prompt.routeKey !== "update.transcribe" ||
       prompt.version !== VOICE_TRANSCRIBE_PROMPT_VERSION ||
       createHash("sha256").update(prompt.trustedBody).digest("hex") !== prompt.bodyHash
-    ) throw new AppError("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
+    )
+      throw new AppError("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
     const result = await this.router.run(
       {
         routeKey: "update.transcribe",
@@ -99,12 +116,23 @@ export class AiRouterVoiceTranscriber implements VoiceTranscriber {
 /** Resolves private voice bytes only inside the provider adapter boundary; it never returns object keys to callers. */
 export class PrivateVoiceMediaResolver {
   private readonly database: import("@evaluation/database").DatabaseClient;
-  private readonly storage: Readonly<{ readStream(input: Readonly<{ key: string; maxBytes: number }>): Promise<import("node:stream").Readable> }>;
+  private readonly storage: Readonly<{
+    readStream(
+      input: Readonly<{ key: string; maxBytes: number }>,
+    ): Promise<import("node:stream").Readable>;
+  }>;
 
   constructor(
     database: import("@evaluation/database").DatabaseClient,
-    storage: Readonly<{ readStream(input: Readonly<{ key: string; maxBytes: number }>): Promise<import("node:stream").Readable> }>,
-  ) { this.database = database; this.storage = storage; }
+    storage: Readonly<{
+      readStream(
+        input: Readonly<{ key: string; maxBytes: number }>,
+      ): Promise<import("node:stream").Readable>;
+    }>,
+  ) {
+    this.database = database;
+    this.storage = storage;
+  }
 
   async read(input: Readonly<{ reference: string; mediaType: string; maxBytes: number }>) {
     const match = /^uploaded-source:([0-9a-f-]{36})$/iu.exec(input.reference);
@@ -115,16 +143,30 @@ export class PrivateVoiceMediaResolver {
       where: { id: match[1] },
       select: { objectKey: true, originalFilename: true, detectedMime: true, byteSize: true },
     });
-    if (source === null || source.detectedMime !== input.mediaType || source.byteSize < 1 || source.byteSize > input.maxBytes) {
+    if (
+      source === null ||
+      source.detectedMime !== input.mediaType ||
+      source.byteSize < 1 ||
+      source.byteSize > input.maxBytes
+    ) {
       throw new AppError("VOICE_AUDIO_INVALID", "errors.voice.audioInvalid", 422);
     }
-    const stream = await this.storage.readStream({ key: source.objectKey, maxBytes: input.maxBytes });
+    const stream = await this.storage.readStream({
+      key: source.objectKey,
+      maxBytes: input.maxBytes,
+    });
     const chunks: Buffer[] = [];
-    for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    for await (const chunk of stream)
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     const bytes = Buffer.concat(chunks);
     if (bytes.length !== source.byteSize || bytes.length > input.maxBytes) {
       throw new AppError("VOICE_AUDIO_INVALID", "errors.voice.audioInvalid", 422);
     }
-    return { bytes, filename: source.originalFilename, mediaType: source.detectedMime, byteSize: bytes.length };
+    return {
+      bytes,
+      filename: source.originalFilename,
+      mediaType: source.detectedMime,
+      byteSize: bytes.length,
+    };
   }
 }

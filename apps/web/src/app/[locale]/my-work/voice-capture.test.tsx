@@ -30,7 +30,9 @@ describe("VoiceCapture", () => {
     const recorder = {
       state: "inactive",
       addEventListener: events.addEventListener.bind(events),
-      start() { this.state = "recording"; },
+      start() {
+        this.state = "recording";
+      },
       stop() {
         this.state = "inactive";
         const data = new Event("dataavailable") as Event & { data: Blob };

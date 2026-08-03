@@ -11,9 +11,13 @@ export function UniversalCapture({
   scope,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
-  sources?: readonly Readonly<{ kind: string; url?: string }>[],
-  onSourcesChange?: (event: import("react").ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  onVoiceConfirmed?: (source: Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>) => void;
+  sources?: readonly Readonly<{ kind: string; url?: string }>[];
+  onSourcesChange?: (
+    event: import("react").ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  onVoiceConfirmed?: (
+    source: Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>,
+  ) => void;
   scope?: Readonly<{ projectId: string; workstreamId: string | null; workItemId: string | null }>;
 }>) {
   const url = sources.find((source) => source.kind === "url")?.url ?? "";
@@ -61,7 +65,13 @@ export function UniversalCapture({
       </label>
       <label>
         <span>{catalog["updates.source.url"]}</span>
-        <input defaultValue={url} dir="ltr" name="sourceUrl" onChange={onSourcesChange} type="url" />
+        <input
+          defaultValue={url}
+          dir="ltr"
+          name="sourceUrl"
+          onChange={onSourcesChange}
+          type="url"
+        />
       </label>
       <label>
         <span>{catalog["updates.source.githubSnapshot"]}</span>

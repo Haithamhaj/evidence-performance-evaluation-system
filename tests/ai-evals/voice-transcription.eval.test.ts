@@ -11,7 +11,11 @@ describe("voice transcription AI contract", () => {
     { transcript: "أُنجزت المراجعة وتم نشر الإصلاح.", language: "ar", dialect: "fusha" },
     { transcript: "خلصت المراجعة ونشرت الإصلاح.", language: "ar", dialect: "gulf" },
     { transcript: "خلصت المراجعة ونشرت الإصلاح.", language: "ar", dialect: "levantine" },
-    { transcript: "The review is complete and the fix is deployed.", language: "en", dialect: "english" },
+    {
+      transcript: "The review is complete and the fix is deployed.",
+      language: "en",
+      dialect: "english",
+    },
     { transcript: "خلصت review والـ deploy passed.", language: "mixed", dialect: "mixed" },
   ])("accepts strict $dialect transcript metadata", (fixture) => {
     expect(VoiceTranscriptionAiOutputSchema.parse(fixture)).toEqual(fixture);

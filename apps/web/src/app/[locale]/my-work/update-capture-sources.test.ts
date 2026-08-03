@@ -14,8 +14,11 @@ const scope = {
 
 describe("universal Update capture sources", () => {
   it("uses the inspected private upload route and returns a typed image source", async () => {
-    const fetcher = vi.fn(async () =>
-      new Response(JSON.stringify({ id: "22222222-2222-4222-8222-222222222222" }), { status: 200 }),
+    const fetcher = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ id: "22222222-2222-4222-8222-222222222222" }), {
+          status: 200,
+        }),
     );
     const source = await uploadUpdateFile(
       new File(["png"], "proof.png", { type: "image/png" }),
@@ -35,10 +38,7 @@ describe("universal Update capture sources", () => {
 
   it("collects source-only and combined captures as one ordered typed source list", async () => {
     const sourceOnly = new FormData();
-    sourceOnly.append(
-      "sourceFiles",
-      new File(["png"], "before.png", { type: "image/png" }),
-    );
+    sourceOnly.append("sourceFiles", new File(["png"], "before.png", { type: "image/png" }));
     sourceOnly.append("sourceFiles", new File(["pdf"], "record.pdf", { type: "application/pdf" }));
     sourceOnly.set("sourceCode", "expect(ready).toBe(true);");
     sourceOnly.set("sourceCli", "pnpm test: 24 passed");

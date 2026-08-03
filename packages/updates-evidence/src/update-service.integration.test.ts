@@ -143,7 +143,9 @@ describe("UpdateService", () => {
     };
 
     const first = await service.start(command);
-    await expect(service.start({ ...command, correlationId: crypto.randomUUID() })).resolves.toEqual(first);
+    await expect(
+      service.start({ ...command, correlationId: crypto.randomUUID() }),
+    ).resolves.toEqual(first);
     await expect(
       service.start({
         ...command,

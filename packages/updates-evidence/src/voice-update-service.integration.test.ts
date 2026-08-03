@@ -63,17 +63,21 @@ describe("VoiceUpdateService", () => {
       language: "en";
       dialect: "english";
       aiRunId: null;
-    }>((resolve) => { release = resolve; });
+    }>((resolve) => {
+      release = resolve;
+    });
     const service = serviceFor(graph, { transcribe: async () => pending });
     const command = voiceCommand(graph, upload.id, crypto.randomUUID());
     const starting = service.start(command);
     const session = await waitForVoiceSession(command.input.idempotencyKey);
 
-    await expect(service.cancel({
-      actor: command.actor,
-      correlationId: crypto.randomUUID(),
-      voiceSessionId: session.id,
-    })).resolves.toMatchObject({ state: "cancelled" });
+    await expect(
+      service.cancel({
+        actor: command.actor,
+        correlationId: crypto.randomUUID(),
+        voiceSessionId: session.id,
+      }),
+    ).resolves.toMatchObject({ state: "cancelled" });
     release({ transcript: "Late result", language: "en", dialect: "english", aiRunId: null });
     await expect(starting).resolves.toMatchObject({ state: "cancelled", transcript: null });
     await expect(
@@ -95,7 +99,9 @@ describe("VoiceUpdateService", () => {
       language: "en";
       dialect: "english";
       aiRunId: null;
-    }>((resolve) => { release = resolve; });
+    }>((resolve) => {
+      release = resolve;
+    });
     const transcribe = vi.fn(async () => pending);
     const service = serviceFor(graph, { transcribe });
     const command = voiceCommand(graph, upload.id, crypto.randomUUID());
@@ -107,7 +113,11 @@ describe("VoiceUpdateService", () => {
       state: "transcribing",
     });
     expect(transcribe).toHaveBeenCalledTimes(1);
-    await service.cancel({ actor: command.actor, correlationId: crypto.randomUUID(), voiceSessionId: session.id });
+    await service.cancel({
+      actor: command.actor,
+      correlationId: crypto.randomUUID(),
+      voiceSessionId: session.id,
+    });
     release({ transcript: "Ignored", language: "en", dialect: "english", aiRunId: null });
     await expect(starting).resolves.toMatchObject({ state: "cancelled" });
   });
@@ -117,7 +127,12 @@ describe("VoiceUpdateService", () => {
     const upload = await seedVoiceUpload(graph, 512);
     let authorized = true;
     const service = serviceFor(graph, {
-      transcribe: async () => ({ transcript: "Ready", language: "en", dialect: "english", aiRunId: null }),
+      transcribe: async () => ({
+        transcript: "Ready",
+        language: "en",
+        dialect: "english",
+        aiRunId: null,
+      }),
       authorizeIn: async () => {
         if (!authorized) throw new Error("scope-ended");
         return authorizedScope(graph);
@@ -127,23 +142,32 @@ describe("VoiceUpdateService", () => {
     const started = await service.start(command);
     authorized = false;
 
-    await expect(service.reviseTranscript({
-      actor: command.actor,
-      voiceSessionId: started.sessionId,
-      input: { expectedRevision: 1, transcript: "Changed" },
-    })).rejects.toThrow("scope-ended");
-    await expect(service.confirmTranscript({
-      actor: command.actor,
-      voiceSessionId: started.sessionId,
-      input: { expectedRevision: 1, reason: "Reviewed" },
-    })).rejects.toThrow("scope-ended");
+    await expect(
+      service.reviseTranscript({
+        actor: command.actor,
+        voiceSessionId: started.sessionId,
+        input: { expectedRevision: 1, transcript: "Changed" },
+      }),
+    ).rejects.toThrow("scope-ended");
+    await expect(
+      service.confirmTranscript({
+        actor: command.actor,
+        voiceSessionId: started.sessionId,
+        input: { expectedRevision: 1, reason: "Reviewed" },
+      }),
+    ).rejects.toThrow("scope-ended");
   });
 
   it("serializes concurrent revision and confirmation without confirming a stale revision", async () => {
     const graph = await seedVoiceGraph();
     const upload = await seedVoiceUpload(graph, 512);
     const service = serviceFor(graph, {
-      transcribe: async () => ({ transcript: "Ready", language: "en", dialect: "english", aiRunId: null }),
+      transcribe: async () => ({
+        transcript: "Ready",
+        language: "en",
+        dialect: "english",
+        aiRunId: null,
+      }),
     });
     const command = voiceCommand(graph, upload.id, crypto.randomUUID());
     const started = await service.start(command);
@@ -170,7 +194,9 @@ describe("VoiceUpdateService", () => {
     });
     if (persisted.state === "transcript_confirmed") {
       expect(persisted.transcriptRevisions).toHaveLength(1);
-      expect(persisted.confirmation?.transcriptRevisionId).toBe(persisted.transcriptRevisions[0]?.id);
+      expect(persisted.confirmation?.transcriptRevisionId).toBe(
+        persisted.transcriptRevisions[0]?.id,
+      );
     } else {
       expect(persisted.state).toBe("transcript_ready");
       expect(persisted.transcriptRevisions[0]?.revision).toBe(2);
@@ -192,8 +218,14 @@ describe("VoiceUpdateService", () => {
     const command = voiceCommand(graph, upload.id, idempotencyKey);
 
     const started = await service.start(command);
-    expect(transcribe).toHaveBeenCalledWith(expect.objectContaining({ mediaType: "audio/mpeg", byteSize: 512 }));
-    expect(started).toMatchObject({ state: "transcript_ready", revision: 1, transcriptConfirmed: false });
+    expect(transcribe).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaType: "audio/mpeg", byteSize: 512 }),
+    );
+    expect(started).toMatchObject({
+      state: "transcript_ready",
+      revision: 1,
+      transcriptConfirmed: false,
+    });
     const captured: import("./update-service.js").UpdateStructureContext[] = [];
     const updateService = updateServiceFor(graph, captured);
     await expect(startVoiceUpdate(updateService, graph, started.sessionId)).rejects.toMatchObject({
@@ -235,7 +267,10 @@ describe("VoiceUpdateService", () => {
     await expect(
       service.start({
         ...command,
-        input: { ...command.input, declaredDurationSeconds: command.input.declaredDurationSeconds + 1 },
+        input: {
+          ...command.input,
+          declaredDurationSeconds: command.input.declaredDurationSeconds + 1,
+        },
       }),
     ).rejects.toMatchObject({ code: "VOICE_IDEMPOTENCY_CONFLICT" });
   });
@@ -247,7 +282,12 @@ describe("VoiceUpdateService", () => {
       throw new Error("temporary-store-unavailable");
     });
     const service = serviceFor(graph, {
-      transcribe: async () => ({ transcript: "The deploy passed.", language: "en", dialect: "english", aiRunId: null }),
+      transcribe: async () => ({
+        transcript: "The deploy passed.",
+        language: "en",
+        dialect: "english",
+        aiRunId: null,
+      }),
       cleanup,
     });
     const command = voiceCommand(graph, upload.id, crypto.randomUUID());
@@ -268,7 +308,9 @@ describe("VoiceUpdateService", () => {
     const upload = await seedVoiceUpload(graph, 10 * 1024 * 1024 + 1);
     const transcribe = vi.fn();
     const service = serviceFor(graph, { transcribe });
-    await expect(service.start(voiceCommand(graph, upload.id, crypto.randomUUID()))).rejects.toMatchObject({ code: "VOICE_AUDIO_INVALID" });
+    await expect(
+      service.start(voiceCommand(graph, upload.id, crypto.randomUUID())),
+    ).rejects.toMatchObject({ code: "VOICE_AUDIO_INVALID" });
     expect(transcribe).not.toHaveBeenCalled();
   });
 
@@ -276,14 +318,32 @@ describe("VoiceUpdateService", () => {
     const graph = await seedVoiceGraph();
     const upload = await client.uploadedSource.create({
       data: {
-        organizationId: graph.organizationId, departmentId: graph.departmentId, projectId: null, workstreamId: graph.workstreamId,
-        originalFilename: "stream.m4a", objectKey: `private-test/${crypto.randomUUID()}/stream.m4a`, detectedType: "audio", detectedMime: "audio/mp4", byteSize: 512,
-        sha256: crypto.randomUUID().replaceAll("-", "").padEnd(64, "0"), createdById: graph.employeeId, reason: "Test voice upload",
+        organizationId: graph.organizationId,
+        departmentId: graph.departmentId,
+        projectId: null,
+        workstreamId: graph.workstreamId,
+        originalFilename: "stream.m4a",
+        objectKey: `private-test/${crypto.randomUUID()}/stream.m4a`,
+        detectedType: "audio",
+        detectedMime: "audio/mp4",
+        byteSize: 512,
+        sha256: crypto.randomUUID().replaceAll("-", "").padEnd(64, "0"),
+        createdById: graph.employeeId,
+        reason: "Test voice upload",
       },
     });
-    const service = serviceFor(graph, { transcribe: async () => ({ transcript: "تم النشر.", language: "ar", dialect: "fusha", aiRunId: null }) });
+    const service = serviceFor(graph, {
+      transcribe: async () => ({
+        transcript: "تم النشر.",
+        language: "ar",
+        dialect: "fusha",
+        aiRunId: null,
+      }),
+    });
     const command = voiceCommand(graph, upload.id, crypto.randomUUID());
-    await expect(service.start({ ...command, input: { ...command.input, workstreamId: graph.workstreamId } })).resolves.toMatchObject({ state: "transcript_ready" });
+    await expect(
+      service.start({ ...command, input: { ...command.input, workstreamId: graph.workstreamId } }),
+    ).resolves.toMatchObject({ state: "transcript_ready" });
   });
 });
 
@@ -327,7 +387,10 @@ async function waitForVoiceSession(idempotencyKey: string) {
   throw new Error("voice-session-not-created");
 }
 
-function updateServiceFor(graph: VoiceGraph, captured: import("./update-service.js").UpdateStructureContext[]) {
+function updateServiceFor(
+  graph: VoiceGraph,
+  captured: import("./update-service.js").UpdateStructureContext[],
+) {
   return new UpdateService(
     client,
     {
@@ -396,7 +459,13 @@ function voiceCommand(graph: VoiceGraph, uploadedSourceId: string, idempotencyKe
   };
 }
 
-type VoiceGraph = Readonly<{ organizationId: string; departmentId: string; employeeId: string; projectId: string; workstreamId: string }>;
+type VoiceGraph = Readonly<{
+  organizationId: string;
+  departmentId: string;
+  employeeId: string;
+  projectId: string;
+  workstreamId: string;
+}>;
 
 async function seedVoiceGraph(): Promise<VoiceGraph> {
   const suffix = crypto.randomUUID();
@@ -405,14 +474,30 @@ async function seedVoiceGraph(): Promise<VoiceGraph> {
   const employeeId = crypto.randomUUID();
   const projectId = crypto.randomUUID();
   const workstreamId = crypto.randomUUID();
-  await client.organization.create({ data: { id: organizationId, key: `voice-org-${suffix}`, name: "Voice" } });
-  await client.department.create({ data: { id: departmentId, key: `voice-dept-${suffix}`, name: "Voice", organizationId } });
-  await client.user.create({ data: { id: employeeId, email: `voice-${suffix}@example.invalid`, displayName: "Employee" } });
+  await client.organization.create({
+    data: { id: organizationId, key: `voice-org-${suffix}`, name: "Voice" },
+  });
+  await client.department.create({
+    data: { id: departmentId, key: `voice-dept-${suffix}`, name: "Voice", organizationId },
+  });
+  await client.user.create({
+    data: { id: employeeId, email: `voice-${suffix}@example.invalid`, displayName: "Employee" },
+  });
   await client.authorizationScope.createMany({
     data: [
-      { id: departmentId, key: `voice-department-${suffix}`, scopeType: "department", departmentId },
+      {
+        id: departmentId,
+        key: `voice-department-${suffix}`,
+        scopeType: "department",
+        departmentId,
+      },
       { id: projectId, key: `voice-project-${suffix}`, scopeType: "project", departmentId },
-      { id: workstreamId, key: `voice-workstream-${suffix}`, scopeType: "workstream", departmentId },
+      {
+        id: workstreamId,
+        key: `voice-workstream-${suffix}`,
+        scopeType: "workstream",
+        departmentId,
+      },
     ],
   });
   await client.project.create({
@@ -427,7 +512,17 @@ async function seedVoiceGraph(): Promise<VoiceGraph> {
       createdById: employeeId,
     },
   });
-  await client.workstream.create({ data: { id: workstreamId, projectId, authorizationScopeId: workstreamId, name: "Voice stream", description: "", status: "active", createdById: employeeId } });
+  await client.workstream.create({
+    data: {
+      id: workstreamId,
+      projectId,
+      authorizationScopeId: workstreamId,
+      name: "Voice stream",
+      description: "",
+      status: "active",
+      createdById: employeeId,
+    },
+  });
   return { organizationId, departmentId, employeeId, projectId, workstreamId };
 }
 

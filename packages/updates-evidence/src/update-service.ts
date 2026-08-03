@@ -877,13 +877,19 @@ async function attachmentDataIn(
         session.workstreamId !== input.workstreamId ||
         session.confirmation === null
       ) {
-        throw new AppError("VOICE_TRANSCRIPT_CONFIRMATION_REQUIRED", "errors.voice.transcriptConfirmationRequired", 409);
+        throw new AppError(
+          "VOICE_TRANSCRIPT_CONFIRMATION_REQUIRED",
+          "errors.voice.transcriptConfirmationRequired",
+          409,
+        );
       }
       return {
         position,
         kind: source.kind,
         voiceSessionId: session.id,
-        checksumSha256: contentChecksum(`voice-session:${session.id}:${session.confirmation.transcriptRevisionId}`),
+        checksumSha256: contentChecksum(
+          `voice-session:${session.id}:${session.confirmation.transcriptRevisionId}`,
+        ),
       };
     }
     return {

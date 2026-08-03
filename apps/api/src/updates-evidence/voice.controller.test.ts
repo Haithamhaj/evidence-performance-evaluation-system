@@ -21,7 +21,10 @@ describe("VoiceUpdatesController", () => {
     };
 
     await controller.start(
-      { principal: { userId: employeeId, active: true }, correlationId: crypto.randomUUID() } as never,
+      {
+        principal: { userId: employeeId, active: true },
+        correlationId: crypto.randomUUID(),
+      } as never,
       input,
     );
 

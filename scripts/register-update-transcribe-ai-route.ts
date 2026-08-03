@@ -65,7 +65,8 @@ export async function registerUpdateTranscribeAiRoute(
     );
   }
   const databaseUrl = input.databaseUrl ?? process.env.DATABASE_URL?.trim();
-  if (databaseUrl === undefined || databaseUrl.length === 0) throw new Error("DATABASE_URL is required");
+  if (databaseUrl === undefined || databaseUrl.length === 0)
+    throw new Error("DATABASE_URL is required");
   const database = createDatabaseClient(databaseUrl);
   const principal = { userId: parsed.actorId, active: true } as const;
   try {
@@ -90,17 +91,21 @@ export async function registerUpdateTranscribeAiRoute(
       },
       orderBy: { version: "desc" },
     });
-    const provider = existingProvider ?? await registerAuthorizedAiProviderConfig(database, principal, {
-      providerKey: "openai",
-      adapterKey: "openai-compatible",
-      modelKey,
-      locality: "external",
-      endpoint: "https://api.openai.com/v1/chat/completions",
-      reason: parsed.reason,
-      correlationId: parsed.correlationId,
-    });
+    const provider =
+      existingProvider ??
+      (await registerAuthorizedAiProviderConfig(database, principal, {
+        providerKey: "openai",
+        adapterKey: "openai-compatible",
+        modelKey,
+        locality: "external",
+        endpoint: "https://api.openai.com/v1/chat/completions",
+        reason: parsed.reason,
+        correlationId: parsed.correlationId,
+      }));
     const existingRoute = await database.aiRoute.findUnique({
-      where: { routeKey_level_scopeId: { routeKey, level: "system", scopeId: parsed.systemScopeId } },
+      where: {
+        routeKey_level_scopeId: { routeKey, level: "system", scopeId: parsed.systemScopeId },
+      },
       include: {
         configs: {
           orderBy: { version: "desc" },
@@ -202,7 +207,10 @@ function parseArguments(argv: readonly string[]) {
   return ArgumentsSchema.parse(values);
 }
 
-if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
+) {
   const result = await registerUpdateTranscribeAiRoute(parseArguments(process.argv.slice(2)));
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }

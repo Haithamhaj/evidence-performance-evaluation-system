@@ -31,7 +31,11 @@ export async function uploadUpdateFile(
   const response = await fetcher("/api/daily-work/evidence/uploads", { method: "POST", body });
   if (!response.ok) throw new Error("upload");
   const value: unknown = await response.json();
-  if (typeof value !== "object" || value === null || typeof (value as { id?: unknown }).id !== "string") {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    typeof (value as { id?: unknown }).id !== "string"
+  ) {
     throw new Error("upload-response");
   }
   return {
@@ -43,8 +47,10 @@ export async function uploadUpdateFile(
 export async function collectCaptureSources(
   form: FormData,
   scope: CaptureScope,
-  upload: (file: File, scope: CaptureScope) => Promise<Extract<UpdateCaptureSource, { uploadedSourceId: string }>> =
-    uploadUpdateFile,
+  upload: (
+    file: File,
+    scope: CaptureScope,
+  ) => Promise<Extract<UpdateCaptureSource, { uploadedSourceId: string }>> = uploadUpdateFile,
 ): Promise<readonly UpdateCaptureSource[]> {
   const files = form
     .getAll("sourceFiles")
@@ -84,10 +90,7 @@ export function mergeResumedCaptureSources(
 
 export function updateDraftText<
   T extends Readonly<{ rawText: string; sources: readonly RecoverableCaptureSource[] }>,
->(
-  draft: T,
-  rawText: string,
-): T {
+>(draft: T, rawText: string): T {
   return { ...draft, rawText, sources: [...draft.sources] };
 }
 
