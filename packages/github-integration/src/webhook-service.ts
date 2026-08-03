@@ -39,24 +39,21 @@ export interface GitHubReceiptWriter {
   ): Promise<Readonly<{ receipt: "created" | "duplicate" }>>;
 }
 
-const EnvelopeSchema = z
-  .object({
-    action: z.string().trim().min(1).max(100),
-    installation: z.object({ id: z.union([z.string(), z.number()]) }).strict(),
-    repository: z.object({ id: z.union([z.string(), z.number()]), html_url: z.url() }).strict(),
-    pull_request: z
-      .object({
-        node_id: z.string().trim().min(1).max(500),
-        html_url: z.url(),
-        created_at: z.iso.datetime({ offset: true }),
-        merged_at: z.iso.datetime({ offset: true }).nullable().optional(),
-        closed_at: z.iso.datetime({ offset: true }).nullable().optional(),
-        title: z.string().trim().min(1).max(300).optional(),
-      })
-      .strict()
-      .optional(),
-  })
-  .strict();
+const EnvelopeSchema = z.object({
+  action: z.string().trim().min(1).max(100),
+  installation: z.object({ id: z.union([z.string(), z.number()]) }),
+  repository: z.object({ id: z.union([z.string(), z.number()]), html_url: z.url() }),
+  pull_request: z
+    .object({
+      node_id: z.string().trim().min(1).max(500),
+      html_url: z.url(),
+      created_at: z.iso.datetime({ offset: true }),
+      merged_at: z.iso.datetime({ offset: true }).nullable().optional(),
+      closed_at: z.iso.datetime({ offset: true }).nullable().optional(),
+      title: z.string().trim().min(1).max(300).optional(),
+    })
+    .optional(),
+});
 
 export class GitHubWebhookService {
   private readonly dependencies: Readonly<{

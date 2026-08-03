@@ -54,6 +54,36 @@ describe("GitHub reconciliation", () => {
     ]);
   });
 
+  it("does not count an idempotent replay as a recovered missed event", async () => {
+    const service = new GitHubReconciliationService({
+      bindings: { listActive: async () => [binding] },
+      cursors: { find: async () => "cursor-before", save: async () => undefined },
+      client: {
+        listEvents: async () => ({
+          kind: "success" as const,
+          nextCursor: "cursor-after",
+          events: [
+            {
+              deliveryId: "recovery:PR_43",
+              eventType: "pull_request",
+              sourceId: "PR_43",
+              sourceUrl: "https://github.com/leapai/atlas/pull/43",
+              occurredAt: "2026-08-03T11:00:00.000Z",
+              governedFacts: [{ kind: "pull_request" as const, state: "merged" as const }],
+            },
+          ],
+        }),
+      },
+      receipts: { receive: async () => ({ receipt: "duplicate" as const }) },
+    });
+
+    await expect(service.reconcile()).resolves.toEqual({
+      recovered: 0,
+      rateLimited: 0,
+      deleted: 0,
+    });
+  });
+
   it.each([
     [
       "deleted repository",

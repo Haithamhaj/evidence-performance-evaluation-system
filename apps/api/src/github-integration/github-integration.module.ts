@@ -15,11 +15,16 @@ const GITHUB_RECEIPTS = Symbol("GITHUB_RECEIPTS");
 const GITHUB_CURSORS = Symbol("GITHUB_CURSORS");
 const GITHUB_DATABASE_LIFECYCLE = Symbol("GITHUB_DATABASE_LIFECYCLE");
 
-class PrismaGitHubStore {
+export class PrismaGitHubStore {
   private readonly database: ReturnType<typeof createDatabaseClient>;
+  private readonly auditWriter: typeof databaseAuditWriter;
 
-  constructor(database: ReturnType<typeof createDatabaseClient>) {
+  constructor(
+    database: ReturnType<typeof createDatabaseClient>,
+    auditWriter: typeof databaseAuditWriter = databaseAuditWriter,
+  ) {
     this.database = database;
+    this.auditWriter = auditWriter;
   }
 
   async findActive(installationId: string, repositoryId: string) {
@@ -42,8 +47,8 @@ class PrismaGitHubStore {
   }
 
   async receive(receipt: import("@evaluation/github-integration").NormalizedGitHubReceipt) {
-    return withTransaction(this.database, async (transaction) => {
-      try {
+    try {
+      return await withTransaction(this.database, async (transaction) => {
         const event = await transaction.gitHubSourceEvent.create({
           data: {
             bindingId: receipt.bindingId,
@@ -58,7 +63,7 @@ class PrismaGitHubStore {
             governedFacts: receipt.governedFacts,
           },
         });
-        await databaseAuditWriter.append(transaction, {
+        await this.auditWriter.append(transaction, {
           eventType: "github.source_event.received",
           actor: { kind: "service", id: "bootstrap" },
           effectiveSubjectId: receipt.projectId,
@@ -76,11 +81,16 @@ class PrismaGitHubStore {
           source: "api",
         });
         return { receipt: "created" as const };
-      } catch (error) {
-        if (isUniqueDelivery(error)) return { receipt: "duplicate" as const };
-        throw error;
-      }
-    });
+      });
+    } catch (error) {
+      if (!isPotentialDeliveryConflict(error)) throw error;
+      const existing = await this.database.gitHubSourceEvent.findUnique({
+        where: { deliveryId: receipt.deliveryId },
+        select: { id: true },
+      });
+      if (existing !== null) return { receipt: "duplicate" as const };
+      throw error;
+    }
   }
 }
 
@@ -138,8 +148,14 @@ function serializeBinding(
   };
 }
 
-function isUniqueDelivery(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+function isPotentialDeliveryConflict(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error) || error.code !== "P2002") {
+    return false;
+  }
+  if (!("meta" in error) || typeof error.meta !== "object" || error.meta === null) return true;
+  const target = "target" in error.meta ? error.meta.target : undefined;
+  if (!Array.isArray(target)) return true;
+  return target.some((field) => field === "deliveryId");
 }
 
 function requiredDatabaseUrl(): string {

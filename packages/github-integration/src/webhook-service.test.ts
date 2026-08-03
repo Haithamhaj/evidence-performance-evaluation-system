@@ -96,6 +96,52 @@ describe("GitHub webhook verification", () => {
     ]);
   });
 
+  it("accepts standard unneeded GitHub fields while persisting only governed facts", async () => {
+    const { service, receipts } = createService();
+    const realisticBody = Buffer.from(
+      JSON.stringify({
+        action: "opened",
+        sender: {
+          login: "octocat",
+          id: 1,
+          avatar_url: "https://avatars.githubusercontent.com/u/1",
+        },
+        installation: { id: 7, account: { login: "leapai", type: "Organization" } },
+        organization: { login: "leapai", id: 99 },
+        repository: {
+          id: 42,
+          html_url: "https://github.com/leapai/atlas",
+          full_name: "leapai/atlas",
+          private: true,
+          owner: { login: "leapai", id: 99 },
+        },
+        pull_request: {
+          node_id: "PR_43",
+          html_url: "https://github.com/leapai/atlas/pull/43",
+          created_at: "2026-08-03T11:00:00.000Z",
+          title: "Realistic GitHub event",
+          user: { login: "octocat", id: 1 },
+          labels: [{ name: "safe" }],
+          head: { ref: "feature/webhook", sha: "abc123" },
+          base: { ref: "main", sha: "def456" },
+        },
+      }),
+    );
+    await expect(
+      service.receive({
+        rawBody: realisticBody,
+        signature: signature(realisticBody),
+        deliveryId: "delivery-realistic",
+        eventName: "pull_request",
+      }),
+    ).resolves.toEqual({ acknowledged: true, receipt: "created" });
+    expect(receipts).toEqual([
+      expect.objectContaining({
+        governedFacts: [{ kind: "pull_request", state: "open", title: "Realistic GitHub event" }],
+      }),
+    ]);
+  });
+
   it("rejects unsupported and wrongly bound events without writing a receipt", async () => {
     const { service, receipts } = createService();
     await expect(

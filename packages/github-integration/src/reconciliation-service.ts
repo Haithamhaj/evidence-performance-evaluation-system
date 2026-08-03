@@ -54,7 +54,7 @@ export class GitHubReconciliationService {
         continue;
       }
       for (const event of response.events) {
-        await this.dependencies.receipts.receive({
+        const receipt = await this.dependencies.receipts.receive({
           bindingId: binding.id,
           projectId: binding.projectId,
           installationRecordId: binding.installationRecordId,
@@ -67,7 +67,7 @@ export class GitHubReconciliationService {
           occurredAt: event.occurredAt,
           governedFacts: GovernedGitHubFactsSchema.parse(event.governedFacts),
         });
-        result.recovered += 1;
+        if (receipt.receipt === "created") result.recovered += 1;
       }
       await this.dependencies.cursors.save({
         bindingId: binding.id,

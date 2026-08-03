@@ -82,6 +82,44 @@ prettier --check (affected files)                                               
 
 Live GitHub App creation, installation, webhook-secret provisioning, organization approval, and
 real provider rate-limit/retry behavior intentionally remain blocked at the external human gate.
-The local verification runtime did not exactly match the repository's Node 24.18.0 pin. Task 3 is
-still required to turn stored source facts into employee-confirmable evidence or separately
-governed progress suggestions.
+Task 3 is still required to turn stored source facts into employee-confirmable evidence or
+separately governed progress suggestions.
+
+## Fix Round 1 — webhook delivery integrity
+
+### RED / GREEN evidence
+
+- **RED:** the production bootstrap test failed when `NestFactory.create(AppModule)` omitted
+  `{ rawBody: true }`; the assertion showed the missing option. The realistic GitHub payload test
+  failed with `GITHUB_WEBHOOK_PAYLOAD_INVALID` because the external envelope schemas were strict.
+  The Prisma-store tests initially failed because the store was not exported and P2002 handling
+  treated a generic uniqueness error as a duplicate. The reconciliation replay test observed an
+  incorrect `recovered: 1` for a duplicate receipt.
+- **GREEN:** `main.ts` enables Nest raw-body capture. External GitHub input schemas now tolerate
+  extra provider fields while the persisted `GovernedGitHubFactsSchema` remains strict. The Prisma
+  receipt writer uses a transaction for event plus audit, returns duplicate only after a confirmed
+  existing `deliveryId`, and rethrows audit/unrelated uniqueness failures. Reconciliation increments
+  recovered only for newly created receipts.
+
+### Added verification
+
+- Production-bootstrap regression test for raw-body capture.
+- Realistic GitHub webhook payload test containing sender, organization, repository, installation,
+  PR user/labels/head/base fields; storage remains the bounded fact only.
+- Prisma unit tests for an audit P2002 and a confirmed delivery replay.
+- Real PostgreSQL integration tests proving event plus audit atomicity, rollback when audit append
+  fails, and idempotent replay.
+
+### Fix Round 1 commands and results
+
+All final commands used `/opt/homebrew/opt/node@24/bin/node` **v24.18.0** and Corepack pnpm
+**11.13.0**.
+
+```text
+pnpm exec vitest run --project unit main.test.ts github-integration.module.test.ts webhook-service.test.ts  PASS (7 tests)
+TEST_DATABASE_URL=… pnpm exec vitest run --project integration github HTTP/store/reconciliation/schema tests  PASS (15 tests)
+pnpm --filter @evaluation/api lint && pnpm --filter @evaluation/api typecheck                    PASS
+pnpm --filter @evaluation/github-integration lint && pnpm --filter @evaluation/github-integration typecheck  PASS
+pnpm scan:secrets && pnpm scan:performance-inputs                                                  PASS
+prettier --check (affected files)                                                                  PASS
+```
