@@ -2,8 +2,8 @@
 
 ## Current Goal
 
-Hold Slice 3 before push and the Product Owner trust gate until the final confirmed-sender anchor
-P1 is resolved. Do not begin Slice 4.
+Hold the verified Slice 3 implementation at the Product Owner trust gate. Do not begin Slice 4
+without Product Owner approval.
 
 ## Current Reality
 
@@ -95,12 +95,11 @@ P1 is resolved. Do not begin Slice 4.
 - The optional live Context Intelligence smoke was not run: the route registrar dry-run passes, but
   the current local database has none of the three route registrations and the current process has
   no available provider credential. No route configuration or provider result was simulated.
-- The scoped final re-review confirmed the five remediation findings are closed, then found one new
-  load-bearing P1 in that remediation: an email address merely mentioned in untrusted Gmail title
-  or summary text can be emitted as `CONFIRMED_SENDER_DOMAIN` and combine with an explicit Project
-  reference to authorize `AUTO_LINK`, although provider-authenticated sender metadata is not stored.
-  The branch is intentionally unpushed after that finding; Slice 3 is not yet at the Product Owner
-  trust gate.
+- The scoped final re-review's confirmed-sender P1 is remediated. Gmail title/summary text no longer
+  emits `CONFIRMED_SENDER_DOMAIN`; a real regression proves that a stakeholder address mentioned
+  only in that untrusted text cannot combine with `EXPLICIT_PROJECT_REFERENCE` to authorize
+  `AUTO_LINK`. No provider-authenticated sender metadata was added. Focused verification passed 41
+  Context Intelligence unit tests, 15 API/database integration tests, and API lint/typecheck.
 
 ## Active Decisions
 
@@ -148,9 +147,8 @@ P1 is resolved. Do not begin Slice 4.
 
 ## Next Recommended Action
 
-Resolve the final confirmed-sender anchor P1 by removing that automatic anchor until governed
-provider-authenticated sender metadata or an employee-confirmed mapping exists. Re-run only the
-scoped regression and final review, then push and update Pull Request #5 if clean.
+Obtain Product Owner trust approval for Slice 3. Keep Slice 4 stopped until that approval is
+explicit.
 
 ## Critical References
 

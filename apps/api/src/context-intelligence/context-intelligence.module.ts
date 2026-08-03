@@ -176,20 +176,6 @@ export class ContextIntelligenceProjectAnchorAdapter {
           });
         }
       }
-      if (source.provider === "GOOGLE_GMAIL" && semantic !== null) {
-        const sourceDomains = emailDomains(sourceText);
-        const approvedDomains = new Set(emailDomains(semantic.stakeholders.join("\n")));
-        if ([...sourceDomains].some((domain) => approvedDomains.has(domain))) {
-          records.push({
-            projectId: project.id,
-            kind: "CONFIRMED_SENDER_DOMAIN",
-            reference: `sender-domain:${source.id}`,
-            conflicts: false,
-            effectiveFrom,
-            effectiveUntil: null,
-          });
-        }
-      }
     }
     return records.slice(0, 100);
   }
@@ -207,14 +193,6 @@ function normalizeMatchText(value: string): string {
     .replace(/[^\p{L}\p{N}@.]+/gu, " ")
     .replace(/\s+/gu, " ")
     .trim();
-}
-
-function emailDomains(value: string): Set<string> {
-  return new Set(
-    [...value.matchAll(/\b[A-Z0-9._%+-]+@([A-Z0-9.-]+\.[A-Z]{2,})\b/giu)].map((match) =>
-      match[1]!.toLocaleLowerCase("en"),
-    ),
-  );
 }
 
 function validDate(value: string): Date {

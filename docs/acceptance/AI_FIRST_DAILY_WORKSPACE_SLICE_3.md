@@ -47,6 +47,14 @@ All five are remediated and have focused regression coverage:
    the Projects public transaction-aware membership/state lock. The weaker out-of-transaction link
    precheck and Work Items' local unlocked Project authorization are no longer used for these paths.
 
+The scoped re-review then found one final P1 in the new production composition: a stakeholder email
+address mentioned only inside untrusted Gmail title/summary text was being treated as
+`CONFIRMED_SENDER_DOMAIN` and could combine with `EXPLICIT_PROJECT_REFERENCE` to authorize
+`AUTO_LINK`. Production composition no longer emits that anchor from Gmail text. A regression using
+the real adapter, anchor reader, and decision policy proves the same input remains in employee
+review. Provider-authenticated sender metadata was not added; the anchor remains unavailable from
+this source until a governed provider contract or employee confirmation exists.
+
 No migration, rating behavior, readiness behavior, ranking behavior, or protected product rule
 changed. The bounded final reviews have no remaining P0/P1 finding.
 
@@ -177,6 +185,10 @@ All final remediation checks used Node.js `24.18.0` and pnpm `11.13.0`:
 - Repository formatting and task-graph validation passed.
 - Secret scan: **986 files**; performance-input scan: **494 files**; AI boundary scan: **598 source
   files** — all passed.
+- Final confirmed-sender regression: expected RED exposed
+  `EXPLICIT_PROJECT_REFERENCE + CONFIRMED_SENDER_DOMAIN`; GREEN passed **4/4** composition tests,
+  **41/41** related Context Intelligence unit tests, **15/15** focused API/database integration
+  tests, and API lint/typecheck.
 
 Exact executed commands and results are also recorded in the Slice 3 Task 6 report.
 

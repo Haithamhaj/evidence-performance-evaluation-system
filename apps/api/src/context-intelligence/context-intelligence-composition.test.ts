@@ -207,4 +207,65 @@ describe("Context Intelligence production anchor composition", () => {
       ),
     ).toMatchObject({ kind: "REVIEW", reasons: ["INSUFFICIENT_INDEPENDENT_ANCHORS"] });
   });
+
+  it("does not auto-link when a stakeholder address appears only in untrusted Gmail text", async () => {
+    const employeeId = crypto.randomUUID();
+    const sourceItemId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const adapter = new ContextIntelligenceProjectAnchorAdapter(
+      {
+        get: async () => ({
+          id: sourceItemId,
+          employeeId,
+          provider: "GOOGLE_GMAIL",
+          occurredAt: "2026-08-02T12:00:00.000Z",
+          title: "Atlas Delivery — mention finance@example.com",
+          summary:
+            "The message body repeats finance@example.com without authenticated sender data.",
+        }),
+        readProjectAnchorFacts: async () => ({ links: [], corrections: [] }),
+      } as never,
+      {
+        listProjects: async () => [
+          { id: projectId, name: "Atlas Delivery", departmentId: crypto.randomUUID() },
+        ],
+      } as never,
+      {
+        read: async () => ({
+          projectId,
+          documentId: crypto.randomUUID(),
+          documentVersionId: crypto.randomUUID(),
+          documentVersion: 1,
+          sourceReferences: [`document-source:${crypto.randomUUID()}`],
+          purpose: [],
+          outcomes: [],
+          milestones: [],
+          deliverables: [],
+          terminology: [],
+          stakeholders: ["finance@example.com"],
+          operationalKpis: [],
+          acceptanceConditions: [],
+          evidenceRequirements: [],
+        }),
+      } as never,
+    );
+    const reader = new ProjectAnchorReader(adapter, {
+      canAccessProject: async () => true,
+    });
+
+    const candidates = await reader.read({
+      employeeId,
+      sourceItemId,
+      at: new Date("2026-08-02T12:01:00.000Z"),
+    });
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]!.anchors.map(({ anchor }) => anchor.kind)).toEqual([
+      "EXPLICIT_PROJECT_REFERENCE",
+    ]);
+    expect(decideProjectLink(candidates)).toMatchObject({
+      kind: "REVIEW",
+      reasons: ["INSUFFICIENT_INDEPENDENT_ANCHORS"],
+    });
+  });
 });

@@ -10,8 +10,10 @@
 
 ## Outcome
 
-All five assigned P1 blockers are fixed in production paths with RED/GREEN regression coverage.
-Slice 3 is ready for the Product Owner trust gate. Slice 4 remains stopped.
+All five originally assigned P1 blockers are fixed in production paths with RED/GREEN regression
+coverage. The final re-review found one additional sender-anchor P1 in that composition; the
+bounded 2026-08-03 repair below closes it. Slice 3 is ready for the Product Owner trust gate. Slice
+4 remains stopped.
 
 ## What changed
 
@@ -109,9 +111,45 @@ before `.env.test`, the complete suite passed. No failing product check remains.
 - No rating, ranking, productivity score, activity-volume metric, or Documentation Readiness score
   was added.
 
+## Final confirmed-sender repair — 2026-08-03
+
+**Starting commit:** `3dbf67c`
+
+The production adapter previously parsed email addresses from owner-visible but untrusted Gmail
+`title` and `summary` text. When a mentioned address shared a domain with an approved Project
+stakeholder address, it emitted `CONFIRMED_SENDER_DOMAIN`. Combined with
+`EXPLICIT_PROJECT_REFERENCE`, that second anchor could authorize `AUTO_LINK` without any
+provider-authenticated sender metadata.
+
+The repair removes only that anchor derivation and its now-unused text parser. The bounded anchor
+type remains in the governed contract for a future trusted provider-metadata or employee-confirmed
+source. No provider metadata, migration, schema, matching-policy, or protected-rule change was
+added.
+
+TDD evidence:
+
+1. Added a production-composition regression using the real
+   `ContextIntelligenceProjectAnchorAdapter`, `ProjectAnchorReader`, and `decideProjectLink`.
+2. RED command:
+   `pnpm exec vitest run --project unit apps/api/src/context-intelligence/context-intelligence-composition.test.ts`
+   — failed 1/4 because the actual anchors were
+   `EXPLICIT_PROJECT_REFERENCE + CONFIRMED_SENDER_DOMAIN`.
+3. After the minimal production removal, the same GREEN command passed 4/4.
+4. Related Context Intelligence units passed 41/41:
+   `pnpm exec vitest run --project unit packages/context-intelligence/src apps/api/src/context-intelligence/context-intelligence-composition.test.ts`.
+5. Focused database-backed API integration passed 15/15:
+   `pnpm exec vitest run --project integration apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts`
+   after loading `.env.example` and `.env.test`.
+6. `pnpm --filter @evaluation/api lint` and
+   `pnpm --filter @evaluation/api typecheck` both exited successfully.
+
+Result: a stakeholder address mentioned only in Gmail title/summary can contribute no confirmed
+sender-domain anchor. Even when the same text contains an explicit Project reference, the decision
+remains `REVIEW` with `INSUFFICIENT_INDEPENDENT_ANCHORS`; it cannot become `AUTO_LINK`.
+
 ## Remaining P0/P1 risk
 
-None identified within the assigned Slice 3 remediation scope.
+None identified within the assigned Slice 3 remediation scope after this repair.
 
 ## Project-state update
 
