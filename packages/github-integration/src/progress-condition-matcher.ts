@@ -79,15 +79,21 @@ export type ProgressConditionMatch =
  */
 export function matchProgressConditions(input: unknown): ProgressConditionMatch {
   const parsed = InputSchema.parse(input);
-  const matches = parsed.conditions.filter(
-    (condition) =>
-      condition.contractId === parsed.activeContract.id &&
-      condition.contractVersion === parsed.activeContract.version &&
-      condition.sourceIdentity.installationId === parsed.source.installationId &&
-      condition.sourceIdentity.repositoryId === parsed.source.repositoryId &&
-      condition.sourceIdentity.sourceId === parsed.source.sourceId &&
-      condition.acceptanceState === parsed.source.acceptanceState,
-  );
+  const matches = [
+    ...new Map(
+      parsed.conditions
+        .filter(
+          (condition) =>
+            condition.contractId === parsed.activeContract.id &&
+            condition.contractVersion === parsed.activeContract.version &&
+            condition.sourceIdentity.installationId === parsed.source.installationId &&
+            condition.sourceIdentity.repositoryId === parsed.source.repositoryId &&
+            condition.sourceIdentity.sourceId === parsed.source.sourceId &&
+            condition.acceptanceState === parsed.source.acceptanceState,
+        )
+        .map((condition) => [condition.id, condition] as const),
+    ).values(),
+  ];
   if (matches.length === 0) return { state: "no_match", sourceEventId: parsed.source.eventId };
   if (matches.length > 1) {
     return {

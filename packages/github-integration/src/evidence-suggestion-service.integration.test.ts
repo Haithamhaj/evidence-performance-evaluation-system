@@ -20,13 +20,13 @@ describe("GitHubEvidenceSuggestionService", () => {
     [{ kind: "deployment", state: "success", environment: "production" }],
   ] as const)(
     "creates a governed suggestion for a verified %s fact without creating personal evidence",
-    (fact) => {
+    async (fact) => {
       const suggestions: unknown[] = [];
       const service = new GitHubEvidenceSuggestionService({
         suggestions: { publish: (suggestion) => void suggestions.push(suggestion) },
       });
 
-      const result = service.suggest({ ...event, governedFacts: [fact] });
+      const result = await service.suggest({ ...event, governedFacts: [fact] });
 
       expect(result).toMatchObject({
         state: "suggested",
@@ -42,16 +42,28 @@ describe("GitHubEvidenceSuggestionService", () => {
     },
   );
 
-  it("does not create a suggestion from an unverified source event", () => {
+  it("does not create a suggestion from an unverified source event", async () => {
     const suggestions: unknown[] = [];
     const service = new GitHubEvidenceSuggestionService({
       suggestions: { publish: (suggestion) => void suggestions.push(suggestion) },
     });
 
-    expect(service.suggest({ ...event, verificationState: "REJECTED" })).toEqual({
+    await expect(service.suggest({ ...event, verificationState: "REJECTED" })).resolves.toEqual({
       state: "ignored",
       sourceEventId: event.id,
     });
     expect(suggestions).toEqual([]);
+  });
+
+  it("does not report a suggestion when durable publication fails", async () => {
+    const service = new GitHubEvidenceSuggestionService({
+      suggestions: {
+        publish: async () => {
+          throw new Error("durable writer unavailable");
+        },
+      },
+    });
+
+    await expect(service.suggest(event)).rejects.toThrow("durable writer unavailable");
   });
 });

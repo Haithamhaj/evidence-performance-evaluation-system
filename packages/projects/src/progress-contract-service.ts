@@ -1,8 +1,10 @@
 import { databaseAuditWriter } from "@evaluation/audit";
-import { matchProgressConditions } from "@evaluation/github-integration";
+import {
+  DatabaseGitHubGovernedSourceReader,
+  matchProgressConditions,
+} from "@evaluation/github-integration";
 import {
   AppError,
-  GovernedGitHubFactsSchema,
   ProgressContractDecisionInputSchema,
   type AuditWriter,
 } from "@evaluation/contracts";
@@ -74,6 +76,7 @@ export class ProgressContractService {
     "snapshotIn"
   >;
   private readonly clock: () => Date;
+  private readonly githubSourceReader: import("@evaluation/github-integration").GitHubGovernedSourceReader;
 
   constructor(
     client: DatabaseClient,
@@ -81,12 +84,14 @@ export class ProgressContractService {
     documentReader: ProgressDocumentSourceReader,
     identityReader: Pick<import("./criteria-review-reader.js").CriteriaReviewReader, "snapshotIn">,
     clock: () => Date,
+    githubSourceReader: import("@evaluation/github-integration").GitHubGovernedSourceReader,
   ) {
     this.client = client;
     this.auditWriter = auditWriter;
     this.documentReader = documentReader;
     this.identityReader = identityReader;
     this.clock = clock;
+    this.githubSourceReader = githubSourceReader;
   }
 
   async propose(
@@ -186,44 +191,43 @@ export class ProgressContractService {
 
   async evaluateGitHubSource(command: unknown): Promise<GitHubSourceEvaluation> {
     const parsed = GitHubSourceCommandSchema.parse(command);
+    const source = await this.githubSourceReader.getVerifiedSource({
+      sourceEventId: parsed.sourceEventId,
+    });
+    if (source === null) {
+      throw new AppError("GITHUB_SOURCE_EVENT_INVALID", "errors.github.sourceEventInvalid", 409);
+    }
     return this.client.$transaction(
       async (transaction) => {
-        const event = await transaction.gitHubSourceEvent.findUnique({
-          where: { id: parsed.sourceEventId },
-          include: { binding: { select: { projectId: true } } },
-        });
-        if (event === null || event.verificationState !== "VERIFIED") {
-          throw new AppError(
-            "GITHUB_SOURCE_EVENT_INVALID",
-            "errors.github.sourceEventInvalid",
-            409,
-          );
-        }
         const activeContract = await transaction.progressContract.findFirst({
           where: {
-            projectId: event.binding.projectId,
+            projectId: source.projectId,
             state: "active",
-            effectiveAt: { lte: event.occurredAt },
+            effectiveAt: { lte: source.occurredAt },
           },
           orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
           select: { id: true, contractVersion: true, state: true },
         });
         if (activeContract === null) {
-          return this.queueGitHubReview(transaction, {
-            sourceEventId: event.id,
-            bindingId: event.bindingId,
-            projectId: event.binding.projectId,
+          const evaluation = {
+            sourceEventId: source.sourceEventId,
+            bindingId: source.bindingId,
+            projectId: source.projectId,
             disposition: "no_match",
             candidateRuleIds: [],
-          });
+            contractId: null,
+            contractVersion: null,
+          } as const;
+          await this.recordGitHubEvaluation(transaction, evaluation);
+          return this.ownerReviewRequired(evaluation);
         }
         const rules = await transaction.gitHubContractRule.findMany({
           where: {
-            bindingId: event.bindingId,
+            bindingId: source.bindingId,
             contractId: activeContract.id,
             contractVersion: activeContract.contractVersion,
-            effectiveAt: { lte: event.occurredAt },
-            OR: [{ expiresAt: null }, { expiresAt: { gt: event.occurredAt } }],
+            effectiveAt: { lte: source.occurredAt },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: source.occurredAt } }],
           },
           select: {
             id: true,
@@ -233,91 +237,136 @@ export class ProgressContractService {
             acceptanceState: true,
           },
         });
-        const facts = GovernedGitHubFactsSchema.parse(event.governedFacts);
-        const matches = facts.flatMap((fact) =>
-          rules
-            .filter((rule) => rule.eventKind === fact.kind)
-            .map((rule) =>
-              matchProgressConditions({
-                source: {
-                  eventId: event.id,
-                  installationId: event.installationId,
-                  repositoryId: event.repositoryId,
-                  sourceId: event.sourceId,
-                  acceptanceState: fact.state,
-                },
-                activeContract: {
-                  id: activeContract.id,
-                  version: activeContract.contractVersion,
-                  state: activeContract.state,
-                },
-                conditions: [
-                  {
-                    id: rule.id,
-                    contractId: activeContract.id,
-                    contractVersion: activeContract.contractVersion,
-                    componentId: rule.componentId,
-                    sourceIdentity: {
-                      installationId: event.installationId,
-                      repositoryId: event.repositoryId,
-                      sourceId: rule.sourceId,
+        const matchesByRuleId = new Map(
+          source.governedFacts
+            .flatMap((fact) =>
+              rules
+                .filter((rule) => rule.eventKind === fact.kind)
+                .map((rule) =>
+                  matchProgressConditions({
+                    source: {
+                      eventId: source.sourceEventId,
+                      installationId: source.installationId,
+                      repositoryId: source.repositoryId,
+                      sourceId: source.sourceId,
+                      acceptanceState: fact.state,
                     },
-                    acceptanceState: rule.acceptanceState,
-                  },
-                ],
-              }),
-            ),
+                    activeContract: {
+                      id: activeContract.id,
+                      version: activeContract.contractVersion,
+                      state: activeContract.state,
+                    },
+                    conditions: [
+                      {
+                        id: rule.id,
+                        contractId: activeContract.id,
+                        contractVersion: activeContract.contractVersion,
+                        componentId: rule.componentId,
+                        sourceIdentity: {
+                          installationId: source.installationId,
+                          repositoryId: source.repositoryId,
+                          sourceId: rule.sourceId,
+                        },
+                        acceptanceState: rule.acceptanceState,
+                      },
+                    ],
+                  }),
+                ),
+            )
+            .filter((match) => match.state === "matched")
+            .map((match) => [match.conditionId, match] as const),
         );
-        const matched = matches.filter((match) => match.state === "matched");
+        const matched = [...matchesByRuleId.values()];
         if (matched.length === 1) {
           const match = matched[0]!;
+          await this.recordGitHubEvaluation(transaction, {
+            sourceEventId: source.sourceEventId,
+            bindingId: source.bindingId,
+            projectId: source.projectId,
+            disposition: "matched",
+            candidateRuleIds: [match.conditionId],
+            contractId: activeContract.id,
+            contractVersion: activeContract.contractVersion,
+          });
           return {
             state: "matched",
-            sourceEventId: event.id,
-            projectId: event.binding.projectId,
+            sourceEventId: source.sourceEventId,
+            projectId: source.projectId,
             contractId: match.contractId,
             contractVersion: match.contractVersion,
             componentId: match.componentId,
             ruleId: match.conditionId,
           };
         }
-        return this.queueGitHubReview(transaction, {
-          sourceEventId: event.id,
-          bindingId: event.bindingId,
-          projectId: event.binding.projectId,
+        const evaluation = {
+          sourceEventId: source.sourceEventId,
+          bindingId: source.bindingId,
+          projectId: source.projectId,
           disposition: matched.length === 0 ? "no_match" : "ambiguous",
           candidateRuleIds: matched.map((match) => match.conditionId).sort(),
-        });
+          contractId: activeContract.id,
+          contractVersion: activeContract.contractVersion,
+        } as const;
+        await this.recordGitHubEvaluation(transaction, evaluation);
+        return this.ownerReviewRequired(evaluation);
       },
       { isolationLevel: "Serializable" },
     );
   }
 
-  private async queueGitHubReview(
+  private async recordGitHubEvaluation(
     transaction: Transaction,
     input: Readonly<{
       sourceEventId: string;
       bindingId: string;
       projectId: string;
-      disposition: "no_match" | "ambiguous";
+      disposition: "matched" | "no_match" | "ambiguous";
       candidateRuleIds: readonly string[];
+      contractId: string | null;
+      contractVersion: number | null;
     }>,
-  ): Promise<GitHubSourceEvaluation> {
-    const existing = await transaction.gitHubProgressReview.findUnique({
+  ): Promise<void> {
+    const latest = await transaction.gitHubProgressReview.findFirst({
       where: { sourceEventId: input.sourceEventId },
-      select: { id: true },
+      orderBy: { evaluationSequence: "desc" },
+      select: { evaluationSequence: true },
     });
-    if (existing === null) {
-      await transaction.gitHubProgressReview.create({
-        data: {
+    const review = await transaction.gitHubProgressReview.create({
+      data: {
+        sourceEventId: input.sourceEventId,
+        bindingId: input.bindingId,
+        projectId: input.projectId,
+        contractId: input.contractId,
+        contractVersion: input.contractVersion,
+        evaluationSequence: (latest?.evaluationSequence ?? 0) + 1,
+        disposition: input.disposition,
+      },
+    });
+    const contractId = input.contractId;
+    const contractVersion = input.contractVersion;
+    if (contractId !== null && contractVersion !== null && input.candidateRuleIds.length > 0) {
+      await transaction.gitHubProgressReviewCandidate.createMany({
+        data: input.candidateRuleIds.map((ruleId) => ({
+          reviewId: review.id,
+          ruleId,
           sourceEventId: input.sourceEventId,
           bindingId: input.bindingId,
           projectId: input.projectId,
-          disposition: input.disposition,
-          candidateRuleIds: [...input.candidateRuleIds],
-        },
+          contractId,
+          contractVersion,
+        })),
       });
     }
+  }
+
+  private ownerReviewRequired(
+    input: Readonly<{
+      sourceEventId: string;
+      projectId: string;
+      disposition: "no_match" | "ambiguous";
+      candidateRuleIds: readonly string[];
+    }>,
+  ): GitHubSourceEvaluation {
     return {
       state: "owner_review_required",
       sourceEventId: input.sourceEventId,
@@ -424,5 +473,12 @@ export function createProgressContractService(
   writer: AuditWriter<Transaction> = databaseAuditWriter as AuditWriter<Transaction>,
   clock: () => Date = () => new Date(),
 ): ProgressContractService {
-  return new ProgressContractService(client, writer, documentReader, identityReader, clock);
+  return new ProgressContractService(
+    client,
+    writer,
+    documentReader,
+    identityReader,
+    clock,
+    new DatabaseGitHubGovernedSourceReader(client),
+  );
 }

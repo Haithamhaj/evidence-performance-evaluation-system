@@ -32,5 +32,10 @@ export type {
   GitHubEvidenceSuggestion,
   GitHubEvidenceSuggestionWriter,
 } from "./evidence-suggestion-service.js";
+export { DatabaseGitHubGovernedSourceReader } from "./governed-source-reader.js";
+export type {
+  GitHubGovernedSourceReader,
+  VerifiedGitHubGovernedSource,
+} from "./governed-source-reader.js";
 export { matchProgressConditions } from "./progress-condition-matcher.js";
 export type { ProgressConditionMatch } from "./progress-condition-matcher.js";

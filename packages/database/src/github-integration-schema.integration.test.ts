@@ -362,7 +362,7 @@ describe("GitHub integration schema", () => {
     ).rejects.toSatisfy(databaseConstraint);
   });
 
-  it("keeps ambiguous and non-matching source events in an immutable Project-owner review queue", async () => {
+  it("appends immutable GitHub source evaluations so the latest sequence derives current state", async () => {
     const fixture = await seedFixture();
     const repositoryId = `repository-${crypto.randomUUID()}`;
     const bindingId = await insertBinding(fixture, { repositoryId });
@@ -381,12 +381,36 @@ describe("GitHub integration schema", () => {
     const reviewId = crypto.randomUUID();
     await client.$executeRaw`
       INSERT INTO "GitHubProgressReview" (
-        "id", "sourceEventId", "bindingId", "projectId", "disposition", "candidateRuleIds", "createdAt"
+        "id", "sourceEventId", "bindingId", "projectId", "contractId", "contractVersion", "evaluationSequence", "disposition", "createdAt"
       ) VALUES (
         ${reviewId}::uuid, ${sourceEventId}::uuid, ${bindingId}::uuid, ${fixture.projectId}::uuid,
-        'no_match'::"GitHubProgressReviewDisposition", '[]'::jsonb, CURRENT_TIMESTAMP
+        NULL, NULL, 1, 'no_match'::"GitHubProgressReviewDisposition", CURRENT_TIMESTAMP
+      ), (
+        ${crypto.randomUUID()}::uuid, ${sourceEventId}::uuid, ${bindingId}::uuid, ${fixture.projectId}::uuid,
+        NULL, NULL, 2, 'matched'::"GitHubProgressReviewDisposition", CURRENT_TIMESTAMP
       )
     `;
+    await expect(
+      client.$queryRaw<Array<{ evaluationSequence: number; disposition: string }>>`
+        SELECT "evaluationSequence", "disposition"
+        FROM "GitHubProgressReview"
+        WHERE "sourceEventId" = ${sourceEventId}::uuid
+        ORDER BY "evaluationSequence" ASC
+      `,
+    ).resolves.toEqual([
+      { evaluationSequence: 1, disposition: "no_match" },
+      { evaluationSequence: 2, disposition: "matched" },
+    ]);
+    await expect(
+      client.$executeRaw`
+        INSERT INTO "GitHubProgressReview" (
+          "id", "sourceEventId", "bindingId", "projectId", "contractId", "contractVersion", "evaluationSequence", "disposition", "createdAt"
+        ) VALUES (
+          ${crypto.randomUUID()}::uuid, ${sourceEventId}::uuid, ${bindingId}::uuid, ${fixture.projectId}::uuid,
+          NULL, NULL, 2, 'ambiguous'::"GitHubProgressReviewDisposition", CURRENT_TIMESTAMP
+        )
+      `,
+    ).rejects.toSatisfy(databaseConstraint);
     await expect(
       client.$executeRaw`
         UPDATE "GitHubProgressReview" SET "disposition" = 'ambiguous'::"GitHubProgressReviewDisposition"
@@ -394,37 +418,127 @@ describe("GitHub integration schema", () => {
       `,
     ).rejects.toSatisfy(databaseConstraint);
   });
+
+  it("rejects cross-Project and cross-binding candidate rules through scoped relational links", async () => {
+    const fixture = await seedFixture();
+    const repositoryId = `repository-${crypto.randomUUID()}`;
+    const bindingId = await insertBinding(fixture, { repositoryId });
+    const sameProjectBindingId = await insertBinding(fixture, {
+      repositoryId: `repository-${crypto.randomUUID()}`,
+    });
+    const otherProjectBindingId = await insertBinding(fixture, {
+      projectId: fixture.otherProjectId,
+      repositoryId: `repository-${crypto.randomUUID()}`,
+    });
+    const sourceEventId = crypto.randomUUID();
+    await client.$executeRaw`
+      INSERT INTO "GitHubSourceEvent" (
+        "id", "bindingId", "installationId", "repositoryId", "deliveryId", "eventType", "sourceId", "sourceUrl",
+        "occurredAt", "verificationState", "governedFacts", "createdAt"
+      ) VALUES (
+        ${sourceEventId}::uuid, ${bindingId}::uuid, ${fixture.installationId}::uuid, ${repositoryId},
+        ${`delivery-${crypto.randomUUID()}`}, 'pull_request', 'PR_42', 'https://github.com/leapai/atlas/pull/42',
+        CURRENT_TIMESTAMP, 'VERIFIED'::"GitHubEventVerificationState", '[{"kind":"pull_request","state":"merged"}]'::jsonb,
+        CURRENT_TIMESTAMP
+      )
+    `;
+    const contract = await insertContract(fixture);
+    const otherContract = await insertContract(fixture, {
+      projectId: fixture.otherProjectId,
+      templateVersionId: contract.templateVersionId,
+    });
+    const reviewId = crypto.randomUUID();
+    await client.$executeRaw`
+      INSERT INTO "GitHubProgressReview" (
+        "id", "sourceEventId", "bindingId", "projectId", "contractId", "contractVersion", "evaluationSequence", "disposition", "createdAt"
+      ) VALUES (
+        ${reviewId}::uuid, ${sourceEventId}::uuid, ${bindingId}::uuid, ${fixture.projectId}::uuid,
+        ${contract.id}::uuid, 1, 1, 'ambiguous'::"GitHubProgressReviewDisposition", CURRENT_TIMESTAMP
+      )
+    `;
+    const ruleId = crypto.randomUUID();
+    const sameProjectRuleId = crypto.randomUUID();
+    const otherProjectRuleId = crypto.randomUUID();
+    for (const [id, candidateBindingId, candidateContract] of [
+      [ruleId, bindingId, contract],
+      [sameProjectRuleId, sameProjectBindingId, contract],
+      [otherProjectRuleId, otherProjectBindingId, otherContract],
+    ] as const) {
+      await client.$executeRaw`
+        INSERT INTO "GitHubContractRule" (
+          "id", "bindingId", "contractId", "contractVersion", "componentId", "sourceId", "eventKind", "acceptanceState", "effectiveAt", "createdAt"
+        ) VALUES (
+          ${id}::uuid, ${candidateBindingId}::uuid, ${candidateContract.id}::uuid, 1, ${candidateContract.componentId}::uuid,
+          'PR_42', 'pull_request', 'merged', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+      `;
+    }
+    await client.$executeRaw`
+      INSERT INTO "GitHubProgressReviewCandidate" (
+        "id", "reviewId", "sourceEventId", "bindingId", "projectId", "ruleId", "contractId", "contractVersion", "createdAt"
+      ) VALUES (
+        ${crypto.randomUUID()}::uuid, ${reviewId}::uuid, ${sourceEventId}::uuid, ${bindingId}::uuid, ${fixture.projectId}::uuid,
+        ${ruleId}::uuid, ${contract.id}::uuid, 1, CURRENT_TIMESTAMP
+      )
+    `;
+    await expect(
+      client.$executeRaw`
+        INSERT INTO "GitHubProgressReviewCandidate" (
+          "id", "reviewId", "sourceEventId", "bindingId", "projectId", "ruleId", "contractId", "contractVersion", "createdAt"
+        ) VALUES (
+          ${crypto.randomUUID()}::uuid, ${reviewId}::uuid, ${sourceEventId}::uuid, ${sameProjectBindingId}::uuid, ${fixture.projectId}::uuid,
+          ${sameProjectRuleId}::uuid, ${contract.id}::uuid, 1, CURRENT_TIMESTAMP
+        )
+      `,
+    ).rejects.toSatisfy(databaseConstraint);
+    await expect(
+      client.$executeRaw`
+        INSERT INTO "GitHubProgressReviewCandidate" (
+          "id", "reviewId", "sourceEventId", "bindingId", "projectId", "ruleId", "contractId", "contractVersion", "createdAt"
+        ) VALUES (
+          ${crypto.randomUUID()}::uuid, ${reviewId}::uuid, ${sourceEventId}::uuid, ${otherProjectBindingId}::uuid, ${fixture.otherProjectId}::uuid,
+          ${otherProjectRuleId}::uuid, ${otherContract.id}::uuid, 1, CURRENT_TIMESTAMP
+        )
+      `,
+    ).rejects.toSatisfy(databaseConstraint);
+  });
 });
 
-async function insertContract(fixture: Fixture): Promise<{ id: string; componentId: string }> {
+async function insertContract(
+  fixture: Fixture,
+  overrides: Readonly<{ projectId?: string; templateVersionId?: string }> = {},
+): Promise<{ id: string; componentId: string; templateVersionId: string }> {
+  const projectId = overrides.projectId ?? fixture.projectId;
   const templateId = crypto.randomUUID();
-  const templateVersionId = crypto.randomUUID();
+  const templateVersionId = overrides.templateVersionId ?? crypto.randomUUID();
   const documentId = crypto.randomUUID();
   const documentVersionId = crypto.randomUUID();
   const contractId = crypto.randomUUID();
   const componentId = crypto.randomUUID();
-  await client.$executeRaw`
+  if (overrides.templateVersionId === undefined) {
+    await client.$executeRaw`
     INSERT INTO "DocumentTemplate" (
       "id", "organizationId", "departmentId", "scopeType", "kind", "lockVersion", "createdById", "createdAt"
     ) VALUES (
       ${templateId}::uuid, ${fixture.organizationId}::uuid, ${fixture.departmentId}::uuid,
       'department'::"TemplateScopeType", 'project'::"DocumentKind", 1, ${fixture.ownerId}::uuid, CURRENT_TIMESTAMP
     )
-  `;
-  await client.$executeRaw`
+    `;
+    await client.$executeRaw`
     INSERT INTO "DocumentTemplateVersion" (
       "id", "templateId", "version", "status", "reason", "createdById", "activatedAt", "createdAt"
     ) VALUES (
       ${templateVersionId}::uuid, ${templateId}::uuid, 1, 'active'::"DocumentTemplateVersionStatus",
       'Schema fixture', ${fixture.ownerId}::uuid, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
     )
-  `;
+    `;
+  }
   await client.$executeRaw`
     INSERT INTO "DocumentRecord" (
       "id", "organizationId", "departmentId", "projectId", "templateVersionId", "currentVersion", "createdById", "createdAt"
     ) VALUES (
       ${documentId}::uuid, ${fixture.organizationId}::uuid, ${fixture.departmentId}::uuid,
-      ${fixture.projectId}::uuid, ${templateVersionId}::uuid, 1, ${fixture.ownerId}::uuid, CURRENT_TIMESTAMP
+      ${projectId}::uuid, ${templateVersionId}::uuid, 1, ${fixture.ownerId}::uuid, CURRENT_TIMESTAMP
     )
   `;
   await client.$executeRaw`
@@ -441,7 +555,7 @@ async function insertContract(fixture: Fixture): Promise<{ id: string; component
       "calculationKind", "calculationSchemaVersion", "contractVersion", "version", "state", "ownerId", "approverId",
       "effectiveAt", "approvedAt", "createdById", "createdAt", "updatedAt"
     ) VALUES (
-      ${contractId}::uuid, 'project'::"ProgressScopeKind", ${fixture.projectId}::uuid,
+      ${contractId}::uuid, 'project'::"ProgressScopeKind", ${projectId}::uuid,
       ${documentId}::uuid, ${documentVersionId}::uuid, 1, 'weighted'::"ProgressCalculationKind", '1.0.0',
       1, 1, 'active'::"ProgressContractState", ${fixture.ownerId}::uuid, ${fixture.ownerId}::uuid,
       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ${fixture.ownerId}::uuid, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
@@ -456,5 +570,5 @@ async function insertContract(fixture: Fixture): Promise<{ id: string; component
       'Schema fixture', 100, '["Merged"]'::jsonb, '["PR"]'::jsonb, 'deterministic'::"ProgressConfirmationMode", CURRENT_TIMESTAMP
     )
   `;
-  return { id: contractId, componentId };
+  return { id: contractId, componentId, templateVersionId };
 }

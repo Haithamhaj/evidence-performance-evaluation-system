@@ -110,6 +110,29 @@ describe("matchProgressConditions", () => {
     });
   });
 
+  it("deduplicates repeated evaluations of the same rule before deciding that review is needed", () => {
+    const condition = {
+      id: "release-gate",
+      contractId,
+      contractVersion: 3,
+      componentId: "00000000-0000-4000-8000-000000000303",
+      sourceIdentity: {
+        installationId: "installation-7",
+        repositoryId: "repository-42",
+        sourceId: "PR_42",
+      },
+      acceptanceState: "merged" as const,
+    };
+
+    expect(
+      matchProgressConditions({
+        source,
+        activeContract: { id: contractId, version: 3, state: "active" },
+        conditions: [condition, condition],
+      }),
+    ).toMatchObject({ state: "matched", conditionId: "release-gate" });
+  });
+
   it.each(["commit_count", "changed_lines", "changed_files", "commit_frequency", "author_volume"])(
     "rejects %s as a condition field",
     (prohibitedField) => {

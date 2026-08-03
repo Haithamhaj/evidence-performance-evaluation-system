@@ -82,12 +82,16 @@ function harness() {
       contributorIds: [],
     })),
   };
+  const githubSourceReader = {
+    getVerifiedSource: vi.fn<() => Promise<any>>(async () => null),
+  };
   const service = new ProgressContractService(
     database as never,
     auditWriter as never,
     documentReader as never,
     identityReader as never,
     () => now,
+    githubSourceReader as never,
   );
   return {
     actorId,
@@ -99,6 +103,7 @@ function harness() {
     transaction,
     auditWriter,
     documentReader,
+    githubSourceReader,
     get row() {
       return row;
     },
@@ -246,19 +251,17 @@ describe("ProgressContractService", () => {
   it("uses only persisted active-contract GitHub rules and queues ambiguous source events for Project-owner review", async () => {
     const context = harness();
     const sourceEventId = crypto.randomUUID();
-    context.transaction.gitHubSourceEvent = {
-      findUnique: vi.fn(async () => ({
-        id: sourceEventId,
-        bindingId: crypto.randomUUID(),
-        installationId: crypto.randomUUID(),
-        repositoryId: "repository-42",
-        sourceId: "PR_42",
-        occurredAt: now,
-        verificationState: "VERIFIED",
-        governedFacts: [{ kind: "pull_request", state: "merged" }],
-        binding: { projectId: context.projectId },
-      })),
-    };
+    const bindingId = crypto.randomUUID();
+    context.githubSourceReader.getVerifiedSource.mockResolvedValueOnce({
+      sourceEventId,
+      bindingId,
+      projectId: context.projectId,
+      installationId: crypto.randomUUID(),
+      repositoryId: "repository-42",
+      sourceId: "PR_42",
+      occurredAt: now,
+      governedFacts: [{ kind: "pull_request", state: "merged" }],
+    });
     context.transaction.progressContract.findFirst.mockResolvedValueOnce({
       id: crypto.randomUUID(),
       contractVersion: 3,
@@ -277,8 +280,11 @@ describe("ProgressContractService", () => {
       ),
     };
     context.transaction.gitHubProgressReview = {
-      findUnique: vi.fn(async () => null),
+      findFirst: vi.fn(async () => null),
       create: vi.fn(async () => ({ id: crypto.randomUUID() })),
+    };
+    context.transaction.gitHubProgressReviewCandidate = {
+      createMany: vi.fn(async () => ({ count: 2 })),
     };
 
     await expect(context.service.evaluateGitHubSource({ sourceEventId })).resolves.toMatchObject({
@@ -291,9 +297,15 @@ describe("ProgressContractService", () => {
         data: expect.objectContaining({
           sourceEventId,
           disposition: "ambiguous",
-          candidateRuleIds: ["one", "two"],
         }),
       }),
     );
+    expect(context.transaction.gitHubProgressReviewCandidate.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ ruleId: "one" }),
+        expect.objectContaining({ ruleId: "two" }),
+      ]),
+    });
+    expect(context.githubSourceReader.getVerifiedSource).toHaveBeenCalledWith({ sourceEventId });
   });
 });

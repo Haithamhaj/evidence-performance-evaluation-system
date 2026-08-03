@@ -35,9 +35,9 @@ export class GitHubEvidenceSuggestionService {
     this.suggestions = dependencies.suggestions;
   }
 
-  suggest(
+  async suggest(
     input: unknown,
-  ): GitHubEvidenceSuggestion | Readonly<{ state: "ignored"; sourceEventId: string }> {
+  ): Promise<GitHubEvidenceSuggestion | Readonly<{ state: "ignored"; sourceEventId: string }>> {
     const event = InputSchema.parse(input);
     if (event.verificationState !== "VERIFIED") {
       return { state: "ignored", sourceEventId: event.id };
@@ -52,7 +52,7 @@ export class GitHubEvidenceSuggestionService {
       governedFacts: event.governedFacts,
       confirmationState: "employee_confirmation_required",
     };
-    void this.suggestions.publish(suggestion);
+    await this.suggestions.publish(suggestion);
     return suggestion;
   }
 }
