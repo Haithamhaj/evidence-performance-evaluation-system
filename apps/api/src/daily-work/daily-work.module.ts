@@ -18,6 +18,10 @@ import { DailyWorkController, ProgressContractsController } from "./daily-work.c
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
 import { ProjectDashboardQueryService } from "./project-dashboard-query.service.js";
 import {
+  createDatabaseManagerOperationsQueryService,
+  ManagerOperationsQueryService,
+} from "./manager-operations-query.service.js";
+import {
   createDatabaseCheckInService,
   createDatabaseReadinessQueryService,
   ReadinessQueryService,
@@ -90,6 +94,12 @@ Module({
       provide: ReadinessQueryService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
         createDatabaseReadinessQueryService(client),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: ManagerOperationsQueryService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        createDatabaseManagerOperationsQueryService(client),
       inject: [DAILY_WORK_DATABASE],
     },
     {

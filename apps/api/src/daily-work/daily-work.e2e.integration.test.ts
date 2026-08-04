@@ -147,6 +147,20 @@ describe("daily work protected API contracts", () => {
     expect(readiness.employeeProjectMonth).toHaveBeenCalledWith(actorId, projectId);
   });
 
+  it("binds manager operations to the authenticated principal", async () => {
+    const managerOperations = { load: vi.fn(async () => ({ approvalsWaiting: [] })) };
+    const controller = new DailyWorkController(
+      {} as never,
+      undefined,
+      undefined,
+      managerOperations as never,
+    );
+
+    await controller.managerOperationsView(request);
+
+    expect(managerOperations.load).toHaveBeenCalledWith(actorId);
+  });
+
   it("server-composes the approved source request without exposing document identity", async () => {
     const progress = {
       getProjectProgress: vi.fn(async () => ({

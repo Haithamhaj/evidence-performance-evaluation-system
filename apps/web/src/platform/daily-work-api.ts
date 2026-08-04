@@ -27,7 +27,8 @@ export type DailyWorkRoute =
   | { readonly kind: "update_context" }
   | { readonly kind: "project"; readonly projectId: string }
   | { readonly kind: "check_ins" }
-  | { readonly kind: "readiness"; readonly projectId: string };
+  | { readonly kind: "readiness"; readonly projectId: string }
+  | { readonly kind: "manager_operations" };
 
 const UuidSchema = WebUuidSchema;
 const WorkItemSchema = WebWorkItemSchema;
@@ -118,6 +119,33 @@ export const WebMonthlyReadinessSchema = z
     ),
   })
   .strict();
+const WebManagerOperationItemSchema = z
+  .object({
+    id: UuidSchema,
+    projectId: UuidSchema,
+    projectName: z.string().trim().min(1).max(240),
+    label: z.string().trim().min(1).max(240).optional(),
+    detailKey: z.enum([
+      "approval_waiting",
+      "project_paused",
+      "progress_source_ambiguous",
+      "ownership_missing",
+      "commitment_upcoming",
+    ]),
+    dueAt: z.iso.datetime({ offset: true }).optional(),
+  })
+  .strict();
+export const WebManagerOperationsSchema = z
+  .object({
+    approvalsWaiting: z.array(WebManagerOperationItemSchema),
+    blockedProjects: z.array(WebManagerOperationItemSchema),
+    ambiguousProgressEvidence: z.array(WebManagerOperationItemSchema),
+    ownershipGaps: z.array(WebManagerOperationItemSchema),
+    upcomingCommitments: z.array(WebManagerOperationItemSchema),
+    readinessHref: z.literal("/manager/readiness"),
+    evaluationHref: z.literal("/manager/evaluations"),
+  })
+  .strict();
 export const WebCurrentUserSchema = z.object({ userId: WebUuidSchema }).passthrough();
 export { WebTaskWorkspaceResponseSchema };
 export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
@@ -196,6 +224,7 @@ function routePath(route: DailyWorkRoute): string {
   if (route.kind === "projects") return "/api/v1/daily-work/projects";
   if (route.kind === "update_context") return "/api/v1/daily-work/update-context";
   if (route.kind === "check_ins") return "/api/v1/daily-work/check-ins";
+  if (route.kind === "manager_operations") return "/api/v1/daily-work/manager/operations";
   if (route.kind === "readiness") {
     return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}/readiness`;
   }

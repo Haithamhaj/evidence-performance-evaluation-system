@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
+import { ManagerOperationsQueryService } from "./manager-operations-query.service.js";
 import { ReadinessQueryService } from "./readiness-query.service.js";
 
 type Request = Readonly<{
@@ -28,15 +29,18 @@ export class DailyWorkController {
   private readonly query: DailyWorkQueryService;
   private readonly checkIns: Pick<CheckInService, "listForEmployee"> | undefined;
   private readonly readiness: Pick<ReadinessQueryService, "employeeProjectMonth"> | undefined;
+  private readonly managerOperations: Pick<ManagerOperationsQueryService, "load"> | undefined;
 
   constructor(
     query: DailyWorkQueryService,
     checkIns?: Pick<CheckInService, "listForEmployee">,
     readiness?: Pick<ReadinessQueryService, "employeeProjectMonth">,
+    managerOperations?: Pick<ManagerOperationsQueryService, "load">,
   ) {
     this.query = query;
     this.checkIns = checkIns;
     this.readiness = readiness;
+    this.managerOperations = managerOperations;
   }
 
   myWork(request: Request): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot> {
@@ -66,6 +70,13 @@ export class DailyWorkController {
       request.principal.userId,
       z.string().uuid().parse(projectId),
     );
+  }
+
+  managerOperationsView(request: Request) {
+    if (this.managerOperations === undefined) {
+      throw new Error("Manager operations service is not configured");
+    }
+    return this.managerOperations.load(request.principal.userId);
   }
 }
 
@@ -133,6 +144,7 @@ UseGuards(WorkItemsPolicyGuard)(DailyWorkController);
 Inject(DailyWorkQueryService)(DailyWorkController, undefined, 0);
 Inject(CheckInService)(DailyWorkController, undefined, 1);
 Inject(ReadinessQueryService)(DailyWorkController, undefined, 2);
+Inject(ManagerOperationsQueryService)(DailyWorkController, undefined, 3);
 
 const myWork = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "myWork")!;
 Req()(DailyWorkController.prototype, "myWork", 0);
@@ -171,6 +183,17 @@ Get("projects/:projectId/readiness")(
   DailyWorkController.prototype,
   "readinessForProject",
   readinessForProject,
+);
+
+const managerOperationsView = Object.getOwnPropertyDescriptor(
+  DailyWorkController.prototype,
+  "managerOperationsView",
+)!;
+Req()(DailyWorkController.prototype, "managerOperationsView", 0);
+Get("manager/operations")(
+  DailyWorkController.prototype,
+  "managerOperationsView",
+  managerOperationsView,
 );
 
 Controller("api/v1/projects")(ProgressContractsController);
