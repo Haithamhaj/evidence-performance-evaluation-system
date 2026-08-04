@@ -16,6 +16,7 @@ import {
   PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
 } from "./progress-contract-draft-artifacts.js";
+import { assertAllowedProgressMeasures } from "./progress-contract-invariants.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
@@ -234,6 +235,7 @@ export class ProgressContractDraftService {
         },
         async (transaction, rawOutput) => {
           const output = ProgressContractAiDraftOutputSchema.parse(rawOutput);
+          assertAllowedProgressMeasures(output.components);
           assertSourceReferences(output, source.sourceReferences);
           await lockRequest(transaction, prepared.request.id);
           const current = await transaction.progressContractAiDraftRequest.findUnique({
@@ -385,6 +387,7 @@ export class ProgressContractDraftService {
   async reviseDraft(command: unknown): Promise<ProgressContractDraftReceipt> {
     const parsed = ReviseDraftSchema.parse(command);
     const content = ProgressContractAiDraftOutputSchema.parse(parsed.content);
+    assertAllowedProgressMeasures(content.components);
     return this.client.$transaction(
       async (transaction) => {
         const context = await this.lockAuthorizedReady(
@@ -502,6 +505,7 @@ export class ProgressContractDraftService {
           );
         }
         const content = ProgressContractAiDraftOutputSchema.parse(selected.content);
+        assertAllowedProgressMeasures(content.components);
         const mappedComponents = content.components.map((component) => ({
           clientKey: component.clientKey,
           componentId: randomUUID(),
@@ -582,6 +586,8 @@ export class ProgressContractDraftService {
             requestId: context.request.id,
             selectedRevision: parsed.selectedRevision,
             contractState: "draft",
+            sourceDocumentVersion: context.request.documentVersion.version,
+            appliedContractVersion: contract.contractVersion,
           },
           correlationId: parsed.correlationId,
           source: "api",
@@ -1052,7 +1058,9 @@ function receiptFrom(
 function safeFailureCode(error: unknown): string {
   if (error instanceof z.ZodError) return "invalid_output";
   if (error instanceof AppError) {
-    if (/OUTPUT|SCHEMA|SOURCE_REFERENCE/iu.test(error.code)) return "invalid_output";
+    if (/OUTPUT|SCHEMA|SOURCE_REFERENCE|PROHIBITED_MEASURE/iu.test(error.code)) {
+      return "invalid_output";
+    }
     if (/TIMEOUT/iu.test(error.code)) return "timeout";
     if (/PROVIDER|ROUTE/iu.test(error.code)) return "provider_failure";
     if (/PERSISTENCE/iu.test(error.code)) return "persistence_failure";

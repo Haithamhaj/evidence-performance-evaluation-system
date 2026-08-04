@@ -402,7 +402,19 @@ export class ProgressContractService {
           );
         if (current.projectId !== parsed.projectId)
           throw new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
-        if (current.ownerId !== parsed.actor.userId)
+        const resourceId = current.workstreamId ?? current.projectId;
+        const identity = await this.identityReader.snapshotIn(transaction, {
+          kind: current.scopeKind,
+          resourceId,
+          at: now,
+        });
+        if (
+          identity === null ||
+          identity.kind !== current.scopeKind ||
+          identity.resourceId !== resourceId ||
+          identity.projectId !== current.projectId ||
+          identity.primaryOwnerId !== parsed.actor.userId
+        )
           throw new AppError("PROGRESS_CONTRACT_FORBIDDEN", "errors.common.forbidden", 403);
         if (current.state !== fromState)
           throw new AppError(
@@ -455,7 +467,13 @@ export class ProgressContractService {
           targetType: "progress_contract",
           targetId: current.id,
           reason: parsed.input.reason,
-          safeDiff: { fromState, toState, version: resultingVersion },
+          safeDiff: {
+            fromState,
+            toState,
+            version: resultingVersion,
+            contractVersion: current.contractVersion,
+            sourceDocumentVersion: current.sourceDocumentVersionNo,
+          },
           correlationId: parsed.correlationId,
           source: "api",
         });

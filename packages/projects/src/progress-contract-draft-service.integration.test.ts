@@ -180,6 +180,7 @@ function harness() {
     propose: vi.fn(async ({ draft }: any) => ({
       id: crypto.randomUUID(),
       state: "draft",
+      contractVersion: 1,
       ...draft,
     })),
   };
@@ -410,6 +411,49 @@ describe("ProgressContractDraftService", () => {
     expect(context.revisions).toEqual([]);
   });
 
+  it("rejects an AI proposal that tries to convert raw activity into Project progress", async () => {
+    const context = harness();
+    context.aiRouter.run.mockImplementationOnce(async (_input: any, persist: any) => {
+      await persist(
+        {
+          $queryRaw: vi.fn(async () => []),
+          progressContractAiDraftRequest: {
+            findUnique: vi.fn(async () => context.request),
+            update: vi.fn(async ({ data }: any) => Object.assign(context.request, data)),
+          },
+          progressContractAiDraftRevision: {
+            findFirst: vi.fn(async () => context.revisions.at(-1) ?? null),
+            create: vi.fn(async ({ data }: any) => {
+              context.revisions.push(data);
+              return data;
+            }),
+          },
+        },
+        {
+          ...aiContent,
+          components: [
+            {
+              ...aiContent.components[0],
+              name: "Commit count",
+              description: "Count commits as progress.",
+              unit: "commits",
+              baseline: 0,
+              target: 20,
+              direction: "increase",
+            },
+          ],
+        },
+      );
+      throw new Error("unreachable");
+    });
+
+    await expect(context.service.requestDraft(context.requestInput)).rejects.toMatchObject({
+      code: "PROGRESS_CONTRACT_AI_DRAFT_FAILED",
+    });
+    expect(context.request).toMatchObject({ state: "failed", failureCode: "invalid_output" });
+    expect(context.revisions).toEqual([]);
+  });
+
   it("retries the same failed request without creating a second request", async () => {
     const context = harness();
     context.aiRouter.run.mockRejectedValueOnce(new Error("provider unavailable"));
@@ -503,6 +547,19 @@ describe("ProgressContractDraftService", () => {
     expect(applied.componentMappings).toEqual([
       { clientKey: "release", componentId: generatedComponentId },
     ]);
+    expect(context.audit.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: "progress_contract_ai_draft.applied",
+        actor: { kind: "human", id: actor.userId },
+        reason: "Create the human-reviewed ordinary contract draft.",
+        safeDiff: expect.objectContaining({
+          sourceDocumentVersion: 2,
+          selectedRevision: 1,
+          appliedContractVersion: 1,
+        }),
+      }),
+    );
     expect(context.appliedComponentMappings).toEqual([
       expect.objectContaining({
         requestId: ready.requestId,
