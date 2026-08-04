@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { WorkerHealthController } from "./health.controller.js";
+import {
+  createWorkerEnvironmentReadinessProbes,
+  WorkerHealthController,
+} from "./health.controller.js";
 
 describe("WorkerHealthController", () => {
   it("keeps liveness independent from dependencies", () => {
@@ -24,5 +27,17 @@ describe("WorkerHealthController", () => {
       checks: { configuration: "up", postgres: "up", redis: "down" },
     });
     expect(response.status).toHaveBeenCalledWith(503);
+  });
+
+  it("marks readiness down after the dedicated consumer loop fails", async () => {
+    const probes = createWorkerEnvironmentReadinessProbes(
+      { isHealthy: () => false },
+      {
+        DATABASE_URL: "postgresql://unit.invalid/worker",
+        REDIS_URL: "redis://unit.invalid:6379",
+      },
+    );
+
+    expect(await probes.configuration()).toBe(false);
   });
 });

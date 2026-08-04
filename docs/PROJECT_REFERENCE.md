@@ -479,6 +479,54 @@ If required information is missing:
 
 The system must not create a competing internal source of truth by storing missing answers only inside the platform.
 
+## 9.7 Project and Workstream Progress Contract
+
+The approved Project Master Document remains the source of truth for project intent, scope, deliverables, and success conditions.
+
+Each active Project, and each Workstream when separately measurable, has a versioned Progress Contract derived from the approved document. The contract is owned by the Projects domain and contains:
+
+- Milestones.
+- Deliverables.
+- Operational KPIs.
+- KPI baseline, target, unit, and direction.
+- Acceptance conditions.
+- Required evidence.
+- Optional approved weights.
+- Owner and approver.
+- Effective date and version.
+- The measurable rule used to calculate progress.
+
+AI may propose a draft contract from the source document, but an authorized human must review and approve it before it becomes effective.
+
+Official progress is calculated only from the approved measurable rules and confirmed source-supported values in the active contract. It must never be inferred from:
+
+- Number or percentage of completed Work Items.
+- Task volume.
+- Update frequency.
+- GitHub activity.
+- Commit count.
+- File count.
+- Lines changed.
+
+A Work Item, update, or evidence item may support a contract milestone or KPI, propose a value change, or signal that the source document may need revision. It does not change the contract by itself.
+
+A verified GitHub event may automatically prove a deterministic condition already mapped in the active Progress Contract, such as an approved pull request being merged after every required check passes. In that case, the contract rule—not GitHub activity volume—determines the resulting operational progress. An unbound, ambiguous, conflicting, or qualitatively judged event creates a reviewable Project suggestion and cannot change official progress automatically.
+
+Automatic Project progress and personal contribution evidence remain separate. The same GitHub event is only suggested evidence for an employee contribution and requires the employee to review and confirm the supported claim and contribution context before it becomes a contribution record.
+
+When an approved rule contains a qualitative condition that cannot be confirmed automatically, an authorized human may confirm whether that contract-defined condition has been met. The system then recalculates progress from the approved rule. A user cannot directly enter or override the overall progress percentage.
+
+If the available information is insufficient, the prior official progress remains unchanged and the system identifies the missing confirmation or evidence. Progress may decrease when an approved measurable value decreases or a previously satisfied condition is no longer satisfied; the explanation and resulting snapshot are preserved in append-only history.
+
+Any material change to milestones, KPIs, acceptance conditions, weights, or calculation rules requires:
+
+1. A new material version of the Project or Workstream Document.
+2. An impact explanation.
+3. Authorized owner approval.
+4. A new prospective Progress Contract version and effective date.
+
+Previous progress snapshots remain linked to the contract version that produced them. Project progress is an operational status of the Project or Workstream. It is not employee performance, a productivity score, or a rating recommendation.
+
 ---
 
 # 10. Workstream Document
@@ -677,6 +725,31 @@ Employees may add updates whenever meaningful work occurs.
 There is no artificial daily limit.
 
 An employee may submit multiple updates per day.
+
+The update lifecycle is:
+
+1. The employee provides raw text or voice.
+2. AI detects missing context and asks one visible question at a time, continuing for as many questions as are needed.
+3. The employee attaches evidence or reviews suggested evidence in the same flow.
+4. The system compares the update with the previous relevant state.
+5. AI structures the update and identifies any proposed milestone, KPI, criterion, or evidence relationship.
+6. The employee edits the structured draft.
+7. The employee explicitly confirms it.
+8. The system appends the confirmed timeline event without overwriting prior events.
+
+The prototype may use deterministic simulated AI. Production AI uses the AI Router only. AI output remains a draft until the employee confirms it.
+
+Each evidence item identifies:
+
+- The supported claim.
+- The Project.
+- The related Work Item when the evidence supports one.
+- The Workstream when applicable.
+- The related operational KPI or dynamic criterion when applicable.
+- Contribution context.
+- Verification state.
+
+AI may draft an evidence description, but employee review and confirmation are mandatory. On mobile, opening evidence for review must show a visible drawer or bottom sheet rather than placing the form below the evidence list.
 
 ## 14.2 Thursday Check-in
 
@@ -1041,13 +1114,13 @@ They are not yet final until their names, definitions, examples, anchors, and we
 
 The pilot uses a 1-to-5 scale:
 
-| Rating | Meaning |
-|---:|---|
-| 1 | Significantly below expectations |
-| 2 | Below expectations in important areas |
-| 3 | Consistently meets expectations |
-| 4 | Consistently exceeds expectations |
-| 5 | Exceptional, sustained, and clearly impactful performance |
+| Rating | Meaning                                                   |
+| -----: | --------------------------------------------------------- |
+|      1 | Significantly below expectations                          |
+|      2 | Below expectations in important areas                     |
+|      3 | Consistently meets expectations                           |
+|      4 | Consistently exceeds expectations                         |
+|      5 | Exceptional, sustained, and clearly impactful performance |
 
 ## 20.1 Behavioral Anchors
 
@@ -1948,6 +2021,11 @@ Audit events include:
 
 Shows:
 
+- My Work as the employee default home.
+- Needs My Action first.
+- Today second.
+- Overdue third.
+- Remaining work groups through progressive disclosure.
 - Active Projects and Workstreams.
 - Ownership and contributor roles.
 - Latest updates.
@@ -1964,7 +2042,7 @@ Shows:
 
 ## 34.2 Manager Dashboard
 
-Shows:
+Prioritizes compact, actionable operational queues rather than oversized metric-only cards. It shows:
 
 - Team members.
 - Active Projects and Workstreams.
@@ -1982,7 +2060,9 @@ Shows:
 - Development plans.
 - Identified upward manager evaluations in the pilot.
 
-The manager dashboard does not show individual Documentation Readiness percentages or readiness ranking.
+Employee quick-add and quick-update actions are hidden unless the same user is also acting as an authorized contributor or owner. Documentation Readiness and evaluation remain separate navigation and conceptual paths.
+
+The manager dashboard does not show individual Documentation Readiness percentages, employee readiness percentages, readiness rankings, productivity scores, completion leaderboards, predicted ratings, or employee rankings.
 
 ## 34.3 System Administrator Dashboard
 
@@ -2189,6 +2269,11 @@ The following decisions are approved:
 - Same fixed expectations apply to pilot employees.
 - Project context is handled through dynamic criteria and contribution evidence.
 - Project documentation is mandatory.
+- Every measurable Project, and every separately measurable Workstream, uses a versioned and human-approved Progress Contract derived from its approved source document.
+- Official progress is calculated only from approved measurable milestones, deliverables, operational KPIs, acceptance conditions, and their confirmed values.
+- Work Item completion, task volume, update frequency, GitHub activity, commits, files, and lines changed do not calculate Project or Workstream progress.
+- The overall progress percentage cannot be entered or overridden directly; authorized human confirmation is limited to qualitative conditions already defined by the approved contract.
+- Project and Workstream progress is operational status, not employee performance.
 - Projects may contain Workstreams.
 - Each Project has one Primary Project Owner.
 - Each Workstream has one Primary Workstream Owner.
@@ -2200,9 +2285,12 @@ The following decisions are approved:
 - Project Contribution has a fixed section weight.
 - No automatic average across Projects or Workstreams.
 - Thursday weekly check-ins are mandatory when no substantive update exists.
+- Employee updates use a multi-turn clarification flow, show one AI question at a time, and require employee edit and confirmation before becoming append-only timeline events.
+- Manual evidence is available inside the update flow and requires employee confirmation.
 - A Monthly Evaluation Readiness Review identifies thin evidence before quarter-end without imposing evidence quotas.
 - Images are valid evidence when contextualized.
-- GitHub activity is suggested evidence only.
+- GitHub activity is suggested evidence only for personal contribution records; employee confirmation remains mandatory.
+- A verified GitHub event may prove a deterministic, pre-approved Progress Contract condition, but raw GitHub activity volume never calculates progress.
 - Cycle 1 is a Calibration — Non-Baseline cycle.
 - English-only pilot use is permitted; Arabic employee use requires approved Arabic rubric content, semantic review, and RTL support.
 - The manager sees operational Documentation Readiness states but not employee percentages or rankings.

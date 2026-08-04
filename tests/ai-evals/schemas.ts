@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { AnalysisSourceReferenceSchema } from "../../packages/contracts/src/document-analysis.js";
 import { approvedEnglishRubric } from "../../packages/localization/src/index.js";
 
 export const ALL_PROHIBITED_CONCEPTS = [
@@ -119,10 +120,15 @@ export const ManifestEntrySchema = z
     ]),
     provenance: z.string().min(1),
     inputPath: z.string().min(1),
-    expectedSchemaVersion: z.enum(["ai-eval-output.v1", "speech-golden.v1"]),
+    expectedSchemaVersion: z.enum([
+      "ai-eval-output.v1",
+      "speech-golden.v1",
+      "document-analysis-eval.v1",
+      "dynamic-criteria-eval.v1",
+    ]),
     requiredSourceReferences: z.array(SourceReferenceSchema),
     forbiddenConcepts: z.array(ProhibitedConceptCodeSchema).min(1),
-    expectedDisposition: z.enum(["allow", "reject", "integrity_only"]),
+    expectedDisposition: z.enum(["allow", "reject", "integrity_only", "mixed"]),
   })
   .strict();
 
@@ -157,5 +163,128 @@ export const SpeechGoldenRowSchema = z
 
 export const SpeechGoldenSchema = z.array(SpeechGoldenRowSchema).length(2);
 
+const FixtureLocaleSchema = z.string().min(2);
+const FixtureDispositionSchema = z.enum(["allow", "reject"]);
+const ExtractionCoverageSchema = z.enum(["complete", "unsupported", "failed"]);
+const ExtractionSourceSchema = z
+  .object({
+    reference: AnalysisSourceReferenceSchema,
+    sourceType: z.enum(["upload", "external_link", "github"]),
+    mediaType: z.string().min(1),
+    format: z.enum(["text", "markdown", "docx", "pdf", "image", "audio", "url", "github"]),
+    content: z.string().min(1).optional(),
+    location: z.string().min(1).optional(),
+    expectedCoverage: ExtractionCoverageSchema,
+  })
+  .strict();
+
+const ReadinessEvalCaseSchema = z
+  .object({
+    id: z.string().min(1),
+    operation: z.literal("readiness"),
+    documentKind: z.enum(["project", "workstream"]),
+    locale: FixtureLocaleSchema,
+    dialect: z.string().min(1),
+    sourceReferences: z.array(AnalysisSourceReferenceSchema).min(1),
+    documentContent: z.string().min(1),
+    sources: z.array(ExtractionSourceSchema).min(1),
+    adapterOutput: z.unknown(),
+    managerProjection: z.unknown(),
+    expectedDisposition: FixtureDispositionSchema,
+    expectedState: z.enum(["incomplete", "ready_for_criteria_generation"]).optional(),
+  })
+  .strict();
+
+const ComparisonEvalCaseSchema = z
+  .object({
+    id: z.string().min(1),
+    operation: z.literal("comparison"),
+    locale: FixtureLocaleSchema,
+    dialect: z.string().min(1),
+    sourceReferences: z.array(AnalysisSourceReferenceSchema).length(2),
+    beforeContent: z.string().min(1),
+    afterContent: z.string().min(1),
+    adapterOutput: z.unknown(),
+    expectedDisposition: FixtureDispositionSchema,
+    expectedClassification: z
+      .enum(["editorial", "routine_execution_update", "material_scope_or_goal_change"])
+      .optional(),
+  })
+  .strict();
+
+const ManagerProjectionEvalCaseSchema = z
+  .object({
+    id: z.string().min(1),
+    operation: z.literal("manager_projection"),
+    locale: FixtureLocaleSchema,
+    dialect: z.string().min(1),
+    sourceReferences: z.array(AnalysisSourceReferenceSchema).min(1),
+    adapterOutput: z.unknown(),
+    expectedDisposition: FixtureDispositionSchema,
+  })
+  .strict();
+
+const BundleFixtureMetadataSchema = z
+  .object({
+    version: SemverSchema,
+    locale: z.literal("multi"),
+    dialect: z.literal("mixed"),
+    classification: z.literal("internal"),
+    provenance: z.string().min(1),
+    requiredSourceReferences: z.array(AnalysisSourceReferenceSchema).min(1),
+  })
+  .strict();
+
+export const DocumentAnalysisFixtureFileSchema = BundleFixtureMetadataSchema.extend({
+  id: z.literal("document-analysis"),
+  expectedSchemaVersion: z.literal("document-analysis-eval.v1"),
+  expectedDisposition: z.literal("mixed"),
+  cases: z
+    .array(
+      z.discriminatedUnion("operation", [
+        ReadinessEvalCaseSchema,
+        ComparisonEvalCaseSchema,
+        ManagerProjectionEvalCaseSchema,
+      ]),
+    )
+    .min(1),
+}).strict();
+
+export const DynamicCriteriaEvalCaseSchema = z
+  .object({
+    id: z.string().min(1),
+    kind: z.enum(["project", "workstream"]),
+    locale: FixtureLocaleSchema,
+    dialect: z.string().min(1),
+    sourceReferences: z.array(AnalysisSourceReferenceSchema).min(1),
+    documentContent: z.string().min(1),
+    technicalPath: z.string().min(1).optional(),
+    ownerFeedback: z.string().min(1).optional(),
+    objectionText: z.string().min(1).optional(),
+    adapterOutput: z.unknown(),
+    expectedDisposition: FixtureDispositionSchema,
+    expectedCount: z.number().int().min(1).max(3).optional(),
+    expectedViolation: z
+      .enum([
+        "invalid_schema",
+        "invalid_count",
+        "rating",
+        "ranking",
+        "productivity",
+        "automatic_average",
+      ])
+      .optional(),
+  })
+  .strict();
+
+export const DynamicCriteriaFixtureFileSchema = BundleFixtureMetadataSchema.extend({
+  id: z.literal("dynamic-criteria"),
+  expectedSchemaVersion: z.literal("dynamic-criteria-eval.v1"),
+  expectedDisposition: z.literal("mixed"),
+  cases: z.array(DynamicCriteriaEvalCaseSchema).min(1),
+}).strict();
+
 export type EvalCaseContract = z.infer<typeof EvalCaseSchema>;
 export type ManifestEntry = z.infer<typeof ManifestEntrySchema>;
+export type DocumentAnalysisFixtureFile = z.infer<typeof DocumentAnalysisFixtureFileSchema>;
+export type DynamicCriteriaFixtureFile = z.infer<typeof DynamicCriteriaFixtureFileSchema>;

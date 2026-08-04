@@ -1,12 +1,12 @@
 export { decide } from "./decide.js";
 export type {
-  ActingOwnerWindow,
   Decision,
   DenialReason,
   PolicyAction,
   PolicyContext,
   PolicyInput,
   PolicyResource,
+  ResponsibilityAccessWindow,
   Role,
   ScopeType,
 } from "./model.js";

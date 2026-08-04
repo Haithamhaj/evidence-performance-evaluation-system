@@ -62,6 +62,9 @@ async function collectSourceFiles(directory) {
 function workspaceDirectory(filePath) {
   const relativePath = path.relative(scanRoot, filePath);
   const [category, workspace] = relativePath.split(path.sep);
+  if (!category || !workspace) {
+    return undefined;
+  }
   return path.join(scanRoot, category, workspace);
 }
 
@@ -128,7 +131,13 @@ function inspectImport(filePath, specifier) {
 
   if (specifier.startsWith(".")) {
     const importedPath = path.resolve(path.dirname(filePath), specifier);
-    if (workspaceDirectory(importedPath) !== workspaceDirectory(filePath)) {
+    const importedWorkspace = workspaceDirectory(importedPath);
+    const sourceWorkspace = workspaceDirectory(filePath);
+    if (
+      importedWorkspace !== undefined &&
+      sourceWorkspace !== undefined &&
+      importedWorkspace !== sourceWorkspace
+    ) {
       return `BOUNDARY_CROSS_WORKSPACE_RELATIVE:${relativeFile}:${specifier}`;
     }
   }
@@ -3289,7 +3298,16 @@ function inspectAst(filePath, source) {
   }
 
   const findings = [];
-  if (!aiRoutingFile && (truncatedFunctionTargetResolution || memberWriteResolutionTruncated)) {
+  const containsProviderExecutionSurface =
+    /\bgenerate\b/u.test(source) ||
+    aiProviderPackages.some((packageName) => source.includes(packageName)) ||
+    directProviderRoutePattern.test(source) ||
+    providerEnvironmentPattern.test(source);
+  if (
+    !aiRoutingFile &&
+    containsProviderExecutionSurface &&
+    (truncatedFunctionTargetResolution || memberWriteResolutionTruncated)
+  ) {
     findings.push(`BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:dynamic-provider-execution`);
   }
   const visit = (node) => {

@@ -7,7 +7,7 @@
 **Architecture style:** Modular monolith with separate web, API, and worker processes  
 **Implementation objective:** Build the complete integrated product in ordered phases  
 **Parent references:** `PROJECT_REFERENCE.md`, `EVALUATION_RUBRIC.md`  
-**Revision:** 1.2 — Phase 0 closure, English-only pilot permission, deferred Arabic semantic approval, and fast controlled execution
+**Revision:** 1.3 — AI-first Daily Workspace reset and six bounded Phase 2 execution slices
 
 ---
 
@@ -260,11 +260,15 @@ Owns:
 
 - GitHub App installation.
 - Repository access.
+- Versioned Project/Workstream repository bindings to an active Progress Contract.
+- Deterministic source mappings for approved milestones, deliverables, KPIs, and acceptance conditions.
 - Document synchronization.
 - Webhook ingestion.
 - PR, commit, check, and test suggestions.
 - Evidence inbox source references.
 - Idempotency and replay.
+
+The Projects domain remains the only owner of official progress calculation and snapshots. GitHub ingestion may supply a verified source fact to an already-approved deterministic contract rule; it does not calculate progress from activity volume. Updates & Evidence separately owns employee contribution suggestions and confirmation.
 
 ## 3.14 AI Routing and Runs
 
@@ -681,6 +685,14 @@ The employee must:
 - Confirm project/workstream link.
 
 No activity count is used in performance calculation.
+
+## 7.5 Contract-Aware Project Progress
+
+A Project or Workstream owner may bind a repository and deterministic GitHub source condition to the active human-approved Progress Contract. For example, an approved pull request merged into the configured branch after every required check passes may prove one mapped milestone condition.
+
+The binding and rule must be versioned, effective-dated, source-explained, and auditable. Verified events are ingested idempotently and missed events are reconciled. Ambiguous, unbound, conflicting, or qualitative events require authorized Project review and do not change official progress.
+
+Raw commit, PR, file, line, check, or activity volume never calculates Project progress and never becomes employee performance. A GitHub event still requires employee review and confirmation before it becomes a personal contribution record.
 
 ---
 
@@ -1117,25 +1129,53 @@ Exit criteria:
 
 ## Phase 2 — Updates, Evidence, GitHub, and Readiness
 
-Build:
+**Approved AI-first Daily Workspace reset:** The original T030–T044 order and the 2026-07-18/19 employee-experience sequences are historical records, not current execution authority. Preserve their implemented domain foundations, but do not resume their rejected My Work, long Update composer, or employee-facing Progress Contract interaction.
 
-- Text and voice updates.
-- Images and files.
-- Activity timeline.
-- Evidence records.
-- Verification states.
-- Contribution attribution.
-- Disputes.
-- GitHub App and evidence inbox.
-- Thursday check-in and aggregation.
-- Monthly Evaluation Readiness Review.
-- Arabic text, document, and dialect test fixtures.
+Current authority:
+
+- `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md`
+- `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md`
+- the six slice plans linked from that master plan
+- `docs/product/PHASE_2_FEATURE_MAP.md`
+
+Build through six visible vertical slices:
+
+1. **Daily home and Task foundation:** calm Today brief, private Inbox capture, Project-required official Tasks, My Tasks/Team Tasks, List/Board/Calendar, and focused Task detail.
+2. **Google Workspace connection and manual linking:** employee-controlled Gmail and Calendar connection, minimal private summaries, exclusions, and reversible manual Project links.
+3. **Context Intelligence:** approved Project documents as semantic anchors, explainable linking, employee corrections, and complete human-confirmed Task drafts through AI Router.
+4. **GitHub, Updates, Evidence, and voice:** governed GitHub sources plus fast text, voice, image, file, code, and link capture through one confirmed lifecycle.
+5. **Project-owner progress and manager operations:** owner-only Progress Contract setup, operational Project pulse, Thursday check-ins, Monthly Readiness, and compact manager action queues.
+6. **Evaluation Fact View preparation:** neutral source-supported facts separated from employee interpretation; no complete evaluation workflow in Phase 2.
+
+Architecture:
+
+- Preserve Phase 0/1 identity, authorization, audit, queue, AI Router, Projects, Workstreams, responsibility, documents, readiness, criteria, and history.
+- Extend the existing bounded `work-items` and `updates-evidence` modules rather than creating parallel Task or activity systems.
+- Keep versioned human-approved Progress Contracts and append-only official progress snapshots inside the Projects domain.
+- Keep document-derived AI contract proposals and append-only human revisions inside Projects; AI can create only a proposal and cannot submit, approve, activate, or directly set overall progress.
+- Add one bounded Connected Work Context package and one bounded Context Intelligence package.
+- Compose Today, dashboards, Timeline, manager operations, and Fact View preparation through read-only application services using public module interfaces.
+- Keep Gmail, Calendar, GitHub, voice, and manual capture as connectors to the same governed work lifecycle.
+- Official Tasks require a Project; a private employee Inbox capture may remain unlinked until the employee promotes it.
+- Connected Gmail and Calendar summaries remain private until the employee confirms a shared Project object.
+- AI may prepare a Task draft but cannot create or assign an official Task automatically.
+- An automatic source link requires a deterministic mapping or at least two non-conflicting independent Project anchors; model confidence alone is insufficient.
+- Do not introduce a generic activity platform, second store, additional authentication system, microservice, or package-per-feature architecture.
 
 Exit criteria:
 
-- An employee can document real work in English with traceable evidence; the same Arabic workflow may be released only after T016 approval.
-- GitHub activity never becomes performance automatically.
-- Thin evidence is surfaced before quarter-end without quotas.
+- An employee starts from Today, understands Needs My Action/Today/Overdue, captures a private thought quickly, and promotes it only through a reviewable Project-linked Task draft.
+- The same Task identity works through Inbox, My Tasks, Team Tasks, List, Board, Calendar, and a desktop side panel/mobile full-height sheet.
+- Gmail and Calendar context is employee-controlled, private by default, minimally retained, reversible, and usable without exposing private summaries to managers.
+- Context Intelligence explains links, survives AI failure through manual operation, preserves raw input, and requires employee confirmation before any official Task.
+- The employee can add text, voice, image, file, code, link, or governed GitHub context through one source-labelled Updates & Evidence lifecycle.
+- Official Project/Workstream progress comes only from an approved measurable contract and confirmed source facts. It never comes from Work Item count, task/update/GitHub volume, commits, files, or lines changed.
+- Missing source coverage preserves the previous official percentage; a decrease is source-explained and historically preserved; no direct percentage override exists.
+- A verified GitHub event may prove a deterministic condition mapped in the active Progress Contract and update operational Project progress; ambiguous events cannot.
+- GitHub activity never becomes personal contribution evidence or employee performance automatically.
+- Thin evidence is surfaced without quotas, penalties, scores, or rankings, and manager readiness remains coarse.
+- Phase 2 Fact View preparation contains no rating recommendation and does not implement the complete employee evaluation workflow.
+- Every slice has focused tests, migration verification where applicable, a runnable local demo, Arabic/English desktop/mobile screenshots, commit/push checkpoint, and product-owner gate.
 
 ## Phase 3 — Employee Evaluation
 

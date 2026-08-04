@@ -413,6 +413,8 @@ describe("versioned fixture suite", () => {
         "no-rating",
         "speech-gulf-synthetic",
         "speech-levantine-synthetic",
+        "document-analysis",
+        "dynamic-criteria",
       ]),
     );
     for (const entry of manifest) {
@@ -424,9 +426,18 @@ describe("versioned fixture suite", () => {
 
   it("loads every manifest path through strict cross-checked fixture contracts", async () => {
     const suite = await loadFixtureSuite(fixtureDirectory);
+    const textManifestEntries = suite.manifest.filter(
+      ({ expectedSchemaVersion }) => expectedSchemaVersion === "ai-eval-output.v1",
+    );
+    const expectedTextFixtureCount = textManifestEntries.reduce(
+      (count, { id }) => count + (id === "visibility-modes" ? 3 : 1),
+      0,
+    );
 
-    expect(suite.manifest).toHaveLength(9);
-    expect(suite.textFixtures).toHaveLength(9);
+    expect(new Set(suite.manifest.map(({ id }) => id)).size).toBe(suite.manifest.length);
+    expect(suite.textFixtures).toHaveLength(expectedTextFixtureCount);
+    expect(suite.documentAnalysisFixtures).not.toBeNull();
+    expect(suite.dynamicCriteriaFixtures).not.toBeNull();
     expect(
       suite.textFixtures.every(({ evalCase }) =>
         approvedEnglishRubric.employeeCriteria.some(({ id }) => id === evalCase.input.criterionId),

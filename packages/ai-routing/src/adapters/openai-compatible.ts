@@ -131,7 +131,9 @@ export function safeEndpoint(
     throw new AppError("AI_ADAPTER_URL_INVALID", "errors.ai.adapterUrlInvalid", 500);
   }
   const normalized = new URL(parsed.toString());
-  if (!normalized.pathname.endsWith("/")) normalized.pathname += "/";
+  normalized.pathname = normalized.pathname.replace(/\/+$/u, "");
+  if (normalized.pathname.endsWith("/chat/completions")) return normalized;
+  normalized.pathname += "/";
   return new URL("chat/completions", normalized);
 }
 

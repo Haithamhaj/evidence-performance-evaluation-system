@@ -15,7 +15,7 @@ export const AuditEventInputSchema = z
     scopeId: z.string().uuid(),
     targetType: z.string().min(1),
     targetId: z.string().uuid(),
-    reason: z.string().trim().min(3).max(500).optional(),
+    reason: z.string().trim().min(1).max(1_000).optional(),
     safeDiff: z.record(z.string(), z.unknown()).optional(),
     correlationId: z.string().uuid(),
     source: z.enum(["api", "worker", "seed", "admin_replay"]),

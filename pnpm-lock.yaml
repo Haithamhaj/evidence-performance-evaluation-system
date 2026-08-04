@@ -8,18 +8,36 @@ importers:
 
   .:
     dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:packages/ai-routing
       '@evaluation/audit':
         specifier: workspace:*
         version: link:packages/audit
+      '@evaluation/connected-work-context':
+        specifier: workspace:*
+        version: link:packages/connected-work-context
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:packages/contracts
       '@evaluation/database':
         specifier: workspace:*
         version: link:packages/database
+      '@evaluation/documents':
+        specifier: workspace:*
+        version: link:packages/documents
       '@evaluation/localization':
         specifier: workspace:*
         version: link:packages/localization
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:packages/projects
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:packages/updates-evidence
+      '@evaluation/work-items':
+        specifier: workspace:*
+        version: link:packages/work-items
     devDependencies:
       '@aws-sdk/client-s3':
         specifier: 3.1087.0
@@ -84,6 +102,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1087.0
+        version: 3.1087.0
       '@evaluation/ai-routing':
         specifier: workspace:*
         version: link:../../packages/ai-routing
@@ -93,18 +114,42 @@ importers:
       '@evaluation/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@evaluation/connected-work-context':
+        specifier: workspace:*
+        version: link:../../packages/connected-work-context
+      '@evaluation/context-intelligence':
+        specifier: workspace:*
+        version: link:../../packages/context-intelligence
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@evaluation/criteria':
+        specifier: workspace:*
+        version: link:../../packages/criteria
       '@evaluation/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@evaluation/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
+      '@evaluation/github-integration':
+        specifier: workspace:*
+        version: link:../../packages/github-integration
       '@evaluation/observability':
         specifier: workspace:*
         version: link:../../packages/observability
       '@evaluation/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:../../packages/projects
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:../../packages/updates-evidence
+      '@evaluation/work-items':
+        specifier: workspace:*
+        version: link:../../packages/work-items
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -114,6 +159,9 @@ importers:
       '@nestjs/platform-express':
         specifier: 11.1.28
         version: 11.1.28(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)
+      bullmq:
+        specifier: 5.80.3
+        version: 5.80.3(redis@6.1.0)
       pg:
         specifier: 8.22.0
         version: 8.22.0
@@ -137,8 +185,42 @@ importers:
         specifier: 8.20.0
         version: 8.20.0
 
+  apps/product-reset-prototype:
+    dependencies:
+      next:
+        specifier: 16.2.10
+        version: 16.2.10(@babel/core@8.0.1)(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.61.1
+        version: 1.61.1
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@26.1.1)(@vitest/coverage-v8@4.1.10)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
+
   apps/web:
     dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@evaluation/localization':
         specifier: workspace:*
         version: link:../../packages/localization
@@ -163,6 +245,12 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+      server-only:
+        specifier: 0.0.1
+        version: 0.0.1
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: 26.1.1
@@ -179,18 +267,36 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1087.0
+        version: 3.1087.0
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../../packages/ai-routing
       '@evaluation/audit':
         specifier: workspace:*
         version: link:../../packages/audit
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@evaluation/criteria':
+        specifier: workspace:*
+        version: link:../../packages/criteria
       '@evaluation/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@evaluation/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
       '@evaluation/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:../../packages/projects
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:../../packages/updates-evidence
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -252,11 +358,55 @@ importers:
 
   packages/config: {}
 
+  packages/connected-work-context:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+    devDependencies:
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
+
+  packages/context-intelligence:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
   packages/contracts:
     dependencies:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+
+  packages/criteria:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+    devDependencies:
+      '@evaluation/documents':
+        specifier: workspace:*
+        version: link:../documents
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:../projects
 
   packages/database:
     dependencies:
@@ -276,6 +426,59 @@ importers:
       prisma:
         specifier: 7.8.0
         version: 7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(magicast@0.5.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@7.0.2)
+
+  packages/documents:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1087.0
+        version: 3.1087.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: 3.1087.0
+        version: 3.1087.0
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      '@evaluation/permissions':
+        specifier: workspace:*
+        version: link:../permissions
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:../projects
+      file-type:
+        specifier: 21.3.4
+        version: 21.3.4
+      yauzl:
+        specifier: 3.4.0
+        version: 3.4.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/yauzl':
+        specifier: 3.4.0
+        version: 3.4.0
+
+  packages/github-integration:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
 
   packages/localization:
     dependencies:
@@ -299,6 +502,30 @@ importers:
 
   packages/permissions: {}
 
+  packages/projects:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      '@evaluation/github-integration':
+        specifier: workspace:*
+        version: link:../github-integration
+      '@evaluation/permissions':
+        specifier: workspace:*
+        version: link:../permissions
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
   packages/test-utils: {}
 
   packages/ui:
@@ -315,6 +542,33 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+
+  packages/updates-evidence:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  packages/work-items:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
 packages:
 
@@ -1498,6 +1752,9 @@ packages:
   '@types/react@19.2.17':
     resolution: {integrity: sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw==}
 
+  '@types/yauzl@3.4.0':
+    resolution: {integrity: sha512-NRPn5w6h8dhcnmx3YIRQcqMywY/+nND/uOkJessedcrowO3C0AssHp3tMJpxKAwOhFOo0OV1y9VtsC5hbKKBAw==}
+
   '@typescript/typescript-aix-ppc64@7.0.2':
     resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
     engines: {node: '>=16.20.0'}
@@ -2502,6 +2759,9 @@ packages:
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
+  pend@1.2.0:
+    resolution: {integrity: sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==}
+
   perfect-debounce@2.1.0:
     resolution: {integrity: sha512-LjgdTytVFXeUgtHZr9WYViYSM/g8MkcTPYDlPa3cDqMirHjKiSZPYd6DoL7pK8AJQr+uWkQvCjHNdiMqsrJs+g==}
 
@@ -2748,6 +3008,9 @@ packages:
   serve-static@2.2.1:
     resolution: {integrity: sha512-xRXBn0pPqQTVQiC8wyQrKs2MOlX24zQ0POGaj0kultvoOCstBQM5yvOhAVSUwOMjQtTvsPWoNCHfPGwaaQJhTw==}
     engines: {node: '>= 18'}
+
+  server-only@0.0.1:
+    resolution: {integrity: sha512-qepMx2JxAa5jjfzxG79yPPq+8BuFToHd1hm7kI+Z4zAq1ftQiP7HcxMhDDItrbtwVeLg/cY2JnKnrcFkmiswNA==}
 
   setprototypeof@1.2.0:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
@@ -3051,6 +3314,10 @@ packages:
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
+
+  yauzl@3.4.0:
+    resolution: {integrity: sha512-jIH9yLR9wqr0wOS0TpBvo/g/2UgZH5qePVbjgRliiF0BYvOZyaBknKsF+x9Iht0O6sqgnB93rCICdOZFecJuDw==}
+    engines: {node: '>=12'}
 
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
@@ -4141,6 +4408,10 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
+  '@types/yauzl@3.4.0':
+    dependencies:
+      '@types/node': 26.1.1
+
   '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true
 
@@ -5083,6 +5354,8 @@ snapshots:
 
   pathe@2.0.3: {}
 
+  pend@1.2.0: {}
+
   perfect-debounce@2.1.0: {}
 
   pg-cloudflare@1.4.0:
@@ -5358,6 +5631,8 @@ snapshots:
       send: 1.2.1
     transitivePeerDependencies:
       - supports-color
+
+  server-only@0.0.1: {}
 
   setprototypeof@1.2.0: {}
 
@@ -5638,6 +5913,10 @@ snapshots:
   wrappy@1.0.2: {}
 
   xtend@4.0.2: {}
+
+  yauzl@3.4.0:
+    dependencies:
+      pend: 1.2.0
 
   yocto-queue@0.1.0: {}
 

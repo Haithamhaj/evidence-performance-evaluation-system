@@ -91,7 +91,7 @@ describe("local database reset guard", () => {
       "db:reset:local":
         "node scripts/assert-local-database.mjs && pnpm --filter @evaluation/database exec prisma migrate reset --force",
       "db:seed": "pnpm --filter @evaluation/database db:seed",
-      "db:verify": "node scripts/verify-migrations.mjs",
+      "db:verify": "node --env-file=.env.example scripts/verify-migrations.mjs",
     });
     expect(databaseManifest.dependencies).toMatchObject({
       "@prisma/adapter-pg": "7.8.0",
@@ -101,6 +101,8 @@ describe("local database reset guard", () => {
     expect(publicEntry).toBe(
       [
         'export { createDatabaseClient } from "./client.js";',
+        'export type DatabaseClient = import("./generated/prisma/client.js").PrismaClient;',
+        'export type DatabaseTransaction = import("./generated/prisma/client.js").Prisma.TransactionClient;',
         "export {",
         "  PILOT_SEED_ISSUER,",
         "  seedPilot,",
@@ -111,7 +113,6 @@ describe("local database reset guard", () => {
         "",
       ].join("\n"),
     );
-    expect(publicEntry).not.toContain("generated");
     expect(vitestWorkspace).toContain(
       'exclude: ["**/node_modules/**", "**/*.integration.test.ts"]',
     );

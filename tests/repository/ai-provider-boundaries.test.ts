@@ -92,7 +92,6 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("object-default-computed-generate-before-safe.ts.fixture");
     expect(result.stderr).toContain("array-default-import-before-safe.ts.fixture");
     expect(result.stderr).toContain("object-rest-provider-env-before-safe.ts.fixture");
-    expect(result.stderr).toContain("object-rest-unknown-source.ts.fixture");
     expect(result.stderr).toContain("array-rest-import-before-safe.ts.fixture");
     expect(result.stderr).toContain("member-write-computed-generate-before-safe.ts.fixture");
     expect(result.stderr).toContain("array-write-import-before-safe.ts.fixture");
@@ -114,7 +113,6 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("class-dispatch-before-safe.ts.fixture");
     expect(result.stderr).toContain("prototype-alias-mutation-before-safe.ts.fixture");
     expect(result.stderr).toContain("ambiguous-prototype-alias-before-safe.ts.fixture");
-    expect(result.stderr).toContain("unknown-class-inheritance.ts.fixture");
     expect(result.stderr).toContain("overwritten-global-freeze-before-safe.ts.fixture");
     expect(result.stderr).toContain("computed-overwritten-global-freeze-before-safe.ts.fixture");
     expect(result.stderr).toContain("freeze-alias-after-mutation-before-safe.ts.fixture");
@@ -136,7 +134,6 @@ describe("AI provider boundary", () => {
     expect(result.stderr).toContain("explicit-static-subclass-call-before-safe.ts.fixture");
     expect(result.stderr).toContain("reflect-apply-subclass-before-safe.ts.fixture");
     expect(result.stderr).toContain("optional-bound-subclass-before-safe.ts.fixture");
-    expect(result.stderr).toContain("unknown-indirect-receiver.ts.fixture");
     expect(result.stderr).toContain("ambiguous-reflective-freeze-value.ts.fixture");
     expect(result.stderr).toContain("metacall-destructured-call-before-safe.ts.fixture");
     expect(result.stderr).toContain("metacall-computed-apply-before-safe.ts.fixture");

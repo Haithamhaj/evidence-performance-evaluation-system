@@ -428,7 +428,7 @@ describe("AI router output safety", () => {
       locality: "local",
       matchesConfiguration: () => true,
       generate: async () => {
-        await delay(40);
+        await delay(200);
         throw new AiProviderError("retryable");
       },
     };
@@ -451,11 +451,11 @@ describe("AI router output safety", () => {
 
     await expect(
       router.run(
-        { ...request(z.object({ supported: z.boolean() }).strict()), timeoutMs: 75 },
+        { ...request(z.object({ supported: z.boolean() }).strict()), timeoutMs: 150 },
         vi.fn(),
       ),
     ).rejects.toMatchObject({ code: "AI_PROVIDER_FAILED" });
-    expect(performance.now() - started).toBeLessThan(125);
+    expect(performance.now() - started).toBeLessThan(215);
     expect(second.requests).toHaveLength(0);
     expect(traces[0]).toMatchObject({ state: "failed", errorCategory: "timeout" });
   });

@@ -1,9 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+import { installWorkspaceSession } from "./fixtures/workspace.js";
+
+test.beforeEach(async ({ context }) => installWorkspaceSession(context));
+
 test("redirects the root to the Arabic shell before rendering", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page).toHaveURL(/\/ar$/u);
+  await expect(page).toHaveURL(/\/ar\/my-work$/u);
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
@@ -11,6 +15,7 @@ test("redirects the root to the Arabic shell before rendering", async ({ page })
 test("renders the supported English shell as LTR", async ({ page }) => {
   await page.goto("/en");
 
+  await expect(page).toHaveURL(/\/en\/my-work$/u);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
 });
@@ -63,13 +68,11 @@ for (const expectation of [
 }
 
 test("does not fetch fonts from an external runtime origin", async ({ page }) => {
+  const expectedOrigin = `http://127.0.0.1:${process.env.E2E_WEB_PORT ?? "3000"}`;
   const externalFontRequests: string[] = [];
   const localFontResponses = new Map<string, number>();
   page.on("request", (request) => {
-    if (
-      request.resourceType() === "font" &&
-      new URL(request.url()).origin !== "http://127.0.0.1:3000"
-    ) {
+    if (request.resourceType() === "font" && new URL(request.url()).origin !== expectedOrigin) {
       externalFontRequests.push(request.url());
     }
   });

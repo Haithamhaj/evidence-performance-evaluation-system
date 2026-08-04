@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit && next build --experimental-build-mode generate",
+    "build": "node ../../scripts/prepare-next-generated-types.mjs . && next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit && next build --experimental-build-mode generate",
     "start": "next start",
     "lint": "eslint src",
-    "typecheck": "next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit",
+    "typecheck": "node ../../scripts/prepare-next-generated-types.mjs . && next build --experimental-build-mode compile && tsc -p tsconfig.json --noEmit",
     "test": "vitest run --root ../.. apps/web/src"
   },
   "dependencies": {
+    "@evaluation/contracts": "workspace:*",
     "@evaluation/localization": "workspace:*",
     "@evaluation/observability": "workspace:*",
     "@evaluation/ui": "workspace:*",
@@ -19,7 +20,9 @@
     "next": "16.2.10",
     "openid-client": "6.8.4",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "server-only": "0.0.1",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "26.1.1",

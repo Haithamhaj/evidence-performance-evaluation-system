@@ -2,53 +2,191 @@
 
 ## Current Goal
 
-Close and merge Phase 0 under the approved English-only pilot policy, then begin Phase 1 with Fast Controlled Execution.
+Establish the accepted Slice 4 GitHub, Updates, Evidence, Voice, and Timeline journey on the fully
+verified main baseline, then begin Slice 5. Keep live GitHub installation behind its external human
+gate.
 
 ## Current Reality
 
-- Approved product, rubric, architecture, review-resolution, and Phase 0 design artifacts govern implementation.
-- The detailed Phase 0 plan is `docs/superpowers/plans/2026-07-15-phase-0-foundation-plan.md` on branch `codex/phase-0-foundation` in an isolated worktree.
-- `TASKS.md` contains 77 phase-valid tasks. Five declarations were corrected with eight edges: `T003->T002`, `T009->T007`, `T009->T008`, `T010->T009`, `T013->T004`, `T013->T009`, `T013->T011`, and `T014->T009`.
-- The local runtime is ready. Execute project commands in one shell with: `source .superpowers/runtime-env.zsh && node --version && pnpm --version && docker version --format '{{.Client.Version}}/{{.Server.Version}}' && docker compose version`. Verified values are Node `24.18.0`, pnpm `11.13.0`, Docker client/server `29.6.1/29.5.2`, and Compose `5.3.1`.
-- The private GitHub repository is `https://github.com/Haithamhaj/evidence-performance-evaluation-system`; `main` is the default branch.
-- Phase 0 Foundation is complete and English Pilot Readiness is available. Tasks T001–T015 and T017 are implemented; T016 is excluded from the engineering completion gate under the approved 2026-07-17 decision.
-- The complete T016 machine-assisted Arabic draft and deterministic 292-item review inventory are preserved in pushed branch `deferred/arabic-rubric-v1` at commit `3ebbe54` and tracked by GitHub issue `#2`. T016 remains draft and inactive: all 292 subject-matter and employee-comprehension dispositions and five cross-cutting checks are unresolved, with no import, migration `0009`, persistence, approval audit, or activation.
-- Fresh Phase 0 closure verification on 2026-07-17 passed: frozen install across 15 workspaces; `77`-task graph and `14` validator tests; `471` secret-scan files; `125` performance-input files; format, lint, copy, and `158`-file boundary checks; typecheck/build across `14` workspaces; `372` unit tests; `159` integration tests; `133` deterministic AI tests with one intentional live-provider skip; `11` Chromium end-to-end tests; eight migrations from empty, previous `0007`, drift, and rebuild; PostgreSQL/Redis/MinIO/Keycloak health and isolation; independent API/Worker live and ready checks; manifest/hash verification; and visual QA of `SYSTEM_MAP.html`. Independent authoritative-alignment review returned 0 Critical, 0 Important, and 0 Minor findings. Hosted CI remains to be rerun on the closure commit.
+- Phase 0 was squash-merged through Pull Request #1 to `main` at `04c42c5`; hosted CI run `29540996315` passed integrity, quality, build, and integration on the merged commit.
+- Phase 1 is complete on `codex/phase-1-projects-workstreams-documents` through Bundles A–D (T018–T029): governed responsibility, safe immutable documents, source-bound analysis, human-approved prospective criteria, and the Arabic-first bilingual workspace.
+- Bundle D exposes browser data and mutations only through the same-origin Next.js gateway. Server-side sessions and bearer tokens stay outside Client Components; upstream calls use exact approved paths, and role-scoped controls refresh from protected API actions after every successful mutation.
+- A frozen eligible contributor whose current workstream access ended receives only the authorized criteria snapshot: no current people, document, or readiness data. Contributor responses become immutable after one submission.
+- Deterministic browser verification covers Arabic/English routing, RTL/LTR, mixed technical text, 390px layout, keyboard focus, project/workstream details, frozen contributor responses, historical criteria-only access, and manager-safe readiness. It makes no live paid model call.
+- Phase 1 introduced no protected product-rule change and no T029 database migration.
+- T016 remains draft and inactive on `deferred/arabic-rubric-v1` at `3ebbe54`, tracked by GitHub issue #2. It is an Arabic employee-release gate, not an engineering-phase dependency.
+- The Open-Source Reuse Assessment approved interaction patterns only. No candidate source, assets, translations, schema, backend, authentication, or sync logic may be copied.
+- The previous T030–T044 execution order and prototype-era backend/vertical-slice drafts are superseded and must not resume.
+- An isolated Arabic-first Product Reset acceptance prototype now demonstrates My Work, Inbox, Projects, Workstreams, shared Work Item views, text/voice updates, evidence confirmation, manager operations, and Evaluation Fact View using synthetic in-memory data only.
+- The prototype adds no production database, API, queue, authentication, AI provider call, or Phase 1 backend change.
+- The product owner approved the final production structure: preserve Phase 0/1; add only bounded Work Items and Updates & Evidence modules; keep versioned Progress Contracts inside Projects; compose authorized daily-work reads at the application layer; keep GitHub and voice as connectors.
+- The approved Progress Contract forbids Work Item/task/update/GitHub volume as progress inputs, has no direct percentage override, retains the previous official percentage when source coverage is insufficient, and preserves source-explained decreases through append-only snapshots.
+- The 2026-07-18 design/plan remain the historical Slice 1/2 foundation and the active source for unchanged Check-ins/Readiness and Manager View tasks only; the 2026-07-19 correction governs the affected journey.
+- Phase 2 production execution is approved. Slice 1 is complete on `codex/phase-2-updates-evidence-readiness`: migrations `0012`–`0013`, bounded Work Items, versioned document-sourced Progress Contracts, append-only official progress snapshots, protected daily-work APIs, Arabic/English My Work and Project progress screens, a real-database synthetic seed, and Playwright screenshots.
+- Slice 1 progress is operational Project state only. Work Item volume and employee activity are not calculation inputs, and cross-Project contract decisions are rejected server-side.
+- Slice 2 is complete on the same branch: migration `0014`, bounded Updates & Evidence, live multi-turn AI structuring only through `update.structure`, employee-edited drafts, private manual evidence, confirmation gates, protected APIs, and source-labelled Timeline.
+- The Arabic/English production UI preserves one question at a time, prefills the evidence claim from the employee-reviewed AI draft, keeps evidence entry inside the update flow, and uses a visible mobile bottom sheet.
+- A real local Keycloak login, live GPT-5.5 clarification, evidence confirmation, update confirmation, and Timeline were exercised against PostgreSQL. The configured provider credential was neither printed, moved, nor committed.
+- Slice 2 acceptance screenshots are under `docs/product/screenshots/phase-2-production/slice-2/`; the runnable preview is `http://127.0.0.1:3300/ar/my-work`.
+- Product-owner review found that the current Work-Item-first question form does not match the intended daily journey. The approved correction requires Project-first scope, optional Workstream/Work Item, a useful draft before conditional clarification, unified sources, a compact result card, and precise recovery.
+- The product owner approved the written correction on 2026-07-19. A verified GitHub event may prove a deterministic condition mapped in the active Progress Contract and update operational Project progress; raw GitHub volume remains prohibited, ambiguous events require Project review, and personal contribution evidence still requires employee confirmation.
+- The active correction artifacts are `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md` and `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`.
+- The correction plan replaces the old Slice 2–4 behavior and Fact View task. The previously approved Check-ins/Monthly Readiness and Manager Operational View tasks remain active and execute between the corrected source bundles and Fact View preparation.
+- Bundle 1 correction is implemented through Tasks 1–4: authorized Project-first scope composition; draft-first AI structuring and readable results; corrected bilingual drawer/sheet interaction; deterministic acceptance data and Playwright coverage.
+- The corrected flow requires a Project while Workstream and Work Item remain optional, shows an evolving draft before each next clarification, keeps manual evidence in the same flow, and ends in a compact result card plus append-only Timeline.
+- The checkpoint uses the existing deterministic Phase 2 seed (two Projects, five Workstreams, twenty Work Items, and approved Progress Contracts) instead of creating a second seed path. No employee performance values are seeded.
+- Product-owner screenshots are under `docs/product/screenshots/phase-2-production/daily-update-correction/`; the local review routes are `http://127.0.0.1:3300/ar/my-work` and `http://127.0.0.1:3300/en/my-work`.
+- Bundle 1 verification passed at the repository-pinned Node.js 24.18.0 and pnpm 11.13.0: 57 focused unit tests, 27 related integration tests, 145 passing AI evaluation checks (one intentional skip), 4 related browser journeys, both protected scans, lint/boundaries/copy checks, and all 20 workspace typechecks.
+- The local governed `update.structure` route now has prompt v4 and output schema v2 registered against the approved GPT-5.5 model route. The provider credential remained outside the repository and was not printed, moved, or committed.
+- The verified Bundle 1 implementation checkpoint was pushed at commit `99ac870`; execution is stopped at the Product Owner gate and Bundle 2 has not started.
+- Product Owner gate feedback confirmed that `/{locale}` still exposed the Phase 0 diagnostics page and the English acceptance preview retained Arabic synthetic records. The root route now opens localized My Work, and the English-pilot seed is English and safely rerunnable for mutable records; existing immutable contract history and employee-authored source content remain unmodified.
+- The Product Owner approved the full-real dogfood direction on 2026-07-19: this repository becomes the real Project, the local employee persona is `Codex`, live AI drafts but never activates the Progress Contract, and Bundle 2 implements the GitHub App path before the end-to-end run.
+- The bounded dogfood design is `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`; the Product Owner approved it in writing on 2026-07-19.
+- The active execution plan now inserts Bundle 1.5 before GitHub automation: versioned `project.progress-contract.draft` artifacts, durable AI proposals and human revisions, the protected review/activation UI, and the real Codex Project seed/acceptance journey.
+- The subsequent GitHub bundle uses the same active human-approved Codex contract and real repository; deterministic fixtures verify safety before live GitHub App reconciliation.
+- The real local Codex Project seed is safely rerunnable at repository commit `29da397`: one Project, one Workstream, exact approved DocumentVersion `3`, six remaining-plan Work Items, and no performance or raw-activity progress rows. Its audited lineage pins Pull Request #5 base `b5e679e` and head `29da397`.
+- Live GPT-5.5 produced persisted proposal revision `1` for DocumentVersion `3` through the governed AI Router. The redacted trace is prompt `project-progress-contract-draft.v2`, output schema `project-progress-contract-draft.v1`, route config `2`, succeeded with human approval pending.
+- The persisted proposal was reviewed through the real local API and signed Keycloak authentication in English and Arabic/RTL at desktop and 390px. No human edit, application, submission, approval, activation, GitHub binding, or official progress recalculation was performed.
+- The bounded specification and security/code-quality reviews have no remaining P0/P1 finding. Deferred P2 maintenance observations are recorded in GitHub issue #6 and do not block the Product Owner gate.
+- Acceptance evidence is `docs/acceptance/CODEX_DOGFOOD_ACCEPTANCE.md`; live screenshots are under `docs/product/screenshots/phase-2-production/codex-dogfood-contract/`.
+- Product-owner review on 2026-07-20 rejected the current employee interaction model as too complex and approved an employee-experience reset rather than a full-system rewrite.
+- The approved replacement is an AI-first Daily Workspace: smart Today brief, Project-required official Tasks, private Inbox capture, Gmail and Google Calendar work context, governed GitHub sources, universal manual capture, source-explained linking, and human-confirmed Task drafts.
+- `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md` governs the replacement employee experience after written-spec review. No production code changed during the design process.
+- The Product Owner approved the written specification on 2026-07-20. The replacement execution authority is now one master map plus six bounded plans covering Today/Tasks, Google Workspace, Context Intelligence, GitHub/Updates/Evidence, Project-owner progress/manager operations, and neutral Evaluation Fact View preparation.
+- The plans preserve the single database, existing authentication, AI Router, Work Items, Updates & Evidence, Projects/Progress Contract, and Daily Composition foundations. No production code changed during implementation planning.
+- The Product Owner authorized execution on 2026-07-20. The active first checkpoint is documentation-only alignment of `IMPLEMENTATION_PLAN.md`, `TASKS.md`, and the three Phase 2 product maps; new Slice 1 begins after that checkpoint is verified and pushed.
+- AI-first Slice 1 is implemented on Pull Request #5: private Quick Capture, Project-required official Tasks, editable List/Board/Calendar workspace, composed Today groups, draft recovery after authentication interruption, bilingual RTL/LTR UI, and protected employee-only Inbox access.
+- Migration `0017_task_workspace` is applied locally. The real `Codex` dogfood fixture now contains six Project-linked Tasks and three private captures sourced from the current authoritative AI-first documents, with no employee score or activity-volume progress input.
+- Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_1.md`; three passing Playwright journeys and screenshots cover Arabic desktop, English draft recovery, and Arabic 390px.
+- The final bounded specification remediation is complete: My/Team Tasks are visible within authorized scope; every new official Task write requires one responsible assignee; OIDC returns only to a validated encrypted same-origin localized path; and Today follows the approved value-before-input order. Independent re-review has no remaining P0/P1 finding.
+- The Product Owner accepted Slice 1 and authorized continued execution. Slice 2 starts with deterministic synthetic Gmail/Calendar adapters; live Google OAuth remains behind the administrator, credential, scope, retention, deletion, and consent gate.
+- Slice 2 deterministic implementation is complete on Pull Request #5: migration
+  `0018_connected_work_context`, owner-only Gmail/Calendar context, governed connection and sync
+  services, protected APIs, reversible source-scope exclusions, private manual Project links,
+  truthful disconnect behavior, bilingual review UI, and four passing Playwright journeys.
+- An active connection-generation lock prevents an in-flight old sync from committing an item or
+  cursor after disconnect, including after reconnect. Disconnect stops sync and makes derived
+  context inaccessible; it does not claim policy-dependent deletion.
+- Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_2.md`; screenshots are
+  under `docs/product/screenshots/ai-first-daily-workspace/slice-2/`. Deferred P2 improvements are
+  recorded in GitHub issue #7.
+- The bounded specification/privacy and security/code-quality re-reviews passed with no remaining
+  P0/P1 finding. Final verification passed 843 unit/coverage tests, 468 integration tests, 150 AI
+  checks (one intentional skip), 49 migration checks, and 28 browser journeys (four intentional
+  skips for superseded Update flows).
+- The Product Owner accepted the deterministic Slice 2 journey on 2026-08-02 and authorized Slice 3.
+  Live Google remains behind the existing external administrator, credential, scope, retention,
+  deletion, consent, and vault gates; Slice 3 does not depend on enabling it.
+- Slice 3 Tasks 1–6 are implemented through migrations `0019`–`0021`: encrypted append-only Context
+  Analysis, deterministic two-anchor matching, versioned AI Router contracts, owner-only protected
+  APIs, correction/rejection flows, and employee-confirmed Task drafts.
+- Deterministic acceptance proves an explained strong match, uncertain correction, rejection, no
+  official Task before confirmation, employee-confirmed assignment, AI-unavailable manual recovery
+  with exact raw input preserved, empty manager/other-employee projections, and Arabic RTL at 390px.
+- Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_3.md`; screenshots are
+  under `docs/product/screenshots/ai-first-daily-workspace/slice-3/`.
+- The bounded final reviews are complete. Their five confirmed P1 findings are remediated in the
+  production path: governed unlinked-source anchors and approved Document semantics are composed;
+  employees can trigger analysis and draft preparation from source review; terminal queue rows are
+  filtered without fixture-only deletion; Project-confirmation replay reauthorizes before decrypt
+  or acknowledgment; and manual links / official Task confirmation use Projects transaction locks.
+- Final remediation verification passed 903 unit tests, 517 integration tests, 166 AI evaluations,
+  four Slice 3 browser journeys, all 22 lint/typecheck tasks, protected scans, formatting, and task
+  graph validation. No database migration or protected product-rule change was introduced.
+- The optional live Context Intelligence smoke was not run: the route registrar dry-run passes, but
+  the current local database has none of the three route registrations and the current process has
+  no available provider credential. No route configuration or provider result was simulated.
+- The scoped final re-review's confirmed-sender P1 is remediated. Gmail title/summary text no longer
+  emits `CONFIRMED_SENDER_DOMAIN`; a real regression proves that a stakeholder address mentioned
+  only in that untrusted text cannot combine with `EXPLICIT_PROJECT_REFERENCE` to authorize
+  `AUTO_LINK`. No provider-authenticated sender metadata was added. Focused verification passed 41
+  Context Intelligence unit tests, 15 API/database integration tests, and API lint/typecheck.
+- A real Google OAuth preview is now available only under the explicit `google-local` guards. It
+  keeps credentials in process memory, encrypts new private titles with local AES-256-GCM, imports
+  bounded Gmail metadata and future Calendar titles, and returns through a clean localized URL.
+  Production `live` mode remains fail-closed behind the approved vault, key, policy, and review
+  gates.
+- The Product Owner accepted the verified Slice 3 trust gate and authorized continued execution.
+- Slice 4 Task 1 is complete through migration `0022_github_integration`: governed GitHub App
+  installation/Project binding history, delivery idempotency, append-only source events, and
+  reconciliation cursors. The schema stores no raw payload, credential, score, ranking, or
+  activity-volume progress input. Bounded review found no remaining P0/P1.
+- Slice 4 Tasks 2–7 are complete on Pull Request #5: signed idempotent webhook ingestion and
+  reconciliation, governed source suggestions, universal text/voice/image/file/code capture,
+  employee-confirmed GitHub evidence, and one authorization-scoped Timeline.
+- Deterministic acceptance keeps official Project progress at 62.5% after a raw event with 18
+  commits and 42 changed files, routes the ambiguous contract match to the Project owner, records
+  the human decision source/outcome, and creates zero employee-performance writes.
+- Acceptance evidence is `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_4.md`; five screenshots
+  cover English desktop, mobile evidence review, compact results, Arabic RTL at 390px, and the
+  final GitHub/evidence/decision Timeline.
+- Comprehensive local verification passed 988 unit/coverage tests, 569 integration tests with 13
+  intentional skips, 172 AI checks with one intentional skip, 49 migration integration checks,
+  34 browser journeys with four intentional skips, all 23 lint/typecheck/build workspace tasks,
+  and protected boundary, secret, task-graph, and performance-input scans. Both bounded final
+  reviews report no remaining P0/P1 finding.
+- The Product Owner accepted Slice 4 and authorized the Pull Request #5 then Pull Request #3 merge
+  sequence on 2026-08-04. Merge-gate remediation adds a deterministic local development entry
+  point, isolates the optional provider key to API/worker processes, and stabilizes Next.js
+  generated route-type files across development, typecheck, and build commands.
+- The external audit's hosted-build concern was not reproduced on the supported toolchain: Pull
+  Request #5's clean GitHub Actions merge-ref run passed integrity, quality, build, and integration.
+  The audit used unsupported Node.js 22; local startup now rejects unsupported versions clearly.
 
 ## Active Decisions
 
-- Beginning with Phase 1, Fast Controlled Execution uses bounded `executing-plans` batches. Subagents are reserved for genuinely independent work and protected security, authorization, privacy, audit, migration, AI-boundary, or immutability tasks.
-- Phase 0 remains a modular monolith with separate Web, API, and Worker processes; PostgreSQL is authoritative and asynchronous work uses Redis/BullMQ.
-- English-only pilot use is permitted. Arabic employee use requires approved Arabic rubric content and semantic review; localization, RTL, and `Asia/Riyadh` foundations remain.
-- Pilot upward feedback remains `Identified`; authorized managers see identity, completion status, ratings, comments, and timestamps.
-- AI never assigns/recommends ratings or rankings, and Documentation Readiness never becomes a performance input.
-- Audit composition uses a lower-level writer port; persistence packages do not depend on the audit package.
-- T011 boundary tooling is intentionally bounded: direct provider imports and the committed direct/meta-call cases are enforced without current-codebase false positives. Complete closure/container/reflection value-flow analysis is out of scope and remains covered by runtime provider-key isolation, CI import scanning, and human review. This narrows tooling only; the protected AI-Router-only rule is unchanged.
-- T012 uses versioned English/Arabic fixtures, strict manifest and visibility contracts, synthetic Gulf/Levantine audio with provenance and checksums, whole-case timeouts, distinct-adapter fallback tests, and a manual environment-gated live-evaluation workflow. Full STT-quality evaluation remains assigned to T032/T044.
-- T013 uses durable operation records, bounded database transactions for protected effects, stable external-provider idempotency keys with constrained receipts, lifecycle-managed BullMQ workers, and the exact approved BullMQ `5.80.3` version.
-- T014 freezes versioned cycle eligibility and visibility mode at opening, exposes immediate `Identified` completion status without a full-team publication gate, and permits only a pre-close `pending` or `approved_leave` exclusion with bounded timestamps and an exact same-transaction audit event enforced at the persistence boundary.
-- T015 uses key- and placeholder-compatible Arabic/English catalogs, Arabic-default production routing, localized direction-safe 404/error shells, bounded user-visible-copy enforcement, locally licensed fonts, and production-build Chromium verification. The exact approved `Identified` notice is pinned in both locales.
-- T016 is a future Arabic employee-release gate, not an engineering-phase blocker. It requires globally separate human reviewer identities for the Arabic subject-matter and employee-comprehension gates; runtime guards cannot replace either human meaning decision.
-- T017 keeps dependency-free `python3` validation before install and repeats it through pnpm after install. Its frozen result reports ordered machine diagnostics for duplicate IDs, unknown dependencies, cycles, and later-phase edges; strict CI suites no longer allow empty-test flags.
+- Use a modular monolith with three Phase 1 domain packages: `projects`, `documents`, and `criteria`; controllers do not access another module's tables directly.
+- Use inline `executing-plans` for routine bounded work. Use independent review for security, authorization, audit, migrations, AI boundaries, and immutability.
+- English-only pilot use is permitted. Arabic employee use still requires approved Arabic rubric content and semantic review; localization and RTL foundations remain required.
+- AI never assigns or recommends ratings, rankings, productivity scores, or automatic project averages. Documentation Readiness remains a non-scoring operational aid.
+- Historical ownership, documents, criteria, acknowledgments, and objections are preserved through append-only rows or prospective versions.
+- Project/Workstream progress is operational only, derives from a versioned human-approved document-sourced contract, and never becomes employee performance.
+- No user can directly enter or override the official overall progress percentage. Contract-defined qualitative conditions may receive authorized human confirmation and then trigger recalculation.
+- Phase 2 stops at Evaluation Fact View preparation; the complete employee self-assessment and manager assessment workflow remains Phase 3.
+- T011 remains accepted under its product-owner-bounded direct import/call/meta-call enforcement; provider-key isolation, CI scanning, and human review cover documented static-flow limitations.
+- Phase 2 execution proceeds autonomously through bounded slice checkpoints under Fast Controlled Execution; stop only at a protected human gate or genuine unresolved blocker.
+- Preserve the Phase 0/1 and applicable Phase 2 domain foundations, but replace the current `My Work`, long Update composer, and employee-facing Progress Contract mechanics.
+- Use one primary store and five bounded parts: Task domain, Connected Work Context, Context Intelligence through AI Router, Daily Composition, and Employee Experience.
+- Official Tasks require a Project; private Inbox capture may remain unlinked until promoted. AI drafts Tasks but never creates or assigns them automatically.
+- Gmail and Calendar summaries are private to the employee until the employee confirms a shared Task, Update, Evidence item, or decision record.
+- Automatic source linking requires a deterministic mapping or at least two non-conflicting independent Project anchors; model confidence alone is insufficient.
 
 ## Active Risks
 
-- Arabic employee release remains blocked until separate Arabic subject-matter and employee-comprehension reviewers directly approve the exact review inventory and activation conditions pass.
-- Future hosted-CI reruns continue to depend on external runner availability; T017 run `29533905027` is recorded green.
-- Locked package versions or immutable service images may expose compatibility issues during the first clean install or real integration run.
-- The bounded static checker is not a proof of all possible JavaScript value flows; provider credential isolation and human review remain mandatory defense layers.
-- Optional live-provider evaluations require protected environment credentials; deterministic T012 checks remain the required offline/CI baseline.
-- External exactly-once effects in T013 depend on the downstream provider honoring the stable idempotency key; the platform records a safe durable receipt and does not claim stronger guarantees.
-- T015 relies on Next.js `globalNotFound`, which is experimental in pinned Next `16.2.10`; production browser tests pin expected behavior and a future Next upgrade requires compatibility review.
+- Uploaded content remains untrusted; deployed size/archive policy values and ClamAV signatures require active operational maintenance.
+- Live-model quality and production queue/storage operations still require deployment-time evaluation and monitoring; deterministic verification confirms governed contracts, not provider output quality.
+- Arabic employee release remains blocked at T016's protected human semantic-review gate.
+- The known non-blocking T013 recovered-running attempt-count telemetry issue remains outside Phase 1 scope.
+- The prototype remains reference-only. Production Update structuring and voice use the governed
+  AI Router. Live GitHub installation remains externally gated; check-ins/readiness, manager
+  operations, and Fact View preparation remain in later slices.
+- The production plan contains multiple security-, migration-, AI-, privacy-, and immutability-critical slices. Fast Controlled Execution remains the default, with bounded critical reviews only where those boundaries are touched.
+- CI remains the hosted confirmation after this checkpoint is pushed; local verification used the exact repository-pinned Node.js 24.18.0 and pnpm 11.13.0.
+- Production Google Workspace integration requires organization-approved OAuth configuration, minimum scopes, retention/deletion policy, and administrator consent.
+- Connected-source summaries create a new privacy boundary: manager access remains prohibited until the employee confirms a shared Project object.
+- Live Google remains blocked on the approved OAuth client, exact redirect URIs, minimum scopes,
+  administrator consent, retention/deletion policy, production credential vault, and production
+  cryptographic key provider.
+- The local Google preview is deliberately non-durable: process restart loses OAuth credentials,
+  client-secret rotation makes earlier local AES rows unreadable, and disconnect hides rather than
+  claims deletion of derived rows.
+- Live Context Intelligence model quality remains unverified in this local environment because the
+  governed routes and provider credential are not configured; deterministic route, schema, and
+  recovery behavior is verified.
+- A deferred P2 trace-hygiene risk remains: a failed follow-up persistence step can leave an
+  orphaned successful AI-run trace. It does not bypass employee confirmation or privacy controls.
 
 ## Protected Areas
 
-- Protected rules in `AGENTS.md`, especially AI-rating prohibition, readiness separation, no employee ranking/activity-volume performance, identified-mode truthfulness, historical immutability, audit, and bilingual rubric integrity.
-- `docs/PROJECT_REFERENCE.md`, `docs/EVALUATION_RUBRIC.md`, `docs/IMPLEMENTATION_PLAN.md`, and the approved Phase 0 design cannot be rewritten to fit implementation without explicit approval.
+- All protected product, AI, privacy, historical-record, authorization, audit, localization, and evaluation rules in `AGENTS.md`.
+- `docs/PROJECT_REFERENCE.md`, `docs/EVALUATION_RUBRIC.md`, and `docs/IMPLEMENTATION_PLAN.md` cannot be rewritten to fit implementation without explicit approval.
+- T016 artifacts must not be imported, activated, or merged into the Phase 1 branch.
 
 ## Next Recommended Action
 
-Complete the fresh Phase 0 verification and independent review, update and merge Pull Request #1, verify `main`, remove the completed Phase 0 worktree, and begin the bounded Phase 1 plan. Keep T016 inactive on `deferred/arabic-rubric-v1`; only the future Arabic employee release waits for its human approvals.
+After the authorized Pull Request #5 and Pull Request #3 merge gates are green, begin Slice 5
+without weakening the operational-progress/employee-performance boundary. Live GitHub App
+creation, installation, secret, and organization approval remain behind the external human gate.
 
 ## Critical References
 
@@ -57,5 +195,28 @@ Complete the fresh Phase 0 verification and independent review, update and merge
 - `docs/PROJECT_REFERENCE.md`
 - `docs/EVALUATION_RUBRIC.md`
 - `docs/IMPLEMENTATION_PLAN.md`
-- `docs/superpowers/specs/2026-07-15-phase-0-foundation-design.md`
-- `docs/superpowers/plans/2026-07-15-phase-0-foundation-plan.md`
+- `docs/superpowers/specs/2026-07-17-phase-1-projects-workstreams-documents-design.md`
+- `docs/superpowers/specs/2026-07-18-product-direction-reset-prototype-design.md`
+- `docs/superpowers/specs/2026-07-18-phase-2-daily-work-progress-design.md`
+- `docs/superpowers/plans/2026-07-18-phase-2-daily-work-progress-plan.md`
+- `docs/superpowers/specs/2026-07-19-unified-daily-work-github-progress-design.md`
+- `docs/superpowers/specs/2026-07-19-codex-dogfood-project-design.md`
+- `docs/superpowers/plans/2026-07-19-unified-daily-work-github-progress-plan.md`
+- `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md`
+- `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md`
+- `docs/superpowers/plans/2026-07-20-slice-1-daily-home-tasks.md`
+- `docs/superpowers/plans/2026-07-20-slice-2-google-workspace-context.md`
+- `docs/superpowers/plans/2026-07-20-slice-3-context-intelligence.md`
+- `docs/superpowers/plans/2026-07-20-slice-4-github-updates-evidence.md`
+- `docs/superpowers/plans/2026-07-20-slice-5-project-owner-progress.md`
+- `docs/superpowers/plans/2026-07-20-slice-6-evaluation-preparation.md`
+- `docs/product/PHASE_2_FEATURE_MAP.md`
+- `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
+- `docs/product/PHASE_2_BACKEND_DELTA.md`
+- `docs/product/PHASE_2_VERTICAL_SLICES.md`
+- `docs/product/PHASE_2_INTERACTION_REFERENCE_REGISTER.md`
+- `docs/superpowers/plans/2026-07-17-phase-1-bundle-a-project-responsibility.md`
+- `docs/superpowers/plans/2026-07-17-phase-1-bundle-b-documents.md`
+- `docs/superpowers/plans/2026-07-17-phase-1-bundle-c-analysis-criteria.md`
+- `docs/superpowers/plans/2026-07-18-phase-1-bundle-d-project-workstream-ui.md`
+- GitHub issue #2 and `deferred/arabic-rubric-v1`

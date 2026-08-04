@@ -5,7 +5,8 @@ import {
   authCookieOptions,
   finishOidcLogin,
   OIDC_SESSION_COOKIE,
-  OIDC_TRANSACTION_COOKIE,
+  oidcTransactionCookieName,
+  oidcTransactionReturnTo,
   oidcSettings,
   safeAuthError,
 } from "../../../../auth/oidc";
@@ -13,13 +14,19 @@ import {
 export async function GET(request: Request): Promise<NextResponse> {
   let response: NextResponse;
   let environment = process.env.APP_ENV ?? "production";
+  const callbackUrl = new URL(request.url);
+  const transactionCookieName = oidcTransactionCookieName(callbackUrl.searchParams.get("state"));
   try {
     const settings = oidcSettings();
     environment = settings.environment;
     const cookieStore = await cookies();
-    const transaction = cookieStore.get(OIDC_TRANSACTION_COOKIE)?.value ?? "";
-    const session = await finishOidcLogin(settings, new URL(request.url), transaction);
-    response = NextResponse.redirect(settings.postLogoutRedirectUri);
+    const transaction =
+      transactionCookieName === undefined
+        ? ""
+        : (cookieStore.get(transactionCookieName)?.value ?? "");
+    const returnTo = oidcTransactionReturnTo(settings, transaction);
+    const session = await finishOidcLogin(settings, callbackUrl, transaction);
+    response = NextResponse.redirect(new URL(returnTo, settings.redirectUri));
     response.cookies.set(
       OIDC_SESSION_COOKIE,
       session,
@@ -29,9 +36,11 @@ export async function GET(request: Request): Promise<NextResponse> {
     const failure = safeAuthError(error);
     response = NextResponse.json(failure.body, { status: failure.status });
   }
-  response.cookies.set(OIDC_TRANSACTION_COOKIE, "", {
-    ...authCookieOptions(environment, 0),
-    expires: new Date(0),
-  });
+  if (transactionCookieName !== undefined) {
+    response.cookies.set(transactionCookieName, "", {
+      ...authCookieOptions(environment, 0),
+      expires: new Date(0),
+    });
+  }
   return response;
 }

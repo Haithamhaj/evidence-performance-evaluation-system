@@ -1,0 +1,20 @@
+{
+  "name": "@evaluation/context-intelligence",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@evaluation/ai-routing": "workspace:*",
+    "@evaluation/contracts": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. packages/context-intelligence/src"
+  }
+}

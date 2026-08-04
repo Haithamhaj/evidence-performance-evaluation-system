@@ -4,14 +4,19 @@ import { sep, resolve } from "node:path";
 import { validateAiOutput } from "../../packages/ai-routing/src/output-validator.js";
 import { AiProviderError } from "../../packages/ai-routing/src/contracts.js";
 import {
+  ALL_PROHIBITED_CONCEPTS,
   EvalCaseSchema,
   EvalOutputSchema,
+  DocumentAnalysisFixtureFileSchema,
+  DynamicCriteriaFixtureFileSchema,
   ManifestSchema,
   PILOT_ROUTE,
   SpeechGoldenSchema,
   TextFixtureSchema,
   VisibilityFixtureSchema,
   type EvalCaseContract,
+  type DocumentAnalysisFixtureFile,
+  type DynamicCriteriaFixtureFile,
   type ManifestEntry,
 } from "./schemas.js";
 import { scanProhibitedOutput, type ProhibitedOutputViolation } from "./prohibited-output.js";
@@ -41,6 +46,8 @@ export type FixtureSuite = Readonly<{
   manifest: readonly ManifestEntry[];
   textFixtures: ReadonlyArray<import("zod").infer<typeof TextFixtureSchema>>;
   speechFixtures: Readonly<import("zod").infer<typeof SpeechGoldenSchema>>;
+  documentAnalysisFixtures: DocumentAnalysisFixtureFile | null;
+  dynamicCriteriaFixtures: DynamicCriteriaFixtureFile | null;
 }>;
 
 class EvalTimeoutError extends Error {
@@ -116,10 +123,40 @@ export async function loadFixtureSuite(fixtureRoot: string): Promise<FixtureSuit
 
   const manifest = parsedManifest.data;
   const textFixtures: import("zod").infer<typeof TextFixtureSchema>[] = [];
+  let documentAnalysisFixtures: DocumentAnalysisFixtureFile | null = null;
+  let dynamicCriteriaFixtures: DynamicCriteriaFixtureFile | null = null;
   for (const entry of manifest) {
     const inputPath = await resolveWithinRoot(root, entry.inputPath);
     if (entry.expectedSchemaVersion === "speech-golden.v1") {
       await readFile(inputPath);
+      continue;
+    }
+    if (entry.expectedSchemaVersion === "document-analysis-eval.v1") {
+      if (documentAnalysisFixtures !== null) {
+        throw new Error("Duplicate document-analysis fixture registration");
+      }
+      const parsed = DocumentAnalysisFixtureFileSchema.safeParse(
+        await readJson(inputPath, `fixture ${entry.id}`),
+      );
+      if (!parsed.success) {
+        throw new Error(`Invalid fixture ${entry.id}: ${formatIssues(parsed.error.issues)}`);
+      }
+      assertBundleFixtureMetadata(entry, parsed.data);
+      documentAnalysisFixtures = parsed.data;
+      continue;
+    }
+    if (entry.expectedSchemaVersion === "dynamic-criteria-eval.v1") {
+      if (dynamicCriteriaFixtures !== null) {
+        throw new Error("Duplicate dynamic-criteria fixture registration");
+      }
+      const parsed = DynamicCriteriaFixtureFileSchema.safeParse(
+        await readJson(inputPath, `fixture ${entry.id}`),
+      );
+      if (!parsed.success) {
+        throw new Error(`Invalid fixture ${entry.id}: ${formatIssues(parsed.error.issues)}`);
+      }
+      assertBundleFixtureMetadata(entry, parsed.data);
+      dynamicCriteriaFixtures = parsed.data;
       continue;
     }
     const fixtureValue = await readJson(inputPath, `fixture ${entry.id}`);
@@ -165,7 +202,13 @@ export async function loadFixtureSuite(fixtureRoot: string): Promise<FixtureSuit
     }
   }
 
-  return { manifest, textFixtures, speechFixtures: parsedSpeech.data };
+  return {
+    manifest,
+    textFixtures,
+    speechFixtures: parsedSpeech.data,
+    documentAnalysisFixtures,
+    dynamicCriteriaFixtures,
+  };
 }
 
 function validateResult(evalCase: EvalCase, rawOutput: unknown, attempts: number): EvalResult {
@@ -270,6 +313,24 @@ function assertFixtureMetadata(
     sameStrings(manifest.forbiddenConcepts, evalCase.forbiddenConcepts) &&
     sameStrings(manifest.requiredSourceReferences, evalCase.input.sourceReferences);
   if (!same) throw new Error(`Fixture metadata mismatch for ${evalCase.id}`);
+}
+
+function assertBundleFixtureMetadata(
+  manifest: ManifestEntry,
+  fixture: DocumentAnalysisFixtureFile | DynamicCriteriaFixtureFile,
+): void {
+  const same =
+    manifest.id === fixture.id &&
+    manifest.version === fixture.version &&
+    manifest.locale === fixture.locale &&
+    manifest.dialect === fixture.dialect &&
+    manifest.classification === fixture.classification &&
+    manifest.provenance === fixture.provenance &&
+    manifest.expectedSchemaVersion === fixture.expectedSchemaVersion &&
+    manifest.expectedDisposition === fixture.expectedDisposition &&
+    sameStrings(manifest.requiredSourceReferences, fixture.requiredSourceReferences) &&
+    ALL_PROHIBITED_CONCEPTS.every((code) => manifest.forbiddenConcepts.includes(code));
+  if (!same) throw new Error(`Fixture metadata mismatch for ${fixture.id}`);
 }
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {

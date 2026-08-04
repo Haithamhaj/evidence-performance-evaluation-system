@@ -29,15 +29,50 @@ export type PolicyAction =
   | "managerFeedback.response.read"
   | "department.manage"
   | "system.configure"
+  | "project.create"
   | "project.manage"
+  | "workstream.create"
   | "workstream.manage"
-  | "resource.contribute";
+  | "responsibility.transfer"
+  | "document.template.manage"
+  | "document.read"
+  | "document.version.create"
+  | "document.analysis.run"
+  | "document.readiness.detail.read"
+  | "document.readiness.summary.read"
+  | "document.comparison.review"
+  | "criteria.generate"
+  | "criteria.owner.review"
+  | "criteria.contributor.respond"
+  | "criteria.manager.resolve"
+  | "criteria.activate"
+  | "criteria.read"
+  | "resource.contribute"
+  | "resource.read";
 
 export type PolicyResource =
   | Readonly<{ kind: "system"; systemId: string }>
   | Readonly<{ kind: "department"; departmentId: string }>
-  | Readonly<{ kind: "project"; projectId: string }>
-  | Readonly<{ kind: "workstream"; workstreamId: string; projectId: string }>
+  | Readonly<{ kind: "organizationTemplate"; organizationId: string }>
+  | Readonly<{
+      kind: "departmentTemplate";
+      organizationId: string;
+      departmentId: string;
+    }>
+  | Readonly<{ kind: "project"; projectId: string; departmentId: string }>
+  | Readonly<{
+      kind: "workstream";
+      workstreamId: string;
+      projectId: string;
+      departmentId: string;
+    }>
+  | Readonly<{
+      kind: "criteriaReviewSnapshot";
+      reviewSnapshotId: string;
+      workstreamId: string;
+      projectId: string;
+      departmentId: string;
+    }>
   | Readonly<{
       kind: "managerFeedback.response";
       responseId: string;
@@ -48,17 +83,19 @@ export type PolicyResource =
       visibilityMode: "identified" | "manager_blinded" | "anonymous_aggregated";
     }>;
 
-export type ActingOwnerWindow = Readonly<{
+export type ResponsibilityAccessWindow = Readonly<{
   subjectId: string;
   scopeType: "project" | "workstream";
   scopeId: string;
+  projectId?: string;
+  responsibilityType: "original" | "acting" | "permanent" | "contributor";
   startsAt: string;
-  endsAt: string;
+  endsAt: string | null;
 }>;
 
 export type PolicyContext = Readonly<{
   now: string;
-  actingOwnerWindows?: ReadonlyArray<ActingOwnerWindow>;
+  responsibilityWindows?: ReadonlyArray<ResponsibilityAccessWindow>;
   incompleteEligibleCount?: number;
   uiVisible?: boolean;
 }>;

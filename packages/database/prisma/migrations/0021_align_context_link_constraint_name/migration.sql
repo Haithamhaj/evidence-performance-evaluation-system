@@ -1,0 +1,3 @@
+ALTER TABLE "SourceProjectLink"
+RENAME CONSTRAINT "SourceProjectLink_contextSuggestion_owner_fkey"
+TO "SourceProjectLink_contextSuggestionId_sourceItemId_employe_fkey";
