@@ -166,7 +166,7 @@ test("Arabic mobile keeps the daily entry simple and RTL", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/ar/my-work");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await page.getByRole("button", { name: "إضافة تحديث" }).click();
+  await page.getByRole("button", { name: "إضافة تحديث", exact: true }).click();
   const composer = page.getByRole("dialog", { name: "شارك تحديث التقدم" });
   await expect(composer.locator('select[name="projectId"]')).toHaveValue(
     "11111111-1111-4111-8111-111111111111",

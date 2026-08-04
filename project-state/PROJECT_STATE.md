@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Establish the accepted Slice 4 GitHub, Updates, Evidence, Voice, and Timeline journey on the fully
-verified main baseline, then begin Slice 5. Keep live GitHub installation behind its external human
-gate.
+Present the fully verified Slice 5 Project-owner progress, employee pulse/readiness, and manager
+operations journey for Product Owner acceptance. Do not begin Slice 6 before that gate. Keep live
+GitHub installation behind its external human gate.
 
 ## Current Reality
 
@@ -132,6 +132,16 @@ gate.
 - The external audit's hosted-build concern was not reproduced on the supported toolchain: Pull
   Request #5's clean GitHub Actions merge-ref run passed integrity, quality, build, and integration.
   The audit used unsupported Node.js 22; local startup now rejects unsupported versions clearly.
+- Slice 5 is complete on `codex/phase-2-slice-5-operational-readiness`: owner-only guided Progress
+  Contract setup, compact employee Project pulse, Thursday check-ins through the normal Update
+  lifecycle, non-scoring monthly readiness, and manager operational queues.
+- Deterministic acceptance proves separate human revision/submission/activation, retained official
+  progress with incomplete source coverage, missing-evidence actions, Arabic RTL at 390 px, and no
+  protected manager scoring fields. Evidence is in
+  `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_5.md`.
+- Final verification passed 1004 unit/coverage tests, 586 integration tests, 49 database checks, 38
+  browser journeys, all 23 lint/typecheck/build tasks, and the task-graph, secret, AI-boundary,
+  copy, and performance-input scans. No Slice 5 migration or AI prompt/schema change was added.
 
 ## Active Decisions
 
@@ -158,8 +168,8 @@ gate.
 - Arabic employee release remains blocked at T016's protected human semantic-review gate.
 - The known non-blocking T013 recovered-running attempt-count telemetry issue remains outside Phase 1 scope.
 - The prototype remains reference-only. Production Update structuring and voice use the governed
-  AI Router. Live GitHub installation remains externally gated; check-ins/readiness, manager
-  operations, and Fact View preparation remain in later slices.
+  AI Router. Live GitHub installation remains externally gated; Fact View preparation remains in
+  Slice 6.
 - The production plan contains multiple security-, migration-, AI-, privacy-, and immutability-critical slices. Fast Controlled Execution remains the default, with bounded critical reviews only where those boundaries are touched.
 - CI remains the hosted confirmation after this checkpoint is pushed; local verification used the exact repository-pinned Node.js 24.18.0 and pnpm 11.13.0.
 - Production Google Workspace integration requires organization-approved OAuth configuration, minimum scopes, retention/deletion policy, and administrator consent.
@@ -184,9 +194,10 @@ gate.
 
 ## Next Recommended Action
 
-After the authorized Pull Request #5 and Pull Request #3 merge gates are green, begin Slice 5
-without weakening the operational-progress/employee-performance boundary. Live GitHub App
-creation, installation, secret, and organization approval remain behind the external human gate.
+Product Owner reviews the Slice 5 acceptance journey on Pull Request #10. If accepted, begin Slice
+6 Evaluation Fact View preparation without implementing the complete evaluation workflow. Live
+GitHub App creation, installation, secret, and organization approval remain behind the external
+human gate.
 
 ## Critical References
 
