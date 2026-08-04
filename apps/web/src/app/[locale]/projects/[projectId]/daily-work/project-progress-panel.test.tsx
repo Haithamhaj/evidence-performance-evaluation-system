@@ -77,11 +77,9 @@ describe("ProjectProgressPanel", () => {
       createElement(ProjectProgressPanel, {
         catalog,
         locale: "en",
-        view: base,
-        draftJourney: {
-          initialDraft: null,
-          initialOpen: false,
-          sourceRequest: {
+        view: {
+          ...base,
+          contractDraftSourceRequest: {
             documentVersionId: crypto.randomUUID(),
             sourceChecksum: "a".repeat(64),
             sourceVersion: 3,
@@ -89,7 +87,7 @@ describe("ProjectProgressPanel", () => {
         },
       }),
     );
-    expect(markup).toContain(catalog["progressContract.review"]);
-    expect(markup).toContain(catalog["progressContract.activationRequired"]);
+    expect(markup).toContain(catalog["progressSetup.open"]);
+    expect(markup).toContain(catalog["progressSetup.notPerformance"]);
   });
 });

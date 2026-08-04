@@ -4,8 +4,6 @@ import { createElement } from "react";
 import { z } from "zod";
 
 import { fetchDailyWorkUpstream } from "../../../../../platform/daily-work-api";
-import { PublicProgressContractDraftSchema } from "../../../../../platform/progress-contract-drafts";
-import { fetchProtectedUpstream } from "../../../../../platform/workspace-api";
 import { WorkspaceShell } from "../../../workspace-shell";
 import { ProjectProgressPanel } from "./project-progress-panel";
 
@@ -80,15 +78,11 @@ export default async function ProjectDailyWorkPage({
 }>) {
   const { locale, projectId } = await params;
   if (!isLocale(locale)) notFound();
-  const [catalog, view, initialDraft] = await Promise.all([
+  const [catalog, view] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
       route: { kind: "project", projectId },
       schema: ProjectProgressViewSchema,
-    }),
-    fetchProtectedUpstream({
-      path: `/api/v1/projects/${Uuid.parse(projectId)}/progress-contract-drafts`,
-      schema: PublicProgressContractDraftSchema.nullable(),
     }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
@@ -101,18 +95,6 @@ export default async function ProjectDailyWorkPage({
     },
     createElement(ProjectProgressPanel, {
       catalog,
-      draftJourney: {
-        initialDraft,
-        initialOpen: initialDraft !== null,
-        sourceRequest:
-          view.contractDraftSourceRequest == null
-            ? null
-            : {
-                documentVersionId: view.contractDraftSourceRequest.documentVersionId,
-                sourceChecksum: view.contractDraftSourceRequest.sourceChecksum,
-                sourceVersion: view.contractDraftSourceRequest.sourceVersion,
-              },
-      },
       locale,
       view,
     }),

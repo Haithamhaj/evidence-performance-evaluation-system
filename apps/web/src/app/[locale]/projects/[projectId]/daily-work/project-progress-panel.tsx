@@ -48,18 +48,10 @@ export type ProjectProgressView = Readonly<{
 
 export function ProjectProgressPanel({
   catalog,
-  draftJourney,
   locale,
   view,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
-  draftJourney?: Readonly<{
-    initialDraft:
-      import("../../../../../platform/progress-contract-drafts").PublicProgressContractDraft | null;
-    initialOpen: boolean;
-    sourceRequest:
-      import("./progress-contract-draft-panel").ProgressContractDraftSourceRequest | null;
-  }>;
   locale: import("@evaluation/localization").Locale;
   view: ProjectProgressView;
 }>) {
@@ -82,11 +74,9 @@ export function ProjectProgressPanel({
 
       {createElement(ProgressContractDraftPanel, {
         catalog,
-        initialDraft: draftJourney?.initialDraft ?? null,
-        initialOpen: draftJourney?.initialOpen ?? false,
+        enabled: view.contractDraftSourceRequest != null,
         locale,
         projectId: view.project.id,
-        sourceRequest: draftJourney?.sourceRequest ?? null,
       })}
 
       <section className="progressSummary panel" aria-labelledby="official-progress-heading">
