@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { UpdateComposerView } from "./update-composer-view.js";
-import { updateErrorCatalogKey } from "./update-composer.js";
+import { UpdateComposer, updateErrorCatalogKey } from "./update-composer.js";
 
 const projectId = crypto.randomUUID();
 const workstreamId = crypto.randomUUID();
@@ -21,6 +21,30 @@ const context = {
 };
 
 describe("UpdateComposerView", () => {
+  it("routes a quick Thursday check-in through the normal Update lifecycle", async () => {
+    const catalog = await getCatalog("en");
+    const markup = renderToStaticMarkup(
+      createElement(UpdateComposer, {
+        catalog,
+        context,
+        initialCheckInDraft: {
+          projectId,
+          workstreamId,
+          rawText: "Work continues with no material change.",
+        },
+        initialItemId: "",
+        locale: "en",
+        onAccepted: () => undefined,
+        onClose: () => undefined,
+        open: true,
+      }),
+    );
+
+    expect(markup).toContain("Work continues with no material change.");
+    expect(markup).toContain("جاهزية API");
+    expect(markup).not.toContain("/check-ins");
+  });
+
   it("starts from a required Project while Workstream and Work Item remain optional", async () => {
     const catalog = await getCatalog("ar");
     const markup = renderToStaticMarkup(

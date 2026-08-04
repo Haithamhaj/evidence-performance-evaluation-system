@@ -93,9 +93,14 @@ export function ProjectProgressPanel({
           <h1 id="project-progress-heading">{view.project.name}</h1>
           <p>{view.project.description}</p>
         </div>
-        <span className={`statusBadge status-${view.project.status}`}>
-          {catalog[`workspace.status.${view.project.status}`]}
-        </span>
+        <div className="formActions">
+          <a className="secondaryLink" href={`/${locale}/projects/${view.project.id}/readiness`}>
+            {catalog["readiness.title"]}
+          </a>
+          <span className={`statusBadge status-${view.project.status}`}>
+            {catalog[`workspace.status.${view.project.status}`]}
+          </span>
+        </div>
       </header>
 
       {createElement(ProgressContractDraftPanel, {

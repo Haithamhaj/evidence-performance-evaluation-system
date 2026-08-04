@@ -1,5 +1,6 @@
 export * from "./activity-reader.js";
 export * from "./ai-structurer.js";
+export * from "./check-in-service.js";
 export * from "./evidence-service.js";
 export * from "./prompts.js";
 export * from "./scope-readers.js";

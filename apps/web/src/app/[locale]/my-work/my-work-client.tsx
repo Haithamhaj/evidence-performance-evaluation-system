@@ -7,6 +7,7 @@ import { createElement, useState } from "react";
 import type { UpdateComposerContext } from "../../../platform/updates-evidence-contracts";
 import { DailyBrief } from "./daily-brief";
 import { ConnectedContext } from "./connected-context";
+import { CheckInCard, type CheckInDraft, type CheckInObligationView } from "./check-in-card";
 import { PrivateInbox } from "./private-inbox";
 import { ProjectPulse } from "./project-pulse";
 import { ReviewQueue } from "./review-queue";
@@ -16,6 +17,7 @@ import { WorkItemDrawer } from "./work-item-drawer";
 
 type Properties = Readonly<{
   catalog: Catalog;
+  checkIns?: readonly CheckInObligationView[];
   initialSelectedId: string | null;
   locale: Locale;
   response: DailyWorkspaceSnapshot;
@@ -24,6 +26,7 @@ type Properties = Readonly<{
 
 export function MyWorkClient({
   catalog,
+  checkIns = [],
   initialSelectedId,
   locale,
   response,
@@ -32,6 +35,7 @@ export function MyWorkClient({
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [updateItemId, setUpdateItemId] = useState("");
   const [updateOpen, setUpdateOpen] = useState(false);
+  const [checkInDraft, setCheckInDraft] = useState<CheckInDraft | null>(null);
   const [contextReviewRevision, setContextReviewRevision] = useState(0);
   const allItems = [
     ...response.needsMyAction,
@@ -62,6 +66,14 @@ export function MyWorkClient({
   function openUpdate(itemId = "") {
     if (selectedId !== null) select(null);
     setUpdateItemId(itemId);
+    setCheckInDraft(null);
+    setUpdateOpen(true);
+  }
+
+  function openCheckIn(draft: CheckInDraft) {
+    if (selectedId !== null) select(null);
+    setUpdateItemId("");
+    setCheckInDraft(draft);
     setUpdateOpen(true);
   }
 
@@ -108,6 +120,12 @@ export function MyWorkClient({
         locale,
       })}
 
+      {createElement(CheckInCard, {
+        catalog,
+        obligations: checkIns,
+        onStart: openCheckIn,
+      })}
+
       {createElement(ConnectedContext, {
         catalog,
         projects,
@@ -152,6 +170,7 @@ export function MyWorkClient({
         : createElement(UpdateComposer, {
             catalog,
             context: updateContext,
+            initialCheckInDraft: checkInDraft,
             initialItemId: updateItemId,
             locale,
             onAccepted: () => undefined,

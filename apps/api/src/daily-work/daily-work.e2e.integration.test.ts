@@ -135,6 +135,18 @@ describe("daily work protected API contracts", () => {
     expect(updateContext).toHaveBeenCalledWith(actorId);
   });
 
+  it("binds check-in and readiness reads to the authenticated employee", async () => {
+    const checkIns = { listForEmployee: vi.fn(async () => []) };
+    const readiness = { employeeProjectMonth: vi.fn(async () => ({ state: "clear" })) };
+    const controller = new DailyWorkController({} as never, checkIns, readiness as never);
+
+    await controller.checkInObligations(request);
+    await controller.readinessForProject(request, projectId);
+
+    expect(checkIns.listForEmployee).toHaveBeenCalledWith({ employeeId: actorId });
+    expect(readiness.employeeProjectMonth).toHaveBeenCalledWith(actorId, projectId);
+  });
+
   it("server-composes the approved source request without exposing document identity", async () => {
     const progress = {
       getProjectProgress: vi.fn(async () => ({

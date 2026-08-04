@@ -25,7 +25,9 @@ export type DailyWorkRoute =
     }
   | { readonly kind: "projects" }
   | { readonly kind: "update_context" }
-  | { readonly kind: "project"; readonly projectId: string };
+  | { readonly kind: "project"; readonly projectId: string }
+  | { readonly kind: "check_ins" }
+  | { readonly kind: "readiness"; readonly projectId: string };
 
 const UuidSchema = WebUuidSchema;
 const WorkItemSchema = WebWorkItemSchema;
@@ -76,6 +78,46 @@ export const WebProjectPortfolioSchema = z.array(
 );
 
 export const WebUpdateComposerContextSchema = UpdateComposerContextSchema;
+export const WebCheckInObligationsSchema = z.array(
+  z
+    .object({
+      projectId: UuidSchema,
+      projectName: z.string().trim().min(1).max(240),
+      workstreamId: UuidSchema,
+      workstreamName: z.string().trim().min(1).max(240),
+      weekStartsAt: z.iso.datetime({ offset: true }),
+      weekEndsAt: z.iso.datetime({ offset: true }),
+      state: z.enum(["not_due", "required", "satisfied_by_update", "exempt_approved_leave"]),
+      capture: z
+        .object({
+          projectId: UuidSchema,
+          workstreamId: UuidSchema,
+          workItemId: z.null(),
+        })
+        .strict()
+        .nullable(),
+    })
+    .strict(),
+);
+export const WebMonthlyReadinessSchema = z
+  .object({
+    project: z.object({ id: UuidSchema, name: z.string().trim().min(1).max(240) }).strict(),
+    month: z.string().regex(/^\d{4}-\d{2}$/u),
+    state: z.enum(["clear", "attention"]),
+    messageKey: z.literal("readiness.recordMayBeInsufficient"),
+    gaps: z.array(
+      z
+        .object({
+          kind: z.enum(["silent_active_scope", "artifact_criterion_without_source"]),
+          scopeId: UuidSchema,
+          scopeKind: z.enum(["project", "workstream"]),
+          scopeName: z.string().trim().min(1).max(240),
+          correctiveAction: z.enum(["add_substantive_update", "attach_source"]),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 export const WebCurrentUserSchema = z.object({ userId: WebUuidSchema }).passthrough();
 export { WebTaskWorkspaceResponseSchema };
 export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
@@ -153,6 +195,10 @@ function routePath(route: DailyWorkRoute): string {
   }
   if (route.kind === "projects") return "/api/v1/daily-work/projects";
   if (route.kind === "update_context") return "/api/v1/daily-work/update-context";
+  if (route.kind === "check_ins") return "/api/v1/daily-work/check-ins";
+  if (route.kind === "readiness") {
+    return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}/readiness`;
+  }
   return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}`;
 }
 

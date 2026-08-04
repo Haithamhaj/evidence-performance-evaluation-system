@@ -9,6 +9,7 @@ import {
   ProgressQueryService,
 } from "@evaluation/projects";
 import { PrivateInboxQueryService, WorkItemQueryService } from "@evaluation/work-items";
+import { CheckInService } from "@evaluation/updates-evidence";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
@@ -16,6 +17,11 @@ import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
 import { ProjectDashboardQueryService } from "./project-dashboard-query.service.js";
+import {
+  createDatabaseCheckInService,
+  createDatabaseReadinessQueryService,
+  ReadinessQueryService,
+} from "./readiness-query.service.js";
 
 const DAILY_WORK_DATABASE = Symbol("DAILY_WORK_DATABASE");
 const DAILY_WORK_DATABASE_LIFECYCLE = Symbol("DAILY_WORK_DATABASE_LIFECYCLE");
@@ -73,6 +79,18 @@ Module({
       provide: ProjectDashboardQueryService,
       useFactory: (progress: ProgressQueryService) => new ProjectDashboardQueryService(progress),
       inject: [ProgressQueryService],
+    },
+    {
+      provide: CheckInService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        createDatabaseCheckInService(client),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: ReadinessQueryService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        createDatabaseReadinessQueryService(client),
+      inject: [DAILY_WORK_DATABASE],
     },
     {
       provide: DailyWorkQueryService,

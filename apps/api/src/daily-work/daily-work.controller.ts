@@ -4,11 +4,13 @@ import {
   ProgressContractDraftSchema,
 } from "@evaluation/contracts";
 import { ProgressContractService } from "@evaluation/projects";
+import { CheckInService } from "@evaluation/updates-evidence";
 import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
+import { ReadinessQueryService } from "./readiness-query.service.js";
 
 type Request = Readonly<{
   principal: import("@evaluation/auth").AuthenticatedPrincipal;
@@ -24,9 +26,17 @@ const ProposalBodySchema = z
 
 export class DailyWorkController {
   private readonly query: DailyWorkQueryService;
+  private readonly checkIns: Pick<CheckInService, "listForEmployee"> | undefined;
+  private readonly readiness: Pick<ReadinessQueryService, "employeeProjectMonth"> | undefined;
 
-  constructor(query: DailyWorkQueryService) {
+  constructor(
+    query: DailyWorkQueryService,
+    checkIns?: Pick<CheckInService, "listForEmployee">,
+    readiness?: Pick<ReadinessQueryService, "employeeProjectMonth">,
+  ) {
     this.query = query;
+    this.checkIns = checkIns;
+    this.readiness = readiness;
   }
 
   myWork(request: Request): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot> {
@@ -43,6 +53,19 @@ export class DailyWorkController {
 
   project(request: Request, projectId: string): Promise<unknown> {
     return this.query.project(request.principal.userId, z.string().uuid().parse(projectId));
+  }
+
+  checkInObligations(request: Request) {
+    if (this.checkIns === undefined) throw new Error("Check-in service is not configured");
+    return this.checkIns.listForEmployee({ employeeId: request.principal.userId });
+  }
+
+  readinessForProject(request: Request, projectId: string) {
+    if (this.readiness === undefined) throw new Error("Readiness service is not configured");
+    return this.readiness.employeeProjectMonth(
+      request.principal.userId,
+      z.string().uuid().parse(projectId),
+    );
   }
 }
 
@@ -108,6 +131,8 @@ function actor(request: Request) {
 Controller("api/v1/daily-work")(DailyWorkController);
 UseGuards(WorkItemsPolicyGuard)(DailyWorkController);
 Inject(DailyWorkQueryService)(DailyWorkController, undefined, 0);
+Inject(CheckInService)(DailyWorkController, undefined, 1);
+Inject(ReadinessQueryService)(DailyWorkController, undefined, 2);
 
 const myWork = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "myWork")!;
 Req()(DailyWorkController.prototype, "myWork", 0);
@@ -128,6 +153,25 @@ const project = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "
 Req()(DailyWorkController.prototype, "project", 0);
 Param("projectId")(DailyWorkController.prototype, "project", 1);
 Get("projects/:projectId")(DailyWorkController.prototype, "project", project);
+
+const checkInObligations = Object.getOwnPropertyDescriptor(
+  DailyWorkController.prototype,
+  "checkInObligations",
+)!;
+Req()(DailyWorkController.prototype, "checkInObligations", 0);
+Get("check-ins")(DailyWorkController.prototype, "checkInObligations", checkInObligations);
+
+const readinessForProject = Object.getOwnPropertyDescriptor(
+  DailyWorkController.prototype,
+  "readinessForProject",
+)!;
+Req()(DailyWorkController.prototype, "readinessForProject", 0);
+Param("projectId")(DailyWorkController.prototype, "readinessForProject", 1);
+Get("projects/:projectId/readiness")(
+  DailyWorkController.prototype,
+  "readinessForProject",
+  readinessForProject,
+);
 
 Controller("api/v1/projects")(ProgressContractsController);
 UseGuards(WorkItemsPolicyGuard)(ProgressContractsController);
