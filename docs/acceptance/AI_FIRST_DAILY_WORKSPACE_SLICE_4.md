@@ -102,5 +102,6 @@ friendlier fallback titles for opaque GitHub events, and tighter cursor timestam
 
 ## Product-owner stop gate
 
-Slice 4 is ready for Product Owner review. Slice 5 must not reinterpret Project progress as employee
-performance and must preserve the external live-GitHub installation gate.
+The Product Owner accepted Slice 4 on 2026-08-04 and authorized the verified merge sequence. Slice
+5 must not reinterpret Project progress as employee performance and must preserve the external
+live-GitHub installation gate.

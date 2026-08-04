@@ -2,8 +2,9 @@
 
 ## Current Goal
 
-Hold at the Product Owner review gate for the completed Slice 4 GitHub, Updates, Evidence, Voice,
-and Timeline journey. Keep live GitHub installation behind its external human gate.
+Establish the accepted Slice 4 GitHub, Updates, Evidence, Voice, and Timeline journey on the fully
+verified main baseline, then begin Slice 5. Keep live GitHub installation behind its external human
+gate.
 
 ## Current Reality
 
@@ -124,6 +125,13 @@ and Timeline journey. Keep live GitHub installation behind its external human ga
   34 browser journeys with four intentional skips, all 23 lint/typecheck/build workspace tasks,
   and protected boundary, secret, task-graph, and performance-input scans. Both bounded final
   reviews report no remaining P0/P1 finding.
+- The Product Owner accepted Slice 4 and authorized the Pull Request #5 then Pull Request #3 merge
+  sequence on 2026-08-04. Merge-gate remediation adds a deterministic local development entry
+  point, isolates the optional provider key to API/worker processes, and stabilizes Next.js
+  generated route-type files across development, typecheck, and build commands.
+- The external audit's hosted-build concern was not reproduced on the supported toolchain: Pull
+  Request #5's clean GitHub Actions merge-ref run passed integrity, quality, build, and integration.
+  The audit used unsupported Node.js 22; local startup now rejects unsupported versions clearly.
 
 ## Active Decisions
 
@@ -176,10 +184,9 @@ and Timeline journey. Keep live GitHub installation behind its external human ga
 
 ## Next Recommended Action
 
-Product Owner reviews the completed Slice 4 acceptance journey and report. After explicit
-acceptance, begin Slice 5 without weakening the operational-progress/employee-performance
-boundary. Live GitHub App creation, installation, secret, and organization approval remain behind
-the external human gate.
+After the authorized Pull Request #5 and Pull Request #3 merge gates are green, begin Slice 5
+without weakening the operational-progress/employee-performance boundary. Live GitHub App
+creation, installation, secret, and organization approval remain behind the external human gate.
 
 ## Critical References
 
