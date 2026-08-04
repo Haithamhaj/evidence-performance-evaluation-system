@@ -26,7 +26,7 @@ test("shows source-bound criteria and freezes the contributor response", async (
   await expect(page.getByRole("button", { name: "إقرار" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "اعتراض" })).toHaveCount(0);
   const duplicate = await request.post(
-    `http://127.0.0.1:3101/api/v1/dynamic-criteria/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/responses`,
+    `http://127.0.0.1:${process.env.E2E_API_PORT ?? "3101"}/api/v1/dynamic-criteria/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/responses`,
     {
       data: { action: "object", reason: "لا يمكن استبدال الاستجابة المجمدة." },
       headers: { authorization: "Bearer e2e-access-token" },

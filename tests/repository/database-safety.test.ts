@@ -91,7 +91,7 @@ describe("local database reset guard", () => {
       "db:reset:local":
         "node scripts/assert-local-database.mjs && pnpm --filter @evaluation/database exec prisma migrate reset --force",
       "db:seed": "pnpm --filter @evaluation/database db:seed",
-      "db:verify": "node scripts/verify-migrations.mjs",
+      "db:verify": "node --env-file=.env.example scripts/verify-migrations.mjs",
     });
     expect(databaseManifest.dependencies).toMatchObject({
       "@prisma/adapter-pg": "7.8.0",

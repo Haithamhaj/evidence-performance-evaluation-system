@@ -20,7 +20,7 @@ describe("createRuntimeAiRouter", () => {
           },
         ]),
       },
-      ...artifacts(),
+      ...artifactsForRoutes(),
     };
     const secretResolver = { get: vi.fn(async () => "secret") };
 
@@ -50,7 +50,20 @@ describe("createRuntimeAiRouter", () => {
           },
           {
             routeKey: "document.compare",
-            configs: [{ providers: [{ providerConfig: provider("provider-a", 2) }] }],
+            configs: [
+              {
+                providers: [
+                  {
+                    providerConfig: provider(
+                      "provider-a",
+                      2,
+                      "model-b",
+                      "https://other.example/v1",
+                    ),
+                  },
+                ],
+              },
+            ],
           },
         ]),
       },
@@ -62,6 +75,35 @@ describe("createRuntimeAiRouter", () => {
         secretResolver: { get: vi.fn() },
       }),
     ).rejects.toMatchObject({ code: "AI_PROVIDER_CONFIGURATION_CONFLICT" });
+  });
+
+  it("shares one governed transport across route-specific models for the same provider key", async () => {
+    const database = {
+      aiRoute: {
+        findMany: vi.fn(async () => [
+          {
+            routeKey: "update.structure",
+            configs: [
+              { providers: [{ providerConfig: provider("openai", 1, "gpt-5.5-2026-04-23") }] },
+            ],
+          },
+          {
+            routeKey: "update.transcribe",
+            configs: [
+              { providers: [{ providerConfig: provider("openai", 2, "gpt-4o-transcribe") }] },
+            ],
+          },
+        ]),
+      },
+      ...artifactsForRoutes(),
+    };
+
+    await expect(
+      createRuntimeAiRouter({
+        database: database as never,
+        secretResolver: { get: vi.fn() },
+      }),
+    ).resolves.toBeInstanceOf(AiRouter);
   });
 
   it.each([
@@ -108,15 +150,20 @@ describe("createRuntimeAiRouter", () => {
   });
 });
 
-function provider(providerKey: string, version: number) {
+function provider(
+  providerKey: string,
+  version: number,
+  modelKey = "model-a",
+  endpoint = "https://provider.example/v1",
+) {
   return {
     id: `00000000-0000-4000-8000-00000000000${version}`,
     providerKey,
     version,
     adapterKey: "openai-compatible",
-    modelKey: "model-a",
+    modelKey,
     locality: "external",
-    endpoint: "https://provider.example/v1",
+    endpoint,
     localTrustPolicyId: null,
     localTrustPolicyVersion: null,
     localTrustAllowedIp: null,
@@ -165,6 +212,23 @@ function artifacts(
           ? (overrides.schema ?? null)
           : schemaArtifact(),
       ),
+    },
+  };
+}
+
+function artifactsForRoutes() {
+  return {
+    analysisPromptArtifact: {
+      findFirst: vi.fn(async (query: { where: { routeKey: string } }) => ({
+        ...promptArtifact(),
+        routeKey: query.where.routeKey,
+      })),
+    },
+    aiOutputSchemaArtifact: {
+      findFirst: vi.fn(async (query: { where: { routeKey: string } }) => ({
+        ...schemaArtifact(),
+        routeKey: query.where.routeKey,
+      })),
     },
   };
 }

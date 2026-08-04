@@ -12,6 +12,7 @@ export interface AiCredentialSecretResolver {
 export async function createRuntimeAiRouter(input: {
   database: import("@evaluation/database").DatabaseClient;
   secretResolver: AiCredentialSecretResolver;
+  privateMediaResolver?: import("./adapters/prompt-aware-openai-compatible.js").PrivateMediaResolver;
 }): Promise<AiRouter<import("@evaluation/database").DatabaseTransaction>> {
   const routes = await input.database.aiRoute.findMany({
     include: {
@@ -38,7 +39,11 @@ export async function createRuntimeAiRouter(input: {
     selectedRouteKeys.add(route.routeKey);
     for (const { providerConfig } of activeConfig.providers) {
       const existing = activeProviders.get(providerConfig.providerKey);
-      if (existing !== undefined && existing.id !== providerConfig.id) {
+      if (
+        existing !== undefined &&
+        existing.id !== providerConfig.id &&
+        !sharesGovernedTransport(existing, providerConfig)
+      ) {
         throw new AppError(
           "AI_PROVIDER_CONFIGURATION_CONFLICT",
           "errors.ai.providerConfigurationConflict",
@@ -66,6 +71,9 @@ export async function createRuntimeAiRouter(input: {
       locality: provider.locality,
       baseUrl: provider.endpoint,
       credentialProvider: () => input.secretResolver.get(provider.providerKey),
+      ...(input.privateMediaResolver === undefined
+        ? {}
+        : { privateMediaResolver: input.privateMediaResolver }),
       ...(provider.localTrustPolicyId === null ||
       provider.localTrustPolicyVersion === null ||
       provider.localTrustAllowedIp === null
@@ -81,6 +89,37 @@ export async function createRuntimeAiRouter(input: {
   });
   const repository = new PrismaAiRoutingRepository(input.database);
   return new AiRouter(repository, repository, adapters);
+}
+
+function sharesGovernedTransport(
+  left: Readonly<{
+    providerKey: string;
+    adapterKey: string;
+    locality: string;
+    endpoint: string;
+    localTrustPolicyId: string | null;
+    localTrustPolicyVersion: number | null;
+    localTrustAllowedIp: string | null;
+  }>,
+  right: Readonly<{
+    providerKey: string;
+    adapterKey: string;
+    locality: string;
+    endpoint: string;
+    localTrustPolicyId: string | null;
+    localTrustPolicyVersion: number | null;
+    localTrustAllowedIp: string | null;
+  }>,
+): boolean {
+  return (
+    left.providerKey === right.providerKey &&
+    left.adapterKey === right.adapterKey &&
+    left.locality === right.locality &&
+    left.endpoint === right.endpoint &&
+    left.localTrustPolicyId === right.localTrustPolicyId &&
+    left.localTrustPolicyVersion === right.localTrustPolicyVersion &&
+    left.localTrustAllowedIp === right.localTrustAllowedIp
+  );
 }
 
 async function requireRouteArtifacts(

@@ -1,0 +1,169 @@
+# Slice 6 — Evaluation Fact View Preparation Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` for bounded implementation. Use one specification reviewer and one privacy/neutrality reviewer because this slice prepares protected evaluation inputs. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Prepare a neutral, source-supported view of work facts for later quarterly self-assessment and manager assessment without implementing the complete evaluation workflow or recommending a rating.
+
+**Architecture:** Add one read-only Evaluation Preparation package that composes authorized public readers from Projects, Work Items, Updates & Evidence, Documents, criteria, and responsibility history. It does not read foreign tables directly and does not create a second evidence store. Source facts and employee interpretation remain structurally distinct.
+
+**Tech Stack:** Existing modular packages, NestJS, Zod, Next.js/React, Vitest, Playwright.
+
+## Global Constraints
+
+- Phase 2 stops at Fact View preparation.
+- Employee and manager ratings remain Phase 3 human workflows.
+- AI does not assign, predict, recommend, normalize, or challenge a rating.
+- Manager final rating remains a human decision under the approved rubric.
+- The Fact View distinguishes source-supported facts from employee interpretation.
+- Project count, task count, activity volume, GitHub volume, readiness, and Project progress do not become performance scores.
+- Historical responsibility windows and active-at-the-time criteria versions govern attribution.
+- Documentation Readiness stays separate and individual readiness percentages remain hidden from managers.
+
+---
+
+### Task 1: Define a neutral Fact View contract
+
+**Files:**
+
+- Create: `packages/evaluation-preparation/package.json`
+- Create: `packages/evaluation-preparation/tsconfig.json`
+- Create: `packages/evaluation-preparation/src/index.ts`
+- Create: `packages/contracts/src/evaluation-fact-view.ts`
+- Create: `packages/contracts/src/evaluation-fact-view.test.ts`
+- Modify: `packages/contracts/src/index.ts`
+- Modify: `pnpm-workspace.yaml`
+
+**Contract:**
+
+```ts
+type EvaluationFactView = {
+  cycleId: string;
+  subjectEmployeeId: string;
+  responsibilityWindows: ResponsibilityWindowFact[];
+  projectFacts: ProjectContributionFact[];
+  confirmedEvidence: EvidenceFact[];
+  checkInFacts: CheckInFact[];
+  dynamicCriteriaVersions: CriterionVersionFact[];
+  employeeInterpretations: EmployeeInterpretation[];
+  sourceCoverageNotes: CoverageNote[];
+};
+```
+
+- [ ] Write failing schema tests that require source IDs, timestamps, effective versions, responsibility windows, and fact/interpretation labels.
+- [ ] Add a prohibited-field scan test for rating suggestions, predictions, ranks, productivity scores, readiness percentages, and automatic Project averages.
+- [ ] Keep criterion stable IDs and locale/version identity.
+- [ ] Run contract tests and protected scans.
+- [ ] Commit as `feat(evaluation): define neutral fact view contract`.
+
+### Task 2: Compose facts through public module readers
+
+**Files:**
+
+- Create: `packages/evaluation-preparation/src/fact-view-service.ts`
+- Create: `packages/evaluation-preparation/src/fact-view-service.integration.test.ts`
+- Create: `packages/evaluation-preparation/src/fact-normalizer.ts`
+- Create: `packages/evaluation-preparation/src/fact-normalizer.test.ts`
+- Modify: `packages/projects/src/index.ts`
+- Modify: `packages/work-items/src/index.ts`
+- Modify: `packages/updates-evidence/src/index.ts`
+- Modify: `packages/documents/src/index.ts`
+
+**Reader boundary:**
+
+```ts
+export interface EvaluationSourceReader {
+  readAuthorizedFacts(input: {
+    subjectEmployeeId: string;
+    cycleStart: Date;
+    cycleEnd: Date;
+    requester: AuthorizedActor;
+  }): Promise<readonly SourceFact[]>;
+}
+```
+
+- [ ] Write failing tests for actual responsibility periods, deactivated historical users, prospective criterion versions, approved leave, and immutable source references.
+- [ ] Write tests that deduplicate the same source without counting volume or creating averages.
+- [ ] Normalize self-presentation differences by organizing facts consistently, not by scoring or judging them.
+- [ ] Use public readers only; add the smallest missing read interface to each owning package.
+- [ ] Run package integration tests and typecheck.
+- [ ] Commit as `feat(evaluation): compose authorized source facts`.
+
+### Task 3: Add protected Fact View API
+
+**Files:**
+
+- Create: `apps/api/src/evaluation-preparation/evaluation-preparation.module.ts`
+- Create: `apps/api/src/evaluation-preparation/evaluation-fact-view.controller.ts`
+- Create: `apps/api/src/evaluation-preparation/evaluation-fact-view-policy.guard.ts`
+- Create: `apps/api/src/evaluation-preparation/evaluation-fact-view.e2e.integration.test.ts`
+- Modify: `apps/api/src/app.module.ts`
+- Modify: `apps/api/package.json`
+
+**Endpoint:**
+
+```text
+GET /api/v1/evaluation-cycles/:cycleId/employees/:employeeId/facts
+```
+
+- [ ] Test employee self-access, authorized manager access for the active responsibility relation, administrator separation, inactive principal denial, and cross-team denial.
+- [ ] Test active cycle visibility mode does not leak protected upward-feedback data.
+- [ ] Test manager responses contain no individual Documentation Readiness percentages.
+- [ ] Preserve source authorization even when a fact refers to historical or deactivated records.
+- [ ] Run focused API integration tests and protected scans.
+- [ ] Commit as `feat(api): expose protected evaluation fact view`.
+
+### Task 4: Build the neutral Fact View UI
+
+**Files:**
+
+- Create: `apps/web/src/platform/evaluation-fact-view-api.ts`
+- Create: `apps/web/src/platform/evaluation-fact-view-api.test.ts`
+- Create: `apps/web/src/app/[locale]/evaluations/facts/page.tsx`
+- Create: `apps/web/src/app/[locale]/evaluations/facts/evaluation-fact-view.tsx`
+- Create: `apps/web/src/app/[locale]/evaluations/facts/source-facts-section.tsx`
+- Create: `apps/web/src/app/[locale]/evaluations/facts/employee-interpretation-section.tsx`
+- Create: `apps/web/src/app/[locale]/evaluations/facts/coverage-notes.tsx`
+- Create: `apps/web/src/app/[locale]/evaluations/facts/evaluation-fact-view.test.tsx`
+- Modify: `packages/localization/src/catalogs/ar.json`
+- Modify: `packages/localization/src/catalogs/en.json`
+
+- [ ] Test facts appear before employee narrative.
+- [ ] Label employee narrative as interpretation, not source fact.
+- [ ] Organize by approved rubric areas and contribution context without deriving a score.
+- [ ] Show source links, effective criteria, time windows, and missing coverage neutrally.
+- [ ] Do not place rating controls in this Phase 2 route.
+- [ ] Keep evaluation navigation separate from Today, readiness, and manager operations.
+- [ ] Run focused web/localization tests and typecheck.
+- [ ] Commit as `feat(web): add neutral evaluation fact view`.
+
+### Task 5: Neutrality and privacy acceptance checkpoint
+
+**Files:**
+
+- Create: `tests/e2e/evaluation-fact-view.spec.ts`
+- Create: `tests/ai/evaluation-fact-view-neutrality.eval.test.ts`
+- Create: `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_6.md`
+- Create screenshots under: `docs/product/screenshots/ai-first-daily-workspace/slice-6/`
+
+- [ ] Demonstrate the same source facts for employee and authorized manager, subject to lawful role-specific privacy fields.
+- [ ] Demonstrate explicit separation between source facts and employee interpretation.
+- [ ] Verify absence of AI rating language, ranking, productivity score, automatic Project average, and manager-visible readiness percentage.
+- [ ] Verify historical responsibility and dynamic criterion versions.
+- [ ] Run focused tests, related integration tests, neutrality evaluations, affected lint/typechecks, and protected scans.
+- [ ] Complete bounded specification and privacy/neutrality reviews; remediate confirmed P0/P1 only.
+- [ ] Commit as `test: verify evaluation fact view neutrality`.
+- [ ] Push, update Pull Request #5, publish URLs/screenshots, then stop.
+
+## Product Owner Stop Gate
+
+The Product Owner reviews whether the Fact View helps a person conduct a fair later assessment while remaining visibly neutral. Approval of this slice does not authorize the complete self-assessment, manager-assessment, comparison, discussion, or final-rating workflow.
+
+## Phase Completion Checkpoint
+
+After Slice 6 approval:
+
+- [ ] Run the full repository verification suite, migrations from empty and previous release snapshot, AI evaluations, and protected browser journeys.
+- [ ] Update operational documentation, `TASKS.md`, and `project-state/PROJECT_STATE.md`.
+- [ ] Record P2/P3 findings in backlog issues without hiding them.
+- [ ] Make Pull Request #5 ready only after all required CI checks pass.
+- [ ] Do not merge without the Product Owner's explicit phase approval.

@@ -129,4 +129,73 @@ describe("PromptAwareOpenAiCompatibleAdapter", () => {
     ).rejects.toMatchObject({ code: "AI_PROMPT_INPUT_INVALID" });
     expect(invalid.database.analysisPromptArtifact.findUnique).not.toHaveBeenCalled();
   });
+
+  it("sends only privately resolved bytes to the official transcription multipart endpoint", async () => {
+    const voiceRoute = "update.transcribe";
+    const voiceBody = "Transcribe private audio without ratings.";
+    const voiceHash = createHash("sha256").update(voiceBody).digest("hex");
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const fetchImplementation = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ text: "تم النشر.", language: "ar" }), { status: 200 }),
+    );
+    const resolver = {
+      read: vi.fn(async () => ({
+        bytes,
+        filename: "voice.m4a",
+        mediaType: "audio/mp4",
+        byteSize: bytes.byteLength,
+      })),
+    };
+    const adapter = new PromptAwareOpenAiCompatibleAdapter({
+      database: {
+        analysisPromptArtifact: {
+          findUnique: vi.fn(async () => ({
+            id: artifactId,
+            routeKey: voiceRoute,
+            version: "v1",
+            bodyHash: voiceHash,
+            trustedBody: voiceBody,
+          })),
+        },
+      } as never,
+      providerKey: "provider-a",
+      adapterKey: "openai-compatible",
+      locality: "external",
+      baseUrl: "https://api.openai.com/v1",
+      credentialProvider: async () => "provider-secret",
+      fetchImplementation,
+      privateMediaResolver: resolver,
+    });
+    await expect(
+      adapter.generate(
+        {
+          routeKey: voiceRoute,
+          modelKey: "gpt-4o-transcribe",
+          input: {
+            trustedInstruction: {
+              routeKey: voiceRoute,
+              artifactId,
+              version: "v1",
+              sha256: voiceHash,
+            },
+            untrustedContent: {
+              audioReference: `uploaded-source:${crypto.randomUUID()}`,
+              mediaType: "audio/mp4",
+              byteSize: 4,
+            },
+          },
+        },
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({ output: { transcript: "تم النشر." } });
+    const [endpoint, init] = fetchImplementation.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(endpoint.pathname).toBe("/v1/audio/transcriptions");
+    expect(init.body).toBeInstanceOf(FormData);
+    const form = init.body as FormData;
+    expect(form.get("model")).toBe("gpt-4o-transcribe");
+    expect(form.get("prompt")).toBe(voiceBody);
+    expect(new Uint8Array(await (form.get("file") as File).arrayBuffer())).toEqual(bytes);
+    expect(JSON.stringify(init)).not.toContain("AQIDBA");
+  });
 });

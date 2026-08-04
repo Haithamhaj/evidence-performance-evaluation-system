@@ -216,6 +216,91 @@ export async function mutateCriteriaUpstream(input: {
   );
 }
 
+export async function fetchProtectedUpstream<T>(input: {
+  readonly path: string;
+  readonly schema: { parse(value: unknown): T };
+  readonly method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  readonly body?: unknown;
+}): Promise<T> {
+  const correlationId = randomUUID();
+  if (!input.path.startsWith("/api/v1/") || input.path.includes("://")) {
+    throw failure(404, "errors.notFound", correlationId);
+  }
+  const baseUrl = internalApiBaseUrl(correlationId);
+  let settings: ReturnType<typeof oidcSettings>;
+  try {
+    settings = oidcSettings();
+  } catch {
+    throw failure(500, "errors.internal", correlationId);
+  }
+  let cookieStore: Awaited<ReturnType<typeof cookies>>;
+  try {
+    cookieStore = await cookies();
+  } catch {
+    throw failure(500, "errors.internal", correlationId);
+  }
+  let accessToken: string;
+  try {
+    accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
+  } catch {
+    throw failure(401, "errors.unauthorized", correlationId);
+  }
+  return requestJson(
+    { accessToken, baseUrl, correlationId },
+    input.path,
+    input.schema,
+    input.method ?? "GET",
+    input.body,
+  );
+}
+
+export async function uploadProtectedSource<T>(input: {
+  readonly resourceKind: "project" | "workstream";
+  readonly resourceId: string;
+  readonly filename: string;
+  readonly declaredMime: string;
+  readonly reason: string;
+  readonly bytes: ArrayBuffer;
+  readonly schema: { parse(value: unknown): T };
+}): Promise<T> {
+  const correlationId = randomUUID();
+  assertUuid(input.resourceId, correlationId);
+  const baseUrl = internalApiBaseUrl(correlationId);
+  const settings = oidcSettings();
+  const cookieStore = await cookies();
+  let accessToken: string;
+  try {
+    accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
+  } catch {
+    throw failure(401, "errors.unauthorized", correlationId);
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/api/v1/documents/uploads`, {
+      cache: "no-store",
+      body: new Blob([input.bytes], { type: input.declaredMime }),
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": input.declaredMime,
+        "x-correlation-id": correlationId,
+        "x-document-filename": input.filename,
+        "x-document-kind": input.resourceKind,
+        "x-document-reason": input.reason,
+        "x-document-resource-id": input.resourceId,
+      },
+      method: "POST",
+    });
+  } catch {
+    throw failure(503, "errors.internal", correlationId);
+  }
+  if (!response.ok) throw responseFailure(response.status, correlationId);
+  try {
+    return input.schema.parse(await response.json());
+  } catch {
+    throw failure(503, "errors.internal", correlationId);
+  }
+}
+
 export function safeWorkspaceError(error: unknown): SafeWorkspaceError {
   if (error instanceof WorkspaceApiError) {
     return {
@@ -286,14 +371,14 @@ async function requestJson<T>(
   context: UpstreamContext,
   path: string,
   schema: { parse(value: unknown): T },
-  method: "GET" | "POST" = "GET",
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE" = "GET",
   body?: unknown,
 ): Promise<T> {
   const headers: Record<string, string> = {
     authorization: `Bearer ${context.accessToken}`,
     "x-correlation-id": context.correlationId,
   };
-  if (method === "POST") headers["content-type"] = "application/json";
+  if (method !== "GET" && body !== undefined) headers["content-type"] = "application/json";
 
   let response: Response;
   try {
@@ -301,7 +386,7 @@ async function requestJson<T>(
       cache: "no-store",
       headers,
       method,
-      ...(method === "POST" && body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(method !== "GET" && body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
   } catch {
     throw failure(503, "errors.internal", context.correlationId);

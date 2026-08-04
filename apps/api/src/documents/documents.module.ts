@@ -3,8 +3,12 @@ import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
 import {
   ClamAvScanner,
+  DocumentAnalysisSourceLoader,
+  DocumentProjectSemanticContextReader,
   DocumentService,
   parseDocumentRuntimeConfig,
+  ProgressContractDraftSourceLocator,
+  ProgressContractDraftSourceReader,
   S3PrivateStorage,
   TemplateService,
   UploadService,
@@ -101,6 +105,64 @@ Module({
       inject: [DOCUMENTS_RUNTIME_CONFIG],
     },
     {
+      provide: DocumentAnalysisSourceLoader,
+      useFactory: (
+        database: ReturnType<typeof createDatabaseClient>,
+        storage: S3PrivateStorage,
+        config: ReturnType<typeof parseDocumentRuntimeConfig>,
+      ) =>
+        new DocumentAnalysisSourceLoader(database, storage, {
+          maxSourceBytes: Math.max(
+            config.policy.maxBytesByClass.text,
+            config.policy.maxBytesByClass.office,
+          ),
+        }),
+      inject: [DOCUMENTS_DATABASE, S3PrivateStorage, DOCUMENTS_RUNTIME_CONFIG],
+    },
+    {
+      provide: ProgressContractDraftSourceLocator,
+      useFactory: (
+        database: ReturnType<typeof createDatabaseClient>,
+        identity: DocumentResourceReader,
+      ) => new ProgressContractDraftSourceLocator(database, identity),
+      inject: [DOCUMENTS_DATABASE, DocumentResourceReader],
+    },
+    {
+      provide: ProgressContractDraftSourceReader,
+      useFactory: (
+        database: ReturnType<typeof createDatabaseClient>,
+        identity: DocumentResourceReader,
+        sourceLoader: DocumentAnalysisSourceLoader,
+        config: ReturnType<typeof parseDocumentRuntimeConfig>,
+      ) => {
+        const maxSourceBytes = Math.max(
+          config.policy.maxBytesByClass.text,
+          config.policy.maxBytesByClass.office,
+        );
+        return new ProgressContractDraftSourceReader(database, identity, sourceLoader, {
+          maxSourceBytes,
+          maxArchiveEntries: config.policy.maxArchiveEntries,
+          maxArchiveUncompressedBytes: config.policy.maxArchiveUncompressedBytes,
+          maxArchiveCompressionRatio: config.policy.maxArchiveCompressionRatio,
+          maxQuotedCharacters: maxSourceBytes,
+        });
+      },
+      inject: [
+        DOCUMENTS_DATABASE,
+        DocumentResourceReader,
+        DocumentAnalysisSourceLoader,
+        DOCUMENTS_RUNTIME_CONFIG,
+      ],
+    },
+    {
+      provide: DocumentProjectSemanticContextReader,
+      useFactory: (
+        locator: ProgressContractDraftSourceLocator,
+        sourceReader: ProgressContractDraftSourceReader,
+      ) => new DocumentProjectSemanticContextReader(locator, sourceReader),
+      inject: [ProgressContractDraftSourceLocator, ProgressContractDraftSourceReader],
+    },
+    {
       provide: UploadService,
       useFactory: (
         database: ReturnType<typeof createDatabaseClient>,
@@ -136,4 +198,5 @@ Module({
     DocumentsAuthenticationGuard,
     DocumentTemplatePolicyGuard,
   ],
+  exports: [DocumentProjectSemanticContextReader],
 })(DocumentsModule);

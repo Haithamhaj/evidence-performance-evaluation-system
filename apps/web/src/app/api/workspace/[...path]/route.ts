@@ -3,7 +3,11 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { fetchWorkspaceUpstream, safeWorkspaceError } from "../../../../platform/workspace-api";
+import {
+  fetchProtectedUpstream,
+  fetchWorkspaceUpstream,
+  safeWorkspaceError,
+} from "../../../../platform/workspace-api";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const UuidSchema = z.string().uuid();
@@ -304,17 +308,129 @@ const WorkstreamScreenSchema = z.union([
     .strict(),
 ]);
 
+const ConnectedWorkContextSchema = z
+  .object({
+    mode: z.enum(["synthetic", "live"]),
+    synthetic: z.boolean(),
+    connection: z
+      .object({
+        status: z.enum(["connected", "disconnected"]),
+        lastSuccessfulSyncAt: UtcInstantSchema.nullable(),
+      })
+      .strict(),
+    items: z.array(
+      z
+        .object({
+          id: UuidSchema,
+          provider: z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"]),
+          occurredAt: UtcInstantSchema,
+          title: z.string(),
+          summary: z.string().nullable(),
+          sourceUrl: z.url().nullable(),
+          privacy: z.literal("PRIVATE"),
+          excluded: z.boolean(),
+          projectId: UuidSchema.nullable(),
+          sourceExclusion: z
+            .object({
+              provider: z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"]),
+              kind: z.enum(["GMAIL_LABEL", "GMAIL_THREAD", "CALENDAR", "CALENDAR_EVENT_CATEGORY"]),
+              providerExclusionId: z.string().min(1).max(1_000),
+              excluded: z.boolean(),
+            })
+            .strict()
+            .nullable(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+const ConnectionStartSchema = z
+  .object({
+    mode: z.enum(["synthetic", "live"]),
+    synthetic: z.boolean(),
+    authorizationUrl: z.url(),
+  })
+  .strict();
+const ConnectionResultSchema = z
+  .object({ mode: z.enum(["synthetic", "live"]), synthetic: z.boolean(), connected: z.boolean() })
+  .strict();
+const ItemExclusionResultSchema = z.object({ id: UuidSchema, excluded: z.boolean() }).strict();
+const SourceExclusionResultSchema = z
+  .object({ id: UuidSchema, sourceExcluded: z.boolean() })
+  .strict();
+const ProjectLinkResultSchema = z
+  .object({ id: UuidSchema, projectId: UuidSchema.optional(), linked: z.boolean() })
+  .strict();
+const ConnectionCallbackSchema = z
+  .object({
+    mode: z.enum(["synthetic", "live"]),
+    synthetic: z.boolean(),
+    connected: z.literal(true),
+    synchronizedProviders: z.array(z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"])),
+  })
+  .strict();
+const LocalConnectionCallbackSchema = z
+  .object({
+    mode: z.literal("live"),
+    synthetic: z.literal(false),
+    connected: z.boolean(),
+    returnUri: z.url(),
+    synchronizedProviders: z.array(z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"])),
+  })
+  .strict();
+const StartBodySchema = z.object({ redirectUri: z.url().max(2_000) }).strict();
+const ExclusionBodySchema = z.object({ excluded: z.boolean() }).strict();
+const ProjectLinkBodySchema = z
+  .object({ projectId: UuidSchema, reason: z.string().trim().min(1).max(1_000) })
+  .strict();
+const UnlinkBodySchema = z.object({ reason: z.string().trim().min(1).max(1_000) }).strict();
+
 type RouteContext = {
   readonly params: Promise<{ readonly path: readonly string[] }>;
 };
 
 export async function GET(request: Request, context: RouteContext): Promise<NextResponse> {
-  const route = approvedRoute(request, (await context.params).path);
+  const path = (await context.params).path;
+  const localCallback = approvedGoogleProviderCallback(request, path);
+  if (localCallback !== null) {
+    try {
+      const result = await fetchProtectedUpstream({
+        method: "POST",
+        path: "/api/v1/connected-work/google/complete",
+        body: localCallback,
+        schema: LocalConnectionCallbackSchema,
+      });
+      return NextResponse.redirect(safeLocalizedConnectionReturnUri(request, result.returnUri));
+    } catch {
+      return NextResponse.redirect(new URL("/en/settings/connections", request.url));
+    }
+  }
+  const callbackPath = approvedConnectedCallbackPath(request, path);
+  if (callbackPath !== null) {
+    try {
+      const body = await fetchProtectedUpstream({
+        method: "GET",
+        path: callbackPath,
+        schema: ConnectionCallbackSchema,
+      });
+      return NextResponse.json(body);
+    } catch (error) {
+      const failure = safeWorkspaceError(error);
+      return NextResponse.json(failure, { status: failure.status });
+    }
+  }
+  const route = approvedRoute(request, path);
   if (route === null) return notFound();
 
   try {
     let body: unknown;
-    if (route.kind === "projects") {
+    if (route.kind === "connected_context") {
+      body = await fetchProtectedUpstream({
+        method: "GET",
+        path: "/api/v1/connected-work/items",
+        schema: ConnectedWorkContextSchema,
+      });
+    } else if (route.kind === "projects") {
       body = await fetchWorkspaceUpstream({ route, schema: z.array(ProjectSchema) });
     } else if (route.kind === "project") {
       body = await fetchWorkspaceUpstream({ route, schema: ProjectScreenSchema });
@@ -328,20 +444,113 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
   }
 }
 
-export function POST(_request: Request): NextResponse {
-  return notFound();
+export function POST(_request: Request): Promise<NextResponse> {
+  return forwardConnectedMutation(_request, "POST");
 }
 
-export const PUT = POST;
-export const PATCH = POST;
-export const DELETE = POST;
+export function PUT(request: Request): NextResponse | Promise<NextResponse> {
+  return forwardConnectedMutation(request, "PUT");
+}
+
+export function PATCH(request: Request): NextResponse | Promise<NextResponse> {
+  return forwardConnectedMutation(request, "PATCH");
+}
+
+export function DELETE(request: Request): NextResponse | Promise<NextResponse> {
+  return forwardConnectedMutation(request, "DELETE");
+}
 export const HEAD = POST;
 export const OPTIONS = POST;
+
+async function forwardConnectedMutation(
+  request: Request,
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
+): Promise<NextResponse> {
+  const path = new URL(request.url).pathname.split("/").filter(Boolean).slice(2);
+  const route = approvedConnectedMutationRoute(request, path, method);
+  if (route === null) return notFound();
+  try {
+    const body = route.body === null ? undefined : route.body.parse(await request.json());
+    const result = await fetchProtectedUpstream({
+      body,
+      method,
+      path: route.path,
+      schema: route.schema,
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    const failure = safeWorkspaceError(error);
+    return NextResponse.json(failure, { status: failure.status });
+  }
+}
+
+function approvedConnectedMutationRoute(
+  request: Request,
+  path: readonly string[],
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
+): {
+  readonly path: string;
+  readonly body: z.ZodTypeAny | null;
+  readonly schema: z.ZodTypeAny;
+} | null {
+  const url = new URL(request.url);
+  if (
+    url.search !== "" ||
+    /%(?:2e|2f|5c)/iu.test(request.url) ||
+    path.some((segment) => segment === "." || segment === "..")
+  )
+    return null;
+  if (method === "POST" && path.join("/") === "connected-work/google/start") {
+    return {
+      path: "/api/v1/connected-work/google/start",
+      body: StartBodySchema,
+      schema: ConnectionStartSchema,
+    };
+  }
+  if (method === "DELETE" && path.join("/") === "connected-work/google") {
+    return { path: "/api/v1/connected-work/google", body: null, schema: ConnectionResultSchema };
+  }
+  if (path.length !== 4 || path[0] !== "connected-work" || path[1] !== "items" || !isUuid(path[2]))
+    return null;
+  const id = path[2];
+  if (method === "PATCH" && path[3] === "exclusion") {
+    return {
+      path: `/api/v1/connected-work/items/${id}/exclusion`,
+      body: ExclusionBodySchema,
+      schema: ItemExclusionResultSchema,
+    };
+  }
+  if (method === "PATCH" && path[3] === "source-exclusion") {
+    return {
+      path: `/api/v1/connected-work/items/${id}/source-exclusion`,
+      body: ExclusionBodySchema,
+      schema: SourceExclusionResultSchema,
+    };
+  }
+  if (method === "PUT" && path[3] === "project-link") {
+    return {
+      path: `/api/v1/connected-work/items/${id}/project-link`,
+      body: ProjectLinkBodySchema,
+      schema: ProjectLinkResultSchema,
+    };
+  }
+  if (method === "DELETE" && path[3] === "project-link") {
+    return {
+      path: `/api/v1/connected-work/items/${id}/project-link`,
+      body: UnlinkBodySchema,
+      schema: ProjectLinkResultSchema,
+    };
+  }
+  return null;
+}
 
 function approvedRoute(request: Request, path: readonly string[]) {
   const url = new URL(request.url);
   if (url.search !== "" || /%(?:2e|2f|5c)/iu.test(request.url)) return null;
   if (path.some((segment) => segment === "." || segment === "..")) return null;
+  if (path.length === 2 && path[0] === "connected-work" && path[1] === "items") {
+    return { kind: "connected_context" } as const;
+  }
   if (path.length === 1 && path[0] === "projects") return { kind: "projects" } as const;
   if (path.length === 2 && path[0] === "projects" && isUuid(path[1])) {
     return { kind: "project", projectId: path[1] } as const;
@@ -360,6 +569,60 @@ function approvedRoute(request: Request, path: readonly string[]) {
     } as const;
   }
   return null;
+}
+
+function approvedConnectedCallbackPath(request: Request, path: readonly string[]): string | null {
+  const url = new URL(request.url);
+  if (path.join("/") !== "connected-work/google/callback" || /%(?:2e|2f|5c)/iu.test(url.pathname))
+    return null;
+  const parsed = z
+    .object({
+      state: z.string().min(1).max(2_000),
+      nonce: z.string().min(1).max(2_000),
+      redirectUri: z.url().max(2_000),
+    })
+    .strict()
+    .safeParse(Object.fromEntries(url.searchParams));
+  if (!parsed.success || Array.from(url.searchParams.keys()).length !== 3) return null;
+  return `/api/v1/connected-work/google/callback?${new URLSearchParams(parsed.data).toString()}`;
+}
+
+function approvedGoogleProviderCallback(
+  request: Request,
+  path: readonly string[],
+): Readonly<{ code: string; state: string }> | null {
+  const url = new URL(request.url);
+  if (path.join("/") !== "connected-work/google/callback" || /%(?:2e|2f|5c)/iu.test(url.pathname)) {
+    return null;
+  }
+  const known = new Set(["authuser", "code", "hd", "iss", "prompt", "scope", "state"]);
+  const seen = new Set<string>();
+  for (const key of url.searchParams.keys()) {
+    if (!known.has(key) || seen.has(key)) return null;
+    seen.add(key);
+  }
+  const issuer = url.searchParams.get("iss");
+  if (issuer !== null && issuer !== "https://accounts.google.com") return null;
+  const parsed = z
+    .object({ code: z.string().min(1).max(10_000), state: z.string().min(1).max(2_000) })
+    .safeParse({ code: url.searchParams.get("code"), state: url.searchParams.get("state") });
+  return parsed.success ? parsed.data : null;
+}
+
+function safeLocalizedConnectionReturnUri(request: Request, value: string): URL {
+  const requestedOrigin = new URL(request.url).origin;
+  const target = new URL(value);
+  if (
+    target.origin !== requestedOrigin ||
+    !/^\/(?:ar|en)\/settings\/connections$/u.test(target.pathname) ||
+    target.search !== "" ||
+    target.hash !== "" ||
+    target.username !== "" ||
+    target.password !== ""
+  ) {
+    throw new Error("INVALID_CONNECTED_WORK_RETURN_URI");
+  }
+  return target;
 }
 
 function isUuid(value: string | undefined): value is string {

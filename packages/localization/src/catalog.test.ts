@@ -55,6 +55,29 @@ describe("localization catalogs", () => {
     }
   });
 
+  it("keeps the protected Progress Contract human-review vocabulary in both locales", async () => {
+    const requiredKeys = [
+      "progressContract.review",
+      "progressContract.aiDraftLabel",
+      "progressContract.approvedSource",
+      "progressContract.sourceVersion",
+      "progressContract.applyAsDraft",
+      "progressContract.activationRequired",
+      "progressContract.submitForApproval",
+      "progressContract.activate",
+      "progressContract.active",
+      "progressContract.confirmation.deterministic",
+      "progressContract.confirmation.human_confirmed",
+    ] as const;
+    const ar = await getCatalog("ar");
+    const en = await getCatalog("en");
+
+    for (const key of requiredKeys) {
+      expect(Object.hasOwn(ar, key)).toBe(true);
+      expect(Object.hasOwn(en, key)).toBe(true);
+    }
+  });
+
   it("uses the exact approved Identified-mode notice in both locales", async () => {
     const ar = await getCatalog("ar");
     const en = await getCatalog("en");

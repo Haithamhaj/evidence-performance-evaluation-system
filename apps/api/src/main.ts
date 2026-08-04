@@ -6,7 +6,7 @@ import { apiPort } from "./platform/api-port.js";
 import { AppErrorFilter } from "./platform/error.filter.js";
 import { enableGracefulShutdown } from "./platform/lifecycle.js";
 
-const app = await NestFactory.create(AppModule);
+const app = await NestFactory.create(AppModule, { rawBody: true });
 enableGracefulShutdown(app);
 app.useGlobalFilters(new AppErrorFilter());
 await app.listen(apiPort());

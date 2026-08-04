@@ -8,6 +8,14 @@ import { safeEndpoint } from "./openai-compatible.js";
 
 type FetchImplementation = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
+export interface PrivateMediaResolver {
+  read(
+    input: Readonly<{ reference: string; mediaType: string; maxBytes: number }>,
+  ): Promise<
+    Readonly<{ bytes: Uint8Array; filename: string; mediaType: string; byteSize: number }>
+  >;
+}
+
 const PromptInputSchema = z
   .object({
     trustedInstruction: z
@@ -31,6 +39,7 @@ export type PromptAwareOpenAiCompatibleAdapterOptions = Readonly<{
   credentialProvider: () => Promise<string | undefined>;
   localTrustPolicy?: Readonly<{ id: string; version: number; allowedIp: string }>;
   fetchImplementation?: FetchImplementation;
+  privateMediaResolver?: PrivateMediaResolver;
 }>;
 
 export class PromptAwareOpenAiCompatibleAdapter {
@@ -43,6 +52,7 @@ export class PromptAwareOpenAiCompatibleAdapter {
   private readonly localTrustPolicy:
     Readonly<{ id: string; version: number; allowedIp: string }> | undefined;
   private readonly fetchImplementation: FetchImplementation;
+  private readonly privateMediaResolver: PrivateMediaResolver | undefined;
 
   constructor(options: PromptAwareOpenAiCompatibleAdapterOptions) {
     this.database = options.database;
@@ -53,6 +63,7 @@ export class PromptAwareOpenAiCompatibleAdapter {
     this.endpoint = safeEndpoint(options.baseUrl, options.locality, options.localTrustPolicy);
     this.credentialProvider = options.credentialProvider;
     this.fetchImplementation = options.fetchImplementation ?? fetch;
+    this.privateMediaResolver = options.privateMediaResolver;
   }
 
   async generate(
@@ -80,7 +91,7 @@ export class PromptAwareOpenAiCompatibleAdapter {
       throw new AppError("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
     }
 
-    const untrustedContent = serializeUntrusted(parsed.data.untrustedContent);
+    const media = voiceMediaInput(request.routeKey, parsed.data.untrustedContent);
     let credential: string | undefined;
     try {
       credential = await raceWithAbort(this.credentialProvider(), signal);
@@ -95,28 +106,36 @@ export class PromptAwareOpenAiCompatibleAdapter {
 
     let response: Response;
     try {
-      response = await raceWithAbort(
-        this.fetchImplementation(this.endpoint, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${credential}`,
-          },
-          body: JSON.stringify({
-            model: request.modelKey,
-            messages: [
-              { role: "system", content: artifact.trustedBody },
-              {
-                role: "user",
-                content: `<untrusted-content>\n${untrustedContent}\n</untrusted-content>`,
+      const endpoint = media === null ? this.endpoint : transcriptionEndpoint(this.endpoint);
+      const init =
+        media === null
+          ? {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                authorization: `Bearer ${credential}`,
               },
-            ],
-            response_format: { type: "json_object" },
-          }),
-          signal,
-        }),
-        signal,
-      );
+              body: JSON.stringify({
+                model: request.modelKey,
+                messages: [
+                  { role: "system", content: artifact.trustedBody },
+                  {
+                    role: "user",
+                    content: `<untrusted-content>\n${serializeUntrusted(parsed.data.untrustedContent)}\n</untrusted-content>`,
+                  },
+                ],
+                response_format: { type: "json_object" },
+              }),
+              signal,
+            }
+          : await this.transcriptionRequest(
+              media,
+              request.modelKey,
+              artifact.trustedBody,
+              credential,
+              signal,
+            );
+      response = await raceWithAbort(this.fetchImplementation(endpoint, init), signal);
     } catch (error) {
       if (error instanceof AiProviderError) throw error;
       if (signal.aborted) throw new AiProviderError("timeout");
@@ -131,7 +150,8 @@ export class PromptAwareOpenAiCompatibleAdapter {
             : "non_retryable",
       );
     }
-    return parseResponse(await raceWithAbort(response.json(), signal));
+    const payload = await raceWithAbort(response.json(), signal);
+    return media === null ? parseResponse(payload) : parseTranscriptionResponse(payload);
   }
 
   matchesConfiguration(provider: import("../contracts.js").AiProviderRoute): boolean {
@@ -145,6 +165,87 @@ export class PromptAwareOpenAiCompatibleAdapter {
       provider.localTrustAllowedIp === (this.localTrustPolicy?.allowedIp ?? null)
     );
   }
+
+  private async transcriptionRequest(
+    media: Readonly<{ reference: string; mediaType: string; byteSize: number }>,
+    modelKey: string,
+    trustedPrompt: string,
+    credential: string,
+    signal: AbortSignal,
+  ): Promise<RequestInit> {
+    if (this.privateMediaResolver === undefined || modelKey !== "gpt-4o-transcribe") {
+      throw new AiProviderError("policy");
+    }
+    const resolved = await raceWithAbort(
+      this.privateMediaResolver.read({
+        reference: media.reference,
+        mediaType: media.mediaType,
+        maxBytes: media.byteSize,
+      }),
+      signal,
+    );
+    if (
+      resolved.byteSize < 1 ||
+      resolved.byteSize > media.byteSize ||
+      resolved.mediaType !== media.mediaType
+    ) {
+      throw new AiProviderError("policy");
+    }
+    const form = new FormData();
+    form.set("model", modelKey);
+    form.set("prompt", trustedPrompt);
+    form.set(
+      "file",
+      new Blob(
+        [
+          resolved.bytes.buffer.slice(
+            resolved.bytes.byteOffset,
+            resolved.bytes.byteOffset + resolved.bytes.byteLength,
+          ) as ArrayBuffer,
+        ],
+        { type: resolved.mediaType },
+      ),
+      resolved.filename,
+    );
+    return {
+      method: "POST",
+      headers: { authorization: `Bearer ${credential}` },
+      body: form,
+      signal,
+    };
+  }
+}
+
+function voiceMediaInput(
+  routeKey: string,
+  input: unknown,
+): Readonly<{ reference: string; mediaType: string; byteSize: number }> | null {
+  if (
+    routeKey !== "update.transcribe" ||
+    input === null ||
+    typeof input !== "object" ||
+    Array.isArray(input)
+  )
+    return null;
+  const value = input as Record<string, unknown>;
+  const reference = value.audioReference;
+  const mediaType = value.mediaType;
+  const byteSize = value.byteSize;
+  if (
+    typeof reference !== "string" ||
+    typeof mediaType !== "string" ||
+    typeof byteSize !== "number" ||
+    !Number.isSafeInteger(byteSize) ||
+    byteSize < 1 ||
+    byteSize > 10 * 1024 * 1024
+  ) {
+    throw new AppError("AI_PROMPT_INPUT_INVALID", "errors.ai.promptInputInvalid", 400);
+  }
+  return { reference, mediaType, byteSize };
+}
+
+function transcriptionEndpoint(chatEndpoint: URL): URL {
+  return new URL("../audio/transcriptions", chatEndpoint);
 }
 
 function hash(value: string): string {
@@ -182,6 +283,22 @@ function parseResponse(payload: unknown): import("../contracts.js").ProviderResu
   } catch {
     throw new AiProviderError("invalid_output");
   }
+}
+
+function parseTranscriptionResponse(payload: unknown): import("../contracts.js").ProviderResult {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload))
+    throw new AiProviderError("invalid_output");
+  const value = payload as Record<string, unknown>;
+  if (typeof value.text !== "string" || value.text.trim() === "")
+    throw new AiProviderError("invalid_output");
+  const language = value.language === "ar" || value.language === "en" ? value.language : "mixed";
+  return {
+    output: {
+      transcript: value.text.trim(),
+      language,
+      dialect: language === "en" ? "english" : language === "ar" ? "fusha" : "mixed",
+    },
+  };
 }
 
 async function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {

@@ -8,18 +8,36 @@ importers:
 
   .:
     dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:packages/ai-routing
       '@evaluation/audit':
         specifier: workspace:*
         version: link:packages/audit
+      '@evaluation/connected-work-context':
+        specifier: workspace:*
+        version: link:packages/connected-work-context
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:packages/contracts
       '@evaluation/database':
         specifier: workspace:*
         version: link:packages/database
+      '@evaluation/documents':
+        specifier: workspace:*
+        version: link:packages/documents
       '@evaluation/localization':
         specifier: workspace:*
         version: link:packages/localization
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:packages/projects
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:packages/updates-evidence
+      '@evaluation/work-items':
+        specifier: workspace:*
+        version: link:packages/work-items
     devDependencies:
       '@aws-sdk/client-s3':
         specifier: 3.1087.0
@@ -96,6 +114,12 @@ importers:
       '@evaluation/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@evaluation/connected-work-context':
+        specifier: workspace:*
+        version: link:../../packages/connected-work-context
+      '@evaluation/context-intelligence':
+        specifier: workspace:*
+        version: link:../../packages/context-intelligence
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -108,6 +132,9 @@ importers:
       '@evaluation/documents':
         specifier: workspace:*
         version: link:../../packages/documents
+      '@evaluation/github-integration':
+        specifier: workspace:*
+        version: link:../../packages/github-integration
       '@evaluation/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -117,6 +144,12 @@ importers:
       '@evaluation/projects':
         specifier: workspace:*
         version: link:../../packages/projects
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:../../packages/updates-evidence
+      '@evaluation/work-items':
+        specifier: workspace:*
+        version: link:../../packages/work-items
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -151,6 +184,37 @@ importers:
       '@types/pg':
         specifier: 8.20.0
         version: 8.20.0
+
+  apps/product-reset-prototype:
+    dependencies:
+      next:
+        specifier: 16.2.10
+        version: 16.2.10(@babel/core@8.0.1)(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.61.1
+        version: 1.61.1
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@26.1.1)(@vitest/coverage-v8@4.1.10)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
 
   apps/web:
     dependencies:
@@ -230,6 +294,9 @@ importers:
       '@evaluation/projects':
         specifier: workspace:*
         version: link:../../packages/projects
+      '@evaluation/updates-evidence':
+        specifier: workspace:*
+        version: link:../../packages/updates-evidence
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -290,6 +357,31 @@ importers:
         version: 6.2.3
 
   packages/config: {}
+
+  packages/connected-work-context:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+    devDependencies:
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
+
+  packages/context-intelligence:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/contracts:
     dependencies:
@@ -375,6 +467,19 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
 
+  packages/github-integration:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
+
   packages/localization:
     dependencies:
       zod:
@@ -399,6 +504,9 @@ importers:
 
   packages/projects:
     dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
       '@evaluation/audit':
         specifier: workspace:*
         version: link:../audit
@@ -408,6 +516,9 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:../database
+      '@evaluation/github-integration':
+        specifier: workspace:*
+        version: link:../github-integration
       '@evaluation/permissions':
         specifier: workspace:*
         version: link:../permissions
@@ -431,6 +542,33 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+
+  packages/updates-evidence:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  packages/work-items:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
 packages:
 

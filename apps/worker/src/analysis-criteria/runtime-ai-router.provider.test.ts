@@ -87,6 +87,7 @@ describe("worker runtime AI Router provider", () => {
       OPENAI_API_KEY: "must-not-be-used",
     });
     await expect(resolver.get("governed-provider")).resolves.toBe("worker-secret");
+    await expect(resolver.get("openai")).resolves.toBe("must-not-be-used");
     await expect(resolver.get("other-provider")).resolves.toBeUndefined();
   });
 

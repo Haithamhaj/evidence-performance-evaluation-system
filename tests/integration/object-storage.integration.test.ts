@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
@@ -14,7 +15,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { describe, expect, it } from "vitest";
 
-process.loadEnvFile(".env.local");
+process.loadEnvFile(existsSync(".env.local") ? ".env.local" : ".env.example");
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name];

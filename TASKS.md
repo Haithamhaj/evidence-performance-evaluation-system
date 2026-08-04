@@ -1,6 +1,6 @@
 # TASKS.md
 
-## Execution Task File — Revision 1.2
+## Execution Task File — Revision 1.3
 
 **Status:** Ready for implementation  
 **Task order:** Dependency-driven and phase-valid  
@@ -277,8 +277,64 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 # Phase 2 — Updates, Evidence, GitHub, Check-ins, and Monthly Readiness
 
+> **REPLANNED — DO NOT EXECUTE T030–T044 IN THE ORIGINAL ORDER**
+>
+> The product owner approved the AI-first Daily Workspace reset on 2026-07-20. T030–T044 remain traceability references, but the active authority is `docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md` and `docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md` with its six linked slice plans. Earlier Phase 2 designs and plans are historical records only.
+
+## Approved execution mapping
+
+1. Slice 1 — Today + normal Task workspace + private Inbox.
+2. Slice 2 — Google Workspace connection + private context + manual Project linking.
+3. Slice 3 — Context Intelligence + explainable linking + human-confirmed Task drafts.
+4. Slice 4 — GitHub + fast Updates + Evidence + voice + Timeline.
+5. Slice 5 — Project-owner progress setup + check-ins/readiness + manager operations.
+6. Slice 6 — neutral Evaluation Fact View preparation.
+
+Execution status:
+
+- The bounded Work Items, Updates & Evidence, Progress Contract, daily composition, bilingual routing, and real Codex dogfood foundations already implemented remain reusable.
+- The previous employee My Work and long Update interaction were rejected and are not accepted as the new Slice 1 experience.
+- **New Slice 1 is implemented and accepted by the Product Owner.**
+- **Slice 2 deterministic implementation and privacy acceptance are complete at the Product Owner
+  gate and accepted by the Product Owner. A guarded real-personal-account preview exists only for
+  explicit local acceptance; production Google remains blocked by the approved
+  external-configuration gate.**
+- **Slice 3 Tasks 1–6, deterministic acceptance, and all bounded final-review P1 remediations are
+  implemented, verified, and accepted by the Product Owner. Untrusted Gmail title/summary text
+  cannot act as a confirmed sender-domain anchor.**
+- **Slice 4 Tasks 1–7 are implemented, comprehensively verified, accepted by the Product Owner,
+  and authorized for merge.** The deterministic acceptance journey covers GitHub
+  webhook/reconciliation, governed
+  suggestions, universal text/voice/file/code capture, employee-confirmed evidence, ambiguous
+  Project-owner review, and the source-labelled Timeline. Live GitHub App installation remains an
+  external administrator/credential gate.
+
+## AI-first reset task trace
+
+These IDs are execution checkpoints inside the approved plans; they are not new dependency-graph task headings.
+
+| Slice  | Plan tasks                                                                                                                                          | Status                                                                   |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| P2R-S1 | S1-T1 persistence; S1-T2 services; S1-T3 APIs; S1-T4 Today composition; S1-T5 Task UI; S1-T6 acceptance                                             | Accepted by Product Owner                                                |
+| P2R-S2 | S2-T1 schema; S2-T2 connection/sync; S2-T3 APIs; S2-T4 UI; S2-T5 gated live adapters; S2-T6 privacy acceptance                                      | Deterministic complete; Product Owner gate; live Google externally gated |
+| P2R-S3 | S3-T1 governed AI schema; S3-T2 deterministic matching; S3-T3 routed AI; S3-T4 APIs; S3-T5 review queue; S3-T6 acceptance                           | Accepted by Product Owner                                                |
+| P2R-S4 | S4-T1 GitHub schema; S4-T2 webhook/reconciliation; S4-T3 source suggestions; S4-T4 universal capture; S4-T5 voice; S4-T6 Timeline; S4-T7 acceptance | Accepted by Product Owner; live GitHub externally gated                  |
+| P2R-S5 | S5-T1 owner authorization; S5-T2 setup UI; S5-T3 Project pulse; S5-T4 check-ins/readiness; S5-T5 manager queues; S5-T6 acceptance                   | Planned                                                                  |
+| P2R-S6 | S6-T1 Fact contract; S6-T2 source composition; S6-T3 API; S6-T4 UI; S6-T5 acceptance                                                                | Planned                                                                  |
+
+Original-task mapping:
+
+- T030–T035 foundations are reused in Slice 4; the rejected employee interaction is replaced.
+- T032 and relevant T044 voice/dialect fixtures are completed in Slice 4.
+- T036–T037 and T043 are completed in Slice 5.
+- T038–T041 are completed in Slice 4.
+- T042 is delivered visibly across Slices 1–5.
+- Phase 2 Fact View preparation is Slice 6 and does not implement the complete Phase 3 evaluation workflow.
+
 ## T030 — Implement Activity Timeline
 
+**Planning status:** Existing append-only source-labelled foundation is retained and presented through the unified Timeline in new Slice 4; do not build a generic activity platform.
+**Execution status:** Domain foundation complete; new employee Timeline presentation pending Slice 4.
 **Priority:** P1  
 **Dependencies:** T018, T019  
 **Purpose:** Store typed project and workstream events.  
@@ -286,6 +342,8 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T031 — Implement Text Update Composer
 
+**Planning status:** The completed backend foundation is retained and simplified inside the new Slice 4 universal capture flow.
+**Execution status:** Backend foundation complete; rejected long-form employee interaction will be replaced.
 **Priority:** P1  
 **Dependencies:** T030, T011  
 **Purpose:** Structure employee updates through AI and human confirmation.  
@@ -293,6 +351,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T032 — Implement Voice Update Flow
 
+**Planning status:** Mapped to new Slice 4 as a connector to the existing Updates & Evidence lifecycle.
 **Priority:** P1  
 **Dependencies:** T022, T030, T011  
 **Purpose:** Transcribe, confirm, structure, and store voice updates.  
@@ -300,6 +359,8 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T033 — Implement Evidence Records
 
+**Planning status:** Existing bounded Updates & Evidence ownership is retained; new Slice 4 exposes evidence inside universal capture and source review.
+**Execution status:** Private manual evidence foundation complete; simplified employee journey pending Slice 4.
 **Priority:** P1  
 **Dependencies:** T022, T030  
 **Purpose:** Link files, images, links, and source metadata to claims and criteria.  
@@ -307,6 +368,8 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T034 — Implement Multimodal Evidence Analysis
 
+**Planning status:** Retained in new Slice 4; analysis supports a claim but never becomes automatic proof or progress.
+**Execution status:** The bounded Slice 2 acceptance is complete: screenshots/files use the existing private upload safety path, while the reviewed update draft may prefill the claim. Direct evidence-content inference is not treated as proof and was not added as a separate platform.
 **Priority:** P1  
 **Dependencies:** T033, T011  
 **Purpose:** Analyze images and documents without treating them as automatic proof.  
@@ -314,6 +377,8 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T035 — Implement Contribution Attribution
 
+**Planning status:** Retained in new Slice 4 with immutable confirmation and responsibility-period attribution.
+**Execution status:** Complete for the Slice 2 employee-confirmed contribution context and responsibility-scoped evidence lineage.
 **Priority:** P1  
 **Dependencies:** T030, T033  
 **Purpose:** Record individual/team contribution, peer acknowledgment, and objections.  
@@ -321,6 +386,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T036 — Implement Thursday Workstream Check-in
 
+**Planning status:** Mapped to new Slice 5.
 **Priority:** P1  
 **Dependencies:** T019, T030, T013  
 **Purpose:** Require a lightweight check-in only when no substantive update exists.  
@@ -328,6 +394,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T037 — Implement Project Check-in Aggregation
 
+**Planning status:** Mapped to new Slice 5.
 **Priority:** P1  
 **Dependencies:** T036  
 **Purpose:** Summarize workstreams for Primary Project Owner.  
@@ -335,6 +402,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T038 — Create GitHub App Integration
 
+**Planning status:** Mapped to new Slice 4 as a connector to Updates & Evidence and a versioned source binding to Projects.
 **Priority:** P1  
 **Dependencies:** T007, T009  
 **Purpose:** Install scoped GitHub access.  
@@ -342,6 +410,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T039 — Implement GitHub Webhook Ingestion
 
+**Planning status:** Mapped to new Slice 4 with signature verification, durable idempotent receipt, reconciliation, and deterministic contract-rule processing.
 **Priority:** P1  
 **Dependencies:** T038, T013  
 **Purpose:** Receive push, PR, and check events idempotently.  
@@ -349,6 +418,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T040 — Implement GitHub Document Sync
 
+**Planning status:** Mapped to new Slice 4 and limited to approved document bindings/versions.
 **Priority:** P1  
 **Dependencies:** T023, T038, T039  
 **Purpose:** Track branch/path/commit and create document versions.  
@@ -356,6 +426,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T041 — Implement Suggested Evidence Inbox
 
+**Planning status:** Mapped to new Slice 4; automatic Project progress and employee contribution remain separate, and employee confirmation remains mandatory for contribution evidence.
 **Priority:** P1  
 **Dependencies:** T033, T039  
 **Purpose:** Show PRs, commits, and checks as suggestions requiring employee context.  
@@ -363,6 +434,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T042 — Build Update, Timeline, and Evidence UI
 
+**Planning status:** Delivered incrementally across new Slices 1–5 rather than as a late standalone UI task.
 **Priority:** P1  
 **Dependencies:** T030–T041  
 **Expected output:** Arabic-first responsive RTL screens with English support.  
@@ -370,6 +442,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T043 — Implement Monthly Evaluation Readiness Review
 
+**Planning status:** Mapped to new Slice 5.
 **Priority:** P1  
 **Dependencies:** T030, T033, T012, T036  
 **Purpose:** Surface thin evidence before quarter-end without creating update or evidence quotas.  
@@ -379,6 +452,7 @@ The dependency graph must be validated by CI. No task may depend on an unknown t
 
 ## T044 — Expand Arabic and Dialect AI Fixtures
 
+**Planning status:** Distributed across new Slices 3–4 when the relevant prompt/schema or voice behavior changes; no unrelated fixture expansion.
 **Priority:** P1  
 **Dependencies:** T012, T032
 **Purpose:** Validate AI behavior on the language actually used by the pilot team.  

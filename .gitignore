@@ -43,6 +43,7 @@ Thumbs.db
 .codex/
 .claude/
 .cursor/
+.playwright-cli/
 
 # Uploaded packages
 *.zip

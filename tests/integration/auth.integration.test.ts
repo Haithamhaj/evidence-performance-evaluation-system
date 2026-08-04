@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -33,7 +34,7 @@ let userId = "";
 const clientIds: string[] = [];
 let apiProcess: import("node:child_process").ChildProcessWithoutNullStreams | undefined;
 const apiOutput: string[] = [];
-const apiBaseUrl = "http://127.0.0.1:3001";
+let apiBaseUrl = "";
 let validAccessToken = "";
 let validEncryptedSession = "";
 const database = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
@@ -172,10 +173,13 @@ function jwtPayload(token: string): Record<string, unknown> {
 }
 
 async function startApi(): Promise<void> {
+  const apiPort = await availablePort();
+  apiBaseUrl = `http://127.0.0.1:${apiPort}`;
   apiProcess = spawn("pnpm", ["exec", "tsx", "apps/api/src/main.ts"], {
     cwd: process.cwd(),
     env: {
       ...process.env,
+      API_PORT: String(apiPort),
       DATABASE_URL: process.env.TEST_DATABASE_URL,
       OIDC_AUDIENCE: "evaluation-api",
       OIDC_ISSUER: issuer,
@@ -198,6 +202,23 @@ async function startApi(): Promise<void> {
     await delay(100);
   }
   throw new Error(`API did not become ready: ${apiOutput.join("").slice(-1_000)}`);
+}
+
+async function availablePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        server.close();
+        reject(new Error("Could not allocate an integration-test API port"));
+        return;
+      }
+      const port = address.port;
+      server.close((error) => (error ? reject(error) : resolve(port)));
+    });
+  });
 }
 
 async function stopApi(): Promise<void> {

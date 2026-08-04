@@ -123,25 +123,29 @@ describe("workspace contract", () => {
         await rm("apps/web/.next", { force: true, recursive: true });
       }
     }
-  });
+  }, 30_000);
 
-  it.each(webForbiddenImports)("rejects Web imports of %s", async (specifier) => {
-    const fixtureDirectory = await mkdtemp(
-      path.join("apps/web/src", ".boundary-forbidden-fixture-"),
-    );
-    const forbiddenFixture = path.join(fixtureDirectory, "forbidden.ts");
-    await writeFile(forbiddenFixture, `import "${specifier}";\n`);
+  it.each(webForbiddenImports)(
+    "rejects Web imports of %s",
+    async (specifier) => {
+      const fixtureDirectory = await mkdtemp(
+        path.join("apps/web/src", ".boundary-forbidden-fixture-"),
+      );
+      const forbiddenFixture = path.join(fixtureDirectory, "forbidden.ts");
+      await writeFile(forbiddenFixture, `import "${specifier}";\n`);
 
-    try {
-      await expect(
-        execFileAsync(process.execPath, ["scripts/validate-boundaries.mjs"]),
-      ).rejects.toMatchObject({
-        stderr: expect.stringContaining("BOUNDARY_WEB_SERVER_IMPORT"),
-      });
-    } finally {
-      await rm(fixtureDirectory, { force: true, recursive: true });
-    }
-  });
+      try {
+        await expect(
+          execFileAsync(process.execPath, ["scripts/validate-boundaries.mjs"]),
+        ).rejects.toMatchObject({
+          stderr: expect.stringContaining("BOUNDARY_WEB_SERVER_IMPORT"),
+        });
+      } finally {
+        await rm(fixtureDirectory, { force: true, recursive: true });
+      }
+    },
+    30_000,
+  );
 
   it("lints ordinary TypeScript, decorator, and TSX syntax", async () => {
     const fixtureDirectory = await mkdtemp(path.join("apps/api/src", ".eslint-fixture-"));

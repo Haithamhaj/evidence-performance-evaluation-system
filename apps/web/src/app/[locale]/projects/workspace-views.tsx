@@ -128,6 +128,9 @@ export function ProjectDetailView({
         <div>
           <h1>{project.name}</h1>
           <p>{project.description || catalog["workspace.noDescription"]}</p>
+          <a className="primaryLink" href={`/${locale}/projects/${project.id}/daily-work`}>
+            {catalog["workspace.openDailyWork"]}
+          </a>
         </div>
         {createElement(StatusBadge, { catalog, status: project.status })}
       </section>

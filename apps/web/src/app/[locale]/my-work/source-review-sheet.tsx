@@ -1,0 +1,226 @@
+"use client";
+
+import type { Catalog } from "@evaluation/localization";
+import { useEffect, useRef, useState } from "react";
+
+import {
+  linkContextProject,
+  setContextExclusion,
+  setContextSourceExclusion,
+  unlinkContextProject,
+  type ConnectedWorkContextItem,
+} from "../../../platform/connected-work-context-api";
+import { prepareContextReview } from "../../../platform/context-intelligence-api";
+import type { ProjectOption } from "./connected-context";
+
+type ViewProperties = Readonly<{
+  catalog: Catalog;
+  item: ConnectedWorkContextItem;
+  linkedProject?: ProjectOption;
+  projects: readonly ProjectOption[];
+  busy?: boolean;
+  error?: boolean;
+  onClose?: () => void;
+  onExclude?: () => void;
+  onLink?: (projectId: string) => void;
+  onPrepare?: () => void;
+  onSourceExclude?: () => void;
+  onUnlink?: () => void;
+}>;
+
+export function SourceReviewSheetView({
+  busy = false,
+  catalog,
+  error = false,
+  item,
+  linkedProject,
+  onClose,
+  onExclude,
+  onLink,
+  onPrepare,
+  onSourceExclude,
+  onUnlink,
+  projects,
+}: ViewProperties) {
+  return (
+    <div className="drawerBackdrop connectedContextBackdrop">
+      <aside
+        aria-labelledby="connected-source-title"
+        aria-modal="true"
+        className="workItemDrawer connectedContextBottomSheet"
+        role="dialog"
+      >
+        <header className="drawerHeader">
+          <div>
+            <p className="eyebrow">{catalog["connectedContext.privateLabel"]}</p>
+            <h2 dir="auto" id="connected-source-title">
+              {item.title}
+            </h2>
+          </div>
+          <button autoFocus className="quietButton" onClick={onClose} type="button">
+            {catalog["actions.close"]}
+          </button>
+        </header>
+        {item.summary === null ? null : <p dir="auto">{item.summary}</p>}
+        <p className="boundaryNote">{catalog["connectedContext.ownerOnly"]}</p>
+        {error ? (
+          <p className="formError" role="alert">
+            {catalog["connectedContext.recovery"]}
+          </p>
+        ) : null}
+        <section className="drawerSection">
+          <h3>{catalog["connectedContext.prepareReview"]}</h3>
+          <p>{catalog["connectedContext.prepareReviewHelp"]}</p>
+          <button
+            className="primaryAction"
+            disabled={busy || item.excluded}
+            onClick={onPrepare}
+            type="button"
+          >
+            {catalog["connectedContext.prepareReviewAction"]}
+          </button>
+        </section>
+        <section className="drawerSection">
+          <h3>{catalog["connectedContext.projectLink"]}</h3>
+          <p>{catalog["connectedContext.projectControl"]}</p>
+          {linkedProject === undefined ? null : (
+            <button className="quietButton" disabled={busy} onClick={onUnlink} type="button">
+              {catalog["connectedContext.unlink"]} {linkedProject.name}
+            </button>
+          )}
+          <label className="connectedContextProjectPicker">
+            <span>{catalog["connectedContext.link"]}</span>
+            <select disabled={busy} onChange={(event) => onLink?.(event.target.value)} value="">
+              <option value="">{catalog["tasks.selectProject"]}</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+        <section className="drawerSection connectedContextPrivacyActions">
+          <button className="quietButton" disabled={busy} onClick={onExclude} type="button">
+            {item.excluded
+              ? catalog["connectedContext.restoreItem"]
+              : catalog["connectedContext.excludeItem"]}
+          </button>
+          {item.sourceExclusion === null ? null : (
+            <button className="quietButton" disabled={busy} onClick={onSourceExclude} type="button">
+              {item.sourceExclusion.excluded
+                ? catalog[`connectedContext.restoreSource.${item.sourceExclusion.kind}`]
+                : catalog[`connectedContext.excludeSource.${item.sourceExclusion.kind}`]}
+            </button>
+          )}
+          {item.sourceUrl === null ? null : (
+            <a className="quietLink" href={item.sourceUrl} rel="noreferrer" target="_blank">
+              {catalog["connectedContext.openSource"]}
+            </a>
+          )}
+        </section>
+      </aside>
+    </div>
+  );
+}
+
+export function SourceReviewSheet({
+  catalog,
+  item,
+  onChanged,
+  onClose,
+  onPrepared,
+  projects,
+}: Readonly<{
+  catalog: Catalog;
+  item: ConnectedWorkContextItem;
+  onChanged: () => Promise<void>;
+  onClose: () => void;
+  onPrepared?: () => void;
+  projects: readonly ProjectOption[];
+}>) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const [excluded, setExcluded] = useState(item.excluded);
+  const [sourceExcluded, setSourceExcluded] = useState(item.sourceExclusion?.excluded ?? false);
+  const [linkedProject, setLinkedProject] = useState<ProjectOption | undefined>(() =>
+    item.projectId === null ? undefined : projects.find((project) => project.id === item.projectId),
+  );
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeRef.current();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, []);
+
+  async function change(operation: () => Promise<unknown>) {
+    setBusy(true);
+    setError(false);
+    try {
+      await operation();
+      await onChanged();
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <SourceReviewSheetView
+      catalog={catalog}
+      item={{
+        ...item,
+        excluded,
+        sourceExclusion:
+          item.sourceExclusion === null
+            ? null
+            : { ...item.sourceExclusion, excluded: sourceExcluded },
+      }}
+      {...(linkedProject === undefined ? {} : { linkedProject })}
+      projects={projects}
+      busy={busy}
+      error={error}
+      onClose={onClose}
+      onPrepare={() =>
+        void change(async () => {
+          await prepareContextReview(item.id);
+          onPrepared?.();
+        })
+      }
+      onExclude={() =>
+        void change(async () => {
+          await setContextExclusion(item.id, !excluded);
+          setExcluded(!excluded);
+        })
+      }
+      onLink={(projectId) =>
+        void change(async () => {
+          await linkContextProject({
+            id: item.id,
+            projectId,
+            reason: "Employee manually linked private context",
+          });
+          setLinkedProject(projects.find((project) => project.id === projectId));
+        })
+      }
+      {...(item.sourceExclusion === null
+        ? {}
+        : {
+            onSourceExclude: () =>
+              void change(async () => {
+                await setContextSourceExclusion(item.id, !sourceExcluded);
+                setSourceExcluded(!sourceExcluded);
+              }),
+          })}
+      onUnlink={() =>
+        void change(async () => {
+          await unlinkContextProject({ id: item.id, reason: "Employee unlinked private context" });
+          setLinkedProject(undefined);
+        })
+      }
+    />
+  );
+}

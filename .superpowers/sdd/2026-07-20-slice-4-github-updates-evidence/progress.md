@@ -1,0 +1,42 @@
+# SDD ledger — plan: docs/superpowers/plans/2026-07-20-slice-4-github-updates-evidence.md
+
+Task 1: in progress (base 2be4838; migration path corrected from occupied 0020 to next safe 0022)
+Task 1: review round 0 — Important open: binding history can be deleted and createdAt can change during closure
+Task 1: minor (deferred): governedFacts needs a strict writer-side schema before the first S4-T2 persistence path
+Task 1: fix round 1/5 (1 addressed, 0 open — binding delete/createdAt immutability; commits 6b71a2f..cb10143)
+Task 1: complete (commits 2be4838..cb10143, review clean)
+Task 2: in progress (base a6bcfdf; live GitHub App creation/installation remains externally gated)
+Task 2: review round 0 — P0/P1 open: production raw body missing; real GitHub payload rejected; broad P2002 replay classification; no real Prisma receipt/audit integration proof
+Task 2: minor (deferred): reconciliation recovered counter includes duplicate receipts
+Task 2: fix round 1/5 (4 addressed, 0 open — raw body, payload tolerance, replay classification, Prisma atomicity; commits 2482f86..9335ad5)
+Task 2: minor addressed in fix round 1: recovered count now excludes duplicate receipts
+Task 2: complete (commits a6bcfdf..9335ad5, review clean)
+Task 3: in progress (base 9335ad5; GitHub remains suggested evidence and raw volume is prohibited)
+Task 3: review round 0 — P1 open: async publish not awaited; Projects reads GitHub persistence directly; candidate rule JSON lacks scoped FK integrity; owner-review row cannot append reevaluation/resolution history
+Task 3: minor (deferred): deduplicate matched rule IDs before ambiguity classification
+Task 3: plan ownership note: exact-match application to official snapshot must be explicitly assigned before Slice 4/5 acceptance; not a Task 3 P1
+Task 3: fix round 1/1 (4 P1 + 1 minor addressed, 0 open — awaited publication, public governed-source reader, relational candidate integrity, append-only reevaluation history, match deduplication; commit aa54947)
+Task 3: complete (commits 9335ad5..aa54947, scoped re-review clean)
+Task 4: in progress (base aa54947; universal text/image/file/code capture, draft-first flow, no product-rule changes)
+Task 4: review round 0 — P1 open: no user-usable file/image path; UI is single-source and forces text; source metadata recovery is lossy; idempotency omits attachment identity
+Task 4: P2 deferred to backlog: derive/validate semantic attachment kind against inspected upload MIME/type
+Task 4: P3 deferred to backlog: add richer keyboard/file/multi-source browser interaction coverage
+Task 4: P2/P3 backlog recorded in GitHub issue #9 (non-blocking)
+Task 4: fix round 1/2 (3 P1 addressed, 1 P1 remains — recovered inspected upload metadata is not resubmitted after reload; commit 182274b)
+Task 4: fix round 2/2 (1 P1 addressed, 0 open — recovered inspected uploads/safe URLs are merged into retry and stripped bodies remain excluded; commit 21c7383)
+Task 4: complete (commits aa54947..21c7383, scoped re-review clean; P2/P3 in issue #9)
+Task 5: in progress (base 21c7383; governed voice connector into the same Update lifecycle)
+Task 5: implementation and first hardening commits `701138b`, `d9c652d`, `5741df2`, and documentation checkpoint `5e0ef9c`; private multipart media resolution, artifact descriptors, current-scope reauthorization, locking, cancellation, and truthful cleanup are in place.
+Task 5: fix round 1 continuation — retry/resume on the same idempotent session, late-result cancellation precedence, explicit client retry/cancel states, permission-loss and real PostgreSQL concurrency regressions, and governed `update.transcribe` route registration are implemented and focused verification is green. Awaiting scoped re-review before completion; P2/P3 are tracked in issue #9.
+Task 5: scoped re-review — 6 P1 addressed, 1 partial lifecycle P1 and 1 new provider-composition P1 open (pre-session cancellation/replay race; same-provider multi-model configuration conflict).
+Task 5: fix round 2 — client re-cancels the returned server session after an early cancellation race; a 90-second persisted attempt lease/token prevents duplicate provider work while permitting safe stranded recovery; runtime composition now permits route-specific models only when they share the exact governed provider transport and still rejects endpoint/policy conflicts. Migration 0026 verified from empty and 0025 snapshots. Awaiting corrected-finding re-review.
+Task 5: corrected-finding re-review approved — cancellation/retry lifecycle, attempt-token concurrency, and same-transport multi-model composition have no remaining P0/P1 findings.
+Task 5: complete (commits 701138b..3715178 plus this acceptance record; the governed route was registered locally without exposing a credential, and a synthetic WAV completed a live `gpt-4o-transcribe` request through AI Router with a persisted AI run; P2/P3 remain in issue #9).
+Task 6: in progress (unified source review and Timeline; preserve the distinction between automated facts, AI drafts, employee-confirmed evidence, and human decisions).
+Task 6: independent review — 2 P1 findings confirmed: source provenance was inferred from the always-text update input instead of immutable attachments, and the production Timeline did not yet materialize all four required lifecycle states. P2/P3 database-depth, ordering, and mobile-viewport hardening are deferred to issue #9 under the approved normal-task review policy.
+Task 6: bounded P1 remediation — provenance now derives from immutable source attachments; authorized automated project facts, the actor's latest AI drafts, employee-confirmed records, and append-only human decisions are all emitted through one authorized Timeline query. Focused unit, contract, type, build, and real PostgreSQL integration checks are green.
+Task 6: complete (commits a8cbfa9 plus the bounded P1 remediation checkpoint; no raw GitHub volume is converted to project progress or employee performance).
+Task 7: in progress (full deterministic source-integrity acceptance, customer journey, screenshots, and comprehensive repository verification).
+Task 7: bounded specification review confirmed one P1 — the final evidence/decision Timeline screenshot was missing. The fifth screenshot was added and corrected-finding re-review approved with no remaining P0/P1.
+Task 7: bounded security/code-quality review confirmed one P1 — production composition had not injected the verified GitHub source reader into the employee evidence path. The reader now fails closed on missing/unverified sources and Project mismatch; focused real-PostgreSQL verification and corrected-finding re-review passed with no remaining P0/P1.
+Task 7: complete — 988 unit/coverage tests, 569 integration tests (13 intentional skips), 172 AI checks (one intentional skip), 49 migration integration checks, 34 browser journeys (four intentional skips), all 23 lint/typecheck/build workspace tasks, and protected scans passed. Five acceptance screenshots and the Product Owner report are published; live GitHub installation remains the external gate.

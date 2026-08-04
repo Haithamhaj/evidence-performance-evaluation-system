@@ -17,6 +17,13 @@ import {
 export const OIDC_TRANSACTION_COOKIE = "evaluation_oidc_transaction";
 export const OIDC_SESSION_COOKIE = "evaluation_session";
 
+const OIDC_STATE_PATTERN = /^[A-Za-z0-9_-]{1,256}$/u;
+
+export function oidcTransactionCookieName(state: string | null): string | undefined {
+  if (state === null || !OIDC_STATE_PATTERN.test(state)) return undefined;
+  return `${OIDC_TRANSACTION_COOKIE}_${state}`;
+}
+
 export interface OidcSettings {
   readonly issuer: string;
   readonly clientId: string;
@@ -28,7 +35,7 @@ export interface OidcSettings {
 }
 
 interface AuthCookiePayload {
-  readonly kind: "transaction" | "session";
+  readonly kind: "transaction" | "session" | "context_handle";
   readonly expiresAt: number;
   readonly [key: string]: unknown;
 }
@@ -38,6 +45,7 @@ interface TransactionCookie extends AuthCookiePayload {
   readonly codeVerifier: string;
   readonly state: string;
   readonly nonce: string;
+  readonly returnTo: string;
 }
 
 interface SessionCookie extends AuthCookiePayload {
@@ -158,6 +166,35 @@ export function authCookieOptions(environment: string, maxAge: number) {
   };
 }
 
+export function safeOidcReturnPath(settings: OidcSettings, candidate?: string): string {
+  const fallback = new URL(settings.postLogoutRedirectUri);
+  const fallbackPath = `${fallback.pathname}${fallback.search}`;
+  if (
+    candidate === undefined ||
+    candidate.length === 0 ||
+    candidate.length > 2_048 ||
+    !candidate.startsWith("/") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    /[\u0000-\u001f\u007f]/u.test(candidate)
+  ) {
+    return fallbackPath;
+  }
+  try {
+    const resolved = new URL(candidate, fallback);
+    if (
+      resolved.origin !== fallback.origin ||
+      !/^\/(?:ar|en)(?:\/|$)/u.test(resolved.pathname) ||
+      resolved.pathname.startsWith("/api/")
+    ) {
+      return fallbackPath;
+    }
+    return `${resolved.pathname}${resolved.search}`;
+  } catch {
+    return fallbackPath;
+  }
+}
+
 async function oidcConfiguration(settings: OidcSettings) {
   const options =
     settings.environment === "local" ? { execute: [allowInsecureRequests] } : undefined;
@@ -170,8 +207,12 @@ async function oidcConfiguration(settings: OidcSettings) {
   );
 }
 
-export async function startOidcLogin(settings: OidcSettings): Promise<{
+export async function startOidcLogin(
+  settings: OidcSettings,
+  returnTo?: string,
+): Promise<{
   readonly authorizationUrl: URL;
+  readonly state: string;
   readonly transactionCookie: string;
 }> {
   const configuration = await oidcConfiguration(settings);
@@ -193,9 +234,11 @@ export async function startOidcLogin(settings: OidcSettings): Promise<{
     codeVerifier,
     state,
     nonce,
+    returnTo: safeOidcReturnPath(settings, returnTo),
   };
   return {
     authorizationUrl,
+    state,
     transactionCookie: sealAuthCookie(transaction, settings.sessionSecret),
   };
 }
@@ -204,11 +247,28 @@ function asTransaction(payload: AuthCookiePayload): TransactionCookie {
   if (
     typeof payload.codeVerifier !== "string" ||
     typeof payload.state !== "string" ||
-    typeof payload.nonce !== "string"
+    typeof payload.nonce !== "string" ||
+    typeof payload.returnTo !== "string"
   ) {
     throw new WebAuthError("AUTH_INVALID_SESSION", "errors.auth.invalidSession", 401);
   }
   return payload as TransactionCookie;
+}
+
+export function oidcTransactionReturnTo(settings: OidcSettings, transactionCookie: string): string {
+  const transaction = asTransaction(
+    openAuthCookie(transactionCookie, settings.sessionSecret, "transaction"),
+  );
+  return safeOidcReturnPath(settings, transaction.returnTo);
+}
+
+export function canonicalOidcCallbackUrl(settings: OidcSettings, callbackUrl: URL): URL {
+  const configured = new URL(settings.redirectUri);
+  if (callbackUrl.pathname !== configured.pathname) {
+    throw new WebAuthError("AUTH_INVALID_SESSION", "errors.auth.invalidSession", 401);
+  }
+  configured.search = callbackUrl.search;
+  return configured;
 }
 
 export async function finishOidcLogin(
@@ -222,12 +282,16 @@ export async function finishOidcLogin(
   const configuration = await oidcConfiguration(settings);
   let tokens: Awaited<ReturnType<typeof authorizationCodeGrant>>;
   try {
-    tokens = await authorizationCodeGrant(configuration, callbackUrl, {
-      expectedNonce: transaction.nonce,
-      expectedState: transaction.state,
-      idTokenExpected: true,
-      pkceCodeVerifier: transaction.codeVerifier,
-    });
+    tokens = await authorizationCodeGrant(
+      configuration,
+      canonicalOidcCallbackUrl(settings, callbackUrl),
+      {
+        expectedNonce: transaction.nonce,
+        expectedState: transaction.state,
+        idTokenExpected: true,
+        pkceCodeVerifier: transaction.codeVerifier,
+      },
+    );
   } catch {
     throw new WebAuthError("AUTH_INVALID_SESSION", "errors.auth.invalidSession", 401);
   }

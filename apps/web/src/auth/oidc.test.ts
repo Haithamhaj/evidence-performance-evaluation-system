@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { authCookieOptions, openAuthCookie, sealAuthCookie, sessionAccessToken } from "./oidc.js";
+import {
+  authCookieOptions,
+  canonicalOidcCallbackUrl,
+  oidcTransactionCookieName,
+  oidcTransactionReturnTo,
+  openAuthCookie,
+  safeOidcReturnPath,
+  sealAuthCookie,
+  sessionAccessToken,
+} from "./oidc.js";
 
 const secret = "local-test-session-secret-with-at-least-32-characters";
 const settings = {
@@ -14,6 +23,35 @@ const settings = {
 };
 
 describe("encrypted OIDC browser cookies", () => {
+  it("maps only bounded base64url OIDC state values to transaction cookie names", () => {
+    expect(oidcTransactionCookieName("state_ABC-123")).toBe(
+      "evaluation_oidc_transaction_state_ABC-123",
+    );
+    expect(oidcTransactionCookieName(null)).toBeUndefined();
+    expect(oidcTransactionCookieName("state/with/separators")).toBeUndefined();
+    expect(oidcTransactionCookieName("a".repeat(257))).toBeUndefined();
+  });
+
+  it("uses the configured external redirect URI when the server normalizes the request host", () => {
+    const configured = {
+      ...settings,
+      redirectUri: "http://127.0.0.1:3300/api/auth/callback",
+    };
+
+    expect(
+      canonicalOidcCallbackUrl(
+        configured,
+        new URL("http://localhost:3300/api/auth/callback?code=code&state=state"),
+      ).toString(),
+    ).toBe("http://127.0.0.1:3300/api/auth/callback?code=code&state=state");
+    expect(() =>
+      canonicalOidcCallbackUrl(
+        configured,
+        new URL("http://localhost:3300/api/auth/not-callback?code=code&state=state"),
+      ),
+    ).toThrow(expect.objectContaining({ code: "AUTH_INVALID_SESSION" }));
+  });
+
   it("encrypts state and rejects tampering", () => {
     const value = sealAuthCookie(
       { expiresAt: Date.now() + 60_000, kind: "transaction", nonce: "nonce", state: "state" },
@@ -54,6 +92,32 @@ describe("encrypted OIDC browser cookies", () => {
       sameSite: "lax",
       secure: true,
     });
+  });
+
+  it("allows only localized same-origin return paths", () => {
+    expect(safeOidcReturnPath(settings, "/en/tasks?view=team&layout=board")).toBe(
+      "/en/tasks?view=team&layout=board",
+    );
+    expect(safeOidcReturnPath(settings, "https://evil.example/steal")).toBe("/ar");
+    expect(safeOidcReturnPath(settings, "//evil.example/steal")).toBe("/ar");
+    expect(safeOidcReturnPath(settings, "/api/auth/callback")).toBe("/ar");
+    expect(safeOidcReturnPath(settings, "/projects/internal")).toBe("/ar");
+  });
+
+  it("reads the validated return path only from the encrypted OIDC transaction", () => {
+    const transaction = sealAuthCookie(
+      {
+        kind: "transaction",
+        expiresAt: Date.now() + 60_000,
+        codeVerifier: "verifier",
+        nonce: "nonce",
+        state: "state",
+        returnTo: "/en/tasks?view=team&layout=board",
+      },
+      secret,
+    );
+
+    expect(oidcTransactionReturnTo(settings, transaction)).toBe("/en/tasks?view=team&layout=board");
   });
 
   it("returns only the non-empty access token from a valid encrypted session", () => {
