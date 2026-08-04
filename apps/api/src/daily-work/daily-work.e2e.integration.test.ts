@@ -168,6 +168,35 @@ describe("daily work protected API contracts", () => {
     });
   });
 
+  it("uses the bounded Project dashboard composition for the operational pulse", async () => {
+    const pulse = {
+      officialProgress: 64,
+      previousOfficialProgress: 50,
+      sourceCoverage: "INSUFFICIENT",
+      milestoneStates: [],
+      nextRequiredEvidence: [],
+      explanation: [],
+    } as const;
+    const projectDashboard = {
+      load: vi.fn(async () => ({
+        project: { id: projectId },
+        contract: null,
+        progress: { state: "awaiting_information" },
+        pulse,
+      })),
+    };
+    const query = new DailyWorkQueryService(
+      {} as never,
+      {} as never,
+      undefined,
+      undefined,
+      projectDashboard,
+    );
+
+    await expect(query.project(actorId, projectId)).resolves.toMatchObject({ pulse });
+    expect(projectDashboard.load).toHaveBeenCalledWith(actorId, projectId);
+  });
+
   it("rejects cross-Project contracts before domain mutation", () => {
     const service = { propose: vi.fn() };
     const controller = new ProgressContractsController(service as never);

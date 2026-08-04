@@ -28,3 +28,134 @@ describe("ProgressQueryService Update scopes", () => {
     ]);
   });
 });
+
+describe("ProgressQueryService Project pulse", () => {
+  it("retains the last official percentage while newer source coverage is incomplete", async () => {
+    const projectId = crypto.randomUUID();
+    const componentId = crypto.randomUUID();
+    const snapshotId = crypto.randomUUID();
+    const database = projectProgressDatabase({
+      projectId,
+      componentId,
+      snapshots: [
+        {
+          id: snapshotId,
+          previousPercent: 50,
+          percent: 64,
+          reason: "The approved test baseline reached 64 percent.",
+          componentState: [{ componentId, percent: 64 }],
+          sources: [],
+          createdAt: new Date("2026-08-01T10:00:00.000Z"),
+        },
+      ],
+      recalculationRequests: [
+        { state: "pending", createdAt: new Date("2026-08-02T10:00:00.000Z") },
+      ],
+    });
+    const service = new ProgressQueryService(database as never);
+
+    const result = (await service.getProjectProgress({
+      actorId: crypto.randomUUID(),
+      projectId,
+    })) as any;
+
+    expect(result.progress).toMatchObject({ state: "accepted", percent: 64 });
+    expect(result.pulse).toMatchObject({
+      officialProgress: 64,
+      previousOfficialProgress: 50,
+      sourceCoverage: "INSUFFICIENT",
+    });
+    expect(result.pulse.nextRequiredEvidence).toEqual([
+      expect.objectContaining({ componentId, label: "Acceptance record" }),
+    ]);
+  });
+
+  it("explains a source-supported decrease from append-only snapshot history", async () => {
+    const projectId = crypto.randomUUID();
+    const componentId = crypto.randomUUID();
+    const sourceId = crypto.randomUUID();
+    const database = projectProgressDatabase({
+      projectId,
+      componentId,
+      snapshots: [
+        {
+          id: crypto.randomUUID(),
+          previousPercent: 70,
+          percent: 55,
+          reason: "The approved measured value decreased after verified rework.",
+          componentState: [{ componentId, percent: 55 }],
+          sources: [{ componentId, sourceKind: "kpi_measurement", sourceId, sourceVersion: 2 }],
+          createdAt: new Date("2026-08-02T10:00:00.000Z"),
+        },
+      ],
+      recalculationRequests: [
+        { state: "completed", createdAt: new Date("2026-08-02T09:00:00.000Z") },
+      ],
+    });
+    const service = new ProgressQueryService(database as never);
+
+    const result = (await service.getProjectProgress({
+      actorId: crypto.randomUUID(),
+      projectId,
+    })) as any;
+
+    expect(result.pulse).toMatchObject({
+      officialProgress: 55,
+      previousOfficialProgress: 70,
+      sourceCoverage: "SUFFICIENT",
+      explanation: [
+        expect.objectContaining({
+          kind: "decrease",
+          text: "The approved measured value decreased after verified rework.",
+        }),
+      ],
+    });
+    expect(result.pulse.milestoneStates).toEqual([
+      expect.objectContaining({ componentId, percent: 55, state: "in_progress" }),
+    ]);
+  });
+});
+
+function projectProgressDatabase(input: {
+  projectId: string;
+  componentId: string;
+  snapshots: any[];
+  recalculationRequests: any[];
+}) {
+  return {
+    project: {
+      findFirst: vi.fn(async () => ({
+        id: input.projectId,
+        name: "Atlas Delivery",
+        description: "Deliver the approved pilot.",
+        status: "active",
+      })),
+    },
+    progressContract: {
+      findFirst: vi.fn(async () => ({
+        id: crypto.randomUUID(),
+        contractVersion: 2,
+        version: 3,
+        state: "active",
+        calculationKind: "weighted",
+        effectiveAt: new Date("2026-07-20T00:00:00.000Z"),
+        components: [
+          {
+            id: input.componentId,
+            kind: "kpi",
+            name: "Accepted quality gate",
+            description: "The source-supported accepted quality gate.",
+            weight: 100,
+            baseline: 0,
+            target: 100,
+            unit: "percent",
+            direction: "increase",
+            requiredEvidence: ["Acceptance record"],
+          },
+        ],
+        snapshots: input.snapshots,
+        recalculationRequests: input.recalculationRequests,
+      })),
+    },
+  };
+}

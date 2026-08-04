@@ -16,7 +16,7 @@ export function ProjectPulse({
         <ul className="pulseList">
           {items.map((item) => (
             <li key={item.id}>
-              <a href={`/${locale}/projects/${item.id}`}>{item.name}</a>
+              <a href={`/${locale}/projects/${item.id}/daily-work`}>{item.name}</a>
               {item.progress.state === "accepted" ? (
                 <span>{item.progress.percent}%</span>
               ) : (

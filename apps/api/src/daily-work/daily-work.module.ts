@@ -70,24 +70,26 @@ Module({
       inject: [DAILY_WORK_DATABASE],
     },
     {
+      provide: ProjectDashboardQueryService,
+      useFactory: (progress: ProgressQueryService) => new ProjectDashboardQueryService(progress),
+      inject: [ProgressQueryService],
+    },
+    {
       provide: DailyWorkQueryService,
       useFactory: (
         workItems: WorkItemQueryService,
         progress: ProgressQueryService,
         sourceRequests: ProgressContractDraftSourceLocator,
         inbox: PrivateInboxQueryService,
-      ) => new DailyWorkQueryService(workItems, progress, sourceRequests, inbox),
+        projectDashboard: ProjectDashboardQueryService,
+      ) => new DailyWorkQueryService(workItems, progress, sourceRequests, inbox, projectDashboard),
       inject: [
         WorkItemQueryService,
         ProgressQueryService,
         ProgressContractDraftSourceLocator,
         PrivateInboxQueryService,
+        ProjectDashboardQueryService,
       ],
-    },
-    {
-      provide: ProjectDashboardQueryService,
-      useFactory: (progress: ProgressQueryService) => new ProjectDashboardQueryService(progress),
-      inject: [ProgressQueryService],
     },
     {
       provide: DAILY_WORK_DATABASE_LIFECYCLE,

@@ -66,6 +66,8 @@ describe("MyWorkClient", () => {
     expect(markup.indexOf("Project pulse")).toBeLessThan(markup.indexOf("Quick capture"));
     expect(markup).toContain("Confirm pilot flow");
     expect(markup).toContain("Add update");
+    expect(markup).toContain(`/en/projects/${item.projectId}/daily-work`);
+    expect(markup).toContain(catalog["progress.notPerformance"]);
   });
 
   it("opens a focused Task review panel", async () => {

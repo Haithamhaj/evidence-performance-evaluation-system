@@ -714,6 +714,43 @@ h1 {
   font-size: 0.875rem;
 }
 
+.projectPulseActions {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.projectPulseActionList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.projectPulseActionList > div {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.35fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding-block: 0.75rem;
+  border-block-end: 0.0625rem solid var(--color-border);
+}
+
+.projectPulseActionList > div:last-child {
+  border-block-end: 0;
+}
+
+.projectPulseActionList dt {
+  font-weight: 800;
+}
+
+.projectPulseActionList dd {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.projectPulseActionList ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
 .progressSetupStep :focus-visible,
 .progressContractReviewEntry > a:focus-visible {
   outline: 0.1875rem solid #f79009;
@@ -1604,6 +1641,11 @@ button {
 
   .compactRuleEditor .fullRow {
     grid-column: auto;
+  }
+
+  .projectPulseActionList > div {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
   }
 
   .rowButton {

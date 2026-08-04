@@ -41,6 +41,36 @@ const base: import("./project-progress-panel.js").ProjectProgressView = {
     reason: "Five of eight measurable outcomes are accepted.",
     updatedAt: "2026-07-18T12:00:00.000Z",
   },
+  pulse: {
+    officialProgress: 62.5,
+    previousOfficialProgress: 50,
+    sourceCoverage: "SUFFICIENT",
+    milestoneStates: [
+      {
+        componentId: crypto.randomUUID(),
+        name: "Accepted scenarios",
+        kind: "kpi",
+        percent: 62.5,
+        state: "in_progress",
+      },
+    ],
+    nextRequiredEvidence: [
+      {
+        componentId: crypto.randomUUID(),
+        componentName: "Owner acceptance",
+        label: "Acceptance record",
+      },
+    ],
+    explanation: [
+      {
+        kind: "increase",
+        delta: 12.5,
+        text: "Five of eight measurable outcomes are accepted.",
+        snapshotId: crypto.randomUUID(),
+        observedAt: "2026-07-18T12:00:00.000Z",
+      },
+    ],
+  },
 };
 
 describe("ProjectProgressPanel", () => {
@@ -56,6 +86,10 @@ describe("ProjectProgressPanel", () => {
     expect(markup).toContain("not employee performance");
     expect(markup).toContain("Accepted scenarios");
     expect(markup).not.toContain("rating");
+    expect(markup).toContain("What changed");
+    expect(markup).toContain("Evidence needed");
+    expect(markup).toContain("Next milestone");
+    expect(markup.indexOf("What changed")).toBeLessThan(markup.indexOf("<progress"));
   });
 
   it("does not display a provisional percentage when information is missing", async () => {
@@ -69,6 +103,30 @@ describe("ProjectProgressPanel", () => {
     expect(markup).toContain("Waiting for information");
     expect(markup).not.toContain("62.5%");
     expect(markup).not.toContain("<progress");
+  });
+
+  it("retains the official value and explains incomplete source coverage", async () => {
+    const catalog = await getCatalog("en");
+    const markup = renderToStaticMarkup(
+      createElement(ProjectProgressPanel, {
+        catalog,
+        locale: "en",
+        view: {
+          ...base,
+          progress: {
+            state: "accepted",
+            snapshotId: crypto.randomUUID(),
+            percent: 62.5,
+            reason: "The last source-supported value remains official.",
+            updatedAt: "2026-07-18T12:00:00.000Z",
+          },
+          pulse: { ...base.pulse, sourceCoverage: "INSUFFICIENT" },
+        },
+      }),
+    );
+    expect(markup).toContain("62.5%");
+    expect(markup).toContain(catalog["projectPulse.coverage.insufficient"]);
+    expect(markup).toContain(catalog["projectPulse.retainedOfficial"]);
   });
 
   it("integrates the AI proposal review into the existing Project progress screen", async () => {

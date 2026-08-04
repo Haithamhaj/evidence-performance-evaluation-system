@@ -84,15 +84,41 @@ export class ProgressQueryService {
         components: { orderBy: { position: "asc" } },
         snapshots: {
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 2,
+          select: {
+            id: true,
+            previousPercent: true,
+            percent: true,
+            reason: true,
+            componentState: true,
+            createdAt: true,
+            sources: {
+              select: {
+                componentId: true,
+                sourceKind: true,
+                sourceId: true,
+                sourceVersion: true,
+              },
+            },
+          },
+        },
+        recalculationRequests: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 1,
-          select: { id: true, percent: true, reason: true, createdAt: true },
+          select: { state: true, createdAt: true },
         },
       },
     });
     if (contract === null) {
-      return { project, contract: null, progress: { state: "awaiting_contract" as const } };
+      return {
+        project,
+        contract: null,
+        progress: { state: "awaiting_contract" as const },
+        pulse: emptyPulse(),
+      };
     }
     const snapshot = contract.snapshots[0];
+    const pulse = projectPulse(contract, snapshot);
     return {
       project,
       contract: {
@@ -125,6 +151,7 @@ export class ProgressQueryService {
               reason: snapshot.reason,
               updatedAt: snapshot.createdAt.toISOString(),
             },
+      pulse,
     };
   }
 
@@ -174,4 +201,121 @@ export class ProgressQueryService {
       };
     });
   }
+}
+
+function emptyPulse() {
+  return {
+    officialProgress: null,
+    previousOfficialProgress: null,
+    sourceCoverage: "INSUFFICIENT" as const,
+    milestoneStates: [],
+    nextRequiredEvidence: [],
+    explanation: [],
+  };
+}
+
+function projectPulse(contract: any, snapshot: any) {
+  if (snapshot === undefined) {
+    return {
+      ...emptyPulse(),
+      milestoneStates: contract.components.map((component: any) => ({
+        componentId: component.id,
+        name: component.name,
+        kind: component.kind,
+        percent: null,
+        state: "awaiting_evidence" as const,
+      })),
+      nextRequiredEvidence: contract.components.flatMap((component: any) =>
+        strings(component.requiredEvidence).map((label) => ({
+          componentId: component.id,
+          componentName: component.name,
+          label,
+        })),
+      ),
+    };
+  }
+  const latestRequest = contract.recalculationRequests[0];
+  const sourceCoverage =
+    latestRequest !== undefined &&
+    latestRequest.state !== "completed" &&
+    latestRequest.createdAt > snapshot.createdAt
+      ? ("INSUFFICIENT" as const)
+      : ("SUFFICIENT" as const);
+  const componentPercent = componentPercentages(snapshot.componentState);
+  const sourcedComponents = new Set(
+    snapshot.sources.map((source: { componentId: string }) => source.componentId),
+  );
+  const milestoneStates = contract.components.map((component: any) => {
+    const percent = componentPercent.get(component.id) ?? null;
+    return {
+      componentId: component.id,
+      name: component.name,
+      kind: component.kind,
+      percent,
+      state:
+        !sourcedComponents.has(component.id) && sourceCoverage === "INSUFFICIENT"
+          ? ("awaiting_evidence" as const)
+          : percent === null || percent === 0
+            ? ("not_started" as const)
+            : percent >= 100
+              ? ("complete" as const)
+              : ("in_progress" as const),
+    };
+  });
+  const nextRequiredEvidence = contract.components.flatMap((component: any) =>
+    sourcedComponents.has(component.id)
+      ? []
+      : strings(component.requiredEvidence).map((label) => ({
+          componentId: component.id,
+          componentName: component.name,
+          label,
+        })),
+  );
+  const officialProgress = Number(snapshot.percent);
+  const previousOfficialProgress = Number(snapshot.previousPercent);
+  const delta = officialProgress - previousOfficialProgress;
+  return {
+    officialProgress,
+    previousOfficialProgress,
+    sourceCoverage,
+    milestoneStates,
+    nextRequiredEvidence,
+    explanation: [
+      {
+        kind:
+          delta < 0
+            ? ("decrease" as const)
+            : delta > 0
+              ? ("increase" as const)
+              : ("no_change" as const),
+        delta,
+        text: snapshot.reason,
+        snapshotId: snapshot.id,
+        observedAt: snapshot.createdAt.toISOString(),
+      },
+    ],
+  };
+}
+
+function componentPercentages(value: unknown): Map<string, number> {
+  const result = new Map<string, number>();
+  if (!Array.isArray(value)) return result;
+  for (const item of value) {
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      "componentId" in item &&
+      typeof item.componentId === "string" &&
+      "percent" in item &&
+      typeof item.percent === "number" &&
+      Number.isFinite(item.percent)
+    ) {
+      result.set(item.componentId, item.percent);
+    }
+  }
+  return result;
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
 }

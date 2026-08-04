@@ -60,6 +60,44 @@ const ProjectProgressViewSchema: z.ZodType<import("./project-progress-panel").Pr
         .strict()
         .nullable(),
       progress: ProgressSchema,
+      pulse: z
+        .object({
+          officialProgress: z.number().min(0).max(100).nullable(),
+          previousOfficialProgress: z.number().min(0).max(100).nullable(),
+          sourceCoverage: z.enum(["SUFFICIENT", "INSUFFICIENT"]),
+          milestoneStates: z.array(
+            z
+              .object({
+                componentId: Uuid,
+                name: z.string(),
+                kind: z.enum(["milestone", "deliverable", "kpi", "acceptance"]),
+                percent: z.number().min(0).max(100).nullable(),
+                state: z.enum(["complete", "in_progress", "not_started", "awaiting_evidence"]),
+              })
+              .strict(),
+          ),
+          nextRequiredEvidence: z.array(
+            z
+              .object({
+                componentId: Uuid,
+                componentName: z.string(),
+                label: z.string(),
+              })
+              .strict(),
+          ),
+          explanation: z.array(
+            z
+              .object({
+                kind: z.enum(["increase", "decrease", "no_change"]),
+                delta: z.number(),
+                text: z.string(),
+                snapshotId: Uuid,
+                observedAt: z.iso.datetime({ offset: true }),
+              })
+              .strict(),
+          ),
+        })
+        .strict(),
       contractDraftSourceRequest: z
         .object({
           documentVersionId: Uuid,
