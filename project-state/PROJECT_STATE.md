@@ -154,6 +154,7 @@ external gate.
 - Slice 6 adds no migration and no AI provider call. Full local verification passed 1,025 unit/coverage
   tests, 593 integration tests with 13 intentional skips, 179 AI evaluations with one intentional skip,
   49 database checks across all 26 migrations, and 41 browser journeys with four intentional skips.
+- Slice 6 Pull Request #11 is open on the verified local checkpoint; hosted required checks are pending.
 - The complete Evaluation Template, immutable Cycle Snapshot, self-assessment, independent manager
   assessment, discussion, final human judgment, and closure remain later engine work. The current
   active-at-cycle-start rubric resolver is not a substitute for T045–T046 snapshot immutability.

@@ -4,6 +4,8 @@
 
 **Branch:** `codex/phase-2-slice-6-evaluation-preparation`
 
+**Pull Request:** [#11](https://github.com/Haithamhaj/evidence-performance-evaluation-system/pull/11)
+
 **Acceptance date:** 2026-08-05
 
 **Confidence:** High for the implemented read contract, source composition, authorization, neutrality,

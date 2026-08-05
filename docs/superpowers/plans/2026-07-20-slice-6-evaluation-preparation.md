@@ -156,8 +156,8 @@ engine inventory and handoff are complete.
 - [x] Verify historical responsibility and dynamic criterion versions.
 - [x] Run focused tests, related integration tests, neutrality evaluations, affected lint/typechecks, and protected scans.
 - [x] Complete bounded specification and privacy/neutrality reviews; remediate confirmed P0/P1 only.
-- [ ] Commit as `test: verify evaluation fact view neutrality`.
-- [ ] Push, create or update the current Slice 6 Pull Request, and publish the technical verification URLs/screenshots.
+- [x] Commit as `test: verify evaluation fact view neutrality`.
+- [x] Push, create or update the current Slice 6 Pull Request, and publish the technical verification URLs/screenshots.
 
 ## Technical Acceptance Checkpoint
 
