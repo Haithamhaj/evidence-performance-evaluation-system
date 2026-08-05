@@ -1,6 +1,6 @@
 # Slice 6 — Evaluation Fact View Preparation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` for bounded implementation. Use one specification reviewer and one privacy/neutrality reviewer because this slice prepares protected evaluation inputs. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` for bounded implementation. Complete one bounded specification-compliance review and one bounded privacy/neutrality review because this slice prepares protected evaluation inputs. Re-review only confirmed P0/P1 corrections. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Prepare a neutral, source-supported view of work facts for later quarterly self-assessment and manager assessment without implementing the complete evaluation workflow or recommending a rating.
 
@@ -114,6 +114,11 @@ GET /api/v1/evaluation-cycles/:cycleId/employees/:employeeId/facts
 
 ### Task 4: Build the neutral Fact View UI
 
+This route is a technical contract-verification surface for the engine program. It proves authorized
+composition, neutrality, localization, accessibility, and source traceability; it is not final
+frontend or Product Owner UX acceptance. The dedicated full-frontend program starts only after the
+engine inventory and handoff are complete.
+
 **Files:**
 
 - Create: `apps/web/src/platform/evaluation-fact-view-api.ts`
@@ -152,18 +157,20 @@ GET /api/v1/evaluation-cycles/:cycleId/employees/:employeeId/facts
 - [ ] Run focused tests, related integration tests, neutrality evaluations, affected lint/typechecks, and protected scans.
 - [ ] Complete bounded specification and privacy/neutrality reviews; remediate confirmed P0/P1 only.
 - [ ] Commit as `test: verify evaluation fact view neutrality`.
-- [ ] Push, update Pull Request #5, publish URLs/screenshots, then stop.
+- [ ] Push, create or update the current Slice 6 Pull Request, and publish the technical verification URLs/screenshots.
 
-## Product Owner Stop Gate
+## Technical Acceptance Checkpoint
 
-The Product Owner reviews whether the Fact View helps a person conduct a fair later assessment while remaining visibly neutral. Approval of this slice does not authorize the complete self-assessment, manager-assessment, comparison, discussion, or final-rating workflow.
+Verify that the Fact View can support a fair later assessment while remaining visibly neutral. This
+checkpoint does not authorize the complete self-assessment, manager-assessment, comparison,
+discussion, or final-rating workflow, and it does not constitute final frontend acceptance.
 
 ## Phase Completion Checkpoint
 
-After Slice 6 approval:
+After Slice 6 technical acceptance:
 
 - [ ] Run the full repository verification suite, migrations from empty and previous release snapshot, AI evaluations, and protected browser journeys.
 - [ ] Update operational documentation, `TASKS.md`, and `project-state/PROJECT_STATE.md`.
 - [ ] Record P2/P3 findings in backlog issues without hiding them.
-- [ ] Make Pull Request #5 ready only after all required CI checks pass.
-- [ ] Do not merge without the Product Owner's explicit phase approval.
+- [ ] Make the current Slice 6 Pull Request ready only after all required CI checks pass.
+- [ ] Merge only after the technical evidence and hosted CI are green, then continue the approved engine-first program.
