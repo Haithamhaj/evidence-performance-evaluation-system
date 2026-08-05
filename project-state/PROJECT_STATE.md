@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Present the fully verified Slice 5 Project-owner progress, employee pulse/readiness, and manager
-operations journey for Product Owner acceptance. Do not begin Slice 6 before that gate. Keep live
-GitHub installation behind its external human gate.
+Merge the technically accepted Slice 5 checkpoint, then execute Slice 6 Evaluation Fact View
+preparation as the final Phase 2 engine slice. Continue the approved engine-first program before the
+dedicated final frontend. Keep live GitHub installation behind its external human gate.
 
 ## Current Reality
 
@@ -142,6 +142,10 @@ GitHub installation behind its external human gate.
 - Final verification passed 1004 unit/coverage tests, 586 integration tests, 49 database checks, 38
   browser journeys, all 23 lint/typecheck/build tasks, and the task-graph, secret, AI-boundary,
   copy, and performance-input scans. No Slice 5 migration or AI prompt/schema change was added.
+- The Product Owner approved the engine-first sequence on 2026-08-05. Slice checkpoints prove technical
+  behavior only; provisional screens are not UX or product acceptance. After the pilot engine is
+  complete, a source-to-code feature inventory—including the required Research & Experiments
+  capability—governs a separate full-frontend design and delivery program.
 
 ## Active Decisions
 
@@ -194,10 +198,11 @@ GitHub installation behind its external human gate.
 
 ## Next Recommended Action
 
-Product Owner reviews the Slice 5 acceptance journey on Pull Request #10. If accepted, begin Slice
-6 Evaluation Fact View preparation without implementing the complete evaluation workflow. Live
-GitHub App creation, installation, secret, and organization approval remain behind the external
-human gate.
+Merge Pull Request #10 after confirming the technical checkpoint and hosted checks on the current head,
+then begin Slice 6 Evaluation Fact View preparation without implementing the complete evaluation
+workflow. Continue through `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`. Live
+GitHub App creation, installation, secret, and organization approval remain behind the external human
+gate.
 
 ## Critical References
 
@@ -221,6 +226,8 @@ human gate.
 - `docs/superpowers/plans/2026-07-20-slice-4-github-updates-evidence.md`
 - `docs/superpowers/plans/2026-07-20-slice-5-project-owner-progress.md`
 - `docs/superpowers/plans/2026-07-20-slice-6-evaluation-preparation.md`
+- `docs/superpowers/specs/2026-08-05-technical-completion-frontend-product-acceptance-design.md`
+- `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`

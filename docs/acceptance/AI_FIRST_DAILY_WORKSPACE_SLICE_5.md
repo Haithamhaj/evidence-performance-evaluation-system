@@ -109,13 +109,15 @@ The review covered contributor denial, expired owner responsibility, cross-Proje
 2. Manager operations links documentation readiness and evaluation to separate route namespaces, as required. Their complete destination experiences are intentionally not implemented in Slice 5: manager readiness is a later bounded experience, and the complete evaluation workflow remains Phase 3.
 3. The acceptance browser uses deterministic AI and deterministic operational fixtures. No paid provider call is needed because this slice changes no prompt or schema.
 
-## Product Owner stop gate
+## Technical acceptance checkpoint
 
-Please review whether:
+Slice 5 is technically accepted. Its domain behavior, authorization, privacy, history, localization
+foundation, integration, and recovery paths are verified with no unresolved P0/P1 finding.
 
-1. Project setup is understandable and sufficiently short for a Project owner.
-2. The employee pulse helps daily work without feeling like employee evaluation.
-3. Check-ins and monthly readiness are useful without quotas or pressure.
-4. Manager queues are actionable without becoming a score-like dashboard.
+The owner setup, employee pulse, readiness, and manager-queue pages are provisional verification
+surfaces. They are not the final frontend and do not provide sufficient evidence for Product Owner
+usability, visual-design, or customer-journey acceptance.
 
-Do not begin Slice 6 until this gate is accepted.
+The approved engine-first sequence permits Slice 6 to begin after Pull Request #10 merges with all
+required checks green. Product acceptance is deferred until the complete engine has been inventoried and
+exposed through the dedicated final frontend.
