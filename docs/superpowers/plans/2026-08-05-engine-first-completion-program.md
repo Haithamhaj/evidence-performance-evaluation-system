@@ -155,7 +155,7 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   Expected: all required suites pass; intentional skips are enumerated; no AI-rating, ranking,
   productivity, automatic Project average, or manager-visible readiness-percentage field exists.
 
-- [ ] **Step 4: Publish a technical acceptance checkpoint**
+- [x] **Step 4: Publish a technical acceptance checkpoint**
 
   Document source composition, privacy projections, historical responsibility behavior, test evidence,
   provisional verification routes, and known limitations. Commit, push, update the Slice 6 PR, and merge
@@ -180,7 +180,7 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   active specifications/plans, module exports, API routes, migrations, tests, and acceptance reports.
 - Produces: one traceable inventory row per user capability and a gap list that controls E3–E7.
 
-- [ ] **Step 1: Define the feature-register record**
+- [x] **Step 1: Define the feature-register record**
 
   `ENGINE_FEATURE_REGISTER.md` must use these exact fields for every capability:
 
@@ -194,37 +194,37 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   Allowed status values are exactly `COMPLETE`, `PARTIAL`, `PLANNED`, `EXTERNAL_GATE`, `DEFERRED_APPROVED`,
   and `SUPERSEDED`.
 
-- [ ] **Step 2: Inventory authoritative capabilities before inspecting screens**
+- [x] **Step 2: Inventory authoritative capabilities before inspecting screens**
 
   Map the project reference and T001–T077 into capability rows. Include daily workspace, Project progress,
   connected sources, research/experiments, evaluation, upward manager evaluation, coaching/development,
   leave/delegation, notifications, exports, administration, observability, backup/restore, and launch
   readiness. Do not treat an existing screen as proof that a capability is complete.
 
-- [ ] **Step 3: Trace capabilities to implementation evidence**
+- [x] **Step 3: Trace capabilities to implementation evidence**
 
   For every row, cite exact packages, API modules, migrations, tests, and acceptance documents. A row is
   `COMPLETE` only when its protected behavior and recovery are implemented and tested. Mark missing
   production adapters as `EXTERNAL_GATE`, not `COMPLETE` or failed.
 
-- [ ] **Step 4: Build the capability matrix**
+- [x] **Step 4: Build the capability matrix**
 
   `ENGINE_CAPABILITY_MATRIX.md` groups rows by employee, Project owner, manager, administrator, and system
   operations. It must expose missing dependencies, duplicated concepts, provisional UI-only behavior,
   and engine capabilities with no future journey entry point.
 
-- [ ] **Step 5: Define the frontend handoff schema**
+- [x] **Step 5: Define the frontend handoff schema**
 
   `ENGINE_FRONTEND_HANDOFF_SCHEMA.md` defines the per-capability information the later frontend program
   consumes: primary action, information priority, related capabilities, responsive needs, localization,
   accessibility, notification behavior, empty/error/recovery states, and protected visibility.
 
-- [ ] **Step 6: Update the system map and task graph**
+- [x] **Step 6: Update the system map and task graph**
 
   Add the engine-first sequence and feature-register flow to `SYSTEM_MAP.html`. Add traceable execution
   checkpoints for approved missing engine capabilities without renumbering or weakening T001–T077.
 
-- [ ] **Step 7: Verify and checkpoint**
+- [x] **Step 7: Verify and checkpoint**
 
   Run:
 
