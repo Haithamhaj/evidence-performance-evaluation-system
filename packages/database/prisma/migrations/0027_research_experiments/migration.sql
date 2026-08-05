@@ -964,3 +964,261 @@ CREATE TRIGGER "ExperimentConclusion_append_only" BEFORE UPDATE OR DELETE ON "Ex
 CREATE TRIGGER "ResearchConclusion_append_only" BEFORE UPDATE OR DELETE ON "ResearchConclusion" FOR EACH ROW EXECUTE FUNCTION "prevent_phase2_history_mutation"();
 CREATE TRIGGER "AppliedLearning_append_only" BEFORE UPDATE OR DELETE ON "AppliedLearning" FOR EACH ROW EXECUTE FUNCTION "prevent_phase2_history_mutation"();
 CREATE TRIGGER "ResearchEvidenceLink_append_only" BEFORE UPDATE OR DELETE ON "ResearchEvidenceLink" FOR EACH ROW EXECUTE FUNCTION "prevent_phase2_history_mutation"();
+
+-- Research source lifecycle rows are history. Retraction and supersession append
+-- new source-state rows; neither operation rewrites the cited source record.
+CREATE TRIGGER "ResearchSourceReference_append_only"
+BEFORE UPDATE OR DELETE ON "ResearchSourceReference"
+FOR EACH ROW EXECUTE FUNCTION "prevent_phase2_history_mutation"();
+
+-- A run must pin a method revision owned by the same Experiment.
+CREATE FUNCTION "validate_experiment_run_lineage"() RETURNS trigger AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM "ExperimentMethodRevision" method
+    WHERE method."id" = NEW."methodRevisionId"
+      AND method."experimentId" = NEW."experimentId"
+  ) THEN
+    RAISE EXCEPTION 'Experiment Run lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "ExperimentRun_validate_lineage"
+BEFORE INSERT ON "ExperimentRun"
+FOR EACH ROW EXECUTE FUNCTION "validate_experiment_run_lineage"();
+
+-- Observations must use the run's pinned method, including optional test cases.
+-- A corrected observation may supersede only an observation from the same run,
+-- measure, and test case; a new run remains the correction path across runs.
+CREATE FUNCTION "validate_experiment_observation_lineage"() RETURNS trigger AS $$
+DECLARE
+  pinned_method_id UUID;
+BEGIN
+  SELECT run."methodRevisionId" INTO pinned_method_id
+  FROM "ExperimentRun" run
+  WHERE run."id" = NEW."runId";
+
+  IF pinned_method_id IS NULL OR NOT EXISTS (
+    SELECT 1
+    FROM "ExperimentMeasure" measure
+    WHERE measure."id" = NEW."measureId"
+      AND measure."methodRevisionId" = pinned_method_id
+  ) THEN
+    RAISE EXCEPTION 'Experiment Observation measure lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."testCaseId" IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM "ExperimentTestCase" test_case
+    WHERE test_case."id" = NEW."testCaseId"
+      AND test_case."methodRevisionId" = pinned_method_id
+  ) THEN
+    RAISE EXCEPTION 'Experiment Observation test-case lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."supersedesObservationId" IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM "ExperimentObservation" previous
+    WHERE previous."id" = NEW."supersedesObservationId"
+      AND previous."runId" = NEW."runId"
+      AND previous."measureId" = NEW."measureId"
+      AND previous."testCaseId" IS NOT DISTINCT FROM NEW."testCaseId"
+  ) THEN
+    RAISE EXCEPTION 'Experiment Observation supersession lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "ExperimentObservation_validate_lineage"
+BEFORE INSERT ON "ExperimentObservation"
+FOR EACH ROW EXECUTE FUNCTION "validate_experiment_observation_lineage"();
+
+-- Applied Learning keeps its conclusion and every concrete target inside the
+-- source Research Project.
+CREATE FUNCTION "validate_applied_learning_lineage"() RETURNS trigger AS $$
+DECLARE
+  source_project_id UUID;
+BEGIN
+  SELECT research."projectId" INTO source_project_id
+  FROM "ResearchRecord" research
+  WHERE research."id" = NEW."researchId";
+
+  IF source_project_id IS NULL OR NOT EXISTS (
+    SELECT 1
+    FROM "ResearchConclusion" conclusion
+    WHERE conclusion."id" = NEW."researchConclusionId"
+      AND conclusion."researchId" = NEW."researchId"
+  ) THEN
+    RAISE EXCEPTION 'Applied Learning conclusion lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."targetKind" = 'RESEARCH' AND NOT EXISTS (
+    SELECT 1 FROM "ResearchRecord" target
+    WHERE target."id" = NEW."targetResearchId"
+      AND target."id" = NEW."targetId"
+      AND target."projectId" = source_project_id
+  ) THEN
+    RAISE EXCEPTION 'Applied Learning Research target foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."targetKind" = 'EXPERIMENT' AND NOT EXISTS (
+    SELECT 1
+    FROM "Experiment" target
+    JOIN "ResearchRecord" target_research ON target_research."id" = target."researchId"
+    WHERE target."id" = NEW."targetExperimentId"
+      AND target."id" = NEW."targetId"
+      AND target_research."projectId" = source_project_id
+  ) THEN
+    RAISE EXCEPTION 'Applied Learning Experiment target foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."targetKind" = 'WORK_ITEM' AND NOT EXISTS (
+    SELECT 1 FROM "WorkItem" target
+    WHERE target."id" = NEW."targetId"
+      AND target."projectId" = source_project_id
+  ) THEN
+    RAISE EXCEPTION 'Applied Learning Work Item target foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."targetKind" = 'UPDATE' AND NOT EXISTS (
+    SELECT 1 FROM "AcceptedUpdateEvent" target
+    WHERE target."id" = NEW."targetId"
+      AND target."projectId" = source_project_id
+  ) THEN
+    RAISE EXCEPTION 'Applied Learning Update target foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."targetKind" IN ('DOCUMENT_VERSION', 'KNOWLEDGE_TRANSFER') AND NOT EXISTS (
+    SELECT 1
+    FROM "DocumentVersion" version
+    JOIN "DocumentRecord" document ON document."id" = version."documentId"
+    LEFT JOIN "Workstream" workstream ON workstream."id" = document."workstreamId"
+    WHERE version."id" = NEW."documentVersionId"
+      AND version."id" = NEW."targetId"
+      AND COALESCE(document."projectId", workstream."projectId") = source_project_id
+  ) THEN
+    RAISE EXCEPTION 'Applied Learning Document target foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."targetKind" = 'PROGRESS_CONTRACT_PROPOSAL' AND NOT EXISTS (
+    SELECT 1 FROM "ProgressContractAiDraftRequest" target
+    WHERE target."id" = NEW."targetId"
+      AND target."projectId" = source_project_id
+  ) THEN
+    RAISE EXCEPTION 'Applied Learning Progress proposal foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."targetKind" = 'CRITERION_PROPOSAL' AND NOT EXISTS (
+    SELECT 1
+    FROM "DynamicCriteriaProposal" target
+    LEFT JOIN "Workstream" workstream ON workstream."id" = target."workstreamId"
+    WHERE target."id" = NEW."targetId"
+      AND COALESCE(target."projectId", workstream."projectId") = source_project_id
+  ) THEN
+    RAISE EXCEPTION 'Applied Learning Criterion proposal foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "AppliedLearning_validate_lineage"
+BEFORE INSERT ON "AppliedLearning"
+FOR EACH ROW EXECUTE FUNCTION "validate_applied_learning_lineage"();
+
+-- Confirmed Evidence support must stay in the Research Project. Optional
+-- Experiment, Run, and Experiment Conclusion IDs must form one lineage.
+CREATE FUNCTION "validate_research_evidence_link_lineage"() RETURNS trigger AS $$
+DECLARE
+  research_project_id UUID;
+BEGIN
+  SELECT research."projectId" INTO research_project_id
+  FROM "ResearchRecord" research
+  WHERE research."id" = NEW."researchId";
+
+  IF research_project_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM "EvidenceRecord" evidence
+    WHERE evidence."id" = NEW."evidenceId"
+      AND evidence."projectId" = research_project_id
+  ) THEN
+    RAISE EXCEPTION 'Research Evidence Project lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."experimentId" IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM "Experiment" experiment
+    WHERE experiment."id" = NEW."experimentId"
+      AND experiment."researchId" = NEW."researchId"
+  ) THEN
+    RAISE EXCEPTION 'Research Evidence Experiment lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."experimentRunId" IS NOT NULL AND (
+    NEW."experimentId" IS NULL OR NOT EXISTS (
+      SELECT 1 FROM "ExperimentRun" run
+      WHERE run."id" = NEW."experimentRunId"
+        AND run."experimentId" = NEW."experimentId"
+    )
+  ) THEN
+    RAISE EXCEPTION 'Research Evidence Run lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW."experimentConclusionId" IS NOT NULL AND (
+    NEW."experimentId" IS NULL OR NOT EXISTS (
+      SELECT 1 FROM "ExperimentConclusion" conclusion
+      WHERE conclusion."id" = NEW."experimentConclusionId"
+        AND conclusion."experimentId" = NEW."experimentId"
+    )
+  ) THEN
+    RAISE EXCEPTION 'Research Evidence Experiment conclusion lineage foreign key constraint violated'
+      USING ERRCODE = '23503';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "ResearchEvidenceLink_validate_lineage"
+BEFORE INSERT ON "ResearchEvidenceLink"
+FOR EACH ROW EXECUTE FUNCTION "validate_research_evidence_link_lineage"();
+
+-- Persisted source-review output and AI provenance are all-or-none. Pending,
+-- blocked, and other non-output revisions retain a fully absent tuple.
+ALTER TABLE "ResearchSourceReviewRevision"
+DROP CONSTRAINT "ResearchSourceReviewRevision_ai_provenance",
+ADD CONSTRAINT "ResearchSourceReviewRevision_ai_provenance" CHECK (
+  (
+    "sealedOutput" IS NULL
+    AND "outputFragments" IS NULL
+    AND "aiRunId" IS NULL
+    AND "schemaVersion" IS NULL
+    AND "promptVersion" IS NULL
+    AND "routeTrace" IS NULL
+  )
+  OR (
+    ("sealedOutput" IS NOT NULL OR "outputFragments" IS NOT NULL)
+    AND "aiRunId" IS NOT NULL
+    AND "schemaVersion" IS NOT NULL
+    AND "promptVersion" IS NOT NULL
+    AND "routeTrace" IS NOT NULL
+  )
+);
