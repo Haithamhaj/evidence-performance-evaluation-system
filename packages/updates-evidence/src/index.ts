@@ -4,6 +4,7 @@ export * from "./check-in-service.js";
 export * from "./evidence-service.js";
 export * from "./evaluation-fact-reader.js";
 export * from "./prompts.js";
+export * from "./research-support-reader.js";
 export * from "./scope-readers.js";
 export * from "./update-service.js";
 export * from "./update-source-loader.js";

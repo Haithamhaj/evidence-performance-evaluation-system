@@ -32,6 +32,10 @@ export {
   type GoogleOAuthConfiguration,
 } from "./google/google-oauth-client.js";
 export { ConnectedWorkContextQueryService } from "./query-service.js";
+export {
+  ResearchSourceIntakeReader,
+  type ResearchConnectedSourceIntake,
+} from "./research-source-intake-reader.js";
 export type {
   ConnectedSourceAdapter,
   ConnectedSourceExclusionKind,

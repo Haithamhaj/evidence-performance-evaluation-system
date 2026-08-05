@@ -23,3 +23,5 @@ export type {
   TransitionExperimentInput,
   TransitionResearchInput,
 } from "@evaluation/contracts";
+
+export * from "./project-context.js";

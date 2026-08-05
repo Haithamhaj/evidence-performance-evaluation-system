@@ -9,5 +9,6 @@ export * from "./progress-contract-draft-service.js";
 export * from "./progress-calculation-service.js";
 export * from "./progress-query-service.js";
 export * from "./project-service.js";
+export * from "./research-project-context-reader.js";
 export * from "./responsibility-service.js";
 export * from "./workstream-service.js";
