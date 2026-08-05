@@ -187,6 +187,9 @@ program and live connector installations behind their existing sequence and exte
   E5B Coaching & Development, E6A Continuity & Offboarding, E6B Notifications/Reporting/Administration,
   E6C Security/Recovery/Readiness, and E7 Full Engine Integration Audit. Detailed TDD plans are not yet
   written for those seven designs; no production implementation has started from them.
+- The Product Owner approved ClickUp 4.0 as a clean-room interaction reference for the future daily-work
+  frontend only. It adds no engine task, integration, dependency, source reuse, or scope change. E7 will
+  carry the approved patterns and explicit exclusions into the later frontend design program.
 
 ## Active Decisions
 
@@ -215,6 +218,10 @@ program and live connector installations behind their existing sequence and exte
 - All remaining engine capabilities use versioned configuration, stable public contracts, additive
   migrations, append-only protected history, and narrow connector/provider adapters. Extensibility must
   follow real approved variation without introducing a speculative plugin platform or microservices.
+- ClickUp 4.0 is the primary future daily-work interaction reference only. The product will reinterpret
+  My Tasks, shared work views, context-preserving detail, Planner composition, embedded assistance, and
+  fast navigation as original clean-room UX after E7. There is no ClickUp API, data, code, asset, schema,
+  or runtime dependency, and no ClickUp feature expands the approved engine scope.
 
 ## Active Risks
 
@@ -283,6 +290,7 @@ behind their external human gates.
 - `docs/superpowers/plans/2026-07-20-slice-5-project-owner-progress.md`
 - `docs/superpowers/plans/2026-07-20-slice-6-evaluation-preparation.md`
 - `docs/superpowers/specs/2026-08-05-technical-completion-frontend-product-acceptance-design.md`
+- `docs/superpowers/specs/2026-08-05-clickup-interaction-reference-design.md`
 - `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`
 - `docs/superpowers/specs/2026-08-05-research-experiments-engine-design.md`
 - `docs/superpowers/plans/2026-08-05-research-experiments-engine.md`

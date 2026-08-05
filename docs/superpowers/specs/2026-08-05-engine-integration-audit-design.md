@@ -88,6 +88,12 @@ Publish `docs/product/ENGINE_CUSTOMER_JOURNEY_MAP.md` and refresh the Feature Re
 
 The frontend program receives user journeys and stable contracts—not temporary route layouts or backend package names.
 
+The handoff records ClickUp 4.0 as the primary daily-work interaction reference under
+`2026-08-05-clickup-interaction-reference-design.md`. This is a clean-room pattern reference only. It
+adds no engine requirement, ClickUp integration, source reuse, or dependency. E7 must carry both the
+approved reference patterns and the product-specific exclusions into the separate frontend design
+program.
+
 ## 10. Extensibility audit
 
 Confirm versioned configuration inheritance, schema compatibility, adapter boundaries, previous-version reads, migration upgrade paths, and absence of speculative abstractions. Record future expansion seams and approved deferred capabilities without implementing them.
