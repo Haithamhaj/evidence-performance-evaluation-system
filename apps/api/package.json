@@ -21,6 +21,7 @@
     "@evaluation/criteria": "workspace:*",
     "@evaluation/database": "workspace:*",
     "@evaluation/documents": "workspace:*",
+    "@evaluation/evaluation-preparation": "workspace:*",
     "@evaluation/github-integration": "workspace:*",
     "@evaluation/observability": "workspace:*",
     "@evaluation/permissions": "workspace:*",

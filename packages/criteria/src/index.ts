@@ -1,4 +1,5 @@
 export * from "./activation-service.js";
+export * from "./evaluation-fact-reader.js";
 export * from "./invariants.js";
 export * from "./model.js";
 export * from "./prompts.js";

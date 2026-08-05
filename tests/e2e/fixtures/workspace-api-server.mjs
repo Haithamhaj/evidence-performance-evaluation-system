@@ -47,6 +47,12 @@ const highConfidenceSuggestionId = "cb111111-1111-4111-8111-111111111111";
 const uncertainSuggestionId = "cb222222-2222-4222-8222-222222222222";
 const rejectedSuggestionId = "cb333333-3333-4333-8333-333333333333";
 const contextTaskDraftId = "cb444444-4444-4444-8444-444444444444";
+const evaluationCycleId = "ec111111-1111-4111-8111-111111111111";
+const evaluationRubricVersionId = "ec222222-2222-4222-8222-222222222222";
+const responsibilityFactId = "ec333333-3333-4333-8333-333333333333";
+const contributionFactId = "ec444444-4444-4444-8444-444444444444";
+const criterionFactId = "ec555555-5555-4555-8555-555555555555";
+const interpretationId = "ec666666-6666-4666-8666-666666666666";
 const ownerAccessToken = "e2e-access-token";
 const managerAccessToken = "e2e-manager-access-token";
 const otherEmployeeAccessToken = "e2e-other-employee-access-token";
@@ -875,6 +881,16 @@ const server = createServer(async (request, response) => {
     return json(response, 200, managerOperations());
   }
 
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/evaluation-cycles/${evaluationCycleId}/employees/${ownerId}/facts`
+  ) {
+    if (accessToken !== ownerAccessToken && accessToken !== managerAccessToken) {
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    }
+    return json(response, 200, evaluationFactView());
+  }
+
   if (accessToken !== ownerAccessToken) {
     return json(response, 403, { messageKey: "errors.forbidden" });
   }
@@ -1669,6 +1685,140 @@ function json(response, status, body) {
 function empty(response, status) {
   response.writeHead(status, { "cache-control": "no-store" });
   response.end();
+}
+
+function evaluationFactView() {
+  const responsibilitySource = {
+    sourceType: "responsibility_window",
+    sourceId: responsibilityFactId,
+    sourceVersion: 1,
+    occurredAt: "2026-07-01T06:00:00.000Z",
+    url: null,
+  };
+  const contributionSource = {
+    sourceType: "github_event",
+    sourceId: acceptedUpdateId,
+    sourceVersion: 1,
+    occurredAt: "2026-07-20T09:00:00.000Z",
+    url: "https://github.com/example/atlas/pull/42",
+  };
+  const evidenceSource = {
+    sourceType: "evidence",
+    sourceId: acceptedEvidenceId,
+    sourceVersion: 1,
+    occurredAt: "2026-07-20T09:05:00.000Z",
+    url: "https://github.com/example/atlas/actions/runs/42",
+  };
+  const criterionSource = {
+    sourceType: "criterion_version",
+    sourceId: criterionFactId,
+    sourceVersion: 2,
+    occurredAt: "2026-07-01T06:00:00.000Z",
+    url: null,
+  };
+
+  return {
+    schemaVersion: 1,
+    cycle: {
+      id: evaluationCycleId,
+      startsAt: "2026-07-01T00:00:00.000Z",
+      endsAt: "2026-09-30T23:59:59.000Z",
+      rubricVersionId: evaluationRubricVersionId,
+    },
+    subjectEmployeeId: ownerId,
+    generatedAt: "2026-08-05T09:00:00.000Z",
+    responsibilityWindows: [
+      {
+        kind: "source_fact",
+        sourceType: "responsibility_window",
+        sourceId: responsibilityFactId,
+        sourceOccurredAt: responsibilitySource.occurredAt,
+        projectId,
+        workstreamId: null,
+        sourceReferences: [responsibilitySource],
+        responsibilityType: "original_owner",
+        startedAt: "2026-07-01T06:00:00.000Z",
+        endedAt: null,
+      },
+    ],
+    projectFacts: [
+      {
+        kind: "source_fact",
+        sourceType: "project_contribution",
+        sourceId: contributionFactId,
+        sourceOccurredAt: contributionSource.occurredAt,
+        projectId,
+        workstreamId,
+        sourceReferences: [contributionSource],
+        relatedWorkItemId: null,
+        criterionStableId: "project-delivery-quality",
+        criterionVersionId: criterionFactId,
+        summary: "Release acceptance checks completed and linked to the Project.",
+        result: "The approved acceptance suite passed with traceable source evidence.",
+        verificationState: "source_supported",
+        attributionState: "employee_confirmed",
+        responsibilityWindowIds: [responsibilityFactId],
+      },
+    ],
+    confirmedEvidence: [
+      {
+        kind: "source_fact",
+        sourceType: "confirmed_evidence",
+        sourceId: acceptedEvidenceId,
+        sourceOccurredAt: evidenceSource.occurredAt,
+        projectId,
+        workstreamId,
+        sourceReferences: [evidenceSource],
+        relatedWorkItemId: null,
+        relatedCriterionStableId: "project-delivery-quality",
+        supportedClaim: "The acceptance suite passed for the approved release scope.",
+        contributionContext: "Codex confirmed this GitHub suggestion before it became evidence.",
+        verificationState: "source_supported",
+        attributionState: "employee_confirmed",
+      },
+    ],
+    checkInFacts: [],
+    dynamicCriteriaVersions: [
+      {
+        kind: "source_fact",
+        sourceType: "criterion_version",
+        sourceId: criterionFactId,
+        sourceOccurredAt: criterionSource.occurredAt,
+        projectId,
+        workstreamId: null,
+        sourceReferences: [criterionSource],
+        criterionStableId: "project-delivery-quality",
+        criterionVersionId: criterionFactId,
+        locale: "en",
+        name: "Deliver the approved release with traceable acceptance evidence",
+        effectiveFrom: "2026-07-01T06:00:00.000Z",
+        effectiveUntil: null,
+      },
+    ],
+    employeeInterpretations: [
+      {
+        kind: "employee_interpretation",
+        id: interpretationId,
+        originalText: "I resolved the release risk and confirmed the acceptance evidence.",
+        normalizedText:
+          "Employee interpretation: release risk was resolved and evidence confirmed.",
+        sourceFactIds: [contributionFactId, acceptedEvidenceId],
+        createdAt: "2026-07-20T09:15:00.000Z",
+      },
+    ],
+    sourceCoverageNotes: [
+      {
+        kind: "coverage_note",
+        code: "partial_period",
+        scope: "cycle",
+        projectId,
+        workstreamId: null,
+        messageKey: "evaluationFacts.coverage.partialPeriod",
+        sourceFactIds: [responsibilityFactId],
+        neutral: true,
+      },
+    ],
+  };
 }
 
 function resetContextAcceptanceState() {

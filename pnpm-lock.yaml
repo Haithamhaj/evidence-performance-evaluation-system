@@ -132,6 +132,9 @@ importers:
       '@evaluation/documents':
         specifier: workspace:*
         version: link:../../packages/documents
+      '@evaluation/evaluation-preparation':
+        specifier: workspace:*
+        version: link:../../packages/evaluation-preparation
       '@evaluation/github-integration':
         specifier: workspace:*
         version: link:../../packages/github-integration
@@ -466,6 +469,12 @@ importers:
       '@types/yauzl':
         specifier: 3.4.0
         version: 3.4.0
+
+  packages/evaluation-preparation:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/github-integration:
     dependencies:

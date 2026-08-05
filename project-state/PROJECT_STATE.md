@@ -2,9 +2,10 @@
 
 ## Current Goal
 
-Merge the technically accepted Slice 5 checkpoint, then execute Slice 6 Evaluation Fact View
-preparation as the final Phase 2 engine slice. Continue the approved engine-first program before the
-dedicated final frontend. Keep live GitHub installation behind its external human gate.
+Publish and merge the technically verified Slice 6 Evaluation Fact View checkpoint, then establish the
+source-to-code engine feature register and capability baseline before implementing the remaining engine
+subsystems. Keep final frontend work and live GitHub installation behind their existing sequence and
+external gate.
 
 ## Current Reality
 
@@ -146,6 +147,17 @@ dedicated final frontend. Keep live GitHub installation behind its external huma
   behavior only; provisional screens are not UX or product acceptance. After the pilot engine is
   complete, a source-to-code feature inventory—including the required Research & Experiments
   capability—governs a separate full-frontend design and delivery program.
+- Slice 6 is locally technically complete on `codex/phase-2-slice-6-evaluation-preparation`: a strict
+  neutral Fact View contract, public authorized source readers, read-only preparation composition,
+  protected employee/assigned-manager API, and bilingual verification surface separate source facts
+  from employee interpretation without a rating or readiness value.
+- Slice 6 adds no migration and no AI provider call. Full local verification passed 1,025 unit/coverage
+  tests, 593 integration tests with 13 intentional skips, 179 AI evaluations with one intentional skip,
+  49 database checks across all 26 migrations, and 41 browser journeys with four intentional skips.
+- Slice 6 Pull Request #11 is open on the verified local checkpoint; hosted required checks are pending.
+- The complete Evaluation Template, immutable Cycle Snapshot, self-assessment, independent manager
+  assessment, discussion, final human judgment, and closure remain later engine work. The current
+  active-at-cycle-start rubric resolver is not a substitute for T045–T046 snapshot immutability.
 
 ## Active Decisions
 
@@ -198,11 +210,10 @@ dedicated final frontend. Keep live GitHub installation behind its external huma
 
 ## Next Recommended Action
 
-Merge Pull Request #10 after confirming the technical checkpoint and hosted checks on the current head,
-then begin Slice 6 Evaluation Fact View preparation without implementing the complete evaluation
-workflow. Continue through `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`. Live
-GitHub App creation, installation, secret, and organization approval remain behind the external human
-gate.
+Commit and push the Slice 6 acceptance checkpoint, open its Pull Request, require hosted `integrity`,
+`quality`, `build`, and `integration` on the exact head, then merge and begin E2 engine feature inventory.
+Do not start the final frontend or the complete evaluation workflow yet. Live GitHub App creation,
+installation, secret, and organization approval remain behind the external human gate.
 
 ## Critical References
 

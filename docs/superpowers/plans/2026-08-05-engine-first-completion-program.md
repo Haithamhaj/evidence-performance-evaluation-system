@@ -128,18 +128,18 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 - Produces: read-only `EvaluationFactView` contracts and protected API suitable for the future employee
   and manager evaluation engine.
 
-- [ ] **Step 1: Amend only execution metadata in the existing Slice 6 plan**
+- [x] **Step 1: Amend only execution metadata in the existing Slice 6 plan**
 
   Replace stale Pull Request #5 references with a new branch/PR based on verified `main`. State that the
   Slice 6 UI is a contract-verification surface, not final frontend or product acceptance. Preserve every
   Fact View neutrality, privacy, and no-rating requirement.
 
-- [ ] **Step 2: Execute S6-T1 through S6-T5**
+- [x] **Step 2: Execute S6-T1 through S6-T5**
 
   Follow the existing plan task-by-task with TDD. Use one specification review and one
   privacy/neutrality review. Remediate only confirmed P0/P1 findings and re-review only those findings.
 
-- [ ] **Step 3: Verify Phase 2 completion**
+- [x] **Step 3: Verify Phase 2 completion**
 
   Run the exact full checkpoint:
 
