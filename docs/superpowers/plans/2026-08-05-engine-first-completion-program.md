@@ -309,7 +309,7 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   comparison/discussion, manager final decision, acknowledgment/reservation, immutable closure, and report
   data contracts.
 
-- [ ] **Step 1: Write the bounded engine design**
+- [x] **Step 1: Write the bounded engine design**
 
   Cover T045–T054 backend behavior without final frontend. Preserve `Calibration — Non-Baseline`, active
   template and closed-evaluation immutability, identical employee/manager anchors, manager-draft
@@ -342,8 +342,10 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 
 **Files:**
 
-- Create: `docs/superpowers/specs/2026-08-05-manager-evaluation-coaching-engine-design.md`
-- Create: `docs/superpowers/plans/2026-08-05-manager-evaluation-coaching-engine.md`
+- Create: `docs/superpowers/specs/2026-08-05-identified-manager-evaluation-engine-design.md`
+- Create: `docs/superpowers/specs/2026-08-05-coaching-development-engine-design.md`
+- Create: `docs/superpowers/plans/2026-08-05-identified-manager-evaluation-engine.md`
+- Create: `docs/superpowers/plans/2026-08-05-coaching-development-engine.md`
 - Modify: `docs/product/ENGINE_FEATURE_REGISTER.md`
 - Modify: `docs/product/ENGINE_CAPABILITY_MATRIX.md`
 - Trace: `TASKS.md` tasks T055–T063
@@ -355,12 +357,12 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 - Produces: identified upward submissions, completion state, authorized response detail, optional grounded
   aggregates, non-scoring coaching insights, employee-controlled actions, and formal development plans.
 
-- [ ] **Step 1: Design the active Identified-mode engine**
+- [x] **Step 1: Design the active Identified-mode engine**
 
   The manager can see identity, completion status, ratings, comments, and timestamps. The product makes
   no anonymity claim. Future modes remain configurable and fail closed without changing the active pilot.
 
-- [ ] **Step 2: Design coaching and development boundaries**
+- [x] **Step 2: Design coaching and development boundaries**
 
   Coaching has source references, confidence limits, and optional actions but no rating, rank, prediction,
   or productivity score. Private employee actions and rejection reasons remain private until explicitly
@@ -382,8 +384,12 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 
 **Files:**
 
-- Create: `docs/superpowers/specs/2026-08-05-operational-lifecycle-hardening-engine-design.md`
-- Create: `docs/superpowers/plans/2026-08-05-operational-lifecycle-hardening-engine.md`
+- Create: `docs/superpowers/specs/2026-08-05-continuity-offboarding-engine-design.md`
+- Create: `docs/superpowers/specs/2026-08-05-notifications-reporting-administration-engine-design.md`
+- Create: `docs/superpowers/specs/2026-08-05-security-recovery-readiness-engine-design.md`
+- Create: `docs/superpowers/plans/2026-08-05-continuity-offboarding-engine.md`
+- Create: `docs/superpowers/plans/2026-08-05-notifications-reporting-administration-engine.md`
+- Create: `docs/superpowers/plans/2026-08-05-security-recovery-readiness-engine.md`
 - Modify: `docs/product/ENGINE_FEATURE_REGISTER.md`
 - Modify: `docs/product/ENGINE_CAPABILITY_MATRIX.md`
 - Trace: `TASKS.md` tasks T064–T077
@@ -396,13 +402,13 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   deactivation/history preservation, retention foundation, notifications, report/export contracts,
   observability, hardened privacy/security, backup/restore evidence, and pilot dry-run readiness.
 
-- [ ] **Step 1: Separate engine scope from final frontend scope**
+- [x] **Step 1: Separate engine scope from final frontend scope**
 
   Implement domain, API, integration, operational, and security behavior for T064–T077. Defer final
   dashboards and visual reports to the frontend program while completing their authorized read/export
   contracts.
 
-- [ ] **Step 2: Write the bounded design and plan**
+- [x] **Step 2: Write the bounded designs**
 
   Preserve time-bounded authority, historical foreign keys, manager-only reassignment, audit-before-read
   for future private modes, and forward-only migration rules. Specify operational drills separately from
@@ -429,6 +435,8 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 
 **Files:**
 
+- Create: `docs/superpowers/specs/2026-08-05-engine-integration-audit-design.md`
+- Create: `docs/superpowers/plans/2026-08-05-engine-integration-audit.md`
 - Modify: `docs/product/ENGINE_FEATURE_REGISTER.md`
 - Modify: `docs/product/ENGINE_CAPABILITY_MATRIX.md`
 - Modify: `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
@@ -444,6 +452,11 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   reports, operational drills, and external-gate records.
 - Produces: approved engine completion evidence and the authoritative input to a separate full-frontend
   brainstorming/specification process.
+
+- [x] **Step 0: Approve the bounded integration-audit design**
+
+  Define capability reconciliation, bidirectional trace, cross-domain seams, employee/manager/admin
+  journeys, restore integrity, extensibility audit, and the exact `READY_FOR_FINAL_FRONTEND_DESIGN` gate.
 
 - [ ] **Step 1: Reconcile every capability row**
 

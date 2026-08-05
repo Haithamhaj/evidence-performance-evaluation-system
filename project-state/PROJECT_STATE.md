@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Select the approved E3 execution mode, then execute the verified Research & Experiments TDD plan in
-bounded checkpoints. Continue the remaining engine subsystems in dependency order. Keep the final
-frontend program and live connector installations behind their existing sequence and external gates.
+Complete and verify the detailed TDD plans for every remaining bounded engine subsystem before starting
+Subagent-Driven execution. Then execute E3 through E7 in dependency order. Keep the final frontend
+program and live connector installations behind their existing sequence and external gates.
 
 ## Current Reality
 
@@ -179,6 +179,14 @@ frontend program and live connector installations behind their existing sequence
   `docs/superpowers/plans/2026-08-05-research-experiments-engine.md`. It maps thirteen independently
   testable tasks from strict contracts and migration through source security, AI routes, domain
   lifecycles, composition, bilingual verification, and the final technical checkpoint.
+- The Product Owner approved the complete-engine architecture, dependency order, extensibility rules,
+  cross-domain flow, verification-surface boundary, execution policy, and final completion gate on
+  2026-08-05. The written program design is
+  `docs/superpowers/specs/2026-08-05-complete-engine-program-design.md`.
+- Bounded written designs now cover E4 Employee Evaluation, E5A Identified Upward Manager Evaluation,
+  E5B Coaching & Development, E6A Continuity & Offboarding, E6B Notifications/Reporting/Administration,
+  E6C Security/Recovery/Readiness, and E7 Full Engine Integration Audit. Detailed TDD plans are not yet
+  written for those seven designs; no production implementation has started from them.
 
 ## Active Decisions
 
@@ -204,6 +212,9 @@ frontend program and live connector installations behind their existing sequence
 - Source relevance is not proof of benefit, progress, contribution, or performance. Explicit link
   retrieval is bounded and fail-closed; it runs no external code, uses no ambient credentials, and
   requires employee confirmation before Project sharing or official object creation.
+- All remaining engine capabilities use versioned configuration, stable public contracts, additive
+  migrations, append-only protected history, and narrow connector/provider adapters. Extensibility must
+  follow real approved variation without introducing a speculative plugin platform or microservices.
 
 ## Active Risks
 
@@ -244,9 +255,10 @@ frontend program and live connector installations behind their existing sequence
 
 ## Next Recommended Action
 
-Select Subagent-Driven or inline bounded execution for the verified E3 TDD plan, then begin Task 1.
-Do not start the final frontend yet. Live Google/GitHub production configuration and Arabic evaluation
-release remain behind their external human gates.
+Review the written complete-engine and seven bounded subsystem specifications, then write and verify one
+detailed TDD plan per approved design. Begin Subagent-Driven E3 execution only after the complete plan set
+is ready. Do not start the final frontend yet. Live connector setup and Arabic evaluation release remain
+behind their external human gates.
 
 ## Critical References
 
@@ -274,6 +286,14 @@ release remain behind their external human gates.
 - `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`
 - `docs/superpowers/specs/2026-08-05-research-experiments-engine-design.md`
 - `docs/superpowers/plans/2026-08-05-research-experiments-engine.md`
+- `docs/superpowers/specs/2026-08-05-complete-engine-program-design.md`
+- `docs/superpowers/specs/2026-08-05-employee-evaluation-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-identified-manager-evaluation-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-coaching-development-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-continuity-offboarding-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-notifications-reporting-administration-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-security-recovery-readiness-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-engine-integration-audit-design.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`

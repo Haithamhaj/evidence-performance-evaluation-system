@@ -347,10 +347,11 @@ The detailed authority is
 | Checkpoint | Scope                                                                          | Status                                                             |
 | ---------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                         |
-| E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Design approved; TDD plan complete; execution mode pending         |
-| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Planned; Fact View preparation is complete                         |
-| E5         | Identified upward manager evaluation, coaching, and development                | Planned                                                            |
-| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Planned                                                            |
+| E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Design/plan approved; Subagent execution queued after all plans    |
+| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Design approved; detailed TDD plan next                            |
+| E5         | Identified upward manager evaluation, coaching, and development                | Two bounded designs approved; detailed TDD plans next              |
+| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs approved; detailed TDD plans next            |
+| E7         | Full engine integration audit and final-frontend handoff                       | Design approved; detailed audit plan next                          |
 | E7         | Final source-to-code engine audit and frontend handoff                         | Planned; dedicated full frontend starts only after this checkpoint |
 
 ## T030 — Implement Activity Timeline
