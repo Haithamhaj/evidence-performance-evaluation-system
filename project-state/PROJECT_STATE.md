@@ -2,10 +2,10 @@
 
 ## Current Goal
 
-Perform the bounded E3 ownership audit, then write the Research & Experiments engine design and detailed
-implementation plan before production code. Continue the remaining engine subsystems in dependency
-order. Keep the final frontend program and live connector installations behind their existing sequence
-and external gates.
+Review and approve the written E3 Research & Experiments engine design. After that explicit written-spec
+gate, write the detailed TDD implementation plan before production code. Continue the remaining engine
+subsystems in dependency order. Keep the final frontend program and live connector installations behind
+their existing sequence and external gates.
 
 ## Current Reality
 
@@ -166,6 +166,13 @@ and external gates.
 - Research & Experiments is an authoritative daily-work and evaluation source requirement, but no
   dedicated production model, public API, domain lifecycle, history, recovery, or journey entry point
   exists. E3 must close this gap before the evaluation engine is completed.
+- The E3 ownership audit is complete. The approved direction is one bounded Research & Experiments
+  domain: every Research Record belongs to a Project, may optionally link a Workstream/Work Item, and
+  may contain multiple versioned Experiments. Existing Projects, Work Items, Documents, Updates &
+  Evidence, Timeline composition, and AI Router retain their current ownership.
+- The written E3 specification is
+  `docs/superpowers/specs/2026-08-05-research-experiments-engine-design.md`. It is awaiting final written
+  review before the detailed implementation plan or production code begins.
 
 ## Active Decisions
 
@@ -184,6 +191,10 @@ and external gates.
 - Official Tasks require a Project; private Inbox capture may remain unlinked until promoted. AI drafts Tasks but never creates or assigns them automatically.
 - Gmail and Calendar summaries are private to the employee until the employee confirms a shared Task, Update, Evidence item, or decision record.
 - Automatic source linking requires a deterministic mapping or at least two non-conflicting independent Project anchors; model confidence alone is insufficient.
+- Research/Experiment structure, methods, immutable runs, human-confirmed conclusions, decisions, and
+  applied learning belong to one bounded Research & Experiments domain. It reuses public Project,
+  Work Item, Document, Evidence, Timeline, Fact View, and AI Router contracts and does not create a
+  second evidence lifecycle or generic activity platform.
 
 ## Active Risks
 
@@ -224,10 +235,9 @@ and external gates.
 
 ## Next Recommended Action
 
-Verify and publish the E2 feature-register baseline, then perform the bounded E3 ownership audit and
-write the Research & Experiments engine design/implementation plan before production code. Do not start
-the final frontend yet. Live Google/GitHub production configuration and Arabic evaluation release remain
-behind their external human gates.
+Review and approve the written E3 Research & Experiments engine design. Then write its detailed TDD
+implementation plan before any production code. Do not start the final frontend yet. Live Google/GitHub
+production configuration and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References
 
@@ -253,6 +263,7 @@ behind their external human gates.
 - `docs/superpowers/plans/2026-07-20-slice-6-evaluation-preparation.md`
 - `docs/superpowers/specs/2026-08-05-technical-completion-frontend-product-acceptance-design.md`
 - `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`
+- `docs/superpowers/specs/2026-08-05-research-experiments-engine-design.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`

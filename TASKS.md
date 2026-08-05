@@ -347,7 +347,7 @@ The detailed authority is
 | Checkpoint | Scope                                                                          | Status                                                             |
 | ---------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                         |
-| E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Planned; first confirmed missing engine domain                     |
+| E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Ownership audit complete; written design awaiting final review     |
 | E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Planned; Fact View preparation is complete                         |
 | E5         | Identified upward manager evaluation, coaching, and development                | Planned                                                            |
 | E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Planned                                                            |

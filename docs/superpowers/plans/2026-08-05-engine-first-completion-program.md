@@ -258,7 +258,7 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 - Produces: authorized, versioned research questions, experiment methods, results, conclusions,
   decisions, applied learning, evidence links, and public readers for evaluation preparation.
 
-- [ ] **Step 1: Audit existing ownership before choosing a module**
+- [x] **Step 1: Audit existing ownership before choosing a module**
 
   Prove whether the current Work Items and Updates & Evidence schemas can represent the approved research
   lifecycle without JSON blobs, duplicate evidence, cross-module table reads, or overloaded event types.
