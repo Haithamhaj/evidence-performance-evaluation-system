@@ -467,6 +467,12 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
 
+  packages/evaluation-preparation:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/github-integration:
     dependencies:
       '@evaluation/contracts':
