@@ -70,6 +70,7 @@ export const FactAttributionStateSchema = z.enum([
 
 export const ProjectContributionFactSchema = SourceFactIdentitySchema.extend({
   sourceType: z.literal("project_contribution"),
+  relatedWorkItemId: UuidSchema.nullable(),
   criterionStableId: z.string().trim().min(1).max(100).nullable(),
   criterionVersionId: UuidSchema.nullable(),
   summary: z.string().trim().min(1).max(4_000),

@@ -56,6 +56,7 @@ const validFactView = {
       sourceOccurredAt: "2026-07-23T09:00:00.000Z",
       projectId: ids.project,
       workstreamId: ids.workstream,
+      relatedWorkItemId: null,
       criterionStableId: "ARL-03",
       criterionVersionId: ids.criterionVersion,
       summary: "Compared the approved baseline with the candidate under the same conditions.",

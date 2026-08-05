@@ -1,4 +1,5 @@
 export * from "./document-resource-reader.js";
+export * from "./evaluation-fact-reader.js";
 export * from "./criteria-review-reader.js";
 export * from "./invariants.js";
 export * from "./model.js";
