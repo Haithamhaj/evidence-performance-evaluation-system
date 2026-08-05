@@ -9,6 +9,7 @@ import {
   ProgressQueryService,
 } from "@evaluation/projects";
 import { PrivateInboxQueryService, WorkItemQueryService } from "@evaluation/work-items";
+import { CheckInService } from "@evaluation/updates-evidence";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
@@ -16,6 +17,15 @@ import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
 import { ProjectDashboardQueryService } from "./project-dashboard-query.service.js";
+import {
+  createDatabaseManagerOperationsQueryService,
+  ManagerOperationsQueryService,
+} from "./manager-operations-query.service.js";
+import {
+  createDatabaseCheckInService,
+  createDatabaseReadinessQueryService,
+  ReadinessQueryService,
+} from "./readiness-query.service.js";
 
 const DAILY_WORK_DATABASE = Symbol("DAILY_WORK_DATABASE");
 const DAILY_WORK_DATABASE_LIFECYCLE = Symbol("DAILY_WORK_DATABASE_LIFECYCLE");
@@ -70,24 +80,44 @@ Module({
       inject: [DAILY_WORK_DATABASE],
     },
     {
+      provide: ProjectDashboardQueryService,
+      useFactory: (progress: ProgressQueryService) => new ProjectDashboardQueryService(progress),
+      inject: [ProgressQueryService],
+    },
+    {
+      provide: CheckInService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        createDatabaseCheckInService(client),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: ReadinessQueryService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        createDatabaseReadinessQueryService(client),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: ManagerOperationsQueryService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        createDatabaseManagerOperationsQueryService(client),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
       provide: DailyWorkQueryService,
       useFactory: (
         workItems: WorkItemQueryService,
         progress: ProgressQueryService,
         sourceRequests: ProgressContractDraftSourceLocator,
         inbox: PrivateInboxQueryService,
-      ) => new DailyWorkQueryService(workItems, progress, sourceRequests, inbox),
+        projectDashboard: ProjectDashboardQueryService,
+      ) => new DailyWorkQueryService(workItems, progress, sourceRequests, inbox, projectDashboard),
       inject: [
         WorkItemQueryService,
         ProgressQueryService,
         ProgressContractDraftSourceLocator,
         PrivateInboxQueryService,
+        ProjectDashboardQueryService,
       ],
-    },
-    {
-      provide: ProjectDashboardQueryService,
-      useFactory: (progress: ProgressQueryService) => new ProjectDashboardQueryService(progress),
-      inject: [ProgressQueryService],
     },
     {
       provide: DAILY_WORK_DATABASE_LIFECYCLE,

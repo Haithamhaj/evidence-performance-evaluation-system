@@ -70,6 +70,7 @@ type EvidenceContext = Readonly<{
 export function UpdateComposer({
   catalog,
   context,
+  initialCheckInDraft,
   initialItemId,
   locale,
   onAccepted,
@@ -78,17 +79,22 @@ export function UpdateComposer({
 }: Readonly<{
   catalog: Catalog;
   context: import("../../../platform/updates-evidence-contracts").UpdateComposerContext;
+  initialCheckInDraft?: Readonly<{
+    projectId: string;
+    workstreamId: string;
+    rawText: string;
+  }> | null;
   initialItemId: string;
   locale: import("@evaluation/localization").Locale;
   onAccepted: () => void;
   onClose: () => void;
   open: boolean;
 }>) {
-  const initial = initialSelection(context, initialItemId);
+  const initial = initialSelection(context, initialItemId, initialCheckInDraft);
   const [stage, setStage] = useState<InternalStage>({
     kind: "entry",
     selection: initial,
-    rawText: "",
+    rawText: initialCheckInDraft?.rawText ?? "",
     sources: [],
   });
   const [busy, setBusy] = useState(false);
@@ -100,6 +106,16 @@ export function UpdateComposer({
 
   useEffect(() => {
     if (!open) return;
+    if (initialCheckInDraft !== null && initialCheckInDraft !== undefined) {
+      removeUpdateDraft(DRAFT_STORAGE_KEY);
+      setStage({
+        kind: "entry",
+        selection: initialSelection(context, "", initialCheckInDraft),
+        rawText: initialCheckInDraft.rawText,
+        sources: [],
+      });
+      return;
+    }
     const stored = loadUpdateDraft(DRAFT_STORAGE_KEY);
     if (stored !== null && validSelection(context, stored)) {
       setStage({
@@ -120,7 +136,7 @@ export function UpdateComposer({
           }
         : current,
     );
-  }, [context, initialItemId, open]);
+  }, [context, initialCheckInDraft, initialItemId, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -413,7 +429,21 @@ function toViewStage(
 function initialSelection(
   context: import("../../../platform/updates-evidence-contracts").UpdateComposerContext,
   initialItemId: string,
+  initialCheckInDraft?: Readonly<{ projectId: string; workstreamId: string }> | null,
 ): UpdateSelection {
+  if (initialCheckInDraft !== null && initialCheckInDraft !== undefined) {
+    const project = context.projects.find(({ id }) => id === initialCheckInDraft.projectId);
+    if (
+      project !== undefined &&
+      project.workstreams.some(({ id }) => id === initialCheckInDraft.workstreamId)
+    ) {
+      return {
+        projectId: project.id,
+        workstreamId: initialCheckInDraft.workstreamId,
+        workItemId: null,
+      };
+    }
+  }
   for (const project of context.projects) {
     const item = project.workItems.find((candidate) => candidate.id === initialItemId);
     if (item !== undefined) {

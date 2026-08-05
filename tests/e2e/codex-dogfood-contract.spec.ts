@@ -13,11 +13,12 @@ test("Codex reviews the real Project contract proposal in English", async ({ pag
     .getByRole("link", { name: "Open project" })
     .click();
   await page.getByRole("link", { name: "Open progress and daily work" }).click();
+  await page.getByRole("link", { name: "Set up progress rules" }).click();
 
   await expect(page.getByText("AI draft — human review required")).toBeVisible();
   await expect(page.getByText("Required quality gate satisfied")).toBeVisible();
-  await expect(page.getByLabel("Calculation rule")).toHaveValue("stage_gate");
-  await expect(page.getByRole("button", { name: "Apply as contract draft" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Review measurable rules" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Activate approved contract" })).toHaveCount(0);
   await expect(page.getByText(/rating|productivity|ranking/iu)).toHaveCount(0);
 });
 
@@ -32,11 +33,13 @@ test("Arabic mobile review preserves RTL and the protected activation boundary",
     .getByRole("link", { name: "فتح المشروع" })
     .click();
   await page.getByRole("link", { name: "فتح التقدم والعمل اليومي" }).click();
+  await page.getByRole("link", { name: "إعداد قواعد التقدم" }).click();
 
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.getByText("مسودة ذكاء اصطناعي — المراجعة البشرية مطلوبة")).toBeVisible();
   await expect(page.getByText("Required quality gate satisfied")).toBeVisible();
-  await expect(page.getByRole("button", { name: "تطبيقها كمسودة عقد" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "مراجعة القواعد القابلة للقياس" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "تفعيل العقد المعتمد" })).toHaveCount(0);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

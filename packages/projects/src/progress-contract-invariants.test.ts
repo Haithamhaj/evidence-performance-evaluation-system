@@ -50,6 +50,20 @@ describe("progress contract invariants", () => {
       calculateComponentPercent(component({ baseline: 10, target: 2, direction: "decrease" }), 12),
     ).toBe(0);
   });
+
+  it.each([
+    ["Commit count", "commits"],
+    ["Completed task volume", "tasks"],
+    ["Update frequency", "updates per week"],
+    ["Lines changed", "lines"],
+  ])("rejects raw-activity progress measures: %s", (name, unit) => {
+    expect(() =>
+      validateProgressContractDraft({
+        ...base,
+        components: [component({ name, description: name, unit })],
+      }),
+    ).toThrowError("PROGRESS_CONTRACT_PROHIBITED_MEASURE");
+  });
 });
 
 function component(overrides: Record<string, unknown> = {}) {

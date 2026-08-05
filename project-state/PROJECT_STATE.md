@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Establish the accepted Slice 4 GitHub, Updates, Evidence, Voice, and Timeline journey on the fully
-verified main baseline, then begin Slice 5. Keep live GitHub installation behind its external human
-gate.
+Merge the technically accepted Slice 5 checkpoint, then execute Slice 6 Evaluation Fact View
+preparation as the final Phase 2 engine slice. Continue the approved engine-first program before the
+dedicated final frontend. Keep live GitHub installation behind its external human gate.
 
 ## Current Reality
 
@@ -132,6 +132,20 @@ gate.
 - The external audit's hosted-build concern was not reproduced on the supported toolchain: Pull
   Request #5's clean GitHub Actions merge-ref run passed integrity, quality, build, and integration.
   The audit used unsupported Node.js 22; local startup now rejects unsupported versions clearly.
+- Slice 5 is complete on `codex/phase-2-slice-5-operational-readiness`: owner-only guided Progress
+  Contract setup, compact employee Project pulse, Thursday check-ins through the normal Update
+  lifecycle, non-scoring monthly readiness, and manager operational queues.
+- Deterministic acceptance proves separate human revision/submission/activation, retained official
+  progress with incomplete source coverage, missing-evidence actions, Arabic RTL at 390 px, and no
+  protected manager scoring fields. Evidence is in
+  `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_5.md`.
+- Final verification passed 1004 unit/coverage tests, 586 integration tests, 49 database checks, 38
+  browser journeys, all 23 lint/typecheck/build tasks, and the task-graph, secret, AI-boundary,
+  copy, and performance-input scans. No Slice 5 migration or AI prompt/schema change was added.
+- The Product Owner approved the engine-first sequence on 2026-08-05. Slice checkpoints prove technical
+  behavior only; provisional screens are not UX or product acceptance. After the pilot engine is
+  complete, a source-to-code feature inventory—including the required Research & Experiments
+  capability—governs a separate full-frontend design and delivery program.
 
 ## Active Decisions
 
@@ -158,8 +172,8 @@ gate.
 - Arabic employee release remains blocked at T016's protected human semantic-review gate.
 - The known non-blocking T013 recovered-running attempt-count telemetry issue remains outside Phase 1 scope.
 - The prototype remains reference-only. Production Update structuring and voice use the governed
-  AI Router. Live GitHub installation remains externally gated; check-ins/readiness, manager
-  operations, and Fact View preparation remain in later slices.
+  AI Router. Live GitHub installation remains externally gated; Fact View preparation remains in
+  Slice 6.
 - The production plan contains multiple security-, migration-, AI-, privacy-, and immutability-critical slices. Fast Controlled Execution remains the default, with bounded critical reviews only where those boundaries are touched.
 - CI remains the hosted confirmation after this checkpoint is pushed; local verification used the exact repository-pinned Node.js 24.18.0 and pnpm 11.13.0.
 - Production Google Workspace integration requires organization-approved OAuth configuration, minimum scopes, retention/deletion policy, and administrator consent.
@@ -184,9 +198,11 @@ gate.
 
 ## Next Recommended Action
 
-After the authorized Pull Request #5 and Pull Request #3 merge gates are green, begin Slice 5
-without weakening the operational-progress/employee-performance boundary. Live GitHub App
-creation, installation, secret, and organization approval remain behind the external human gate.
+Merge Pull Request #10 after confirming the technical checkpoint and hosted checks on the current head,
+then begin Slice 6 Evaluation Fact View preparation without implementing the complete evaluation
+workflow. Continue through `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`. Live
+GitHub App creation, installation, secret, and organization approval remain behind the external human
+gate.
 
 ## Critical References
 
@@ -210,6 +226,8 @@ creation, installation, secret, and organization approval remain behind the exte
 - `docs/superpowers/plans/2026-07-20-slice-4-github-updates-evidence.md`
 - `docs/superpowers/plans/2026-07-20-slice-5-project-owner-progress.md`
 - `docs/superpowers/plans/2026-07-20-slice-6-evaluation-preparation.md`
+- `docs/superpowers/specs/2026-08-05-technical-completion-frontend-product-acceptance-design.md`
+- `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`

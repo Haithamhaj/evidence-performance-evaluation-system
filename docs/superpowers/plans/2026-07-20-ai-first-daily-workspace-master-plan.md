@@ -21,7 +21,12 @@
 - Do not copy third-party application code, branding, assets, or translations. Reuse approved interaction patterns only.
 - Do not expose, print, move, or commit provider, Google, GitHub, or Keycloak credentials.
 - English-only pilot use remains permitted. Existing Arabic/RTL foundations must remain correct, but Arabic evaluation rubric release remains separately gated.
-- Each slice must produce a runnable user outcome, focused tests, screenshots, a pushed checkpoint, and a Product Owner stop gate.
+- Each slice must produce a runnable technical outcome, focused tests, screenshots or equivalent
+  contract evidence, and a pushed checkpoint. Provisional screens are not final frontend or Product
+  Owner usability acceptance.
+- After Slice 6, continue through
+  `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`; do not start the dedicated final
+  frontend until the pilot engine and capability inventory are complete.
 
 ---
 
@@ -109,7 +114,8 @@ pnpm scan:ai-boundary
 
 - Run the slice Playwright journey in Arabic and English where employee UI changes.
 - Capture desktop and 390px mobile screenshots.
-- Commit, push, update Pull Request #5, record completed and remaining tasks, then stop at the Product Owner gate.
+- Commit, push, update the active Pull Request, and record completed and remaining tasks. Continue after
+  a green technical checkpoint unless a protected or external human gate applies.
 
 Run the full repository suite only after shared-foundation changes, at a major integration checkpoint, and before making the phase Pull Request ready:
 
@@ -138,7 +144,7 @@ Stop only at these genuine gates:
 
 1. Google Workspace administrator approval, OAuth client credentials, redirect URIs, scope consent, and retention/deletion policy.
 2. GitHub App creation/installation and organization/repository approval.
-3. Product Owner approval of each visible slice.
+3. Product Owner approval of a protected product-rule change or the later visible final-frontend design.
 4. Protected product-rule contradiction.
 5. Destructive external operation or unresolved P0/P1 blocker.
 6. Arabic rubric semantic approval before Arabic employee evaluation release.
@@ -147,7 +153,7 @@ The code may support deterministic adapters before external credentials exist, b
 
 ## 8. Durable Checkpoint Format
 
-At every Product Owner gate report:
+At every durable technical checkpoint report:
 
 - Slice and task IDs completed.
 - Visible user outcome and exact review URLs.
@@ -171,6 +177,10 @@ The reset is complete only when:
 - Evaluation preparation provides neutral source facts and remains separate from later human assessment.
 - All protected scans and phase-level verification pass.
 
-## Product Owner Stop Gate
+## Superseded Planning Gate
 
-This planning checkpoint asks the Product Owner to approve the execution sequence and begin Slice 1 only. Approval does not authorize live Google or GitHub configuration, merging Pull Request #5, changing a protected product rule, or beginning the complete evaluation workflow.
+The original Slice 1 planning gate was satisfied. On 2026-08-05 the Product Owner approved completing
+and inventorying the pilot engine before designing the dedicated final frontend. This plan remains the
+Phase 2 execution map; the later sequence is governed by
+`docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`. Live Google or GitHub
+configuration and protected product-rule changes remain separate human gates.

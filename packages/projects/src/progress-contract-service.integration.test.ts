@@ -79,7 +79,7 @@ function harness() {
       organizationId: crypto.randomUUID(),
       departmentId: crypto.randomUUID(),
       primaryOwnerId: actorId,
-      contributorIds: [],
+      contributorIds: [] as string[],
     })),
   };
   const githubSourceReader = {
@@ -103,6 +103,7 @@ function harness() {
     transaction,
     auditWriter,
     documentReader,
+    identityReader,
     githubSourceReader,
     get row() {
       return row;
@@ -210,6 +211,30 @@ describe("ProgressContractService", () => {
     expect(context.transaction.progressContract.create).not.toHaveBeenCalled();
   });
 
+  it("denies a contributor and rejects a Workstream source routed as a Project contract", async () => {
+    const contributor = harness();
+    contributor.identityReader.snapshotIn.mockResolvedValueOnce({
+      ...(await contributor.identityReader.snapshotIn()),
+      primaryOwnerId: crypto.randomUUID(),
+      contributorIds: [contributor.actorId],
+    });
+    await expect(contributor.service.propose(proposalInput(contributor))).rejects.toMatchObject({
+      code: "PROGRESS_CONTRACT_FORBIDDEN",
+    });
+
+    const crossScope = harness();
+    crossScope.documentReader.getApprovedSourceIn.mockResolvedValueOnce({
+      documentId: crossScope.documentId,
+      documentVersionId: crossScope.documentVersionId,
+      documentVersion: 2,
+      projectId: null,
+      workstreamId: crypto.randomUUID(),
+    });
+    await expect(crossScope.service.propose(proposalInput(crossScope))).rejects.toMatchObject({
+      code: "PROGRESS_CONTRACT_SOURCE_INVALID",
+    });
+  });
+
   it("rejects instead of changing the calculation rules in place", async () => {
     const context = harness();
     const draft = await context.service.propose(proposalInput(context));
@@ -246,6 +271,81 @@ describe("ProgressContractService", () => {
       }),
     ).rejects.toMatchObject({ code: "SCOPE_MISMATCH" });
     expect(context.transaction.progressContractTransition.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects approval after the stored owner's responsibility window has ended", async () => {
+    const context = harness();
+    const draft = await context.service.propose(proposalInput(context));
+    const pending = await context.service.submitForApproval({
+      actor: { userId: context.actorId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: context.projectId,
+      contractId: draft.id,
+      input: { expectedVersion: 1, reason: "Ready for approval." },
+    });
+    context.identityReader.snapshotIn.mockResolvedValueOnce({
+      ...(await context.identityReader.snapshotIn()),
+      primaryOwnerId: crypto.randomUUID(),
+    });
+
+    await expect(
+      context.service.approve({
+        actor: { userId: context.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        projectId: context.projectId,
+        contractId: draft.id,
+        input: { expectedVersion: pending.version, reason: "Expired owner attempt." },
+      }),
+    ).rejects.toMatchObject({ code: "PROGRESS_CONTRACT_FORBIDDEN" });
+    expect(context.transaction.progressContract.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps review submission and activation as separate immutable decisions", async () => {
+    const context = harness();
+    const draft = await context.service.propose(proposalInput(context));
+
+    await expect(
+      context.service.approve({
+        actor: { userId: context.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        projectId: context.projectId,
+        contractId: draft.id,
+        input: { expectedVersion: 1, reason: "Cannot skip reviewer submission." },
+      }),
+    ).rejects.toMatchObject({ code: "PROGRESS_CONTRACT_STATE_INVALID" });
+    expect(context.row).toMatchObject({ state: "draft", version: 1, approverId: null });
+  });
+
+  it("does not mutate an active contract through a repeated or stale decision", async () => {
+    const context = harness();
+    const draft = await context.service.propose(proposalInput(context));
+    const pending = await context.service.submitForApproval({
+      actor: { userId: context.actorId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: context.projectId,
+      contractId: draft.id,
+      input: { expectedVersion: 1, reason: "Review requested." },
+    });
+    const active = await context.service.approve({
+      actor: { userId: context.actorId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: context.projectId,
+      contractId: draft.id,
+      input: { expectedVersion: pending.version, reason: "Approved measurable rules." },
+    });
+    const persistedActive = structuredClone(context.row);
+
+    await expect(
+      context.service.approve({
+        actor: { userId: context.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        projectId: context.projectId,
+        contractId: draft.id,
+        input: { expectedVersion: pending.version, reason: "Repeated stale approval." },
+      }),
+    ).rejects.toMatchObject({ code: "PROGRESS_CONTRACT_STATE_INVALID" });
+    expect(active).toMatchObject({ state: "active", version: 3 });
+    expect(context.row).toEqual(persistedActive);
   });
 
   it("uses only persisted active-contract GitHub rules and queues ambiguous source events for Project-owner review", async () => {

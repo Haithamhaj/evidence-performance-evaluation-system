@@ -135,6 +135,32 @@ describe("daily work protected API contracts", () => {
     expect(updateContext).toHaveBeenCalledWith(actorId);
   });
 
+  it("binds check-in and readiness reads to the authenticated employee", async () => {
+    const checkIns = { listForEmployee: vi.fn(async () => []) };
+    const readiness = { employeeProjectMonth: vi.fn(async () => ({ state: "clear" })) };
+    const controller = new DailyWorkController({} as never, checkIns, readiness as never);
+
+    await controller.checkInObligations(request);
+    await controller.readinessForProject(request, projectId);
+
+    expect(checkIns.listForEmployee).toHaveBeenCalledWith({ employeeId: actorId });
+    expect(readiness.employeeProjectMonth).toHaveBeenCalledWith(actorId, projectId);
+  });
+
+  it("binds manager operations to the authenticated principal", async () => {
+    const managerOperations = { load: vi.fn(async () => ({ approvalsWaiting: [] })) };
+    const controller = new DailyWorkController(
+      {} as never,
+      undefined,
+      undefined,
+      managerOperations as never,
+    );
+
+    await controller.managerOperationsView(request);
+
+    expect(managerOperations.load).toHaveBeenCalledWith(actorId);
+  });
+
   it("server-composes the approved source request without exposing document identity", async () => {
     const progress = {
       getProjectProgress: vi.fn(async () => ({
@@ -166,6 +192,35 @@ describe("daily work protected API contracts", () => {
       actor: { userId: actorId, active: true },
       projectId,
     });
+  });
+
+  it("uses the bounded Project dashboard composition for the operational pulse", async () => {
+    const pulse = {
+      officialProgress: 64,
+      previousOfficialProgress: 50,
+      sourceCoverage: "INSUFFICIENT",
+      milestoneStates: [],
+      nextRequiredEvidence: [],
+      explanation: [],
+    } as const;
+    const projectDashboard = {
+      load: vi.fn(async () => ({
+        project: { id: projectId },
+        contract: null,
+        progress: { state: "awaiting_information" },
+        pulse,
+      })),
+    };
+    const query = new DailyWorkQueryService(
+      {} as never,
+      {} as never,
+      undefined,
+      undefined,
+      projectDashboard,
+    );
+
+    await expect(query.project(actorId, projectId)).resolves.toMatchObject({ pulse });
+    expect(projectDashboard.load).toHaveBeenCalledWith(actorId, projectId);
   });
 
   it("rejects cross-Project contracts before domain mutation", () => {

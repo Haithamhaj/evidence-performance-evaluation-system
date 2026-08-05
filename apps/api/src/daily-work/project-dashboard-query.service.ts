@@ -5,7 +5,11 @@ export class ProjectDashboardQueryService {
     this.progress = progress;
   }
 
-  load(actorId: string, projectId: string): Promise<unknown> {
-    return this.progress.getProjectProgress({ actorId, projectId });
+  async load(actorId: string, projectId: string): Promise<unknown> {
+    const view = await this.progress.getProjectProgress({ actorId, projectId });
+    if (typeof view !== "object" || view === null || !("pulse" in view)) {
+      throw new Error("Project progress reader did not return the approved pulse projection");
+    }
+    return view;
   }
 }

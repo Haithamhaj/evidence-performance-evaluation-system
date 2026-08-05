@@ -4,6 +4,7 @@ import { createElement } from "react";
 
 import {
   fetchDailyWorkUpstream,
+  WebCheckInObligationsSchema,
   WebDailyWorkspaceSnapshotSchema,
   WebUpdateComposerContextSchema,
 } from "../../../platform/daily-work-api";
@@ -18,7 +19,7 @@ type Properties = Readonly<{
 export default async function MyWorkPage({ params, searchParams }: Properties) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const [{ item }, catalog, response, updateContext] = await Promise.all([
+  const [{ item }, catalog, response, updateContext, checkIns] = await Promise.all([
     searchParams,
     getCatalog(locale),
     fetchDailyWorkUpstream({
@@ -28,6 +29,10 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
     fetchDailyWorkUpstream({
       route: { kind: "update_context" },
       schema: WebUpdateComposerContextSchema,
+    }),
+    fetchDailyWorkUpstream({
+      route: { kind: "check_ins" },
+      schema: WebCheckInObligationsSchema,
     }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
@@ -40,6 +45,7 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
     },
     createElement(MyWorkClient, {
       catalog,
+      checkIns,
       initialSelectedId: item ?? null,
       locale,
       response,

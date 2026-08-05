@@ -39,6 +39,30 @@ export type ProjectProgressView = Readonly<{
         reason: string;
         updatedAt: string;
       }>;
+  pulse: Readonly<{
+    officialProgress: number | null;
+    previousOfficialProgress: number | null;
+    sourceCoverage: "SUFFICIENT" | "INSUFFICIENT";
+    milestoneStates: readonly Readonly<{
+      componentId: string;
+      name: string;
+      kind: "milestone" | "deliverable" | "kpi" | "acceptance";
+      percent: number | null;
+      state: "complete" | "in_progress" | "not_started" | "awaiting_evidence";
+    }>[];
+    nextRequiredEvidence: readonly Readonly<{
+      componentId: string;
+      componentName: string;
+      label: string;
+    }>[];
+    explanation: readonly Readonly<{
+      kind: "increase" | "decrease" | "no_change";
+      delta: number;
+      text: string;
+      snapshotId: string;
+      observedAt: string;
+    }>[];
+  }>;
   contractDraftSourceRequest?: Readonly<{
     documentVersionId: string;
     sourceChecksum: string;
@@ -48,22 +72,16 @@ export type ProjectProgressView = Readonly<{
 
 export function ProjectProgressPanel({
   catalog,
-  draftJourney,
   locale,
   view,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
-  draftJourney?: Readonly<{
-    initialDraft:
-      import("../../../../../platform/progress-contract-drafts").PublicProgressContractDraft | null;
-    initialOpen: boolean;
-    sourceRequest:
-      import("./progress-contract-draft-panel").ProgressContractDraftSourceRequest | null;
-  }>;
   locale: import("@evaluation/localization").Locale;
   view: ProjectProgressView;
 }>) {
   const accepted = view.progress.state === "accepted" ? view.progress : null;
+  const latestExplanation = view.pulse.explanation[0];
+  const nextMilestone = view.pulse.milestoneStates.find(({ state }) => state !== "complete");
   return (
     <section className="dailyWorkPage" aria-labelledby="project-progress-heading">
       <nav className="breadcrumbs" aria-label={catalog["workspace.backToProjects"]}>
@@ -75,19 +93,66 @@ export function ProjectProgressPanel({
           <h1 id="project-progress-heading">{view.project.name}</h1>
           <p>{view.project.description}</p>
         </div>
-        <span className={`statusBadge status-${view.project.status}`}>
-          {catalog[`workspace.status.${view.project.status}`]}
-        </span>
+        <div className="formActions">
+          <a className="secondaryLink" href={`/${locale}/projects/${view.project.id}/readiness`}>
+            {catalog["readiness.title"]}
+          </a>
+          <span className={`statusBadge status-${view.project.status}`}>
+            {catalog[`workspace.status.${view.project.status}`]}
+          </span>
+        </div>
       </header>
 
       {createElement(ProgressContractDraftPanel, {
         catalog,
-        initialDraft: draftJourney?.initialDraft ?? null,
-        initialOpen: draftJourney?.initialOpen ?? false,
+        enabled: view.contractDraftSourceRequest != null,
         locale,
         projectId: view.project.id,
-        sourceRequest: draftJourney?.sourceRequest ?? null,
       })}
+
+      <section className="projectPulseActions panel" aria-labelledby="project-pulse-heading">
+        <h2 id="project-pulse-heading">{catalog["projectPulse.title"]}</h2>
+        {view.pulse.sourceCoverage === "INSUFFICIENT" ? (
+          <p className="setupAttention">
+            <strong>{catalog["projectPulse.coverage.insufficient"]}</strong>{" "}
+            {catalog["projectPulse.retainedOfficial"]}
+          </p>
+        ) : null}
+        <dl className="projectPulseActionList">
+          <div>
+            <dt>{catalog["projectPulse.whatChanged"]}</dt>
+            <dd>{latestExplanation?.text ?? catalog["projectPulse.noChange"]}</dd>
+          </div>
+          <div>
+            <dt>{catalog["projectPulse.blocked"]}</dt>
+            <dd>
+              {view.project.status === "paused" || view.pulse.sourceCoverage === "INSUFFICIENT"
+                ? catalog["projectPulse.waitingForSource"]
+                : catalog["projectPulse.noBlocker"]}
+            </dd>
+          </div>
+          <div>
+            <dt>{catalog["projectPulse.evidenceNeeded"]}</dt>
+            <dd>
+              {view.pulse.nextRequiredEvidence.length === 0 ? (
+                catalog["projectPulse.noEvidenceNeeded"]
+              ) : (
+                <ul>
+                  {view.pulse.nextRequiredEvidence.map((evidence) => (
+                    <li key={`${evidence.componentId}:${evidence.label}`}>
+                      <strong>{evidence.componentName}:</strong> {evidence.label}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>{catalog["projectPulse.nextMilestone"]}</dt>
+            <dd>{nextMilestone?.name ?? catalog["projectPulse.allComplete"]}</dd>
+          </div>
+        </dl>
+      </section>
 
       <section className="progressSummary panel" aria-labelledby="official-progress-heading">
         <div>

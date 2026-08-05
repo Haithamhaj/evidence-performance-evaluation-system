@@ -4,8 +4,6 @@ import { createElement } from "react";
 import { z } from "zod";
 
 import { fetchDailyWorkUpstream } from "../../../../../platform/daily-work-api";
-import { PublicProgressContractDraftSchema } from "../../../../../platform/progress-contract-drafts";
-import { fetchProtectedUpstream } from "../../../../../platform/workspace-api";
 import { WorkspaceShell } from "../../../workspace-shell";
 import { ProjectProgressPanel } from "./project-progress-panel";
 
@@ -62,6 +60,44 @@ const ProjectProgressViewSchema: z.ZodType<import("./project-progress-panel").Pr
         .strict()
         .nullable(),
       progress: ProgressSchema,
+      pulse: z
+        .object({
+          officialProgress: z.number().min(0).max(100).nullable(),
+          previousOfficialProgress: z.number().min(0).max(100).nullable(),
+          sourceCoverage: z.enum(["SUFFICIENT", "INSUFFICIENT"]),
+          milestoneStates: z.array(
+            z
+              .object({
+                componentId: Uuid,
+                name: z.string(),
+                kind: z.enum(["milestone", "deliverable", "kpi", "acceptance"]),
+                percent: z.number().min(0).max(100).nullable(),
+                state: z.enum(["complete", "in_progress", "not_started", "awaiting_evidence"]),
+              })
+              .strict(),
+          ),
+          nextRequiredEvidence: z.array(
+            z
+              .object({
+                componentId: Uuid,
+                componentName: z.string(),
+                label: z.string(),
+              })
+              .strict(),
+          ),
+          explanation: z.array(
+            z
+              .object({
+                kind: z.enum(["increase", "decrease", "no_change"]),
+                delta: z.number(),
+                text: z.string(),
+                snapshotId: Uuid,
+                observedAt: z.iso.datetime({ offset: true }),
+              })
+              .strict(),
+          ),
+        })
+        .strict(),
       contractDraftSourceRequest: z
         .object({
           documentVersionId: Uuid,
@@ -80,15 +116,11 @@ export default async function ProjectDailyWorkPage({
 }>) {
   const { locale, projectId } = await params;
   if (!isLocale(locale)) notFound();
-  const [catalog, view, initialDraft] = await Promise.all([
+  const [catalog, view] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
       route: { kind: "project", projectId },
       schema: ProjectProgressViewSchema,
-    }),
-    fetchProtectedUpstream({
-      path: `/api/v1/projects/${Uuid.parse(projectId)}/progress-contract-drafts`,
-      schema: PublicProgressContractDraftSchema.nullable(),
     }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
@@ -101,18 +133,6 @@ export default async function ProjectDailyWorkPage({
     },
     createElement(ProjectProgressPanel, {
       catalog,
-      draftJourney: {
-        initialDraft,
-        initialOpen: initialDraft !== null,
-        sourceRequest:
-          view.contractDraftSourceRequest == null
-            ? null
-            : {
-                documentVersionId: view.contractDraftSourceRequest.documentVersionId,
-                sourceChecksum: view.contractDraftSourceRequest.sourceChecksum,
-                sourceVersion: view.contractDraftSourceRequest.sourceVersion,
-              },
-      },
       locale,
       view,
     }),

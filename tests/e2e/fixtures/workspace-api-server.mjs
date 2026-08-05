@@ -25,6 +25,7 @@ const dogfoodProjectId = "d1111111-1111-4111-8111-111111111111";
 const contextProjectId = "c1111111-1111-4111-8111-111111111111";
 const dogfoodDocumentVersionId = "d2222222-2222-4222-8222-222222222222";
 const dogfoodDraftRequestId = "d3333333-3333-4333-8333-333333333333";
+const dogfoodContractId = "d4444444-4444-4444-8444-444444444444";
 const updateSessionId = "e5555555-5555-4555-8555-555555555555";
 const updateSourceId = "e6666666-6666-4666-8666-666666666666";
 const firstTurnId = "e7777777-7777-4777-8777-777777777777";
@@ -75,6 +76,9 @@ let currentUpdateContext = {
   workstreamId: null,
   workItemId: null,
 };
+let dogfoodDraftRevision = 1;
+let dogfoodContractState = null;
+let dogfoodContractVersion = 0;
 const timelineItems = [];
 const connectedWorkItems = [
   {
@@ -482,6 +486,43 @@ const projectProgress = {
     reason: "اعتمدت خمسة من ثمانية مخرجات قابلة للقياس.",
     updatedAt: "2026-07-18T12:00:00.000Z",
   },
+  pulse: {
+    officialProgress: 62.5,
+    previousOfficialProgress: 50,
+    sourceCoverage: "INSUFFICIENT",
+    milestoneStates: [
+      {
+        componentId: "e3333333-3333-4333-8333-333333333333",
+        name: "السيناريوهات المعتمدة",
+        kind: "kpi",
+        percent: 62.5,
+        state: "in_progress",
+      },
+      {
+        componentId: "e4444444-4444-4444-8444-444444444444",
+        name: "جاهزية العرض المحلي",
+        kind: "milestone",
+        percent: null,
+        state: "awaiting_evidence",
+      },
+    ],
+    nextRequiredEvidence: [
+      {
+        componentId: "e4444444-4444-4444-8444-444444444444",
+        componentName: "جاهزية العرض المحلي",
+        label: "لقطات سطح المكتب والجوال",
+      },
+    ],
+    explanation: [
+      {
+        kind: "increase",
+        delta: 12.5,
+        text: "Five of eight approved, measurable outcomes are now confirmed.",
+        snapshotId: progressSnapshotId,
+        observedAt: "2026-07-18T12:00:00.000Z",
+      },
+    ],
+  },
   contractDraftSourceRequest: null,
 };
 
@@ -494,6 +535,14 @@ const dogfoodProgress = {
   },
   contract: null,
   progress: { state: "awaiting_contract" },
+  pulse: {
+    officialProgress: null,
+    previousOfficialProgress: null,
+    sourceCoverage: "INSUFFICIENT",
+    milestoneStates: [],
+    nextRequiredEvidence: [],
+    explanation: [],
+  },
   contractDraftSourceRequest: {
     documentVersionId: dogfoodDocumentVersionId,
     sourceChecksum: "c".repeat(64),
@@ -504,9 +553,9 @@ const dogfoodProgress = {
 function dogfoodDraft() {
   return {
     requestId: dogfoodDraftRequestId,
-    state: "ready",
-    revision: 1,
-    origin: "ai",
+    state: dogfoodContractState === null ? "ready" : "applied",
+    revision: dogfoodDraftRevision,
+    origin: dogfoodDraftRevision === 1 ? "ai" : "human",
     source: { label: "Approved Project document", version: 1 },
     draft: {
       components: [
@@ -530,7 +579,14 @@ function dogfoodDraft() {
       ambiguities: ["The final approved merge commit is not yet available."],
       clarificationQuestions: ["Which exact merge commit will be accepted?"],
     },
-    contract: null,
+    contract:
+      dogfoodContractState === null
+        ? null
+        : {
+            id: dogfoodContractId,
+            state: dogfoodContractState,
+            version: dogfoodContractVersion,
+          },
   };
 }
 
@@ -607,6 +663,14 @@ const server = createServer(async (request, response) => {
     request.headers["x-e2e-control"] === "slice-4"
   ) {
     resetSliceFourAcceptanceState();
+    return empty(response, 204);
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/__e2e/slice-5/reset" &&
+    request.headers["x-e2e-control"] === "slice-5"
+  ) {
+    resetSliceFiveAcceptanceState();
     return empty(response, 204);
   }
   if (
@@ -802,6 +866,13 @@ const server = createServer(async (request, response) => {
       item.projectId = null;
       return json(response, 200, { id: item.id, linked: false });
     }
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/daily-work/manager/operations") {
+    if (accessToken !== managerAccessToken) {
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    }
+    return json(response, 200, managerOperations());
   }
 
   if (accessToken !== ownerAccessToken) {
@@ -1057,6 +1128,120 @@ const server = createServer(async (request, response) => {
       `/api/v1/projects/${dogfoodProjectId}/progress-contract-drafts/${dogfoodDraftRequestId}`
   ) {
     return json(response, 200, dogfoodDraft());
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname ===
+      `/api/v1/projects/${dogfoodProjectId}/progress-contract-drafts/${dogfoodDraftRequestId}/revisions`
+  ) {
+    const body = await readJson(request);
+    if (body === null || body.expectedRevision !== dogfoodDraftRevision) {
+      return json(response, 409, { messageKey: "errors.validation" });
+    }
+    dogfoodDraftRevision += 1;
+    return json(response, 200, dogfoodDraft());
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname ===
+      `/api/v1/projects/${dogfoodProjectId}/progress-contract-drafts/${dogfoodDraftRequestId}/apply`
+  ) {
+    const body = await readJson(request);
+    if (
+      body === null ||
+      body.expectedRevision !== dogfoodDraftRevision ||
+      body.selectedRevision !== dogfoodDraftRevision ||
+      dogfoodContractState !== null
+    ) {
+      return json(response, 409, { messageKey: "errors.validation" });
+    }
+    dogfoodContractState = "draft";
+    dogfoodContractVersion = 1;
+    return json(response, 200, {
+      requestId: dogfoodDraftRequestId,
+      selectedRevision: dogfoodDraftRevision,
+      contract: {
+        id: dogfoodContractId,
+        state: dogfoodContractState,
+        version: dogfoodContractVersion,
+      },
+    });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname ===
+      `/api/v1/projects/${dogfoodProjectId}/progress-contracts/${dogfoodContractId}/submit`
+  ) {
+    const body = await readJson(request);
+    if (
+      body === null ||
+      body.expectedVersion !== dogfoodContractVersion ||
+      dogfoodContractState !== "draft"
+    ) {
+      return json(response, 409, { messageKey: "errors.validation" });
+    }
+    dogfoodContractState = "pending_approval";
+    dogfoodContractVersion += 1;
+    return json(response, 200, {
+      id: dogfoodContractId,
+      state: dogfoodContractState,
+      version: dogfoodContractVersion,
+    });
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname ===
+      `/api/v1/projects/${dogfoodProjectId}/progress-contracts/${dogfoodContractId}/approve`
+  ) {
+    const body = await readJson(request);
+    if (
+      body === null ||
+      body.expectedVersion !== dogfoodContractVersion ||
+      dogfoodContractState !== "pending_approval"
+    ) {
+      return json(response, 409, { messageKey: "errors.validation" });
+    }
+    dogfoodContractState = "active";
+    dogfoodContractVersion += 1;
+    return json(response, 200, {
+      id: dogfoodContractId,
+      state: dogfoodContractState,
+      version: dogfoodContractVersion,
+    });
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/daily-work/check-ins") {
+    return json(response, 200, [
+      {
+        projectId,
+        projectName: "Atlas Delivery",
+        workstreamId,
+        workstreamName: "API readiness",
+        weekStartsAt: "2026-08-03T00:00:00.000Z",
+        weekEndsAt: "2026-08-09T23:59:59.999Z",
+        state: "required",
+        capture: { projectId, workstreamId, workItemId: null },
+      },
+    ]);
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/daily-work/projects/${projectId}/readiness`
+  ) {
+    return json(response, 200, {
+      project: { id: projectId, name: "Atlas Delivery" },
+      month: "2026-08",
+      state: "attention",
+      messageKey: "readiness.recordMayBeInsufficient",
+      gaps: [
+        {
+          kind: "artifact_criterion_without_source",
+          scopeId: workstreamId,
+          scopeKind: "workstream",
+          scopeName: "API readiness",
+          correctiveAction: "attach_source",
+        },
+      ],
+    });
   }
   if (request.method === "POST" && url.pathname === "/api/v1/updates/text") {
     const body = await readJson(request);
@@ -1517,6 +1702,62 @@ function resetSliceFourAcceptanceState() {
   employeePerformanceWrites = [];
   currentUpdateContext = { projectId, workstreamId: null, workItemId: null };
   timelineItems.splice(0, timelineItems.length, ...initialSliceFourTimeline());
+}
+
+function resetSliceFiveAcceptanceState() {
+  dogfoodDraftRevision = 1;
+  dogfoodContractState = null;
+  dogfoodContractVersion = 0;
+}
+
+function managerOperations() {
+  return {
+    approvalsWaiting: [
+      {
+        id: "f1111111-1111-4111-8111-111111111111",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance System — Phase 2",
+        detailKey: "approval_waiting",
+      },
+    ],
+    blockedProjects: [
+      {
+        id: "f2222222-2222-4222-8222-222222222222",
+        projectId,
+        projectName: "Atlas Delivery",
+        detailKey: "project_paused",
+      },
+    ],
+    ambiguousProgressEvidence: [
+      {
+        id: "f3333333-3333-4333-8333-333333333333",
+        projectId,
+        projectName: "Atlas Delivery",
+        label: "Release evidence needs one owner decision",
+        detailKey: "progress_source_ambiguous",
+      },
+    ],
+    ownershipGaps: [
+      {
+        id: "f4444444-4444-4444-8444-444444444444",
+        projectId,
+        projectName: "Atlas Delivery",
+        detailKey: "ownership_missing",
+      },
+    ],
+    upcomingCommitments: [
+      {
+        id: "f5555555-5555-4555-8555-555555555555",
+        projectId,
+        projectName: "Atlas Delivery",
+        label: "Product owner acceptance",
+        detailKey: "commitment_upcoming",
+        dueAt: "2026-08-07T12:00:00.000Z",
+      },
+    ],
+    readinessHref: "/manager/readiness",
+    evaluationHref: "/manager/evaluations",
+  };
 }
 
 function initialSliceFourTimeline(includeExamples = false) {

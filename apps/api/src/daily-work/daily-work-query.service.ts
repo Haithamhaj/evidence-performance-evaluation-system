@@ -8,6 +8,7 @@ export class DailyWorkQueryService {
         "locateApprovedProjectVersion"
       >
     | undefined;
+  private readonly projectDashboard: ProjectDashboardReader | undefined;
 
   constructor(
     workItems: import("@evaluation/work-items").WorkItemQueryService,
@@ -17,11 +18,13 @@ export class DailyWorkQueryService {
       "locateApprovedProjectVersion"
     >,
     inbox?: import("@evaluation/work-items").PrivateInboxQueryService,
+    projectDashboard?: ProjectDashboardReader,
   ) {
     this.workItems = workItems;
     this.progress = progress;
     this.sourceRequests = sourceRequests;
     this.inbox = inbox;
+    this.projectDashboard = projectDashboard;
   }
 
   myWork(actorId: string): Promise<import("@evaluation/contracts").MyWorkResponse> {
@@ -79,7 +82,8 @@ export class DailyWorkQueryService {
 
   async project(actorId: string, projectId: string): Promise<unknown> {
     const [view, contractDraftSourceRequest] = await Promise.all([
-      this.progress.getProjectProgress({ actorId, projectId }),
+      this.projectDashboard?.load(actorId, projectId) ??
+        this.progress.getProjectProgress({ actorId, projectId }),
       this.sourceRequests?.locateApprovedProjectVersion({
         actor: { userId: actorId, active: true },
         projectId,
@@ -88,3 +92,7 @@ export class DailyWorkQueryService {
     return { ...(view as object), contractDraftSourceRequest };
   }
 }
+
+type ProjectDashboardReader = Readonly<{
+  load(actorId: string, projectId: string): Promise<unknown>;
+}>;
