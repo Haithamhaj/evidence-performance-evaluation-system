@@ -1,13 +1,35 @@
 import { z } from "zod";
 
+import { AnalysisSourceReferenceSchema } from "./document-analysis.js";
 import { ExecutionModeSchema } from "./updates-evidence.js";
 
 const UuidSchema = z.string().uuid();
 const UtcInstantSchema = z.iso.datetime({ offset: true });
 const PositiveVersionSchema = z.number().int().positive();
 const ReasonSchema = z.string().trim().min(1).max(1_000);
-const SourceReferenceSchema = z.string().trim().min(3).max(500);
+const SourceReferenceSchema = AnalysisSourceReferenceSchema;
+const VersionTagSchema = z
+  .string()
+  .min(3)
+  .max(160)
+  .regex(/^[a-z][a-z0-9.-]*\.v[1-9][0-9]*$/u);
 const normalizedText = (max: number) => z.string().trim().min(1).max(max);
+
+export const ResearchAiRouteTraceSchema = z
+  .object({
+    aiRunId: UuidSchema,
+    routeKey: VersionTagSchema,
+    routeConfigId: UuidSchema,
+    routeConfigVersion: PositiveVersionSchema,
+  })
+  .strict();
+
+export const ResearchAiProvenanceSchema = z
+  .object({
+    promptVersion: VersionTagSchema,
+    routeTrace: ResearchAiRouteTraceSchema,
+  })
+  .strict();
 
 export const ResearchStateSchema = z.enum([
   "DRAFT",
@@ -154,11 +176,28 @@ export const ResearchSourceReviewDetailSchema = z
     retrievalReason: normalizedText(2_000).nullable(),
     contentFingerprint: z.string().trim().min(1).max(256).nullable(),
     output: ResearchSourceReviewOutputSchema.nullable(),
+    outputProvenance: ResearchAiProvenanceSchema.nullable(),
     recoveryOptions: z.array(ResearchSourceReviewRecoverySchema).max(3),
     createdAt: UtcInstantSchema,
     updatedAt: UtcInstantSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((detail, context) => {
+    if (detail.output !== null && detail.outputProvenance === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["outputProvenance"],
+        message: "AI source-review output requires provenance.",
+      });
+    }
+    if (detail.output === null && detail.outputProvenance !== null) {
+      context.addIssue({
+        code: "custom",
+        path: ["outputProvenance"],
+        message: "AI provenance requires source-review output.",
+      });
+    }
+  });
 
 export const ConfirmResearchSourceDispositionInputSchema = z
   .object({
@@ -244,14 +283,16 @@ export const ExperimentMeasureDirectionSchema = z.enum([
   "DESCRIPTIVE",
 ]);
 
+export const ExperimentMeasureStableIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z][a-z0-9_]*$/u);
+
 export const ExperimentMeasureSchema = z
   .object({
-    stableId: z
-      .string()
-      .trim()
-      .min(1)
-      .max(100)
-      .regex(/^[a-z][a-z0-9_]*$/u),
+    stableId: ExperimentMeasureStableIdSchema,
     name: normalizedText(500),
     kind: ExperimentMeasureKindSchema,
     unit: z.string().trim().min(1).max(100).nullable(),
@@ -316,18 +357,34 @@ export const ReviseExperimentMethodInputSchema = ExperimentMethodContentSchema.e
   expectedVersion: PositiveVersionSchema,
 }).strict();
 
+export const TransitionExperimentInputSchema = z
+  .object({
+    expectedVersion: PositiveVersionSchema,
+    state: ExperimentStateSchema,
+    reason: ReasonSchema.nullable(),
+    successorExperimentId: UuidSchema.nullable(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (["ABANDONED", "SUPERSEDED"].includes(input.state) && input.reason === null) {
+      context.addIssue({ code: "custom", path: ["reason"], message: "A reason is required." });
+    }
+    if (input.state === "SUPERSEDED" && input.successorExperimentId === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["successorExperimentId"],
+        message: "A successor Experiment is required.",
+      });
+    }
+  });
+
 const ExperimentConfigurationEntrySchema = z
   .object({ name: normalizedText(500), value: normalizedText(2_000) })
   .strict();
 
 export const ExperimentObservationSchema = z
   .object({
-    measureStableId: z
-      .string()
-      .trim()
-      .min(1)
-      .max(100)
-      .regex(/^[a-z][a-z0-9_]*$/u),
+    measureStableId: ExperimentMeasureStableIdSchema,
     testCaseId: UuidSchema.nullable(),
     observedValue: normalizedText(4_000),
     unit: z.string().trim().min(1).max(100).nullable(),
@@ -382,7 +439,7 @@ export const ConcludeExperimentInputSchema = z
     outcome: ExperimentConclusionOutcomeSchema,
     summary: normalizedText(8_000),
     runIds: z.array(UuidSchema).min(1).max(1_000),
-    measureStableIds: z.array(z.string().trim().min(1).max(100)).min(1).max(50),
+    measureStableIds: z.array(ExperimentMeasureStableIdSchema).min(1).max(50),
     limitations: z.array(normalizedText(2_000)).max(50),
     confidenceDescription: normalizedText(2_000),
     decisionRelevance: normalizedText(4_000),
@@ -450,9 +507,20 @@ const ResearchRevisionDetailSchema = ResearchRevisionContentSchema.extend({
   id: UuidSchema,
   revision: PositiveVersionSchema,
   origin: z.enum(["EMPLOYEE", "AI_DRAFT"]),
+  aiProvenance: ResearchAiProvenanceSchema.nullable(),
   authorId: UuidSchema,
   createdAt: UtcInstantSchema,
-}).strict();
+})
+  .strict()
+  .superRefine((revision, context) => {
+    if (revision.origin === "AI_DRAFT" && revision.aiProvenance === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["aiProvenance"],
+        message: "AI Research revisions require provenance.",
+      });
+    }
+  });
 
 export const ResearchDetailSchema = z
   .object({
@@ -472,9 +540,20 @@ const ExperimentMethodDetailSchema = ExperimentMethodContentSchema.extend({
   id: UuidSchema,
   revision: PositiveVersionSchema,
   origin: z.enum(["EMPLOYEE", "AI_DRAFT"]),
+  aiProvenance: ResearchAiProvenanceSchema.nullable(),
   authorId: UuidSchema,
   createdAt: UtcInstantSchema,
-}).strict();
+})
+  .strict()
+  .superRefine((method, context) => {
+    if (method.origin === "AI_DRAFT" && method.aiProvenance === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["aiProvenance"],
+        message: "AI Experiment method revisions require provenance.",
+      });
+    }
+  });
 
 export const ExperimentDetailSchema = z
   .object({
@@ -508,6 +587,7 @@ export type TransitionResearchInput = z.infer<typeof TransitionResearchInputSche
 export type TransferResearchOwnerInput = z.infer<typeof TransferResearchOwnerInputSchema>;
 export type CreateExperimentInput = z.infer<typeof CreateExperimentInputSchema>;
 export type ReviseExperimentMethodInput = z.infer<typeof ReviseExperimentMethodInputSchema>;
+export type TransitionExperimentInput = z.infer<typeof TransitionExperimentInputSchema>;
 export type RecordExperimentRunInput = z.infer<typeof RecordExperimentRunInputSchema>;
 export type ConcludeExperimentInput = z.infer<typeof ConcludeExperimentInputSchema>;
 export type ConcludeResearchInput = z.infer<typeof ConcludeResearchInputSchema>;

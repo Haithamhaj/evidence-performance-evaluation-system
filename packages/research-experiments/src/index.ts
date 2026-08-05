@@ -20,5 +20,6 @@ export type {
   ReviseExperimentMethodInput,
   ReviseResearchInput,
   TransferResearchOwnerInput,
+  TransitionExperimentInput,
   TransitionResearchInput,
 } from "@evaluation/contracts";
