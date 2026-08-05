@@ -2,9 +2,10 @@
 
 ## Current Goal
 
-Complete and verify the detailed TDD plans for every remaining bounded engine subsystem before starting
-Subagent-Driven execution. Then execute E3 through E7 in dependency order. Keep the final frontend
-program and live connector installations behind their existing sequence and external gates.
+Execute the fully planned E3–E7 engine program in dependency order using bounded Subagent-Driven
+Development for its migration, authorization, privacy, AI, audit, and immutability-critical work. Keep
+the final frontend program and live connector installations behind their existing sequence and external
+gates.
 
 ## Current Reality
 
@@ -183,10 +184,11 @@ program and live connector installations behind their existing sequence and exte
   cross-domain flow, verification-surface boundary, execution policy, and final completion gate on
   2026-08-05. The written program design is
   `docs/superpowers/specs/2026-08-05-complete-engine-program-design.md`.
-- Bounded written designs now cover E4 Employee Evaluation, E5A Identified Upward Manager Evaluation,
-  E5B Coaching & Development, E6A Continuity & Offboarding, E6B Notifications/Reporting/Administration,
-  E6C Security/Recovery/Readiness, and E7 Full Engine Integration Audit. Detailed TDD plans are not yet
-  written for those seven designs; no production implementation has started from them.
+- Bounded written designs and detailed TDD plans now cover E4 Employee Evaluation, E5A Identified Upward
+  Manager Evaluation, E5B Coaching & Development, E6A Continuity & Offboarding, E6B
+  Notifications/Reporting/Administration, E6C Security/Recovery/Readiness, and E7 Full Engine Integration
+  Audit. Together with the existing E3 plan, the remaining engine has one dependency-ordered executable
+  plan set; production implementation starts with E3.
 - The Product Owner approved ClickUp 4.0 as a clean-room interaction reference for the future daily-work
   frontend only. It adds no engine task, integration, dependency, source reuse, or scope change. E7 will
   carry the approved patterns and explicit exclusions into the later frontend design program.
@@ -262,10 +264,10 @@ program and live connector installations behind their existing sequence and exte
 
 ## Next Recommended Action
 
-Review the written complete-engine and seven bounded subsystem specifications, then write and verify one
-detailed TDD plan per approved design. Begin Subagent-Driven E3 execution only after the complete plan set
-is ready. Do not start the final frontend yet. Live connector setup and Arabic evaluation release remain
-behind their external human gates.
+Begin Subagent-Driven E3 execution at Task 1 of
+`docs/superpowers/plans/2026-08-05-research-experiments-engine.md`, then continue through E4–E7 using the
+approved dependency order and durable checkpoints. Do not start the final frontend yet. Live connector
+setup and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References
 
@@ -302,6 +304,13 @@ behind their external human gates.
 - `docs/superpowers/specs/2026-08-05-notifications-reporting-administration-engine-design.md`
 - `docs/superpowers/specs/2026-08-05-security-recovery-readiness-engine-design.md`
 - `docs/superpowers/specs/2026-08-05-engine-integration-audit-design.md`
+- `docs/superpowers/plans/2026-08-05-employee-evaluation-engine.md`
+- `docs/superpowers/plans/2026-08-05-identified-manager-evaluation-engine.md`
+- `docs/superpowers/plans/2026-08-05-coaching-development-engine.md`
+- `docs/superpowers/plans/2026-08-05-continuity-offboarding-engine.md`
+- `docs/superpowers/plans/2026-08-05-notifications-reporting-administration-engine.md`
+- `docs/superpowers/plans/2026-08-05-security-recovery-readiness-engine.md`
+- `docs/superpowers/plans/2026-08-05-engine-integration-audit.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`

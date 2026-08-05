@@ -315,7 +315,7 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   template and closed-evaluation immutability, identical employee/manager anchors, manager-draft
   independence, AI help only after a human rating selection, and manager final human judgment.
 
-- [ ] **Step 2: Write the detailed TDD plan**
+- [x] **Step 2: Write the detailed TDD plan**
 
   Split by template/cycle snapshot, evidence preparation, self-assessment, manager assessment,
   comparison/discussion, finalization, and reporting contracts. Each protected task includes positive and
@@ -368,7 +368,13 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   or productivity score. Private employee actions and rejection reasons remain private until explicitly
   shared.
 
-- [ ] **Step 3: Plan and execute T055–T063 backend contracts**
+- [x] **Step 3a: Write the two detailed TDD plans**
+
+  The identified manager-evaluation and coaching/development plans name exact contracts, migration
+  ownership, privacy and authorization tests, AI schema evaluations, recovery behavior, technical
+  verification journeys, and their separate checkpoints.
+
+- [ ] **Step 3b: Execute T055–T063 backend contracts**
 
   Use separate technical checkpoints for visibility/privacy and coaching/development. Defer final screens
   while preserving complete APIs, states, authorization, and recovery.
@@ -414,6 +420,12 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   for future private modes, and forward-only migration rules. Specify operational drills separately from
   feature code.
 
+- [x] **Step 2b: Write the three detailed TDD plans**
+
+  The continuity/offboarding, notifications/reporting/administration, and
+  security/recovery/readiness plans name exact contracts, migrations, protected tests, operational
+  drills, external gates, and technical checkpoints.
+
 - [ ] **Step 3: Execute lifecycle services**
 
   Verify approved leave, handover, delegate confirmation, acting authority, return, deactivation,
@@ -457,6 +469,11 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 
   Define capability reconciliation, bidirectional trace, cross-domain seams, employee/manager/admin
   journeys, restore integrity, extensibility audit, and the exact `READY_FOR_FINAL_FRONTEND_DESIGN` gate.
+
+- [x] **Step 0b: Write the detailed integration-audit plan**
+
+  The audit plan defines exact trace artifacts, complete fixtures, cross-role journeys, verification
+  commands, two bounded independent reviews, remediation limits, and the final handoff decision.
 
 - [ ] **Step 1: Reconcile every capability row**
 

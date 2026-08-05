@@ -344,15 +344,14 @@ The detailed authority is
 `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md` and the current baseline is in
 `docs/product/ENGINE_FEATURE_REGISTER.md`.
 
-| Checkpoint | Scope                                                                          | Status                                                             |
-| ---------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                         |
-| E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Design/plan approved; Subagent execution queued after all plans    |
-| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Design approved; detailed TDD plan next                            |
-| E5         | Identified upward manager evaluation, coaching, and development                | Two bounded designs approved; detailed TDD plans next              |
-| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs approved; detailed TDD plans next            |
-| E7         | Full engine integration audit and final-frontend handoff                       | Design approved; detailed audit plan next                          |
-| E7         | Final source-to-code engine audit and frontend handoff                         | Planned; dedicated full frontend starts only after this checkpoint |
+| Checkpoint | Scope                                                                          | Status                                                    |
+| ---------- | ------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                |
+| E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Design and detailed TDD plan approved; execution next     |
+| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Design and detailed TDD plan approved; queued after E3    |
+| E5         | Identified upward manager evaluation, coaching, and development                | Two bounded designs and detailed TDD plans approved       |
+| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs and detailed TDD plans approved     |
+| E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6 |
 
 ## T030 — Implement Activity Timeline
 
