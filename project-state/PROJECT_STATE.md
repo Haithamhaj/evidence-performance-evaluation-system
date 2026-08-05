@@ -2,10 +2,9 @@
 
 ## Current Goal
 
-Write and verify the detailed E3 Research & Experiments TDD implementation plan from the approved
-written design before production code. Continue the remaining engine subsystems in dependency order.
-Keep the final frontend program and live connector installations behind their existing sequence and
-external gates.
+Select the approved E3 execution mode, then execute the verified Research & Experiments TDD plan in
+bounded checkpoints. Continue the remaining engine subsystems in dependency order. Keep the final
+frontend program and live connector installations behind their existing sequence and external gates.
 
 ## Current Reality
 
@@ -163,6 +162,8 @@ external gates.
 - The E2 source-to-code baseline identifies 44 capabilities: 21 complete, 6 partial, 14 planned, 2
   externally gated, and 1 approved deferred capability. These counts are inventory states, not a
   percent-complete score.
+- E2 Pull Request #12 passed hosted integrity, quality, build, and integration checks and was
+  squash-merged to `main` at `0a06f97` on 2026-08-05.
 - Research & Experiments is an authoritative daily-work and evaluation source requirement, but no
   dedicated production model, public API, domain lifecycle, history, recovery, or journey entry point
   exists. E3 must close this gap before the evaluation engine is completed.
@@ -174,6 +175,10 @@ external gates.
   intake and Project-relevance review: explicit GitHub/paper/document links are compared with an
   authorized version-pinned Project Context Snapshot, and Research/Experiment/Work Item proposals remain
   editable drafts until employee confirmation.
+- The detailed E3 TDD implementation plan is
+  `docs/superpowers/plans/2026-08-05-research-experiments-engine.md`. It maps thirteen independently
+  testable tasks from strict contracts and migration through source security, AI routes, domain
+  lifecycles, composition, bilingual verification, and the final technical checkpoint.
 
 ## Active Decisions
 
@@ -239,9 +244,9 @@ external gates.
 
 ## Next Recommended Action
 
-Write and verify the detailed E3 Research & Experiments TDD implementation plan from the approved
-design before any production code. Do not start the final frontend yet. Live Google/GitHub production
-configuration and Arabic evaluation release remain behind their external human gates.
+Select Subagent-Driven or inline bounded execution for the verified E3 TDD plan, then begin Task 1.
+Do not start the final frontend yet. Live Google/GitHub production configuration and Arabic evaluation
+release remain behind their external human gates.
 
 ## Critical References
 
@@ -268,6 +273,7 @@ configuration and Arabic evaluation release remain behind their external human g
 - `docs/superpowers/specs/2026-08-05-technical-completion-frontend-product-acceptance-design.md`
 - `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`
 - `docs/superpowers/specs/2026-08-05-research-experiments-engine-design.md`
+- `docs/superpowers/plans/2026-08-05-research-experiments-engine.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`

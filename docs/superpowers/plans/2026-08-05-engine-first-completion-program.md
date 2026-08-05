@@ -271,7 +271,7 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   conclusion/decision, next experiment/applied learning, evidence, collaborators, responsibility period,
   and append-only history. It must explicitly prohibit volume-based scoring.
 
-- [ ] **Step 3: Write the detailed TDD implementation plan**
+- [x] **Step 3: Write the detailed TDD implementation plan**
 
   The plan must name exact files, migrations, public interfaces, authorization tests, AI schema/evaluation
   fixtures, recovery behavior, and technical browser journey. It must use the standard writing-plans
