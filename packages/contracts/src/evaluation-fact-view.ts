@@ -145,7 +145,7 @@ export const SourceCoverageNoteSchema = z
     scope: z.enum(["cycle", "project", "workstream", "criterion", "evidence"]),
     projectId: UuidSchema.nullable(),
     workstreamId: UuidSchema.nullable(),
-    message: z.string().trim().min(1).max(2_000),
+    messageKey: z.string().trim().min(1).max(200),
     sourceFactIds: z.array(UuidSchema),
     neutral: z.literal(true),
   })

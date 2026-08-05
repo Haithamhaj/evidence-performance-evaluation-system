@@ -13,6 +13,7 @@ export type AuthorizedEvaluationActor = Readonly<{
 }>;
 
 export type EvaluationSourceReadInput = Readonly<{
+  cycleId: string;
   subjectEmployeeId: string;
   cycleStart: string;
   cycleEnd: string;
@@ -47,6 +48,7 @@ export class EvaluationFactViewService {
     const bundles = await Promise.all(
       this.readers.map((reader) =>
         reader.readAuthorizedFacts({
+          cycleId: input.cycle.id,
           subjectEmployeeId: input.subjectEmployeeId,
           cycleStart: input.cycle.startsAt,
           cycleEnd: input.cycle.endsAt,

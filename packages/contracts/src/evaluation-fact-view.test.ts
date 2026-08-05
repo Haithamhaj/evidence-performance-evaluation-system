@@ -132,7 +132,7 @@ const validFactView = {
       scope: "workstream",
       projectId: ids.project,
       workstreamId: ids.workstream,
-      message: "The responsibility window covers only part of the evaluation cycle.",
+      messageKey: "evaluationFacts.coverage.partialPeriod",
       sourceFactIds: [ids.responsibilityWindow],
       neutral: true,
     },

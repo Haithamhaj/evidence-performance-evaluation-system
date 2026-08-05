@@ -8,6 +8,7 @@ import { ContextIntelligenceModule } from "./context-intelligence/context-intell
 import { PermissionsModule } from "./permissions/permissions.module.js";
 import { ProjectsModule } from "./projects/projects.module.js";
 import { EvaluationEligibilityModule } from "./evaluation-eligibility/evaluation-eligibility.module.js";
+import { EvaluationPreparationModule } from "./evaluation-preparation/evaluation-preparation.module.js";
 import { CorrelationMiddleware } from "./platform/correlation.middleware.js";
 import { DocumentsModule } from "./documents/documents.module.js";
 import { DailyWorkModule } from "./daily-work/daily-work.module.js";
@@ -36,6 +37,7 @@ Module({
     DocumentsModule,
     DailyWorkModule,
     EvaluationEligibilityModule,
+    EvaluationPreparationModule,
     GitHubIntegrationModule,
     PermissionsModule,
     ProjectsModule,

@@ -86,7 +86,7 @@ export function normalizeEvaluationFactSources(
         note.scope,
         note.projectId ?? "",
         note.workstreamId ?? "",
-        note.message,
+        note.messageKey,
         [...note.sourceFactIds].sort().join(","),
       ].join(":"),
   );

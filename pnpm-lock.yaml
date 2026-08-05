@@ -132,6 +132,9 @@ importers:
       '@evaluation/documents':
         specifier: workspace:*
         version: link:../../packages/documents
+      '@evaluation/evaluation-preparation':
+        specifier: workspace:*
+        version: link:../../packages/evaluation-preparation
       '@evaluation/github-integration':
         specifier: workspace:*
         version: link:../../packages/github-integration

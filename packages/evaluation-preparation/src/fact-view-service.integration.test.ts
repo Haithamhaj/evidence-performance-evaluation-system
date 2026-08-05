@@ -48,7 +48,7 @@ describe("evaluation fact view service", () => {
             scope: "cycle",
             projectId: null,
             workstreamId: null,
-            message: "Approved leave is excluded from required regularity review.",
+            messageKey: "evaluationFacts.coverage.approvedLeaveExcluded",
             sourceFactIds: [],
             neutral: true,
           },
