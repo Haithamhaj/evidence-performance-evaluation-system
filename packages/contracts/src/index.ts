@@ -14,6 +14,7 @@ export * from "./jobs.js";
 export * from "./performance-rating.js";
 export * from "./progress-contracts.js";
 export * from "./projects.js";
+export * from "./research-experiments.js";
 export * from "./updates-evidence.js";
 export * from "./work-items.js";
 export * from "./workspace.js";

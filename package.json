@@ -16,6 +16,7 @@
     "@evaluation/documents": "workspace:*",
     "@evaluation/localization": "workspace:*",
     "@evaluation/projects": "workspace:*",
+    "@evaluation/research-experiments": "workspace:*",
     "@evaluation/updates-evidence": "workspace:*",
     "@evaluation/work-items": "workspace:*"
   },

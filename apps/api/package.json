@@ -26,6 +26,7 @@
     "@evaluation/observability": "workspace:*",
     "@evaluation/permissions": "workspace:*",
     "@evaluation/projects": "workspace:*",
+    "@evaluation/research-experiments": "workspace:*",
     "@evaluation/updates-evidence": "workspace:*",
     "@evaluation/work-items": "workspace:*",
     "@nestjs/common": "11.1.28",
