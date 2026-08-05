@@ -2,10 +2,10 @@
 
 ## Current Goal
 
-Publish and merge the technically verified Slice 6 Evaluation Fact View checkpoint, then establish the
-source-to-code engine feature register and capability baseline before implementing the remaining engine
-subsystems. Keep final frontend work and live GitHub installation behind their existing sequence and
-external gate.
+Perform the bounded E3 ownership audit, then write the Research & Experiments engine design and detailed
+implementation plan before production code. Continue the remaining engine subsystems in dependency
+order. Keep the final frontend program and live connector installations behind their existing sequence
+and external gates.
 
 ## Current Reality
 
@@ -147,17 +147,25 @@ external gate.
   behavior only; provisional screens are not UX or product acceptance. After the pilot engine is
   complete, a source-to-code feature inventory—including the required Research & Experiments
   capability—governs a separate full-frontend design and delivery program.
-- Slice 6 is locally technically complete on `codex/phase-2-slice-6-evaluation-preparation`: a strict
+- Slice 6 is technically complete and merged to `main` at `1db6bb1`: a strict
   neutral Fact View contract, public authorized source readers, read-only preparation composition,
   protected employee/assigned-manager API, and bilingual verification surface separate source facts
   from employee interpretation without a rating or readiness value.
 - Slice 6 adds no migration and no AI provider call. Full local verification passed 1,025 unit/coverage
   tests, 593 integration tests with 13 intentional skips, 179 AI evaluations with one intentional skip,
   49 database checks across all 26 migrations, and 41 browser journeys with four intentional skips.
-- Slice 6 Pull Request #11 is open on the verified local checkpoint; hosted required checks are pending.
+- Slice 6 Pull Request #11 was squash-merged. Hosted `integrity`, `quality`, `build`, and `integration`
+  all passed on the merged `main` commit; integration reported 41 browser journeys passed and four
+  intentional skips.
 - The complete Evaluation Template, immutable Cycle Snapshot, self-assessment, independent manager
   assessment, discussion, final human judgment, and closure remain later engine work. The current
   active-at-cycle-start rubric resolver is not a substitute for T045–T046 snapshot immutability.
+- The E2 source-to-code baseline identifies 44 capabilities: 21 complete, 6 partial, 14 planned, 2
+  externally gated, and 1 approved deferred capability. These counts are inventory states, not a
+  percent-complete score.
+- Research & Experiments is an authoritative daily-work and evaluation source requirement, but no
+  dedicated production model, public API, domain lifecycle, history, recovery, or journey entry point
+  exists. E3 must close this gap before the evaluation engine is completed.
 
 ## Active Decisions
 
@@ -201,6 +209,12 @@ external gate.
   recovery behavior is verified.
 - A deferred P2 trace-hygiene risk remains: a failed follow-up persistence step can leave an
   orphaned successful AI-run trace. It does not bypass employee confirmation or privacy controls.
+- Research/Experiment facts are currently representable only as generic Timeline/Evidence text; that
+  is insufficient for hypotheses, baselines, measures, reproducibility, conclusions, and applied
+  learning. E3 must not overload generic event JSON or duplicate the existing evidence lifecycle.
+- `PARTIAL` administration, observability, security/retention, and offboarding capabilities require
+  explicit E6 closure before pilot launch; existing foundations must not be mistaken for finished
+  user workflows.
 
 ## Protected Areas
 
@@ -210,10 +224,10 @@ external gate.
 
 ## Next Recommended Action
 
-Commit and push the Slice 6 acceptance checkpoint, open its Pull Request, require hosted `integrity`,
-`quality`, `build`, and `integration` on the exact head, then merge and begin E2 engine feature inventory.
-Do not start the final frontend or the complete evaluation workflow yet. Live GitHub App creation,
-installation, secret, and organization approval remain behind the external human gate.
+Verify and publish the E2 feature-register baseline, then perform the bounded E3 ownership audit and
+write the Research & Experiments engine design/implementation plan before production code. Do not start
+the final frontend yet. Live Google/GitHub production configuration and Arabic evaluation release remain
+behind their external human gates.
 
 ## Critical References
 
@@ -244,6 +258,9 @@ installation, secret, and organization approval remain behind the external human
 - `docs/product/PHASE_2_BACKEND_DELTA.md`
 - `docs/product/PHASE_2_VERTICAL_SLICES.md`
 - `docs/product/PHASE_2_INTERACTION_REFERENCE_REGISTER.md`
+- `docs/product/ENGINE_FEATURE_REGISTER.md`
+- `docs/product/ENGINE_CAPABILITY_MATRIX.md`
+- `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
 - `docs/superpowers/plans/2026-07-17-phase-1-bundle-a-project-responsibility.md`
 - `docs/superpowers/plans/2026-07-17-phase-1-bundle-b-documents.md`
 - `docs/superpowers/plans/2026-07-17-phase-1-bundle-c-analysis-criteria.md`

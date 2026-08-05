@@ -1,6 +1,6 @@
 # AI-first Daily Workspace — Slice 6 Technical Acceptance
 
-**Status:** Local technical verification complete; hosted Pull Request checks pending
+**Status:** Technically complete; Pull Request #11 merged and verified green on `main`
 
 **Branch:** `codex/phase-2-slice-6-evaluation-preparation`
 
@@ -119,8 +119,9 @@ All local checks ran with repository-pinned Node.js `24.18.0` and pnpm `11.13.0`
 | Complete browser suite                  | Passed: 41 journeys; four intentional skips for superseded Update flows.                                                                                                                           |
 | Working-tree integrity                  | `git diff --check` passed; regenerated images from earlier slices were restored and are not part of this change.                                                                                   |
 
-Hosted `integrity`, `quality`, `build`, and `integration` remain required on the exact Pull Request head
-before merge.
+Hosted `integrity`, `quality`, `build`, and `integration` passed on Pull Request #11 and again on the
+merged `main` commit `1db6bb1372c7e9d91cf09f770728034f6dc3fe57`. The merged integration job passed
+41 browser journeys with four intentional skips.
 
 ## Bounded reviews
 
@@ -157,7 +158,7 @@ No unresolved P0/P1 privacy or neutrality finding is known.
 
 ## Technical checkpoint decision
 
-Slice 6 is ready for the full repository checkpoint and hosted Pull Request verification. It preserves
-the protected evaluation boundary and supplies the read-only engine contract required by the later
-human evaluation subsystem. Final product and UX acceptance remain deferred until the engine feature
-register, remaining subsystems, and dedicated frontend program are complete.
+Slice 6 passed the full repository checkpoint, hosted Pull Request verification, merge, and merged-main
+verification. It preserves the protected evaluation boundary and supplies the read-only engine contract
+required by the later human evaluation subsystem. Final product and UX acceptance remain deferred until
+the engine feature register, remaining subsystems, and dedicated frontend program are complete.

@@ -172,5 +172,5 @@ After Slice 6 technical acceptance:
 - [x] Run the full repository verification suite, migrations from empty and previous release snapshot, AI evaluations, and protected browser journeys.
 - [x] Update operational documentation, `TASKS.md`, and `project-state/PROJECT_STATE.md`.
 - [x] Record P2/P3 findings in backlog issues without hiding them.
-- [ ] Make the current Slice 6 Pull Request ready only after all required CI checks pass.
-- [ ] Merge only after the technical evidence and hosted CI are green, then continue the approved engine-first program.
+- [x] Make the current Slice 6 Pull Request ready only after all required CI checks pass.
+- [x] Merge only after the technical evidence and hosted CI are green, then continue the approved engine-first program.
