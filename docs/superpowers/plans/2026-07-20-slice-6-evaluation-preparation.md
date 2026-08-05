@@ -49,11 +49,11 @@ type EvaluationFactView = {
 };
 ```
 
-- [ ] Write failing schema tests that require source IDs, timestamps, effective versions, responsibility windows, and fact/interpretation labels.
-- [ ] Add a prohibited-field scan test for rating suggestions, predictions, ranks, productivity scores, readiness percentages, and automatic Project averages.
-- [ ] Keep criterion stable IDs and locale/version identity.
-- [ ] Run contract tests and protected scans.
-- [ ] Commit as `feat(evaluation): define neutral fact view contract`.
+- [x] Write failing schema tests that require source IDs, timestamps, effective versions, responsibility windows, and fact/interpretation labels.
+- [x] Add a prohibited-field scan test for rating suggestions, predictions, ranks, productivity scores, readiness percentages, and automatic Project averages.
+- [x] Keep criterion stable IDs and locale/version identity.
+- [x] Run contract tests and protected scans.
+- [x] Commit as `feat(evaluation): define neutral fact view contract`.
 
 ### Task 2: Compose facts through public module readers
 
@@ -81,12 +81,12 @@ export interface EvaluationSourceReader {
 }
 ```
 
-- [ ] Write failing tests for actual responsibility periods, deactivated historical users, prospective criterion versions, approved leave, and immutable source references.
-- [ ] Write tests that deduplicate the same source without counting volume or creating averages.
-- [ ] Normalize self-presentation differences by organizing facts consistently, not by scoring or judging them.
-- [ ] Use public readers only; add the smallest missing read interface to each owning package.
-- [ ] Run package integration tests and typecheck.
-- [ ] Commit as `feat(evaluation): compose authorized source facts`.
+- [x] Write failing tests for actual responsibility periods, deactivated historical users, prospective criterion versions, approved leave, and immutable source references.
+- [x] Write tests that deduplicate the same source without counting volume or creating averages.
+- [x] Normalize self-presentation differences by organizing facts consistently, not by scoring or judging them.
+- [x] Use public readers only; add the smallest missing read interface to each owning package.
+- [x] Run package integration tests and typecheck.
+- [x] Commit as `feat(evaluation): compose authorized source facts`.
 
 ### Task 3: Add protected Fact View API
 
@@ -105,12 +105,12 @@ export interface EvaluationSourceReader {
 GET /api/v1/evaluation-cycles/:cycleId/employees/:employeeId/facts
 ```
 
-- [ ] Test employee self-access, authorized manager access for the active responsibility relation, administrator separation, inactive principal denial, and cross-team denial.
-- [ ] Test active cycle visibility mode does not leak protected upward-feedback data.
-- [ ] Test manager responses contain no individual Documentation Readiness percentages.
-- [ ] Preserve source authorization even when a fact refers to historical or deactivated records.
-- [ ] Run focused API integration tests and protected scans.
-- [ ] Commit as `feat(api): expose protected evaluation fact view`.
+- [x] Test employee self-access, authorized manager access for the active responsibility relation, administrator separation, inactive principal denial, and cross-team denial.
+- [x] Test active cycle visibility mode does not leak protected upward-feedback data.
+- [x] Test manager responses contain no individual Documentation Readiness percentages.
+- [x] Preserve source authorization even when a fact refers to historical or deactivated records.
+- [x] Run focused API integration tests and protected scans.
+- [x] Commit as `feat(api): expose protected evaluation fact view`.
 
 ### Task 4: Build the neutral Fact View UI
 
@@ -132,14 +132,14 @@ engine inventory and handoff are complete.
 - Modify: `packages/localization/src/catalogs/ar.json`
 - Modify: `packages/localization/src/catalogs/en.json`
 
-- [ ] Test facts appear before employee narrative.
-- [ ] Label employee narrative as interpretation, not source fact.
-- [ ] Organize by approved rubric areas and contribution context without deriving a score.
-- [ ] Show source links, effective criteria, time windows, and missing coverage neutrally.
-- [ ] Do not place rating controls in this Phase 2 route.
-- [ ] Keep evaluation navigation separate from Today, readiness, and manager operations.
-- [ ] Run focused web/localization tests and typecheck.
-- [ ] Commit as `feat(web): add neutral evaluation fact view`.
+- [x] Test facts appear before employee narrative.
+- [x] Label employee narrative as interpretation, not source fact.
+- [x] Organize by approved rubric areas and contribution context without deriving a score.
+- [x] Show source links, effective criteria, time windows, and missing coverage neutrally.
+- [x] Do not place rating controls in this Phase 2 route.
+- [x] Keep evaluation navigation separate from Today, readiness, and manager operations.
+- [x] Run focused web/localization tests and typecheck.
+- [x] Commit as `feat(web): add neutral evaluation fact view`.
 
 ### Task 5: Neutrality and privacy acceptance checkpoint
 
@@ -150,12 +150,12 @@ engine inventory and handoff are complete.
 - Create: `docs/acceptance/AI_FIRST_DAILY_WORKSPACE_SLICE_6.md`
 - Create screenshots under: `docs/product/screenshots/ai-first-daily-workspace/slice-6/`
 
-- [ ] Demonstrate the same source facts for employee and authorized manager, subject to lawful role-specific privacy fields.
-- [ ] Demonstrate explicit separation between source facts and employee interpretation.
-- [ ] Verify absence of AI rating language, ranking, productivity score, automatic Project average, and manager-visible readiness percentage.
-- [ ] Verify historical responsibility and dynamic criterion versions.
-- [ ] Run focused tests, related integration tests, neutrality evaluations, affected lint/typechecks, and protected scans.
-- [ ] Complete bounded specification and privacy/neutrality reviews; remediate confirmed P0/P1 only.
+- [x] Demonstrate the same source facts for employee and authorized manager, subject to lawful role-specific privacy fields.
+- [x] Demonstrate explicit separation between source facts and employee interpretation.
+- [x] Verify absence of AI rating language, ranking, productivity score, automatic Project average, and manager-visible readiness percentage.
+- [x] Verify historical responsibility and dynamic criterion versions.
+- [x] Run focused tests, related integration tests, neutrality evaluations, affected lint/typechecks, and protected scans.
+- [x] Complete bounded specification and privacy/neutrality reviews; remediate confirmed P0/P1 only.
 - [ ] Commit as `test: verify evaluation fact view neutrality`.
 - [ ] Push, create or update the current Slice 6 Pull Request, and publish the technical verification URLs/screenshots.
 
@@ -169,8 +169,8 @@ discussion, or final-rating workflow, and it does not constitute final frontend 
 
 After Slice 6 technical acceptance:
 
-- [ ] Run the full repository verification suite, migrations from empty and previous release snapshot, AI evaluations, and protected browser journeys.
-- [ ] Update operational documentation, `TASKS.md`, and `project-state/PROJECT_STATE.md`.
-- [ ] Record P2/P3 findings in backlog issues without hiding them.
+- [x] Run the full repository verification suite, migrations from empty and previous release snapshot, AI evaluations, and protected browser journeys.
+- [x] Update operational documentation, `TASKS.md`, and `project-state/PROJECT_STATE.md`.
+- [x] Record P2/P3 findings in backlog issues without hiding them.
 - [ ] Make the current Slice 6 Pull Request ready only after all required CI checks pass.
 - [ ] Merge only after the technical evidence and hosted CI are green, then continue the approved engine-first program.
