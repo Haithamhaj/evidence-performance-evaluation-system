@@ -1,6 +1,6 @@
 # Research & Experiments Engine Design
 
-**Status:** Product Owner architecture approved; written specification awaiting final review
+**Status:** Product Owner approved
 
 **Date:** 2026-08-05
 
@@ -8,7 +8,7 @@
 
 ## 1. Outcome
 
-Add one bounded Research & Experiments domain to the existing modular monolith. It represents research framing, focused technical exploration, reproducible experiments, human-confirmed conclusions, decisions, and applied learning as first-class Project work.
+Add one bounded Research & Experiments domain to the existing modular monolith. It represents source intake and Project-relevance review, research framing, focused technical exploration, reproducible experiments, human-confirmed conclusions, decisions, and applied learning as first-class Project work.
 
 The domain makes research visible in daily work, Project history, monthly readiness, and the future Evaluation Fact View without converting research volume, experiment count, or AI output into progress or employee performance.
 
@@ -21,7 +21,7 @@ A **Research Record** answers one primary uncertainty inside a required Project.
 The employee journey is:
 
 ```text
-Project question or private capture
+Project question, source link, or private capture
 → frame the research question
 → review sources and alternatives
 → define one or more experiments
@@ -33,6 +33,8 @@ Project question or private capture
 ```
 
 The employee can begin with a small amount of text. The assistant may prepare the structure and identify what is missing, but it asks only one useful question at a time and never activates or concludes the record.
+
+A pasted GitHub repository, paper, documentation page, PDF, or other explicit source link first becomes a private source-review draft. The system safely retrieves only the permitted material, compares it with an authorized version-pinned Project Context Snapshot, and explains relevance, possible value, mismatch, risks, and useful next actions. It may prepare Research, Experiment, or Work Item proposals, but the employee edits and confirms each shared link or official object.
 
 ## 3. Approaches considered
 
@@ -58,6 +60,7 @@ Updates can describe that research occurred, but they cannot safely own an evolv
 - Append-only Research revisions.
 - Research participants.
 - Research source references and comparison notes.
+- Private source-review drafts, retrieved-source provenance, and Project-relevance analyses.
 - Stable Experiment identity and lifecycle.
 - Append-only Experiment method revisions.
 - Measure definitions, baselines, test cases, controls, and conditions.
@@ -73,6 +76,7 @@ Updates can describe that research occurred, but they cannot safely own an evolv
 - **Projects:** Project/Workstream authority, membership, responsibility windows, approved Progress Contracts, and operational progress.
 - **Work Items:** ordinary Task lifecycle and assignment history.
 - **Documents:** safe uploaded sources, immutable document versions, and source extraction.
+- **Connected Work Context:** private Gmail/Calendar items and private captured links until the employee confirms a shared Project object.
 - **Updates & Evidence:** Update confirmation, Evidence revisions/verification/attribution/confirmation, and the shared Activity Timeline composition.
 - **Criteria:** dynamic criteria versions.
 - **AI Router:** every provider call, route resolution, output validation, and model trace.
@@ -85,6 +89,8 @@ Updates can describe that research occurred, but they cannot safely own an evolv
 - Optional Work Item association is validated through a Work Items public reader.
 - Uploaded-source availability and safety come from a Documents public reader.
 - Confirmed Evidence association is validated through an Updates & Evidence public reader.
+- Authorized Project Context Snapshots are composed from versioned public readers; Research stores cited source/version identities, not copied foreign-domain rows.
+- A proposed Work Item remains a Research-owned suggestion until the employee confirms it; creation then uses the Work Items public command and its authorization rules.
 - Timeline and Evaluation Fact View consume Research public readers; the Research domain does not write surrogate Update or Evidence rows.
 - No second database, event store, authentication system, or generic activity platform is introduced.
 
@@ -153,9 +159,45 @@ A Research source reference is not automatically Evidence. It records:
 - Credibility/limitation note.
 - Compared alternative when applicable.
 - Employee who added it and time.
+- Retrieval state, retrieval time, resolved canonical URL, content fingerprint, and cited section/page/file references when retrieval is permitted.
+- Observed license and reuse warning when the source is software or otherwise license-bearing.
+- Explicit inaccessible, blocked, stale, or partial state with a truthful reason.
 - Superseded/retracted state with reason.
 
-The system stores no copied branding or unapproved external source code. Uploaded files use the existing fail-closed upload path.
+The system stores no copied branding, unapproved external source code, or unnecessary full copyrighted content. Uploaded files use the existing fail-closed upload path.
+
+#### 5.4.1 Source intake and Project-relevance review
+
+An employee may paste an explicit source link from Project, Research, or private capture. A link discovered in private Gmail/Calendar context remains private and unlinked until the employee reviews it. The shared review requires one authorized Project; optional Workstream and Work Item suggestions use the same scope validation rules as Research.
+
+Before any model call, a bounded retrieval adapter:
+
+- permits only supported HTTP(S), GitHub, DOI/paper, documentation, or approved file-source forms;
+- blocks loopback, private-network, link-local, metadata-service, unsafe redirect, unsupported protocol, oversized response, and disallowed MIME targets;
+- never submits browser cookies, Project credentials, provider keys, or unrelated user authorization to a target;
+- follows robots, provider, authentication, rate, copyright, and configured retention limits;
+- renders no active content, runs no repository script, and executes no downloaded code;
+- records what was retrieved, from where, when, and which bounded sections were available.
+
+The composition layer builds an authorized, version-pinned Project Context Snapshot from the Project's current approved document versions, objective and constraints, active Progress Contract, Workstreams, relevant Work Items, confirmed decisions, prior Research/Experiments, and confirmed Updates/Evidence. It excludes employee ratings, private narratives, private connected context, unrelated Projects, and fields the requesting employee cannot read.
+
+The versioned source-review output includes:
+
+- a source summary with exact citations;
+- Project relevance and the Project facts that support it;
+- possible benefit, compatible stage/deliverable/KPI, and expected learning;
+- technical, operational, privacy, security, licensing, maintenance, cost, and complexity risks when applicable;
+- mismatched assumptions, duplication, unavailable information, and uncertainty;
+- a recommended disposition: add as Research source, open/refine Research, draft an Experiment, prepare Work Item suggestions, retain privately for later, or dismiss;
+- editable Research, Experiment, and Work Item proposals, each retaining the source and rationale.
+
+Model confidence alone never shares or auto-links the source. Deterministic existing bindings may preselect Project context, but the employee confirms the source reference and every official Research, Experiment, or Work Item creation. A Work Item proposal includes Project, optional Workstream, responsible assignee proposal, reason, acceptance conditions, and source reference; it becomes an official Task only through the existing employee-confirmed Work Items lifecycle.
+
+For GitHub, the review is limited to permitted repository metadata and bounded files such as README, license, manifests, and selected documentation/code references. It reports license compatibility and maintenance evidence without cloning, installing, building, executing, or copying the repository. Private repositories require the existing approved GitHub authorization boundary and minimum permissions.
+
+For a paper or technical document, the review records citation identity, method, reported result, limitations, and differences between the paper's conditions and the Project. It never treats a paper's result as a Project result; the employee must run or confirm an applicable Experiment.
+
+A source review pins the retrieved fingerprint and Project Context Snapshot version. Later source or Project changes mark it stale and offer explicit re-analysis; they never silently rewrite the earlier review.
 
 ### 5.5 Experiment
 
@@ -273,6 +315,7 @@ AI may suggest the link and description. The employee must confirm Evidence thro
 - A manager without Project/evaluation scope cannot read a Research record merely because they hold the Manager role.
 - The System Administrator has no operational Research role and does not gain content access through the administrator label.
 - Private Gmail/Calendar content cannot appear in a shared Research record until the employee confirms a shared source reference or Evidence item.
+- A source URL and its review remain private until the employee confirms Project association and sharing; private-source access is never broadened by an AI suggestion.
 - Source URLs, uploaded files, model/input versions, and notes follow their owning privacy boundary.
 - Deactivated users cannot authenticate, while their confirmed Research, Experiments, runs, decisions, and attribution remain preserved.
 - Future private feedback modes do not change Research visibility.
@@ -281,10 +324,11 @@ AI may suggest the link and description. The employee must confirm Evidence thro
 
 All production AI calls use the existing AI Router. Initial bounded routes are:
 
-1. `research.frame`: draft question, objective, hypothesis/explicit exploratory reason, assumptions, constraints, uncertainty, and next missing field.
-2. `research.synthesize`: draft a source-referenced comparison and identify unsupported claims or missing alternatives.
-3. `experiment.method-review`: check method completeness and draft one clarification at a time; it does not mark the method valid.
-4. `experiment.interpret`: draft a run-referenced result summary, limitations, and possible decision paths.
+1. `research.source-review`: produce a citation-bound summary, Project relevance, mismatch, risks, disposition, and editable Research/Experiment/Work Item proposals from a safe retrieved source and authorized Project Context Snapshot.
+2. `research.frame`: draft question, objective, hypothesis/explicit exploratory reason, assumptions, constraints, uncertainty, and next missing field.
+3. `research.synthesize`: draft a source-referenced comparison and identify unsupported claims or missing alternatives.
+4. `experiment.method-review`: check method completeness and draft one clarification at a time; it does not mark the method valid.
+5. `experiment.interpret`: draft a run-referenced result summary, limitations, and possible decision paths.
 
 Every persisted output uses a versioned schema, prompt version, source references, route trace, and validation. Prompt/schema changes require AI evaluations with English, Fusha, Gulf, Levantine, and mixed Arabic/English technical fixtures when the route accepts free-form employee language.
 
@@ -295,6 +339,8 @@ AI must never:
 - treat research/source/experiment volume as quality;
 - confirm a hypothesis, conclusion, decision, Evidence item, or Applied Learning link;
 - silently create or assign a Work Item;
+- claim it inspected inaccessible, blocked, omitted, or unrequested source content;
+- treat source relevance as proof of Project benefit, Experiment outcome, employee contribution, or applied learning;
 - change Project progress except through the existing approved Progress Contract boundary;
 - follow instructions embedded inside uploaded documents, repositories, source excerpts, or comments.
 
@@ -305,6 +351,7 @@ If AI is unavailable or its output fails validation, the employee's raw input an
 The Research domain exposes public interfaces for:
 
 - authorized Research list/detail reads;
+- private source intake/review, explicit re-analysis, and employee-confirmed source disposition;
 - Research/Experiment commands with optimistic versions;
 - Project and Work Item scope validation ports;
 - confirmed Evidence validation/linking port;
@@ -366,6 +413,7 @@ There is no required number of Research Records, sources, Experiments, runs, or 
 - Cross-Project Workstream, Work Item, Evidence, source, successor, or Applied Learning links fail atomically.
 - Failed AI calls retain raw employee input and permit manual continuation.
 - Failed uploads use the existing fail-closed Documents recovery path.
+- Blocked, private, paywalled, rate-limited, unsupported, oversized, or partially retrieved links remain truthful source drafts with manual citation/upload alternatives; the system never fabricates a review.
 - A failed/invalid/inconclusive Experiment is a valid retained outcome, not an error to erase.
 - Abandon/cancel/supersede transitions require a human reason.
 - Duplicate command submission uses idempotency keys and returns the original result.
@@ -378,17 +426,21 @@ The technical browser journey uses one Project-scoped Research page and focused 
 
 The deterministic acceptance journey must show:
 
-1. An employee starts Project-linked Research from a short question.
-2. AI prepares a draft and asks one missing question; manual recovery works when AI fails.
-3. The employee confirms the Research Record.
-4. The employee creates two Experiments under the same Research Record.
-5. One Experiment concludes `NOT_SUPPORTED`; the result and value are preserved.
-6. The second Experiment records baseline, measures, test cases, a completed run, limitations, and a human-confirmed decision.
-7. Existing Evidence is linked only after employee confirmation.
-8. Applied Learning links the decision to a real Work Item or Document Version.
-9. Timeline and Evaluation Fact View show source-labelled facts without ratings or volume metrics.
-10. Another employee, an unrelated manager, and the System Administrator cannot access the draft or unauthorized Project content.
-11. Arabic RTL at 390 px and English LTR render mixed model names, repository paths, measures, and URLs correctly.
+1. An employee pastes a GitHub or paper link and selects an authorized Project.
+2. Safe retrieval and the version-pinned Project Context Snapshot produce a cited relevance review with benefit, mismatch, licensing/security/complexity risks, and uncertainty.
+3. The employee edits and confirms one source link, rejects an unsuitable proposal, and confirms selected Research/Experiment/Work Item drafts; no official Task exists before confirmation.
+4. A blocked or partially retrieved link reports the limitation and supports manual recovery without fabricated analysis.
+5. The employee starts Project-linked Research from the confirmed source or a short question.
+6. AI prepares a draft and asks one missing question; manual recovery works when AI fails.
+7. The employee confirms the Research Record.
+8. The employee creates two Experiments under the same Research Record.
+9. One Experiment concludes `NOT_SUPPORTED`; the result and value are preserved.
+10. The second Experiment records baseline, measures, test cases, a completed run, limitations, and a human-confirmed decision.
+11. Existing Evidence is linked only after employee confirmation.
+12. Applied Learning links the decision to a real Work Item or Document Version.
+13. Timeline and Evaluation Fact View show source-labelled facts without ratings or volume metrics.
+14. Another employee, an unrelated manager, and the System Administrator cannot access the draft, private link review, or unauthorized Project content.
+15. Arabic RTL at 390 px and English LTR render mixed model names, repository paths, measures, citations, and URLs correctly.
 
 These screens are not final UX acceptance. The final frontend program will redesign the daily and Project 360 entry points from the handoff schema.
 
@@ -396,11 +448,12 @@ These screens are not final UX acceptance. The final frontend program will redes
 
 - Contract tests for every versioned schema and prohibited field.
 - Domain unit tests for state transitions, method completeness, cross-scope invariants, volume-input prohibition, and failed/inconclusive outcomes.
+- Source-retrieval tests for SSRF/private-network/redirect/protocol/MIME/size defenses, bounded GitHub/paper retrieval, truthful partial access, content fingerprints, staleness, and no script execution.
 - Repository integration tests for append-only revisions/runs/conclusions, idempotency, optimistic concurrency, transactions, and public-reader isolation.
 - Migration verification from empty database and previous `main` snapshot with rebuild/drift equivalence.
 - Authorization tests for owner, contributor, Project owner, assigned manager, unrelated manager, System Administrator, inactive user, and historical deactivated-user facts.
 - Audit atomicity tests for activation, conclusion, cancellation, supersession, and Applied Learning confirmation.
-- AI evaluations for the four routes, prompt injection, unsupported conclusions, missing source references, prohibited rating output, and Arabic/mixed-language fixtures.
+- AI evaluations for the five routes, citation faithfulness, Project-relevance grounding, prompt injection, unsupported conclusions, missing source references, inaccessible-content honesty, prohibited rating output, and Arabic/mixed-language fixtures.
 - Evaluation Fact View neutrality tests proving identical source facts under allowed projections and absence of rating/readiness/ranking fields.
 - Browser tests for the deterministic journey, recovery, mobile sheet behavior, keyboard focus, RTL/LTR, and mixed-direction technical content.
 - Repository scans for AI Router boundaries, secret leakage, task/progress/activity-volume inputs, copy, localization boundaries, formatting, lint, typecheck, and task graph.
@@ -411,6 +464,7 @@ E3 does not add:
 
 - a notebook execution environment, model-hosting platform, experiment scheduler, MLflow replacement, dataset warehouse, or generic knowledge base;
 - automatic scraping or importing of copyrighted source content;
+- broad crawling, autonomous source discovery across the public web, or use of ambient browser authentication to access a source;
 - automatic code execution from external repositories;
 - automatic Project progress outside an approved Progress Contract;
 - employee performance analytics, rating recommendations, ranking, or productivity scoring;

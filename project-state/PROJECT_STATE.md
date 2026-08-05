@@ -2,10 +2,10 @@
 
 ## Current Goal
 
-Review and approve the written E3 Research & Experiments engine design. After that explicit written-spec
-gate, write the detailed TDD implementation plan before production code. Continue the remaining engine
-subsystems in dependency order. Keep the final frontend program and live connector installations behind
-their existing sequence and external gates.
+Write and verify the detailed E3 Research & Experiments TDD implementation plan from the approved
+written design before production code. Continue the remaining engine subsystems in dependency order.
+Keep the final frontend program and live connector installations behind their existing sequence and
+external gates.
 
 ## Current Reality
 
@@ -170,9 +170,10 @@ their existing sequence and external gates.
   domain: every Research Record belongs to a Project, may optionally link a Workstream/Work Item, and
   may contain multiple versioned Experiments. Existing Projects, Work Items, Documents, Updates &
   Evidence, Timeline composition, and AI Router retain their current ownership.
-- The written E3 specification is
-  `docs/superpowers/specs/2026-08-05-research-experiments-engine-design.md`. It is awaiting final written
-  review before the detailed implementation plan or production code begins.
+- The Product Owner approved the written E3 specification on 2026-08-05. It includes a safe source-link
+  intake and Project-relevance review: explicit GitHub/paper/document links are compared with an
+  authorized version-pinned Project Context Snapshot, and Research/Experiment/Work Item proposals remain
+  editable drafts until employee confirmation.
 
 ## Active Decisions
 
@@ -195,6 +196,9 @@ their existing sequence and external gates.
   applied learning belong to one bounded Research & Experiments domain. It reuses public Project,
   Work Item, Document, Evidence, Timeline, Fact View, and AI Router contracts and does not create a
   second evidence lifecycle or generic activity platform.
+- Source relevance is not proof of benefit, progress, contribution, or performance. Explicit link
+  retrieval is bounded and fail-closed; it runs no external code, uses no ambient credentials, and
+  requires employee confirmation before Project sharing or official object creation.
 
 ## Active Risks
 
@@ -235,9 +239,9 @@ their existing sequence and external gates.
 
 ## Next Recommended Action
 
-Review and approve the written E3 Research & Experiments engine design. Then write its detailed TDD
-implementation plan before any production code. Do not start the final frontend yet. Live Google/GitHub
-production configuration and Arabic evaluation release remain behind their external human gates.
+Write and verify the detailed E3 Research & Experiments TDD implementation plan from the approved
+design before any production code. Do not start the final frontend yet. Live Google/GitHub production
+configuration and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References
 

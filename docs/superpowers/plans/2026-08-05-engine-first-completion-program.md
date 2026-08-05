@@ -264,7 +264,7 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   lifecycle without JSON blobs, duplicate evidence, cross-module table reads, or overloaded event types.
   Record the decision: extend the existing domains, or add one bounded Research & Experiments domain.
 
-- [ ] **Step 2: Write and approve the bounded design**
+- [x] **Step 2: Write and approve the bounded design**
 
   The design must define question/hypothesis, assumptions, baseline, measures, test cases, controls,
   conditions, inputs/models/versions, result, failure/limits, reproducibility, employee-confirmed
