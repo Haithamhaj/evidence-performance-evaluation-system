@@ -104,6 +104,21 @@ model User {
   proposedAttributions      EvidenceAttribution[]                  @relation("EvidenceAttributionProposedBy")
   evidenceVerifications     EvidenceVerification[]                 @relation("EvidenceVerificationActor")
   evidenceConfirmations     EvidenceConfirmation[]                 @relation("EvidenceConfirmationEmployee")
+  ownedResearchRecords      ResearchRecord[]                       @relation("ResearchRecordOwner")
+  authoredResearchRevisions ResearchRevision[]                     @relation("ResearchRevisionAuthor")
+  researchParticipantEvents ResearchParticipantEvent[]             @relation("ResearchParticipantEmployee")
+  actedResearchParticipantEvents ResearchParticipantEvent[]        @relation("ResearchParticipantActor")
+  researchTransitions       ResearchTransition[]                   @relation("ResearchTransitionActor")
+  ownedResearchSourceReviews ResearchSourceReview[]                @relation("ResearchSourceReviewOwner")
+  authoredResearchSourceReviewRevisions ResearchSourceReviewRevision[] @relation("ResearchSourceReviewRevisionAuthor")
+  researchProposalTransitions ResearchProposalTransition[]         @relation("ResearchProposalTransitionActor")
+  addedResearchSourceReferences ResearchSourceReference[]          @relation("ResearchSourceReferenceAddedBy")
+  authoredExperimentMethods ExperimentMethodRevision[]             @relation("ExperimentMethodRevisionAuthor")
+  executedExperimentRuns   ExperimentRun[]                         @relation("ExperimentRunExecutor")
+  confirmedExperimentConclusions ExperimentConclusion[]            @relation("ExperimentConclusionConfirmer")
+  confirmedResearchConclusions ResearchConclusion[]                @relation("ResearchConclusionConfirmer")
+  confirmedAppliedLearning AppliedLearning[]                       @relation("AppliedLearningConfirmer")
+  confirmedResearchEvidenceLinks ResearchEvidenceLink[]            @relation("ResearchEvidenceLinkConfirmer")
   createdAt                 DateTime                               @default(now()) @db.Timestamptz(6)
   updatedAt                 DateTime                               @updatedAt @db.Timestamptz(6)
 }
@@ -381,6 +396,8 @@ model Project {
   acceptedEvidenceEvents AcceptedEvidenceEvent[]
   githubProjectBindings  GitHubProjectBinding[]
   githubProgressReviews  GitHubProgressReview[]
+  researchRecords        ResearchRecord[]
+  researchSourceReviews  ResearchSourceReview[]
   createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
 
@@ -615,6 +632,9 @@ model Workstream {
   acceptedUpdateEvents   AcceptedUpdateEvent[]
   acceptedEvidenceEvents AcceptedEvidenceEvent[]
   taskDrafts             TaskDraft[] @relation("TaskDraftWorkstream")
+  researchRecords        ResearchRecord[]
+  researchSourceReviews  ResearchSourceReview[]
+  experiments            Experiment[]
   createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
 
@@ -761,6 +781,9 @@ model WorkItem {
   evidenceRecords      EvidenceRecord[]
   evidenceLinks        EvidenceLink[]
   acceptedUpdateEvents AcceptedUpdateEvent[]
+  researchRecords      ResearchRecord[]
+  researchSourceReviews ResearchSourceReview[]
+  experiments          Experiment[]
   createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
   updatedAt            DateTime                    @updatedAt @db.Timestamptz(6)
 
@@ -1770,6 +1793,7 @@ model EvidenceRecord {
   revisions            EvidenceRevision[]
   confirmation         EvidenceConfirmation?
   acceptedEvent        AcceptedEvidenceEvent?
+  researchEvidenceLinks ResearchEvidenceLink[]
   createdAt            DateTime               @default(now()) @db.Timestamptz(6)
   updatedAt            DateTime               @updatedAt @db.Timestamptz(6)
 
@@ -1804,6 +1828,7 @@ model EvidenceRevision {
   attributions        EvidenceAttribution[]
   verifications       EvidenceVerification[]
   confirmation        EvidenceConfirmation?
+  researchEvidenceLinks ResearchEvidenceLink[]
   createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
 
   @@unique([evidenceId, revision])
@@ -2114,6 +2139,9 @@ model DocumentVersion {
   criteriaSets            DynamicCriteriaSet[]
   progressContracts       ProgressContract[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
+  researchSourceReviews ResearchSourceReview[]
+  researchSourceReferences ResearchSourceReference[]
+  appliedLearnings AppliedLearning[]
   createdAt               DateTime                               @default(now()) @db.Timestamptz(6)
 
   @@unique([documentId, version])
@@ -2611,6 +2639,653 @@ model DynamicCriteriaSetTransition {
   @@index([actorId, createdAt])
 }
 
+enum ResearchState {
+  DRAFT
+  ACTIVE
+  CONCLUDED
+  CANCELLED
+  SUPERSEDED
+}
+
+enum ExperimentState {
+  DRAFT
+  READY
+  RUNNING
+  RESULT_RECORDED
+  CONCLUDED
+  ABANDONED
+  SUPERSEDED
+}
+
+enum ResearchSourceReviewState {
+  PENDING_RETRIEVAL
+  READY_FOR_REVIEW
+  PARTIAL
+  BLOCKED
+  CONFIRMED
+  DISMISSED
+  STALE
+}
+
+enum ResearchRetrievalState {
+  PENDING
+  RETRIEVED
+  PARTIAL
+  BLOCKED
+  STALE
+}
+
+enum ResearchRevisionOrigin {
+  EMPLOYEE
+  AI_DRAFT
+}
+
+enum ResearchHypothesisKind {
+  TESTABLE
+  NO_HYPOTHESIS
+}
+
+enum ResearchParticipantRole {
+  OWNER
+  CONTRIBUTOR
+}
+
+enum ResearchParticipantAction {
+  STARTED
+  ENDED
+}
+
+enum ResearchSourceInputKind {
+  URL
+  CONNECTED_CONTEXT
+  DOCUMENT_VERSION
+}
+
+enum ResearchProposalKind {
+  RESEARCH
+  EXPERIMENT
+  WORK_ITEM
+}
+
+enum ResearchProposalState {
+  DRAFT
+  CONFIRMED
+  DISMISSED
+}
+
+enum ResearchProposalTransitionKind {
+  CONFIRMED
+  DISMISSED
+}
+
+enum ResearchSourceReferenceKind {
+  PAPER
+  REPOSITORY
+  DOCUMENTATION
+  DATASET
+  BENCHMARK
+  COURSE_VIDEO
+  INTERNAL_DOCUMENT
+  LINK
+  OTHER
+}
+
+enum ResearchSourceReferenceState {
+  ACTIVE
+  RETRACTED
+  SUPERSEDED
+}
+
+enum ExperimentMeasureKind {
+  NUMERIC
+  CATEGORICAL
+  BOOLEAN
+  QUALITATIVE
+}
+
+enum ExperimentMeasureDirection {
+  HIGHER
+  LOWER
+  TARGET_RANGE
+  MATCH
+  DESCRIPTIVE
+}
+
+enum ExperimentRunResultStatus {
+  COMPLETED
+  FAILED
+  INVALID
+  STOPPED
+}
+
+enum ExperimentConclusionOutcome {
+  SUPPORTED
+  NOT_SUPPORTED
+  INCONCLUSIVE
+  INVALID
+  ABANDONED
+}
+
+enum ResearchDecision {
+  ADOPT
+  REJECT
+  DEFER
+  REFINE
+  RUN_ANOTHER_EXPERIMENT
+  NO_DECISION
+}
+
+enum AppliedLearningTargetKind {
+  WORK_ITEM
+  UPDATE
+  DOCUMENT_VERSION
+  PROGRESS_CONTRACT_PROPOSAL
+  CRITERION_PROPOSAL
+  RESEARCH
+  EXPERIMENT
+  KNOWLEDGE_TRANSFER
+}
+
+model ResearchRecord {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  idempotencyKey         String                     @db.Uuid
+  projectId              String                     @db.Uuid
+  project                Project                    @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId           String?                    @db.Uuid
+  workstream             Workstream?                @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  workItemId             String?                    @db.Uuid
+  workItem               WorkItem?                  @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
+  ownerId                String                     @db.Uuid
+  owner                  User                       @relation("ResearchRecordOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  state                  ResearchState              @default(DRAFT)
+  revision               Int                        @default(1)
+  version                Int                        @default(1)
+  revisions              ResearchRevision[]
+  participantEvents      ResearchParticipantEvent[]
+  transitions            ResearchTransition[]       @relation("ResearchTransitionRecord")
+  successorTransitions   ResearchTransition[]       @relation("ResearchTransitionSuccessor")
+  sourceReferences       ResearchSourceReference[]  @relation("ResearchSourceReferenceRecord")
+  successorSourceLinks   ResearchSourceReference[]  @relation("ResearchSourceReferenceSuccessorResearch")
+  experiments            Experiment[]               @relation("ExperimentResearch")
+  researchConclusions    ResearchConclusion[]       @relation("ResearchConclusionRecord")
+  appliedLearning        AppliedLearning[]          @relation("AppliedLearningResearch")
+  appliedLearningTargets AppliedLearning[]          @relation("AppliedLearningTargetResearch")
+  evidenceLinks          ResearchEvidenceLink[]     @relation("ResearchEvidenceLinkResearch")
+  createdAt              DateTime                   @default(now()) @db.Timestamptz(6)
+  transitionedAt         DateTime                   @default(now()) @db.Timestamptz(6)
+
+  @@unique([ownerId, projectId, idempotencyKey])
+  @@index([projectId, state, createdAt])
+  @@index([ownerId, state, createdAt])
+  @@index([workstreamId, createdAt])
+  @@index([workItemId, createdAt])
+}
+
+model ResearchRevision {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  researchId          String                 @db.Uuid
+  research            ResearchRecord         @relation(fields: [researchId], references: [id], onDelete: Restrict)
+  revision            Int
+  origin              ResearchRevisionOrigin
+  problemStatement    String
+  context             String
+  question            String
+  objective           String
+  hypothesisKind      ResearchHypothesisKind
+  hypothesisStatement String?
+  noHypothesisReason  String?
+  assumptions         Json
+  constraints         Json
+  knownUncertainty    Json
+  alternatives        Json
+  decisionQuestion    String
+  sourceReferences    Json
+  executionMode       Phase2ExecutionMode
+  aiRunId             String?                @db.Uuid
+  aiRun               AiRun?                 @relation("ResearchRevisionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  promptVersion       String?
+  routeTrace          Json?
+  authorId            String                 @db.Uuid
+  author              User                   @relation("ResearchRevisionAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  createdAt           DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([researchId, revision])
+  @@index([aiRunId])
+  @@index([authorId, createdAt])
+}
+
+model ResearchParticipantEvent {
+  id          String                    @id @default(uuid()) @db.Uuid
+  researchId  String                    @db.Uuid
+  research    ResearchRecord            @relation(fields: [researchId], references: [id], onDelete: Restrict)
+  employeeId  String                    @db.Uuid
+  employee    User                      @relation("ResearchParticipantEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  role        ResearchParticipantRole
+  action      ResearchParticipantAction
+  effectiveAt DateTime                  @db.Timestamptz(6)
+  reason      String
+  actorId     String                    @db.Uuid
+  actor       User                      @relation("ResearchParticipantActor", fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@index([researchId, employeeId, effectiveAt, id])
+  @@index([employeeId, effectiveAt, id])
+  @@index([actorId, createdAt])
+}
+
+model ResearchTransition {
+  id                  String          @id @default(uuid()) @db.Uuid
+  researchId          String          @db.Uuid
+  research            ResearchRecord  @relation("ResearchTransitionRecord", fields: [researchId], references: [id], onDelete: Restrict)
+  fromState           ResearchState?
+  toState             ResearchState
+  reason              String?
+  successorResearchId String?         @db.Uuid
+  successorResearch   ResearchRecord? @relation("ResearchTransitionSuccessor", fields: [successorResearchId], references: [id], onDelete: Restrict)
+  actorId             String          @db.Uuid
+  actor               User            @relation("ResearchTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  resultingVersion    Int
+  effectiveAt         DateTime        @db.Timestamptz(6)
+  createdAt           DateTime        @default(now()) @db.Timestamptz(6)
+
+  @@unique([researchId, resultingVersion])
+  @@index([researchId, effectiveAt, id])
+  @@index([successorResearchId])
+  @@index([actorId, createdAt])
+}
+
+model ResearchSourceReview {
+  id                 String                         @id @default(uuid()) @db.Uuid
+  projectId          String                         @db.Uuid
+  project            Project                        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId       String?                        @db.Uuid
+  workstream         Workstream?                    @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  workItemId         String?                        @db.Uuid
+  workItem           WorkItem?                      @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
+  ownerId            String                         @db.Uuid
+  owner              User                           @relation("ResearchSourceReviewOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  idempotencyKey     String                         @db.Uuid
+  sourceKind         ResearchSourceInputKind
+  sealedSource       Json
+  documentVersionId  String?                        @db.Uuid
+  documentVersion    DocumentVersion?               @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
+  state              ResearchSourceReviewState      @default(PENDING_RETRIEVAL)
+  retrievalState     ResearchRetrievalState         @default(PENDING)
+  retrievalReason    String?
+  displayUrl         String?
+  contentFingerprint String?
+  currentRevision    Int                            @default(0)
+  version            Int                            @default(1)
+  revisions          ResearchSourceReviewRevision[]
+  proposals          ResearchProposal[]
+  sourceReferences   ResearchSourceReference[]
+  createdAt          DateTime                       @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                       @updatedAt @db.Timestamptz(6)
+
+  @@unique([ownerId, projectId, idempotencyKey], map: "ResearchSourceReview_owner_project_idempotency_key")
+  @@index([ownerId, state, createdAt])
+  @@index([projectId, state, createdAt])
+  @@index([workstreamId, createdAt])
+  @@index([workItemId, createdAt])
+  @@index([documentVersionId])
+}
+
+model ResearchSourceReviewRevision {
+  id                        String                 @id @default(uuid()) @db.Uuid
+  reviewId                  String                 @db.Uuid
+  review                    ResearchSourceReview   @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  revision                  Int
+  retrievalState            ResearchRetrievalState
+  retrievalReason           String?
+  displayUrl                String?
+  contentFingerprint        String?
+  projectContextFingerprint String?
+  sealedRetrievedContent    String?
+  sealedOutput              String?
+  outputFragments           Json?
+  citations                 Json
+  schemaVersion             String?
+  promptVersion             String?
+  routeTrace                Json?
+  aiRunId                   String?                @db.Uuid
+  aiRun                     AiRun?                 @relation("ResearchSourceReviewRevisionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  createdById               String                 @db.Uuid
+  createdBy                 User                   @relation("ResearchSourceReviewRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt                 DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([reviewId, revision])
+  @@index([aiRunId])
+  @@index([createdById, createdAt])
+}
+
+model ResearchProposal {
+  id               String                       @id @default(uuid()) @db.Uuid
+  reviewId         String                       @db.Uuid
+  review           ResearchSourceReview         @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  kind             ResearchProposalKind
+  state            ResearchProposalState        @default(DRAFT)
+  title            String
+  rationale        String
+  content          Json
+  sourceReferences Json
+  targetId         String?                      @db.Uuid
+  version          Int                          @default(1)
+  transitions      ResearchProposalTransition[]
+  createdAt        DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime                     @updatedAt @db.Timestamptz(6)
+
+  @@index([reviewId, state, createdAt])
+  @@index([targetId])
+}
+
+model ResearchProposalTransition {
+  id               String                         @id @default(uuid()) @db.Uuid
+  proposalId       String                         @db.Uuid
+  proposal         ResearchProposal               @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  kind             ResearchProposalTransitionKind
+  reason           String
+  actorId          String                         @db.Uuid
+  actor            User                           @relation("ResearchProposalTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  resultingVersion Int
+  createdAt        DateTime                       @default(now()) @db.Timestamptz(6)
+
+  @@unique([proposalId, resultingVersion])
+  @@index([actorId, createdAt])
+}
+
+model ResearchSourceReference {
+  id                   String                       @id @default(uuid()) @db.Uuid
+  researchId           String                       @db.Uuid
+  research             ResearchRecord               @relation("ResearchSourceReferenceRecord", fields: [researchId], references: [id], onDelete: Restrict)
+  sourceReviewId       String?                      @db.Uuid
+  sourceReview         ResearchSourceReview?        @relation(fields: [sourceReviewId], references: [id], onDelete: Restrict)
+  documentVersionId    String?                      @db.Uuid
+  documentVersion      DocumentVersion?             @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
+  kind                 ResearchSourceReferenceKind
+  title                String
+  canonicalUrl         String?
+  relevanceNote        String
+  credibilityNote      String
+  comparedAlternative  String?
+  retrievalState       ResearchRetrievalState
+  retrievedAt          DateTime?                    @db.Timestamptz(6)
+  resolvedCanonicalUrl String?
+  contentFingerprint   String?
+  citedLocations       Json
+  observedLicense      String?
+  reuseWarning         String?
+  state                ResearchSourceReferenceState @default(ACTIVE)
+  reason               String?
+  successorResearchId  String?                      @db.Uuid
+  successorResearch    ResearchRecord?              @relation("ResearchSourceReferenceSuccessorResearch", fields: [successorResearchId], references: [id], onDelete: Restrict)
+  addedById            String                       @db.Uuid
+  addedBy              User                         @relation("ResearchSourceReferenceAddedBy", fields: [addedById], references: [id], onDelete: Restrict)
+  createdAt            DateTime                     @default(now()) @db.Timestamptz(6)
+
+  @@index([researchId, createdAt])
+  @@index([sourceReviewId])
+  @@index([documentVersionId])
+  @@index([successorResearchId])
+  @@index([addedById, createdAt])
+}
+
+model Experiment {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  researchId             String                     @db.Uuid
+  research               ResearchRecord             @relation("ExperimentResearch", fields: [researchId], references: [id], onDelete: Restrict)
+  workstreamId           String?                    @db.Uuid
+  workstream             Workstream?                @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  workItemId             String?                    @db.Uuid
+  workItem               WorkItem?                  @relation(fields: [workItemId], references: [id], onDelete: Restrict)
+  idempotencyKey         String                     @db.Uuid
+  title                  String
+  state                  ExperimentState            @default(DRAFT)
+  methodRevision         Int                        @default(1)
+  version                Int                        @default(1)
+  methodRevisions        ExperimentMethodRevision[]
+  runs                   ExperimentRun[]            @relation("ExperimentRunExperiment")
+  conclusions            ExperimentConclusion[]     @relation("ExperimentConclusionExperiment")
+  appliedLearningTargets AppliedLearning[]          @relation("AppliedLearningTargetExperiment")
+  evidenceLinks          ResearchEvidenceLink[]     @relation("ResearchEvidenceLinkExperiment")
+  createdAt              DateTime                   @default(now()) @db.Timestamptz(6)
+  transitionedAt         DateTime                   @default(now()) @db.Timestamptz(6)
+
+  @@unique([researchId, idempotencyKey])
+  @@index([researchId, state, createdAt])
+  @@index([workstreamId, createdAt])
+  @@index([workItemId, createdAt])
+}
+
+model ExperimentMethodRevision {
+  id                          String                 @id @default(uuid()) @db.Uuid
+  experimentId                String                 @db.Uuid
+  experiment                  Experiment             @relation(fields: [experimentId], references: [id], onDelete: Restrict)
+  revision                    Int
+  question                    String
+  baselineDescription         String
+  baselineValue               String?
+  baselineReference           Json?
+  conditions                  Json
+  reproducibilityInstructions String
+  knownRisks                  Json
+  failureCases                Json
+  sourceReferences            Json
+  executionMode               Phase2ExecutionMode
+  origin                      ResearchRevisionOrigin
+  aiRunId                     String?                @db.Uuid
+  aiRun                       AiRun?                 @relation("ExperimentMethodRevisionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  promptVersion               String?
+  routeTrace                  Json?
+  authorId                    String                 @db.Uuid
+  author                      User                   @relation("ExperimentMethodRevisionAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  measures                    ExperimentMeasure[]
+  testCases                   ExperimentTestCase[]
+  controls                    ExperimentControl[]
+  runs                        ExperimentRun[]        @relation("ExperimentRunMethodRevision")
+  createdAt                   DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([experimentId, revision])
+  @@index([aiRunId])
+  @@index([authorId, createdAt])
+}
+
+model ExperimentMeasure {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  methodRevisionId   String                     @db.Uuid
+  methodRevision     ExperimentMethodRevision   @relation(fields: [methodRevisionId], references: [id], onDelete: Restrict)
+  stableId           String
+  name               String
+  kind               ExperimentMeasureKind
+  unit               String?
+  direction          ExperimentMeasureDirection
+  baselineValue      String?
+  baselineReference  Json?
+  interpretationRule String
+  observations       ExperimentObservation[]
+  createdAt          DateTime                   @default(now()) @db.Timestamptz(6)
+
+  @@unique([methodRevisionId, stableId])
+}
+
+model ExperimentTestCase {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  methodRevisionId    String                   @db.Uuid
+  methodRevision      ExperimentMethodRevision @relation(fields: [methodRevisionId], references: [id], onDelete: Restrict)
+  inputIdentity       String
+  expectedObservation String?
+  category            String
+  inclusionReason     String
+  observations        ExperimentObservation[]
+  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@index([methodRevisionId, category])
+}
+
+model ExperimentControl {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  methodRevisionId   String                   @db.Uuid
+  methodRevision     ExperimentMethodRevision @relation(fields: [methodRevisionId], references: [id], onDelete: Restrict)
+  position           Int
+  comparisonTarget   String
+  constantConditions String
+  createdAt          DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@unique([methodRevisionId, position])
+}
+
+model ExperimentRun {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  experimentId         String                    @db.Uuid
+  experiment           Experiment                @relation("ExperimentRunExperiment", fields: [experimentId], references: [id], onDelete: Restrict)
+  methodRevisionId     String                    @db.Uuid
+  methodRevision       ExperimentMethodRevision  @relation("ExperimentRunMethodRevision", fields: [methodRevisionId], references: [id], onDelete: Restrict)
+  sequence             Int
+  executorId           String                    @db.Uuid
+  executor             User                      @relation("ExperimentRunExecutor", fields: [executorId], references: [id], onDelete: Restrict)
+  startedAt            DateTime                  @db.Timestamptz(6)
+  completedAt          DateTime                  @db.Timestamptz(6)
+  resultStatus         ExperimentRunResultStatus
+  environment          Json
+  inputs               Json
+  modelConfigurations  Json
+  unexpectedConditions Json
+  executionNotes       String
+  sourceReferences     Json
+  observations         ExperimentObservation[]   @relation("ExperimentObservationRun")
+  evidenceLinks        ResearchEvidenceLink[]    @relation("ResearchEvidenceLinkRun")
+  createdAt            DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@unique([experimentId, sequence])
+  @@index([methodRevisionId, createdAt])
+  @@index([executorId, createdAt])
+}
+
+model ExperimentObservation {
+  id                      String                  @id @default(uuid()) @db.Uuid
+  runId                   String                  @db.Uuid
+  run                     ExperimentRun           @relation("ExperimentObservationRun", fields: [runId], references: [id], onDelete: Restrict)
+  measureId               String                  @db.Uuid
+  measure                 ExperimentMeasure       @relation(fields: [measureId], references: [id], onDelete: Restrict)
+  testCaseId              String?                 @db.Uuid
+  testCase                ExperimentTestCase?     @relation(fields: [testCaseId], references: [id], onDelete: Restrict)
+  observedValue           String
+  unit                    String?
+  note                    String?
+  supersedesObservationId String?                 @db.Uuid
+  supersedesObservation   ExperimentObservation?  @relation("ExperimentObservationSupersession", fields: [supersedesObservationId], references: [id], onDelete: Restrict)
+  supersededBy            ExperimentObservation[] @relation("ExperimentObservationSupersession")
+  correctionReason        String?
+  createdAt               DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@index([runId, measureId, testCaseId])
+  @@index([supersedesObservationId])
+}
+
+model ExperimentConclusion {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  experimentId          String                      @db.Uuid
+  experiment            Experiment                  @relation("ExperimentConclusionExperiment", fields: [experimentId], references: [id], onDelete: Restrict)
+  outcome               ExperimentConclusionOutcome
+  summary               String
+  runIds                Json
+  measureStableIds      Json
+  limitations           Json
+  confidenceDescription String
+  decisionRelevance     String
+  nextStep              String
+  aiRunId               String?                     @db.Uuid
+  aiRun                 AiRun?                      @relation("ExperimentConclusionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  confirmerId           String                      @db.Uuid
+  confirmer             User                        @relation("ExperimentConclusionConfirmer", fields: [confirmerId], references: [id], onDelete: Restrict)
+  evidenceLinks         ResearchEvidenceLink[]      @relation("ResearchEvidenceLinkExperimentConclusion")
+  confirmedAt           DateTime                    @db.Timestamptz(6)
+  createdAt             DateTime                    @default(now()) @db.Timestamptz(6)
+
+  @@index([experimentId, confirmedAt, id])
+  @@index([aiRunId])
+  @@index([confirmerId, confirmedAt])
+}
+
+model ResearchConclusion {
+  id                   String            @id @default(uuid()) @db.Uuid
+  researchId           String            @db.Uuid
+  research             ResearchRecord    @relation("ResearchConclusionRecord", fields: [researchId], references: [id], onDelete: Restrict)
+  synthesis            String
+  answer               String
+  remainingUncertainty Json
+  decision             ResearchDecision
+  rationale            String
+  nextAction           String
+  sourceReferences     Json
+  experimentIds        Json
+  aiRunId              String?           @db.Uuid
+  aiRun                AiRun?            @relation("ResearchConclusionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  confirmerId          String            @db.Uuid
+  confirmer            User              @relation("ResearchConclusionConfirmer", fields: [confirmerId], references: [id], onDelete: Restrict)
+  appliedLearning      AppliedLearning[]
+  confirmedAt          DateTime          @db.Timestamptz(6)
+  createdAt            DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@index([researchId, confirmedAt, id])
+  @@index([aiRunId])
+  @@index([confirmerId, confirmedAt])
+}
+
+model AppliedLearning {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  researchId           String                    @db.Uuid
+  research             ResearchRecord            @relation("AppliedLearningResearch", fields: [researchId], references: [id], onDelete: Restrict)
+  researchConclusionId String                    @db.Uuid
+  researchConclusion   ResearchConclusion        @relation(fields: [researchConclusionId], references: [id], onDelete: Restrict)
+  targetKind           AppliedLearningTargetKind
+  targetId             String                    @db.Uuid
+  targetResearchId     String?                   @db.Uuid
+  targetResearch       ResearchRecord?           @relation("AppliedLearningTargetResearch", fields: [targetResearchId], references: [id], onDelete: Restrict)
+  targetExperimentId   String?                   @db.Uuid
+  targetExperiment     Experiment?               @relation("AppliedLearningTargetExperiment", fields: [targetExperimentId], references: [id], onDelete: Restrict)
+  documentVersionId    String?                   @db.Uuid
+  documentVersion      DocumentVersion?          @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
+  whatChanged          String
+  causalRationale      String
+  confirmerId          String                    @db.Uuid
+  confirmer            User                      @relation("AppliedLearningConfirmer", fields: [confirmerId], references: [id], onDelete: Restrict)
+  confirmedAt          DateTime                  @db.Timestamptz(6)
+  createdAt            DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@index([researchId, confirmedAt, id])
+  @@index([researchConclusionId])
+  @@index([targetKind, targetId])
+  @@index([confirmerId, confirmedAt])
+}
+
+model ResearchEvidenceLink {
+  id                     String                @id @default(uuid()) @db.Uuid
+  researchId             String                @db.Uuid
+  research               ResearchRecord        @relation("ResearchEvidenceLinkResearch", fields: [researchId], references: [id], onDelete: Restrict)
+  evidenceId             String                @db.Uuid
+  evidence               EvidenceRecord        @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  evidenceRevisionId     String                @db.Uuid
+  evidenceRevision       EvidenceRevision      @relation(fields: [evidenceRevisionId, evidenceId], references: [id, evidenceId], onDelete: Restrict)
+  supportedClaim         String
+  experimentId           String?               @db.Uuid
+  experiment             Experiment?           @relation("ResearchEvidenceLinkExperiment", fields: [experimentId], references: [id], onDelete: Restrict)
+  experimentRunId        String?               @db.Uuid
+  experimentRun          ExperimentRun?        @relation("ResearchEvidenceLinkRun", fields: [experimentRunId], references: [id], onDelete: Restrict)
+  experimentConclusionId String?               @db.Uuid
+  experimentConclusion   ExperimentConclusion? @relation("ResearchEvidenceLinkExperimentConclusion", fields: [experimentConclusionId], references: [id], onDelete: Restrict)
+  confirmerId            String                @db.Uuid
+  confirmer              User                  @relation("ResearchEvidenceLinkConfirmer", fields: [confirmerId], references: [id], onDelete: Restrict)
+  confirmedAt            DateTime              @db.Timestamptz(6)
+  createdAt              DateTime              @default(now()) @db.Timestamptz(6)
+
+  @@unique([researchId, evidenceRevisionId, supportedClaim])
+  @@index([evidenceId, evidenceRevisionId])
+  @@index([experimentId])
+  @@index([experimentRunId])
+  @@index([experimentConclusionId])
+  @@index([confirmerId, confirmedAt])
+}
+
 model RoleAssignment {
   id        String             @id @default(uuid()) @db.Uuid
   userId    String             @db.Uuid
@@ -2938,6 +3613,11 @@ model AiRun {
   taskDrafts             TaskDraft[]
   voiceSessions          VoiceUpdateSession[]          @relation("VoiceSessionAiRun")
   voiceTranscriptRevisions VoiceTranscriptRevision[]   @relation("VoiceTranscriptRevisionAiRun")
+  researchRevisions ResearchRevision[] @relation("ResearchRevisionAiRun")
+  researchSourceReviewRevisions ResearchSourceReviewRevision[] @relation("ResearchSourceReviewRevisionAiRun")
+  experimentMethodRevisions ExperimentMethodRevision[] @relation("ExperimentMethodRevisionAiRun")
+  experimentConclusions ExperimentConclusion[] @relation("ExperimentConclusionAiRun")
+  researchConclusions ResearchConclusion[] @relation("ResearchConclusionAiRun")
   createdAt              DateTime                        @default(now()) @db.Timestamptz(6)
 
   @@index([routeId, routeConfigVersion, createdAt])
