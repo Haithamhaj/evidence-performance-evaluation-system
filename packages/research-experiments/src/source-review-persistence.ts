@@ -210,6 +210,27 @@ export class ResearchSourceReviewPersistence {
     throw versionConflict();
   }
 
+  async renewPendingLease(
+    input: Readonly<{
+      reviewId: string;
+      ownerId: string;
+      expectedVersion: number;
+      renewedAt: Date;
+    }>,
+  ): Promise<number> {
+    const renewed = await this.#database.researchSourceReview.updateMany({
+      where: {
+        id: input.reviewId,
+        ownerId: input.ownerId,
+        state: "PENDING_RETRIEVAL",
+        version: input.expectedVersion,
+      },
+      data: { version: { increment: 1 }, updatedAt: input.renewedAt },
+    });
+    if (renewed.count !== 1) throw versionConflict();
+    return input.expectedVersion + 1;
+  }
+
   async loadOwned(
     input: Readonly<{ reviewId: string; ownerId: string }>,
   ): Promise<SourceReviewLoaded> {

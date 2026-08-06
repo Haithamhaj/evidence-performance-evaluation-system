@@ -147,6 +147,59 @@ describe("ResearchSourceReviewPersistence", () => {
     ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_VERSION_CONFLICT" });
   });
 
+  it("renews only the current pending owner at the expected fenced version", async () => {
+    const persistence = new ResearchSourceReviewPersistence(client);
+    const created = await persistence.createOrReplayPending(pendingInput());
+    const renewedAt = new Date("2026-08-06T09:00:10.000Z");
+
+    const renewedVersion = await persistence.renewPendingLease({
+      reviewId: created.id,
+      ownerId: ids.owner,
+      expectedVersion: created.version,
+      renewedAt,
+    });
+
+    expect(renewedVersion).toBe(created.version + 1);
+    await expect(
+      persistence.renewPendingLease({
+        reviewId: created.id,
+        ownerId: ids.owner,
+        expectedVersion: created.version,
+        renewedAt,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_VERSION_CONFLICT" });
+    await expect(
+      persistence.renewPendingLease({
+        reviewId: created.id,
+        ownerId: ids.other,
+        expectedVersion: renewedVersion,
+        renewedAt,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_VERSION_CONFLICT" });
+
+    await persistence.appendBlocked({
+      reviewId: created.id,
+      ownerId: ids.owner,
+      expectedVersion: renewedVersion,
+      retrievalState: "BLOCKED",
+      retrievalReason: "TEST_TERMINAL_STATE",
+      displayUrl: null,
+      contentFingerprint: null,
+      projectContextFingerprint: "f".repeat(64),
+      sealedRetrievedContent: null,
+      actorId: ids.owner,
+      createdAt: renewedAt,
+    });
+    await expect(
+      persistence.renewPendingLease({
+        reviewId: created.id,
+        ownerId: ids.owner,
+        expectedVersion: renewedVersion + 1,
+        renewedAt,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_VERSION_CONFLICT" });
+  });
+
   it("stores only ciphertext for source, retrieved text, AI output, and proposal content", async () => {
     const persistence = new ResearchSourceReviewPersistence(client);
     const created = await persistence.createOrReplayPending(pendingInput());

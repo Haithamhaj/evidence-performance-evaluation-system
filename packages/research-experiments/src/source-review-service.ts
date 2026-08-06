@@ -96,6 +96,7 @@ type Dependencies = Readonly<{
   idFactory?: () => string;
   pendingWaitPolicy?: Readonly<{
     staleAfterMs: number;
+    heartbeatIntervalMs?: number;
     pollIntervalMs: number;
     maxWaitMs: number;
     sleep?: (milliseconds: number) => Promise<void>;
@@ -213,6 +214,7 @@ export class ResearchSourceReviewService {
   readonly #dependencies: Required<Pick<Dependencies, "clock" | "idFactory">> & Dependencies;
   readonly #pendingWaitPolicy: Readonly<{
     staleAfterMs: number;
+    heartbeatIntervalMs: number;
     pollIntervalMs: number;
     maxWaitMs: number;
     sleep: (milliseconds: number) => Promise<void>;
@@ -224,10 +226,20 @@ export class ResearchSourceReviewService {
       clock: dependencies.clock ?? (() => new Date()),
       idFactory: dependencies.idFactory ?? (() => crypto.randomUUID()),
     };
+    const staleAfterMs = dependencies.pendingWaitPolicy?.staleAfterMs ?? 30_000;
+    const heartbeatIntervalMs =
+      dependencies.pendingWaitPolicy?.heartbeatIntervalMs ??
+      Math.max(1, Math.floor(staleAfterMs / 3));
+    if (heartbeatIntervalMs >= staleAfterMs) {
+      throw new Error(
+        "The pending-review heartbeat interval must be shorter than its stale lease.",
+      );
+    }
     this.#pendingWaitPolicy = {
-      staleAfterMs: dependencies.pendingWaitPolicy?.staleAfterMs ?? 30_000,
-      pollIntervalMs: dependencies.pendingWaitPolicy?.pollIntervalMs ?? 5,
-      maxWaitMs: dependencies.pendingWaitPolicy?.maxWaitMs ?? 60_000,
+      staleAfterMs,
+      heartbeatIntervalMs,
+      pollIntervalMs: dependencies.pendingWaitPolicy?.pollIntervalMs ?? 250,
+      maxWaitMs: dependencies.pendingWaitPolicy?.maxWaitMs ?? 90_000,
       sleep:
         dependencies.pendingWaitPolicy?.sleep ??
         ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))),
@@ -279,18 +291,10 @@ export class ResearchSourceReviewService {
         },
       });
     }
-    const context = await this.#dependencies.projectContexts.readAuthorizedSnapshot({
-      actor: input.actor,
-      scope: parsed.scope,
-      at,
-    });
-    const source = await this.#acquire(input.actor, parsed.scope, parsed.source);
-    return this.#analyze({
+    return this.#processClaimed({
       actor: input.actor,
       scope: parsed.scope,
       review,
-      source,
-      context,
       correlationId: input.correlationId,
       at,
       sourceInput: parsed.source,
@@ -320,18 +324,10 @@ export class ResearchSourceReviewService {
       });
       if (claim.state !== "PENDING_RETRIEVAL") return this.#materialize(claim, input.source);
       if (claim.processingClaimed) {
-        const context = await this.#dependencies.projectContexts.readAuthorizedSnapshot({
-          actor: input.actor,
-          scope: input.pendingInput.scope,
-          at: now,
-        });
-        const source = await this.#acquire(input.actor, input.pendingInput.scope, input.source);
-        return this.#analyze({
+        return this.#processClaimed({
           actor: input.actor,
           scope: input.pendingInput.scope,
           review: claim,
-          source,
-          context,
           correlationId: input.correlationId,
           at: now,
           sourceInput: input.source,
@@ -339,6 +335,80 @@ export class ResearchSourceReviewService {
       }
     }
     throw pendingReview();
+  }
+
+  async #processClaimed(
+    input: Readonly<{
+      actor: Actor;
+      scope: ResearchScope;
+      review: SourceReviewLoaded;
+      correlationId: string;
+      at: Date;
+      sourceInput: ResearchSource;
+    }>,
+  ): Promise<ResearchSourceReviewDetail> {
+    const lease = this.#startPendingLease(input.review, input.actor.userId);
+    try {
+      const context = await this.#dependencies.projectContexts.readAuthorizedSnapshot({
+        actor: input.actor,
+        scope: input.scope,
+        at: input.at,
+      });
+      const source = await this.#acquire(input.actor, input.scope, input.sourceInput);
+      return await this.#analyze({
+        ...input,
+        source,
+        context,
+        finishLease: lease.finish,
+      });
+    } catch (error) {
+      await lease.stop();
+      throw error;
+    }
+  }
+
+  #startPendingLease(review: SourceReviewLoaded, ownerId: string) {
+    let version = review.version;
+    let stopped = false;
+    let failure: unknown = null;
+    let renewal: Promise<void> = Promise.resolve();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (stopped) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        if (stopped) return;
+        renewal = this.#dependencies.persistence
+          .renewPendingLease({
+            reviewId: review.id,
+            ownerId,
+            expectedVersion: version,
+            renewedAt: this.#dependencies.clock(),
+          })
+          .then((renewedVersion) => {
+            version = renewedVersion;
+          })
+          .catch((error: unknown) => {
+            failure = error;
+            stopped = true;
+          })
+          .finally(schedule);
+      }, this.#pendingWaitPolicy.heartbeatIntervalMs);
+    };
+    schedule();
+    const stop = async () => {
+      stopped = true;
+      if (timer !== undefined) clearTimeout(timer);
+      await renewal;
+    };
+    return {
+      stop,
+      finish: async () => {
+        await stop();
+        if (failure !== null) throw failure;
+        return version;
+      },
+    };
   }
 
   async getPrivate(
@@ -635,6 +705,7 @@ export class ResearchSourceReviewService {
       correlationId: string;
       at: Date;
       sourceInput: ResearchSource;
+      finishLease: () => Promise<number>;
     }>,
   ): Promise<ResearchSourceReviewDetail> {
     const candidate = await this.#buildCandidate({
@@ -645,11 +716,13 @@ export class ResearchSourceReviewService {
       correlationId: input.correlationId,
       targetRevision: input.review.currentRevision + 1,
     });
+    const expectedVersion = await input.finishLease();
+    const completedAt = this.#dependencies.clock();
     if (candidate.persistence.kind === "BLOCKED") {
       const updated = await this.#dependencies.persistence.appendBlocked({
         reviewId: input.review.id,
         ownerId: input.actor.userId,
-        expectedVersion: input.review.version,
+        expectedVersion,
         retrievalState: candidate.persistence.retrievalState,
         retrievalReason: candidate.persistence.retrievalReason,
         displayUrl: candidate.persistence.displayUrl,
@@ -657,7 +730,7 @@ export class ResearchSourceReviewService {
         projectContextFingerprint: candidate.persistence.projectContextFingerprint,
         sealedRetrievedContent: candidate.persistence.sealedRetrievedContent,
         actorId: input.actor.userId,
-        createdAt: input.at,
+        createdAt: completedAt,
       });
       return this.#materialize(updated, input.sourceInput);
     }
@@ -665,7 +738,7 @@ export class ResearchSourceReviewService {
     const updated = await this.#dependencies.persistence.appendReviewed({
       reviewId: input.review.id,
       ownerId: input.actor.userId,
-      expectedVersion: input.review.version,
+      expectedVersion,
       state: candidate.persistence.state,
       retrievalState: candidate.persistence.retrievalState,
       retrievalReason: candidate.persistence.retrievalReason,
@@ -680,7 +753,7 @@ export class ResearchSourceReviewService {
       routeTrace: candidate.persistence.routeTrace,
       proposals: candidate.persistence.proposals,
       actorId: input.actor.userId,
-      createdAt: input.at,
+      createdAt: completedAt,
     });
     return this.#detail(updated, input.sourceInput, candidate.output!);
   }

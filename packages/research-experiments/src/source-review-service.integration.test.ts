@@ -267,6 +267,13 @@ function harness(input?: {
   deny?: boolean;
   retrievalState?: "RETRIEVED" | "PARTIAL" | "BLOCKED";
   proposalKinds?: readonly ("RESEARCH" | "EXPERIMENT" | "WORK_ITEM")[];
+  clock?: () => Date;
+  pendingWaitPolicy?: Readonly<{
+    staleAfterMs: number;
+    heartbeatIntervalMs: number;
+    pollIntervalMs: number;
+    maxWaitMs: number;
+  }>;
 }) {
   const privateProtector = protector();
   const callOrder: string[] = [];
@@ -393,8 +400,11 @@ function harness(input?: {
     assistant,
     protector: privateProtector,
     systemId: crypto.randomUUID(),
-    clock: () => new Date(at),
+    clock: input?.clock ?? (() => new Date(at)),
     idFactory: () => crypto.randomUUID(),
+    ...(input?.pendingWaitPolicy === undefined
+      ? {}
+      : { pendingWaitPolicy: input.pendingWaitPolicy }),
   });
   return { service, authorizer, retriever, snapshot, assistant, privateProtector, callOrder };
 }
@@ -424,6 +434,46 @@ describe("ResearchSourceReviewService", () => {
     const second = fixture.service.start({ ...command, correlationId: crypto.randomUUID() });
     await new Promise((resolve) => setTimeout(resolve, 10));
     releaseRetrieval();
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(secondResult).toEqual(firstResult);
+    expect(fixture.retriever.retrieve).toHaveBeenCalledTimes(1);
+    expect(fixture.assistant.reviewSource).toHaveBeenCalledTimes(1);
+  });
+
+  it("renews a healthy processing lease while a second starter polls across the stale threshold", async () => {
+    const staleAfterMs = 120;
+    const fixture = harness({
+      clock: () => new Date(),
+      pendingWaitPolicy: {
+        staleAfterMs,
+        heartbeatIntervalMs: 20,
+        pollIntervalMs: 10,
+        maxWaitMs: 2_000,
+      },
+    });
+    let releaseAi!: () => void;
+    const aiGate = new Promise<void>((resolve) => {
+      releaseAi = resolve;
+    });
+    const baseReviewSource = fixture.assistant.reviewSource.getMockImplementation()!;
+    fixture.assistant.reviewSource.mockImplementation(async (...args) => {
+      await aiGate;
+      return baseReviewSource(...args);
+    });
+    const command = {
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL" as const, url: "https://example.com/leased-paper" },
+      correlationId: crypto.randomUUID(),
+    };
+
+    const first = fixture.service.start(command);
+    await waitUntil(() => fixture.assistant.reviewSource.mock.calls.length === 1);
+    const second = fixture.service.start({ ...command, correlationId: crypto.randomUUID() });
+    await new Promise((resolve) => setTimeout(resolve, staleAfterMs * 2));
+    releaseAi();
     const [firstResult, secondResult] = await Promise.all([first, second]);
 
     expect(secondResult).toEqual(firstResult);
