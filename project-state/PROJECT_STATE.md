@@ -208,7 +208,8 @@ and live connector installations behind their existing sequence and external gat
 - A deterministic PostgreSQL acceptance seed closes one real employee/assigned-manager cycle through
   public domain services. The bounded English/Arabic verification route uses fixture-backed browser
   data and is explicitly not final UX acceptance; Arabic rubric content remains disabled pending T016.
-- E4 adds no migration and no direct provider call. `evaluation.justification` is composed only through
+- E4 adds forward-only migration `0029_employee_evaluation` and no direct provider call.
+  `evaluation.justification` is composed only through
   the AI Router after the human selects a rating. English export generation/delivery remains E6B by the
   approved design; CAP-032 projection support is complete but file export remains partial.
 - E5A Identified Upward Manager Evaluation is technically complete locally: the five approved manager
@@ -219,6 +220,14 @@ and live connector installations behind their existing sequence and external gat
   leave, exact five-criterion persistence, immediate manager visibility, and unchanged historical data.
   The English/Arabic route is a bounded technical verification surface, not final UX or Arabic rubric
   release.
+- E4 final specification and security/code-quality reviews found three related P1 lifecycle/scope
+  defects. Commit `09f8674` closes them with transactional stage-readiness gates, checked closure only,
+  department/organization validation, and separate cycle-administration versus manager-finalization
+  authority. Both scoped re-reviews report the original findings addressed.
+- Pull Request #17 contains the exact verified E4 head. Local final verification passed 1,287 unit/
+  coverage tests, 774 integration tests, 186 AI checks, all 29 migrations with 73 database tests, and
+  three E4 browser journeys. GitHub had not created the configured CI run at the last check, so E4 is
+  not merged; E5A starts on an isolated stacked branch while that external hosted gate is retried.
 
 ## Active Decisions
 
@@ -291,10 +300,11 @@ and live connector installations behind their existing sequence and external gat
 
 ## Next Recommended Action
 
-Finish the single E5A bundle specification/security review and hosted PR checks, then begin E5B Coaching
-& Development from its approved plan using Fast Controlled Execution. Do not start the final frontend or
-E6B export delivery yet. Live connector setup and Arabic evaluation release remain behind their external
-human gates.
+Complete hosted checks and merge Pull Request #17 when GitHub creates a green exact-head run. Continue
+with E5B Coaching & Development on an isolated stacked branch in the meantime. Perform the single E5
+specification/security review across E5A and E5B before their merge gate. Do not start the final frontend
+or E6B export delivery yet. Live connector setup and Arabic evaluation release remain behind their
+external human gates.
 
 ## Critical References
 
