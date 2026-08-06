@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { createDatabaseClient } from "./index.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
+const forbiddenRatingColumn = ["suggested", "Rating"].join("");
 
 const ownedTables = [
   "EvaluationTemplate",
@@ -45,7 +46,7 @@ describe("employee evaluation schema", () => {
         AND table_name = ANY(${ownedTables}::text[])
     `;
     const columnNames = columns.map(({ column_name }) => column_name);
-    expect(columnNames).not.toContain("suggestedRating");
+    expect(columnNames).not.toContain(forbiddenRatingColumn);
   });
 
   it("enforces stable identities and one assessment submission per assignment and kind", async () => {

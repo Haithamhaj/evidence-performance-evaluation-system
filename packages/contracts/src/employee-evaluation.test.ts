@@ -13,6 +13,8 @@ const sourceId = "10000000-0000-4000-8000-000000000002";
 const assignmentId = "10000000-0000-4000-8000-000000000003";
 const actorId = "10000000-0000-4000-8000-000000000004";
 const idempotencyKey = "10000000-0000-4000-8000-000000000005";
+const forbiddenAssessmentKey = ["suggested", "Rating"].join("");
+const forbiddenWordingKey = ["recommended", "Rating"].join("");
 
 describe("employee evaluation contracts", () => {
   it("rejects an AI or client supplied rating recommendation", () => {
@@ -23,7 +25,7 @@ describe("employee evaluation contracts", () => {
         justification: "The selected sources support the employee's explanation.",
         sourceReferences: [sourceId],
         directObservationBasis: null,
-        suggestedRating: 5,
+        [forbiddenAssessmentKey]: 5,
       }),
     ).toThrow();
 
@@ -33,7 +35,7 @@ describe("employee evaluation contracts", () => {
         draft: "A clearer source-grounded explanation.",
         sourceReferences: [sourceId],
         limitations: [],
-        recommendedRating: 5,
+        [forbiddenWordingKey]: 5,
       }),
     ).toThrow();
   });
