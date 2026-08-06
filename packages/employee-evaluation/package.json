@@ -22,6 +22,6 @@
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --root ../.. packages/employee-evaluation/src --exclude '**/*.integration.test.ts'",
-    "test:integration": "vitest run --root ../.. packages/employee-evaluation/src/template-service.integration.test.ts packages/employee-evaluation/src/cycle-service.integration.test.ts packages/employee-evaluation/src/assessment-service.integration.test.ts"
+    "test:integration": "vitest run --root ../.. packages/employee-evaluation/src/template-service.integration.test.ts packages/employee-evaluation/src/cycle-service.integration.test.ts packages/employee-evaluation/src/assessment-service.integration.test.ts packages/employee-evaluation/src/finalization-service.integration.test.ts packages/employee-evaluation/src/report-reader.integration.test.ts"
   }
 }

@@ -20,6 +20,13 @@ export {
   type AssessmentFactViewReader,
   type AssessmentSubmissionReceipt,
 } from "./assessment-service.js";
+export { ComparisonService, type EvaluationComparisonResult } from "./comparison-service.js";
+export {
+  FinalizationService,
+  type ClosedEmployeeEvaluationCycleReceipt,
+  type EvaluationAcknowledgmentReceipt,
+} from "./finalization-service.js";
+export { EvaluationReportReader } from "./report-reader.js";
 export {
   EvaluationWordingService,
   type EvaluationWordingContext,
