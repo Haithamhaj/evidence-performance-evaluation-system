@@ -360,15 +360,7 @@ export function assertResearchSourceReviewSemantics(
   allowedReferences: readonly string[],
 ): void {
   assertResearchOutputSemantics(output, allowedReferences);
-  const uncitedClaims = [
-    output.summary,
-    output.relevance,
-    ...output.benefits,
-    ...output.risks,
-    ...output.mismatches,
-    ...output.uncertainties,
-    ...output.proposals.flatMap(({ rationale }) => [rationale]),
-  ];
+  const uncitedClaims = collectStrings(output);
   if (uncitedClaims.some(containsUnsupportedDefinitiveProjectClaim)) throw invalidOutput();
 }
 
@@ -385,13 +377,7 @@ export function assertResearchSynthesisSemantics(
   ) {
     throw invalidOutput();
   }
-  const unsupportedConclusionFields = [
-    output.comparison,
-    ...output.unsupportedClaims,
-    ...output.missingAlternatives,
-    ...output.remainingUncertainty,
-    ...output.possibleDecisionPaths,
-  ];
+  const unsupportedConclusionFields = collectStrings(output);
   if (unsupportedConclusionFields.some(containsUnsupportedDefinitiveProjectClaim)) {
     throw invalidOutput();
   }
@@ -402,12 +388,7 @@ export function assertExperimentMethodReviewSemantics(
   allowedReferences: readonly string[],
 ): void {
   assertResearchOutputSemantics(output, allowedReferences);
-  const reviewStatements = [
-    ...output.observations,
-    ...output.missingElements,
-    ...output.uncertainties,
-    ...(output.nextQuestion === null ? [] : [output.nextQuestion]),
-  ];
+  const reviewStatements = collectStrings(output);
   if (reviewStatements.some(containsAutomaticValidityClaim)) {
     throw invalidOutput();
   }
@@ -434,13 +415,7 @@ export function assertExperimentInterpretationSemantics(
   }
   if (
     expected.resultStatus !== "COMPLETED" &&
-    [
-      output.summary,
-      ...output.observations.map(({ finding }) => finding),
-      ...output.limitations,
-      ...output.possibleDecisionPaths,
-      ...output.uncertainties,
-    ].some(containsUnsupportedPositiveRunConclusion)
+    collectStrings(output).some(containsUnsupportedPositiveRunConclusion)
   ) {
     throw invalidOutput();
   }
@@ -482,6 +457,28 @@ function collectStrings(value: unknown, seen = new WeakSet<object>()): string[] 
 
 function containsProhibitedJudgment(value: string): boolean {
   const normalized = normalizeSemanticText(value);
+  const personConcept = /\b(?:employee|worker|manager)\b/iu.test(normalized);
+  const personnelJudgmentConcept =
+    /\b(?:performance|productiv\w*|rat(?:e|ed|es|ing)|rank\w*|score|grade|leaderboard|excellent|exceptional|outstanding|high-performing|low-performing|top performer)\b/iu.test(
+      normalized,
+    );
+  const arabicPersonConcept = /(?:الموظف|الموظفة|العامل|العاملة|المدير|المديرة)/iu.test(normalized);
+  const arabicPersonnelJudgmentConcept =
+    /(?:اداء|انتاجي|تقييم|درجة|ترتيب|رتبة|ممتاز|متفوق|ضعيف|عالي|عالية|منخفض)/iu.test(normalized);
+  const projectProgressJudgment =
+    (/\bproject\b/iu.test(normalized) &&
+      /\bprogress\b/iu.test(normalized) &&
+      /(?:\d|%|\b(?:high|low|complete|completed|excellent|poor)\b)/iu.test(normalized)) ||
+    (/(?:المشروع)/iu.test(normalized) &&
+      /(?:تقدم)/iu.test(normalized) &&
+      /(?:\d|%|عالي|عالية|منخفض|مكتمل)/iu.test(normalized));
+  if (
+    (personConcept && personnelJudgmentConcept) ||
+    (arabicPersonConcept && arabicPersonnelJudgmentConcept) ||
+    projectProgressJudgment
+  ) {
+    return true;
+  }
   return [
     /\b(?:suggested|recommended|predicted|performance|employee|manager)\s+(?:rating|grade)\b/iu,
     /\b(?:rating|grade)\s*(?:of\s+|is\s+|[:=]\s*)?[1-5](?:\s*(?:\/|out\s+of)\s*5)?\b/iu,
@@ -502,74 +499,35 @@ function containsProhibitedJudgment(value: string): boolean {
 }
 
 function containsAutomaticValidityClaim(value: string): boolean {
-  return semanticSegments(value).some(containsAutomaticValidityClaimSegment);
-}
-
-function containsAutomaticValidityClaimSegment(normalized: string): boolean {
-  if (
-    [
-      /\b(?:not|cannot|can't|unable|insufficient|missing|no)\b.{0,70}\b(?:valid|validity|validated|proven|scientifically sound)\b/iu,
-      /\b(?:evidence|information|data)\b.{0,50}\b(?:validity|valid|validation)\b.{0,40}\b(?:missing|insufficient|unknown|required|needed)\b/iu,
-      /\b(?:validity|valid|validation)\b.{0,50}\b(?:cannot|can't|not possible|unknown|uncertain|unverified|undetermined)\b/iu,
-      /(?:لا|لم|لن|غير|تعذر|لا يمكن).{0,70}(?:صالح|صالحة|مثبت|مثبتة|معتمد|معتمدة|صحيح|صحيحة)/iu,
-      /(?:دليل|ادلة|بيانات|معلومات).{0,50}(?:الصلاحية|الصحة).{0,40}(?:ناقص|ناقصة|مفقود|مفقودة|غير كاف)/iu,
-    ].some((pattern) => pattern.test(normalized))
-  ) {
-    return false;
-  }
+  const normalized = normalizeSemanticText(value);
   return [
-    /\b(?:method|design|experiment)\b.{0,60}\b(?:appears?|seems?|is|was|has been|was)\b.{0,20}\b(?:scientifically\s+)?(?:valid|validated|proven|approved|ready|sound|guaranteed)\b/iu,
-    /\b(?:method|design|experiment)\b.{0,40}\b(?:validated|proven|approved|guaranteed)\b/iu,
-    /\b(?:validated|proven|approved|scientifically sound)\b.{0,40}\b(?:method|design|experiment)\b/iu,
-    /(?:الطريقة|المنهج|التصميم|التجربة).{0,40}(?:صالح|صالحة|مثبت|مثبتة|معتمد|معتمدة|صحيح|صحيحة|ناجح|ناجحة|مضمون|مضمونة)/iu,
+    /\b(?:valid|validity|validate|validated|validation|sound|soundness|scientific standards?|proven|proof|approved|ready|guaranteed)\b/iu,
+    /(?:صالح|صالحة|صلاحية|صحيح|صحيحة|صحة|مثبت|مثبتة|اثبات|معتمد|معتمدة|جاهز|جاهزة|مضمون|مضمونة|معايير علمية)/iu,
   ].some((pattern) => pattern.test(normalized));
 }
 
 function containsUnsupportedPositiveRunConclusion(value: string): boolean {
-  return semanticSegments(value).some(containsUnsupportedPositiveRunConclusionSegment);
-}
-
-function containsUnsupportedPositiveRunConclusionSegment(normalized: string): boolean {
-  if (
-    [
-      /\b(?:no|not|never|cannot|can't|did not|does not|without|insufficient|unable|unknown|unconfirmed)\b.{0,80}\b(?:confirm|confirmed|prove|proven|demonstrate|support|successful|success|positive result|project (?:benefit|outcome)|hypothesis)\b/iu,
-      /\b(?:confirm|prove|demonstrate|support)\b.{0,60}\b(?:cannot|can't|not possible|insufficient|unknown|uncertain|unconfirmed)\b/iu,
-      /(?:لا|لم|لن|غير|تعذر|لا يمكن).{0,80}(?:يثبت|مثبت|يؤكد|مؤكد|نجح|ناجح|فائدة|نتيجة ايجابية|الفرضية)/iu,
-    ].some((pattern) => pattern.test(normalized))
-  ) {
-    return false;
-  }
+  const normalized = normalizeSemanticText(value);
   return [
-    /\b(?:run|result|experiment)\b.{0,60}\b(?:confirms?|confirmed|proves?|proven|demonstrates?|supports?|succeeded|successful|success)\b/iu,
-    /\b(?:confirms?|confirmed|proves?|proven|demonstrates?|supports?)\b.{0,60}\b(?:hypothesis|project (?:benefit|outcome)|positive (?:result|outcome))\b/iu,
-    /\b(?:hypothesis|project (?:benefit|outcome)|positive (?:result|outcome))\b.{0,60}\b(?:is|was|has been)?\s*(?:confirmed|proven|demonstrated|supported|successful)\b/iu,
-    /\bproceed\b.{0,40}\b(?:as|because|result|hypothesis)?\b.{0,20}\b(?:confirmed|proven|successful|success)\b/iu,
-    /(?:التجربة|التشغيل|النتيجة).{0,50}(?:يثبت|يؤكد|نجح|ناجح|مثبت|مؤكد)/iu,
-    /(?:يثبت|يؤكد|مثبت|مؤكد).{0,50}(?:الفرضية|فائدة المشروع|نتيجة المشروع|النتيجة الايجابية)/iu,
+    /\b(?:confirm\w*|prov(?:e|es|ed|en|ing)|proof|verif\w*|demonstrat\w*|support\w*|success\w*|succeed\w*|held)\b/iu,
+    /\bproceed\b.{0,40}\b(?:confirmed|proven|successful|success)\b/iu,
+    /(?:يثبت|اثبت|مثبت|تاكد|يوكد|توكد|موكد|تحقق|نجح|ناجح|نجاح|ثبتت|ثابت)/iu,
   ].some((pattern) => pattern.test(normalized));
 }
 
 function containsUnsupportedDefinitiveProjectClaim(value: string): boolean {
-  return semanticSegments(value).some(containsUnsupportedDefinitiveProjectClaimSegment);
-}
-
-function containsUnsupportedDefinitiveProjectClaimSegment(normalized: string): boolean {
-  if (
-    [
-      /\b(?:may|might|could|can potentially|possible|potential|uncertain|unknown|requires? (?:an? )?(?:test|experiment)|reports?|reported|claims?|claimed)\b/iu,
-      /\b(?:not|never|cannot|can't|has not|have not|is not|was not)\b.{0,80}\b(?:demonstrated|proven|confirmed|guaranteed|project (?:benefit|outcome))\b/iu,
-      /(?:قد|ربما|محتمل|ممكن|يذكر|يشير|يدعي|غير مؤكد|غير معروف|يتطلب).{0,80}(?:فائدة|نتيجة|المشروع|نسبة)/iu,
-      /(?:لا|لم|لن|غير|تعذر|لا يمكن).{0,80}(?:يثبت|مثبت|يؤكد|مؤكد|يضمن|فائدة المشروع|نتيجة المشروع)/iu,
-    ].some((pattern) => pattern.test(normalized))
-  ) {
-    return false;
-  }
-  return [
-    /\b(?:source|paper|repository|approach|method)\b.{0,70}\b(?:proves?|confirms?|guarantees?|delivers?|achieves?|causes?)\b.{0,70}(?:\bproject\s+(?:benefit|outcome)\b|\b\d+(?:\.\d+)?\s*%)/iu,
-    /\b(?:source|paper|repository|approach|method)\b.{0,70}\b(?:proves?|confirms?|guarantees?)\b.{0,70}\bproject\b/iu,
-    /(?:\bproject\s+(?:benefit|outcome)\b|\b\d+(?:\.\d+)?\s*%).{0,60}\b(?:is|was|has been)?\s*(?:proven|confirmed|guaranteed|caused|delivered|achieved)\b/iu,
-    /(?:المصدر|الورقة|المستودع|الطريقة|المنهج).{0,70}(?:يثبت|يؤكد|يضمن|يحقق).{0,70}(?:فائدة المشروع|نتيجة المشروع|\d+(?:\.\d+)?\s*%)/iu,
-  ].some((pattern) => pattern.test(normalized));
+  const normalized = normalizeSemanticText(value);
+  const projectConcept = /\bproject\b/iu.test(normalized) || /المشروع/iu.test(normalized);
+  const benefitConcept =
+    /\b(?:benefit|outcome|impact|improv\w*|increase\w*|reduc\w*)\b/iu.test(normalized) ||
+    /(?:فائد|فايد|نتيج|اثر|تحسن|تحسين|يحسن|زيادة|خفض)/iu.test(normalized);
+  if (!projectConcept || !benefitConcept) return false;
+  const definitiveConcept =
+    /\b(?:guarantee\w*|prov(?:e|es|ed|en|ing)|proof|confirm\w*|demonstrat\w*|deliver\w*|achiev\w*|caus\w*|will)\b/iu.test(
+      normalized,
+    ) || /(?:يثبت|اثبت|مثبت|يوكد|توكد|موكد|يضمن|يحقق|سوف|سيحسن)/iu.test(normalized);
+  const quantifiedConcept = /(?:\d+(?:\.\d+)?\s*%|\b\d+(?:\.\d+)?\s*percent\b)/iu.test(normalized);
+  return definitiveConcept || quantifiedConcept;
 }
 
 function normalizeSemanticText(value: string): string {
@@ -582,14 +540,8 @@ function normalizeSemanticText(value: string): string {
     .replace(/ؤ/gu, "و")
     .replace(/ئ/gu, "ي")
     .replace(/[٠-٩]/gu, (digit) => String(easternArabicDigits.indexOf(digit)))
+    .replace(/٪/gu, "%")
     .toLowerCase();
-}
-
-function semanticSegments(value: string): string[] {
-  return normalizeSemanticText(value)
-    .split(/[\n.!?;,،؛؟]+/u)
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
 }
 
 function safeSerialize(value: unknown): string {

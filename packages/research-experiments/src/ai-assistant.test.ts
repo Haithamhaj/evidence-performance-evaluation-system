@@ -44,7 +44,7 @@ const outputReference = "research-source-review:99999999-9999-4999-8999-99999999
 const output = {
   schemaVersion: "research-source-review-output.v1",
   summary: "The retrieved README describes a bounded retrieval approach.",
-  relevance: "It may inform a Project experiment; benefit is not yet demonstrated.",
+  relevance: "It may inform a Project experiment; possible benefit requires verification.",
   citations: [{ sourceReference: source, locator: "README#retrieval" }],
   benefits: ["Could provide one alternative to compare."],
   risks: ["The source conditions differ from the Project."],
@@ -282,7 +282,7 @@ describe("ResearchAiAssistant", () => {
         supportedFindings: [
           { claim: "One source uses a bounded input.", sourceReferences: [source] },
         ],
-        unsupportedClaims: ["Project benefit is not demonstrated."],
+        unsupportedClaims: ["Possible Project benefit requires verification."],
         missingAlternatives: ["The current baseline is missing."],
         remainingUncertainty: ["Transfer remains unknown."],
         possibleDecisionPaths: ["Prepare a bounded Experiment."],

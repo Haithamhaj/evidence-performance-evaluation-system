@@ -157,7 +157,7 @@
       "resultStatus": "FAILED",
       "summary": "The named run failed before producing the intended observation.",
       "observations": [],
-      "limitations": ["No hypothesis or Project outcome can be confirmed from this failed run."],
+      "limitations": ["Evidence from this failed run is insufficient and inconclusive."],
       "possibleDecisionPaths": ["Correct the environment and record a new immutable run."],
       "uncertainties": ["The cause of the timeout remains unknown."],
       "sourceReferences": ["experiment-run:70000007"],

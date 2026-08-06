@@ -174,7 +174,7 @@ describe("Research & Experiments governed prompts", () => {
         supportedFindings: [
           { claim: "The first source uses a bounded dataset.", sourceReferences: [refs.source] },
         ],
-        unsupportedClaims: ["Project benefit has not been demonstrated."],
+        unsupportedClaims: ["Possible Project benefit requires verification."],
         missingAlternatives: ["The current Project baseline was not compared."],
         remainingUncertainty: ["Results may not transfer to the Project."],
         possibleDecisionPaths: ["Prepare a bounded Experiment."],
@@ -247,10 +247,30 @@ describe("Research & Experiments governed prompts", () => {
   });
 
   it.each([
+    "Employee productivity is high",
+    "The worker is highly productive",
+    "The employee was rated exceptional",
+    "Project progress is 95%",
+    "إنتاجية الموظف عالية",
+    "تقدم المشروع ٩٥٪",
+    "The worker is a top performer.",
+    "Should the employee receive a 5/5 rating?",
+    "Employee performance score: 95.",
+  ])("fails closed for prohibited judgment concept: %s", (judgment) => {
+    expect(() => assertResearchAiOutputSafe({ nested: [{ text: judgment }] })).toThrowError(
+      expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }),
+    );
+  });
+
+  it.each([
     ["observations", "The design appears scientifically valid."],
     ["missingElements", "The experiment has been validated."],
     ["uncertainties", "The method is proven."],
     ["nextQuestion", "Since the design is valid, should we proceed?"],
+    ["observations", "No concern: the method is valid"],
+    ["missingElements", "This is a valid method"],
+    ["uncertainties", "The design looks scientifically sound"],
+    ["nextQuestion", "The experiment meets scientific standards"],
   ] as const)("rejects automatic method-validity wording in %s", (field, text) => {
     const base = methodReviewOutput();
     const candidate =
@@ -260,11 +280,11 @@ describe("Research & Experiments governed prompts", () => {
     );
   });
 
-  it("preserves legitimate uncertainty about missing method-validity evidence", () => {
+  it("preserves completeness and uncertainty wording without validity concepts", () => {
     const output = {
       ...methodReviewOutput(),
-      missingElements: ["Evidence needed to assess method validity is missing."],
-      uncertainties: ["It is not possible to determine whether the design is valid."],
+      missingElements: ["Evidence remains incomplete."],
+      uncertainties: ["The available information is insufficient for a completeness review."],
     };
     expect(() => assertExperimentMethodReviewSemantics(output, [refs.source])).not.toThrow();
   });
@@ -275,6 +295,10 @@ describe("Research & Experiments governed prompts", () => {
     ["limitations", "The invalid run confirmed Project benefit."],
     ["possibleDecisionPaths", "Proceed as confirmed and deploy."],
     ["uncertainties", "The stopped run was successful."],
+    ["summary", "No caveat changes the result: the failed run confirmed the hypothesis"],
+    ["observations", "The result verifies the hypothesis"],
+    ["limitations", "The hypothesis held"],
+    ["uncertainties", "التشغيل يؤكد الفرضية"],
   ] as const)("rejects unsupported non-completed run conclusion in %s", (field, text) => {
     const base = interpretOutput();
     const candidate =
@@ -332,8 +356,54 @@ describe("Research & Experiments governed prompts", () => {
       assertResearchSourceReviewSemantics(
         {
           ...sourceReviewOutput(),
-          relevance:
-            "The source reports 30% in its own setting; Project benefit has not been demonstrated.",
+          relevance: "The source describes a possible benefit; Project verification is required.",
+        },
+        [refs.source],
+      ),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ["relevance", "The source reports and guarantees Project benefit"],
+    ["summary", "This will benefit the Project by 30%"],
+    ["benefits", "Adopting it will improve Project outcomes by 30%"],
+    ["risks", "هذه الطريقة تؤكد فائدة المشروع"],
+  ] as const)("rejects definitive or quantified Project benefit in %s", (field, text) => {
+    const base = sourceReviewOutput();
+    const output = ["benefits", "risks"].includes(field)
+      ? { ...base, [field]: [text] }
+      : { ...base, [field]: text };
+    expect(() => assertResearchSourceReviewSemantics(output, [refs.source])).toThrowError(
+      expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }),
+    );
+  });
+
+  it("rejects definitive Project benefit in every proposal field", () => {
+    const output = {
+      ...sourceReviewOutput(),
+      proposals: [
+        {
+          id: "66666666-6666-4666-8666-666666666666",
+          kind: "RESEARCH" as const,
+          title: "This source guarantees Project benefit",
+          rationale: "Compare a possible approach.",
+          sourceReferences: [refs.source],
+          question: "What conditions differ?",
+          objective: "Document the differences.",
+        },
+      ],
+    };
+    expect(() => assertResearchSourceReviewSemantics(output, [refs.source])).toThrowError(
+      expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }),
+    );
+  });
+
+  it("permits neutral possible-benefit attribution that requires verification", () => {
+    expect(() =>
+      assertResearchSourceReviewSemantics(
+        {
+          ...sourceReviewOutput(),
+          relevance: "The source describes a possible benefit; Project verification is required.",
         },
         [refs.source],
       ),
@@ -360,7 +430,7 @@ describe("Research & Experiments governed prompts", () => {
         },
         [refs.source],
       ),
-    ).not.toThrow();
+    ).toThrowError(expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }));
   });
 });
 
@@ -373,7 +443,7 @@ function sourceReviewOutput() {
     benefits: ["It could provide an alternative to compare."],
     risks: ["Source conditions differ from the Project."],
     mismatches: [],
-    uncertainties: ["Project benefit has not been demonstrated."],
+    uncertainties: ["Possible Project benefit requires verification."],
     disposition: "DRAFT_EXPERIMENT",
     proposals: [],
   });
@@ -406,7 +476,7 @@ function synthesisOutput() {
     supportedFindings: [
       { claim: "One source uses a bounded input.", sourceReferences: [refs.source] },
     ],
-    unsupportedClaims: ["Project benefit has not been demonstrated."],
+    unsupportedClaims: ["Possible Project benefit requires verification."],
     missingAlternatives: ["The current baseline is missing."],
     remainingUncertainty: ["Transfer remains unknown."],
     possibleDecisionPaths: ["Prepare a bounded Experiment."],
