@@ -333,6 +333,7 @@ export function queryTimelineRows(
         ON workstream.id = contract."workstreamId"
     ) activity
     WHERE activity."projectId" = ${input.projectId}::uuid
+      AND activity."reviewState" <> 'ai_draft'
       AND (
         ${input.workstreamId}::uuid IS NULL
         OR activity."workstreamId" = ${input.workstreamId}::uuid

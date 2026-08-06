@@ -10,6 +10,7 @@ import {
 } from "@evaluation/projects";
 import { PrivateInboxQueryService, WorkItemQueryService } from "@evaluation/work-items";
 import { CheckInService } from "@evaluation/updates-evidence";
+import { ResearchReadinessReader } from "@evaluation/research-experiments";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
@@ -93,7 +94,7 @@ Module({
     {
       provide: ReadinessQueryService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
-        createDatabaseReadinessQueryService(client),
+        createDatabaseReadinessQueryService(client, new ResearchReadinessReader(client)),
       inject: [DAILY_WORK_DATABASE],
     },
     {

@@ -7,6 +7,7 @@ import { AppError } from "@evaluation/contracts";
 import { parseDocumentRuntimeConfig, S3PrivateStorage } from "@evaluation/documents";
 import { createDatabaseClient } from "@evaluation/database";
 import { DatabaseGitHubGovernedSourceReader } from "@evaluation/github-integration";
+import { ResearchTimelineReader } from "@evaluation/research-experiments";
 import {
   ActivityReader,
   AiRouterUpdateStructurer,
@@ -155,7 +156,8 @@ Module({
     },
     {
       provide: ActivityReader,
-      useFactory: (client: ReturnType<typeof createDatabaseClient>) => new ActivityReader(client),
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new ActivityReader(client, new ResearchTimelineReader(client)),
       inject: [UPDATES_EVIDENCE_DATABASE],
     },
     {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { EvaluationFactViewSchema } from "./evaluation-fact-view.js";
+
 import {
   ConcludeExperimentInputSchema,
   ExperimentDetailSchema,
@@ -43,6 +45,58 @@ const aiProvenance = {
 } as const;
 
 describe("Research & Experiments contracts", () => {
+  it("keeps Research Fact View v2 source-supported and neutral", () => {
+    const sourceId = crypto.randomUUID();
+    const view = EvaluationFactViewSchema.parse({
+      schemaVersion: 2,
+      cycle: {
+        id: crypto.randomUUID(),
+        startsAt: "2026-08-01T00:00:00.000Z",
+        endsAt: "2026-08-31T23:59:59.999Z",
+        rubricVersionId: crypto.randomUUID(),
+      },
+      subjectEmployeeId: crypto.randomUUID(),
+      generatedAt: "2026-09-01T00:00:00.000Z",
+      responsibilityWindows: [],
+      projectFacts: [],
+      confirmedEvidence: [],
+      checkInFacts: [],
+      dynamicCriteriaVersions: [],
+      employeeInterpretations: [],
+      sourceCoverageNotes: [],
+      researchFacts: [
+        {
+          kind: "source_fact",
+          sourceType: "research",
+          factType: "experiment_conclusion",
+          sourceId,
+          sourceOccurredAt: "2026-08-15T10:00:00.000Z",
+          projectId: crypto.randomUUID(),
+          workstreamId: null,
+          relatedWorkItemId: null,
+          humanConfirmationState: "human_decision",
+          verificationState: "source_supported",
+          responsibilityWindowIds: [],
+          summary: "The result was confirmed.",
+          limitations: ["Bounded sample"],
+          uncertainty: null,
+          sourceReferences: [
+            {
+              sourceType: "experiment_conclusion",
+              sourceId,
+              sourceVersion: null,
+              occurredAt: "2026-08-15T10:00:00.000Z",
+              url: null,
+            },
+          ],
+        },
+      ],
+    });
+    expect(view.schemaVersion).toBe(2);
+    expect(view.researchFacts[0]?.factType).toBe("experiment_conclusion");
+    expect(Object.keys(view)).toContain("researchFacts");
+  });
+
   it("preserves the approved research, experiment, and source-review lifecycles", () => {
     expect(ResearchStateSchema.options).toEqual([
       "DRAFT",

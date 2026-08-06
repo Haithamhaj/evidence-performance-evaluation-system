@@ -4,6 +4,17 @@ import { CheckInService } from "@evaluation/updates-evidence";
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 
 export type MonthlyReadinessGapKind = "silent_active_scope" | "artifact_criterion_without_source";
+export type ResearchReadinessActionCode =
+  import("@evaluation/research-experiments").ResearchReadinessActionCode;
+
+export interface ResearchReadinessSource {
+  readEmployeeProjectGaps(input: {
+    employeeId: string;
+    projectId: string;
+    startsAt: string;
+    endsAt: string;
+  }): Promise<readonly import("@evaluation/research-experiments").ResearchReadinessGap[]>;
+}
 
 type Project = Readonly<{ id: string; name: string }>;
 type Scope = Readonly<{
@@ -37,9 +48,11 @@ export interface ReadinessQuerySource {
 
 export class ReadinessQueryService {
   private readonly source: ReadinessQuerySource;
+  private readonly research: ResearchReadinessSource | null;
 
-  constructor(source: ReadinessQuerySource) {
+  constructor(source: ReadinessQuerySource, research: ResearchReadinessSource | null = null) {
     this.source = source;
+    this.research = research;
   }
 
   async employeeProjectMonth(employeeId: string, projectId: string, at = new Date()) {
@@ -53,7 +66,7 @@ export class ReadinessQueryService {
     const substantive = new Set(source.substantiveScopeIds);
     const evidence = new Set(source.evidenceScopeIds);
     const artifactRequired = new Set(source.artifactRequiredScopeIds);
-    const gaps = source.scopes.flatMap((scope) => {
+    const operationalGaps = source.scopes.flatMap((scope) => {
       const result: Array<{
         kind: MonthlyReadinessGapKind;
         scopeId: string;
@@ -81,6 +94,33 @@ export class ReadinessQueryService {
       }
       return result;
     });
+    const researchGaps =
+      this.research === null
+        ? []
+        : (
+            await this.research.readEmployeeProjectGaps({
+              employeeId,
+              projectId,
+              startsAt: month.startsAt.toISOString(),
+              endsAt: month.endsAt.toISOString(),
+            })
+          ).map((gap) => ({
+            kind: gap.actionCode,
+            scopeId: gap.workstreamId ?? gap.projectId,
+            scopeKind: gap.workstreamId === null ? ("project" as const) : ("workstream" as const),
+            scopeName:
+              gap.workstreamId === null
+                ? source.project.name
+                : (source.scopes.find(
+                    (scope) =>
+                      scope.id === `workstream:${gap.workstreamId}` ||
+                      scope.id === gap.workstreamId,
+                  )?.name ?? source.project.name),
+            correctiveAction: gap.actionCode,
+            researchId: gap.researchId,
+            experimentId: gap.experimentId,
+          }));
+    const gaps = [...operationalGaps, ...researchGaps];
     return {
       project: source.project,
       month: month.key,
@@ -168,8 +208,11 @@ export function createDatabaseCheckInService(
   );
 }
 
-export function createDatabaseReadinessQueryService(client: DatabaseClient) {
-  return new ReadinessQueryService(new DatabaseReadinessSource(client));
+export function createDatabaseReadinessQueryService(
+  client: DatabaseClient,
+  research: ResearchReadinessSource | null = null,
+) {
+  return new ReadinessQueryService(new DatabaseReadinessSource(client), research);
 }
 
 class DatabaseReadinessSource implements ReadinessQuerySource {

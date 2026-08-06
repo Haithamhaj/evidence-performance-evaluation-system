@@ -5,16 +5,24 @@ import {
   UpdateComparisonSchema,
   UpdateResultCardSchema,
 } from "@evaluation/contracts";
+import { z } from "zod";
 
 import { prepareTimeline } from "./timeline-prepare.js";
+import {
+  decodeTimelineCursor,
+  encodeTimelineCursor,
+  itemFollowsCursor,
+} from "./timeline-cursor.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 
 export class ActivityReader {
   private readonly client: DatabaseClient;
+  private readonly research: ResearchTimelineSourceReader | null;
 
-  constructor(client: DatabaseClient) {
+  constructor(client: DatabaseClient, research: ResearchTimelineSourceReader | null = null) {
     this.client = client;
+    this.research = research;
   }
 
   async updateReview(input: Readonly<{ actorId: string; sessionId: string }>) {
@@ -161,8 +169,57 @@ export class ActivityReader {
   }
 
   async timeline(input: unknown): Promise<import("@evaluation/contracts").TimelineResponse> {
-    return prepareTimeline(this.client, new Date(), input);
+    if (this.research === null) return prepareTimeline(this.client, new Date(), input);
+    const parsed = TimelineCompositionInputSchema.parse(input);
+    const cursor = parsed.cursor === null ? null : decodeTimelineCursor(parsed.cursor);
+    // The existing reader performs the Project authorization before Research is asked for data.
+    const existing = await prepareTimeline(this.client, new Date(), parsed);
+    const research = await this.research.readTimeline({ ...parsed, cursor });
+    const items = [...existing.items, ...research]
+      .filter((item) => cursor === null || itemFollowsCursor(item, cursor))
+      .sort(compareTimelineItems)
+      .slice(0, parsed.limit);
+    return {
+      items,
+      nextCursor:
+        items.length < parsed.limit || items.length === 0
+          ? null
+          : encodeTimelineCursor(items[items.length - 1]!),
+    };
   }
+}
+
+const TimelineCompositionInputSchema = z
+  .object({
+    actorId: z.string().uuid(),
+    projectId: z.string().uuid(),
+    workstreamId: z.string().uuid().nullable(),
+    limit: z.number().int().min(1).max(50),
+    cursor: z.string().min(1).max(1_000).nullable(),
+  })
+  .strict();
+
+export interface ResearchTimelineSourceReader {
+  readTimeline(
+    input: Readonly<{
+      actorId: string;
+      projectId: string;
+      workstreamId: string | null;
+      limit: number;
+      cursor: import("./timeline-cursor.js").TimelineCursor | null;
+    }>,
+  ): Promise<import("@evaluation/contracts").TimelineItem[]>;
+}
+
+function compareTimelineItems(
+  left: import("@evaluation/contracts").TimelineItem,
+  right: import("@evaluation/contracts").TimelineItem,
+): number {
+  return (
+    right.occurredAt.localeCompare(left.occurredAt) ||
+    right.kind.localeCompare(left.kind) ||
+    right.id.localeCompare(left.id)
+  );
 }
 
 function evidenceSourceProvenance(

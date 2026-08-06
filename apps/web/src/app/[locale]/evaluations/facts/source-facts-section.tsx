@@ -62,6 +62,16 @@ export function SourceFactsSection({ catalog, locale, view }: Properties) {
         references: fact.sourceReferences,
       })),
     },
+    {
+      key: "research",
+      rows: view.researchFacts.map((fact) => ({
+        id: fact.sourceId,
+        title: catalog[`evaluationFacts.research.${fact.factType}`],
+        detail: fact.summary,
+        occurredAt: fact.sourceOccurredAt,
+        references: fact.sourceReferences,
+      })),
+    },
   ] as const;
 
   return (

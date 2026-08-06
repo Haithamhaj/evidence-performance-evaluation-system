@@ -65,6 +65,68 @@ function criterionFact(effectiveFrom: string) {
 }
 
 describe("evaluation fact normalizer", () => {
+  it("retains Research facts as source facts and links active responsibility windows", async () => {
+    const projectId = crypto.randomUUID();
+    const windowId = crypto.randomUUID();
+    const factId = crypto.randomUUID();
+    const normalize = (await import("./index.js")).normalizeEvaluationFactSources;
+    const result = normalize(cycle, [
+      {
+        responsibilityWindows: [
+          {
+            kind: "source_fact",
+            sourceType: "responsibility_window",
+            sourceId: windowId,
+            sourceOccurredAt: "2026-07-01T00:00:00.000Z",
+            projectId,
+            workstreamId: null,
+            responsibilityType: "contributor",
+            startedAt: "2026-07-01T00:00:00.000Z",
+            endedAt: null,
+            sourceReferences: [
+              {
+                sourceType: "responsibility_window",
+                sourceId: windowId,
+                sourceVersion: null,
+                occurredAt: "2026-07-01T00:00:00.000Z",
+                url: null,
+              },
+            ],
+          },
+        ],
+        researchFacts: [
+          {
+            kind: "source_fact",
+            sourceType: "research",
+            factType: "experiment_conclusion",
+            sourceId: factId,
+            sourceOccurredAt: "2026-08-15T10:00:00.000Z",
+            projectId,
+            workstreamId: null,
+            relatedWorkItemId: null,
+            humanConfirmationState: "human_decision",
+            verificationState: "source_supported",
+            responsibilityWindowIds: [],
+            summary: "A confirmed experiment conclusion.",
+            limitations: [],
+            uncertainty: null,
+            sourceReferences: [
+              {
+                sourceType: "experiment_conclusion",
+                sourceId: factId,
+                sourceVersion: null,
+                occurredAt: "2026-08-15T10:00:00.000Z",
+                url: null,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(result.researchFacts[0]?.responsibilityWindowIds).toEqual([windowId]);
+    expect(Object.keys(result)).toContain("researchFacts");
+  });
+
   it("deduplicates the same immutable source and excludes prospective criterion versions", async () => {
     const sourceId = crypto.randomUUID();
     const duplicate = projectFact(sourceId);

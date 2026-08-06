@@ -10,7 +10,7 @@ describe("EvaluationFactView", () => {
     const sourceId = crypto.randomUUID();
     const projectId = crypto.randomUUID();
     const view = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       cycle: {
         id: crypto.randomUUID(),
         startsAt: "2026-07-01T00:00:00.000Z",
@@ -50,6 +50,33 @@ describe("EvaluationFactView", () => {
       confirmedEvidence: [],
       checkInFacts: [],
       dynamicCriteriaVersions: [],
+      researchFacts: [
+        {
+          kind: "source_fact" as const,
+          sourceType: "research" as const,
+          factType: "experiment_conclusion" as const,
+          sourceId: crypto.randomUUID(),
+          sourceOccurredAt: "2026-08-15T10:00:00.000Z",
+          projectId,
+          workstreamId: null,
+          relatedWorkItemId: null,
+          humanConfirmationState: "human_decision" as const,
+          verificationState: "source_supported" as const,
+          responsibilityWindowIds: [],
+          summary: "The bounded experiment supported the selected approach.",
+          limitations: ["Small sample"],
+          uncertainty: "Long-term behavior remains unknown.",
+          sourceReferences: [
+            {
+              sourceType: "experiment_conclusion" as const,
+              sourceId: crypto.randomUUID(),
+              sourceVersion: null,
+              occurredAt: "2026-08-15T10:00:00.000Z",
+              url: null,
+            },
+          ],
+        },
+      ],
       employeeInterpretations: [
         {
           kind: "employee_interpretation" as const,
@@ -75,6 +102,7 @@ describe("EvaluationFactView", () => {
     );
     expect(markup).toContain("Implemented the approved release flow.");
     expect(markup).toContain("The employee states that they led the release flow.");
+    expect(markup).toContain("The bounded experiment supported the selected approach.");
     expect(markup).not.toMatch(/<input|<select|<textarea|<button/iu);
   });
 });

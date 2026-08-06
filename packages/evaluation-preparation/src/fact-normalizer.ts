@@ -5,6 +5,7 @@ import {
   EmployeeInterpretationSchema,
   ProjectContributionFactSchema,
   ResponsibilityWindowFactSchema,
+  ResearchEvaluationFactSchema,
   SourceCoverageNoteSchema,
   type CheckInFact,
   type ConfirmedEvidenceFact,
@@ -13,6 +14,7 @@ import {
   type EvaluationFactView,
   type ProjectContributionFact,
   type ResponsibilityWindowFact,
+  type ResearchEvaluationFact,
   type SourceCoverageNote,
 } from "@evaluation/contracts";
 
@@ -24,6 +26,7 @@ export type EvaluationFactSourceBundle = Readonly<{
   dynamicCriteriaVersions?: readonly CriterionVersionFact[];
   employeeInterpretations?: readonly EmployeeInterpretation[];
   sourceCoverageNotes?: readonly SourceCoverageNote[];
+  researchFacts?: readonly ResearchEvaluationFact[];
 }>;
 
 export type NormalizedEvaluationFacts = Omit<
@@ -90,6 +93,21 @@ export function normalizeEvaluationFactSources(
         [...note.sourceFactIds].sort().join(","),
       ].join(":"),
   );
+  const researchFacts = uniqueFacts(
+    bundles
+      .flatMap(({ researchFacts: facts = [] }) => facts)
+      .map((fact) => ResearchEvaluationFactSchema.parse(fact)),
+  )
+    .filter(({ sourceOccurredAt }) => insideCycle(sourceOccurredAt, cycle))
+    .map((fact) => ({
+      ...fact,
+      responsibilityWindowIds: uniqueStrings([
+        ...fact.responsibilityWindowIds,
+        ...responsibilityWindows
+          .filter((window) => responsibilityAppliesToScope(window, fact))
+          .map(({ sourceId }) => sourceId),
+      ]),
+    }));
 
   return {
     responsibilityWindows,
@@ -99,6 +117,7 @@ export function normalizeEvaluationFactSources(
     dynamicCriteriaVersions,
     employeeInterpretations,
     sourceCoverageNotes,
+    researchFacts,
   };
 }
 
@@ -137,6 +156,19 @@ function compareInstant(left: string, right: string): number {
 function responsibilityApplies(
   window: ResponsibilityWindowFact,
   fact: ProjectContributionFact,
+): boolean {
+  if (window.projectId !== fact.projectId) return false;
+  if (window.workstreamId !== null && window.workstreamId !== fact.workstreamId) return false;
+  const occurredAt = Date.parse(fact.sourceOccurredAt);
+  return (
+    Date.parse(window.startedAt) <= occurredAt &&
+    (window.endedAt === null || occurredAt < Date.parse(window.endedAt))
+  );
+}
+
+function responsibilityAppliesToScope(
+  window: ResponsibilityWindowFact,
+  fact: ResearchEvaluationFact,
 ): boolean {
   if (window.projectId !== fact.projectId) return false;
   if (window.workstreamId !== null && window.workstreamId !== fact.workstreamId) return false;

@@ -25,7 +25,7 @@ const sourceReference = {
 } as const;
 
 const validFactView = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   cycle: {
     id: ids.cycle,
     startsAt: "2026-07-01T00:00:00.000Z",
@@ -115,6 +115,7 @@ const validFactView = {
       sourceReferences: [sourceReference],
     },
   ],
+  researchFacts: [],
   employeeInterpretations: [
     {
       kind: "employee_interpretation",

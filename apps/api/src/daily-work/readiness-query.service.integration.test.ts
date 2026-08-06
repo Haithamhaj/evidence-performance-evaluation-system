@@ -66,4 +66,46 @@ describe("ReadinessQueryService", () => {
       /employee|instruction|corrective|percentage|percent|rank|score|quota/iu,
     );
   });
+
+  it("composes employee-only Research actions without scoring", async () => {
+    const researchId = crypto.randomUUID();
+    const service = new ReadinessQueryService(
+      {
+        loadEmployeeMonth: vi.fn(async () => ({
+          project: { id: projectId, name: "Customer workspace" },
+          scopes: [{ id: projectScopeId, kind: "project" as const, name: "Customer workspace" }],
+          substantiveScopeIds: [projectScopeId],
+          evidenceScopeIds: [],
+          artifactRequiredScopeIds: [],
+        })),
+      },
+      {
+        readEmployeeProjectGaps: vi.fn(async () => [
+          {
+            actionCode: "RESEARCH_DECISION_MISSING" as const,
+            projectId,
+            workstreamId: null,
+            workItemId: null,
+            researchId,
+            experimentId: null,
+          },
+        ]),
+      },
+    );
+
+    const result = await service.employeeProjectMonth(
+      employeeId,
+      projectId,
+      new Date("2026-08-20"),
+    );
+
+    expect(result.gaps).toEqual([
+      expect.objectContaining({
+        kind: "RESEARCH_DECISION_MISSING",
+        correctiveAction: "RESEARCH_DECISION_MISSING",
+        researchId,
+      }),
+    ]);
+    expect(result.state).toBe("attention");
+  });
 });

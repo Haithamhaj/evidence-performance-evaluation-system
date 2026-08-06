@@ -430,7 +430,15 @@ export const TimelineResponseSchema = z
         z
           .object({
             id: UuidSchema,
-            kind: z.enum(["update", "evidence", "project_fact", "decision"]),
+            kind: z.enum([
+              "update",
+              "evidence",
+              "project_fact",
+              "decision",
+              "research",
+              "experiment",
+              "applied_learning",
+            ]),
             projectId: UuidSchema,
             workstreamId: UuidSchema.nullable(),
             workItemId: UuidSchema.nullable(),

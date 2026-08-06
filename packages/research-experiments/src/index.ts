@@ -32,11 +32,13 @@ export * from "./evidence-link-service.js";
 export * from "./experiment-invariants.js";
 export * from "./experiment-query-service.js";
 export * from "./experiment-service.js";
+export * from "./evaluation-fact-reader.js";
 export * from "./prompts.js";
 export * from "./proposal-confirmation-service.js";
 export * from "./research-invariants.js";
 export * from "./research-query-service.js";
 export * from "./research-service.js";
+export * from "./readiness-reader.js";
 export * from "./source-adapters.js";
 export * from "./source-config.js";
 export * from "./source-review-persistence.js";
@@ -49,3 +51,4 @@ export type {
   ResearchSourceTransport,
   RetrievedResearchSource,
 } from "./source-retrieval.js";
+export * from "./timeline-reader.js";

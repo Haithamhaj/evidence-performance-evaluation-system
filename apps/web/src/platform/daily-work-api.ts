@@ -109,11 +109,33 @@ export const WebMonthlyReadinessSchema = z
     gaps: z.array(
       z
         .object({
-          kind: z.enum(["silent_active_scope", "artifact_criterion_without_source"]),
+          kind: z.enum([
+            "silent_active_scope",
+            "artifact_criterion_without_source",
+            "RESEARCH_QUESTION_MISSING",
+            "EXPERIMENT_METHOD_INCOMPLETE",
+            "RUN_INTERPRETATION_MISSING",
+            "EXPERIMENT_CONCLUSION_MISSING",
+            "RESEARCH_DECISION_MISSING",
+            "APPLIED_LEARNING_UNLINKED",
+            "EVIDENCE_ATTRIBUTION_UNRESOLVED",
+          ]),
           scopeId: UuidSchema,
           scopeKind: z.enum(["project", "workstream"]),
           scopeName: z.string().trim().min(1).max(240),
-          correctiveAction: z.enum(["add_substantive_update", "attach_source"]),
+          correctiveAction: z.enum([
+            "add_substantive_update",
+            "attach_source",
+            "RESEARCH_QUESTION_MISSING",
+            "EXPERIMENT_METHOD_INCOMPLETE",
+            "RUN_INTERPRETATION_MISSING",
+            "EXPERIMENT_CONCLUSION_MISSING",
+            "RESEARCH_DECISION_MISSING",
+            "APPLIED_LEARNING_UNLINKED",
+            "EVIDENCE_ATTRIBUTION_UNRESOLVED",
+          ]),
+          researchId: UuidSchema.optional(),
+          experimentId: UuidSchema.nullable().optional(),
         })
         .strict(),
     ),
