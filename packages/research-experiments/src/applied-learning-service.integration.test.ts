@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { AppliedLearningService } from "./applied-learning-service.js";
+import { ExperimentQueryService } from "./experiment-query-service.js";
+import { ResearchQueryService } from "./research-query-service.js";
 import {
   createTask9Fixture,
   task9AuditWriter,
@@ -98,4 +100,82 @@ describe("AppliedLearningService", () => {
       task9Client.researchConclusion.count({ where: { id: fixture.ids.conclusion } }),
     ).resolves.toBe(1);
   });
+
+  it.each(["RESEARCH", "EXPERIMENT"] as const)(
+    "rejects another employee's DRAFT %s through its exact owner-domain reader",
+    async (kind) => {
+      const fixture = await createTask9Fixture();
+      const draftResearch = await task9Client.researchRecord.create({
+        data: {
+          idempotencyKey: crypto.randomUUID(),
+          projectId: fixture.ids.project,
+          ownerId: fixture.ids.assignee,
+          state: "DRAFT",
+          revisions: {
+            create: {
+              revision: 1,
+              origin: "EMPLOYEE",
+              problemStatement: "Private draft owned by another employee.",
+              context: "Must stay private.",
+              question: "Can another employee link this?",
+              objective: "Prove owner-only draft access.",
+              hypothesisKind: "NO_HYPOTHESIS",
+              noHypothesisReason: "Authorization test.",
+              assumptions: [],
+              constraints: [],
+              knownUncertainty: [],
+              alternatives: [],
+              decisionQuestion: "Reject the link?",
+              sourceReferences: [],
+              executionMode: "manual",
+              authorId: fixture.ids.assignee,
+            },
+          },
+        },
+      });
+      const draftExperiment = await task9Client.experiment.create({
+        data: {
+          researchId: draftResearch.id,
+          idempotencyKey: crypto.randomUUID(),
+          title: "Private experiment draft",
+          state: "DRAFT",
+        },
+      });
+      const researchReader = new ResearchQueryService({
+        database: task9Client,
+        authorizer: task9Authorizer,
+        clock: () => task9Now,
+      });
+      const experimentReader = new ExperimentQueryService({
+        database: task9Client,
+        authorizer: task9Authorizer,
+        clock: () => task9Now,
+      });
+      const service = new AppliedLearningService({
+        database: task9Client,
+        authorizer: task9Authorizer,
+        auditWriter: task9AuditWriter as never,
+        targetReaders: { research: researchReader, experiment: experimentReader },
+        clock: () => task9Now,
+      });
+
+      await expect(
+        service.create({
+          actor: { userId: fixture.ids.owner, active: true },
+          correlationId: crypto.randomUUID(),
+          researchId: fixture.ids.concludedResearch,
+          input: {
+            expectedVersion: 2,
+            researchConclusionId: fixture.ids.conclusion,
+            target: {
+              kind,
+              id: kind === "RESEARCH" ? draftResearch.id : draftExperiment.id,
+            },
+            whatChanged: "This private draft must not be linked.",
+            causalRationale: "Owner-domain authorization must fail closed.",
+          },
+        }),
+      ).rejects.toMatchObject({ code: "RESEARCH_APPLIED_TARGET_INVALID" });
+    },
+  );
 });

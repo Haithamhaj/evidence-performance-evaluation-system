@@ -7,6 +7,8 @@ import {
 import type { DatabaseClient, DatabaseTransaction } from "@evaluation/database";
 import { z } from "zod";
 
+const RETRACTION_EVENT_SCHEMA = "research-source-retraction.v1";
+
 export type ResearchActor = Readonly<{ userId: string; active: boolean }>;
 export type ResearchTransaction = DatabaseTransaction;
 export type ResearchAuditWriter = AuditWriterContract<ResearchTransaction>;
@@ -186,11 +188,35 @@ async function validateDecisionSources(
   const ids = references.map(sourceId);
   if (ids.some((id) => id === null) || new Set(ids).size !== ids.length) throw decisionInvalid();
   const sourceIds = ids as string[];
-  const rows = await transaction.researchSourceReference.findMany({
-    where: { researchId, id: { in: sourceIds }, state: "ACTIVE" },
-    select: { id: true },
-  });
-  if (rows.length !== sourceIds.length) throw decisionInvalid();
+  const [rows, retractionEvents] = await Promise.all([
+    transaction.researchSourceReference.findMany({
+      where: { researchId, id: { in: sourceIds }, state: "ACTIVE" },
+      select: { id: true },
+    }),
+    transaction.researchSourceReference.findMany({
+      where: { researchId, state: "RETRACTED" },
+      select: { citedLocations: true },
+    }),
+  ]);
+  const retractedPredecessors = new Set(
+    retractionEvents
+      .map(({ citedLocations }) => retractionPredecessor(citedLocations))
+      .filter((id): id is string => id !== null),
+  );
+  if (rows.length !== sourceIds.length || sourceIds.some((id) => retractedPredecessors.has(id))) {
+    throw decisionInvalid();
+  }
+}
+
+function retractionPredecessor(citedLocations: unknown): string | null {
+  if (!Array.isArray(citedLocations) || citedLocations.length !== 1) return null;
+  const marker = citedLocations[0];
+  if (typeof marker !== "object" || marker === null) return null;
+  const candidate = marker as Record<string, unknown>;
+  return candidate.schemaVersion === RETRACTION_EVENT_SCHEMA &&
+    typeof candidate.predecessorSourceReferenceId === "string"
+    ? candidate.predecessorSourceReferenceId
+    : null;
 }
 
 async function validateDecisionExperiments(

@@ -344,14 +344,14 @@ The detailed authority is
 `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md` and the current baseline is in
 `docs/product/ENGINE_FEATURE_REGISTER.md`.
 
-| Checkpoint | Scope                                                                          | Status                                                          |
-| ---------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                      |
-| E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Technical checkpoint complete locally; hosted PR checks pending |
-| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Design and detailed TDD plan approved; queued after E3          |
-| E5         | Identified upward manager evaluation, coaching, and development                | Two bounded designs and detailed TDD plans approved             |
-| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs and detailed TDD plans approved           |
-| E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6       |
+| Checkpoint | Scope                                                                          | Status                                                                                                              |
+| ---------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                                                                          |
+| E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Technical checkpoint complete locally, including real production API+PostgreSQL lifecycle; hosted PR checks pending |
+| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Design and detailed TDD plan approved; queued after E3                                                              |
+| E5         | Identified upward manager evaluation, coaching, and development                | Two bounded designs and detailed TDD plans approved                                                                 |
+| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs and detailed TDD plans approved                                                               |
+| E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6                                                           |
 
 ## T030 — Implement Activity Timeline
 

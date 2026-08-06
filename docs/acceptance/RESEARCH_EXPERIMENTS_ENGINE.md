@@ -7,7 +7,8 @@
 
 ## Outcome
 
-The bounded Research & Experiments engine is now connected end to end. An employee can submit an
+The bounded Research & Experiments engine is now connected end to end at the production API and
+PostgreSQL service boundary. An employee can submit an
 explicit GitHub, paper, documentation, or Project-document source for a citation-bound relevance
 review, reject an unsuitable proposal, confirm editable Research/Experiment proposals, record
 reproducible Experiments, retain failed or unsupported results, confirm a Research decision, link
@@ -50,9 +51,10 @@ It creates:
 It seeds no rating, rank, productivity score, Documentation Readiness percentage, source-volume
 metric, activity-volume metric, or Project progress change.
 
-## Verified journey
+## Deterministic fixture UI journey
 
-The deterministic Playwright journey proves:
+The deterministic Playwright journey verifies the bilingual interaction and fixture-backed browser
+contract. It is not the production database lifecycle test. It proves:
 
 1. the employee opens the bilingual Project Research verification route;
 2. an explicit GitHub URL returns a cited Project-relevance review;
@@ -90,10 +92,11 @@ The screenshots are technical verification evidence, not final visual acceptance
 - `docs/product/screenshots/engine/research-experiments/04-en-decision-applied-learning-facts.png`
 - `docs/product/screenshots/engine/research-experiments/05-ar-research-mobile.png`
 
-There is deliberately no fabricated screenshot for the full Experiment lifecycle. Failed Experiment,
-decision, Evidence-link, and Applied Learning records are machine-verified through authenticated API,
-Timeline, and Fact View assertions. The final frontend still needs a dedicated low-friction lifecycle
-surface.
+There is deliberately no fabricated screenshot for the full Experiment lifecycle. The browser
+assertions for the failed Experiment, decision, Evidence link, and Applied Learning use the
+deterministic acceptance fixture. A separate Nest integration test exercises the real production
+controllers, services, authorization readers, audit writer, and PostgreSQL records. The final frontend
+still needs a dedicated low-friction lifecycle surface.
 
 ## Verification evidence
 
@@ -102,17 +105,22 @@ Focused evidence collected before the full checkpoint:
 - `pnpm research:seed` — passed twice with stable counts: one Research, two Experiments, one Evidence
   link, and one Applied Learning record;
 - `pnpm exec playwright test tests/e2e/research-experiments.spec.ts` — 3 passed.
+- `apps/api/src/research-experiments/research-experiments-api-db.e2e.integration.test.ts` — passed
+  against migrated PostgreSQL using the production Research and Experiment controllers/services. It
+  creates a source-backed Research record, retains supported and failed Experiments, confirms a human
+  decision, links confirmed Evidence, records Applied Learning, and reads the resulting history back
+  through the production API. No provider credential is required.
 
 The repository-wide E3 checkpoint is recorded here after fresh execution:
 
-| Gate                    | Result                                                                 |
-| ----------------------- | ---------------------------------------------------------------------- |
-| `pnpm verify`           | Passed — 178 unit files / 1,274 tests; 25 lint/type/build packages     |
+| Gate                    | Result                                                                     |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `pnpm verify`           | Passed — 178 unit files / 1,274 tests; 25 lint/type/build packages         |
 | `pnpm test:integration` | Passed — 112 files / 726 tests; 2 files and 13 tests intentionally skipped |
-| `pnpm test:ai`          | Passed — 9 files / 181 tests; 1 intentional skip                      |
-| `pnpm db:verify`        | Passed — empty, previous snapshot, drift, rebuild; 68 DB tests        |
-| `pnpm test:e2e`         | Passed on ports 3300/3101 — 44 journeys; 4 intentional skips          |
-| `git diff --check`      | Passed                                                                 |
+| `pnpm test:ai`          | Passed — 9 files / 181 tests; 1 intentional skip                           |
+| `pnpm db:verify`        | Passed — empty, previous snapshot, drift, rebuild; 68 DB tests             |
+| `pnpm test:e2e`         | Passed on ports 3300/3101 — 44 journeys; 4 intentional skips               |
+| `git diff --check`      | Passed                                                                     |
 
 The first full integration run exposed a stale local `evaluation_test` schema whose migration ledger
 did not match its constraints. Rebuilding that test-only database from all 28 migrations removed the

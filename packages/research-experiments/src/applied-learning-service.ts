@@ -21,6 +21,16 @@ import {
 
 type ProjectReference = Readonly<{ projectId: string }>;
 type TargetReaders = Readonly<{
+  research?: Readonly<{
+    authorizeAppliedLearningTarget(
+      input: Readonly<{ actor: ResearchActor; projectId: string; researchId: string }>,
+    ): Promise<ProjectReference & Readonly<{ id: string }>>;
+  }>;
+  experiment?: Readonly<{
+    authorizeAppliedLearningTarget(
+      input: Readonly<{ actor: ResearchActor; projectId: string; experimentId: string }>,
+    ): Promise<ProjectReference & Readonly<{ id: string }>>;
+  }>;
   workItem?: Readonly<{
     authorizeProjectItem(
       input: Readonly<{
@@ -135,7 +145,9 @@ export class AppliedLearningService {
       initial.projectId,
       input.target,
       at,
-    );
+    ).catch(() => {
+      throw appliedTargetInvalid();
+    });
 
     return this.#database.$transaction(async (transaction) => {
       const root = await lockOwnedResearch(transaction, command.researchId, command.actor, at);
@@ -251,8 +263,21 @@ export class AppliedLearningService {
           })) ?? null;
         break;
       case "RESEARCH":
+        reference =
+          (await this.#targetReaders.research?.authorizeAppliedLearningTarget({
+            actor,
+            projectId,
+            researchId: target.id,
+          })) ?? null;
+        break;
       case "EXPERIMENT":
-        return null;
+        reference =
+          (await this.#targetReaders.experiment?.authorizeAppliedLearningTarget({
+            actor,
+            projectId,
+            experimentId: target.id,
+          })) ?? null;
+        break;
     }
     if (reference === null || reference.projectId !== projectId) throw appliedTargetInvalid();
     return reference;
@@ -266,6 +291,9 @@ async function validateLocalOrExternalTarget(
   external: ProjectReference | null,
 ) {
   if (target.kind === "RESEARCH") {
+    if (external?.projectId !== projectId || !("id" in external) || external.id !== target.id) {
+      throw appliedTargetInvalid();
+    }
     const row = await transaction.researchRecord.findFirst({
       where: { id: target.id, projectId },
       select: { id: true },
@@ -274,6 +302,9 @@ async function validateLocalOrExternalTarget(
     return;
   }
   if (target.kind === "EXPERIMENT") {
+    if (external?.projectId !== projectId || !("id" in external) || external.id !== target.id) {
+      throw appliedTargetInvalid();
+    }
     const row = await transaction.experiment.findFirst({
       where: { id: target.id, research: { projectId } },
       select: { id: true },

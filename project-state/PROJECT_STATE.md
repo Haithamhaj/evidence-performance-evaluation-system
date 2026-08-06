@@ -169,9 +169,13 @@ sequence and external gates.
   observations, human-confirmed conclusions and decisions, Applied Learning, confirmed Evidence/Task
   links, protected APIs, Timeline/readiness/Fact View composition, and a bilingual verification route.
 - The deterministic E3 seed is rerunnable without duplicating append-only history. The focused browser
-  checkpoint passes the source-review UI and full authenticated API lifecycle, including two Experiments,
+  checkpoint passes the source-review UI and fixture-backed browser contract, including two Experiments,
   a retained failed/`NOT_SUPPORTED` path, Evidence, Applied Learning, Timeline, Fact View, authorization
   negatives, and Arabic RTL at 390 px. This is technical verification, not final UX acceptance.
+- A separate real E3 Nest/PostgreSQL integration now exercises the production controllers, domain
+  services, exact authorization readers, audit writer, and database from source-backed Research through
+  two retained Experiments, human decision, confirmed Evidence link, Applied Learning, and API readback.
+  It requires no live provider or connector credential.
 - The E3 ownership audit is complete. The approved direction is one bounded Research & Experiments
   domain: every Research Record belongs to a Project, may optionally link a Workstream/Work Item, and
   may contain multiple versioned Experiments. Existing Projects, Work Items, Documents, Updates &

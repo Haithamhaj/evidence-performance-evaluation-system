@@ -3,6 +3,8 @@ import {
   ResponsibilityWindowFactSchema,
 } from "@evaluation/contracts";
 
+const RETRACTION_EVENT_SCHEMA = "research-source-retraction.v1";
+
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type EvaluationSourceReadInput = Readonly<{
   cycleId: string;
@@ -45,7 +47,8 @@ export class ResearchEvaluationFactReader {
         },
         include: {
           revisions: { where: { origin: "EMPLOYEE" }, orderBy: { revision: "asc" } },
-          sourceReferences: { where: { state: "ACTIVE" }, orderBy: { createdAt: "asc" } },
+          sourceReferences: { orderBy: { createdAt: "asc" } },
+          participantEvents: { orderBy: [{ effectiveAt: "asc" }, { id: "asc" }] },
           experiments: {
             where: { state: { notIn: ["DRAFT", "SUPERSEDED"] } },
             include: {
@@ -70,6 +73,12 @@ export class ResearchEvaluationFactReader {
     const responsibilityWindows = (windows as any[]).map(projectWindow);
     const facts: import("@evaluation/contracts").ResearchEvaluationFact[] = [];
     for (const root of records as any[]) {
+      const retractedSourceIds = new Set(
+        (root.sourceReferences ?? [])
+          .filter(({ state }: any) => state === "RETRACTED")
+          .map(({ citedLocations }: any) => retractionPredecessor(citedLocations))
+          .filter((id: string | null): id is string => id !== null),
+      );
       for (const revision of root.revisions ?? []) {
         pushIfInside(
           facts,
@@ -86,9 +95,11 @@ export class ResearchEvaluationFactReader {
             revision.revision,
             responsibilityWindows,
           ),
+          root,
         );
       }
       for (const source of root.sourceReferences ?? []) {
+        if (source.state !== "ACTIVE" || retractedSourceIds.has(source.id)) continue;
         pushIfInside(
           facts,
           input,
@@ -105,6 +116,7 @@ export class ResearchEvaluationFactReader {
             responsibilityWindows,
             source.canonicalUrl,
           ),
+          root,
         );
       }
       for (const experiment of root.experiments ?? []) {
@@ -129,6 +141,7 @@ export class ResearchEvaluationFactReader {
               method.revision,
               responsibilityWindows,
             ),
+            root,
           );
         }
         for (const run of experiment.runs ?? []) {
@@ -147,6 +160,7 @@ export class ResearchEvaluationFactReader {
               run.sequence,
               responsibilityWindows,
             ),
+            root,
           );
         }
         for (const conclusion of experiment.conclusions ?? []) {
@@ -165,6 +179,7 @@ export class ResearchEvaluationFactReader {
               null,
               responsibilityWindows,
             ),
+            root,
           );
         }
       }
@@ -184,6 +199,7 @@ export class ResearchEvaluationFactReader {
             null,
             responsibilityWindows,
           ),
+          root,
         );
       }
       for (const learning of root.appliedLearning ?? []) {
@@ -202,6 +218,7 @@ export class ResearchEvaluationFactReader {
             null,
             responsibilityWindows,
           ),
+          root,
         );
       }
     }
@@ -305,9 +322,39 @@ function pushIfInside(
   facts: import("@evaluation/contracts").ResearchEvaluationFact[],
   input: EvaluationSourceReadInput,
   fact: import("@evaluation/contracts").ResearchEvaluationFact,
+  root: any,
 ): void {
-  if (fact.sourceOccurredAt >= input.cycleStart && fact.sourceOccurredAt <= input.cycleEnd)
+  if (
+    fact.sourceOccurredAt >= input.cycleStart &&
+    fact.sourceOccurredAt <= input.cycleEnd &&
+    isResponsibleAt(root, input.subjectEmployeeId, fact.sourceOccurredAt)
+  )
     facts.push(fact);
+}
+
+function isResponsibleAt(root: any, subjectEmployeeId: string, occurredAt: string): boolean {
+  const events = (root.participantEvents ?? []).filter(
+    (event: any) => event.employeeId === subjectEmployeeId,
+  );
+  if (events.length === 0) return root.ownerId === subjectEmployeeId;
+  const activeRoles = new Set<string>();
+  for (const event of events) {
+    if (event.effectiveAt.toISOString() > occurredAt) break;
+    if (event.action === "STARTED") activeRoles.add(event.role);
+    else if (event.action === "ENDED") activeRoles.delete(event.role);
+  }
+  return activeRoles.size > 0;
+}
+
+function retractionPredecessor(citedLocations: unknown): string | null {
+  if (!Array.isArray(citedLocations) || citedLocations.length !== 1) return null;
+  const marker = citedLocations[0];
+  if (typeof marker !== "object" || marker === null) return null;
+  const candidate = marker as Record<string, unknown>;
+  return candidate.schemaVersion === RETRACTION_EVENT_SCHEMA &&
+    typeof candidate.predecessorSourceReferenceId === "string"
+    ? candidate.predecessorSourceReferenceId
+    : null;
 }
 
 function stringArray(value: unknown): string[] {

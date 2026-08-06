@@ -2,7 +2,7 @@ import {
   createRuntimeAiRouter,
   EnvironmentAiCredentialSecretResolver,
 } from "@evaluation/ai-routing";
-import { databaseAuditWriter } from "@evaluation/audit";
+import { databaseAuditWriter, queryAuditEvents } from "@evaluation/audit";
 import { AppError } from "@evaluation/contracts";
 import { parseDocumentRuntimeConfig, S3PrivateStorage } from "@evaluation/documents";
 import { createDatabaseClient } from "@evaluation/database";
@@ -157,7 +157,10 @@ Module({
     {
       provide: ActivityReader,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
-        new ActivityReader(client, new ResearchTimelineReader(client)),
+        new ActivityReader(
+          client,
+          new ResearchTimelineReader(client, new AuditExperimentTransitionHistoryReader(client)),
+        ),
       inject: [UPDATES_EVIDENCE_DATABASE],
     },
     {
@@ -170,3 +173,65 @@ Module({
     UpdatesEvidencePolicyGuard,
   ],
 })(UpdatesEvidenceModule);
+
+class AuditExperimentTransitionHistoryReader {
+  readonly #database: ReturnType<typeof createDatabaseClient>;
+
+  constructor(database: ReturnType<typeof createDatabaseClient>) {
+    this.#database = database;
+  }
+
+  async readTransitions(input: Readonly<{ projectId: string; limit: number }>) {
+    const eventStates = [
+      ["experiment.ready", "READY"],
+      ["experiment.running", "RUNNING"],
+      ["experiment.run_recorded", "RESULT_RECORDED"],
+      ["experiment.concluded", "CONCLUDED"],
+      ["experiment.abandoned", "ABANDONED"],
+      ["experiment.superseded", "SUPERSEDED"],
+    ] as const;
+    const pages = await Promise.all(
+      eventStates.map(async ([eventType, toState]) => ({
+        toState,
+        page: await queryAuditEvents(this.#database, {
+          eventType,
+          scopeType: "project",
+          scopeId: input.projectId,
+          targetType: "experiment",
+          limit: input.limit,
+        }),
+      })),
+    );
+    return pages
+      .flatMap(({ page, toState }) =>
+        page.items.flatMap(
+          (event): import("@evaluation/research-experiments").ExperimentTransitionHistory[] => {
+            if (event.actor.kind !== "human") return [];
+            const safeDiff = event.safeDiff;
+            if (
+              typeof safeDiff !== "object" ||
+              safeDiff === null ||
+              (safeDiff as Record<string, unknown>).toState !== toState
+            ) {
+              return [];
+            }
+            return [
+              {
+                id: event.id,
+                experimentId: event.targetId,
+                actorId: event.actor.id,
+                toState,
+                reason: event.reason,
+                occurredAt: event.createdAt,
+              },
+            ];
+          },
+        ),
+      )
+      .sort(
+        (left, right) =>
+          right.occurredAt.localeCompare(left.occurredAt) || right.id.localeCompare(left.id),
+      )
+      .slice(0, input.limit);
+  }
+}

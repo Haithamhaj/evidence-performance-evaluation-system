@@ -19,35 +19,35 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 
 ## Employee capability view
 
-| Daily employee outcome                                      | Register IDs     | Baseline           | Missing dependency or constraint                               |
-| ----------------------------------------------------------- | ---------------- | ------------------ | -------------------------------------------------------------- |
-| Sign in and use the chosen language                         | CAP-001, CAP-004 | Complete / partial | Arabic evaluation remains blocked by T016                      |
-| See Needs My Action, Today, Overdue, and private capture    | CAP-013–014      | Complete           | Final frontend still intentionally absent                      |
-| Create and manage normal Tasks                              | CAP-013          | Complete           | None at engine level                                           |
-| Connect private Gmail/Calendar context                      | CAP-019          | External gate      | Production OAuth approval, admin consent, and credential vault |
-| Receive explainable Project links and confirm Task drafts   | CAP-020          | Complete           | Real context depends on CAP-019                                |
-| Add text/code/file/voice Updates with AI help               | CAP-015–016      | Complete           | Live model availability                                        |
-| Confirm Evidence and see a source-labelled Timeline         | CAP-017, CAP-022 | Complete           | Live GitHub input depends on CAP-021                           |
-| Complete only necessary Thursday check-ins/readiness action | CAP-018          | Complete           | Full leave lifecycle is pending CAP-037                        |
-| Conduct Research and Experiments as first-class work        | CAP-025–027      | Complete           | E3 technical checkpoint; final lifecycle UX remains later      |
-| Review neutral facts before self-assessment                 | CAP-024          | Complete           | Immutable cycle snapshot depends on CAP-028                    |
-| Submit self-assessment                                      | CAP-028–029      | Partial / planned  | Evaluation cycle engine and self-assessment are missing        |
-| Compare, discuss, acknowledge, or reserve                   | CAP-031          | Planned            | Depends on both submitted assessments                          |
-| Receive coaching and maintain development actions           | CAP-035–036      | Planned            | Depends on verified fact sources and human acceptance          |
-| Manage leave, handover, and return                          | CAP-037          | Planned            | Continuity domain is missing                                   |
+| Daily employee outcome                                      | Register IDs     | Baseline           | Missing dependency or constraint                                               |
+| ----------------------------------------------------------- | ---------------- | ------------------ | ------------------------------------------------------------------------------ |
+| Sign in and use the chosen language                         | CAP-001, CAP-004 | Complete / partial | Arabic evaluation remains blocked by T016                                      |
+| See Needs My Action, Today, Overdue, and private capture    | CAP-013–014      | Complete           | Final frontend still intentionally absent                                      |
+| Create and manage normal Tasks                              | CAP-013          | Complete           | None at engine level                                                           |
+| Connect private Gmail/Calendar context                      | CAP-019          | External gate      | Production OAuth approval, admin consent, and credential vault                 |
+| Receive explainable Project links and confirm Task drafts   | CAP-020          | Complete           | Real context depends on CAP-019                                                |
+| Add text/code/file/voice Updates with AI help               | CAP-015–016      | Complete           | Live model availability                                                        |
+| Confirm Evidence and see a source-labelled Timeline         | CAP-017, CAP-022 | Complete           | Live GitHub input depends on CAP-021                                           |
+| Complete only necessary Thursday check-ins/readiness action | CAP-018          | Complete           | Full leave lifecycle is pending CAP-037                                        |
+| Conduct Research and Experiments as first-class work        | CAP-025–027      | Complete           | Real production API+PostgreSQL E3 checkpoint; final lifecycle UX remains later |
+| Review neutral facts before self-assessment                 | CAP-024          | Complete           | Immutable cycle snapshot depends on CAP-028                                    |
+| Submit self-assessment                                      | CAP-028–029      | Partial / planned  | Evaluation cycle engine and self-assessment are missing                        |
+| Compare, discuss, acknowledge, or reserve                   | CAP-031          | Planned            | Depends on both submitted assessments                                          |
+| Receive coaching and maintain development actions           | CAP-035–036      | Planned            | Depends on verified fact sources and human acceptance                          |
+| Manage leave, handover, and return                          | CAP-037          | Planned            | Continuity domain is missing                                                   |
 
 ## Project and Workstream owner capability view
 
-| Owner outcome                                                 | Register IDs     | Baseline        | Missing dependency or constraint                   |
-| ------------------------------------------------------------- | ---------------- | --------------- | -------------------------------------------------- |
-| Manage Projects, Workstreams, members, and ownership          | CAP-006–007      | Complete        | None at engine level                               |
-| Maintain main documents and safe private artifacts            | CAP-008–009      | Complete        | Production object storage/ClamAV configuration     |
-| Review and activate dynamic criteria prospectively            | CAP-010          | Complete        | None at engine level                               |
-| Define and approve a measurable Progress Contract             | CAP-011          | Complete        | None at engine level                               |
-| Review honest progress and ambiguous source proposals         | CAP-012, CAP-022 | Complete        | Live GitHub/Google sources can be externally gated |
-| Confirm Project-level state without duplicating Workstreams   | CAP-018          | Complete        | Full leave exemption workflow is pending           |
-| Coordinate Research/Experiment decisions and applied learning | CAP-025–027      | Complete        | E3 technical checkpoint; no UX acceptance          |
-| Prepare delegated ownership and handover                      | CAP-037–038      | Planned/partial | E6                                                 |
+| Owner outcome                                                 | Register IDs     | Baseline        | Missing dependency or constraint                                  |
+| ------------------------------------------------------------- | ---------------- | --------------- | ----------------------------------------------------------------- |
+| Manage Projects, Workstreams, members, and ownership          | CAP-006–007      | Complete        | None at engine level                                              |
+| Maintain main documents and safe private artifacts            | CAP-008–009      | Complete        | Production object storage/ClamAV configuration                    |
+| Review and activate dynamic criteria prospectively            | CAP-010          | Complete        | None at engine level                                              |
+| Define and approve a measurable Progress Contract             | CAP-011          | Complete        | None at engine level                                              |
+| Review honest progress and ambiguous source proposals         | CAP-012, CAP-022 | Complete        | Live GitHub/Google sources can be externally gated                |
+| Confirm Project-level state without duplicating Workstreams   | CAP-018          | Complete        | Full leave exemption workflow is pending                          |
+| Coordinate Research/Experiment decisions and applied learning | CAP-025–027      | Complete        | Real production API+PostgreSQL checkpoint; no final UX acceptance |
+| Prepare delegated ownership and handover                      | CAP-037–038      | Planned/partial | E6                                                                |
 
 ## Manager capability view
 
@@ -123,7 +123,7 @@ Continuity, notifications, administration, security, recovery, and launch
 
 ## Engine capabilities with no current journey entry point
 
-- CAP-025–027 now have a technical verification entry point; the dedicated everyday lifecycle UI is intentionally deferred to the final frontend program.
+- CAP-025–027 now have a real production API+PostgreSQL lifecycle test plus a separate deterministic fixture UI checkpoint; the dedicated everyday lifecycle UI is intentionally deferred to the final frontend program.
 - CAP-028–033: complete evaluation cycle, self/manager assessment, finalization, reports, and upward manager evaluation.
 - CAP-035–039: coaching, development, leave/delegation/handover, and notifications.
 - CAP-040: most administration and configuration.

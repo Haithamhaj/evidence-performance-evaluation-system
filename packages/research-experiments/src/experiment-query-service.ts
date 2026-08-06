@@ -162,6 +162,18 @@ export class ExperimentQueryService {
     };
   }
 
+  async authorizeAppliedLearningTarget(
+    input: Readonly<{ actor: Actor; projectId: string; experimentId: string }>,
+  ): Promise<Readonly<{ id: string; projectId: string }>> {
+    const result = await this.read({ actor: input.actor, experimentId: input.experimentId }).catch(
+      () => {
+        throw forbidden();
+      },
+    );
+    if (result.detail.scope.projectId !== input.projectId) throw forbidden();
+    return { id: result.detail.id, projectId: result.detail.scope.projectId };
+  }
+
   async list(input: Readonly<{ actor: Actor; researchId: string }>): Promise<
     ReadonlyArray<{
       id: string;

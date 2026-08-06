@@ -262,6 +262,8 @@ async function createResearchRuntime(
     systemId,
   });
   const activity = new ActivityReader(database);
+  const researchQuery = new ResearchQueryService({ database, authorizer });
+  const experimentQuery = new ExperimentQueryService({ database, authorizer });
   const projectService = createProjectService(database, auditWriter);
   const workItemCommands = new WorkItemService(
     database,
@@ -272,15 +274,17 @@ async function createResearchRuntime(
   return {
     sourceReviews,
     research,
-    researchQuery: new ResearchQueryService({ database, authorizer }),
+    researchQuery,
     experiments,
-    experimentQuery: new ExperimentQueryService({ database, authorizer }),
+    experimentQuery,
     decisions: new ResearchDecisionService({ database, authorizer, auditWriter }),
     learning: new AppliedLearningService({
       database,
       authorizer,
       auditWriter,
       targetReaders: {
+        research: researchQuery,
+        experiment: experimentQuery,
         workItem: workItems,
         update: {
           getConfirmedUpdate: async ({ actor, projectId, updateId }) => {

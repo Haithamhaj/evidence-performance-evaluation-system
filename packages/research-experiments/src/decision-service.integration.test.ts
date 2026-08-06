@@ -356,4 +356,53 @@ describe("ResearchDecisionService", () => {
       task9Client.researchConclusion.count({ where: { researchId: fixture.ids.activeResearch } }),
     ).resolves.toBe(0);
   });
+
+  it("rejects an ACTIVE source whose predecessor was append-only retracted", async () => {
+    const fixture = await createTask9Fixture();
+    await task9Client.researchSourceReference.create({
+      data: {
+        researchId: fixture.ids.activeResearch,
+        kind: "PAPER",
+        title: "Retraction marker",
+        relevanceNote: "The original citation was withdrawn.",
+        credibilityNote: "Recorded as append-only history.",
+        retrievalState: "RETRIEVED",
+        citedLocations: [
+          {
+            schemaVersion: "research-source-retraction.v1",
+            predecessorSourceReferenceId: fixture.ids.source,
+          },
+        ],
+        state: "RETRACTED",
+        reason: "The cited result was withdrawn.",
+        addedById: fixture.ids.owner,
+        createdAt: new Date(task9Now.getTime() + 1),
+      },
+    });
+    const service = new ResearchDecisionService({
+      database: task9Client,
+      authorizer: task9Authorizer,
+      auditWriter: task9AuditWriter as never,
+      clock: () => task9Now,
+    });
+
+    await expect(
+      service.conclude({
+        actor: { userId: fixture.ids.owner, active: true },
+        correlationId: crypto.randomUUID(),
+        researchId: fixture.ids.activeResearch,
+        input: {
+          expectedVersion: 1,
+          synthesis: "The withdrawn source must not support this decision.",
+          answer: "Do not persist this conclusion.",
+          remainingUncertainty: [],
+          decision: "ADOPT",
+          rationale: "This should fail closed.",
+          nextAction: "Replace the withdrawn citation.",
+          sourceReferences: [`research-source:${fixture.ids.source}`],
+          experimentIds: [fixture.ids.experiment],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_DECISION_INVALID" });
+  });
 });

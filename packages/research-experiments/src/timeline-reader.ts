@@ -2,6 +2,21 @@ type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type TimelineItem = import("@evaluation/contracts").TimelineItem;
 type TimelineCursor = Readonly<{ occurredAt: string; kind: TimelineItem["kind"]; id: string }>;
 
+export type ExperimentTransitionHistory = Readonly<{
+  id: string;
+  experimentId: string;
+  actorId: string;
+  toState: "READY" | "RUNNING" | "RESULT_RECORDED" | "CONCLUDED" | "ABANDONED" | "SUPERSEDED";
+  reason: string | null;
+  occurredAt: string;
+}>;
+
+export interface ExperimentTransitionHistoryReader {
+  readTransitions(
+    input: Readonly<{ projectId: string; limit: number }>,
+  ): Promise<readonly ExperimentTransitionHistory[]>;
+}
+
 type TimelineInput = Readonly<{
   actorId: string;
   projectId: string;
@@ -13,9 +28,11 @@ type TimelineInput = Readonly<{
 /** Public Research-owned projection used by Timeline composition. It emits human-confirmed events only. */
 export class ResearchTimelineReader {
   readonly #database: DatabaseClient;
+  readonly #experimentTransitions: ExperimentTransitionHistoryReader | undefined;
 
-  constructor(database: DatabaseClient) {
+  constructor(database: DatabaseClient, experimentTransitions?: ExperimentTransitionHistoryReader) {
     this.#database = database;
+    this.#experimentTransitions = experimentTransitions;
   }
 
   async readTimeline(input: TimelineInput): Promise<TimelineItem[]> {
@@ -24,6 +41,14 @@ export class ResearchTimelineReader {
       projectId: input.projectId,
       ...(input.workstreamId === null ? {} : { workstreamId: input.workstreamId }),
     };
+    const experimentTransitionHistory =
+      (await this.#experimentTransitions?.readTransitions({
+        projectId: input.projectId,
+        limit: input.limit,
+      })) ?? [];
+    const transitionExperimentIds = [
+      ...new Set(experimentTransitionHistory.map(({ experimentId }) => experimentId)),
+    ];
     const [
       transitions,
       revisions,
@@ -53,12 +78,22 @@ export class ResearchTimelineReader {
         take: input.limit,
       }),
       callFindMany(client.experiment, {
-        where: {
-          research: scopeWhere,
-          state: {
-            in: ["READY", "RUNNING", "RESULT_RECORDED", "CONCLUDED", "ABANDONED", "SUPERSEDED"],
-          },
-        },
+        where:
+          transitionExperimentIds.length === 0
+            ? {
+                research: scopeWhere,
+                state: {
+                  in: [
+                    "READY",
+                    "RUNNING",
+                    "RESULT_RECORDED",
+                    "CONCLUDED",
+                    "ABANDONED",
+                    "SUPERSEDED",
+                  ],
+                },
+              }
+            : { id: { in: transitionExperimentIds }, research: scopeWhere },
         include: {
           research: scopeInclude(),
           workstream: { select: { id: true, name: true } },
@@ -108,6 +143,33 @@ export class ResearchTimelineReader {
         take: input.limit,
       }),
     ]);
+    const experimentsById = new Map(experiments.map((row: any) => [row.id, row]));
+    const experimentStateItems =
+      experimentTransitionHistory.length === 0
+        ? experiments.map((row: any) =>
+            experimentItem(
+              row,
+              row,
+              row.transitionedAt,
+              stateTitle("experiment", row.state),
+              row.title,
+              null,
+            ),
+          )
+        : experimentTransitionHistory.flatMap((transition) => {
+            const experiment = experimentsById.get(transition.experimentId);
+            if (experiment === undefined) return [];
+            return [
+              experimentItem(
+                transition,
+                experiment,
+                new Date(transition.occurredAt),
+                stateTitle("experiment", transition.toState),
+                transition.reason ?? experiment.title,
+                transition.actorId,
+              ),
+            ];
+          });
 
     const items: TimelineItem[] = [
       ...transitions.map((row: any) =>
@@ -130,16 +192,7 @@ export class ResearchTimelineReader {
           row.authorId,
         ),
       ),
-      ...experiments.map((row: any) =>
-        experimentItem(
-          row,
-          row,
-          row.transitionedAt,
-          stateTitle("experiment", row.state),
-          row.title,
-          null,
-        ),
-      ),
+      ...experimentStateItems,
       ...runs.map((row: any) =>
         experimentItem(
           row,
