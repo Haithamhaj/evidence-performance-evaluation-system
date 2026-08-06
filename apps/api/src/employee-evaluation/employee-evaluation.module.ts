@@ -133,6 +133,7 @@ Module({
         new EmployeeEvaluationCycleService(
           database,
           new ApiEligibilityReader(),
+          new ApiOrganizationReader(),
           databaseAuditWriter as never,
         ),
       inject: [EMPLOYEE_EVALUATION_DATABASE],
@@ -198,11 +199,11 @@ class ApiRubricReader {
   }
 }
 
-class ApiOrganizationReader {
+export class ApiOrganizationReader {
   async departmentBelongsToOrganization(
     transaction: import("@evaluation/database").DatabaseTransaction,
     input: Readonly<{ organizationId: string; departmentId: string }>,
-  ) {
+  ): Promise<boolean> {
     return (
       (await transaction.department.count({
         where: { id: input.departmentId, organizationId: input.organizationId },
@@ -211,18 +212,17 @@ class ApiOrganizationReader {
   }
 }
 
-class ApiEligibilityReader {
+export class ApiEligibilityReader {
   async readCycleEligibility(
     input: Parameters<
       import("@evaluation/employee-evaluation").EligibilitySnapshotReader["readCycleEligibility"]
     >[0],
     transaction: import("@evaluation/database").DatabaseTransaction,
-  ) {
+  ): Promise<import("@evaluation/employee-evaluation").CycleEligibilitySnapshot> {
     const snapshot = await transaction.eligibilitySnapshot.findFirst({
       where: {
         cycle: {
           departmentId: input.departmentId,
-          managerId: input.actorId,
           effectiveFrom: new Date(input.startsAt),
           effectiveTo: new Date(input.endsAt),
         },

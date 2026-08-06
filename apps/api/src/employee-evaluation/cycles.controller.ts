@@ -34,11 +34,13 @@ export class EvaluationCyclesController {
 
   open(request: EmployeeEvaluationRequest, body: unknown) {
     const principal = managerOrAdministrator(request);
-    const parsed = parseEvaluationInput(
-      OpenEmployeeEvaluationCycleInputSchema.omit({ actorId: true }),
-      body,
+    const candidate =
+      body !== null && typeof body === "object" && !Array.isArray(body)
+        ? { ...body, actorId: principal.userId }
+        : body;
+    return this.cycles.openCycle(
+      parseEvaluationInput(OpenEmployeeEvaluationCycleInputSchema, candidate),
     );
-    return this.cycles.openCycle({ ...parsed, actorId: principal.userId });
   }
 
   transition(request: EmployeeEvaluationRequest, cycleId: string, body: unknown) {

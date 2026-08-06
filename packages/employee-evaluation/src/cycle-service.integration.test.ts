@@ -6,6 +6,12 @@ import { EmployeeEvaluationCycleService } from "./cycle-service.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 const now = new Date("2026-08-06T09:00:00Z");
+const organizationReader: import("./ports.js").EvaluationOrganizationReader = {
+  departmentBelongsToOrganization: async (transaction, input) =>
+    (await transaction.department.count({
+      where: { id: input.departmentId, organizationId: input.organizationId },
+    })) === 1,
+};
 
 afterAll(async () => client.$disconnect());
 
@@ -115,6 +121,7 @@ async function fixture(options: Readonly<{ cadence?: string }> = {}) {
   const service = new EmployeeEvaluationCycleService(
     client,
     eligibilityReader,
+    organizationReader,
     databaseAuditWriter,
     () => now,
   );
@@ -131,7 +138,17 @@ async function fixture(options: Readonly<{ cadence?: string }> = {}) {
     idempotencyKey: crypto.randomUUID(),
     reason: "Open the first quarterly calibration cycle.",
   };
-  return { actor, employee, input, reads: () => reads, service, templateVersion };
+  return {
+    actor,
+    department,
+    employee,
+    input,
+    manager,
+    organization,
+    reads: () => reads,
+    service,
+    templateVersion,
+  };
 }
 
 describe("EmployeeEvaluationCycleService", () => {
@@ -201,7 +218,13 @@ describe("EmployeeEvaluationCycleService", () => {
         };
       },
     };
-    const service = new EmployeeEvaluationCycleService(client, reader, failingAudit, () => now);
+    const service = new EmployeeEvaluationCycleService(
+      client,
+      reader,
+      organizationReader,
+      failingAudit,
+      () => now,
+    );
 
     await expect(service.openCycle(input)).rejects.toThrow("audit unavailable");
     await expect(
@@ -267,6 +290,75 @@ describe("EmployeeEvaluationCycleService", () => {
     await expect(
       service.transitionCycle({ ...transition, idempotencyKey: crypto.randomUUID() }),
     ).rejects.toMatchObject({ code: "VERSION_CONFLICT" });
+  });
+
+  it.each([
+    ["SELF_ASSESSMENT", "MANAGER_ASSESSMENT", "EVALUATION_SELF_ASSESSMENT_INCOMPLETE"],
+    ["MANAGER_ASSESSMENT", "COMPARISON", "EVALUATION_MANAGER_ASSESSMENT_INCOMPLETE"],
+    ["FINALIZATION", "ACKNOWLEDGMENT", "EVALUATION_FINALIZATION_INCOMPLETE"],
+  ] as const)(
+    "rejects %s advancement while an eligible assignment is incomplete",
+    async (fromState, toState, code) => {
+      const { input, service } = await fixture();
+      const opened = await service.openCycle(input);
+      await client.employeeEvaluationCycle.update({
+        where: { id: opened.id },
+        data: { state: fromState, version: 2 },
+      });
+
+      await expect(
+        service.transitionCycle({
+          schemaVersion: 1,
+          cycleId: opened.id,
+          actorId: input.actorId,
+          fromState,
+          toState,
+          expectedVersion: 2,
+          idempotencyKey: crypto.randomUUID(),
+          reason: "Attempt to advance an incomplete eligible assignment.",
+        }),
+      ).rejects.toMatchObject({ code });
+    },
+  );
+
+  it("prohibits generic acknowledgment-to-closed transitions", async () => {
+    const { input, service } = await fixture();
+    const opened = await service.openCycle(input);
+    await client.employeeEvaluationCycle.update({
+      where: { id: opened.id },
+      data: { state: "ACKNOWLEDGMENT", version: 2 },
+    });
+
+    await expect(
+      service.transitionCycle({
+        schemaVersion: 1,
+        cycleId: opened.id,
+        actorId: input.actorId,
+        fromState: "ACKNOWLEDGMENT",
+        toState: "CLOSED",
+        expectedVersion: 2,
+        idempotencyKey: crypto.randomUUID(),
+        reason: "Generic closure must not bypass checked finalization closure.",
+      }),
+    ).rejects.toMatchObject({ code: "EVALUATION_CYCLE_TRANSITION_INVALID" });
+  });
+
+  it("rejects opening when the department belongs to another organization", async () => {
+    const { department, input, service } = await fixture();
+    const otherOrganization = await client.organization.create({
+      data: {
+        key: `evaluation-cycle-other-${crypto.randomUUID()}`,
+        name: "Other Organization",
+      },
+    });
+    await client.department.update({
+      where: { id: department.id },
+      data: { organizationId: otherOrganization.id },
+    });
+
+    await expect(service.openCycle(input)).rejects.toMatchObject({
+      code: "EVALUATION_DEPARTMENT_ORGANIZATION_MISMATCH",
+    });
   });
 
   it("rejects an active template whose frozen cadence policy is not quarterly", async () => {

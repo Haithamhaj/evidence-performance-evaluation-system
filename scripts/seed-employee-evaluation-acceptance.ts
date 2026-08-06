@@ -144,6 +144,12 @@ async function main(): Promise<void> {
     const cycles = new EmployeeEvaluationCycleService(
       database,
       eligibilityReader,
+      {
+        departmentBelongsToOrganization: async (transaction, input) =>
+          (await transaction.department.count({
+            where: { id: input.departmentId, organizationId: input.organizationId },
+          })) === 1,
+      },
       databaseAuditWriter,
       () => now,
     );

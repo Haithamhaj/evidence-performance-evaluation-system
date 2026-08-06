@@ -19,23 +19,25 @@ const NEXT_STATE: Readonly<Partial<Record<CycleState, CycleState>>> = {
   MANAGER_ASSESSMENT: "COMPARISON",
   COMPARISON: "FINALIZATION",
   FINALIZATION: "ACKNOWLEDGMENT",
-  ACKNOWLEDGMENT: "CLOSED",
 };
 
 export class EmployeeEvaluationCycleService {
   readonly #database: Database;
   readonly #eligibilityReader: import("./ports.js").EligibilitySnapshotReader;
+  readonly #organizationReader: import("./ports.js").EvaluationOrganizationReader;
   readonly #audit: Audit;
   readonly #clock: () => Date;
 
   constructor(
     database: Database,
     eligibilityReader: import("./ports.js").EligibilitySnapshotReader,
+    organizationReader: import("./ports.js").EvaluationOrganizationReader,
     audit: Audit = databaseAuditWriter as Audit,
     clock: () => Date = () => new Date(),
   ) {
     this.#database = database;
     this.#eligibilityReader = eligibilityReader;
+    this.#organizationReader = organizationReader;
     this.#audit = audit;
     this.#clock = clock;
   }
@@ -56,6 +58,15 @@ export class EmployeeEvaluationCycleService {
         return serializeCycle(duplicate);
       }
       if (parsed.expectedVersion !== 1) throw cycleError("VERSION_CONFLICT", 409);
+
+      const departmentBelongsToOrganization =
+        await this.#organizationReader.departmentBelongsToOrganization(transaction, {
+          organizationId: parsed.organizationId,
+          departmentId: parsed.departmentId,
+        });
+      if (!departmentBelongsToOrganization) {
+        throw cycleError("EVALUATION_DEPARTMENT_ORGANIZATION_MISMATCH", 409);
+      }
 
       const latest = await transaction.employeeEvaluationCycle.findFirst({
         where: { departmentId: parsed.departmentId },
@@ -205,6 +216,7 @@ export class EmployeeEvaluationCycleService {
           ? cycle.state !== "CLOSED"
           : NEXT_STATE[cycle.state] === parsed.toState;
       if (!allowed) throw cycleError("EVALUATION_CYCLE_TRANSITION_INVALID", 409);
+      await assertTransitionReadiness(transaction, cycle.id, parsed.fromState, parsed.toState);
       const advanced = await transaction.employeeEvaluationCycle.updateMany({
         where: { id: cycle.id, state: parsed.fromState, version: parsed.expectedVersion },
         data: {
@@ -601,6 +613,47 @@ function jsonObject(value: unknown): Readonly<Record<string, unknown>> {
 
 function cycleError(code: string, status = 400): AppError {
   return new AppError(code, "errors.evaluation.cycleInvalid", status);
+}
+
+async function assertTransitionReadiness(
+  transaction: Transaction,
+  cycleId: string,
+  fromState: CycleState,
+  toState: CycleState,
+): Promise<void> {
+  const requiredKind =
+    fromState === "SELF_ASSESSMENT" && toState === "MANAGER_ASSESSMENT"
+      ? "SELF"
+      : fromState === "MANAGER_ASSESSMENT" && toState === "COMPARISON"
+        ? "MANAGER_INITIAL"
+        : null;
+  const eligibleCount = await transaction.evaluationAssignment.count({
+    where: { cycleId, eligibilityState: "ELIGIBLE" },
+  });
+  if (requiredKind !== null) {
+    const submittedCount = await transaction.assessmentSubmission.count({
+      where: {
+        kind: requiredKind,
+        assignment: { cycleId, eligibilityState: "ELIGIBLE" },
+      },
+    });
+    if (submittedCount !== eligibleCount) {
+      throw cycleError(
+        requiredKind === "SELF"
+          ? "EVALUATION_SELF_ASSESSMENT_INCOMPLETE"
+          : "EVALUATION_MANAGER_ASSESSMENT_INCOMPLETE",
+        409,
+      );
+    }
+  }
+  if (fromState === "FINALIZATION" && toState === "ACKNOWLEDGMENT") {
+    const finalizedCount = await transaction.finalEvaluationSnapshot.count({
+      where: { cycleId, assignment: { eligibilityState: "ELIGIBLE" } },
+    });
+    if (finalizedCount !== eligibleCount) {
+      throw cycleError("EVALUATION_FINALIZATION_INCOMPLETE", 409);
+    }
+  }
 }
 
 async function serializable<T>(

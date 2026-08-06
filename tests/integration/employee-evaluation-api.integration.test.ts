@@ -24,6 +24,10 @@ import { EmployeeEvaluationQueryService } from "../../apps/api/src/employee-eval
 import { FinalizationController } from "../../apps/api/src/employee-evaluation/finalization.controller.js";
 import { EvaluationCyclesController } from "../../apps/api/src/employee-evaluation/cycles.controller.js";
 import { EvaluationTemplatesController } from "../../apps/api/src/employee-evaluation/templates.controller.js";
+import {
+  ApiEligibilityReader,
+  ApiOrganizationReader,
+} from "../../apps/api/src/employee-evaluation/employee-evaluation.module.js";
 
 const database = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 const employeeId = crypto.randomUUID();
@@ -34,6 +38,8 @@ const assignmentId = crypto.randomUUID();
 let app: import("@nestjs/common").INestApplication | undefined;
 let baseUrl = "";
 let templateVersionId = "";
+let organizationId = "";
+let departmentId = "";
 
 const principals = new Map([
   [employeeId, principal(employeeId)],
@@ -75,9 +81,23 @@ Module({
     { provide: AssessmentService, useValue: {} },
     { provide: EvaluationWordingService, useValue: {} },
     { provide: EvaluationDiscussionService, useValue: {} },
-    { provide: FinalizationService, useValue: {} },
+    {
+      provide: FinalizationService,
+      useValue: new FinalizationService(database, {
+        read: async () => {
+          throw new Error("Report context is not used by checked cycle closure.");
+        },
+      }),
+    },
     { provide: EvaluationReportReader, useValue: {} },
-    { provide: EmployeeEvaluationCycleService, useValue: {} },
+    {
+      provide: EmployeeEvaluationCycleService,
+      useValue: new EmployeeEvaluationCycleService(
+        database,
+        new ApiEligibilityReader(),
+        new ApiOrganizationReader(),
+      ),
+    },
     {
       provide: EvaluationTemplateService,
       useValue: { activateVersion: async () => ({ status: "ACTIVE" }) },
@@ -140,6 +160,22 @@ describe("Employee Evaluation protected production API", () => {
     ).toMatchObject({ status: 403 });
   });
 
+  it("allows the persisted system-administrator cycle authority to close after manager finalization", async () => {
+    expect(
+      await api(
+        "POST",
+        `/api/v1/employee-evaluation/assignments/${assignmentId}/closure`,
+        administratorId,
+        {
+          schemaVersion: 1,
+          expectedVersion: 1,
+          idempotencyKey: crypto.randomUUID(),
+          reason: "Close the fully manager-finalized cycle.",
+        },
+      ),
+    ).toMatchObject({ status: 201, body: { state: "CLOSED", version: 2 } });
+  });
+
   it("rejects malformed assignment identifiers without exposing an internal error", async () => {
     expect(
       await api("GET", "/api/v1/employee-evaluation/assignments/not-a-uuid", employeeId),
@@ -164,6 +200,26 @@ describe("Employee Evaluation protected production API", () => {
       ),
     ).toMatchObject({ status: 201, body: { status: "ACTIVE" } });
   });
+
+  it("lets a non-manager system administrator open a cycle with the department's frozen manager", async () => {
+    const result = await api("POST", "/api/v1/employee-evaluation/cycles", administratorId, {
+      schemaVersion: 1,
+      organizationId,
+      departmentId,
+      templateVersionId,
+      cycleType: "STANDARD",
+      startsAt: "2026-04-01T00:00:00.000Z",
+      endsAt: "2026-07-01T00:00:00.000Z",
+      expectedVersion: 1,
+      idempotencyKey: crypto.randomUUID(),
+      reason: "Open the next quarterly cycle using frozen department eligibility.",
+    });
+
+    expect(result).toMatchObject({
+      status: 201,
+      body: { assignments: [{ managerId }] },
+    });
+  });
 });
 
 async function seedAuthorizationFixture() {
@@ -178,6 +234,8 @@ async function seedAuthorizationFixture() {
       organizationId: organization.id,
     },
   });
+  organizationId = organization.id;
+  departmentId = department.id;
   const [systemScope, departmentScope] = await Promise.all([
     database.authorizationScope.create({
       data: { key: `evaluation-api-system-${suffix}`, scopeType: "system" },
@@ -245,23 +303,66 @@ async function seedAuthorizationFixture() {
       versionNumber: 1,
       ratingScale: [1, 2, 3, 4, 5],
       localeAvailability: ["en"],
-      weightPolicy: {},
-      evaluationPolicy: { cadence: "quarterly" },
+      weightPolicy: { sectionTotal: 100 },
+      evaluationPolicy: {
+        cadence: "QUARTERLY",
+        cycleOneType: "CALIBRATION_NON_BASELINE",
+      },
       createdById: administratorId,
+      status: "ACTIVE",
+      activatedById: administratorId,
+      activatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      version: 2,
     },
   });
   templateVersionId = templateVersion.id;
+  const eligibilityCycle = await database.evaluationCycle.create({
+    data: {
+      departmentId: department.id,
+      managerId,
+      version: 2,
+      visibilityMode: "identified",
+      sourceReason: "Frozen API authorization fixture.",
+      effectiveFrom: new Date("2026-04-01T00:00:00.000Z"),
+      effectiveTo: new Date("2026-07-01T00:00:00.000Z"),
+    },
+  });
+  await database.eligibilitySnapshot.create({
+    data: {
+      cycleId: eligibilityCycle.id,
+      version: 2,
+      visibilityMode: "identified",
+      sourceReason: "Frozen API authorization fixture.",
+      effectiveFrom: new Date("2026-04-01T00:00:00.000Z"),
+      effectiveTo: new Date("2026-07-01T00:00:00.000Z"),
+      entries: {
+        create: {
+          employeeId,
+          state: "active",
+          sourceReason: "Active employee in the frozen API fixture.",
+          effectiveFrom: new Date("2026-04-01T00:00:00.000Z"),
+          effectiveTo: new Date("2026-07-01T00:00:00.000Z"),
+          position: 0,
+        },
+      },
+    },
+  });
+  await database.evaluationCycle.update({
+    where: { id: eligibilityCycle.id },
+    data: { openedAt: new Date("2026-03-01T00:00:00.000Z") },
+  });
   const cycle = await database.employeeEvaluationCycle.create({
     data: {
       departmentId: department.id,
       templateVersionId: templateVersion.id,
       sequence: 1,
       cycleType: "CALIBRATION_NON_BASELINE",
-      state: "FINALIZATION",
+      state: "ACKNOWLEDGMENT",
       startsAt: new Date("2026-01-01T00:00:00.000Z"),
       endsAt: new Date("2026-04-01T00:00:00.000Z"),
-      createdById: managerId,
+      createdById: administratorId,
       idempotencyKey: crypto.randomUUID(),
+      openedAt: new Date("2026-01-01T00:00:00.000Z"),
     },
   });
   await database.evaluationAssignment.create({
@@ -273,6 +374,20 @@ async function seedAuthorizationFixture() {
       eligibilityState: "ELIGIBLE",
       eligibilityReason: "Authorization fixture",
       eligibilityEffectiveAt: new Date("2026-01-01T00:00:00.000Z"),
+    },
+  });
+  await database.finalEvaluationSnapshot.create({
+    data: {
+      assignmentId,
+      cycleId: cycle.id,
+      employeeId,
+      managerId,
+      templateVersionId: templateVersion.id,
+      cycleType: "CALIBRATION_NON_BASELINE",
+      reportSnapshot: {},
+      schemaVersion: 2,
+      finalizedAt: new Date("2026-04-02T00:00:00.000Z"),
+      idempotencyKey: crypto.randomUUID(),
     },
   });
 }

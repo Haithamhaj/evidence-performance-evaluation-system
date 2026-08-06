@@ -22,6 +22,11 @@ export type EmployeeEvaluationRequest = Readonly<{
     cycleState: import("@evaluation/contracts").EvaluationCycleState;
     access: "self" | "assigned_manager";
   }>;
+  cycleAdministrationScope?: Readonly<{
+    assignmentId: string;
+    cycleId: string;
+    departmentId: string;
+  }>;
 }>;
 
 type Database = import("@evaluation/database").DatabaseClient;
@@ -89,7 +94,9 @@ export class EmployeeEvaluationPolicyGuard {
         managerId: true,
         cycleId: true,
         version: true,
-        cycle: { select: { departmentId: true, state: true, version: true } },
+        cycle: {
+          select: { departmentId: true, state: true, version: true, createdById: true },
+        },
       },
     });
     if (assignment === null) throw forbidden();
@@ -97,6 +104,17 @@ export class EmployeeEvaluationPolicyGuard {
       if (!canConfigureDepartment(roleAssignments, assignment.cycle.departmentId)) {
         throw forbidden();
       }
+      return true;
+    }
+    if (handler === "close") {
+      if (principal.userId !== assignment.cycle.createdById) throw forbidden();
+      Object.assign(request, {
+        cycleAdministrationScope: {
+          assignmentId: assignment.id,
+          cycleId: assignment.cycleId,
+          departmentId: assignment.cycle.departmentId,
+        },
+      });
       return true;
     }
     const access =
@@ -107,7 +125,7 @@ export class EmployeeEvaluationPolicyGuard {
           : null;
     if (access === null) throw forbidden();
 
-    if (["getManagerDraft", "finalize", "close", "readDepartmentReport"].includes(handler)) {
+    if (["getManagerDraft", "finalize", "readDepartmentReport"].includes(handler)) {
       if (access !== "assigned_manager") throw forbidden();
     }
     if (["acknowledge", "readEmployeeReport"].includes(handler) && access !== "self") {

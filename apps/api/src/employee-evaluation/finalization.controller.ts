@@ -48,7 +48,7 @@ export class FinalizationController {
   }
 
   close(request: EmployeeEvaluationRequest, assignmentId: string, body: unknown) {
-    const authorized = scope(request, assignmentId);
+    const authorized = closureScope(request, assignmentId);
     const parsed = parseEvaluationInput(
       CloseEmployeeEvaluationCycleInputSchema.omit({ cycleId: true, actorId: true }),
       body,
@@ -103,6 +103,20 @@ function scope(request: EmployeeEvaluationRequest, assignmentId: string) {
     principal?.active !== true
   ) {
     throw new Error("Employee Evaluation authorization context is missing");
+  }
+  return { ...authorization, actorId: principal.userId };
+}
+
+function closureScope(request: EmployeeEvaluationRequest, assignmentId: string) {
+  const parsedId = parseEvaluationUuid(assignmentId);
+  const authorization = request.cycleAdministrationScope;
+  const principal = request.principal;
+  if (
+    authorization === undefined ||
+    authorization.assignmentId !== parsedId ||
+    principal?.active !== true
+  ) {
+    throw new Error("Employee Evaluation cycle administration context is missing");
   }
   return { ...authorization, actorId: principal.userId };
 }
