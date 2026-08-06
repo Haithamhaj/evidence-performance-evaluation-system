@@ -25,6 +25,8 @@ export type {
 } from "@evaluation/contracts";
 
 export * from "./project-context.js";
+export * from "./ai-assistant.js";
+export * from "./prompts.js";
 export * from "./source-adapters.js";
 export * from "./source-config.js";
 export { SourceRetriever } from "./source-retrieval.js";

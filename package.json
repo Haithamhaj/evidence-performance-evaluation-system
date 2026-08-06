@@ -30,6 +30,7 @@
     "db:seed": "pnpm --filter @evaluation/database db:seed",
     "db:verify": "node --env-file=.env.example scripts/verify-migrations.mjs",
     "ai:register:project-progress-contract": "tsx scripts/seed-codex-dogfood.ts --register-route",
+    "ai:register:research-experiments": "tsx scripts/register-research-experiments-ai-routes.ts",
     "ai:register:update-transcribe": "tsx scripts/register-update-transcribe-ai-route.ts",
     "dogfood:seed": "tsx scripts/seed-codex-dogfood.ts --seed",
     "dogfood:draft-contract": "tsx scripts/seed-codex-dogfood.ts --draft-contract",
