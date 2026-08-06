@@ -1,7 +1,4 @@
-import {
-  AppError,
-  ManagerEvaluationCompletionProjectionSchema,
-} from "@evaluation/contracts";
+import { AppError, ManagerEvaluationCompletionProjectionSchema } from "@evaluation/contracts";
 
 type Database = import("@evaluation/database").DatabaseClient;
 

@@ -36,15 +36,17 @@ export const ManagerEvaluationAiSummaryOutputSchema = z
   })
   .strict();
 
-export function buildManagerEvaluationSummaryRequest(input: Readonly<{
-  cycleId: string;
-  period: { startsAt: string; endsAt: string };
-  responses: ReadonlyArray<{
-    responseId: string;
-    submittedAt: string;
-    responses: ReadonlyArray<{ criterionId: string; rating: number; comment: string }>;
-  }>;
-}>) {
+export function buildManagerEvaluationSummaryRequest(
+  input: Readonly<{
+    cycleId: string;
+    period: { startsAt: string; endsAt: string };
+    responses: ReadonlyArray<{
+      responseId: string;
+      submittedAt: string;
+      responses: ReadonlyArray<{ criterionId: string; rating: number; comment: string }>;
+    }>;
+  }>,
+) {
   return {
     routeKey: MANAGER_EVALUATION_SUMMARY_ROUTE,
     inputSchemaVersion: MANAGER_EVALUATION_SUMMARY_VERSION,

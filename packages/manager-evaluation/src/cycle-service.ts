@@ -195,7 +195,8 @@ export class ManagerEvaluationCycleService {
         include: { cycle: true },
       });
       if (eligibility === null) throw failure("MANAGER_EVALUATION_ELIGIBILITY_NOT_FOUND", 404);
-      if (eligibility.cycle.state !== "OPEN") throw failure("MANAGER_EVALUATION_CYCLE_IMMUTABLE", 409);
+      if (eligibility.cycle.state !== "OPEN")
+        throw failure("MANAGER_EVALUATION_CYCLE_IMMUTABLE", 409);
       if (
         parsed.actorId !== eligibility.cycle.managerId &&
         parsed.actorId !== eligibility.cycle.createdById
@@ -296,17 +297,27 @@ function serializeCycle(cycle: any): OpenedManagerEvaluationCycle {
 }
 
 function serializeEligibility(value: any): ManagerEvaluatorEligibilityResult {
-  return { id: value.id, evaluatorId: value.evaluatorId, state: value.state, version: value.version };
+  return {
+    id: value.id,
+    evaluatorId: value.evaluatorId,
+    state: value.state,
+    version: value.version,
+  };
 }
 
-function mapState(state: import("./ports.js").FrozenEmployeeEvaluationBoundary["entries"][number]["state"]): ManagerEvaluatorEligibilityResult["state"] {
+function mapState(
+  state: import("./ports.js").FrozenEmployeeEvaluationBoundary["entries"][number]["state"],
+): ManagerEvaluatorEligibilityResult["state"] {
   if (state === "ELIGIBLE") return "ELIGIBLE_PENDING";
   if (state === "APPROVED_LEAVE") return "APPROVED_LEAVE";
   if (state === "EXCLUDED") return "EXCLUDED_BY_AUTHORIZED_MANAGER";
   return "POSTPONED";
 }
 
-async function serializable<T>(database: Database, operation: (transaction: Transaction) => Promise<T>): Promise<T> {
+async function serializable<T>(
+  database: Database,
+  operation: (transaction: Transaction) => Promise<T>,
+): Promise<T> {
   return database.$transaction(operation, { isolationLevel: "Serializable" });
 }
 

@@ -16,13 +16,15 @@ export class ManagerEvaluationSummaryService {
   readonly #timeoutMs: number;
   readonly #clock: () => Date;
 
-  constructor(dependencies: Readonly<{
-    database: Database;
-    router: import("./ports.js").ManagerSummaryRouter;
-    systemId: string;
-    timeoutMs: number;
-    clock?: () => Date;
-  }>) {
+  constructor(
+    dependencies: Readonly<{
+      database: Database;
+      router: import("./ports.js").ManagerSummaryRouter;
+      systemId: string;
+      timeoutMs: number;
+      clock?: () => Date;
+    }>,
+  ) {
     this.#database = dependencies.database;
     this.#router = dependencies.router;
     this.#systemId = dependencies.systemId;
@@ -76,7 +78,9 @@ export class ManagerEvaluationSummaryService {
         outputSchemaVersion: governed.outputSchemaVersion,
         promptTemplateVersion: governed.promptTemplateVersion,
         outputSchema: ManagerEvaluationAiSummaryOutputSchema,
-        sourceReferences: responses.map((response) => `manager-evaluation-response:${response.responseId}`),
+        sourceReferences: responses.map(
+          (response) => `manager-evaluation-response:${response.responseId}`,
+        ),
         classification: "confidential",
         timeoutMs: this.#timeoutMs,
         requiresHumanApproval: false,
@@ -84,7 +88,11 @@ export class ManagerEvaluationSummaryService {
       },
       async () => ({ outputReference: reference }),
     );
-    assertManagerSummarySemantics(result.output, responses.map(({ responseId }) => responseId), period);
+    assertManagerSummarySemantics(
+      result.output,
+      responses.map(({ responseId }) => responseId),
+      period,
+    );
     const distributions = distributionsFor(responses);
     const createdAt = this.#clock();
     const themes = result.output.themes.map((theme) => ({
@@ -113,7 +121,10 @@ export class ManagerEvaluationSummaryService {
           requestedById: input.managerId,
           createdAt,
           sources: {
-            create: responses.map((response, position) => ({ responseId: response.responseId, position })),
+            create: responses.map((response, position) => ({
+              responseId: response.responseId,
+              position,
+            })),
           },
         },
       });
@@ -137,13 +148,26 @@ export class ManagerEvaluationSummaryService {
   }
 }
 
-function distributionsFor(responses: ReadonlyArray<{ responses: ReadonlyArray<{ criterionId: string; rating: number }> }>) {
-  const criterionIds = [...new Set(responses.flatMap((response) => response.responses.map(({ criterionId }) => criterionId)))];
+function distributionsFor(
+  responses: ReadonlyArray<{ responses: ReadonlyArray<{ criterionId: string; rating: number }> }>,
+) {
+  const criterionIds = [
+    ...new Set(
+      responses.flatMap((response) => response.responses.map(({ criterionId }) => criterionId)),
+    ),
+  ];
   return criterionIds.map((criterionId) => {
-    const ratings = responses.flatMap((response) => response.responses.filter((entry) => entry.criterionId === criterionId).map(({ rating }) => rating));
+    const ratings = responses.flatMap((response) =>
+      response.responses
+        .filter((entry) => entry.criterionId === criterionId)
+        .map(({ rating }) => rating),
+    );
     return {
       criterionId,
-      buckets: ([1, 2, 3, 4, 5] as const).map((rating) => ({ rating, count: ratings.filter((value) => value === rating).length })),
+      buckets: ([1, 2, 3, 4, 5] as const).map((rating) => ({
+        rating,
+        count: ratings.filter((value) => value === rating).length,
+      })),
       totalResponses: ratings.length,
     };
   });

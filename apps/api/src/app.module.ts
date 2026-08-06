@@ -17,6 +17,7 @@ import { DailyWorkModule } from "./daily-work/daily-work.module.js";
 import { WorkItemsModule } from "./work-items/work-items.module.js";
 import { UpdatesEvidenceModule } from "./updates-evidence/updates-evidence.module.js";
 import { GitHubIntegrationModule } from "./github-integration/github-integration.module.js";
+import { ManagerEvaluationModule } from "./manager-evaluation/manager-evaluation.module.js";
 import {
   createEnvironmentReadinessProbes,
   HealthController,
@@ -42,6 +43,7 @@ Module({
     EvaluationEligibilityModule,
     EvaluationPreparationModule,
     GitHubIntegrationModule,
+    ManagerEvaluationModule,
     PermissionsModule,
     ProjectsModule,
     ResearchExperimentsModule,

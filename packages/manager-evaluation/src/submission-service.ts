@@ -24,7 +24,9 @@ export class ManagerEvaluationSubmissionService {
     this.#clock = clock;
   }
 
-  async submit(input: unknown): Promise<import("@evaluation/contracts").SubmitManagerEvaluationReceipt> {
+  async submit(
+    input: unknown,
+  ): Promise<import("@evaluation/contracts").SubmitManagerEvaluationReceipt> {
     if (
       input !== null &&
       typeof input === "object" &&
@@ -71,7 +73,11 @@ export class ManagerEvaluationSubmissionService {
         }
         if (eligibility.version !== parsed.expectedVersion) throw failure("VERSION_CONFLICT", 409);
         const cycle = eligibility.cycle;
-        if (cycle.state !== "OPEN" || cycle.visibilityMode !== "IDENTIFIED" || cycle.snapshot === null) {
+        if (
+          cycle.state !== "OPEN" ||
+          cycle.visibilityMode !== "IDENTIFIED" ||
+          cycle.snapshot === null
+        ) {
           throw failure("MANAGER_EVALUATION_CYCLE_NOT_OPEN", 409);
         }
         if (confirmedAt < cycle.startsAt || confirmedAt >= cycle.endsAt) {
@@ -139,7 +145,8 @@ export class ManagerEvaluationSubmissionService {
 }
 
 function criteria(value: unknown): Array<{ criterionId: string; commentRequired: boolean }> {
-  if (!Array.isArray(value) || value.length !== 5) throw failure("MANAGER_EVALUATION_SNAPSHOT_INVALID", 500);
+  if (!Array.isArray(value) || value.length !== 5)
+    throw failure("MANAGER_EVALUATION_SNAPSHOT_INVALID", 500);
   return value.map((entry) => {
     if (entry === null || typeof entry !== "object" || !("criterionId" in entry)) {
       throw failure("MANAGER_EVALUATION_SNAPSHOT_INVALID", 500);
@@ -160,13 +167,19 @@ function assertResponses(
     throw failure("MANAGER_EVALUATION_CRITERIA_MISMATCH", 409);
   }
   for (const response of responses) {
-    if (expected.get(response.criterionId)?.commentRequired === true && response.comment.length === 0) {
+    if (
+      expected.get(response.criterionId)?.commentRequired === true &&
+      response.comment.length === 0
+    ) {
       throw failure("MANAGER_EVALUATION_COMMENT_REQUIRED", 409);
     }
   }
 }
 
-function assertSame(value: { cycleId: string; evaluatorId: string; submittedAt: Date }, input: import("@evaluation/contracts").SubmitManagerEvaluationInput) {
+function assertSame(
+  value: { cycleId: string; evaluatorId: string; submittedAt: Date },
+  input: import("@evaluation/contracts").SubmitManagerEvaluationInput,
+) {
   if (
     value.cycleId !== input.cycleId ||
     value.evaluatorId !== input.evaluatorId ||
