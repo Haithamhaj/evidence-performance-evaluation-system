@@ -1,7 +1,7 @@
 import { gzipSync } from "node:zlib";
 import { createServer } from "node:http";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { NodeResearchSourceTransport, SourceRetriever } from "./source-retrieval.js";
 
@@ -20,12 +20,14 @@ function response(
   options: Readonly<{
     statusCode?: number;
     headers?: Readonly<Record<string, string | readonly string[] | undefined>>;
+    cancel?: () => void;
   }> = {},
 ): import("./source-retrieval.js").ResearchSourceResponse {
   return {
     statusCode: options.statusCode ?? 200,
     headers: options.headers ?? { "content-type": "text/plain; charset=utf-8" },
     body: body(value),
+    cancel: options.cancel ?? (() => undefined),
   };
 }
 
@@ -45,6 +47,55 @@ class FakeTransport {
     if (next instanceof Error) throw next;
     if (next === undefined) throw new Error("No deterministic response configured.");
     return next;
+  }
+}
+
+function loopbackTransport(port: number): import("./source-retrieval.js").ResearchSourceTransport {
+  const transport = new NodeResearchSourceTransport();
+  return {
+    async request(input) {
+      return await transport.request({
+        ...input,
+        url: new URL(
+          `http://source.invalid:${String(port)}${input.url.pathname}${input.url.search}`,
+        ),
+        pinnedAddresses: [{ address: "127.0.0.1", family: 4 }],
+      });
+    },
+  };
+}
+
+function retrieverThroughLoopback(port: number, timeoutMs: number): SourceRetriever {
+  return new SourceRetriever({
+    policy: {
+      timeoutMs,
+      maxBytes: 2_000_000,
+      maxTextChars: 120_000,
+      maxRedirects: 3,
+      allowedMimeTypes: [
+        "text/plain",
+        "text/markdown",
+        "text/html",
+        "application/json",
+        "application/pdf",
+      ],
+    },
+    resolve: async () => [{ address: GLOBAL_V4, family: 4 }],
+    transport: loopbackTransport(port),
+  });
+}
+
+async function waitForClose(closed: Promise<void>): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      closed,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error("Response socket remained open.")), 1_000);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
@@ -333,6 +384,7 @@ describe("SourceRetriever security policy", () => {
         statusCode: 200,
         headers: { "content-type": "text/plain" },
         body: slowBody,
+        cancel: () => undefined,
       },
     ]);
     const retriever = new SourceRetriever({
@@ -399,6 +451,51 @@ describe("SourceRetriever security policy", () => {
     });
   });
 
+  it.each([
+    ["https://papers.example/study.pdf", "PAPER"],
+    ["https://docs.example/guide.md", "DOCUMENT"],
+  ] as const)(
+    "does not mislabel an HTML login or challenge as retrieved content for %s",
+    async (url, sourceKind) => {
+      const transport = new FakeTransport([
+        response("<html><title>Sign in</title><body>Authentication required</body></html>", {
+          headers: { "content-type": "text/html" },
+        }),
+      ]);
+
+      await expect(
+        createRetriever({ transport }).retriever.retrieve({ url }),
+      ).resolves.toMatchObject({
+        state: "BLOCKED",
+        sourceKind,
+        mimeType: "text/html",
+        text: null,
+        reason: "EXPECTED_DOCUMENT_RECEIVED_HTML",
+        recoveryOptions: ["UPLOAD_DOCUMENT", "ADD_MANUAL_CITATION"],
+      });
+    },
+  );
+
+  it("preserves genuine HTML abstract pages for paper sources that permit HTML", async () => {
+    const transport = new FakeTransport([
+      response("<html><title>Paper title</title><body>Published abstract</body></html>", {
+        headers: { "content-type": "text/html" },
+      }),
+    ]);
+
+    await expect(
+      createRetriever({ transport }).retriever.retrieve({
+        url: "https://arxiv.org/abs/2401.00001",
+      }),
+    ).resolves.toMatchObject({
+      state: "RETRIEVED",
+      sourceKind: "PAPER",
+      sourceLabel: "ABSTRACT_PAGE",
+      text: "Paper title Published abstract",
+      reason: null,
+    });
+  });
+
   it("returns an inaccessible PDF truthfully as BLOCKED", async () => {
     const transport = new FakeTransport([
       response("denied", { statusCode: 403, headers: { "content-type": "text/plain" } }),
@@ -413,9 +510,179 @@ describe("SourceRetriever security policy", () => {
       recoveryOptions: ["UPLOAD_DOCUMENT", "ADD_MANUAL_CITATION"],
     });
   });
+
+  it.each([
+    ["missing MIME", {}, "RESEARCH_SOURCE_MIME_UNSUPPORTED"],
+    [
+      "malformed MIME",
+      { "content-type": "text/plain, text/html" },
+      "RESEARCH_SOURCE_MIME_UNSUPPORTED",
+    ],
+    [
+      "unsupported MIME",
+      { "content-type": "application/octet-stream" },
+      "RESEARCH_SOURCE_MIME_UNSUPPORTED",
+    ],
+    [
+      "ambiguous framing",
+      { "content-type": "text/plain", "content-length": "4", "transfer-encoding": "chunked" },
+      "RESEARCH_SOURCE_RESPONSE_INVALID",
+    ],
+    [
+      "malformed content length",
+      { "content-type": "text/plain", "content-length": "4, 5" },
+      "RESEARCH_SOURCE_RESPONSE_INVALID",
+    ],
+    [
+      "oversized content length",
+      { "content-type": "text/plain", "content-length": "2000001" },
+      "RESEARCH_SOURCE_TOO_LARGE",
+    ],
+    [
+      "duplicate relevant header",
+      { "content-type": ["text/plain", "text/html"] },
+      "RESEARCH_SOURCE_RESPONSE_INVALID",
+    ],
+    [
+      "decompression failure",
+      { "content-type": "text/plain", "content-encoding": "gzip" },
+      "RESEARCH_SOURCE_DECOMPRESSION_FAILED",
+    ],
+  ] as const)("cancels exactly once after %s", async (_case, headers, code) => {
+    const cancel = vi.fn();
+    const transport = new FakeTransport([response("not compressed", { headers, cancel })]);
+    await expect(
+      createRetriever({ transport }).retriever.retrieve({ url: "https://example.com" }),
+    ).rejects.toMatchObject({ code });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels exactly once after a response stream failure", async () => {
+    const cancel = vi.fn();
+    const failingBody = (async function* chunks() {
+      yield Buffer.from("partial");
+      throw new Error("socket failed");
+    })();
+    const transport = new FakeTransport([
+      {
+        statusCode: 200,
+        headers: { "content-type": "text/plain" },
+        body: failingBody,
+        cancel,
+      },
+    ]);
+
+    await expect(
+      createRetriever({ transport }).retriever.retrieve({ url: "https://example.com" }),
+    ).rejects.toThrow("socket failed");
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels exactly once after a response-body timeout", async () => {
+    const cancel = vi.fn();
+    const slowBody = (async function* chunks() {
+      yield Buffer.from("partial");
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      yield Buffer.from("late");
+    })();
+    const transport = new FakeTransport([
+      {
+        statusCode: 200,
+        headers: { "content-type": "text/plain" },
+        body: slowBody,
+        cancel,
+      },
+    ]);
+    const retriever = new SourceRetriever({
+      policy: {
+        timeoutMs: 5,
+        maxBytes: 2_000_000,
+        maxTextChars: 120_000,
+        maxRedirects: 3,
+        allowedMimeTypes: [
+          "text/plain",
+          "text/markdown",
+          "text/html",
+          "application/json",
+          "application/pdf",
+        ],
+      },
+      resolve: async () => [{ address: GLOBAL_V4, family: 4 }],
+      transport,
+    });
+
+    await expect(retriever.retrieve({ url: "https://example.com" })).rejects.toMatchObject({
+      code: "RESEARCH_SOURCE_TIMEOUT",
+    });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("NodeResearchSourceTransport", () => {
+  it("closes a real open response when header validation rejects the MIME type", async () => {
+    let resolveClosed: (() => void) | undefined;
+    const closed = new Promise<void>((resolve) => {
+      resolveClosed = resolve;
+    });
+    const server = createServer((_request, response) => {
+      response.once("close", () => resolveClosed?.());
+      response.writeHead(200, { "content-type": "application/octet-stream" });
+      response.write("open response");
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    try {
+      const address = server.address();
+      if (address === null || typeof address === "string")
+        throw new Error("Test server unavailable.");
+      await expect(
+        retrieverThroughLoopback(address.port, 100).retrieve({
+          url: "https://example.com/open-source",
+        }),
+      ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_MIME_UNSUPPORTED" });
+      await waitForClose(closed);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error === undefined ? resolve() : reject(error)));
+      });
+    }
+  });
+
+  it("closes a real open response when body consumption times out", async () => {
+    let resolveClosed: (() => void) | undefined;
+    const closed = new Promise<void>((resolve) => {
+      resolveClosed = resolve;
+    });
+    const server = createServer((_request, response) => {
+      response.once("close", () => resolveClosed?.());
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.write("partial response");
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    try {
+      const address = server.address();
+      if (address === null || typeof address === "string")
+        throw new Error("Test server unavailable.");
+      await expect(
+        retrieverThroughLoopback(address.port, 20).retrieve({
+          url: "https://example.com/open-source",
+        }),
+      ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_TIMEOUT" });
+      await waitForClose(closed);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error === undefined ? resolve() : reject(error)));
+      });
+    }
+  });
+
   it("connects through the pinned lookup result instead of resolving the URL hostname", async () => {
     const received: Array<
       Readonly<{ url: string | undefined; authorization: string | undefined }>

@@ -101,6 +101,18 @@ export function interpretRetrievedResearchSource(
       recoveryOptions: input.classification.recoveryOptions,
     };
   }
+  if (input.mimeType === "text/html" && !classificationPermitsHtml(input.classification)) {
+    return {
+      state: "BLOCKED",
+      text: null,
+      reason: "EXPECTED_DOCUMENT_RECEIVED_HTML",
+      recoveryOptions: uniqueRecovery([
+        "UPLOAD_DOCUMENT",
+        "ADD_MANUAL_CITATION",
+        ...input.classification.recoveryOptions,
+      ]),
+    };
+  }
   if (input.mimeType === "application/pdf") {
     return {
       state: "PARTIAL",
@@ -127,6 +139,14 @@ export function interpretRetrievedResearchSource(
     reason: input.reason ?? null,
     recoveryOptions: input.status === "PARTIAL" ? input.classification.recoveryOptions : [],
   };
+}
+
+function classificationPermitsHtml(classification: ResearchSourceClassification): boolean {
+  if (classification.kind === "GENERIC" || classification.kind === "GITHUB") return true;
+  return (
+    classification.kind === "PAPER" &&
+    (classification.label === "CITATION_PAGE" || classification.label === "ABSTRACT_PAGE")
+  );
 }
 
 export class DeterministicResearchSourceAdapter {

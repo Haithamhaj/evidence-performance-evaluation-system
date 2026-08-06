@@ -35,7 +35,7 @@ export type ResearchSourceResponse = Readonly<{
   statusCode: number;
   headers: Readonly<Record<string, string | readonly string[] | undefined>>;
   body: AsyncIterable<Uint8Array>;
-  cancel?: () => void;
+  cancel: () => void;
 }>;
 
 export interface ResearchSourceTransport {
@@ -105,54 +105,60 @@ export class SourceRetriever {
       validatePort(current);
       const addresses = normalizeAndValidateAnswers(await this.#resolveAddresses(current.hostname));
       const response = await this.#request(current, addresses);
+      const cancelResponse = once(response.cancel);
+      try {
+        if (REDIRECT_STATUSES.has(response.statusCode)) {
+          const location = singleHeader(response.headers, "location");
+          cancelResponse();
+          if (location === undefined || location.length === 0) throw responseInvalid();
+          if (redirects >= this.#policy.maxRedirects) throw redirectLimit();
+          current = resolveRedirect(current, location);
+          redirects += 1;
+          continue;
+        }
 
-      if (REDIRECT_STATUSES.has(response.statusCode)) {
-        const location = singleHeader(response.headers, "location");
-        response.cancel?.();
-        if (location === undefined || location.length === 0) throw responseInvalid();
-        if (redirects >= this.#policy.maxRedirects) throw redirectLimit();
-        current = resolveRedirect(current, location);
-        redirects += 1;
-        continue;
-      }
+        const resolvedClassification = classifyExplicitResearchSource(current);
+        if (!resolvedClassification.allowed) {
+          cancelResponse();
+          return blockedSource({
+            classification: resolvedClassification,
+            requested,
+            resolved: current,
+            retrievedAt: validatedNow(this.#now),
+            reason: "SOURCE_FORM_NOT_SUPPORTED",
+            redirectCount: redirects,
+          });
+        }
+        const classification = preserveOriginalSourceSemantics(
+          initialClassification,
+          resolvedClassification,
+        );
 
-      const resolvedClassification = classifyExplicitResearchSource(current);
-      if (!resolvedClassification.allowed) {
-        response.cancel?.();
-        return blockedSource({
-          classification: resolvedClassification,
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          cancelResponse();
+          return blockedSource({
+            classification,
+            requested,
+            resolved: current,
+            retrievedAt: validatedNow(this.#now),
+            reason: `HTTP_${String(response.statusCode)}`,
+            redirectCount: redirects,
+          });
+        }
+
+        return await this.#consume({
+          response,
+          cancelResponse,
           requested,
           resolved: current,
           retrievedAt: validatedNow(this.#now),
-          reason: "SOURCE_FORM_NOT_SUPPORTED",
-          redirectCount: redirects,
-        });
-      }
-      const classification = preserveOriginalSourceSemantics(
-        initialClassification,
-        resolvedClassification,
-      );
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        response.cancel?.();
-        return blockedSource({
+          redirects,
           classification,
-          requested,
-          resolved: current,
-          retrievedAt: validatedNow(this.#now),
-          reason: `HTTP_${String(response.statusCode)}`,
-          redirectCount: redirects,
         });
+      } catch (error) {
+        cancelResponse();
+        throw error;
       }
-
-      return await this.#consume({
-        response,
-        requested,
-        resolved: current,
-        retrievedAt: validatedNow(this.#now),
-        redirects,
-        classification,
-      });
     }
   }
 
@@ -193,6 +199,7 @@ export class SourceRetriever {
   async #consume(
     input: Readonly<{
       response: ResearchSourceResponse;
+      cancelResponse: () => void;
       requested: URL;
       resolved: URL;
       retrievedAt: string;
@@ -205,26 +212,26 @@ export class SourceRetriever {
       singleHeader(input.response.headers, "content-length"),
     );
     if (contentLength !== null && contentLength > this.#policy.maxBytes) {
-      input.response.cancel?.();
+      input.cancelResponse();
       throw tooLarge();
     }
     const mimeType = parseMimeType(singleHeader(input.response.headers, "content-type"));
     if (!this.#policy.allowedMimeTypes.includes(mimeType)) {
-      input.response.cancel?.();
+      input.cancelResponse();
       throw mimeUnsupported();
     }
     const contentEncoding = (singleHeader(input.response.headers, "content-encoding") ?? "identity")
       .trim()
       .toLowerCase();
     if (!SAFE_RESPONSE_ENCODINGS.has(contentEncoding)) {
-      input.response.cancel?.();
+      input.cancelResponse();
       throw decompressionFailed();
     }
 
     const compressed = await withTimeout(
-      readBoundedBody(input.response.body, this.#policy.maxBytes, input.response.cancel),
+      readBoundedBody(input.response.body, this.#policy.maxBytes, input.cancelResponse),
       this.#policy.timeoutMs,
-      input.response.cancel,
+      input.cancelResponse,
     );
     const content = decompressBounded(compressed, contentEncoding, this.#policy.maxBytes);
     const fingerprint = createHash("sha256").update(content).digest("hex");
@@ -286,14 +293,20 @@ export class NodeResearchSourceTransport implements ResearchSourceTransport {
             response.destroy();
             return;
           }
-          settled = true;
-          clearTimeout(deadline);
-          resolve({
+          let responseCancelled = false;
+          const result: ResearchSourceResponse = {
             statusCode: response.statusCode ?? 0,
             headers: response.headers,
             body: response,
-            cancel: () => response.destroy(),
-          });
+            cancel: () => {
+              if (responseCancelled) return;
+              responseCancelled = true;
+              response.destroy();
+            },
+          };
+          settled = true;
+          clearTimeout(deadline);
+          resolve(result);
         },
       );
       const deadline = setTimeout(() => {
@@ -545,19 +558,32 @@ function parseMimeType(value: string | undefined): string {
 async function readBoundedBody(
   body: AsyncIterable<Uint8Array>,
   maximum: number,
-  cancel: (() => void) | undefined,
+  cancel: () => void,
 ): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
   for await (const chunk of body) {
     total += chunk.byteLength;
     if (total > maximum) {
-      cancel?.();
+      cancel();
       throw tooLarge();
     }
     chunks.push(Buffer.from(chunk));
   }
   return Buffer.concat(chunks, total);
+}
+
+function once(action: () => void): () => void {
+  let called = false;
+  return () => {
+    if (called) return;
+    called = true;
+    try {
+      action();
+    } catch {
+      // Cleanup must not replace the retrieval error that caused it.
+    }
+  };
 }
 
 function decompressBounded(input: Buffer, encoding: string, maximum: number): Buffer {
