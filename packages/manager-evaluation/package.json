@@ -1,0 +1,22 @@
+{
+  "name": "@evaluation/manager-evaluation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@evaluation/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. packages/manager-evaluation/src --passWithNoTests",
+    "test:integration": "vitest run --root ../.. packages/manager-evaluation/src --passWithNoTests"
+  }
+}
