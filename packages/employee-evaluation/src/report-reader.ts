@@ -2,6 +2,7 @@ import {
   AppError,
   DepartmentEvaluationReportProjectionSchema,
   EmployeeEvaluationReportProjectionSchema,
+  FinalEvaluationReportContextSchema,
   FinalEvaluationSnapshotSchema,
 } from "@evaluation/contracts";
 
@@ -38,12 +39,16 @@ export class EvaluationReportReader {
       throw reportError("AUTHZ_SCOPE", 403);
     }
     return EmployeeEvaluationReportProjectionSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       assignmentId: assignment.id,
       employeeId: assignment.employeeId,
       cycleId: assignment.cycleId,
       cycleType: assignment.cycle.cycleType,
       state: assignment.cycle.state,
+      period: {
+        startsAt: assignment.cycle.startsAt.toISOString(),
+        endsAt: assignment.cycle.endsAt.toISOString(),
+      },
       finalSnapshot:
         assignment.finalSnapshot === null
           ? null
@@ -78,16 +83,13 @@ export class EvaluationReportReader {
       select: {
         id: true,
         departmentId: true,
+        sequence: true,
         cycleType: true,
         state: true,
+        startsAt: true,
+        endsAt: true,
         assignments: {
-          select: {
-            managerId: true,
-            eligibilityState: true,
-            submissions: { select: { kind: true } },
-            finalSnapshot: { select: { id: true } },
-            acknowledgment: { select: { id: true } },
-          },
+          select: { managerId: true },
         },
       },
     });
@@ -98,25 +100,53 @@ export class EvaluationReportReader {
     ) {
       throw reportError("AUTHZ_SCOPE", 403);
     }
-    const eligible = cycle.assignments.filter(
-      ({ eligibilityState, managerId }) =>
-        eligibilityState === "ELIGIBLE" && managerId === input.requester.actorId,
-    );
+    const trendCycles = await this.#database.employeeEvaluationCycle.findMany({
+      where: { departmentId: cycle.departmentId, sequence: { lte: cycle.sequence } },
+      select: {
+        sequence: true,
+        cycleType: true,
+        startsAt: true,
+        endsAt: true,
+        assignments: {
+          where: {
+            managerId: input.requester.actorId,
+            eligibilityState: "ELIGIBLE",
+          },
+          select: {
+            finalSnapshot: {
+              select: {
+                decisions: { select: { stableCriterionId: true, rating: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { sequence: "asc" },
+    });
+    const trends = trendCycles
+      .map((trendCycle) => ({
+        sequence: trendCycle.sequence,
+        cycleType: trendCycle.cycleType,
+        period: {
+          startsAt: trendCycle.startsAt.toISOString(),
+          endsAt: trendCycle.endsAt.toISOString(),
+        },
+        ratingDistributions: ratingDistributions(trendCycle.assignments),
+      }))
+      .filter(({ ratingDistributions }) => ratingDistributions.length > 0);
+    const currentTrend = trends.find(({ sequence }) => sequence === cycle.sequence);
     return DepartmentEvaluationReportProjectionSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       departmentId: cycle.departmentId,
       cycleId: cycle.id,
       cycleType: cycle.cycleType,
       state: cycle.state,
-      eligibleCount: eligible.length,
-      submittedSelfAssessmentCount: eligible.filter(({ submissions }) =>
-        submissions.some(({ kind }) => kind === "SELF"),
-      ).length,
-      submittedManagerAssessmentCount: eligible.filter(({ submissions }) =>
-        submissions.some(({ kind }) => kind === "MANAGER_INITIAL"),
-      ).length,
-      finalizedCount: eligible.filter(({ finalSnapshot }) => finalSnapshot !== null).length,
-      acknowledgedCount: eligible.filter(({ acknowledgment }) => acknowledgment !== null).length,
+      period: {
+        startsAt: cycle.startsAt.toISOString(),
+        endsAt: cycle.endsAt.toISOString(),
+      },
+      ratingDistributions: currentTrend?.ratingDistributions ?? [],
+      trends,
     });
   }
 }
@@ -133,6 +163,7 @@ function serializeSnapshot(
     finalComment: string | null;
     finalizedAt: Date;
     version: number;
+    reportSnapshot: unknown;
     decisions: ReadonlyArray<
       Readonly<{
         templateItemId: string;
@@ -145,8 +176,9 @@ function serializeSnapshot(
   }>,
   closedAt: Date | null,
 ): import("@evaluation/contracts").FinalEvaluationSnapshot {
+  const reportSnapshot = FinalEvaluationReportContextSchema.parse(snapshot.reportSnapshot);
   return FinalEvaluationSnapshotSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: snapshot.id,
     assignmentId: snapshot.assignmentId,
     cycleId: snapshot.cycleId,
@@ -154,6 +186,7 @@ function serializeSnapshot(
     managerId: snapshot.managerId,
     templateVersionId: snapshot.templateVersionId,
     cycleType: snapshot.cycleType,
+    ...reportSnapshot,
     entries: snapshot.decisions.map((decision) => ({
       criterionId: decision.templateItemId,
       rating: decision.rating,
@@ -166,6 +199,34 @@ function serializeSnapshot(
     closedAt: closedAt?.toISOString() ?? null,
     version: snapshot.version,
   });
+}
+
+function ratingDistributions(
+  assignments: ReadonlyArray<
+    Readonly<{
+      finalSnapshot: Readonly<{
+        decisions: ReadonlyArray<Readonly<{ stableCriterionId: string; rating: number }>>;
+      }> | null;
+    }>
+  >,
+) {
+  const ratingsByCriterion = new Map<string, number[]>();
+  for (const assignment of assignments) {
+    for (const decision of assignment.finalSnapshot?.decisions ?? []) {
+      const ratings = ratingsByCriterion.get(decision.stableCriterionId) ?? [];
+      ratings.push(decision.rating);
+      ratingsByCriterion.set(decision.stableCriterionId, ratings);
+    }
+  }
+  return [...ratingsByCriterion.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([criterionStableId, ratings]) => ({
+      criterionStableId,
+      buckets: ([1, 2, 3, 4, 5] as const).map((rating) => ({
+        rating,
+        count: ratings.filter((value) => value === rating).length,
+      })),
+    }));
 }
 
 function reportError(code: string, status = 400): AppError {

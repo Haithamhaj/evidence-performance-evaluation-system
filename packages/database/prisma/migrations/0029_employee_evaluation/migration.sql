@@ -305,12 +305,14 @@ CREATE TABLE "FinalEvaluationSnapshot" (
   "templateVersionId" UUID NOT NULL,
   "cycleType" "EmployeeEvaluationCycleType" NOT NULL,
   "finalComment" TEXT,
-  "schemaVersion" INTEGER NOT NULL DEFAULT 1,
+  "reportSnapshot" JSONB NOT NULL,
+  "schemaVersion" INTEGER NOT NULL DEFAULT 2,
   "version" INTEGER NOT NULL DEFAULT 1,
   "finalizedAt" TIMESTAMPTZ(6) NOT NULL,
   "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "FinalEvaluationSnapshot_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "FinalEvaluationSnapshot_versions_check" CHECK ("schemaVersion" > 0 AND "version" > 0),
+  CONSTRAINT "FinalEvaluationSnapshot_report_snapshot_check" CHECK (jsonb_typeof("reportSnapshot") = 'object'),
   CONSTRAINT "FinalEvaluationSnapshot_distinct_people_check" CHECK ("employeeId" <> "managerId")
 );
 

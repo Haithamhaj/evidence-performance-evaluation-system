@@ -17,6 +17,7 @@ describe("FinalizationService", () => {
 
     await expect(fixture.service.finalize(input)).resolves.toEqual(first);
     expect(first).toMatchObject({
+      schemaVersion: 2,
       assignmentId: fixture.assignment.id,
       cycleId: fixture.cycle.id,
       employeeId: fixture.employee.id,
@@ -24,6 +25,31 @@ describe("FinalizationService", () => {
       cycleType: "CALIBRATION_NON_BASELINE",
       version: 1,
       closedAt: null,
+      period: {
+        startsAt: "2026-07-01T00:00:00.000Z",
+        endsAt: "2026-10-01T00:00:00.000Z",
+      },
+      responsibilityWindows: [{ sourceId: fixture.responsibilityWindowId }],
+      workFacts: expect.arrayContaining([
+        expect.objectContaining({ sourceId: fixture.selfSourceId }),
+      ]),
+      researchFacts: [{ sourceId: fixture.researchSourceId }],
+      selfAssessment: { entries: expect.any(Array) },
+      managerInitialAssessment: { entries: expect.any(Array) },
+      comparison: {
+        schemaVersion: 2,
+        entries: expect.arrayContaining([
+          expect.objectContaining({
+            criterionId: fixture.items[0]!.id,
+            selfRating: 3,
+            managerRating: 3,
+          }),
+        ]),
+      },
+      developmentPlanReference: {
+        developmentPlanId: fixture.developmentPlanId,
+        version: 1,
+      },
     });
     expect(first.entries).toHaveLength(13);
     expect(first.entries[0]).toMatchObject({
@@ -76,6 +102,7 @@ describe("FinalizationService", () => {
     const fixture = await finalizationFixture();
     const service = new FinalizationService(
       client,
+      fixture.reportContextReader,
       {
         append: async () => {
           throw new Error("audit unavailable");
@@ -286,6 +313,10 @@ async function finalizationFixture() {
   const assignment = cycle.assignments[0]!;
   const selfSourceId = crypto.randomUUID();
   const managerSourceId = crypto.randomUUID();
+  const responsibilityWindowId = crypto.randomUUID();
+  const researchSourceId = crypto.randomUUID();
+  const developmentPlanId = crypto.randomUUID();
+  const projectId = crypto.randomUUID();
   await createSubmission(
     assignment.id,
     cycle.snapshot!.id,
@@ -312,6 +343,75 @@ async function finalizationFixture() {
       resultingVersion: 1,
     },
   });
+  const reportContextReader: import("./finalization-service.js").FinalizationReportContextReader = {
+    read: async () => ({
+      factView: {
+        schemaVersion: 2,
+        cycle: {
+          id: cycle.id,
+          startsAt: "2026-07-01T00:00:00Z",
+          endsAt: "2026-10-01T00:00:00Z",
+          rubricVersionId: rubricVersion.id,
+        },
+        subjectEmployeeId: employee!.id,
+        generatedAt: now.toISOString(),
+        responsibilityWindows: [
+          {
+            kind: "source_fact",
+            sourceId: responsibilityWindowId,
+            sourceOccurredAt: "2026-07-01T00:00:00Z",
+            projectId,
+            workstreamId: null,
+            sourceType: "responsibility_window",
+            responsibilityType: "acting_owner",
+            startedAt: "2026-07-01T00:00:00Z",
+            endedAt: "2026-08-01T00:00:00Z",
+            sourceReferences: [factSource("responsibility_window", responsibilityWindowId)],
+          },
+        ],
+        projectFacts: [
+          projectFact(selfSourceId, projectId, responsibilityWindowId, "disputed"),
+          projectFact(managerSourceId, projectId, responsibilityWindowId, "clarified"),
+        ],
+        confirmedEvidence: [],
+        checkInFacts: [],
+        dynamicCriteriaVersions: [],
+        researchFacts: [
+          {
+            kind: "source_fact",
+            sourceId: researchSourceId,
+            sourceOccurredAt: "2026-08-03T00:00:00Z",
+            projectId,
+            workstreamId: null,
+            sourceType: "research",
+            factType: "experiment_conclusion",
+            relatedWorkItemId: null,
+            humanConfirmationState: "human_decision",
+            verificationState: "source_supported",
+            responsibilityWindowIds: [responsibilityWindowId],
+            summary: "The controlled experiment supported the human conclusion.",
+            limitations: ["The sample covers the pilot period."],
+            uncertainty: null,
+            sourceReferences: [factSource("experiment_conclusion", researchSourceId)],
+          },
+        ],
+        employeeInterpretations: [],
+        sourceCoverageNotes: [
+          {
+            kind: "coverage_note",
+            code: "disputed_attribution",
+            scope: "project",
+            projectId,
+            workstreamId: null,
+            messageKey: "evaluation.coverage.disputedAttribution",
+            sourceFactIds: [selfSourceId],
+            neutral: true,
+          },
+        ],
+      },
+      developmentPlanReference: { developmentPlanId, version: 1 },
+    }),
+  };
   return {
     assignment,
     cycle,
@@ -322,8 +422,50 @@ async function finalizationFixture() {
     manager: manager!,
     managerSourceId,
     outsider: outsider!,
+    developmentPlanId,
+    reportContextReader,
+    researchSourceId,
+    responsibilityWindowId,
     selfSourceId,
-    service: new FinalizationService(client, databaseAuditWriter, () => now),
+    service: new FinalizationService(client, reportContextReader, databaseAuditWriter, () => now),
+  };
+}
+
+function factSource(
+  sourceType: "responsibility_window" | "timeline_event" | "experiment_conclusion",
+  sourceId: string,
+) {
+  return {
+    sourceType,
+    sourceId,
+    sourceVersion: 1,
+    occurredAt: "2026-08-01T00:00:00Z",
+    url: null,
+  };
+}
+
+function projectFact(
+  sourceId: string,
+  projectId: string,
+  responsibilityWindowId: string,
+  attributionState: "disputed" | "clarified",
+) {
+  return {
+    kind: "source_fact" as const,
+    sourceId,
+    sourceOccurredAt: "2026-08-01T00:00:00Z",
+    projectId,
+    workstreamId: null,
+    sourceType: "project_contribution" as const,
+    relatedWorkItemId: null,
+    criterionStableId: null,
+    criterionVersionId: null,
+    summary: "A source-supported project contribution.",
+    result: "The acceptance condition was met.",
+    verificationState: "source_supported" as const,
+    attributionState,
+    responsibilityWindowIds: [responsibilityWindowId],
+    sourceReferences: [factSource("timeline_event", sourceId)],
   };
 }
 

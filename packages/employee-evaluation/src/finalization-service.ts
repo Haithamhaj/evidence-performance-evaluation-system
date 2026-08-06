@@ -4,14 +4,46 @@ import {
   AssessmentEntrySchema,
   CloseEmployeeEvaluationCycleInputSchema,
   EvaluationAcknowledgmentInputSchema,
+  EvaluationFactViewSchema,
+  FinalEvaluationReportContextSchema,
   FinalEvaluationSnapshotSchema,
   FinalizeEmployeeEvaluationInputSchema,
 } from "@evaluation/contracts";
 import { z } from "zod";
 
+import { ComparisonService } from "./comparison-service.js";
+
 type Database = import("@evaluation/database").DatabaseClient;
 type Transaction = import("./ports.js").EvaluationTransaction;
 type Audit = import("@evaluation/contracts").AuditWriter<Transaction>;
+
+export interface FinalizationReportContextReader {
+  read(
+    input: Readonly<{
+      cycle: Readonly<{
+        id: string;
+        startsAt: string;
+        endsAt: string;
+        rubricVersionId: string;
+      }>;
+      subjectEmployeeId: string;
+      requester: Readonly<{
+        actorId: string;
+        subjectEmployeeId: string;
+        access: "assigned_manager";
+        active: true;
+      }>;
+    }>,
+  ): Promise<
+    Readonly<{
+      factView: import("@evaluation/contracts").EvaluationFactView;
+      developmentPlanReference: Readonly<{
+        developmentPlanId: string;
+        version: number;
+      }> | null;
+    }>
+  >;
+}
 
 export type EvaluationAcknowledgmentReceipt = Readonly<{
   schemaVersion: 1;
@@ -33,15 +65,18 @@ export type ClosedEmployeeEvaluationCycleReceipt = Readonly<{
 
 export class FinalizationService {
   readonly #database: Database;
+  readonly #reportContextReader: FinalizationReportContextReader;
   readonly #audit: Audit;
   readonly #clock: () => Date;
 
   constructor(
     database: Database,
+    reportContextReader: FinalizationReportContextReader,
     audit: Audit = databaseAuditWriter as Audit,
     clock: () => Date = () => new Date(),
   ) {
     this.#database = database;
+    this.#reportContextReader = reportContextReader;
     this.#audit = audit;
     this.#clock = clock;
   }
@@ -141,6 +176,95 @@ export class FinalizationService {
         if (changed) changedDecisionCount += 1;
       }
 
+      const reportContextSource = await this.#reportContextReader.read({
+        cycle: {
+          id: assignment.cycleId,
+          startsAt: assignment.cycle.startsAt.toISOString(),
+          endsAt: assignment.cycle.endsAt.toISOString(),
+          rubricVersionId: assignment.cycle.snapshot.rubricVersionId,
+        },
+        subjectEmployeeId: assignment.employeeId,
+        requester: {
+          actorId: parsed.managerId,
+          subjectEmployeeId: assignment.employeeId,
+          access: "assigned_manager",
+          active: true,
+        },
+      });
+      const factView = EvaluationFactViewSchema.parse(reportContextSource.factView);
+      assertFinalizationFactScope(assignment, factView);
+      const pinnedFactIds = new Set(
+        [
+          ...factView.responsibilityWindows,
+          ...factView.projectFacts,
+          ...factView.confirmedEvidence,
+          ...factView.checkInFacts,
+          ...factView.dynamicCriteriaVersions,
+          ...factView.researchFacts,
+        ].map(({ sourceId }) => sourceId),
+      );
+      if ([...authorizedSources].some((sourceId) => !pinnedFactIds.has(sourceId))) {
+        throw finalizationError("EVALUATION_FINAL_REPORT_SOURCE_MISSING", 409);
+      }
+      const comparison = new ComparisonService(() => finalizedAt).read({
+        assignmentId: assignment.id,
+        selfSubmission: {
+          assignmentId: assignment.id,
+          kind: "SELF",
+          entries: selfEntries,
+        },
+        managerSubmission: {
+          assignmentId: assignment.id,
+          kind: "MANAGER_INITIAL",
+          entries: managerEntries,
+        },
+        templateItems: templateItems.map((item) => ({
+          criterionId: item.id,
+          kind: item.kind,
+          sectionWeight: item.sectionWeight,
+          criterionWeight: item.criterionWeight,
+        })),
+        discussionEntries: discussionEntries.map((entry) => ({
+          id: entry.id,
+          body: entry.body,
+          sourceReferences: z.array(z.string().uuid()).parse(entry.sourceReferences),
+          createdAt: entry.createdAt.toISOString(),
+        })),
+        factView,
+        factScope: {
+          cycleId: assignment.cycleId,
+          subjectEmployeeId: assignment.employeeId,
+          rubricVersionId: assignment.cycle.snapshot.rubricVersionId,
+          startsAt: assignment.cycle.startsAt.toISOString(),
+          endsAt: assignment.cycle.endsAt.toISOString(),
+        },
+      });
+      const reportSnapshot = FinalEvaluationReportContextSchema.parse({
+        period: {
+          startsAt: assignment.cycle.startsAt.toISOString(),
+          endsAt: assignment.cycle.endsAt.toISOString(),
+        },
+        responsibilityWindows: factView.responsibilityWindows,
+        workFacts: [
+          ...factView.projectFacts,
+          ...factView.confirmedEvidence,
+          ...factView.checkInFacts,
+          ...factView.dynamicCriteriaVersions,
+        ],
+        researchFacts: factView.researchFacts,
+        sourceCoverageNotes: factView.sourceCoverageNotes,
+        selfAssessment: {
+          submittedAt: selfSubmission.confirmedAt.toISOString(),
+          entries: selfEntries,
+        },
+        managerInitialAssessment: {
+          submittedAt: managerSubmission.confirmedAt.toISOString(),
+          entries: managerEntries,
+        },
+        comparison,
+        developmentPlanReference: reportContextSource.developmentPlanReference,
+      });
+
       const itemById = new Map(templateItems.map((item) => [item.id, item]));
       const snapshot = await transaction.finalEvaluationSnapshot.create({
         data: {
@@ -152,6 +276,8 @@ export class FinalizationService {
           templateVersionId: assignment.cycle.templateVersionId,
           cycleType: assignment.cycle.cycleType,
           finalComment: parsed.finalComment,
+          reportSnapshot: reportSnapshot as never,
+          schemaVersion: 2,
           finalizedAt,
           decisions: {
             create: parsed.entries.map((entry, position) => {
@@ -198,6 +324,7 @@ export class FinalizationService {
           selectedSourceCount: new Set(
             parsed.entries.flatMap(({ sourceReferences }) => sourceReferences),
           ).size,
+          reportContextPinned: true,
         },
         correlationId: parsed.idempotencyKey,
         source: "api",
@@ -378,6 +505,22 @@ async function readAssignment(transaction: Transaction, assignmentId: string) {
   return assignment;
 }
 
+function assertFinalizationFactScope(
+  assignment: Awaited<ReturnType<typeof readAssignment>>,
+  factView: import("@evaluation/contracts").EvaluationFactView,
+): void {
+  if (
+    assignment.cycle.snapshot === null ||
+    factView.cycle.id !== assignment.cycleId ||
+    factView.subjectEmployeeId !== assignment.employeeId ||
+    factView.cycle.rubricVersionId !== assignment.cycle.snapshot.rubricVersionId ||
+    Date.parse(factView.cycle.startsAt) !== assignment.cycle.startsAt.getTime() ||
+    Date.parse(factView.cycle.endsAt) !== assignment.cycle.endsAt.getTime()
+  ) {
+    throw finalizationError("EVALUATION_FINAL_REPORT_SCOPE_INVALID", 403);
+  }
+}
+
 const finalInclude = {
   decisions: { orderBy: { position: "asc" as const } },
   cycle: { select: { closedAt: true } },
@@ -479,8 +622,9 @@ function serializeFinalSnapshot(
     ? NonNullable<T>
     : never,
 ): import("@evaluation/contracts").FinalEvaluationSnapshot {
+  const reportSnapshot = FinalEvaluationReportContextSchema.parse(snapshot.reportSnapshot);
   return FinalEvaluationSnapshotSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: snapshot.id,
     assignmentId: snapshot.assignmentId,
     cycleId: snapshot.cycleId,
@@ -488,6 +632,7 @@ function serializeFinalSnapshot(
     managerId: snapshot.managerId,
     templateVersionId: snapshot.templateVersionId,
     cycleType: snapshot.cycleType,
+    ...reportSnapshot,
     entries: snapshot.decisions.map((decision) => ({
       criterionId: decision.templateItemId,
       rating: decision.rating,

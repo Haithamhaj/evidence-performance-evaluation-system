@@ -25,6 +25,7 @@ export {
   FinalizationService,
   type ClosedEmployeeEvaluationCycleReceipt,
   type EvaluationAcknowledgmentReceipt,
+  type FinalizationReportContextReader,
 } from "./finalization-service.js";
 export { EvaluationReportReader } from "./report-reader.js";
 export {

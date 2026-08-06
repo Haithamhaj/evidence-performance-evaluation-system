@@ -4050,7 +4050,8 @@ model FinalEvaluationSnapshot {
   templateVersion   EvaluationTemplateVersion   @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
   cycleType         EmployeeEvaluationCycleType
   finalComment      String?
-  schemaVersion     Int                         @default(1)
+  reportSnapshot    Json
+  schemaVersion     Int                         @default(2)
   version           Int                         @default(1)
   finalizedAt       DateTime                    @db.Timestamptz(6)
   decisions         FinalEvaluationDecision[]

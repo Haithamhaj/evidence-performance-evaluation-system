@@ -19,15 +19,25 @@ describe("EvaluationReportReader", () => {
     });
 
     expect(report).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       assignmentId: fixture.assignment.id,
       employeeId: fixture.employee.id,
       cycleId: fixture.cycle.id,
-      cycleType: "CALIBRATION_NON_BASELINE",
+      cycleType: "STANDARD",
       state: "CLOSED",
+      period: {
+        startsAt: "2026-07-01T00:00:00.000Z",
+        endsAt: "2026-10-01T00:00:00.000Z",
+      },
       finalSnapshot: {
         id: fixture.finalSnapshot.id,
         entries: [{ criterionId: fixture.item.id, rating: 4 }],
+        workFacts: [{ sourceId: fixture.sourceId }],
+        researchFacts: [{ sourceId: fixture.researchSourceId }],
+        selfAssessment: { entries: [{ rating: 4 }] },
+        managerInitialAssessment: { entries: [{ rating: 3 }] },
+        comparison: { schemaVersion: 2, entries: [{ gap: 1 }] },
+        developmentPlanReference: null,
         closedAt: now.toISOString(),
       },
       acknowledgment: {
@@ -43,7 +53,7 @@ describe("EvaluationReportReader", () => {
     ).rejects.toMatchObject({ code: "AUTHZ_SCOPE" });
   });
 
-  it("returns a fail-closed department completion aggregate without employee or protected narratives", async () => {
+  it("returns manager-scoped anonymous rating distributions and trend points without protected content", async () => {
     const fixture = await reportFixture();
     const reader = new EvaluationReportReader(client);
     const [otherEmployee, otherManager] = await Promise.all([
@@ -82,16 +92,36 @@ describe("EvaluationReportReader", () => {
     });
 
     expect(report).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       departmentId: fixture.department.id,
       cycleId: fixture.cycle.id,
-      cycleType: "CALIBRATION_NON_BASELINE",
+      cycleType: "STANDARD",
       state: "CLOSED",
-      eligibleCount: 1,
-      submittedSelfAssessmentCount: 1,
-      submittedManagerAssessmentCount: 1,
-      finalizedCount: 1,
-      acknowledgedCount: 1,
+      period: {
+        startsAt: "2026-07-01T00:00:00.000Z",
+        endsAt: "2026-10-01T00:00:00.000Z",
+      },
+      ratingDistributions: [ratingDistribution("REPORT-CRITERION", 4)],
+      trends: [
+        {
+          sequence: 1,
+          cycleType: "CALIBRATION_NON_BASELINE",
+          period: {
+            startsAt: "2026-04-01T00:00:00.000Z",
+            endsAt: "2026-07-01T00:00:00.000Z",
+          },
+          ratingDistributions: [ratingDistribution("REPORT-CRITERION", 3)],
+        },
+        {
+          sequence: 2,
+          cycleType: "STANDARD",
+          period: {
+            startsAt: "2026-07-01T00:00:00.000Z",
+            endsAt: "2026-10-01T00:00:00.000Z",
+          },
+          ratingDistributions: [ratingDistribution("REPORT-CRITERION", 4)],
+        },
+      ],
     });
     expect(JSON.stringify(report)).not.toMatch(
       /employeeId|managerId|readiness|rank|peerNarrative|upward|reservation|justification|sourceReferences/i,
@@ -210,8 +240,8 @@ async function reportFixture() {
       idempotencyKey: crypto.randomUUID(),
       departmentId: department.id,
       templateVersionId: templateVersion.id,
-      sequence: 1,
-      cycleType: "CALIBRATION_NON_BASELINE",
+      sequence: 2,
+      cycleType: "STANDARD",
       state: "CLOSED",
       visibilityMode: "identified",
       startsAt: new Date("2026-07-01T00:00:00Z"),
@@ -225,7 +255,7 @@ async function reportFixture() {
           templateVersionId: templateVersion.id,
           rubricVersionId: rubricVersion.id,
           eligibilitySnapshotId: eligibilitySnapshot.id,
-          cycleType: "CALIBRATION_NON_BASELINE",
+          cycleType: "STANDARD",
           visibilityMode: "identified",
           startsAt: new Date("2026-07-01T00:00:00Z"),
           endsAt: new Date("2026-10-01T00:00:00Z"),
@@ -250,6 +280,8 @@ async function reportFixture() {
   });
   const assignment = cycle.assignments[0]!;
   const sourceId = crypto.randomUUID();
+  const researchSourceId = crypto.randomUUID();
+  const projectId = crypto.randomUUID();
   for (const [kind, actor] of [
     ["SELF", employee!],
     ["MANAGER_INITIAL", manager!],
@@ -296,8 +328,51 @@ async function reportFixture() {
       employeeId: employee!.id,
       managerId: manager!.id,
       templateVersionId: templateVersion.id,
-      cycleType: "CALIBRATION_NON_BASELINE",
+      cycleType: "STANDARD",
       finalComment: "Human final judgment.",
+      schemaVersion: 2,
+      reportSnapshot: {
+        period: {
+          startsAt: "2026-07-01T00:00:00.000Z",
+          endsAt: "2026-10-01T00:00:00.000Z",
+        },
+        responsibilityWindows: [],
+        workFacts: [reportProjectFact(sourceId, projectId)],
+        researchFacts: [reportResearchFact(researchSourceId, projectId)],
+        sourceCoverageNotes: [],
+        selfAssessment: {
+          submittedAt: now.toISOString(),
+          entries: [reportAssessmentEntry(item.id, 4, sourceId, null)],
+        },
+        managerInitialAssessment: {
+          submittedAt: now.toISOString(),
+          entries: [reportAssessmentEntry(item.id, 3, sourceId, "Observed throughout the period.")],
+        },
+        comparison: {
+          schemaVersion: 2,
+          assignmentId: assignment.id,
+          entries: [
+            {
+              criterionId: item.id,
+              selfRating: 4,
+              managerRating: 3,
+              gap: 1,
+              effectiveWeight: 100,
+              highWeightGap: true,
+              selfSourceReferences: [sourceId],
+              managerSourceReferences: [sourceId],
+              sourceDifference: { selfOnly: [], managerOnly: [] },
+              missingRationale: { self: false, manager: false },
+              responsibilityDurationInterpretation: [],
+              disputedAttributionSourceIds: [],
+              discussionRequired: true,
+            },
+          ],
+          discussionEntries: [],
+          generatedAt: now.toISOString(),
+        },
+        developmentPlanReference: null,
+      },
       finalizedAt: now,
       decisions: {
         create: {
@@ -308,6 +383,78 @@ async function reportFixture() {
           justification: "Manager's final human judgment.",
           sourceReferences: [sourceId],
           managerInitialChangeReason: "Discussion clarified the supported result.",
+          managerId: manager!.id,
+          position: 0,
+        },
+      },
+    },
+  });
+  const previousCycle = await client.employeeEvaluationCycle.create({
+    data: {
+      idempotencyKey: crypto.randomUUID(),
+      departmentId: department.id,
+      templateVersionId: templateVersion.id,
+      sequence: 1,
+      cycleType: "CALIBRATION_NON_BASELINE",
+      state: "CLOSED",
+      visibilityMode: "identified",
+      startsAt: new Date("2026-04-01T00:00:00Z"),
+      endsAt: new Date("2026-07-01T00:00:00Z"),
+      version: 8,
+      createdById: creator!.id,
+      openedAt: now,
+      closedAt: now,
+      snapshot: {
+        create: {
+          templateVersionId: templateVersion.id,
+          rubricVersionId: rubricVersion.id,
+          eligibilitySnapshotId: eligibilitySnapshot.id,
+          cycleType: "CALIBRATION_NON_BASELINE",
+          visibilityMode: "identified",
+          startsAt: new Date("2026-04-01T00:00:00Z"),
+          endsAt: new Date("2026-07-01T00:00:00Z"),
+          ratingScale: [1, 2, 3, 4, 5],
+          templateSnapshot: { items: [{ id: item.id, stableCriterionId: item.stableCriterionId }] },
+          localeAvailability: ["en"],
+          configurationVersions: { templateVersion: 1 },
+        },
+      },
+      assignments: {
+        create: {
+          employeeId: employee!.id,
+          managerId: manager!.id,
+          eligibilityState: "ELIGIBLE",
+          eligibilityReason: "Active during the calibration cycle.",
+          eligibilityEffectiveAt: new Date("2026-04-01T00:00:00Z"),
+          version: 2,
+        },
+      },
+    },
+    include: { assignments: true },
+  });
+  const previousAssignment = previousCycle.assignments[0]!;
+  await client.finalEvaluationSnapshot.create({
+    data: {
+      idempotencyKey: crypto.randomUUID(),
+      assignmentId: previousAssignment.id,
+      cycleId: previousCycle.id,
+      employeeId: employee!.id,
+      managerId: manager!.id,
+      templateVersionId: templateVersion.id,
+      cycleType: "CALIBRATION_NON_BASELINE",
+      finalComment: "Calibration judgment.",
+      schemaVersion: 2,
+      reportSnapshot: previousReportSnapshot(previousAssignment.id, item.id, sourceId),
+      finalizedAt: now,
+      decisions: {
+        create: {
+          assignmentId: previousAssignment.id,
+          templateItemId: item.id,
+          stableCriterionId: item.stableCriterionId,
+          rating: 3,
+          justification: "Calibration human judgment.",
+          sourceReferences: [sourceId],
+          managerInitialChangeReason: null,
           managerId: manager!.id,
           position: 0,
         },
@@ -334,5 +481,125 @@ async function reportFixture() {
     item,
     manager: manager!,
     outsider: outsider!,
+    researchSourceId,
+    sourceId,
+  };
+}
+
+function previousReportSnapshot(assignmentId: string, criterionId: string, sourceId: string) {
+  const entry = reportAssessmentEntry(criterionId, 3, sourceId, null);
+  return {
+    period: {
+      startsAt: "2026-04-01T00:00:00.000Z",
+      endsAt: "2026-07-01T00:00:00.000Z",
+    },
+    responsibilityWindows: [],
+    workFacts: [],
+    researchFacts: [],
+    sourceCoverageNotes: [],
+    selfAssessment: { submittedAt: now.toISOString(), entries: [entry] },
+    managerInitialAssessment: {
+      submittedAt: now.toISOString(),
+      entries: [{ ...entry, directObservationBasis: "Observed during calibration." }],
+    },
+    comparison: {
+      schemaVersion: 2,
+      assignmentId,
+      entries: [
+        {
+          criterionId,
+          selfRating: 3,
+          managerRating: 3,
+          gap: 0,
+          effectiveWeight: 100,
+          highWeightGap: false,
+          selfSourceReferences: [sourceId],
+          managerSourceReferences: [sourceId],
+          sourceDifference: { selfOnly: [], managerOnly: [] },
+          missingRationale: { self: false, manager: false },
+          responsibilityDurationInterpretation: [],
+          disputedAttributionSourceIds: [],
+          discussionRequired: false,
+        },
+      ],
+      discussionEntries: [],
+      generatedAt: now.toISOString(),
+    },
+    developmentPlanReference: null,
+  };
+}
+
+function ratingDistribution(criterionStableId: string, selectedRating: number) {
+  return {
+    criterionStableId,
+    buckets: [1, 2, 3, 4, 5].map((rating) => ({
+      rating,
+      count: rating === selectedRating ? 1 : 0,
+    })),
+  };
+}
+
+function reportAssessmentEntry(
+  criterionId: string,
+  rating: number,
+  sourceId: string,
+  directObservationBasis: string | null,
+) {
+  return {
+    criterionId,
+    rating,
+    justification: "Source-grounded human rationale.",
+    sourceReferences: [sourceId],
+    directObservationBasis,
+  };
+}
+
+function reportFactReference(sourceId: string, sourceType: "timeline_event" | "experiment_run") {
+  return {
+    sourceType,
+    sourceId,
+    sourceVersion: 1,
+    occurredAt: "2026-08-01T00:00:00Z",
+    url: null,
+  };
+}
+
+function reportProjectFact(sourceId: string, projectId: string) {
+  return {
+    kind: "source_fact",
+    sourceId,
+    sourceOccurredAt: "2026-08-01T00:00:00Z",
+    projectId,
+    workstreamId: null,
+    sourceType: "project_contribution",
+    relatedWorkItemId: null,
+    criterionStableId: null,
+    criterionVersionId: null,
+    summary: "A source-supported project contribution.",
+    result: "The acceptance condition was met.",
+    verificationState: "source_supported",
+    attributionState: "employee_confirmed",
+    responsibilityWindowIds: [],
+    sourceReferences: [reportFactReference(sourceId, "timeline_event")],
+  };
+}
+
+function reportResearchFact(sourceId: string, projectId: string) {
+  return {
+    kind: "source_fact",
+    sourceId,
+    sourceOccurredAt: "2026-08-02T00:00:00Z",
+    projectId,
+    workstreamId: null,
+    sourceType: "research",
+    factType: "experiment_run",
+    relatedWorkItemId: null,
+    humanConfirmationState: "human_decision",
+    verificationState: "source_supported",
+    responsibilityWindowIds: [],
+    summary: "The experiment result was human-confirmed.",
+    limitations: [],
+    uncertainty: null,
+    sourceReferences: [reportFactReference(sourceId, "experiment_run")],
   };
 }

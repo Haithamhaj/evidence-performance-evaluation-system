@@ -74,6 +74,39 @@ describe("employee evaluation schema", () => {
     ]);
   });
 
+  it("requires a versioned immutable report context on every final snapshot", async () => {
+    const columns = await client.$queryRaw<
+      Array<{
+        column_name: string;
+        data_type: string;
+        is_nullable: string;
+        column_default: string | null;
+      }>
+    >`
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'FinalEvaluationSnapshot'
+        AND column_name IN ('reportSnapshot', 'schemaVersion')
+      ORDER BY column_name
+    `;
+
+    expect(columns).toEqual([
+      {
+        column_name: "reportSnapshot",
+        data_type: "jsonb",
+        is_nullable: "NO",
+        column_default: null,
+      },
+      {
+        column_name: "schemaVersion",
+        data_type: "integer",
+        is_nullable: "NO",
+        column_default: "2",
+      },
+    ]);
+  });
+
   it("keeps all historical references restrictive", async () => {
     const foreignKeys = await client.$queryRaw<Array<{ delete_rule: string }>>`
       SELECT rc.delete_rule

@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+import {
+  CheckInFactSchema,
+  ConfirmedEvidenceFactSchema,
+  CriterionVersionFactSchema,
+  ProjectContributionFactSchema,
+  ResearchEvaluationFactSchema,
+  ResponsibilityWindowFactSchema,
+  SourceCoverageNoteSchema,
+} from "./evaluation-fact-view.js";
+
 const UuidSchema = z.string().uuid();
 const PositiveVersionSchema = z.number().int().positive();
 const RatingSchema = z.union([
@@ -265,24 +275,104 @@ export const EvaluationComparisonEntrySchema = z
     selfRating: RatingSchema,
     managerRating: RatingSchema,
     gap: z.number().int().min(-4).max(4),
+    effectiveWeight: z.number().min(0).max(100),
+    highWeightGap: z.boolean(),
     selfSourceReferences: z.array(UuidSchema).max(100),
     managerSourceReferences: z.array(UuidSchema).max(100),
+    sourceDifference: z
+      .object({
+        selfOnly: z.array(UuidSchema).max(100),
+        managerOnly: z.array(UuidSchema).max(100),
+      })
+      .strict(),
+    missingRationale: z.object({ self: z.boolean(), manager: z.boolean() }).strict(),
+    responsibilityDurationInterpretation: z.array(
+      z
+        .object({
+          sourceId: UuidSchema,
+          responsibilityType: z.enum([
+            "original_owner",
+            "acting_owner",
+            "permanent_owner",
+            "contributor",
+          ]),
+          startedAt: UtcInstantSchema,
+          endedAt: UtcInstantSchema.nullable(),
+        })
+        .strict(),
+    ),
+    disputedAttributionSourceIds: z.array(UuidSchema).max(100),
     discussionRequired: z.boolean(),
   })
   .strict();
 
 export const EvaluationComparisonSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     assignmentId: UuidSchema,
     entries: z.array(EvaluationComparisonEntrySchema).min(1).max(100),
+    discussionEntries: z.array(
+      z
+        .object({
+          id: UuidSchema,
+          body: normalizedText(8_000),
+          sourceReferences: z.array(UuidSchema).max(100),
+          createdAt: UtcInstantSchema,
+        })
+        .strict(),
+    ),
     generatedAt: UtcInstantSchema,
+  })
+  .strict();
+
+const EvaluationPeriodSchema = z
+  .object({ startsAt: UtcInstantSchema, endsAt: UtcInstantSchema })
+  .strict()
+  .superRefine((period, context) => {
+    if (Date.parse(period.endsAt) <= Date.parse(period.startsAt)) {
+      context.addIssue({
+        code: "custom",
+        path: ["endsAt"],
+        message: "Evaluation period must end after it starts.",
+      });
+    }
+  });
+
+const ImmutableAssessmentProjectionSchema = z
+  .object({
+    submittedAt: UtcInstantSchema,
+    entries: z.array(AssessmentEntrySchema).min(1).max(100),
+  })
+  .strict();
+
+const EvaluationWorkFactSchema = z.union([
+  ProjectContributionFactSchema,
+  ConfirmedEvidenceFactSchema,
+  CheckInFactSchema,
+  CriterionVersionFactSchema,
+]);
+
+const DevelopmentPlanReferenceSchema = z
+  .object({ developmentPlanId: UuidSchema, version: PositiveVersionSchema })
+  .strict();
+
+export const FinalEvaluationReportContextSchema = z
+  .object({
+    period: EvaluationPeriodSchema,
+    responsibilityWindows: z.array(ResponsibilityWindowFactSchema).max(1_000),
+    workFacts: z.array(EvaluationWorkFactSchema).max(10_000),
+    researchFacts: z.array(ResearchEvaluationFactSchema).max(10_000),
+    sourceCoverageNotes: z.array(SourceCoverageNoteSchema).max(1_000),
+    selfAssessment: ImmutableAssessmentProjectionSchema,
+    managerInitialAssessment: ImmutableAssessmentProjectionSchema,
+    comparison: EvaluationComparisonSchema,
+    developmentPlanReference: DevelopmentPlanReferenceSchema.nullable(),
   })
   .strict();
 
 export const FinalEvaluationSnapshotSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     id: UuidSchema,
     assignmentId: UuidSchema,
     cycleId: UuidSchema,
@@ -290,6 +380,7 @@ export const FinalEvaluationSnapshotSchema = z
     managerId: UuidSchema,
     templateVersionId: UuidSchema,
     cycleType: EvaluationCycleTypeSchema,
+    ...FinalEvaluationReportContextSchema.shape,
     entries: z.array(FinalEvaluationEntrySchema).min(1).max(100),
     finalComment: z.string().trim().max(8_000).nullable(),
     finalizedAt: UtcInstantSchema,
@@ -300,12 +391,13 @@ export const FinalEvaluationSnapshotSchema = z
 
 export const EmployeeEvaluationReportProjectionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     assignmentId: UuidSchema,
     employeeId: UuidSchema,
     cycleId: UuidSchema,
     cycleType: EvaluationCycleTypeSchema,
     state: EvaluationCycleStateSchema,
+    period: EvaluationPeriodSchema,
     finalSnapshot: FinalEvaluationSnapshotSchema.nullable(),
     acknowledgment: z
       .object({
@@ -318,18 +410,44 @@ export const EmployeeEvaluationReportProjectionSchema = z
   })
   .strict();
 
+const RatingDistributionSchema = z
+  .object({
+    criterionStableId: z.string().trim().min(1).max(100),
+    buckets: z
+      .array(z.object({ rating: RatingSchema, count: z.number().int().nonnegative() }).strict())
+      .length(5),
+  })
+  .strict()
+  .superRefine((distribution, context) => {
+    const ratings = distribution.buckets.map(({ rating }) => rating);
+    if (new Set(ratings).size !== 5) {
+      context.addIssue({
+        code: "custom",
+        path: ["buckets"],
+        message: "A rating distribution must contain one bucket for each rating.",
+      });
+    }
+  });
+
+const DepartmentEvaluationTrendSchema = z
+  .object({
+    sequence: PositiveVersionSchema,
+    cycleType: EvaluationCycleTypeSchema,
+    period: EvaluationPeriodSchema,
+    ratingDistributions: z.array(RatingDistributionSchema).max(100),
+  })
+  .strict();
+
 export const DepartmentEvaluationReportProjectionSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     departmentId: UuidSchema,
     cycleId: UuidSchema,
     cycleType: EvaluationCycleTypeSchema,
     state: EvaluationCycleStateSchema,
-    eligibleCount: z.number().int().nonnegative(),
-    submittedSelfAssessmentCount: z.number().int().nonnegative(),
-    submittedManagerAssessmentCount: z.number().int().nonnegative(),
-    finalizedCount: z.number().int().nonnegative(),
-    acknowledgedCount: z.number().int().nonnegative(),
+    period: EvaluationPeriodSchema,
+    ratingDistributions: z.array(RatingDistributionSchema).max(100),
+    trends: z.array(DepartmentEvaluationTrendSchema).max(100),
   })
   .strict();
 

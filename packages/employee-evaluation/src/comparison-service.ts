@@ -17,7 +17,7 @@ type ImmutableSubmission = Readonly<{
 }>;
 
 export type EvaluationComparisonResult = Readonly<{
-  schemaVersion: 1;
+  schemaVersion: 2;
   assignmentId: string;
   entries: ReadonlyArray<
     Readonly<{
@@ -204,7 +204,7 @@ export class ComparisonService {
       throw comparisonError("EVALUATION_COMPARISON_TIME_INVALID");
     }
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       assignmentId: input.assignmentId,
       entries: prepared.map((entry) => ({
         ...entry,
