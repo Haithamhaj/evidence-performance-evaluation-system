@@ -233,7 +233,7 @@ function validWorkItem(reference: ResearchWorkItemReference, projectId: string):
 }
 
 function isContextIdentityReference(reference: string): boolean {
-  return /^(?:project|project-version|workstream|workstream-version|work-item|work-item-version):/u.test(
+  return /^(?:project|project-version|workstream|workstream-version|work-item|work-item-version):/iu.test(
     reference,
   );
 }

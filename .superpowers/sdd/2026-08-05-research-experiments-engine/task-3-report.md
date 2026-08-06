@@ -183,3 +183,71 @@ Executed with Node `v24.18.0` from `/opt/homebrew/opt/node@24/bin`:
 ### Remaining risk and project state
 
 Remaining risk is low and limited to later orchestration wiring. Project state was not updated because the approved architecture, protected decisions, and recommended next action did not change.
+
+---
+
+## Fix Round 2 — Historical Approval and Reference-Case Guard
+
+### Status
+
+Complete. The two external review findings were resolved without migrations or changes to protected product rules.
+
+### Changes
+
+- Historical `DocumentVersion` reads now accept a final persisted `stale: true` readiness record whose lifecycle proves that exact version previously reached `criteria_approved`, even when its latest transition is `superseded`.
+- Current-version reads remain strict: the readiness record must not be stale and its latest lifecycle transition must be `criteria_approved`.
+- Exact versions that never reached `criteria_approved`, future versions, and mismatched Project or Workstream sources remain rejected.
+- Context identity detection is now case-insensitive for all six guarded kinds (`project`, `project-version`, `workstream`, `workstream-version`, `work-item`, and `work-item-version`), so uppercase or mixed-case aliases cannot bypass the canonical-reference authorization envelope.
+
+### Files changed
+
+- `packages/documents/src/progress-contract-draft-source-reader.ts`
+- `packages/documents/src/research-document-source-reader.integration.test.ts`
+- `packages/research-experiments/src/project-context.ts`
+- `packages/research-experiments/src/project-context.test.ts`
+- `.superpowers/sdd/2026-08-05-research-experiments-engine/task-3-report.md`
+
+### Database changes
+
+None. The Document regression uses real persisted readiness and lifecycle records but adds no schema or migration.
+
+### TDD RED evidence
+
+- With a valid persisted final-state fixture, one of three Document source-reader tests failed with `RESEARCH_DOCUMENT_SOURCE_INVALID`: the historical version had previously reached approval but was now stale and superseded. An initial attempt to mutate readiness after creation correctly hit the immutable-history database trigger, so the fixture was corrected before this behavioral RED was counted.
+- Six parameterized context-composition cases failed because uppercase or mixed-case identity kinds bypassed the case-sensitive guard: Project, Project version, Workstream, Workstream version, Work Item, and Work Item version. The Project case used a foreign UUID.
+- Total expected behavioral RED: seven failures.
+
+### GREEN and verification evidence
+
+Executed with Node `v24.18.0` from `/opt/homebrew/opt/node@24/bin`:
+
+- Affected suites first: 2 files passed, 16 tests passed.
+- All eight related Task 3 suites: 8 files passed, 51 tests passed.
+- Touched-package typecheck and lint (`documents`, `research-experiments`): passed.
+- Root `pnpm typecheck`: 25/25 package tasks passed.
+- Root `pnpm lint`: 25/25 package tasks passed; boundary and user-visible-copy checks passed.
+- `pnpm scan:ai-boundary`: passed; 738 source files validated.
+- `pnpm scan:performance-inputs`: passed; 603 files inspected.
+- `pnpm scan:secrets`: passed; 1,173 files checked.
+- `pnpm install --frozen-lockfile`: passed.
+- Prettier check for all touched files: passed.
+- `git diff --check`: passed.
+
+### Security and privacy impact
+
+- Historical access remains authorization-checked and requires persisted proof that the exact immutable version previously reached approval.
+- Current and never-approved versions fail closed under the existing approval rules.
+- Noncanonical casing can no longer disguise context identity references from the authorization guard; foreign or unauthorized identities remain rejected.
+- No API, networking, AI, lifecycle service, UI, migration, rating, readiness exposure, ranking, productivity scoring, or private narrative behavior was added.
+
+### Self-review
+
+- Confirmed the historical exception is limited to versions lower than the document's current version and cannot relax current-version approval semantics.
+- Confirmed the approval-history relation is applied to the exact requested version in both locator and loader paths.
+- Confirmed each of the six identity-reference kinds has a mutation-sensitive mixed-case regression, including a foreign Project identity.
+- Confirmed the source-reference grammar remains unchanged; only guarded identity-kind detection became case-insensitive.
+- Confirmed the diff contains no scope expansion or unrelated refactor.
+
+### Remaining risk and project state
+
+Remaining risk is low and limited to later orchestration wiring. Project state was not updated because the approved architecture, protected decisions, and recommended next action did not change.

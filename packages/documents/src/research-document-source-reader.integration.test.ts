@@ -234,6 +234,7 @@ beforeAll(async () => {
     templateVersionId,
     documentVersionId: historicalVersionId,
     version: 1,
+    stale: true,
   });
   await approveVersion({
     suffix,
@@ -241,6 +242,21 @@ beforeAll(async () => {
     templateVersionId,
     documentVersionId: currentVersionId,
     version: 2,
+  });
+  const historicalReadiness = await client.documentReadinessCheck.findFirstOrThrow({
+    where: { documentVersionId: historicalVersionId },
+    orderBy: { createdAt: "desc" },
+  });
+  await client.documentReadinessLifecycleTransition.create({
+    data: {
+      readinessCheckId: historicalReadiness.id,
+      documentVersionId: historicalVersionId,
+      fromState: "criteria_approved",
+      toState: "superseded",
+      actorId: ownerId,
+      reason: "A newer approved DocumentVersion superseded this version",
+      effectiveAt: new Date("2026-08-05T09:00:00.000Z"),
+    },
   });
 
   const identityReader = new DocumentResourceReader(client);
@@ -268,7 +284,7 @@ beforeAll(async () => {
 afterAll(async () => client.$disconnect());
 
 describe("ResearchDocumentSourceReader", () => {
-  it("keeps an earlier approved immutable version readable after a newer approval", async () => {
+  it("keeps a stale superseded historical version readable when it previously reached approval", async () => {
     await expect(
       reader.readApprovedVersion({
         actor: { userId: ownerId, active: true },
@@ -332,6 +348,7 @@ async function approveVersion(input: {
   templateVersionId: string;
   documentVersionId: string;
   version: number;
+  stale?: boolean;
 }) {
   const artifactVersion = `${input.suffix}-${input.version}`;
   const schemaHash = checksum(`schema-${artifactVersion}`);
@@ -407,7 +424,7 @@ async function approveVersion(input: {
       promptVersion: prompt.version,
       promptHash: prompt.bodyHash,
       validationOutcome: "valid",
-      stale: false,
+      stale: input.stale ?? false,
       sourceReferences: [`document-version:${input.documentVersionId}`],
       createdById: ownerId,
     },

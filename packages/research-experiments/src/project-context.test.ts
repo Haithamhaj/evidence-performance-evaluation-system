@@ -248,6 +248,41 @@ describe("composeProjectContextSnapshot", () => {
       expect.objectContaining({ code: "RESEARCH_PROJECT_CONTEXT_INVALID" }),
     );
   });
+
+  it.each([
+    ["Project", (_context: ReturnType<typeof input>) => `PROJECT:${crypto.randomUUID()}`],
+    [
+      "Project version",
+      (_context: ReturnType<typeof input>) => `PrOjEcT-vErSiOn:${"a".repeat(64)}`,
+    ],
+    [
+      "Workstream",
+      (context: ReturnType<typeof input>) =>
+        `WORKSTREAM:${context.workstreams[0]!.sourceReference.split(":")[1]}`,
+    ],
+    [
+      "Workstream version",
+      (context: ReturnType<typeof input>) =>
+        `WoRkStReAm-VeRsIoN:${context.workstreams[0]!.contentIdentitySha256}`,
+    ],
+    [
+      "Work Item",
+      (context: ReturnType<typeof input>) =>
+        `WORK-ITEM:${context.workItems[0]!.sourceReference.split(":")[1]}`,
+    ],
+    [
+      "Work Item version",
+      (context: ReturnType<typeof input>) =>
+        `WoRk-ItEm-VeRsIoN:${context.workItems[0]!.contentIdentitySha256}`,
+    ],
+  ])("rejects a non-canonical mixed-case %s identity reference", (_label, referenceFor) => {
+    const context = input(new Date("2026-08-05T09:00:00.000Z"));
+    context.sourceReferences.push(referenceFor(context));
+
+    expect(() => composeProjectContextSnapshot(context)).toThrow(
+      expect.objectContaining({ code: "RESEARCH_PROJECT_CONTEXT_INVALID" }),
+    );
+  });
 });
 
 function workstreamReference(input: {

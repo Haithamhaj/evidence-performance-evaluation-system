@@ -85,7 +85,13 @@ export class ProgressContractDraftSourceLocator {
               include: { uploadedSource: { select: { sha256: true } } },
             },
             readinessChecks: {
-              where: { analyzedState: "ready_for_criteria_generation", stale: false },
+              where:
+                input.documentVersionId === undefined
+                  ? { analyzedState: "ready_for_criteria_generation", stale: false }
+                  : {
+                      analyzedState: "ready_for_criteria_generation",
+                      lifecycleTransitions: { some: { toState: "criteria_approved" } },
+                    },
               orderBy: { createdAt: "desc" },
               take: 1,
               include: {
@@ -101,12 +107,19 @@ export class ProgressContractDraftSourceLocator {
     });
     const version = document?.versions[0];
     const readiness = version?.readinessChecks[0];
+    const historicalVersion =
+      document !== null && version !== undefined && version.version < document.currentVersion;
+    const currentApproval =
+      readiness?.stale === false &&
+      readiness.lifecycleTransitions[0]?.toState === "criteria_approved";
     if (
       document === null ||
       version === undefined ||
       (input.documentVersionId !== undefined && version.id !== input.documentVersionId) ||
       (input.documentVersionId === undefined && version.version !== document.currentVersion) ||
-      readiness?.lifecycleTransitions[0]?.toState !== "criteria_approved" ||
+      version.version > document.currentVersion ||
+      readiness === undefined ||
+      (!historicalVersion && !currentApproval) ||
       version.sources.length === 0 ||
       version.sources.some(({ uploadedSource }) => uploadedSource === null)
     )
@@ -165,10 +178,10 @@ export class ProgressContractDraftSourceReader implements ApprovedProgressContra
       where: {
         documentVersionId: input.documentVersionId,
         analyzedState: "ready_for_criteria_generation",
-        stale: false,
+        lifecycleTransitions: { some: { toState: "criteria_approved" } },
       },
       orderBy: { createdAt: "desc" },
-      select: { id: true, documentId: true, documentVersionId: true },
+      select: { id: true, documentId: true, documentVersionId: true, stale: true },
     });
     if (readiness === null) throw invalidSource();
 
@@ -193,7 +206,8 @@ export class ProgressContractDraftSourceReader implements ApprovedProgressContra
       version === null ||
       identity === null ||
       identity.status !== "active" ||
-      lifecycle?.toState !== "criteria_approved" ||
+      (version.version === document.currentVersion &&
+        (readiness.stale || lifecycle?.toState !== "criteria_approved")) ||
       document.projectId !== input.projectId ||
       document.workstreamId !== null ||
       version.documentId !== document.id ||
