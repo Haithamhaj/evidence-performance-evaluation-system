@@ -133,10 +133,27 @@ export interface ResearchWorkItemScopeAuthorizer {
       at: Date;
     }>,
   ): Promise<ResearchWorkItemReference>;
+  authorizeProjectItemTransaction?(
+    transaction: Transaction,
+    input: Readonly<{
+      actor: Actor;
+      projectId: string;
+      workItemId: string;
+      at: Date;
+    }>,
+  ): Promise<ResearchWorkItemReference>;
 }
 
 export interface ResearchScopeAuthorizer {
   authorize(
+    input: Readonly<{
+      actor: Actor;
+      scope: import("@evaluation/contracts").ResearchScope;
+      at: Date;
+    }>,
+  ): Promise<ResearchScopeAuthorization>;
+  authorizeTransaction(
+    transaction: Transaction,
     input: Readonly<{
       actor: Actor;
       scope: import("@evaluation/contracts").ResearchScope;
@@ -169,6 +186,51 @@ export class ResearchProjectContextReader implements ResearchScopeAuthorizer {
     if (scope.workItemId !== null) {
       if (this.workItems === undefined) throw forbidden();
       const item = await this.workItems.authorizeProjectItem({
+        actor: input.actor,
+        projectId: scope.projectId,
+        workItemId: scope.workItemId,
+        at,
+      });
+      if (
+        item.id !== scope.workItemId ||
+        item.projectId !== scope.projectId ||
+        (scope.workstreamId !== null && item.workstreamId !== scope.workstreamId)
+      ) {
+        throw forbidden();
+      }
+    }
+    return {
+      actorId: input.actor.userId,
+      projectId: scope.projectId,
+      workstreamId: scope.workstreamId,
+      workItemId: scope.workItemId,
+      projectStatus: authorization.projectStatus,
+      accessBasis: authorization.accessBasis,
+      authorizedAt: at.toISOString(),
+    };
+  }
+
+  async authorizeTransaction(
+    transaction: Transaction,
+    input: Readonly<{
+      actor: Actor;
+      scope: import("@evaluation/contracts").ResearchScope;
+      at: Date;
+    }>,
+  ): Promise<ResearchScopeAuthorization> {
+    const scope = ResearchScopeSchema.parse(input.scope);
+    const at = validInstant(input.at);
+    const authorization = await authorizeProjectScope(
+      transaction,
+      input.actor,
+      scope.projectId,
+      scope.workstreamId,
+      at,
+    );
+    if (scope.workItemId !== null) {
+      const authorizeItem = this.workItems?.authorizeProjectItemTransaction;
+      if (authorizeItem === undefined) throw forbidden();
+      const item = await authorizeItem.call(this.workItems, transaction, {
         actor: input.actor,
         projectId: scope.projectId,
         workItemId: scope.workItemId,

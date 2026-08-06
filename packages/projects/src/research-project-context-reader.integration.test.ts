@@ -285,6 +285,24 @@ describe("ResearchProjectContextReader", () => {
     ).rejects.toMatchObject({ code: "RESEARCH_SCOPE_FORBIDDEN", status: 403 });
   });
 
+  it("evaluates active-user authorization inside the caller transaction", async () => {
+    const transaction = {
+      user: { findUnique: async () => ({ active: false }) },
+      project: { findUnique: async () => null },
+      roleAssignment: { findMany: async () => [] },
+      responsibilityWindow: { findMany: async () => [] },
+      workstream: { findFirst: async () => null },
+    };
+
+    await expect(
+      reader.authorizeTransaction(transaction as never, {
+        actor: { userId: ids.owner, active: true },
+        scope: { projectId: ids.project, workstreamId: null, workItemId: null },
+        at,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SCOPE_FORBIDDEN", status: 403 });
+  });
+
   it("returns only authorized operational context and safe opaque references", async () => {
     const context = await reader.readAuthorizedContext({
       actor: { userId: ids.owner, active: true },

@@ -122,6 +122,44 @@ export class ResearchWorkItemReader {
       return serializeReference(row);
     });
   }
+
+  async authorizeProjectItemTransaction(
+    transaction: DatabaseTransaction,
+    input: Readonly<{
+      actor: Actor;
+      projectId: string;
+      workItemId: string;
+      at: Date;
+    }>,
+  ): Promise<ResearchWorkItemReference> {
+    const at = validInstant(input.at);
+    await assertActiveDatabaseUser(transaction, input.actor);
+    const access = await authorizeResearchProject(transaction, input.actor, input.projectId, at);
+    const row = await transaction.workItem.findFirst({
+      where: {
+        id: input.workItemId,
+        projectId: input.projectId,
+        status: { not: "cancelled" },
+      },
+      select: {
+        id: true,
+        projectId: true,
+        workstreamId: true,
+        title: true,
+        description: true,
+        status: true,
+        version: true,
+      },
+    });
+    if (
+      row === null ||
+      (!access.allProjectItems &&
+        (row.workstreamId === null || !access.workstreamIds.includes(row.workstreamId)))
+    ) {
+      throw forbidden();
+    }
+    return serializeReference(row);
+  }
 }
 
 export class ConfirmedTaskCreatorAdapter implements ConfirmedTaskCreator {

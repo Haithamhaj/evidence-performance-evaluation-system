@@ -39,6 +39,8 @@ export * from "./research-query-service.js";
 export * from "./research-service.js";
 export * from "./source-adapters.js";
 export * from "./source-config.js";
+export * from "./source-review-persistence.js";
+export * from "./source-review-service.js";
 export { SourceRetriever } from "./source-retrieval.js";
 export type {
   ResearchDnsAnswer,
