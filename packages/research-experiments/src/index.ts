@@ -27,6 +27,9 @@ export type {
 export * from "./project-context.js";
 export * from "./ai-assistant.js";
 export * from "./prompts.js";
+export * from "./research-invariants.js";
+export * from "./research-query-service.js";
+export * from "./research-service.js";
 export * from "./source-adapters.js";
 export * from "./source-config.js";
 export { SourceRetriever } from "./source-retrieval.js";
