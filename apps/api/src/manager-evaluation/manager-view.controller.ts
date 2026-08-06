@@ -58,7 +58,7 @@ export class ManagerEvaluationManagerViewController {
     request: import("./manager-evaluation-policy.guard.js").ManagerEvaluationRequest,
     cycleId: string,
   ) {
-    return this.summaries.generate({
+    return this.summaries.createSummary({
       cycleId: parseManagerEvaluationUuid(cycleId),
       managerId: request.principal!.userId,
     });

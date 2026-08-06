@@ -32,7 +32,7 @@ export class ManagerEvaluationSummaryService {
     this.#clock = dependencies.clock ?? (() => new Date());
   }
 
-  async generate(input: Readonly<{ cycleId: string; managerId: string }>) {
+  async createSummary(input: Readonly<{ cycleId: string; managerId: string }>) {
     const cycle = await this.#database.managerEvaluationCycle.findUnique({
       where: { id: input.cycleId },
       include: {

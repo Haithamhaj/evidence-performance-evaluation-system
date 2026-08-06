@@ -34,7 +34,7 @@ export class ApiManagerEvaluationSummaryService {
   constructor(database: Database) {
     this.database = database;
   }
-  async generate(input: Readonly<{ cycleId: string; managerId: string }>) {
+  async createSummary(input: Readonly<{ cycleId: string; managerId: string }>) {
     const router = createDeferredRuntimeAiRouter(() =>
       createRuntimeAiRouter({
         database: this.database,
@@ -46,7 +46,7 @@ export class ApiManagerEvaluationSummaryService {
       router,
       systemId: await resolveSystemAiScopeId(this.database, "manager-evaluation.summary"),
       timeoutMs: 30_000,
-    }).generate(input);
+    }).createSummary(input);
   }
 }
 
