@@ -1,7 +1,7 @@
 # Identified Manager Evaluation Engine — Technical Acceptance
 
-**Program:** E5A  
-**Scope:** T055–T059 / CAP-033–CAP-034  
+**Program:** E5A
+**Scope:** T055–T059 / CAP-033–CAP-034
 **Status:** Local technical implementation complete; final bundle reviews and hosted checks are owned by the checkpoint integrator.
 
 ## Outcome
