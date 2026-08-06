@@ -25,3 +25,13 @@ export type {
 } from "@evaluation/contracts";
 
 export * from "./project-context.js";
+export * from "./source-adapters.js";
+export * from "./source-config.js";
+export { SourceRetriever } from "./source-retrieval.js";
+export type {
+  ResearchDnsAnswer,
+  ResearchSourceRequest,
+  ResearchSourceResponse,
+  ResearchSourceTransport,
+  RetrievedResearchSource,
+} from "./source-retrieval.js";
