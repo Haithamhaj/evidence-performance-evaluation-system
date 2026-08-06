@@ -505,6 +505,9 @@ importers:
       '@evaluation/evaluation-preparation':
         specifier: workspace:*
         version: link:../evaluation-preparation
+      '@evaluation/localization':
+        specifier: workspace:*
+        version: link:../localization
     devDependencies:
       '@types/node':
         specifier: 26.1.1

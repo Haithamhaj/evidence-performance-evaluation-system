@@ -29,6 +29,35 @@ interface PilotIdentity {
   readonly pilotKey: "pilot-manager" | "system-admin";
 }
 
+interface PilotEvaluationCriterionSeed {
+  readonly id: string;
+  readonly title: string;
+  readonly sectionId: string;
+  readonly internalWeight?: number | undefined;
+  readonly definition?: string | undefined;
+  readonly purpose?: string | undefined;
+  readonly anchors: ReadonlyArray<Readonly<{ rating: number; text: string }>>;
+  readonly examples: ReadonlyArray<string>;
+  readonly evidenceGuidance?: string | undefined;
+}
+
+export interface PilotEvaluationRubricSeed {
+  readonly version: string;
+  readonly locale: string;
+  readonly sourceHash: string;
+  readonly sections: ReadonlyArray<Readonly<{ id: string; title: string; weight: number }>>;
+  readonly employeeCriteria: ReadonlyArray<PilotEvaluationCriterionSeed>;
+  readonly projectContribution: PilotEvaluationCriterionSeed;
+}
+
+export interface PilotEvaluationTemplateSeedInput {
+  readonly organizationId: string;
+  readonly departmentId: string;
+  readonly rubricVersionId: string;
+  readonly createdById: string;
+  readonly rubric: PilotEvaluationRubricSeed;
+}
+
 function requiredSubject(name: string, value: string): string {
   const subject = value.trim();
   if (subject.length === 0) throw new Error(`${name} must not be empty`);
@@ -198,4 +227,126 @@ export async function seedPilot(
   ]);
 
   return changes.filter((change): change is RoleAssignmentChange => change !== null);
+}
+
+export async function seedPilotEvaluationTemplateVersionOne(
+  transaction: TransactionClient,
+  input: PilotEvaluationTemplateSeedInput,
+): Promise<Readonly<{ templateId: string; versionId: string }>> {
+  const key = "pilot-employee-evaluation";
+  const existing = await transaction.evaluationTemplate.findUnique({
+    where: {
+      organizationId_departmentId_key: {
+        organizationId: input.organizationId,
+        departmentId: input.departmentId,
+        key,
+      },
+    },
+    include: { versions: { orderBy: { versionNumber: "asc" } } },
+  });
+  if (existing !== null) {
+    const version = existing.versions[0];
+    if (
+      existing.scope !== "DEPARTMENT" ||
+      existing.versions.length !== 1 ||
+      version === undefined ||
+      version.versionNumber !== 1 ||
+      version.rubricVersionId !== input.rubricVersionId
+    ) {
+      throw new Error("Existing pilot evaluation template conflicts with approved Version 1");
+    }
+    return { templateId: existing.id, versionId: version.id };
+  }
+
+  if (input.rubric.version !== "1" || input.rubric.locale !== "en") {
+    throw new Error("Pilot evaluation template requires approved English rubric Version 1");
+  }
+  const sectionWeights = new Map(
+    input.rubric.sections.map((section) => [section.id, section.weight]),
+  );
+  const criteria = [...input.rubric.employeeCriteria, input.rubric.projectContribution];
+  const created = await transaction.evaluationTemplate.create({
+    data: {
+      organizationId: input.organizationId,
+      departmentId: input.departmentId,
+      scope: "DEPARTMENT",
+      key,
+      name: "LeapAI AI Department Employee Evaluation",
+      createdById: input.createdById,
+      versions: {
+        create: {
+          rubricVersionId: input.rubricVersionId,
+          versionNumber: 1,
+          ratingScale: [1, 2, 3, 4, 5],
+          weightPolicy: {
+            sectionTotal: 100,
+            fixedCriterionTotalPerSection: 100,
+            projectContributionAutomaticAverage: false,
+          },
+          evaluationPolicy: {
+            cadence: "QUARTERLY",
+            cycleOneType: "CALIBRATION_NON_BASELINE",
+            employeeRanking: false,
+            documentationReadinessScoring: false,
+          },
+          localeAvailability: ["en"],
+          createdById: input.createdById,
+          items: {
+            create: criteria.map((criterion, displayOrder) => {
+              const sectionWeight = sectionWeights.get(criterion.sectionId);
+              if (sectionWeight === undefined) {
+                throw new Error(`Approved rubric section ${criterion.sectionId} is missing`);
+              }
+              const range = protectedAllowedRange(criterion.id);
+              return {
+                stableCriterionId: criterion.id,
+                kind:
+                  criterion.id === input.rubric.projectContribution.id
+                    ? ("PROJECT_CONTRIBUTION" as const)
+                    : ("FIXED_CRITERION" as const),
+                sectionStableId: criterion.sectionId,
+                sectionWeight,
+                criterionWeight: criterion.internalWeight ?? null,
+                displayOrder,
+                protectedGlobal: range !== null,
+                mandatory: true,
+                allowedWeightMinimum: range?.minimum ?? null,
+                allowedWeightMaximum: range?.maximum ?? null,
+                locales: {
+                  create: {
+                    locale: input.rubric.locale,
+                    title: criterion.title,
+                    definition: criterion.definition ?? criterion.purpose ?? criterion.title,
+                    anchors: criterion.anchors as never,
+                    examples: criterion.examples as never,
+                    evidenceGuidance:
+                      criterion.evidenceGuidance === undefined ? [] : [criterion.evidenceGuidance],
+                  },
+                },
+              };
+            }),
+          },
+        },
+      },
+    },
+    include: { versions: true },
+  });
+  const version = created.versions[0];
+  if (version === undefined) throw new Error("Pilot evaluation template Version 1 was not created");
+  return { templateId: created.id, versionId: version.id };
+}
+
+function protectedAllowedRange(
+  criterionId: string,
+): Readonly<{ minimum: number; maximum: number }> | null {
+  switch (criterionId) {
+    case "PPB-01":
+      return { minimum: 4, maximum: 8 };
+    case "PPB-02":
+      return { minimum: 3, maximum: 7 };
+    case "PPB-03":
+      return { minimum: 2, maximum: 6 };
+    default:
+      return null;
+  }
 }
