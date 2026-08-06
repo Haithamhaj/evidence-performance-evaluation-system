@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   AnalysisSourceReferenceSchema,
   AppError,
@@ -23,8 +25,13 @@ export type ResearchScopeAuthorization = Readonly<{
 
 export type ResearchNamedReference = Readonly<{
   id: string;
+  projectId: string;
   name: string;
+  description: string;
+  version: number;
+  contentIdentitySha256: string;
   sourceReference: string;
+  contentIdentityReference: string;
 }>;
 
 export type ResearchProgressComponentReference = Readonly<{
@@ -97,6 +104,10 @@ export type ResearchProspectiveProgressProposalReference = Readonly<{
 
 export type ResearchProjectContext = Readonly<{
   projectId: string;
+  projectVersion: number;
+  projectContentIdentitySha256: string;
+  projectSourceReference: string;
+  projectContentIdentityReference: string;
   name: string;
   objective: string;
   description: string;
@@ -200,7 +211,7 @@ export class ResearchProjectContextReader implements ResearchScopeAuthorizer {
       );
       const project = await transaction.project.findUnique({
         where: { id: input.projectId },
-        select: { id: true, name: true, description: true },
+        select: { id: true, name: true, description: true, version: true },
       });
       const allWorkstreams = await transaction.workstream.findMany({
         where: { projectId: input.projectId, status: { in: ["active", "paused"] } },
@@ -208,6 +219,8 @@ export class ResearchProjectContextReader implements ResearchScopeAuthorizer {
         select: {
           id: true,
           name: true,
+          description: true,
+          version: true,
           members: {
             where: {
               employeeId: input.actor.userId,
@@ -321,7 +334,7 @@ export class ResearchProjectContextReader implements ResearchScopeAuthorizer {
         ...allWorkstreams.filter(({ members }) => members.length > 0).map(({ id }) => id),
       ]);
       const visibleWorkstreams =
-        ownedProject || assignedManager
+        ownedProject || assignedManager || authorization.accessBasis === "project_contributor"
           ? allWorkstreams
           : allWorkstreams.filter(({ id }) => authorizedWorkstreamIds.has(id));
       const visibleWorkstreamIds = new Set(visibleWorkstreams.map(({ id }) => id));
@@ -329,11 +342,38 @@ export class ResearchProjectContextReader implements ResearchScopeAuthorizer {
         ({ workstreamId }) => workstreamId === null || visibleWorkstreamIds.has(workstreamId),
       );
 
-      const workstreams = visibleWorkstreams.map(({ id, name }) => ({
-        id,
-        name,
-        sourceReference: sourceReference("workstream", id),
-      }));
+      const workstreams = visibleWorkstreams.map(({ id, name, description, version }) => {
+        const contentIdentitySha256 = contentIdentity({
+          kind: "workstream",
+          id,
+          projectId: project.id,
+          version,
+          name,
+          description,
+        });
+        return {
+          id,
+          projectId: project.id,
+          name,
+          description,
+          version,
+          contentIdentitySha256,
+          sourceReference: sourceReference("workstream", id),
+          contentIdentityReference: sourceReference("workstream-version", contentIdentitySha256),
+        };
+      });
+      const projectContentIdentitySha256 = contentIdentity({
+        kind: "project",
+        id: project.id,
+        version: project.version,
+        name: project.name,
+        description: project.description,
+      });
+      const projectSourceReference = sourceReference("project", project.id);
+      const projectContentIdentityReference = sourceReference(
+        "project-version",
+        projectContentIdentitySha256,
+      );
       const contract =
         activeContract === null
           ? null
@@ -396,8 +436,10 @@ export class ResearchProjectContextReader implements ResearchScopeAuthorizer {
             ];
       });
       const sourceReferences = [
-        sourceReference("project", project.id),
+        projectSourceReference,
+        projectContentIdentityReference,
         ...workstreams.map(({ sourceReference: reference }) => reference),
+        ...workstreams.map(({ contentIdentityReference: reference }) => reference),
         ...responsibilityWindows.map(({ sourceReference: reference }) => reference),
         ...(contract === null
           ? []
@@ -410,6 +452,10 @@ export class ResearchProjectContextReader implements ResearchScopeAuthorizer {
       ].sort();
       return {
         projectId: project.id,
+        projectVersion: project.version,
+        projectContentIdentitySha256,
+        projectSourceReference,
+        projectContentIdentityReference,
         name: project.name,
         objective: project.description,
         description: project.description,
@@ -556,6 +602,10 @@ function strings(value: unknown): string[] {
 
 function sourceReference(kind: string, id: string): string {
   return AnalysisSourceReferenceSchema.parse(`${kind}:${id}`);
+}
+
+function contentIdentity(value: object): string {
+  return createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
 }
 
 function validInstant(at: Date): Date {

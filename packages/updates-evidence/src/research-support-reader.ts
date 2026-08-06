@@ -57,6 +57,12 @@ export class ConfirmedResearchEvidenceReader {
     const at = this.clock();
     if (!Number.isFinite(at.getTime())) throw notConfirmed();
     return this.database.$transaction(async (transaction) => {
+      if (!input.actor.active) throw forbidden();
+      const user = await transaction.user.findUnique({
+        where: { id: input.actor.userId },
+        select: { active: true },
+      });
+      if (user?.active !== true) throw forbidden();
       const event = await transaction.acceptedEvidenceEvent.findFirst({
         where: {
           evidenceId: input.evidenceId,

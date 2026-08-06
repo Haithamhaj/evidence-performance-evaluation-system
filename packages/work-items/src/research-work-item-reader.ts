@@ -1,6 +1,6 @@
-import { AnalysisSourceReferenceSchema, AppError } from "@evaluation/contracts";
+import { createHash } from "node:crypto";
 
-import { authorizeProject } from "./service-authorization.js";
+import { AnalysisSourceReferenceSchema, AppError } from "@evaluation/contracts";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type DatabaseTransaction = import("@evaluation/database").DatabaseTransaction;
@@ -15,6 +15,8 @@ export type ResearchWorkItemReference = Readonly<{
   status: import("@evaluation/contracts").WorkItemStatus;
   version: number;
   sourceReference: string;
+  contentIdentitySha256: string;
+  contentIdentityReference: string;
 }>;
 
 export interface ConfirmedTaskCreator {
@@ -162,11 +164,43 @@ async function authorizeResearchProject(
   projectId: string,
   at: Date,
 ): Promise<Readonly<{ allProjectItems: boolean; workstreamIds: readonly string[] }>> {
-  try {
-    await authorizeProject(transaction, actor, projectId, at);
+  const project = await transaction.project.findUnique({
+    where: { id: projectId },
+    select: {
+      departmentId: true,
+      status: true,
+      members: {
+        where: {
+          employeeId: actor.userId,
+          startsAt: { lte: at },
+          OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+        },
+        take: 1,
+        select: { id: true },
+      },
+    },
+  });
+  if (project === null || !["active", "paused"].includes(project.status)) throw forbidden();
+  const manager = await transaction.roleAssignment.findFirst({
+    where: {
+      userId: actor.userId,
+      role: "manager",
+      scopeType: "department",
+      scope: { departmentId: project.departmentId },
+    },
+    select: { id: true },
+  });
+  const projectResponsibilities = await transaction.responsibilityWindow.findMany({
+    where: {
+      employeeId: actor.userId,
+      projectId,
+      startsAt: { lte: at },
+      OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+    },
+    select: { id: true },
+  });
+  if (project.members.length > 0 || projectResponsibilities.length > 0 || manager !== null) {
     return { allProjectItems: true, workstreamIds: [] };
-  } catch (error) {
-    if (!(error instanceof AppError) || error.status !== 403) throw error;
   }
   const memberships = await transaction.workstreamMember.findMany({
     where: {
@@ -208,6 +242,21 @@ function serializeReference(
     version: number;
   }>,
 ): ResearchWorkItemReference {
+  const contentIdentitySha256 = createHash("sha256")
+    .update(
+      JSON.stringify({
+        kind: "work-item",
+        id: row.id,
+        projectId: row.projectId,
+        workstreamId: row.workstreamId,
+        title: row.title,
+        description: row.description,
+        status: row.status,
+        version: row.version,
+      }),
+      "utf8",
+    )
+    .digest("hex");
   return {
     id: row.id,
     projectId: row.projectId,
@@ -217,6 +266,10 @@ function serializeReference(
     status: row.status,
     version: row.version,
     sourceReference: AnalysisSourceReferenceSchema.parse(`work-item:${row.id}`),
+    contentIdentitySha256,
+    contentIdentityReference: AnalysisSourceReferenceSchema.parse(
+      `work-item-version:${contentIdentitySha256}`,
+    ),
   };
 }
 

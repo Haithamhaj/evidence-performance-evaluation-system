@@ -9,9 +9,13 @@ const at = new Date("2026-08-05T09:00:00.000Z");
 const ownerId = crypto.randomUUID();
 const participantId = crypto.randomUUID();
 const outsiderId = crypto.randomUUID();
+const workstreamOnlyId = crypto.randomUUID();
+const inactivePersistedId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
 const otherProjectId = crypto.randomUUID();
+const workstreamId = crypto.randomUUID();
 const confirmedEvidenceId = crypto.randomUUID();
+const workstreamEvidenceId = crypto.randomUUID();
 const privateDraftEvidenceId = crypto.randomUUID();
 
 beforeAll(async () => {
@@ -43,6 +47,17 @@ beforeAll(async () => {
         email: `research-support-outsider-${suffix}@example.invalid`,
         displayName: "Outsider",
       },
+      {
+        id: workstreamOnlyId,
+        email: `research-support-workstream-${suffix}@example.invalid`,
+        displayName: "Workstream-only participant",
+      },
+      {
+        id: inactivePersistedId,
+        email: `research-support-inactive-${suffix}@example.invalid`,
+        displayName: "Inactive persisted participant",
+        active: false,
+      },
     ],
   });
   await client.authorizationScope.createMany({
@@ -63,6 +78,12 @@ beforeAll(async () => {
         id: otherProjectId,
         key: `research-support-other-project-${suffix}`,
         scopeType: "project",
+        departmentId: department.id,
+      },
+      {
+        id: workstreamId,
+        key: `research-support-workstream-${suffix}`,
+        scopeType: "workstream",
         departmentId: department.id,
       },
     ],
@@ -92,13 +113,33 @@ beforeAll(async () => {
     ],
   });
   await client.projectMember.createMany({
-    data: [ownerId, participantId].map((employeeId) => ({
+    data: [ownerId, participantId, inactivePersistedId].map((employeeId) => ({
       projectId,
       employeeId,
       startsAt: new Date("2026-08-01T00:00:00.000Z"),
       reason: "Current Project participant",
       createdById: ownerId,
     })),
+  });
+  await client.workstream.create({
+    data: {
+      id: workstreamId,
+      projectId,
+      authorizationScopeId: workstreamId,
+      name: "Evidence Workstream",
+      description: "Exact Workstream scope",
+      status: "active",
+      createdById: ownerId,
+    },
+  });
+  await client.workstreamMember.create({
+    data: {
+      workstreamId,
+      employeeId: workstreamOnlyId,
+      startsAt: new Date("2026-08-01T00:00:00.000Z"),
+      reason: "Current exact Workstream participant",
+      createdById: ownerId,
+    },
   });
 
   const confirmed = await client.evidenceRecord.create({
@@ -139,6 +180,48 @@ beforeAll(async () => {
       evidenceId: confirmedEvidenceId,
       projectId,
       sourceReferences: [`evidence:${confirmedEvidenceId}`],
+      occurredAt: at,
+    },
+  });
+  const workstreamEvidence = await client.evidenceRecord.create({
+    data: {
+      id: workstreamEvidenceId,
+      idempotencyKey: crypto.randomUUID(),
+      projectId,
+      workstreamId,
+      employeeId: ownerId,
+      state: "confirmed",
+      revisions: {
+        create: {
+          revision: 1,
+          revisionKind: "manual_draft",
+          sourceKind: "pasted_text",
+          sourceText: "Workstream shared source fact",
+          supportedClaim: "The Workstream experiment completed its bounded validation.",
+          contributionContext: "PRIVATE WORKSTREAM NARRATIVE MUST NOT LEAK",
+          executionMode: "manual",
+          createdById: ownerId,
+        },
+      },
+    },
+    include: { revisions: true },
+  });
+  const workstreamConfirmation = await client.evidenceConfirmation.create({
+    data: {
+      evidenceId: workstreamEvidenceId,
+      evidenceRevisionId: workstreamEvidence.revisions[0]!.id,
+      employeeId: ownerId,
+      reason: "Employee confirmed shared Workstream Evidence",
+      confirmedAt: at,
+    },
+  });
+  await client.acceptedEvidenceEvent.create({
+    data: {
+      confirmationId: workstreamConfirmation.id,
+      evidenceId: workstreamEvidenceId,
+      projectId,
+      workstreamId,
+      sourceReferences: [`evidence:${workstreamEvidenceId}`],
       occurredAt: at,
     },
   });
@@ -216,6 +299,38 @@ describe("ConfirmedResearchEvidenceReader", () => {
     await expect(
       reader.getConfirmedEvidence({
         actor: { userId: outsiderId, active: true },
+        evidenceId: confirmedEvidenceId,
+        projectId,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SCOPE_FORBIDDEN" });
+  });
+
+  it("revalidates persisted active state even when the actor claim says active", async () => {
+    await expect(
+      reader.getConfirmedEvidence({
+        actor: { userId: inactivePersistedId, active: true },
+        evidenceId: confirmedEvidenceId,
+        projectId,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SCOPE_FORBIDDEN" });
+  });
+
+  it("allows a Workstream-only contributor only for confirmed Evidence in that exact Workstream", async () => {
+    await expect(
+      reader.getConfirmedEvidence({
+        actor: { userId: workstreamOnlyId, active: true },
+        evidenceId: workstreamEvidenceId,
+        projectId,
+      }),
+    ).resolves.toMatchObject({
+      evidenceId: workstreamEvidenceId,
+      projectId,
+      workstreamId,
+      supportedClaim: "The Workstream experiment completed its bounded validation.",
+    });
+    await expect(
+      reader.getConfirmedEvidence({
+        actor: { userId: workstreamOnlyId, active: true },
         evidenceId: confirmedEvidenceId,
         projectId,
       }),

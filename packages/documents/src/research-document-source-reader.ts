@@ -14,7 +14,7 @@ export type ResearchDocumentSource = Readonly<{
 
 type ApprovedVersionLocator = Readonly<{
   locateApprovedProjectVersion(
-    input: Readonly<{ actor: Actor; projectId: string }>,
+    input: Readonly<{ actor: Actor; projectId: string; documentVersionId: string }>,
   ): Promise<Readonly<{
     documentVersionId: string;
     sourceChecksum: string;
@@ -67,6 +67,7 @@ export class ResearchDocumentSourceReader {
     const located = await this.locator.locateApprovedProjectVersion({
       actor: input.actor,
       projectId: input.projectId,
+      documentVersionId: input.documentVersionId,
     });
     if (located === null || located.documentVersionId !== input.documentVersionId) {
       throw invalidSource();

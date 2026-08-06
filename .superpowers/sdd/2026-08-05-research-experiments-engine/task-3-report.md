@@ -96,3 +96,90 @@ Low. These are internal public module boundaries; orchestration and lifecycle wi
 ## Project-state update
 
 Not updated. This task implements the already-approved E3 architecture and does not change the current goal, protected decisions, active risks, or recommended next action.
+
+---
+
+## Fix Round 1 — External Review Findings
+
+### Status
+
+Complete. All six Critical/Important review findings were resolved without migrations or changes to protected product rules.
+
+### Changes
+
+- Replaced generic retained-role authorization in `ResearchWorkItemReader` with current persisted Project membership/responsibility, explicit current owner responsibility, assigned department manager, or exact current Workstream membership/responsibility.
+- Revalidated persisted `User.active` before returning confirmed Research Evidence.
+- Updated the Evidence scope owner boundary to authorize current Project access or the exact current Workstream, while keeping Project-wide Evidence unavailable to Workstream-only contributors.
+- Added Project and Workstream version/content identities using deterministic SHA-256 while retaining the safe opaque `kind:UUID` reference and adding `kind-version:SHA256` references.
+- Added the same versioned content identity to Work Item references.
+- Made current Project contributors Project-wide readers of active/paused Workstreams; Workstream-only readers remain filtered to exact authorized Workstreams.
+- Changed the Documents owner boundary to locate and load the exact requested approved immutable `DocumentVersion`, including historical approved versions after the document advances.
+- Strengthened snapshot composition into a Project-bound authorized envelope:
+  - every Workstream binds to the snapshot Project;
+  - every scoped Work Item binds to an included authorized Workstream;
+  - Project, Workstream, and Work Item ID/version/content references are recomputed and verified;
+  - foreign or unknown context identity references are rejected rather than normalized.
+
+### Files changed
+
+- `packages/work-items/src/research-work-item-reader.ts`
+- `packages/work-items/src/research-work-item-reader.integration.test.ts`
+- `packages/updates-evidence/src/research-support-reader.ts`
+- `packages/updates-evidence/src/research-support-reader.integration.test.ts`
+- `packages/updates-evidence/src/scope-readers.ts`
+- `packages/projects/src/research-project-context-reader.ts`
+- `packages/projects/src/research-project-context-reader.integration.test.ts`
+- `packages/documents/src/research-document-source-reader.ts`
+- `packages/documents/src/research-document-source-reader.integration.test.ts`
+- `packages/documents/src/progress-contract-draft-source-reader.ts`
+- `packages/documents/src/progress-contract-draft-source-reader.integration.test.ts`
+- `packages/research-experiments/src/project-context.ts`
+- `packages/research-experiments/src/project-context.test.ts`
+- `.superpowers/sdd/2026-08-05-research-experiments-engine/task-3-report.md`
+
+### Database changes
+
+None. The Document regression uses real persisted owner-domain records but adds no schema or migration.
+
+### TDD RED evidence
+
+- The first Fix Round 1 behavior run produced 11 expected failures across snapshot binding, Project contributor visibility/content identity, stale Work Item contributor access/content identity, persisted-inactive Evidence, Workstream-only Evidence, and historical Document access. The real Document fixture initially hit a test-only state constraint and was corrected before being counted as behavioral evidence.
+- With the real persisted Document fixture valid, both approved-version reads failed with `RESEARCH_DOCUMENT_SOURCE_INVALID` because the locator selected only the latest version instead of the exact requested version.
+- The existing owner-domain draft-source reader regression independently failed historical-version access with `PROGRESS_CONTRACT_DRAFT_SOURCE_INVALID`.
+
+### GREEN and verification evidence
+
+Executed with Node `v24.18.0` from `/opt/homebrew/opt/node@24/bin`:
+
+- Seven required focused Task 3 suites: 7 files passed, 40 tests passed.
+- Historical approved Document owner-boundary suite: 1 file passed, 5 tests passed.
+- Combined focused verification: 8 files passed, 45 tests passed.
+- Touched-package typecheck and lint (`projects`, `work-items`, `documents`, `updates-evidence`, `research-experiments`): passed.
+- Root `pnpm typecheck`: 25/25 package tasks passed.
+- Root `pnpm lint`: 25/25 package tasks passed; boundary and user-visible-copy checks passed.
+- `pnpm scan:ai-boundary`: passed; 738 source files validated.
+- `pnpm scan:performance-inputs`: passed; 603 files inspected.
+- `pnpm scan:secrets`: passed; 1,173 files checked.
+- `pnpm install --frozen-lockfile`: passed.
+- Prettier check for all touched files: passed.
+- `git diff --check`: passed.
+
+### Security and privacy impact
+
+- Ended contributors no longer retain Research Work Item access through stale role assignments.
+- Actor activity claims are insufficient for Evidence access; persisted user state is authoritative.
+- Workstream-only Evidence access is exact-scope and does not broaden to Project-wide Evidence.
+- Snapshot composition rejects cross-Project Workstreams, absent/unauthorized Workstream links, foreign Project references, and mismatched identity hashes.
+- Historical Document retrieval remains authorization-checked and requires an approved lifecycle state for the exact immutable version.
+- No ratings, Documentation Readiness values, ranking, productivity scoring, or private narrative were added.
+
+### Self-review
+
+- Confirmed every review finding has a mutation-sensitive regression: removing current-time checks, persisted-active checks, Workstream filtering, content-hash recomputation, historical-version selection, or Project binding makes at least one focused test fail.
+- Confirmed the Research package still composes only public owner-domain values and does not read owner-module persistence directly.
+- Confirmed safe references continue to use the approved UUID or 64-character hexadecimal payload grammar.
+- Confirmed the diff adds no API, networking, AI, lifecycle service, UI, migration, or unrelated refactor.
+
+### Remaining risk and project state
+
+Remaining risk is low and limited to later orchestration wiring. Project state was not updated because the approved architecture, protected decisions, and recommended next action did not change.

@@ -17,6 +17,7 @@ const ids = {
   inactive: crypto.randomUUID(),
   project: crypto.randomUUID(),
   workstream: crypto.randomUUID(),
+  otherWorkstream: crypto.randomUUID(),
   otherProject: crypto.randomUUID(),
   crossProjectItem: crypto.randomUUID(),
 };
@@ -92,6 +93,12 @@ beforeAll(async () => {
         departmentId: department.id,
       },
       {
+        id: ids.otherWorkstream,
+        key: `research-context-other-workstream-${suffix}`,
+        scopeType: "workstream",
+        departmentId: department.id,
+      },
+      {
         id: otherProjectScopeId,
         key: `research-context-other-project-${suffix}`,
         scopeType: "project",
@@ -123,16 +130,27 @@ beforeAll(async () => {
       },
     ],
   });
-  await client.workstream.create({
-    data: {
-      id: ids.workstream,
-      projectId: ids.project,
-      authorizationScopeId: ids.workstream,
-      name: "Research engine",
-      description: "Authorized workstream",
-      status: "active",
-      createdById: ids.owner,
-    },
+  await client.workstream.createMany({
+    data: [
+      {
+        id: ids.workstream,
+        projectId: ids.project,
+        authorizationScopeId: ids.workstream,
+        name: "Research engine",
+        description: "Authorized workstream",
+        status: "active",
+        createdById: ids.owner,
+      },
+      {
+        id: ids.otherWorkstream,
+        projectId: ids.project,
+        authorizationScopeId: ids.otherWorkstream,
+        name: "Project-wide operations",
+        description: "Visible to current Project contributors",
+        status: "active",
+        createdById: ids.owner,
+      },
+    ],
   });
   await client.projectMember.createMany({
     data: [ids.owner, ids.contributor].map((employeeId) => ({
@@ -279,8 +297,12 @@ describe("ResearchProjectContextReader", () => {
       name: "Project Aurora",
       objective: "Ship a source-supported research workflow.",
       activeContract: null,
-      workstreams: [{ id: ids.workstream, name: "Research engine" }],
     });
+    expect(context.workstreams).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: ids.workstream, name: "Research engine" }),
+      ]),
+    );
     expect(context.sourceReferences).toContain(`project:${ids.project}`);
     expect(JSON.stringify(context)).not.toMatch(/rating|readinessPercent|privateNarrative/iu);
   });
@@ -296,6 +318,18 @@ describe("ResearchProjectContextReader", () => {
       expect.objectContaining({ id: ids.workstream, name: "Research engine" }),
     ]);
     expect(context.sourceReferences).toContain(`workstream:${ids.workstream}`);
+  });
+
+  it("lets a current Project contributor read all Project Workstreams", async () => {
+    const context = await reader.readAuthorizedContext({
+      actor: { userId: ids.contributor, active: true },
+      projectId: ids.project,
+      at,
+    });
+
+    expect(context.workstreams.map(({ id }) => id).sort()).toEqual(
+      [ids.workstream, ids.otherWorkstream].sort(),
+    );
   });
 
   it("retains exact measurable component and governed GitHub rule identity", async () => {
@@ -383,5 +417,55 @@ describe("ResearchProjectContextReader", () => {
     expect(context.activeContract?.rules).toEqual([
       expect.objectContaining({ bindingId, sourceId: "check:research-context" }),
     ]);
+  });
+
+  it("changes safe Project and Workstream content identity when mutable context changes", async () => {
+    const before = await reader.readAuthorizedContext({
+      actor: { userId: ids.owner, active: true },
+      projectId: ids.project,
+      at,
+    });
+    expect(before).toMatchObject({
+      projectVersion: 1,
+      projectContentIdentitySha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      projectContentIdentityReference: expect.stringMatching(/^project-version:[a-f0-9]{64}$/u),
+    });
+    expect(before.workstreams.find(({ id }) => id === ids.workstream)).toMatchObject({
+      projectId: ids.project,
+      version: 1,
+      description: "Authorized workstream",
+      contentIdentitySha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      contentIdentityReference: expect.stringMatching(/^workstream-version:[a-f0-9]{64}$/u),
+    });
+
+    await client.$transaction([
+      client.project.update({
+        where: { id: ids.project },
+        data: {
+          description: "Ship a revised source-supported research workflow.",
+          version: { increment: 1 },
+        },
+      }),
+      client.workstream.update({
+        where: { id: ids.workstream },
+        data: { name: "Research engine v2", version: { increment: 1 } },
+      }),
+    ]);
+    const after = await reader.readAuthorizedContext({
+      actor: { userId: ids.owner, active: true },
+      projectId: ids.project,
+      at,
+    });
+
+    expect(after.projectVersion).toBe(2);
+    expect(after.projectContentIdentitySha256).not.toBe(before.projectContentIdentitySha256);
+    expect(after.projectContentIdentityReference).not.toBe(before.projectContentIdentityReference);
+    const beforeWorkstream = before.workstreams.find(({ id }) => id === ids.workstream)!;
+    const afterWorkstream = after.workstreams.find(({ id }) => id === ids.workstream)!;
+    expect(afterWorkstream.version).toBe(2);
+    expect(afterWorkstream.contentIdentitySha256).not.toBe(beforeWorkstream.contentIdentitySha256);
+    expect(afterWorkstream.contentIdentityReference).not.toBe(
+      beforeWorkstream.contentIdentityReference,
+    );
   });
 });

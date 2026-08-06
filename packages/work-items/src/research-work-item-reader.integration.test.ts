@@ -11,6 +11,7 @@ const at = new Date("2026-08-05T09:00:00.000Z");
 const actorId = crypto.randomUUID();
 const outsiderId = crypto.randomUUID();
 const workstreamOnlyId = crypto.randomUUID();
+const endedContributorId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
 const otherProjectId = crypto.randomUUID();
 const workstreamId = crypto.randomUUID();
@@ -46,6 +47,11 @@ beforeAll(async () => {
         id: workstreamOnlyId,
         email: `research-work-items-workstream-only-${suffix}@example.invalid`,
         displayName: "Workstream-only contributor",
+      },
+      {
+        id: endedContributorId,
+        email: `research-work-items-ended-${suffix}@example.invalid`,
+        displayName: "Ended contributor",
       },
     ],
   });
@@ -121,6 +127,24 @@ beforeAll(async () => {
       createdById: actorId,
     },
   });
+  await client.projectMember.create({
+    data: {
+      projectId,
+      employeeId: endedContributorId,
+      startsAt: new Date("2026-07-01T00:00:00.000Z"),
+      endsAt: new Date("2026-08-01T00:00:00.000Z"),
+      reason: "Ended Project membership",
+      createdById: actorId,
+    },
+  });
+  await client.roleAssignment.create({
+    data: {
+      userId: endedContributorId,
+      role: "contributor",
+      scopeType: "project",
+      scopeId: projectId,
+    },
+  });
   await client.workstreamMember.create({
     data: {
       workstreamId,
@@ -191,6 +215,8 @@ describe("ResearchWorkItemReader", () => {
         title: "Evaluate retrieval boundary",
         version: 1,
         sourceReference: `work-item:${itemId}`,
+        contentIdentitySha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        contentIdentityReference: expect.stringMatching(/^work-item-version:[a-f0-9]{64}$/u),
       }),
     );
     expect(JSON.stringify(items)).not.toMatch(/rating|readinessPercent|privateNarrative/iu);
@@ -234,6 +260,16 @@ describe("ResearchWorkItemReader", () => {
         actor: { userId: workstreamOnlyId, active: true },
         projectId,
         workItemId: terminalItemId,
+        at,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SCOPE_FORBIDDEN" });
+  });
+
+  it("denies a contributor whose persisted membership ended even when a role assignment remains", async () => {
+    await expect(
+      reader.listAuthorizedProjectItems({
+        actor: { userId: endedContributorId, active: true },
+        projectId,
         at,
       }),
     ).rejects.toMatchObject({ code: "RESEARCH_SCOPE_FORBIDDEN" });
@@ -294,6 +330,8 @@ describe("ConfirmedTaskCreatorAdapter", () => {
       projectId,
       version: 1,
       sourceReference: `work-item:${itemId}`,
+      contentIdentitySha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      contentIdentityReference: expect.stringMatching(/^work-item-version:[a-f0-9]{64}$/u),
     });
     expect(command.createConfirmedTask).toHaveBeenCalledWith(
       transaction,

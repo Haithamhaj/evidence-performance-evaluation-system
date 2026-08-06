@@ -102,6 +102,11 @@ export class PrismaSafeEvidenceUploadReader implements SafeEvidenceUploadReader 
 
 async function authorizeBase(transaction: Transaction, input: BaseScopeInput) {
   if (!input.actor.active) throw scopeError();
+  const user = await transaction.user.findUnique({
+    where: { id: input.actor.userId },
+    select: { active: true },
+  });
+  if (user?.active !== true) throw scopeError();
   const project = await transaction.project.findUnique({
     where: { id: input.projectId },
     select: {
@@ -141,7 +146,18 @@ async function authorizeBase(transaction: Transaction, input: BaseScopeInput) {
     },
     select: { id: true },
   });
-  if (project.members.length === 0 && manager === null) throw scopeError();
+  const projectResponsibilities = await transaction.responsibilityWindow.findMany({
+    where: {
+      employeeId: input.actor.userId,
+      projectId: input.projectId,
+      startsAt: { lte: input.at },
+      OR: [{ endsAt: null }, { endsAt: { gt: input.at } }],
+    },
+    select: { id: true },
+  });
+  const projectAccess =
+    project.members.length > 0 || manager !== null || projectResponsibilities.length > 0;
+  if (input.workstreamId === null && !projectAccess) throw scopeError();
   if (input.workstreamId !== null) {
     const workstream = await transaction.workstream.findFirst({
       where: {
@@ -159,9 +175,23 @@ async function authorizeBase(transaction: Transaction, input: BaseScopeInput) {
           take: 1,
           select: { id: true },
         },
+        responsibilities: {
+          where: {
+            employeeId: input.actor.userId,
+            startsAt: { lte: input.at },
+            OR: [{ endsAt: null }, { endsAt: { gt: input.at } }],
+          },
+          take: 1,
+          select: { id: true },
+        },
       },
     });
-    if (workstream === null || (workstream.members.length === 0 && manager === null)) {
+    if (
+      workstream === null ||
+      (!projectAccess &&
+        workstream.members.length === 0 &&
+        workstream.responsibilities.length === 0)
+    ) {
       throw scopeError();
     }
   }
