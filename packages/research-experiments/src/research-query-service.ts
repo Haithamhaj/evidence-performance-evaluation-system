@@ -1,6 +1,8 @@
 import { AppError } from "@evaluation/contracts";
 
-import { projectResearchDetail } from "./research-service.js";
+import { projectResearchDetail, projectResearchRevision } from "./research-service.js";
+
+const RETRACTION_EVENT_SCHEMA = "research-source-retraction.v1";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Actor = Readonly<{ userId: string; active: boolean }>;
@@ -110,6 +112,12 @@ export class ResearchQueryService {
       });
     const currentRevision = root.revisions.find(({ revision }) => revision === root.revision);
     if (currentRevision === undefined) throw invalidHistory();
+    const retractedSourceIds = new Set(
+      root.sourceReferences
+        .filter(({ state }) => state === "RETRACTED")
+        .map(({ citedLocations }) => retractionPredecessor(citedLocations))
+        .filter((id): id is string => id !== null),
+    );
     return {
       detail: projectResearchDetail({ ...root, revisions: [currentRevision] }),
       participantEvents: root.participantEvents.map((event) => ({
@@ -133,21 +141,46 @@ export class ResearchQueryService {
         effectiveAt: transition.effectiveAt.toISOString(),
         createdAt: transition.createdAt.toISOString(),
       })),
-      sourceReferences: root.sourceReferences.map((source) => ({
-        id: source.id,
-        kind: source.kind,
-        title: source.title,
-        canonicalUrl: source.canonicalUrl,
-        relevanceNote: source.relevanceNote,
-        credibilityNote: source.credibilityNote,
-        state: source.state,
-        reason: source.reason,
-        sourceReviewId: source.sourceReviewId,
-        documentVersionId: source.documentVersionId,
-        addedById: source.addedById,
-        createdAt: source.createdAt.toISOString(),
-      })),
+      sourceReferences: root.sourceReferences
+        .filter(({ id, state }) => state === "ACTIVE" && !retractedSourceIds.has(id))
+        .map((source) => ({
+          id: source.id,
+          kind: source.kind,
+          title: source.title,
+          canonicalUrl: source.canonicalUrl,
+          relevanceNote: source.relevanceNote,
+          credibilityNote: source.credibilityNote,
+          state: source.state,
+          reason: source.reason,
+          sourceReviewId: source.sourceReviewId,
+          documentVersionId: source.documentVersionId,
+          addedById: source.addedById,
+          createdAt: source.createdAt.toISOString(),
+        })),
     };
+  }
+
+  async readDraft(input: Readonly<{ actor: Actor; researchId: string; revision: number }>) {
+    assertActiveActor(input.actor);
+    if (!Number.isInteger(input.revision) || input.revision < 1) throw forbidden();
+    const at = validInstant(this.#clock());
+    const root = await this.#database.researchRecord.findUnique({
+      where: { id: input.researchId },
+      select: {
+        ownerId: true,
+        projectId: true,
+        workstreamId: true,
+        workItemId: true,
+        revisions: { where: { revision: input.revision, origin: "AI_DRAFT" } },
+      },
+    });
+    if (root === null || root.ownerId !== input.actor.userId) throw forbidden();
+    await this.#authorizer.authorize({ actor: input.actor, scope: root, at }).catch(() => {
+      throw forbidden();
+    });
+    const revision = root.revisions[0];
+    if (revision === undefined) throw forbidden();
+    return projectResearchRevision(revision);
   }
 
   async list(input: Readonly<{ actor: Actor; projectId: string }>): Promise<
@@ -217,6 +250,17 @@ export class ResearchQueryService {
     }
     return visible;
   }
+}
+
+function retractionPredecessor(citedLocations: unknown): string | null {
+  if (!Array.isArray(citedLocations) || citedLocations.length !== 1) return null;
+  const marker = citedLocations[0];
+  if (typeof marker !== "object" || marker === null) return null;
+  const candidate = marker as Record<string, unknown>;
+  return candidate.schemaVersion === RETRACTION_EVENT_SCHEMA &&
+    typeof candidate.predecessorSourceReferenceId === "string"
+    ? candidate.predecessorSourceReferenceId
+    : null;
 }
 
 function assertActiveActor(actor: Actor): void {

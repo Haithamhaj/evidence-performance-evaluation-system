@@ -16,6 +16,7 @@ import {
   type TransitionResearchInput as ContractTransitionResearchInput,
 } from "@evaluation/contracts";
 import type { DatabaseClient, DatabaseTransaction } from "@evaluation/database";
+import { z } from "zod";
 
 import {
   assertResearchRevisionCanBecomeCurrent,
@@ -42,10 +43,15 @@ const AUTOMATED_DRAFT_ORIGIN = ["AI", "DRAFT"].join("_") as "AI_DRAFT";
 
 type ScopeAuthorizer = Readonly<{
   authorize(input: Readonly<{ actor: Actor; scope: ResearchScope; at: Date }>): Promise<unknown>;
+  authorizeTransaction(
+    transaction: Transaction,
+    input: Readonly<{ actor: Actor; scope: ResearchScope; at: Date }>,
+  ): Promise<unknown>;
 }>;
 
 type SourceValidator = Readonly<{
   validateConfirmedReview(
+    transaction: Transaction,
     input: Readonly<{
       actor: Actor;
       projectId: string;
@@ -54,6 +60,7 @@ type SourceValidator = Readonly<{
     }>,
   ): Promise<Readonly<{ sourceReviewId: string; projectId: string }>>;
   validateApprovedDocument(
+    transaction: Transaction,
     input: Readonly<{
       actor: Actor;
       projectId: string;
@@ -88,30 +95,50 @@ export type ChangeResearchContributorInput = Readonly<{
   reason: string;
 }>;
 
-export type AddResearchSourceInput = Readonly<{
-  expectedVersion: number;
-  source:
-    | Readonly<{ kind: "SOURCE_REVIEW"; sourceReviewId: string }>
-    | Readonly<{ kind: "DOCUMENT_VERSION"; documentVersionId: string }>
-    | Readonly<{ kind: "MANUAL_CITATION"; canonicalUrl: string | null }>;
-  kind:
-    | "PAPER"
-    | "REPOSITORY"
-    | "DOCUMENTATION"
-    | "DATASET"
-    | "BENCHMARK"
-    | "COURSE_VIDEO"
-    | "INTERNAL_DOCUMENT"
-    | "LINK"
-    | "OTHER";
-  title: string;
-  relevanceNote: string;
-  credibilityNote: string;
-  comparedAlternative?: string | null;
-  citedLocations?: readonly string[];
-  observedLicense?: string | null;
-  reuseWarning?: string | null;
-}>;
+const Text = (maximum: number) => z.string().trim().min(1).max(maximum);
+const SourceKindSchema = z.enum([
+  "PAPER",
+  "REPOSITORY",
+  "DOCUMENTATION",
+  "DATASET",
+  "BENCHMARK",
+  "COURSE_VIDEO",
+  "INTERNAL_DOCUMENT",
+  "LINK",
+  "OTHER",
+]);
+
+export const AddResearchSourceInputSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    source: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("SOURCE_REVIEW"), sourceReviewId: z.string().uuid() }).strict(),
+      z
+        .object({ kind: z.literal("DOCUMENT_VERSION"), documentVersionId: z.string().uuid() })
+        .strict(),
+      z
+        .object({
+          kind: z.literal("MANUAL_CITATION"),
+          canonicalUrl: z.url().max(2_000).nullable(),
+        })
+        .strict(),
+    ]),
+    kind: SourceKindSchema,
+    title: Text(2_000),
+    relevanceNote: Text(4_000),
+    credibilityNote: Text(4_000),
+    comparedAlternative: Text(4_000).nullable().optional(),
+    citedLocations: z.array(Text(1_000)).max(100).optional(),
+    observedLicense: Text(500).nullable().optional(),
+    reuseWarning: Text(2_000).nullable().optional(),
+  })
+  .strict();
+
+export type AddResearchSourceInput = z.infer<typeof AddResearchSourceInputSchema>;
+
+const SOURCE_REFERENCE_PREFIX = "research-source:";
+const RETRACTION_EVENT_SCHEMA = "research-source-retraction.v1";
+const PROPOSAL_SOURCE_SCHEMA = "research-proposal-source.v1";
 
 export class ResearchService {
   readonly #database: DatabaseClient;
@@ -135,13 +162,19 @@ export class ResearchService {
     this.#idFactory = dependencies.idFactory ?? (() => crypto.randomUUID());
   }
 
-  async create(command: Command<CreateResearchInput>) {
+  async create(command: Command<CreateResearchInput> & { confirmedProposalId?: string }) {
     const input = CreateResearchInputSchema.parse(command.input);
+    if (input.sourceReferences.length !== 0) throw sourceInvalid();
     const at = validInstant(this.#clock);
     await this.#authorizer.authorize({ actor: command.actor, scope: input.scope, at });
     assertActiveActor(command.actor);
     return this.#database.$transaction(async (transaction) => {
       await assertCurrentUser(transaction, command.actor.userId);
+      await this.#authorizer.authorizeTransaction(transaction, {
+        actor: command.actor,
+        scope: input.scope,
+        at,
+      });
       const existing = await transaction.researchRecord.findFirst({
         where: {
           ownerId: command.actor.userId,
@@ -152,10 +185,34 @@ export class ResearchService {
       });
       if (existing !== null) {
         const detail = projectResearchDetail(existing);
-        if (!sameCreateInput(detail, input)) throw replayMismatch();
+        const boundSource = await transaction.researchSourceReference.findFirst({
+          where: { researchId: existing.id, state: "ACTIVE" },
+          select: { citedLocations: true },
+        });
+        const boundProposalMatches =
+          command.confirmedProposalId !== undefined &&
+          proposalSourceId(boundSource?.citedLocations) === command.confirmedProposalId;
+        if (!sameCreateInput(detail, input, boundProposalMatches)) throw replayMismatch();
         return detail;
       }
       const id = this.#idFactory();
+      const proposal =
+        command.confirmedProposalId === undefined
+          ? null
+          : await transaction.researchProposal.findFirst({
+              where: {
+                id: command.confirmedProposalId,
+                kind: "RESEARCH",
+                state: "CONFIRMED",
+                review: {
+                  projectId: input.scope.projectId,
+                  ownerId: command.actor.userId,
+                  state: "CONFIRMED",
+                },
+              },
+              select: { id: true, reviewId: true, title: true, rationale: true },
+            });
+      if (command.confirmedProposalId !== undefined && proposal === null) throw sourceInvalid();
       const created = await transaction.researchRecord.create({
         data: {
           id,
@@ -169,7 +226,6 @@ export class ResearchService {
           version: 1,
           createdAt: at,
           transitionedAt: at,
-          revisions: { create: revisionData(1, "EMPLOYEE", command.actor.userId, input, at) },
           participantEvents: {
             create: {
               employeeId: command.actor.userId,
@@ -193,7 +249,39 @@ export class ResearchService {
             },
           },
         },
-        include: currentRevisionInclude,
+        select: { id: true, projectId: true },
+      });
+      let sourceReferences: readonly string[] = [];
+      if (proposal !== null) {
+        const source = await transaction.researchSourceReference.create({
+          data: {
+            researchId: created.id,
+            sourceReviewId: proposal.reviewId,
+            kind: "OTHER",
+            title: proposal.title,
+            canonicalUrl: null,
+            relevanceNote: proposal.rationale,
+            credibilityNote: "Confirmed employee-reviewed Research proposal",
+            retrievalState: "RETRIEVED",
+            citedLocations: [{ schemaVersion: PROPOSAL_SOURCE_SCHEMA, proposalId: proposal.id }],
+            state: "ACTIVE",
+            addedById: command.actor.userId,
+            createdAt: at,
+          },
+        });
+        sourceReferences = [canonicalSourceReference(source.id)];
+      }
+      await transaction.researchRevision.create({
+        data: {
+          researchId: created.id,
+          ...revisionData(
+            1,
+            "EMPLOYEE",
+            command.actor.userId,
+            { ...input, sourceReferences: [...sourceReferences] },
+            at,
+          ),
+        },
       });
       await this.#auditWriter.append(
         transaction,
@@ -203,7 +291,7 @@ export class ResearchService {
           version: 1,
         }),
       );
-      return projectResearchDetail(created);
+      return loadDetail(transaction, created.id);
     }, serializable);
   }
 
@@ -212,6 +300,7 @@ export class ResearchService {
     return this.#mutateOwned(command, async (transaction, root, at) => {
       assertVersion(root.version, input.expectedVersion);
       assertMutable(root.state);
+      await validateGovernedSourceReferences(transaction, root.id, input.sourceReferences);
       const nextRevision = await nextRevisionNumber(transaction, root.id);
       await transaction.researchRevision.create({
         data: {
@@ -249,7 +338,7 @@ export class ResearchService {
         correlationId: command.correlationId,
         inputReference: `research:${snapshot.detail.id}`,
         outputReference,
-        sourceReferences: snapshot.detail.currentRevision.sourceReferences,
+        sourceReferences: snapshot.activeSourceReferences,
         payload: snapshot.detail.currentRevision,
       },
       async () => ({ outputReference }),
@@ -275,7 +364,7 @@ export class ResearchService {
         correlationId: command.correlationId,
         inputReference: `research:${snapshot.detail.id}`,
         outputReference,
-        sourceReferences: snapshot.detail.currentRevision.sourceReferences,
+        sourceReferences: snapshot.activeSourceReferences,
         payload: snapshot,
       },
       async () => ({ outputReference }),
@@ -365,7 +454,7 @@ export class ResearchService {
     const input = TransferResearchOwnerInputSchema.parse(command.input);
     const initial = await this.#loadForAuthorization(command.researchId);
     const scope = scopeOf(initial);
-    const effectiveAt = new Date(input.effectiveAt);
+    const effectiveAt = validInstant(this.#clock);
     await this.#authorizer.authorize({ actor: command.actor, scope, at: effectiveAt });
     await this.#authorizer.authorize({
       actor: { userId: input.toUserId, active: true },
@@ -380,8 +469,18 @@ export class ResearchService {
       assertMutable(root.state);
       await assertCurrentUser(transaction, command.actor.userId);
       await assertCurrentUser(transaction, input.toUserId);
+      await this.#authorizer.authorizeTransaction(transaction, {
+        actor: command.actor,
+        scope,
+        at: effectiveAt,
+      });
+      await this.#authorizer.authorizeTransaction(transaction, {
+        actor: { userId: input.toUserId, active: true },
+        scope,
+        at: effectiveAt,
+      });
       if (input.toUserId === root.ownerId) throw invalidParticipant();
-      await assertEventAfterLatest(transaction, root.id, root.ownerId, "OWNER", effectiveAt);
+      const eventAt = await monotonicEventInstant(transaction, root.id, effectiveAt);
       await transaction.researchParticipantEvent.createMany({
         data: [
           {
@@ -389,20 +488,20 @@ export class ResearchService {
             employeeId: root.ownerId,
             role: "OWNER",
             action: "ENDED",
-            effectiveAt,
+            effectiveAt: eventAt,
             reason: input.reason,
             actorId: command.actor.userId,
-            createdAt: effectiveAt,
+            createdAt: eventAt,
           },
           {
             researchId: root.id,
             employeeId: input.toUserId,
             role: "OWNER",
             action: "STARTED",
-            effectiveAt,
+            effectiveAt: eventAt,
             reason: input.reason,
             actorId: command.actor.userId,
-            createdAt: effectiveAt,
+            createdAt: eventAt,
           },
         ],
       });
@@ -416,7 +515,7 @@ export class ResearchService {
           fromOwnerId: root.ownerId,
           toOwnerId: input.toUserId,
           version: root.version + 1,
-          effectiveAt: effectiveAt.toISOString(),
+          effectiveAt: eventAt.toISOString(),
         }),
       );
       return loadDetail(transaction, root.id);
@@ -427,7 +526,7 @@ export class ResearchService {
     command: Command<ChangeResearchContributorInput> & { researchId: string },
   ) {
     const input = parseContributorInput(command.input);
-    const effectiveAt = new Date(input.effectiveAt);
+    const effectiveAt = validInstant(this.#clock);
     const initial = await this.#loadForAuthorization(command.researchId);
     const scope = scopeOf(initial);
     await this.#authorizer.authorize({ actor: command.actor, scope, at: effectiveAt });
@@ -444,14 +543,20 @@ export class ResearchService {
       assertVersion(root.version, input.expectedVersion);
       assertMutable(root.state);
       await assertCurrentUser(transaction, command.actor.userId);
+      await this.#authorizer.authorizeTransaction(transaction, {
+        actor: command.actor,
+        scope,
+        at: effectiveAt,
+      });
+      if (input.action === "ADD") {
+        await this.#authorizer.authorizeTransaction(transaction, {
+          actor: { userId: input.employeeId, active: true },
+          scope,
+          at: effectiveAt,
+        });
+      }
       if (input.employeeId === root.ownerId) throw invalidParticipant();
-      await assertEventAfterLatest(
-        transaction,
-        root.id,
-        input.employeeId,
-        "CONTRIBUTOR",
-        effectiveAt,
-      );
+      const eventAt = await monotonicEventInstant(transaction, root.id, effectiveAt);
       const active = await activeParticipant(transaction, root.id, input.employeeId, "CONTRIBUTOR");
       if ((input.action === "ADD") === active) throw invalidParticipant();
       await transaction.researchParticipantEvent.create({
@@ -460,10 +565,10 @@ export class ResearchService {
           employeeId: input.employeeId,
           role: "CONTRIBUTOR",
           action: input.action === "ADD" ? "STARTED" : "ENDED",
-          effectiveAt,
+          effectiveAt: eventAt,
           reason: input.reason,
           actorId: command.actor.userId,
-          createdAt: effectiveAt,
+          createdAt: eventAt,
         },
       });
       await updateRoot(transaction, root.id, root.version, { version: { increment: 1 } });
@@ -494,10 +599,30 @@ export class ResearchService {
       if (input.successorResearchId !== null) {
         const successor = await transaction.researchRecord.findUnique({
           where: { id: input.successorResearchId },
-          select: { projectId: true },
+          select: {
+            id: true,
+            projectId: true,
+            workstreamId: true,
+            workItemId: true,
+            ownerId: true,
+            state: true,
+          },
         });
         if (successor?.projectId !== root.projectId || input.successorResearchId === root.id) {
           throw successorInvalid();
+        }
+        if (successor.state === "DRAFT") {
+          if (successor.ownerId !== command.actor.userId) throw successorInvalid();
+        } else {
+          await this.#authorizer
+            .authorizeTransaction(transaction, {
+              actor: command.actor,
+              scope: scopeOf(successor),
+              at,
+            })
+            .catch(() => {
+              throw successorInvalid();
+            });
         }
       }
       await updateRoot(transaction, root.id, root.version, {
@@ -544,53 +669,56 @@ export class ResearchService {
     const scope = scopeOf(initial);
     const at = validInstant(this.#clock);
     await this.#authorizer.authorize({ actor: command.actor, scope, at });
-    let sourceReviewId: string | null = null;
-    let documentVersionId: string | null = null;
-    if (input.source.kind === "SOURCE_REVIEW") {
-      if (this.#sourceValidator === undefined) throw sourceInvalid();
-      const validated = await this.#sourceValidator
-        .validateConfirmedReview({
-          actor: command.actor,
-          projectId: scope.projectId,
-          sourceReviewId: input.source.sourceReviewId,
-          at,
-        })
-        .catch(() => {
-          throw sourceInvalid();
-        });
-      if (
-        validated.projectId !== scope.projectId ||
-        validated.sourceReviewId !== input.source.sourceReviewId
-      ) {
-        throw sourceInvalid();
-      }
-      sourceReviewId = validated.sourceReviewId;
-    } else if (input.source.kind === "DOCUMENT_VERSION") {
-      if (this.#sourceValidator === undefined) throw sourceInvalid();
-      const validated = await this.#sourceValidator
-        .validateApprovedDocument({
-          actor: command.actor,
-          projectId: scope.projectId,
-          documentVersionId: input.source.documentVersionId,
-          at,
-        })
-        .catch(() => {
-          throw sourceInvalid();
-        });
-      if (
-        validated.projectId !== scope.projectId ||
-        validated.documentVersionId !== input.source.documentVersionId
-      ) {
-        throw sourceInvalid();
-      }
-      documentVersionId = validated.documentVersionId;
-    }
     return this.#database.$transaction(async (transaction) => {
       const root = await lockResearch(transaction, command.researchId);
       assertOwner(root.ownerId, command.actor.userId);
       assertVersion(root.version, input.expectedVersion);
       assertMutable(root.state);
       await assertCurrentUser(transaction, command.actor.userId);
+      await this.#authorizer.authorizeTransaction(transaction, {
+        actor: command.actor,
+        scope,
+        at,
+      });
+      let sourceReviewId: string | null = null;
+      let documentVersionId: string | null = null;
+      if (input.source.kind === "SOURCE_REVIEW") {
+        if (this.#sourceValidator === undefined) throw sourceInvalid();
+        const validated = await this.#sourceValidator
+          .validateConfirmedReview(transaction, {
+            actor: command.actor,
+            projectId: root.projectId,
+            sourceReviewId: input.source.sourceReviewId,
+            at,
+          })
+          .catch(() => {
+            throw sourceInvalid();
+          });
+        if (
+          validated.projectId !== root.projectId ||
+          validated.sourceReviewId !== input.source.sourceReviewId
+        )
+          throw sourceInvalid();
+        sourceReviewId = validated.sourceReviewId;
+      } else if (input.source.kind === "DOCUMENT_VERSION") {
+        if (this.#sourceValidator === undefined) throw sourceInvalid();
+        const validated = await this.#sourceValidator
+          .validateApprovedDocument(transaction, {
+            actor: command.actor,
+            projectId: root.projectId,
+            documentVersionId: input.source.documentVersionId,
+            at,
+          })
+          .catch(() => {
+            throw sourceInvalid();
+          });
+        if (
+          validated.projectId !== root.projectId ||
+          validated.documentVersionId !== input.source.documentVersionId
+        )
+          throw sourceInvalid();
+        documentVersionId = validated.documentVersionId;
+      }
       const sourceReference = await transaction.researchSourceReference.create({
         data: {
           researchId: root.id,
@@ -620,7 +748,11 @@ export class ResearchService {
           version: root.version + 1,
         }),
       );
-      return { sourceReferenceId: sourceReference.id, version: root.version + 1 };
+      return {
+        sourceReferenceId: sourceReference.id,
+        sourceReference: canonicalSourceReference(sourceReference.id),
+        version: root.version + 1,
+      };
     }, serializable);
   }
 
@@ -638,6 +770,10 @@ export class ResearchService {
         where: { id: command.sourceReferenceId, researchId: root.id, state: "ACTIVE" },
       });
       if (source === null) throw sourceInvalid();
+      const alreadyRetracted = (await listRetractionPredecessors(transaction, root.id)).has(
+        source.id,
+      );
+      if (alreadyRetracted) throw sourceInvalid();
       const appended = await transaction.researchSourceReference.create({
         data: {
           researchId: root.id,
@@ -653,7 +789,12 @@ export class ResearchService {
           retrievedAt: source.retrievedAt,
           resolvedCanonicalUrl: source.resolvedCanonicalUrl,
           contentFingerprint: source.contentFingerprint,
-          citedLocations: source.citedLocations as never,
+          citedLocations: [
+            {
+              schemaVersion: RETRACTION_EVENT_SCHEMA,
+              predecessorSourceReferenceId: source.id,
+            },
+          ],
           observedLicense: source.observedLicense,
           reuseWarning: source.reuseWarning,
           state: "RETRACTED",
@@ -699,11 +840,21 @@ export class ResearchService {
     await this.#authorizer.authorize({ actor: command.actor, scope: scopeOf(initial), at });
     assertActiveActor(command.actor);
     if (initial.ownerId !== command.actor.userId) throw forbidden();
-    const detail = await this.#database.$transaction(async (transaction) => {
+    const snapshot = await this.#database.$transaction(async (transaction) => {
       await assertCurrentUser(transaction, command.actor.userId);
-      return loadDetail(transaction, command.researchId);
+      await this.#authorizer.authorizeTransaction(transaction, {
+        actor: command.actor,
+        scope: scopeOf(initial),
+        at,
+      });
+      return {
+        detail: await loadDetail(transaction, command.researchId),
+        activeSourceReferences: (
+          await listActiveResearchSources(transaction, command.researchId)
+        ).map(({ id }) => canonicalSourceReference(id)),
+      };
     }, serializable);
-    return { detail };
+    return snapshot;
   }
 
   async #appendAiDraft(
@@ -728,6 +879,7 @@ export class ResearchService {
         ...frameContent(output),
         expectedVersion,
       });
+      await validateGovernedSourceReferences(transaction, root.id, content.sourceReferences);
       await transaction.researchRevision.create({
         data: {
           researchId: root.id,
@@ -780,6 +932,11 @@ export class ResearchService {
       const root = await lockResearch(transaction, command.researchId);
       assertOwner(root.ownerId, command.actor.userId);
       await assertCurrentUser(transaction, command.actor.userId);
+      await this.#authorizer.authorizeTransaction(transaction, {
+        actor: command.actor,
+        scope: scopeOf(root),
+        at,
+      });
       return operation(transaction, root, at);
     }, serializable);
   }
@@ -788,7 +945,7 @@ export class ResearchService {
 type LockedResearch = Awaited<ReturnType<typeof lockResearch>>;
 
 const currentRevisionInclude = {
-  revisions: { orderBy: { revision: "desc" as const }, take: 1 },
+  revisions: { orderBy: { revision: "desc" as const } },
 } as const;
 
 async function lockResearch(transaction: Transaction, researchId: string) {
@@ -809,7 +966,7 @@ async function lockResearch(transaction: Transaction, researchId: string) {
   if (root === null) throw forbidden();
   const ownerEvents = await transaction.researchParticipantEvent.findMany({
     where: { researchId, role: "OWNER" },
-    orderBy: [{ effectiveAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    orderBy: [{ effectiveAt: "asc" }, { createdAt: "asc" }, { action: "desc" }, { id: "asc" }],
     select: { employeeId: true, action: true },
   });
   assertSingleActiveResearchOwner(root.ownerId, ownerEvents);
@@ -838,8 +995,8 @@ export function projectResearchDetail(root: {
   transitionedAt: Date;
   revisions: readonly RevisionRow[];
 }): ResearchDetail {
-  const revision = root.revisions[0];
-  if (revision === undefined || revision.revision !== root.revision) throw invalidHistory();
+  const revision = root.revisions.find((candidate) => candidate.revision === root.revision);
+  if (revision === undefined) throw invalidHistory();
   return ResearchDetailSchema.parse({
     id: root.id,
     scope: scopeOf(root),
@@ -847,7 +1004,7 @@ export function projectResearchDetail(root: {
     state: root.state,
     revision: root.revision,
     version: root.version,
-    currentRevision: revisionProjection(revision),
+    currentRevision: projectResearchRevision(revision),
     createdAt: root.createdAt.toISOString(),
     transitionedAt: root.transitionedAt.toISOString(),
   });
@@ -878,7 +1035,7 @@ type RevisionRow = Readonly<{
   createdAt: Date;
 }>;
 
-function revisionProjection(revision: RevisionRow) {
+export function projectResearchRevision(revision: RevisionRow) {
   return {
     id: revision.id,
     revision: revision.revision,
@@ -991,21 +1148,19 @@ async function activeParticipant(
   return latest?.action === "STARTED";
 }
 
-async function assertEventAfterLatest(
+async function monotonicEventInstant(
   transaction: Transaction,
   researchId: string,
-  employeeId: string,
-  role: "OWNER" | "CONTRIBUTOR",
-  effectiveAt: Date,
-): Promise<void> {
+  serverAt: Date,
+): Promise<Date> {
   const latest = await transaction.researchParticipantEvent.findFirst({
-    where: { researchId, employeeId, role },
+    where: { researchId },
     orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
     select: { effectiveAt: true },
   });
-  if (latest !== null && effectiveAt.getTime() <= latest.effectiveAt.getTime()) {
-    throw invalidParticipant();
-  }
+  return latest === null || latest.effectiveAt.getTime() < serverAt.getTime()
+    ? serverAt
+    : new Date(latest.effectiveAt.getTime() + 1);
 }
 
 async function assertCurrentUser(transaction: Transaction, userId: string): Promise<void> {
@@ -1020,20 +1175,11 @@ function parseContributorInput(input: ChangeResearchContributorInput) {
   if (!Number.isInteger(input.expectedVersion) || input.expectedVersion < 1)
     throw versionConflict();
   if (!/^[0-9a-f-]{36}$/iu.test(input.employeeId)) throw invalidParticipant();
-  const effectiveAt = new Date(input.effectiveAt);
-  if (!Number.isFinite(effectiveAt.getTime())) throw invalidParticipant();
   return { ...input, reason: requiredText(input.reason, 1_000) };
 }
 
 function parseAddSource(input: AddResearchSourceInput): AddResearchSourceInput {
-  if (!Number.isInteger(input.expectedVersion) || input.expectedVersion < 1)
-    throw versionConflict();
-  return {
-    ...input,
-    title: requiredText(input.title, 2_000),
-    relevanceNote: requiredText(input.relevanceNote, 4_000),
-    credibilityNote: requiredText(input.credibilityNote, 4_000),
-  };
+  return AddResearchSourceInputSchema.parse(input);
 }
 
 function audit(
@@ -1077,7 +1223,11 @@ function stringArray(value: unknown): string[] {
   return value;
 }
 
-function sameCreateInput(detail: ResearchDetail, input: CreateResearchInput): boolean {
+function sameCreateInput(
+  detail: ResearchDetail,
+  input: CreateResearchInput,
+  allowBoundSource: boolean,
+): boolean {
   const revision = detail.currentRevision;
   return (
     detail.scope.projectId === input.scope.projectId &&
@@ -1093,9 +1243,82 @@ function sameCreateInput(detail: ResearchDetail, input: CreateResearchInput): bo
     JSON.stringify(revision.knownUncertainty) === JSON.stringify(input.knownUncertainty) &&
     JSON.stringify(revision.alternatives) === JSON.stringify(input.alternatives) &&
     revision.decisionQuestion === input.decisionQuestion &&
-    JSON.stringify(revision.sourceReferences) === JSON.stringify(input.sourceReferences) &&
+    (allowBoundSource ||
+      JSON.stringify(revision.sourceReferences) === JSON.stringify(input.sourceReferences)) &&
     revision.executionMode === input.executionMode
   );
+}
+
+function canonicalSourceReference(sourceReferenceId: string): string {
+  return `${SOURCE_REFERENCE_PREFIX}${sourceReferenceId}`;
+}
+
+function sourceReferenceId(reference: string): string | null {
+  if (!reference.startsWith(SOURCE_REFERENCE_PREFIX)) return null;
+  const id = reference.slice(SOURCE_REFERENCE_PREFIX.length);
+  return z.string().uuid().safeParse(id).success ? id : null;
+}
+
+function retractionPredecessor(citedLocations: unknown): string | null {
+  if (!Array.isArray(citedLocations) || citedLocations.length !== 1) return null;
+  const marker = citedLocations[0];
+  if (typeof marker !== "object" || marker === null) return null;
+  const candidate = marker as Record<string, unknown>;
+  return candidate.schemaVersion === RETRACTION_EVENT_SCHEMA &&
+    typeof candidate.predecessorSourceReferenceId === "string"
+    ? candidate.predecessorSourceReferenceId
+    : null;
+}
+
+function proposalSourceId(citedLocations: unknown): string | null {
+  if (!Array.isArray(citedLocations) || citedLocations.length !== 1) return null;
+  const marker = citedLocations[0];
+  if (typeof marker !== "object" || marker === null) return null;
+  const candidate = marker as Record<string, unknown>;
+  return candidate.schemaVersion === PROPOSAL_SOURCE_SCHEMA &&
+    typeof candidate.proposalId === "string"
+    ? candidate.proposalId
+    : null;
+}
+
+async function listRetractionPredecessors(
+  transaction: Transaction,
+  researchId: string,
+): Promise<Set<string>> {
+  const events = await transaction.researchSourceReference.findMany({
+    where: { researchId, state: "RETRACTED" },
+    select: { citedLocations: true },
+  });
+  return new Set(
+    events
+      .map(({ citedLocations }) => retractionPredecessor(citedLocations))
+      .filter((id): id is string => id !== null),
+  );
+}
+
+async function listActiveResearchSources(transaction: Transaction, researchId: string) {
+  const [sources, retracted] = await Promise.all([
+    transaction.researchSourceReference.findMany({
+      where: { researchId, state: "ACTIVE" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { id: true },
+    }),
+    listRetractionPredecessors(transaction, researchId),
+  ]);
+  return sources.filter(({ id }) => !retracted.has(id));
+}
+
+async function validateGovernedSourceReferences(
+  transaction: Transaction,
+  researchId: string,
+  references: readonly string[],
+): Promise<void> {
+  const ids = references.map(sourceReferenceId);
+  if (ids.some((id) => id === null) || new Set(ids).size !== ids.length) throw sourceInvalid();
+  const active = new Set(
+    (await listActiveResearchSources(transaction, researchId)).map(({ id }) => id),
+  );
+  if (ids.some((id) => id === null || !active.has(id))) throw sourceInvalid();
 }
 
 function requiredText(value: string, max: number): string {

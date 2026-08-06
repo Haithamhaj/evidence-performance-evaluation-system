@@ -1,6 +1,7 @@
 import { createDatabaseClient } from "@evaluation/database";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { ResearchQueryService } from "./research-query-service.js";
 import { ResearchService } from "./research-service.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
@@ -116,43 +117,52 @@ beforeAll(async () => {
 afterAll(async () => client.$disconnect());
 
 const authorizer = {
-  async authorize({ actor, scope, at }: any) {
-    if (!actor.active) throw forbidden();
-    const user = await client.user.findUnique({ where: { id: actor.userId } });
-    const membership = await client.projectMember.findFirst({
-      where: {
-        projectId: scope.projectId,
-        employeeId: actor.userId,
-        startsAt: { lte: at },
-        OR: [{ endsAt: null }, { endsAt: { gt: at } }],
-      },
-    });
-    const workstream =
-      scope.workstreamId === null
-        ? null
-        : await client.workstream.findFirst({
-            where: { id: scope.workstreamId, projectId: scope.projectId },
-          });
-    const workItem =
-      scope.workItemId === null
-        ? null
-        : await client.workItem.findFirst({
-            where: { id: scope.workItemId, projectId: scope.projectId },
-          });
-    if (
-      user?.active !== true ||
-      membership === null ||
-      (scope.workstreamId !== null && workstream === null) ||
-      (scope.workItemId !== null && workItem === null) ||
-      (workItem !== null &&
-        scope.workstreamId !== null &&
-        workItem.workstreamId !== scope.workstreamId)
-    ) {
-      throw forbidden();
-    }
-    return { projectId: scope.projectId };
+  authorize(input: any) {
+    return authorizeUsing(client, input);
+  },
+  authorizeTransaction(transaction: any, input: any) {
+    return authorizeUsing(transaction, input);
   },
 };
+
+const queries = new ResearchQueryService({ database: client, authorizer, clock: () => now });
+
+async function authorizeUsing(database: any, { actor, scope, at }: any) {
+  if (!actor.active) throw forbidden();
+  const user = await database.user.findUnique({ where: { id: actor.userId } });
+  const membership = await database.projectMember.findFirst({
+    where: {
+      projectId: scope.projectId,
+      employeeId: actor.userId,
+      startsAt: { lte: at },
+      OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+    },
+  });
+  const workstream =
+    scope.workstreamId === null
+      ? null
+      : await database.workstream.findFirst({
+          where: { id: scope.workstreamId, projectId: scope.projectId },
+        });
+  const workItem =
+    scope.workItemId === null
+      ? null
+      : await database.workItem.findFirst({
+          where: { id: scope.workItemId, projectId: scope.projectId },
+        });
+  if (
+    user?.active !== true ||
+    membership === null ||
+    (scope.workstreamId !== null && workstream === null) ||
+    (scope.workItemId !== null && workItem === null) ||
+    (workItem !== null &&
+      scope.workstreamId !== null &&
+      workItem.workstreamId !== scope.workstreamId)
+  ) {
+    throw forbidden();
+  }
+  return { projectId: scope.projectId };
+}
 
 const auditWriter = {
   append(transaction: any, input: any) {
@@ -210,7 +220,7 @@ function content(question = "Will retrieval improve source grounding?") {
     knownUncertainty: ["External availability may vary."],
     alternatives: ["Manual citation review."],
     decisionQuestion: "Should retrieval be adopted?",
-    sourceReferences: ["project:10000000-0000-4000-8000-000000000001"],
+    sourceReferences: [],
     executionMode: "ai_assisted" as const,
   };
 }
@@ -250,6 +260,82 @@ describe("ResearchService", () => {
     await expect(
       client.auditEvent.findFirstOrThrow({ where: { correlationId } }),
     ).resolves.toMatchObject({ eventType: "research.created", targetId: created.id });
+  });
+
+  it("rejects caller-supplied and unknown source reference shapes", async () => {
+    await expect(
+      service().create({
+        actor: actor(),
+        correlationId: crypto.randomUUID(),
+        input: {
+          ...content(),
+          sourceReferences: [`project:${ids.project}`],
+          scope: { projectId: ids.project, workstreamId: null, workItemId: null },
+          idempotencyKey: crypto.randomUUID(),
+        },
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_INVALID" });
+    const research = await createDraft();
+    await expect(
+      service().addSource({
+        actor: actor(),
+        researchId: research.id,
+        correlationId: crypto.randomUUID(),
+        input: {
+          expectedVersion: 1,
+          source: { kind: "REFLECTED_SOURCE", sourceId: crypto.randomUUID() },
+          kind: "PAPER",
+          title: "Unknown source",
+          relevanceNote: "Must not pass runtime validation",
+          credibilityNote: "No governed provenance",
+        } as never,
+      }),
+    ).rejects.toMatchObject({ name: "ZodError" });
+  });
+
+  it("binds a confirmed Research proposal to a governed source on creation", async () => {
+    const review = await client.researchSourceReview.create({
+      data: {
+        projectId: ids.project,
+        ownerId: ids.owner,
+        idempotencyKey: crypto.randomUUID(),
+        sourceKind: "URL",
+        sealedSource: { ciphertext: "fixture", keyVersion: "v1" },
+        state: "CONFIRMED",
+      },
+    });
+    const proposal = await client.researchProposal.create({
+      data: {
+        reviewId: review.id,
+        kind: "RESEARCH",
+        state: "CONFIRMED",
+        title: "Investigate retrieval quality",
+        rationale: "Confirmed proposal from the governed source review.",
+        content: { ciphertext: "proposal", keyVersion: "v1" },
+        sourceReferences: [],
+      },
+    });
+    const idempotencyKey = crypto.randomUUID();
+    const createCommand = {
+      actor: actor(),
+      correlationId: crypto.randomUUID(),
+      confirmedProposalId: proposal.id,
+      input: {
+        ...content(),
+        scope: { projectId: ids.project, workstreamId: null, workItemId: null },
+        idempotencyKey,
+      },
+    };
+    const created = await service().create(createCommand);
+    await expect(service().create(createCommand)).resolves.toMatchObject({ id: created.id });
+    await expect(
+      service().create({ ...createCommand, confirmedProposalId: crypto.randomUUID() }),
+    ).rejects.toMatchObject({ code: "RESEARCH_REPLAY_MISMATCH" });
+    const source = await client.researchSourceReference.findFirstOrThrow({
+      where: { researchId: created.id },
+    });
+    expect(source).toMatchObject({ sourceReviewId: review.id, state: "ACTIVE" });
+    expect(created.currentRevision.sourceReferences).toEqual([`research-source:${source.id}`]);
   });
 
   it("rejects cross-Project narrower scope before persisting anything", async () => {
@@ -335,24 +421,79 @@ describe("ResearchService", () => {
     });
     expect(draft).toMatchObject({ origin: "AI_DRAFT", revision: 2, active: false });
     await expect(
+      queries.readDraft({
+        actor: actor(),
+        researchId: research.id,
+        revision: draft.revision,
+      }),
+    ).resolves.toMatchObject({ revision: 2, origin: "AI_DRAFT" });
+    await expect(
+      queries.readDraft({
+        actor: actor(ids.contributor),
+        researchId: research.id,
+        revision: draft.revision,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_FORBIDDEN" });
+    await expect(
+      queries.readDraft({
+        actor: actor(ids.outsider),
+        researchId: research.id,
+        revision: draft.revision,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_FORBIDDEN" });
+    await expect(
+      queries.readDraft({
+        actor: actor(ids.owner, false),
+        researchId: research.id,
+        revision: draft.revision,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_FORBIDDEN" });
+    await expect(
       client.researchRecord.findUniqueOrThrow({ where: { id: research.id } }),
     ).resolves.toMatchObject({
       revision: 1,
       version: 1,
     });
+    const contributorChange = await lifecycle.changeContributor({
+      actor: actor(),
+      researchId: research.id,
+      correlationId: crypto.randomUUID(),
+      input: {
+        expectedVersion: 1,
+        employeeId: ids.contributor,
+        action: "ADD",
+        effectiveAt: new Date(now.getTime() - 86_400_000).toISOString(),
+        reason: "Joins after an inactive draft",
+      },
+    });
+    expect(contributorChange).toMatchObject({ revision: 1, version: 2 });
+    await expect(
+      client.researchParticipantEvent.findFirstOrThrow({
+        where: { researchId: research.id, employeeId: ids.contributor, role: "CONTRIBUTOR" },
+      }),
+    ).resolves.toMatchObject({
+      effectiveAt: new Date(now.getTime() + 1),
+      createdAt: new Date(now.getTime() + 1),
+    });
+    const secondDraft = await lifecycle.prepareFrame({
+      actor: actor(),
+      researchId: research.id,
+      correlationId: crypto.randomUUID(),
+    });
+    expect(secondDraft).toMatchObject({ revision: 3, active: false });
     const confirmed = await lifecycle.confirmAiRevision({
       actor: actor(),
       researchId: research.id,
       correlationId: crypto.randomUUID(),
-      input: { expectedVersion: 1, revision: draft.revision },
+      input: { expectedVersion: 2, revision: secondDraft.revision },
     });
-    expect(confirmed).toMatchObject({ revision: 2, version: 2 });
+    expect(confirmed).toMatchObject({ revision: 3, version: 3 });
   });
 
   it("transfers one active owner with paired events at the same instant and an atomic audit", async () => {
     const research = await createDraft();
     const correlationId = crypto.randomUUID();
-    const effectiveAt = "2026-08-06T10:15:00.000Z";
+    const callerControlledFuture = "2026-09-06T10:15:00.000Z";
     const transferred = await service().transferOwner({
       actor: actor(),
       researchId: research.id,
@@ -360,7 +501,7 @@ describe("ResearchService", () => {
       input: {
         expectedVersion: 1,
         toUserId: ids.successor,
-        effectiveAt,
+        effectiveAt: callerControlledFuture,
         reason: "Approved handoff",
       },
     });
@@ -369,17 +510,17 @@ describe("ResearchService", () => {
       where: { researchId: research.id, role: "OWNER" },
       orderBy: [{ effectiveAt: "asc" }, { id: "asc" }],
     });
-    expect(events.slice(-2)).toEqual(
+    expect(events.filter(({ reason }) => reason === "Approved handoff")).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           employeeId: ids.owner,
           action: "ENDED",
-          effectiveAt: new Date(effectiveAt),
+          effectiveAt: new Date(now.getTime() + 1),
         }),
         expect.objectContaining({
           employeeId: ids.successor,
           action: "STARTED",
-          effectiveAt: new Date(effectiveAt),
+          effectiveAt: new Date(now.getTime() + 1),
         }),
       ]),
     );
@@ -391,7 +532,12 @@ describe("ResearchService", () => {
         actor: actor(ids.successor),
         researchId: research.id,
         correlationId: crypto.randomUUID(),
-        input: { expectedVersion: 1, toUserId: ids.owner, effectiveAt, reason: "Stale" },
+        input: {
+          expectedVersion: 1,
+          toUserId: ids.owner,
+          effectiveAt: callerControlledFuture,
+          reason: "Stale",
+        },
       }),
     ).rejects.toMatchObject({ code: "RESEARCH_VERSION_CONFLICT" });
   });
@@ -463,6 +609,32 @@ describe("ResearchService", () => {
     expect(cancelled.state).toBe("CANCELLED");
   });
 
+  it("does not expose or accept another owner's DRAFT as a supersession successor", async () => {
+    const original = await createDraft();
+    const hiddenDraft = await service().create({
+      actor: actor(ids.contributor),
+      correlationId: crypto.randomUUID(),
+      input: {
+        ...content("Should this private draft replace the original?"),
+        scope: { projectId: ids.project, workstreamId: null, workItemId: null },
+        idempotencyKey: crypto.randomUUID(),
+      },
+    });
+    await expect(
+      service().transition({
+        actor: actor(),
+        researchId: original.id,
+        correlationId: crypto.randomUUID(),
+        input: {
+          expectedVersion: original.version,
+          state: "SUPERSEDED",
+          reason: "Attempt to use an invisible successor",
+          successorResearchId: hiddenDraft.id,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SUCCESSOR_INVALID" });
+  });
+
   it("adds only governed sources and retracts by append-only successor event", async () => {
     const research = await createDraft();
     await expect(
@@ -493,23 +665,68 @@ describe("ResearchService", () => {
         credibilityNote: "Employee-reviewed citation",
       },
     });
+    const duplicate = await service().addSource({
+      actor: actor(),
+      researchId: research.id,
+      correlationId: crypto.randomUUID(),
+      input: {
+        expectedVersion: source.version,
+        source: { kind: "MANUAL_CITATION", canonicalUrl: "https://example.com/paper" },
+        kind: "PAPER",
+        title: "Manual paper duplicate citation",
+        relevanceNote: "Supports a distinct claim",
+        credibilityNote: "Employee-reviewed citation",
+      },
+    });
     const retracted = await service().retractSource({
       actor: actor(),
       researchId: research.id,
       sourceReferenceId: source.sourceReferenceId,
       correlationId: crypto.randomUUID(),
-      input: { expectedVersion: source.version, reason: "Citation withdrawn" },
+      input: { expectedVersion: duplicate.version, reason: "Citation withdrawn" },
     });
-    expect(retracted.version).toBe(source.version + 1);
+    expect(retracted.version).toBe(duplicate.version + 1);
+    await expect(
+      service().revise({
+        actor: actor(),
+        researchId: research.id,
+        correlationId: crypto.randomUUID(),
+        input: {
+          ...content("Can a retracted citation support this revision?"),
+          expectedVersion: retracted.version,
+          sourceReferences: [source.sourceReference],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_INVALID" });
+    const revised = await service().revise({
+      actor: actor(),
+      researchId: research.id,
+      correlationId: crypto.randomUUID(),
+      input: {
+        ...content("Does the remaining governed citation support this revision?"),
+        expectedVersion: retracted.version,
+        sourceReferences: [duplicate.sourceReference],
+      },
+    });
+    expect(revised.currentRevision.sourceReferences).toEqual([duplicate.sourceReference]);
+    const projected = await queries.read({ actor: actor(), researchId: research.id });
+    expect(projected.sourceReferences.map(({ id }) => id)).toEqual([duplicate.sourceReferenceId]);
     const rows = await client.researchSourceReference.findMany({
       where: { researchId: research.id },
       orderBy: { createdAt: "asc" },
     });
-    expect(rows).toHaveLength(2);
-    expect(rows).toEqual([
-      expect.objectContaining({ state: "ACTIVE" }),
-      expect.objectContaining({ state: "RETRACTED", reason: "Citation withdrawn" }),
-    ]);
+    expect(rows).toHaveLength(3);
+    expect(rows.filter(({ state }) => state === "ACTIVE")).toHaveLength(2);
+    expect(rows.find(({ state }) => state === "RETRACTED")).toMatchObject({
+      state: "RETRACTED",
+      reason: "Citation withdrawn",
+      citedLocations: [
+        {
+          schemaVersion: "research-source-retraction.v1",
+          predecessorSourceReferenceId: source.sourceReferenceId,
+        },
+      ],
+    });
   });
 });
 
