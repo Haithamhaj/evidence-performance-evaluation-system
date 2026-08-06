@@ -134,6 +134,19 @@ model User {
   finalEvaluationSnapshotsAsEmployee FinalEvaluationSnapshot[] @relation("FinalEvaluationSnapshotEmployee")
   finalEvaluationSnapshotsAsManager FinalEvaluationSnapshot[] @relation("FinalEvaluationSnapshotManager")
   evaluationAcknowledgments EvaluationAcknowledgment[] @relation("EvaluationAcknowledgmentActor")
+  createdManagerEvaluationTemplates ManagerEvaluationTemplate[] @relation("ManagerEvaluationTemplateCreatedBy")
+  createdManagerEvaluationTemplateVersions ManagerEvaluationTemplateVersion[] @relation("ManagerEvaluationTemplateVersionCreatedBy")
+  activatedManagerEvaluationTemplateVersions ManagerEvaluationTemplateVersion[] @relation("ManagerEvaluationTemplateVersionActivatedBy")
+  createdManagerEvaluationVisibilityPolicies ManagerEvaluationVisibilityPolicy[] @relation("ManagerEvaluationVisibilityPolicyCreatedBy")
+  createdManagerEvaluationCycles ManagerEvaluationCycle[] @relation("ManagerEvaluationCycleCreatedBy")
+  managedManagerEvaluationCycles ManagerEvaluationCycle[] @relation("ManagerEvaluationCycleManager")
+  managerEvaluationCycleSnapshots ManagerEvaluationCycleSnapshot[] @relation("ManagerEvaluationCycleSnapshotManager")
+  managerEvaluatorEligibilities ManagerEvaluatorEligibility[] @relation("ManagerEvaluatorEligibilityEvaluator")
+  managerEvaluationEligibilityDecisions ManagerEvaluatorEligibilityDecision[] @relation("ManagerEvaluatorEligibilityDecisionActor")
+  managerEvaluationCycleTransitions ManagerEvaluationCycleTransition[] @relation("ManagerEvaluationCycleTransitionActor")
+  managerEvaluationResponses ManagerEvaluationResponse[] @relation("ManagerEvaluationResponseEvaluator")
+  receivedManagerEvaluationResponses ManagerEvaluationResponse[] @relation("ManagerEvaluationResponseManager")
+  requestedManagerEvaluationSummaries ManagerEvaluationSummaryRevision[] @relation("ManagerEvaluationSummaryRequestedBy")
   createdAt                 DateTime                               @default(now()) @db.Timestamptz(6)
   updatedAt                 DateTime                               @updatedAt @db.Timestamptz(6)
 }
@@ -180,6 +193,8 @@ model Organization {
   uploadedSources   UploadedSource[]
   documentRecords   DocumentRecord[]
   evaluationTemplates EvaluationTemplate[]
+  managerEvaluationTemplates ManagerEvaluationTemplate[]
+  managerEvaluationVisibilityPolicies ManagerEvaluationVisibilityPolicy[]
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
 }
@@ -245,6 +260,9 @@ model Department {
   documentRecords     DocumentRecord[]
   evaluationTemplates EvaluationTemplate[]
   employeeEvaluationCycles EmployeeEvaluationCycle[]
+  managerEvaluationTemplates ManagerEvaluationTemplate[]
+  managerEvaluationCycles ManagerEvaluationCycle[]
+  managerEvaluationCycleSnapshots ManagerEvaluationCycleSnapshot[]
   createdAt           DateTime             @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
 
@@ -3397,6 +3415,8 @@ model RubricVersion {
   locales        RubricLocale[]
   evaluationTemplateVersions EvaluationTemplateVersion[]
   employeeEvaluationCycleSnapshots EmployeeEvaluationCycleSnapshot[]
+  managerEvaluationTemplateVersions ManagerEvaluationTemplateVersion[]
+  managerEvaluationCycleSnapshots ManagerEvaluationCycleSnapshot[]
   createdAt      DateTime       @default(now()) @db.Timestamptz(6)
 
   @@unique([organizationId, version])
@@ -3450,6 +3470,7 @@ model RubricCriterion {
   content         Json
   displayOrder    Int
   anchors         RubricAnchor[]
+  managerEvaluationCriteria ManagerEvaluationCriterion[]
   createdAt       DateTime            @default(now()) @db.Timestamptz(6)
 
   @@unique([rubricLocaleId, stableId])
@@ -3671,6 +3692,7 @@ model AiRun {
   experimentConclusions ExperimentConclusion[] @relation("ExperimentConclusionAiRun")
   researchConclusions ResearchConclusion[] @relation("ResearchConclusionAiRun")
   assessmentRevisions AssessmentRevision[] @relation("AssessmentRevisionAiRun")
+  managerEvaluationSummaryRevisions ManagerEvaluationSummaryRevision[] @relation("ManagerEvaluationSummaryAiRun")
   createdAt              DateTime                        @default(now()) @db.Timestamptz(6)
 
   @@index([routeId, routeConfigVersion, createdAt])
@@ -3854,6 +3876,7 @@ model EmployeeEvaluationCycle {
   assignments       EvaluationAssignment[]
   transitions       EmployeeEvaluationCycleTransition[]
   finalSnapshots    FinalEvaluationSnapshot[]
+  managerEvaluationCycle ManagerEvaluationCycle?
   createdAt         DateTime                            @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime                            @updatedAt @db.Timestamptz(6)
 
@@ -4104,4 +4127,355 @@ model EvaluationAcknowledgment {
   createdAt       DateTime                     @default(now()) @db.Timestamptz(6)
 
   @@index([actorId, recordedAt])
+}
+
+enum ManagerEvaluationTemplateStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum ManagerEvaluationVisibilityMode {
+  IDENTIFIED
+  MANAGER_BLINDED
+  ANONYMOUS_AGGREGATED
+}
+
+enum ManagerEvaluationCycleState {
+  DRAFT
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum ManagerEvaluatorEligibilityState {
+  ELIGIBLE_PENDING
+  SUBMITTED
+  APPROVED_LEAVE
+  POSTPONED
+  EXCLUDED_BY_AUTHORIZED_MANAGER
+}
+
+model ManagerEvaluationTemplate {
+  id             String                             @id @default(uuid()) @db.Uuid
+  organizationId String                             @db.Uuid
+  organization   Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId   String?                            @db.Uuid
+  department     Department?                        @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  key            String
+  name           String
+  version        Int                                @default(1)
+  createdById    String                             @db.Uuid
+  createdBy      User                               @relation("ManagerEvaluationTemplateCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  versions       ManagerEvaluationTemplateVersion[]
+  createdAt      DateTime                           @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                           @updatedAt @db.Timestamptz(6)
+
+  @@unique([organizationId, departmentId, key])
+  @@index([organizationId, key])
+  @@index([departmentId, key])
+  @@index([createdById, createdAt])
+}
+
+model ManagerEvaluationTemplateVersion {
+  id                 String                           @id @default(uuid()) @db.Uuid
+  templateId         String                           @db.Uuid
+  template           ManagerEvaluationTemplate        @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  rubricVersionId    String                           @db.Uuid
+  rubricVersion      RubricVersion                    @relation(fields: [rubricVersionId], references: [id], onDelete: Restrict)
+  versionNumber      Int
+  status             ManagerEvaluationTemplateStatus  @default(DRAFT)
+  commentRequired    Boolean                          @default(false)
+  ratingScale        Json
+  localeAvailability Json
+  configuration      Json
+  schemaVersion      Int                              @default(1)
+  version            Int                              @default(1)
+  createdById        String                           @db.Uuid
+  createdBy          User                             @relation("ManagerEvaluationTemplateVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  activatedById      String?                          @db.Uuid
+  activatedBy        User?                            @relation("ManagerEvaluationTemplateVersionActivatedBy", fields: [activatedById], references: [id], onDelete: Restrict)
+  activatedAt        DateTime?                        @db.Timestamptz(6)
+  retiredAt          DateTime?                        @db.Timestamptz(6)
+  criteria           ManagerEvaluationCriterion[]
+  cycles             ManagerEvaluationCycle[]
+  cycleSnapshots     ManagerEvaluationCycleSnapshot[]
+  createdAt          DateTime                         @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                         @updatedAt @db.Timestamptz(6)
+
+  @@unique([templateId, versionNumber])
+  @@index([templateId, status, versionNumber(sort: Desc)])
+  @@index([rubricVersionId])
+  @@index([createdById, createdAt])
+  @@index([activatedById, activatedAt])
+}
+
+model ManagerEvaluationCriterion {
+  id                String                           @id @default(uuid()) @db.Uuid
+  templateVersionId String                           @db.Uuid
+  templateVersion   ManagerEvaluationTemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  rubricCriterionId String                           @db.Uuid
+  rubricCriterion   RubricCriterion                  @relation(fields: [rubricCriterionId], references: [id], onDelete: Restrict)
+  stableCriterionId String
+  displayOrder      Int
+  commentRequired   Boolean                          @default(false)
+  anchorSnapshot    Json
+  responses         ManagerCriterionResponse[]
+  createdAt         DateTime                         @default(now()) @db.Timestamptz(6)
+
+  @@unique([templateVersionId, stableCriterionId])
+  @@unique([templateVersionId, displayOrder])
+  @@index([rubricCriterionId])
+}
+
+model ManagerEvaluationVisibilityPolicy {
+  id                      String                           @id @default(uuid()) @db.Uuid
+  organizationId          String                           @db.Uuid
+  organization            Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  version                 Int
+  mode                    ManagerEvaluationVisibilityMode
+  enabled                 Boolean
+  managerCanReadIdentity  Boolean
+  managerCanReadOriginals Boolean
+  immediateVisibility     Boolean
+  policy                  Json
+  schemaVersion           Int                              @default(1)
+  createdById             String                           @db.Uuid
+  createdBy               User                             @relation("ManagerEvaluationVisibilityPolicyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  cycleSnapshots          ManagerEvaluationCycleSnapshot[]
+  createdAt               DateTime                         @default(now()) @db.Timestamptz(6)
+
+  @@unique([organizationId, mode, version])
+  @@unique([id, mode, enabled])
+  @@index([createdById, createdAt])
+}
+
+model ManagerEvaluationCycle {
+  id                        String                                 @id @default(uuid()) @db.Uuid
+  idempotencyKey            String                                 @unique @db.Uuid
+  employeeEvaluationCycleId String                                 @unique @db.Uuid
+  employeeEvaluationCycle   EmployeeEvaluationCycle                @relation(fields: [employeeEvaluationCycleId], references: [id], onDelete: Restrict)
+  departmentId              String                                 @db.Uuid
+  department                Department                             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  managerId                 String                                 @db.Uuid
+  manager                   User                                   @relation("ManagerEvaluationCycleManager", fields: [managerId], references: [id], onDelete: Restrict)
+  templateVersionId         String                                 @db.Uuid
+  templateVersion           ManagerEvaluationTemplateVersion       @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  visibilityMode            ManagerEvaluationVisibilityMode        @default(IDENTIFIED)
+  state                     ManagerEvaluationCycleState            @default(DRAFT)
+  startsAt                  DateTime                               @db.Timestamptz(6)
+  endsAt                    DateTime                               @db.Timestamptz(6)
+  schemaVersion             Int                                    @default(1)
+  version                   Int                                    @default(1)
+  createdById               String                                 @db.Uuid
+  createdBy                 User                                   @relation("ManagerEvaluationCycleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  openedAt                  DateTime?                              @db.Timestamptz(6)
+  closedAt                  DateTime?                              @db.Timestamptz(6)
+  cancelledAt               DateTime?                              @db.Timestamptz(6)
+  snapshot                  ManagerEvaluationCycleSnapshot?
+  eligibilities             ManagerEvaluatorEligibility[]
+  transitions               ManagerEvaluationCycleTransition[]
+  responses                 ManagerEvaluationResponse[]
+  summaryRevisions          ManagerEvaluationSummaryRevision[]
+  privateIdentityLinks      ManagerEvaluationPrivateIdentityLink[]
+  createdAt                 DateTime                               @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime                               @updatedAt @db.Timestamptz(6)
+  @@index([departmentId, state, startsAt])
+  @@index([managerId, state, startsAt])
+  @@index([templateVersionId])
+  @@index([createdById, createdAt])
+}
+
+model ManagerEvaluationCycleSnapshot {
+  id                      String                            @id @default(uuid()) @db.Uuid
+  cycleId                 String                            @unique @db.Uuid
+  cycle                   ManagerEvaluationCycle            @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  departmentId            String                            @db.Uuid
+  department              Department                        @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  managerId               String                            @db.Uuid
+  manager                 User                              @relation("ManagerEvaluationCycleSnapshotManager", fields: [managerId], references: [id], onDelete: Restrict)
+  templateVersionId       String                            @db.Uuid
+  templateVersion         ManagerEvaluationTemplateVersion  @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  rubricVersionId         String                            @db.Uuid
+  rubricVersion           RubricVersion                     @relation(fields: [rubricVersionId], references: [id], onDelete: Restrict)
+  visibilityPolicyId      String                            @db.Uuid
+  visibilityMode          ManagerEvaluationVisibilityMode
+  visibilityPolicyEnabled Boolean
+  visibilityPolicy        ManagerEvaluationVisibilityPolicy @relation(fields: [visibilityPolicyId, visibilityMode, visibilityPolicyEnabled], references: [id, mode, enabled], onDelete: Restrict)
+  startsAt                DateTime                          @db.Timestamptz(6)
+  endsAt                  DateTime                          @db.Timestamptz(6)
+  ratingScale             Json
+  criteriaSnapshot        Json
+  eligibilityRuleSnapshot Json
+  localeAvailability      Json
+  schemaVersion           Int                               @default(1)
+  responses               ManagerEvaluationResponse[]
+  createdAt               DateTime                          @default(now()) @db.Timestamptz(6)
+
+  @@index([departmentId, startsAt])
+  @@index([managerId, startsAt])
+  @@index([templateVersionId])
+  @@index([rubricVersionId])
+  @@index([visibilityPolicyId])
+}
+
+model ManagerEvaluatorEligibility {
+  id                   String                                @id @default(uuid()) @db.Uuid
+  cycleId              String                                @db.Uuid
+  cycle                ManagerEvaluationCycle                @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  evaluatorId          String                                @db.Uuid
+  evaluator            User                                  @relation("ManagerEvaluatorEligibilityEvaluator", fields: [evaluatorId], references: [id], onDelete: Restrict)
+  state                ManagerEvaluatorEligibilityState      @default(ELIGIBLE_PENDING)
+  reason               String
+  relationshipSnapshot Json
+  leaveSnapshot        Json
+  effectiveAt          DateTime                              @db.Timestamptz(6)
+  version              Int                                   @default(1)
+  decisions            ManagerEvaluatorEligibilityDecision[]
+  response             ManagerEvaluationResponse?
+  createdAt            DateTime                              @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                              @updatedAt @db.Timestamptz(6)
+
+  @@unique([cycleId, evaluatorId])
+  @@unique([id, cycleId, evaluatorId])
+  @@index([evaluatorId, cycleId])
+  @@index([cycleId, state])
+}
+
+model ManagerEvaluatorEligibilityDecision {
+  id               String                           @id @default(uuid()) @db.Uuid
+  idempotencyKey   String                           @unique @db.Uuid
+  eligibilityId    String                           @db.Uuid
+  eligibility      ManagerEvaluatorEligibility      @relation(fields: [eligibilityId], references: [id], onDelete: Restrict)
+  fromState        ManagerEvaluatorEligibilityState
+  toState          ManagerEvaluatorEligibilityState
+  reason           String
+  effectiveAt      DateTime                         @db.Timestamptz(6)
+  actorId          String                           @db.Uuid
+  actor            User                             @relation("ManagerEvaluatorEligibilityDecisionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  resultingVersion Int
+  createdAt        DateTime                         @default(now()) @db.Timestamptz(6)
+
+  @@unique([eligibilityId, resultingVersion])
+  @@index([eligibilityId, effectiveAt, id])
+  @@index([actorId, createdAt])
+}
+
+model ManagerEvaluationCycleTransition {
+  id               String                      @id @default(uuid()) @db.Uuid
+  idempotencyKey   String                      @unique @db.Uuid
+  cycleId          String                      @db.Uuid
+  cycle            ManagerEvaluationCycle      @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  fromState        ManagerEvaluationCycleState
+  toState          ManagerEvaluationCycleState
+  reason           String
+  effectiveAt      DateTime                    @db.Timestamptz(6)
+  actorId          String                      @db.Uuid
+  actor            User                        @relation("ManagerEvaluationCycleTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  resultingVersion Int
+  createdAt        DateTime                    @default(now()) @db.Timestamptz(6)
+
+  @@unique([cycleId, resultingVersion])
+  @@index([cycleId, effectiveAt, id])
+  @@index([actorId, createdAt])
+}
+
+model ManagerEvaluationResponse {
+  id                        String                                @id @default(uuid()) @db.Uuid
+  idempotencyKey            String                                @unique @db.Uuid
+  cycleId                   String                                @db.Uuid
+  cycle                     ManagerEvaluationCycle                @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  cycleSnapshotId           String                                @db.Uuid
+  cycleSnapshot             ManagerEvaluationCycleSnapshot        @relation(fields: [cycleSnapshotId], references: [id], onDelete: Restrict)
+  eligibilityId             String                                @unique @db.Uuid
+  evaluatorId               String                                @db.Uuid
+  eligibility               ManagerEvaluatorEligibility           @relation(fields: [eligibilityId, cycleId, evaluatorId], references: [id, cycleId, evaluatorId], onDelete: Restrict)
+  evaluator                 User                                  @relation("ManagerEvaluationResponseEvaluator", fields: [evaluatorId], references: [id], onDelete: Restrict)
+  managerId                 String                                @db.Uuid
+  manager                   User                                  @relation("ManagerEvaluationResponseManager", fields: [managerId], references: [id], onDelete: Restrict)
+  visibilityMode            ManagerEvaluationVisibilityMode       @default(IDENTIFIED)
+  identifiedNoticeConfirmed Boolean                               @default(false)
+  submittedAt               DateTime                              @db.Timestamptz(6)
+  visibleToManagerAt        DateTime                              @db.Timestamptz(6)
+  schemaVersion             Int                                   @default(1)
+  criterionResponses        ManagerCriterionResponse[]
+  summarySources            ManagerEvaluationSummarySource[]
+  privateIdentityLink       ManagerEvaluationPrivateIdentityLink?
+  createdAt                 DateTime                              @default(now()) @db.Timestamptz(6)
+
+  @@unique([cycleId, evaluatorId])
+  @@unique([id, cycleId])
+  @@unique([eligibilityId, cycleId, evaluatorId])
+  @@index([managerId, submittedAt])
+  @@index([cycleSnapshotId])
+}
+
+model ManagerCriterionResponse {
+  id          String                     @id @default(uuid()) @db.Uuid
+  responseId  String                     @db.Uuid
+  response    ManagerEvaluationResponse  @relation(fields: [responseId], references: [id], onDelete: Restrict)
+  criterionId String                     @db.Uuid
+  criterion   ManagerEvaluationCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+  rating      Int
+  comment     String
+  position    Int
+  createdAt   DateTime                   @default(now()) @db.Timestamptz(6)
+
+  @@unique([responseId, criterionId])
+  @@unique([responseId, position])
+  @@index([criterionId])
+}
+
+model ManagerEvaluationSummaryRevision {
+  id                  String                           @id @default(uuid()) @db.Uuid
+  cycleId             String                           @db.Uuid
+  cycle               ManagerEvaluationCycle           @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  revision            Int
+  visibilityMode      ManagerEvaluationVisibilityMode  @default(IDENTIFIED)
+  periodStartsAt      DateTime                         @db.Timestamptz(6)
+  periodEndsAt        DateTime                         @db.Timestamptz(6)
+  distributions       Json
+  themes              Json
+  limitations         Json
+  promptVersion       String
+  outputSchemaVersion String
+  aiRunId             String                           @db.Uuid
+  aiRun               AiRun                            @relation("ManagerEvaluationSummaryAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  requestedById       String                           @db.Uuid
+  requestedBy         User                             @relation("ManagerEvaluationSummaryRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  schemaVersion       Int                              @default(1)
+  sources             ManagerEvaluationSummarySource[]
+  createdAt           DateTime                         @default(now()) @db.Timestamptz(6)
+
+  @@unique([cycleId, revision])
+  @@index([aiRunId])
+  @@index([requestedById, createdAt])
+}
+
+model ManagerEvaluationSummarySource {
+  summaryRevisionId String                           @db.Uuid
+  summaryRevision   ManagerEvaluationSummaryRevision @relation(fields: [summaryRevisionId], references: [id], onDelete: Restrict)
+  responseId        String                           @db.Uuid
+  response          ManagerEvaluationResponse        @relation(fields: [responseId], references: [id], onDelete: Restrict)
+  position          Int
+  createdAt         DateTime                         @default(now()) @db.Timestamptz(6)
+
+  @@id([summaryRevisionId, responseId])
+  @@unique([summaryRevisionId, position])
+  @@index([responseId])
+}
+
+model ManagerEvaluationPrivateIdentityLink {
+  id                      String                          @id @default(uuid()) @db.Uuid
+  cycleId                 String                          @db.Uuid
+  cycle                   ManagerEvaluationCycle          @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  responseId              String                          @unique @db.Uuid
+  response                ManagerEvaluationResponse       @relation(fields: [responseId], references: [id], onDelete: Restrict)
+  mode                    ManagerEvaluationVisibilityMode
+  enabled                 Boolean                         @default(false)
+  sealedIdentityReference String
+  schemaVersion           Int                             @default(1)
+  createdAt               DateTime                        @default(now()) @db.Timestamptz(6)
+
+  @@index([cycleId, mode])
 }
