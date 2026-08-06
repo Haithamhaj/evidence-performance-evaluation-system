@@ -86,4 +86,26 @@ describe("Experiment invariants", () => {
       assertNoSecretConfiguration([{ name: "clientSecret", value: "not-stored" }]),
     ).toThrow();
   });
+
+  it.each([
+    ["runtime", `Bearer ${"x".repeat(32)}`],
+    ["endpoint", `https://employee:${"p".repeat(24)}@provider.example.invalid/v1`],
+    ["certificate", `${["-----BEGIN", "PRIVATE KEY-----"].join(" ")}\n${"A".repeat(64)}`],
+    ["provider", `sk-proj-${"x".repeat(32)}`],
+    ["header", `api_key=${"x".repeat(32)}`],
+  ])("rejects obvious credential material stored under an innocent %s key", (name, value) => {
+    expect(() => assertNoSecretConfiguration([{ name, value }])).toThrow(
+      expect.objectContaining({ code: "EXPERIMENT_SECRET_CONFIGURATION" }),
+    );
+  });
+
+  it("allows ordinary reproducibility values that are not credentials", () => {
+    expect(() =>
+      assertNoSecretConfiguration([
+        { name: "runtime", value: "node-24" },
+        { name: "model", value: "gpt-5.5" },
+        { name: "dataset", value: "retrieval-benchmark-v1" },
+      ]),
+    ).not.toThrow();
+  });
 });

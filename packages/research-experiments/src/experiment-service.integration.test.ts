@@ -244,7 +244,7 @@ function actor(userId = ids.owner, active = true) {
   return { userId, active };
 }
 
-function method() {
+function method(): Omit<import("@evaluation/contracts").ReviseExperimentMethodInput, "expectedVersion"> {
   return {
     question: "Does retrieval reduce p95 latency?",
     baseline: { description: "Current retrieval path", value: "120", sourceReference: null },
@@ -291,6 +291,195 @@ async function createExperiment(title = "Retrieval latency") {
     },
     method: method(),
   });
+}
+
+async function createResearchFixture() {
+  return client.researchRecord.create({
+    data: {
+      idempotencyKey: crypto.randomUUID(),
+      projectId: ids.project,
+      ownerId: ids.owner,
+      state: "ACTIVE",
+      revision: 1,
+      version: 2,
+      revisions: {
+        create: {
+          revision: 1,
+          origin: "EMPLOYEE",
+          problemStatement: "Separate governed research.",
+          context: "Citation boundary fixture.",
+          question: "Is this source isolated?",
+          objective: "Verify exact Research ownership.",
+          hypothesisKind: "NO_HYPOTHESIS",
+          noHypothesisReason: "Boundary verification.",
+          assumptions: [],
+          constraints: [],
+          knownUncertainty: [],
+          alternatives: [],
+          decisionQuestion: "May this source cross Research roots?",
+          sourceReferences: [],
+          executionMode: "manual",
+          authorId: ids.owner,
+          createdAt: now,
+        },
+      },
+    },
+  });
+}
+
+async function createSource(
+  researchId: string,
+  input: { state?: "ACTIVE" | "RETRACTED"; citedLocations?: unknown[]; reason?: string } = {},
+) {
+  return client.researchSourceReference.create({
+    data: {
+      researchId,
+      kind: "PAPER",
+      title: "Governed source",
+      relevanceNote: "Supports the bounded experiment.",
+      credibilityNote: "Reviewed fixture.",
+      retrievalState: "RETRIEVED",
+      citedLocations: (input.citedLocations ?? []) as never,
+      state: input.state ?? "ACTIVE",
+      reason: input.state === "RETRACTED" ? (input.reason ?? "Fixture retraction") : null,
+      addedById: ids.owner,
+      createdAt: now,
+    },
+  });
+}
+
+async function createSucceededInterpretationRun(inputReference: string) {
+  const suffix = crypto.randomUUID();
+  const route = await client.aiRoute.upsert({
+    where: {
+      routeKey_level_scopeId: {
+        routeKey: "experiment.interpret.v1",
+        level: "project",
+        scopeId: ids.project,
+      },
+    },
+    update: {},
+    create: { routeKey: "experiment.interpret.v1", level: "project", scopeId: ids.project },
+  });
+  const latestConfig = await client.aiRouteConfig.findFirst({
+    where: { routeId: route.id },
+    orderBy: { version: "desc" },
+    select: { version: true },
+  });
+  const routeConfigVersion = (latestConfig?.version ?? 0) + 1;
+  const routeConfig = await client.aiRouteConfig.create({
+    data: {
+      routeId: route.id,
+      version: routeConfigVersion,
+      reason: "Experiment interpretation provenance fixture",
+      createdById: ids.owner,
+    },
+  });
+  const provider = await client.aiProviderConfig.create({
+    data: {
+      providerKey: `experiment-interpret-${suffix}`,
+      version: 1,
+      adapterKey: "fixture",
+      modelKey: "fixture-model",
+      locality: "external",
+      endpoint: "https://provider.example.invalid/v1/chat/completions",
+      endpointProtocol: "https",
+      endpointHost: "provider.example.invalid",
+      reason: "Experiment interpretation provenance fixture",
+      createdById: ids.owner,
+    },
+  });
+  const routeProvider = await client.aiRouteConfigProvider.create({
+    data: {
+      routeConfigId: routeConfig.id,
+      position: 0,
+      providerConfigId: provider.id,
+      providerConfigVersion: provider.version,
+    },
+  });
+  const artifact = await client.aiOutputSchemaArtifact.create({
+    data: {
+      routeKey: route.routeKey,
+      version: `experiment-interpret-output.fixture-${suffix}`,
+      schemaHash: "e".repeat(64),
+      schemaArtifact: {},
+      reason: "Experiment interpretation provenance fixture",
+      expectedBehavior: "Produces a governed interpretation draft.",
+      evaluationEvidenceReferences: [`ai-eval:${crypto.randomUUID()}`],
+      humanApprovalPolicy: "feature_defined",
+      createdById: ids.owner,
+    },
+  });
+  return client.aiRun.create({
+    data: {
+      routeKey: route.routeKey,
+      routeId: route.id,
+      routeConfigId: routeConfig.id,
+      routeConfigVersion,
+      routeLevel: "project",
+      scopeId: ids.project,
+      routeConfigProviderId: routeProvider.id,
+      providerConfigId: provider.id,
+      providerConfigVersion: provider.version,
+      projectScopeId: ids.project,
+      projectScopeType: "project",
+      classification: "confidential",
+      inputReference,
+      inputSchemaVersion: "experiment-interpret-input.v1",
+      outputSchemaVersion: artifact.version,
+      outputSchemaArtifactId: artifact.id,
+      outputSchemaHash: artifact.schemaHash,
+      promptTemplateVersion: "experiment-interpret-prompt.v1",
+      sourceReferences: [inputReference],
+      outputReference: `experiment-interpretation:${crypto.randomUUID()}`,
+      startedAt: now,
+      completedAt: now,
+      latencyMs: 0,
+      state: "succeeded",
+      fallbackChain: [],
+      humanApprovalState: "pending",
+      correlationId: crypto.randomUUID(),
+      validationIssueCodes: [],
+    },
+  });
+}
+
+async function createRecordedExperiment(title: string) {
+  const experiment = await createExperiment(title);
+  const ready = await service().transition({
+    actor: actor(),
+    experimentId: experiment.id,
+    correlationId: crypto.randomUUID(),
+    input: { expectedVersion: 1, state: "READY", reason: null, successorExperimentId: null },
+  });
+  const run = await service().recordRun({
+    actor: actor(),
+    experimentId: experiment.id,
+    correlationId: crypto.randomUUID(),
+    input: {
+      expectedVersion: ready.version,
+      methodRevisionId: ready.currentMethod.id,
+      startedAt: "2026-08-06T11:55:00.000Z",
+      completedAt: "2026-08-06T12:00:00.000Z",
+      resultStatus: "COMPLETED",
+      environment: [],
+      inputs: [],
+      modelConfigurations: [],
+      observations: [
+        {
+          measureStableId: "p95_latency_ms",
+          testCaseId: null,
+          observedValue: "98",
+          unit: "ms",
+          note: null,
+        },
+      ],
+      unexpectedConditions: [],
+      executionNotes: "Recorded for provenance verification.",
+      sourceReferences: [],
+    },
+  });
+  return { experiment, run };
 }
 
 describe("ExperimentService", () => {
@@ -499,6 +688,95 @@ describe("ExperimentService", () => {
     ).rejects.toMatchObject({ code: "EXPERIMENT_OBSERVATION_INVALID" });
   });
 
+  it("rejects method baseline citations whose active predecessor was append-only retracted", async () => {
+    const source = await createSource(ids.research);
+    await createSource(ids.research, {
+      state: "RETRACTED",
+      citedLocations: [
+        {
+          schemaVersion: "research-source-retraction.v1",
+          predecessorSourceReferenceId: source.id,
+        },
+      ],
+    });
+    const citation = `research-source:${source.id}`;
+    const citedMethod = method();
+    citedMethod.sourceReferences = [citation];
+    citedMethod.baseline.sourceReference = citation;
+
+    await expect(
+      service().create({
+        actor: actor(),
+        correlationId: crypto.randomUUID(),
+        input: {
+          researchId: ids.research,
+          scope: {
+            projectId: ids.project,
+            workstreamId: ids.workstream,
+            workItemId: ids.workItem,
+          },
+          idempotencyKey: crypto.randomUUID(),
+          title: "Retracted baseline",
+        },
+        method: citedMethod,
+      }),
+    ).rejects.toMatchObject({ code: "EXPERIMENT_SOURCE_INVALID" });
+  });
+
+  it("rejects cross-Research baseline and run source references", async () => {
+    const otherResearch = await createResearchFixture();
+    const otherSource = await createSource(otherResearch.id);
+    const citation = `research-source:${otherSource.id}`;
+    const crossResearchMethod = method();
+    crossResearchMethod.measures[0]!.baselineReference = citation;
+    await expect(
+      service().create({
+        actor: actor(),
+        correlationId: crypto.randomUUID(),
+        input: {
+          researchId: ids.research,
+          scope: {
+            projectId: ids.project,
+            workstreamId: ids.workstream,
+            workItemId: ids.workItem,
+          },
+          idempotencyKey: crypto.randomUUID(),
+          title: "Cross Research baseline",
+        },
+        method: crossResearchMethod,
+      }),
+    ).rejects.toMatchObject({ code: "EXPERIMENT_SOURCE_INVALID" });
+
+    const experiment = await createExperiment("Cross Research run");
+    const ready = await service().transition({
+      actor: actor(),
+      experimentId: experiment.id,
+      correlationId: crypto.randomUUID(),
+      input: { expectedVersion: 1, state: "READY", reason: null, successorExperimentId: null },
+    });
+    await expect(
+      service().recordRun({
+        actor: actor(),
+        experimentId: experiment.id,
+        correlationId: crypto.randomUUID(),
+        input: {
+          expectedVersion: ready.version,
+          methodRevisionId: ready.currentMethod.id,
+          startedAt: "2026-08-06T11:55:00.000Z",
+          completedAt: "2026-08-06T12:00:00.000Z",
+          resultStatus: "COMPLETED",
+          environment: [],
+          inputs: [],
+          modelConfigurations: [],
+          observations: [],
+          unexpectedConditions: [],
+          executionNotes: "Cross Research citation must be rejected.",
+          sourceReferences: [citation],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "EXPERIMENT_SOURCE_INVALID" });
+  });
+
   it.each(["NOT_SUPPORTED", "INCONCLUSIVE"] as const)(
     "allows a human to confirm the %s conclusion without AI acting as confirmer",
     async (outcome) => {
@@ -557,6 +835,32 @@ describe("ExperimentService", () => {
     },
   );
 
+  it("rejects a successful interpretation trace produced for another Experiment run", async () => {
+    const target = await createRecordedExperiment("Target conclusion");
+    const other = await createRecordedExperiment("Other interpretation");
+    const foreignAiRun = await createSucceededInterpretationRun(`experiment-run:${other.run.id}`);
+
+    await expect(
+      service().conclude({
+        actor: actor(),
+        experimentId: target.experiment.id,
+        correlationId: crypto.randomUUID(),
+        aiRunId: foreignAiRun.id,
+        input: {
+          expectedVersion: 3,
+          outcome: "SUPPORTED",
+          summary: "The target run supports the bounded hypothesis.",
+          runIds: [target.run.id],
+          measureStableIds: ["p95_latency_ms"],
+          limitations: ["One bounded sample."],
+          confidenceDescription: "Limited to the recorded target run.",
+          decisionRelevance: "Use the target run only.",
+          nextStep: "Confirm the bounded result with another run.",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "EXPERIMENT_CONCLUSION_INVALID" });
+  });
+
   it("records an AI method-review draft reference and one clarification without changing state", async () => {
     const experiment = await createExperiment("AI method review");
     const aiRunId = crypto.randomUUID();
@@ -565,8 +869,9 @@ describe("ExperimentService", () => {
       missingElements: ["Add a broader failure sample."],
       observations: ["The baseline and primary measure are present."],
       uncertainties: ["Sample representativeness remains uncertain."],
-      sourceReferences: [],
+      sourceReferences: [`experiment-method:${experiment.currentMethod.id}`],
       nextQuestion: "Which failure sample should be included?",
+      draftOnly: true as const,
       requiresHumanApproval: true as const,
     };
     const assistant = {
@@ -606,6 +911,16 @@ describe("ExperimentService", () => {
         where: { targetId: experiment.id, eventType: "experiment.method_review_draft_prepared" },
       }),
     ).resolves.toMatchObject({ safeDiff: expect.objectContaining({ aiRunId }) });
+    const [persisted] = await client.$queryRaw<
+      Array<{ body: unknown; methodRevisionId: string; aiRunId: string }>
+    >`SELECT "body", "methodRevisionId", "aiRunId"
+      FROM "ExperimentAiDraft"
+      WHERE "experimentId" = ${experiment.id}::uuid AND "kind" = 'METHOD_REVIEW'`;
+    expect(persisted).toMatchObject({
+      body: review,
+      methodRevisionId: experiment.currentMethod.id,
+      aiRunId,
+    });
   });
 
   it("records a cited AI interpretation draft reference without concluding the Experiment", async () => {
@@ -646,7 +961,8 @@ describe("ExperimentService", () => {
       limitations: ["No completed result."],
       possibleDecisionPaths: ["Repair and rerun."],
       uncertainties: ["Outcome remains unknown."],
-      sourceReferences: [],
+      sourceReferences: [`experiment-run:${run.id}`],
+      draftOnly: true as const,
       requiresHumanApproval: true as const,
     };
     const assistant = {
@@ -685,5 +1001,16 @@ describe("ExperimentService", () => {
     await expect(
       client.experiment.findUniqueOrThrow({ where: { id: experiment.id } }),
     ).resolves.toMatchObject({ state: "RESULT_RECORDED", version: 3 });
+    const [persisted] = await client.$queryRaw<
+      Array<{ body: unknown; runId: string; methodRevisionId: string; aiRunId: string }>
+    >`SELECT "body", "runId", "methodRevisionId", "aiRunId"
+      FROM "ExperimentAiDraft"
+      WHERE "experimentId" = ${experiment.id}::uuid AND "kind" = 'RUN_INTERPRETATION'`;
+    expect(persisted).toMatchObject({
+      body: interpretation,
+      runId: run.id,
+      methodRevisionId: run.methodRevisionId,
+      aiRunId,
+    });
   });
 });

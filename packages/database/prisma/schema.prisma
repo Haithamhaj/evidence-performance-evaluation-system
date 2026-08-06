@@ -2758,6 +2758,11 @@ enum ExperimentRunResultStatus {
   STOPPED
 }
 
+enum ExperimentAiDraftKind {
+  METHOD_REVIEW
+  RUN_INTERPRETATION
+}
+
 enum ExperimentConclusionOutcome {
   SUPPORTED
   NOT_SUPPORTED
@@ -3044,6 +3049,7 @@ model Experiment {
   version                Int                        @default(1)
   methodRevisions        ExperimentMethodRevision[]
   runs                   ExperimentRun[]            @relation("ExperimentRunExperiment")
+  aiDrafts               ExperimentAiDraft[]
   conclusions            ExperimentConclusion[]     @relation("ExperimentConclusionExperiment")
   appliedLearningTargets AppliedLearning[]          @relation("AppliedLearningTargetExperiment")
   evidenceLinks          ResearchEvidenceLink[]     @relation("ResearchEvidenceLinkExperiment")
@@ -3082,6 +3088,7 @@ model ExperimentMethodRevision {
   testCases                   ExperimentTestCase[]
   controls                    ExperimentControl[]
   runs                        ExperimentRun[]        @relation("ExperimentRunMethodRevision")
+  aiDrafts                    ExperimentAiDraft[]
   createdAt                   DateTime               @default(now()) @db.Timestamptz(6)
 
   @@unique([experimentId, revision])
@@ -3152,12 +3159,36 @@ model ExperimentRun {
   executionNotes       String
   sourceReferences     Json
   observations         ExperimentObservation[]   @relation("ExperimentObservationRun")
+  aiDrafts             ExperimentAiDraft[]
   evidenceLinks        ResearchEvidenceLink[]    @relation("ResearchEvidenceLinkRun")
   createdAt            DateTime                  @default(now()) @db.Timestamptz(6)
 
   @@unique([experimentId, sequence])
   @@index([methodRevisionId, createdAt])
   @@index([executorId, createdAt])
+}
+
+model ExperimentAiDraft {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  experimentId       String                   @db.Uuid
+  experiment         Experiment               @relation(fields: [experimentId], references: [id], onDelete: Restrict)
+  methodRevisionId   String                   @db.Uuid
+  methodRevision     ExperimentMethodRevision @relation(fields: [methodRevisionId], references: [id], onDelete: Restrict)
+  runId              String?                  @db.Uuid
+  run                ExperimentRun?           @relation(fields: [runId], references: [id], onDelete: Restrict)
+  kind               ExperimentAiDraftKind
+  body               Json
+  sourceReferences   Json
+  outputReference    String                   @unique
+  promptVersion      String
+  routeTrace         Json
+  aiRunId            String                   @db.Uuid
+  createdAt          DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@index([experimentId, createdAt, id])
+  @@index([methodRevisionId, createdAt])
+  @@index([runId, createdAt])
+  @@index([aiRunId])
 }
 
 model ExperimentObservation {

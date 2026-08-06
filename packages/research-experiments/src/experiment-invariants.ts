@@ -55,11 +55,26 @@ export function assertExperimentTransition(from: ExperimentState, to: Experiment
 
 const secretName =
   /(?:^|[_\-.])(?:api[_-]?key|token|secret|password|credential|private[_-]?key)(?:$|[_\-.])/iu;
+const secretValuePatterns = [
+  /\bbearer\s+[a-z0-9._~+/=-]{16,}\b/iu,
+  /https?:\/\/[^\s/:]+:[^\s/@]{8,}@/iu,
+  /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/u,
+  /\bsk-(?:proj-)?[a-z0-9_-]{20,}\b/iu,
+  /(?:^|[^a-z0-9])api[_-]?key\s*[:=]\s*[a-z0-9._~+/=-]{16,}/iu,
+  /\bgh[opusr]_[a-z0-9]{20,}\b/iu,
+  /\bAKIA[A-Z0-9]{16}\b/u,
+] as const;
 
 export function assertNoSecretConfiguration(
   entries: ReadonlyArray<Readonly<{ name: string; value: string }>>,
 ): void {
-  if (entries.some(({ name }) => secretName.test(name.replace(/([a-z])([A-Z])/gu, "$1_$2")))) {
+  if (
+    entries.some(
+      ({ name, value }) =>
+        secretName.test(name.replace(/([a-z])([A-Z])/gu, "$1_$2")) ||
+        secretValuePatterns.some((pattern) => pattern.test(value)),
+    )
+  ) {
     throw new AppError(
       "EXPERIMENT_SECRET_CONFIGURATION",
       "errors.research.experimentSecretConfiguration",

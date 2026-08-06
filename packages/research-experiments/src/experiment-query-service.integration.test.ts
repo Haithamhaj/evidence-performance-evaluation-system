@@ -10,8 +10,11 @@ const ids = {
   member: crypto.randomUUID(),
   outsider: crypto.randomUUID(),
   project: crypto.randomUUID(),
+  restrictedWorkstream: crypto.randomUUID(),
+  restrictedWorkItem: crypto.randomUUID(),
   research: crypto.randomUUID(),
   experiment: crypto.randomUUID(),
+  restrictedExperiment: crypto.randomUUID(),
   method: crypto.randomUUID(),
 };
 
@@ -63,6 +66,37 @@ beforeAll(async () => {
       reason: "Fixture",
       createdById: ids.owner,
     })),
+  });
+  await client.authorizationScope.create({
+    data: {
+      id: ids.restrictedWorkstream,
+      key: `eq-restricted-workstream-${suffix}`,
+      scopeType: "workstream",
+      departmentId: department.id,
+    },
+  });
+  await client.workstream.create({
+    data: {
+      id: ids.restrictedWorkstream,
+      projectId: ids.project,
+      authorizationScopeId: ids.restrictedWorkstream,
+      name: "Restricted experiment workstream",
+      description: "Narrow authorization fixture",
+      status: "active",
+      createdById: ids.owner,
+    },
+  });
+  await client.workItem.create({
+    data: {
+      id: ids.restrictedWorkItem,
+      projectId: ids.project,
+      workstreamId: ids.restrictedWorkstream,
+      title: "Restricted experiment work item",
+      description: "Narrow authorization fixture",
+      requirements: [],
+      acceptanceConditions: [],
+      createdById: ids.owner,
+    },
   });
   await client.researchRecord.create({
     data: {
@@ -125,6 +159,56 @@ beforeAll(async () => {
           question: "Does it improve?",
           baselineDescription: "Baseline",
           baselineValue: "10",
+          conditions: ["Same conditions"],
+          reproducibilityInstructions: "Repeat the bounded test.",
+          knownRisks: [],
+          failureCases: [],
+          sourceReferences: [],
+          executionMode: "manual",
+          origin: "EMPLOYEE",
+          authorId: ids.owner,
+          createdAt: at,
+          measures: {
+            create: {
+              stableId: "quality",
+              name: "Quality",
+              kind: "QUALITATIVE",
+              unit: null,
+              direction: "DESCRIPTIVE",
+              baselineValue: null,
+              interpretationRule: "Describe grounded differences.",
+            },
+          },
+          testCases: {
+            create: {
+              inputIdentity: "sample-v1",
+              expectedObservation: "Describe quality",
+              category: "sample",
+              inclusionReason: "Bounded sample",
+            },
+          },
+        },
+      },
+    },
+  });
+  await client.experiment.create({
+    data: {
+      id: ids.restrictedExperiment,
+      researchId: ids.research,
+      workstreamId: ids.restrictedWorkstream,
+      workItemId: ids.restrictedWorkItem,
+      idempotencyKey: crypto.randomUUID(),
+      title: "Restricted query experiment",
+      state: "READY",
+      methodRevision: 1,
+      version: 2,
+      createdAt: at,
+      transitionedAt: at,
+      methodRevisions: {
+        create: {
+          revision: 1,
+          question: "Does the restricted method improve?",
+          baselineDescription: "Baseline",
           conditions: ["Same conditions"],
           reproducibilityInstructions: "Repeat the bounded test.",
           knownRisks: [],
@@ -224,6 +308,39 @@ describe("ExperimentQueryService", () => {
     ]);
   });
 
+  it("reopens persisted validated AI drafts for an authorized reader", async () => {
+    const outputReference = `experiment-method-review:${crypto.randomUUID()}`;
+    const body = {
+      schemaVersion: "experiment-method-review-output.v1",
+      missingElements: ["Add a failure sample."],
+      observations: ["The baseline is explicit."],
+      uncertainties: ["Sample coverage is bounded."],
+      sourceReferences: [`experiment-method:${ids.method}`],
+      nextQuestion: "Which failure sample should be included?",
+      draftOnly: true,
+      requiresHumanApproval: true,
+    };
+    await client.$executeRaw`INSERT INTO "ExperimentAiDraft" (
+      "id", "experimentId", "methodRevisionId", "kind", "body", "sourceReferences",
+      "outputReference", "promptVersion", "routeTrace", "aiRunId", "createdAt"
+    ) VALUES (
+      ${crypto.randomUUID()}::uuid, ${ids.experiment}::uuid, ${ids.method}::uuid,
+      'METHOD_REVIEW', ${JSON.stringify(body)}::jsonb, '[]'::jsonb,
+      ${outputReference}, 'experiment-method-review-prompt.v1',
+      ${JSON.stringify({ routeKey: "experiment.method-review.v1" })}::jsonb,
+      ${crypto.randomUUID()}::uuid, ${at}
+    )`;
+
+    const result = await queries.read({
+      actor: { userId: ids.member, active: true },
+      experimentId: ids.experiment,
+    });
+
+    expect(result.aiDrafts).toEqual([
+      expect.objectContaining({ kind: "METHOD_REVIEW", body, outputReference }),
+    ]);
+  });
+
   it("denies unrelated and inactive actors without leaking Experiment existence", async () => {
     await expect(
       queries.read({ actor: { userId: ids.outsider, active: true }, experimentId: ids.experiment }),
@@ -231,5 +348,31 @@ describe("ExperimentQueryService", () => {
     await expect(
       queries.read({ actor: { userId: ids.owner, active: false }, experimentId: ids.experiment }),
     ).rejects.toMatchObject({ code: "RESEARCH_FORBIDDEN" });
+  });
+
+  it("filters every listed Experiment through its exact workstream and work-item scope", async () => {
+    const scopedQueries = new ExperimentQueryService({
+      database: client,
+      clock: () => at,
+      authorizer: {
+        async authorize({ actor, scope }: any) {
+          if (!actor.active || actor.userId !== ids.member) throw new Error("Forbidden");
+          if (
+            scope.workstreamId === ids.restrictedWorkstream ||
+            scope.workItemId === ids.restrictedWorkItem
+          ) {
+            throw new Error("Forbidden");
+          }
+        },
+      },
+    });
+
+    const listed = await scopedQueries.list({
+      actor: { userId: ids.member, active: true },
+      researchId: ids.research,
+    });
+
+    expect(listed.map(({ id }) => id)).toContain(ids.experiment);
+    expect(listed.map(({ id }) => id)).not.toContain(ids.restrictedExperiment);
   });
 });

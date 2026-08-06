@@ -2,6 +2,10 @@ import { AppError } from "@evaluation/contracts";
 import type { DatabaseClient } from "@evaluation/database";
 
 import { projectExperimentDetail } from "./experiment-service.js";
+import {
+  ExperimentInterpretAiOutputSchema,
+  ExperimentMethodReviewAiOutputSchema,
+} from "./prompts.js";
 
 type ResearchScope = import("@evaluation/contracts").ResearchScope;
 type ExperimentDetail = import("@evaluation/contracts").ExperimentDetail;
@@ -39,6 +43,19 @@ export type ExperimentQueryResult = Readonly<{
   detail: ExperimentDetail;
   methodRevisions: ReadonlyArray<ExperimentDetail["currentMethod"]>;
   runs: ReadonlyArray<ExperimentRunProjection>;
+  aiDrafts: ReadonlyArray<{
+    id: string;
+    kind: "METHOD_REVIEW" | "RUN_INTERPRETATION";
+    methodRevisionId: string;
+    runId: string | null;
+    body: unknown;
+    sourceReferences: readonly string[];
+    outputReference: string;
+    promptVersion: string;
+    routeTrace: unknown;
+    aiRunId: string;
+    createdAt: string;
+  }>;
   conclusions: ReadonlyArray<{
     id: string;
     outcome: import("@evaluation/contracts").ConcludeExperimentInput["outcome"];
@@ -87,6 +104,7 @@ const detailInclude = {
     orderBy: { sequence: "asc" as const },
   },
   conclusions: { orderBy: { confirmedAt: "asc" as const } },
+  aiDrafts: { orderBy: { createdAt: "asc" as const } },
 } as const;
 
 export class ExperimentQueryService {
@@ -124,6 +142,7 @@ export class ExperimentQueryService {
       detail: projectExperimentDetail(root),
       methodRevisions: root.methodRevisions.map(projectMethodRevision),
       runs: root.runs.map(projectRun),
+      aiDrafts: root.aiDrafts.map(projectAiDraft),
       conclusions: root.conclusions.map((conclusion) => ({
         id: conclusion.id,
         outcome: conclusion.outcome,
@@ -196,13 +215,50 @@ export class ExperimentQueryService {
         transitionedAt: true,
       },
     });
-    return roots.map((root) => ({
-      ...root,
-      projectId: research.projectId,
-      createdAt: root.createdAt.toISOString(),
-      transitionedAt: root.transitionedAt.toISOString(),
-    }));
+    const authorized = [];
+    for (const root of roots) {
+      try {
+        await this.#authorizer.authorize({
+          actor: input.actor,
+          scope: {
+            projectId: research.projectId,
+            workstreamId: root.workstreamId,
+            workItemId: root.workItemId,
+          },
+          at,
+        });
+      } catch {
+        continue;
+      }
+      authorized.push({
+        ...root,
+        projectId: research.projectId,
+        createdAt: root.createdAt.toISOString(),
+        transitionedAt: root.transitionedAt.toISOString(),
+      });
+    }
+    return authorized;
   }
+}
+
+function projectAiDraft(draft: any): ExperimentQueryResult["aiDrafts"][number] {
+  const body =
+    draft.kind === "METHOD_REVIEW"
+      ? ExperimentMethodReviewAiOutputSchema.parse(draft.body)
+      : ExperimentInterpretAiOutputSchema.parse(draft.body);
+  return {
+    id: draft.id,
+    kind: draft.kind,
+    methodRevisionId: draft.methodRevisionId,
+    runId: draft.runId,
+    body,
+    sourceReferences: stringArray(draft.sourceReferences),
+    outputReference: draft.outputReference,
+    promptVersion: draft.promptVersion,
+    routeTrace: draft.routeTrace,
+    aiRunId: draft.aiRunId,
+    createdAt: draft.createdAt.toISOString(),
+  };
 }
 
 function projectMethodRevision(method: any): ExperimentDetail["currentMethod"] {

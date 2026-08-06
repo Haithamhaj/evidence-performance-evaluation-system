@@ -17,6 +17,10 @@ import {
   assertNoSecretConfiguration,
 } from "./experiment-invariants.js";
 import type { ResearchAiAssistant } from "./ai-assistant.js";
+import {
+  ExperimentInterpretAiOutputSchema,
+  ExperimentMethodReviewAiOutputSchema,
+} from "./prompts.js";
 
 type Transaction = DatabaseTransaction;
 type AuditEventInput = import("@evaluation/contracts").AuditEventInput;
@@ -219,6 +223,15 @@ export class ExperimentService {
     const assistant = this.#assistant;
     if (assistant === undefined) throw aiUnavailable();
     const snapshot = await this.#loadOwnedSnapshot(command.experimentId, command.actor);
+    const governedReferences = await validateSourceReferences(
+      this.#database,
+      snapshot.detail.researchId,
+      methodSourceReferences(snapshot.detail.currentMethod),
+    );
+    const sourceReferences = [
+      `experiment-method:${snapshot.detail.currentMethod.id}`,
+      ...governedReferences,
+    ];
     const outputReference = `experiment-method-review:${this.#idFactory()}`;
     const result = await assistant.reviewExperimentMethod(
       {
@@ -227,13 +240,27 @@ export class ExperimentService {
         correlationId: command.correlationId,
         inputReference: `experiment-method:${snapshot.detail.currentMethod.id}`,
         outputReference,
-        sourceReferences: snapshot.detail.currentMethod.sourceReferences,
+        sourceReferences,
         payload: snapshot.detail.currentMethod,
       },
       async () => ({ outputReference }),
     );
+    const review = ExperimentMethodReviewAiOutputSchema.parse(result.output);
     return this.#mutateOwned(command, async (transaction, root) => {
       assertVersion(root.version, snapshot.detail.version);
+      await transaction.experimentAiDraft.create({
+        data: {
+          experimentId: root.id,
+          methodRevisionId: snapshot.detail.currentMethod.id,
+          kind: "METHOD_REVIEW",
+          body: review,
+          sourceReferences,
+          outputReference: result.outputReference,
+          promptVersion: result.promptVersion,
+          routeTrace: result.routeTrace,
+          aiRunId: result.routeTrace.aiRunId,
+        },
+      });
       await this.#auditWriter.append(
         transaction,
         audit(
@@ -252,7 +279,7 @@ export class ExperimentService {
         ),
       );
       return {
-        review: result.output,
+        review,
         outputReference: result.outputReference,
         promptVersion: result.promptVersion,
         routeTrace: result.routeTrace,
@@ -322,6 +349,7 @@ export class ExperimentService {
       });
       if (method === null || method.revision !== root.methodRevision) throw observationInvalid();
       assertMethodReady(projectMethod(method));
+      await validateSourceReferences(transaction, root.researchId, input.sourceReferences);
       const measures = new Map(method.measures.map((measure) => [measure.stableId, measure]));
       const testCases = new Map(method.testCases.map((testCase) => [testCase.id, testCase]));
       const observations = input.observations.map((observation) => {
@@ -399,11 +427,19 @@ export class ExperimentService {
     const snapshot = await this.#loadOwnedSnapshot(command.experimentId, command.actor);
     const run = await this.#database.experimentRun.findFirst({
       where: { id: command.runId, experimentId: command.experimentId },
-      include: runInclude,
+      include: {
+        ...runInclude,
+        methodRevision: { include: { measures: true } },
+      },
     });
     if (run === null) throw observationInvalid();
     const runReference = `experiment-run:${run.id}`;
-    const sourceReferences = [runReference, ...stringArray(run.sourceReferences)];
+    const governedReferences = await validateSourceReferences(
+      this.#database,
+      snapshot.detail.researchId,
+      [...stringArray(run.sourceReferences), ...rawMethodSourceReferences(run.methodRevision)],
+    );
+    const sourceReferences = [runReference, ...governedReferences];
     const outputReference = `experiment-interpretation:${this.#idFactory()}`;
     const result = await assistant.interpretExperiment(
       {
@@ -423,6 +459,7 @@ export class ExperimentService {
       },
       async () => ({ outputReference }),
     );
+    const interpretation = ExperimentInterpretAiOutputSchema.parse(result.output);
     return this.#mutateOwned(command, async (transaction, root) => {
       assertVersion(root.version, snapshot.detail.version);
       const currentRun = await transaction.experimentRun.findFirst({
@@ -435,6 +472,20 @@ export class ExperimentService {
         select: { id: true },
       });
       if (currentRun === null) throw observationInvalid();
+      await transaction.experimentAiDraft.create({
+        data: {
+          experimentId: root.id,
+          methodRevisionId: run.methodRevisionId,
+          runId: run.id,
+          kind: "RUN_INTERPRETATION",
+          body: interpretation,
+          sourceReferences,
+          outputReference: result.outputReference,
+          promptVersion: result.promptVersion,
+          routeTrace: result.routeTrace,
+          aiRunId: result.routeTrace.aiRunId,
+        },
+      });
       await this.#auditWriter.append(
         transaction,
         audit(
@@ -454,7 +505,7 @@ export class ExperimentService {
         ),
       );
       return {
-        interpretation: result.output,
+        interpretation,
         outputReference: result.outputReference,
         promptVersion: result.promptVersion,
         routeTrace: result.routeTrace,
@@ -561,11 +612,24 @@ export class ExperimentService {
         throw conclusionInvalid();
       }
       if (command.aiRunId !== undefined) {
+        const draft = await transaction.experimentAiDraft.findFirst({
+          where: {
+            experimentId: root.id,
+            aiRunId: command.aiRunId,
+            kind: "RUN_INTERPRETATION",
+            runId: { in: input.runIds },
+          },
+          select: { runId: true, outputReference: true },
+        });
+        if (draft?.runId === null || draft === null) throw conclusionInvalid();
         const aiRun = await transaction.aiRun.findFirst({
           where: {
             id: command.aiRunId,
             routeKey: "experiment.interpret.v1",
             state: "succeeded",
+            projectScopeId: root.research.projectId,
+            inputReference: `experiment-run:${draft.runId}`,
+            outputReference: draft.outputReference,
           },
           select: { id: true },
         });
@@ -897,13 +961,82 @@ async function validateMethodSources(
   researchId: string,
   method: ExperimentMethodInput,
 ): Promise<void> {
-  if (method.sourceReferences.length === 0) return;
-  const ids = method.sourceReferences.map((reference) => sourceReferenceId(reference));
-  if (ids.some((id) => id === null) || new Set(ids).size !== ids.length) throw sourceInvalid();
-  const count = await transaction.researchSourceReference.count({
-    where: { researchId, id: { in: ids as string[] }, state: "ACTIVE" },
+  await validateSourceReferences(transaction, researchId, methodSourceReferences(method));
+}
+
+type SourceReader = Pick<DatabaseClient, "researchSourceReference"> | Transaction;
+
+async function validateSourceReferences(
+  database: SourceReader,
+  researchId: string,
+  references: readonly string[],
+): Promise<string[]> {
+  const uniqueReferences = [...new Set(references)];
+  if (uniqueReferences.length === 0) return [];
+  const ids = uniqueReferences.map((reference) => sourceReferenceId(reference));
+  if (ids.some((id) => id === null)) throw sourceInvalid();
+  const requestedIds = ids as string[];
+  const [active, retractionEvents] = await Promise.all([
+    database.researchSourceReference.findMany({
+      where: { researchId, id: { in: requestedIds }, state: "ACTIVE" },
+      select: { id: true },
+    }),
+    database.researchSourceReference.findMany({
+      where: { researchId, state: "RETRACTED" },
+      select: { citedLocations: true },
+    }),
+  ]);
+  const retractedPredecessors = new Set(
+    retractionEvents.flatMap(({ citedLocations }) => retractionPredecessors(citedLocations)),
+  );
+  if (
+    active.length !== requestedIds.length ||
+    requestedIds.some((id) => retractedPredecessors.has(id))
+  ) {
+    throw sourceInvalid();
+  }
+  return uniqueReferences;
+}
+
+function methodSourceReferences(
+  method: ExperimentMethodInput | ExperimentDetail["currentMethod"],
+): string[] {
+  return [
+    ...method.sourceReferences,
+    ...(method.baseline.sourceReference === null ? [] : [method.baseline.sourceReference]),
+    ...method.measures.flatMap(({ baselineReference }) =>
+      baselineReference === null ? [] : [baselineReference],
+    ),
+  ];
+}
+
+function rawMethodSourceReferences(method: {
+  sourceReferences: unknown;
+  baselineReference: unknown;
+  measures: ReadonlyArray<{ baselineReference: unknown }>;
+}): string[] {
+  return [
+    ...stringArray(method.sourceReferences),
+    ...(nullableJsonString(method.baselineReference) === null
+      ? []
+      : [nullableJsonString(method.baselineReference) as string]),
+    ...method.measures.flatMap(({ baselineReference }) => {
+      const reference = nullableJsonString(baselineReference);
+      return reference === null ? [] : [reference];
+    }),
+  ];
+}
+
+function retractionPredecessors(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const candidate = entry as Record<string, unknown>;
+    return candidate.schemaVersion === "research-source-retraction.v1" &&
+      typeof candidate.predecessorSourceReferenceId === "string"
+      ? [candidate.predecessorSourceReferenceId]
+      : [];
   });
-  if (count !== ids.length) throw sourceInvalid();
 }
 
 function sourceReferenceId(reference: string): string | null {
