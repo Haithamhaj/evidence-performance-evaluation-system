@@ -22,6 +22,10 @@ export {
 } from "./assessment-service.js";
 export { ComparisonService, type EvaluationComparisonResult } from "./comparison-service.js";
 export {
+  EvaluationDiscussionService,
+  type EvaluationDiscussionEntryReceipt,
+} from "./discussion-service.js";
+export {
   FinalizationService,
   type ClosedEmployeeEvaluationCycleReceipt,
   type EvaluationAcknowledgmentReceipt,

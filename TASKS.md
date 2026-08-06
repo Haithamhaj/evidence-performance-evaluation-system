@@ -348,7 +348,7 @@ The detailed authority is
 | ---------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                                                                          |
 | E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Technical checkpoint complete locally, including real production API+PostgreSQL lifecycle; hosted PR checks pending |
-| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Design and detailed TDD plan approved; queued after E3                                                              |
+| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Technical checkpoint complete locally; final frontend and E6B export delivery remain later                          |
 | E5         | Identified upward manager evaluation, coaching, and development                | Two bounded designs and detailed TDD plans approved                                                                 |
 | E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs and detailed TDD plans approved                                                               |
 | E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6                                                           |
@@ -488,6 +488,7 @@ The detailed authority is
 
 ## T045 — Implement Evaluation Template Engine
 
+**Execution status:** Complete — versioned activation, protected global ranges, and scoped administration verified.
 **Priority:** P1
 **Dependencies:** T010, T007
 **Purpose:** Support global and department templates, mandatory criteria, ranges, and activation.
@@ -495,6 +496,7 @@ The detailed authority is
 
 ## T046 — Implement Cycle Creation and Snapshot
 
+**Execution status:** Complete — Cycle 1 calibration type, eligibility, visibility, rubric, and template snapshots are frozen.
 **Priority:** P1
 **Dependencies:** T045
 **Purpose:** Create quarterly cycles, freeze rubric and visibility configuration, and mark Cycle 1 as `Calibration — Non-Baseline`.
@@ -502,6 +504,7 @@ The detailed authority is
 
 ## T047 — Implement Evidence Preparation
 
+**Execution status:** Complete — consumes the existing neutral Fact View public boundary with responsibility/source scope.
 **Priority:** P1
 **Dependencies:** T046, T030, T033
 **Purpose:** Gather period evidence, project/workstream context, responsibility windows, monthly-readiness gaps, and source-supported facts.
@@ -509,6 +512,7 @@ The detailed authority is
 
 ## T048 — Implement Self-Assessment
 
+**Execution status:** Complete — source-bound drafts/submissions and post-rating AI wording are protected and audited.
 **Priority:** P1
 **Dependencies:** T046, T047
 **Purpose:** Employee ratings, rationale, evidence, strengths, and development areas.
@@ -516,6 +520,7 @@ The detailed authority is
 
 ## T049 — Implement Independent Manager Assessment
 
+**Execution status:** Complete — self projection remains inaccessible until the manager initial submission is frozen.
 **Priority:** P1
 **Dependencies:** T046, T047
 **Purpose:** Manager initial draft without self-rating anchoring.
@@ -523,6 +528,7 @@ The detailed authority is
 
 ## T050 — Implement Comparison and Discussion
 
+**Execution status:** Complete — deterministic comparison and versioned source-authorized discussion are implemented.
 **Priority:** P1
 **Dependencies:** T048, T049
 **Purpose:** Show gaps and prepare discussion agenda.
@@ -530,6 +536,7 @@ The detailed authority is
 
 ## T051 — Implement Finalization and Acknowledgment
 
+**Execution status:** Complete — final human judgment, reservation, closure, and immutable snapshot are verified.
 **Priority:** P1
 **Dependencies:** T050
 **Purpose:** Manager final rating, employee acknowledgment/reservation, closure.
@@ -537,6 +544,7 @@ The detailed authority is
 
 ## T052 — Build Employee Evaluation UI
 
+**Execution status:** Technical verification surface complete; final product UX remains in the approved frontend program.
 **Priority:** P1
 **Dependencies:** T046–T051
 **Expected output:** Arabic-first responsive RTL screens with English support.
@@ -544,12 +552,14 @@ The detailed authority is
 
 ## T053 — Implement Evaluation Reports and Export
 
+**Execution status:** Immutable employee/department report projections complete; export generation/delivery remains E6B by approved design.
 **Priority:** P2
 **Dependencies:** T051
 **Verification:** correct snapshot, calibration label, Arabic and English export, feedback visibility matches the frozen mode, export audit event.
 
 ## T054 — Implement Evaluation Fact View
 
+**Execution status:** Complete — neutral source facts precede employee interpretation without readiness leakage or rating output.
 **Priority:** P1
 **Dependencies:** T047, T030, T033, T035, T012
 **Purpose:** Reduce self-presentation bias by separating normalized source facts from employee interpretation.

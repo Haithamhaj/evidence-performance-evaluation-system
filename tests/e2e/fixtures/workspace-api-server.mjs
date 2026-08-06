@@ -48,6 +48,9 @@ const uncertainSuggestionId = "cb222222-2222-4222-8222-222222222222";
 const rejectedSuggestionId = "cb333333-3333-4333-8333-333333333333";
 const contextTaskDraftId = "cb444444-4444-4444-8444-444444444444";
 const evaluationCycleId = "ec111111-1111-4111-8111-111111111111";
+const evaluationAssignmentId = "ec777777-7777-4777-8777-777777777777";
+const evaluationManagerId = "ec888888-8888-4888-8888-888888888888";
+const evaluationSnapshotId = "ec999999-9999-4999-8999-999999999999";
 const evaluationRubricVersionId = "ec222222-2222-4222-8222-222222222222";
 const responsibilityFactId = "ec333333-3333-4333-8333-333333333333";
 const contributionFactId = "ec444444-4444-4444-8444-444444444444";
@@ -929,6 +932,20 @@ const server = createServer(async (request, response) => {
       return json(response, 403, { messageKey: "errors.forbidden" });
     }
     return json(response, 200, evaluationFactView());
+  }
+
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/employee-evaluation/cycles/${evaluationCycleId}/journey`
+  ) {
+    if (accessToken !== ownerAccessToken && accessToken !== managerAccessToken) {
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    }
+    return json(
+      response,
+      200,
+      employeeEvaluationJourney(accessToken === ownerAccessToken ? "self" : "assigned_manager"),
+    );
   }
 
   if (accessToken !== ownerAccessToken) {
@@ -1959,6 +1976,78 @@ function evaluationFactView() {
         neutral: true,
       },
     ],
+  };
+}
+
+function employeeEvaluationJourney(audience) {
+  const factView = evaluationFactView();
+  const entry = {
+    criterionId: "project-contribution",
+    rating: 3,
+    justification: "The human reviewer recorded a source-linked assessment.",
+  };
+  return {
+    schemaVersion: 1,
+    audience,
+    cycle: {
+      id: evaluationCycleId,
+      type: "CALIBRATION_NON_BASELINE",
+      state: "CLOSED",
+      startsAt: "2026-07-01T00:00:00.000Z",
+      endsAt: "2026-09-30T23:59:59.000Z",
+      version: 8,
+    },
+    assignment: {
+      id: evaluationAssignmentId,
+      employeeId: ownerId,
+      managerId: evaluationManagerId,
+      version: 7,
+    },
+    templateSnapshot: { schemaVersion: 1, localeAvailability: ["en"] },
+    factViewFirst: {
+      responsibilityWindows: factView.responsibilityWindows,
+      workFacts: [...factView.projectFacts, ...factView.confirmedEvidence],
+      researchFacts: factView.researchFacts,
+      sourceCoverageNotes: factView.sourceCoverageNotes,
+    },
+    submissions: [
+      {
+        kind: "SELF",
+        submittedAt: "2026-08-01T09:00:00.000Z",
+        entries: [entry],
+      },
+      {
+        kind: "MANAGER_INITIAL",
+        submittedAt: "2026-08-01T10:00:00.000Z",
+        entries: [entry],
+      },
+    ],
+    comparison: { schemaVersion: 1, rows: [{ criterionId: entry.criterionId }] },
+    discussion: [
+      {
+        id: "ed111111-1111-4111-8111-111111111111",
+        body: "The employee and manager discussed the source-supported delivery context.",
+        sourceReferences: [],
+        createdAt: "2026-08-02T09:00:00.000Z",
+      },
+    ],
+    finalDecision: {
+      humanManagerDecision: true,
+      entries: [entry],
+      finalComment: "Final rating recorded by the assigned human manager.",
+      finalizedAt: "2026-08-03T09:00:00.000Z",
+    },
+    acknowledgment: {
+      kind: "ACKNOWLEDGED_WITH_RESERVATION",
+      reservation: "Employee asked that delivery constraints remain on record.",
+      recordedAt: "2026-08-04T09:00:00.000Z",
+    },
+    immutableClosedSnapshot: {
+      id: evaluationSnapshotId,
+      schemaVersion: 2,
+      closedAt: "2026-08-05T09:00:00.000Z",
+    },
+    independenceGate: { managerSubmittedBeforeSelfProjection: true },
   };
 }
 
