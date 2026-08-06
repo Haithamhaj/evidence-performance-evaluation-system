@@ -4,11 +4,29 @@ export type MonthlyReadinessView = Readonly<{
   state: "clear" | "attention";
   messageKey: "readiness.recordMayBeInsufficient";
   gaps: readonly Readonly<{
-    kind: "silent_active_scope" | "artifact_criterion_without_source";
+    kind:
+      | "silent_active_scope"
+      | "artifact_criterion_without_source"
+      | "RESEARCH_QUESTION_MISSING"
+      | "EXPERIMENT_METHOD_INCOMPLETE"
+      | "RUN_INTERPRETATION_MISSING"
+      | "EXPERIMENT_CONCLUSION_MISSING"
+      | "RESEARCH_DECISION_MISSING"
+      | "APPLIED_LEARNING_UNLINKED"
+      | "EVIDENCE_ATTRIBUTION_UNRESOLVED";
     scopeId: string;
     scopeKind: "project" | "workstream";
     scopeName: string;
-    correctiveAction: "add_substantive_update" | "attach_source";
+    correctiveAction:
+      | "add_substantive_update"
+      | "attach_source"
+      | "RESEARCH_QUESTION_MISSING"
+      | "EXPERIMENT_METHOD_INCOMPLETE"
+      | "RUN_INTERPRETATION_MISSING"
+      | "EXPERIMENT_CONCLUSION_MISSING"
+      | "RESEARCH_DECISION_MISSING"
+      | "APPLIED_LEARNING_UNLINKED"
+      | "EVIDENCE_ATTRIBUTION_UNRESOLVED";
   }>[];
 }>;
 

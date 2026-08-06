@@ -70,8 +70,8 @@ function harness(
       identity: await identityReader.read(),
       documentId,
       documentVersionId,
-      documentVersion: 2,
-      currentVersion: 2,
+      documentVersion: overrides.version ?? 2,
+      currentVersion: overrides.currentVersion ?? 2,
       templateVersionId: crypto.randomUUID(),
       templateSections: [],
       sourceReferences: [`document-source:${sourceId}`],
@@ -142,7 +142,6 @@ describe("ProgressContractDraftSourceReader", () => {
   it.each([
     ["a cross-Project document", { documentProjectId: crypto.randomUUID() }],
     ["an unapproved version", { lifecycleState: "ready_for_criteria_generation" }],
-    ["a stale version", { currentVersion: 3 }],
     ["a checksum mismatch", { extractedChecksum: "a".repeat(64) }],
   ])("rejects %s", async (_label, overrides) => {
     const context = harness(overrides);
@@ -156,5 +155,18 @@ describe("ProgressContractDraftSourceReader", () => {
     ).rejects.toMatchObject({
       code: expect.stringMatching(/PROGRESS_CONTRACT_DRAFT_SOURCE_(?:INVALID|CHECKSUM_MISMATCH)/u),
     });
+  });
+
+  it("keeps an exact historical approved version readable after the document advances", async () => {
+    const context = harness({ currentVersion: 3, version: 2 });
+
+    await expect(
+      context.reader.loadApprovedVersion({
+        actor,
+        projectId,
+        documentVersionId,
+        sourceChecksum: checksum,
+      }),
+    ).resolves.toMatchObject({ documentVersionId, documentVersion: 2 });
   });
 });

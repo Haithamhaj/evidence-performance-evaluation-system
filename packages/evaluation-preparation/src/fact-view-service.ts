@@ -58,7 +58,7 @@ export class EvaluationFactViewService {
     );
     const normalized = normalizeEvaluationFactSources(input.cycle, bundles);
     const view = EvaluationFactViewSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       cycle: input.cycle,
       subjectEmployeeId: input.subjectEmployeeId,
       generatedAt: generatedAt.toISOString(),

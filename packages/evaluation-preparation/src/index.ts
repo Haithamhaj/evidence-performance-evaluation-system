@@ -7,6 +7,7 @@ export type {
   EvaluationFactView,
   ProjectContributionFact,
   ResponsibilityWindowFact,
+  ResearchEvaluationFact,
   SourceCoverageNote,
 } from "@evaluation/contracts";
 

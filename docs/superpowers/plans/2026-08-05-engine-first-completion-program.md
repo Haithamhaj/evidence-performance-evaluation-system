@@ -258,20 +258,20 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 - Produces: authorized, versioned research questions, experiment methods, results, conclusions,
   decisions, applied learning, evidence links, and public readers for evaluation preparation.
 
-- [ ] **Step 1: Audit existing ownership before choosing a module**
+- [x] **Step 1: Audit existing ownership before choosing a module**
 
   Prove whether the current Work Items and Updates & Evidence schemas can represent the approved research
   lifecycle without JSON blobs, duplicate evidence, cross-module table reads, or overloaded event types.
   Record the decision: extend the existing domains, or add one bounded Research & Experiments domain.
 
-- [ ] **Step 2: Write and approve the bounded design**
+- [x] **Step 2: Write and approve the bounded design**
 
   The design must define question/hypothesis, assumptions, baseline, measures, test cases, controls,
   conditions, inputs/models/versions, result, failure/limits, reproducibility, employee-confirmed
   conclusion/decision, next experiment/applied learning, evidence, collaborators, responsibility period,
   and append-only history. It must explicitly prohibit volume-based scoring.
 
-- [ ] **Step 3: Write the detailed TDD implementation plan**
+- [x] **Step 3: Write the detailed TDD implementation plan**
 
   The plan must name exact files, migrations, public interfaces, authorization tests, AI schema/evaluation
   fixtures, recovery behavior, and technical browser journey. It must use the standard writing-plans
@@ -309,13 +309,13 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   comparison/discussion, manager final decision, acknowledgment/reservation, immutable closure, and report
   data contracts.
 
-- [ ] **Step 1: Write the bounded engine design**
+- [x] **Step 1: Write the bounded engine design**
 
   Cover T045–T054 backend behavior without final frontend. Preserve `Calibration — Non-Baseline`, active
   template and closed-evaluation immutability, identical employee/manager anchors, manager-draft
   independence, AI help only after a human rating selection, and manager final human judgment.
 
-- [ ] **Step 2: Write the detailed TDD plan**
+- [x] **Step 2: Write the detailed TDD plan**
 
   Split by template/cycle snapshot, evidence preparation, self-assessment, manager assessment,
   comparison/discussion, finalization, and reporting contracts. Each protected task includes positive and
@@ -342,8 +342,10 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 
 **Files:**
 
-- Create: `docs/superpowers/specs/2026-08-05-manager-evaluation-coaching-engine-design.md`
-- Create: `docs/superpowers/plans/2026-08-05-manager-evaluation-coaching-engine.md`
+- Create: `docs/superpowers/specs/2026-08-05-identified-manager-evaluation-engine-design.md`
+- Create: `docs/superpowers/specs/2026-08-05-coaching-development-engine-design.md`
+- Create: `docs/superpowers/plans/2026-08-05-identified-manager-evaluation-engine.md`
+- Create: `docs/superpowers/plans/2026-08-05-coaching-development-engine.md`
 - Modify: `docs/product/ENGINE_FEATURE_REGISTER.md`
 - Modify: `docs/product/ENGINE_CAPABILITY_MATRIX.md`
 - Trace: `TASKS.md` tasks T055–T063
@@ -355,18 +357,24 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 - Produces: identified upward submissions, completion state, authorized response detail, optional grounded
   aggregates, non-scoring coaching insights, employee-controlled actions, and formal development plans.
 
-- [ ] **Step 1: Design the active Identified-mode engine**
+- [x] **Step 1: Design the active Identified-mode engine**
 
   The manager can see identity, completion status, ratings, comments, and timestamps. The product makes
   no anonymity claim. Future modes remain configurable and fail closed without changing the active pilot.
 
-- [ ] **Step 2: Design coaching and development boundaries**
+- [x] **Step 2: Design coaching and development boundaries**
 
   Coaching has source references, confidence limits, and optional actions but no rating, rank, prediction,
   or productivity score. Private employee actions and rejection reasons remain private until explicitly
   shared.
 
-- [ ] **Step 3: Plan and execute T055–T063 backend contracts**
+- [x] **Step 3a: Write the two detailed TDD plans**
+
+  The identified manager-evaluation and coaching/development plans name exact contracts, migration
+  ownership, privacy and authorization tests, AI schema evaluations, recovery behavior, technical
+  verification journeys, and their separate checkpoints.
+
+- [ ] **Step 3b: Execute T055–T063 backend contracts**
 
   Use separate technical checkpoints for visibility/privacy and coaching/development. Defer final screens
   while preserving complete APIs, states, authorization, and recovery.
@@ -382,8 +390,12 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 
 **Files:**
 
-- Create: `docs/superpowers/specs/2026-08-05-operational-lifecycle-hardening-engine-design.md`
-- Create: `docs/superpowers/plans/2026-08-05-operational-lifecycle-hardening-engine.md`
+- Create: `docs/superpowers/specs/2026-08-05-continuity-offboarding-engine-design.md`
+- Create: `docs/superpowers/specs/2026-08-05-notifications-reporting-administration-engine-design.md`
+- Create: `docs/superpowers/specs/2026-08-05-security-recovery-readiness-engine-design.md`
+- Create: `docs/superpowers/plans/2026-08-05-continuity-offboarding-engine.md`
+- Create: `docs/superpowers/plans/2026-08-05-notifications-reporting-administration-engine.md`
+- Create: `docs/superpowers/plans/2026-08-05-security-recovery-readiness-engine.md`
 - Modify: `docs/product/ENGINE_FEATURE_REGISTER.md`
 - Modify: `docs/product/ENGINE_CAPABILITY_MATRIX.md`
 - Trace: `TASKS.md` tasks T064–T077
@@ -396,17 +408,23 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   deactivation/history preservation, retention foundation, notifications, report/export contracts,
   observability, hardened privacy/security, backup/restore evidence, and pilot dry-run readiness.
 
-- [ ] **Step 1: Separate engine scope from final frontend scope**
+- [x] **Step 1: Separate engine scope from final frontend scope**
 
   Implement domain, API, integration, operational, and security behavior for T064–T077. Defer final
   dashboards and visual reports to the frontend program while completing their authorized read/export
   contracts.
 
-- [ ] **Step 2: Write the bounded design and plan**
+- [x] **Step 2: Write the bounded designs**
 
   Preserve time-bounded authority, historical foreign keys, manager-only reassignment, audit-before-read
   for future private modes, and forward-only migration rules. Specify operational drills separately from
   feature code.
+
+- [x] **Step 2b: Write the three detailed TDD plans**
+
+  The continuity/offboarding, notifications/reporting/administration, and
+  security/recovery/readiness plans name exact contracts, migrations, protected tests, operational
+  drills, external gates, and technical checkpoints.
 
 - [ ] **Step 3: Execute lifecycle services**
 
@@ -429,6 +447,8 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
 
 **Files:**
 
+- Create: `docs/superpowers/specs/2026-08-05-engine-integration-audit-design.md`
+- Create: `docs/superpowers/plans/2026-08-05-engine-integration-audit.md`
 - Modify: `docs/product/ENGINE_FEATURE_REGISTER.md`
 - Modify: `docs/product/ENGINE_CAPABILITY_MATRIX.md`
 - Modify: `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
@@ -444,6 +464,16 @@ E3–E6 are separate subsystems. Each receives its own bounded design and implem
   reports, operational drills, and external-gate records.
 - Produces: approved engine completion evidence and the authoritative input to a separate full-frontend
   brainstorming/specification process.
+
+- [x] **Step 0: Approve the bounded integration-audit design**
+
+  Define capability reconciliation, bidirectional trace, cross-domain seams, employee/manager/admin
+  journeys, restore integrity, extensibility audit, and the exact `READY_FOR_FINAL_FRONTEND_DESIGN` gate.
+
+- [x] **Step 0b: Write the detailed integration-audit plan**
+
+  The audit plan defines exact trace artifacts, complete fixtures, cross-role journeys, verification
+  commands, two bounded independent reviews, remediation limits, and the final handoff decision.
 
 - [ ] **Step 1: Reconcile every capability row**
 

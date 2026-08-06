@@ -50,7 +50,7 @@ describe("TimelineItems", () => {
     expect(markup).not.toContain("score");
   });
 
-  it("renders automated facts, AI drafts, employee confirmations, and human decisions as distinct states", async () => {
+  it("renders confirmed Research lifecycle items without exposing private AI turns", async () => {
     const catalog = await getCatalog("en");
     const base = {
       projectId: crypto.randomUUID(),
@@ -84,9 +84,23 @@ describe("TimelineItems", () => {
           {
             ...base,
             id: crypto.randomUUID(),
-            kind: "update",
-            sourceProvenance: "employee_text",
-            reviewState: "ai_draft",
+            kind: "research",
+            sourceProvenance: "human_decision",
+            reviewState: "human_decision",
+          },
+          {
+            ...base,
+            id: crypto.randomUUID(),
+            kind: "experiment",
+            sourceProvenance: "human_decision",
+            reviewState: "human_decision",
+          },
+          {
+            ...base,
+            id: crypto.randomUUID(),
+            kind: "applied_learning",
+            sourceProvenance: "human_decision",
+            reviewState: "human_decision",
           },
           {
             ...base,
@@ -108,10 +122,13 @@ describe("TimelineItems", () => {
     );
 
     expect(markup).toContain("Automated Project fact");
-    expect(markup).toContain("AI draft");
+    expect(markup).toContain("Research");
+    expect(markup).toContain("Experiment");
+    expect(markup).toContain("Applied learning");
     expect(markup).toContain("Employee confirmed");
     expect(markup).toContain("Human decision");
     expect(markup).toContain("Not satisfied");
+    expect(markup).not.toContain("AI draft");
   });
 
   it("offers a verified GitHub fact for employee evidence review", async () => {

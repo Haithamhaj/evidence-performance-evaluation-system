@@ -21,6 +21,13 @@ const SourceReferenceSchema = z
       "document_version",
       "github_event",
       "approved_leave",
+      "research_revision",
+      "research_source",
+      "experiment_method",
+      "experiment_run",
+      "experiment_conclusion",
+      "research_conclusion",
+      "applied_learning",
     ]),
     sourceId: UuidSchema,
     sourceVersion: z.number().int().positive().nullable(),
@@ -59,7 +66,7 @@ export const WebEvaluationFactViewSchema: z.ZodType<
   import("@evaluation/contracts").EvaluationFactView
 > = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     cycle: z
       .object({
         id: UuidSchema,
@@ -124,6 +131,27 @@ export const WebEvaluationFactViewSchema: z.ZodType<
         name: z.string().trim().min(1).max(500),
         effectiveFrom: InstantSchema,
         effectiveUntil: InstantSchema.nullable(),
+      }).strict(),
+    ),
+    researchFacts: z.array(
+      FactBaseSchema.extend({
+        sourceType: z.literal("research"),
+        factType: z.enum([
+          "research_question",
+          "source_synthesis",
+          "experiment_method",
+          "experiment_run",
+          "experiment_conclusion",
+          "research_decision",
+          "applied_learning",
+        ]),
+        relatedWorkItemId: UuidSchema.nullable(),
+        humanConfirmationState: z.enum(["employee_confirmed", "human_decision"]),
+        verificationState: VerificationSchema,
+        responsibilityWindowIds: z.array(UuidSchema),
+        summary: z.string().trim().min(1).max(4_000),
+        limitations: z.array(z.string().trim().min(1).max(2_000)).max(100),
+        uncertainty: z.string().trim().min(1).max(4_000).nullable(),
       }).strict(),
     ),
     employeeInterpretations: z.array(

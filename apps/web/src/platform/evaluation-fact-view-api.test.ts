@@ -34,7 +34,7 @@ describe("fetchEvaluationFactView", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          schemaVersion: 1,
+          schemaVersion: 2,
           cycle: {
             id: cycleId,
             startsAt: "2026-07-01T00:00:00.000Z",
@@ -48,6 +48,7 @@ describe("fetchEvaluationFactView", () => {
           confirmedEvidence: [],
           checkInFacts: [],
           dynamicCriteriaVersions: [],
+          researchFacts: [],
           employeeInterpretations: [],
           sourceCoverageNotes: [],
         }),

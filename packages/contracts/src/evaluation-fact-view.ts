@@ -14,6 +14,13 @@ export const EvaluationFactSourceReferenceSchema = z
       "document_version",
       "github_event",
       "approved_leave",
+      "research_revision",
+      "research_source",
+      "experiment_method",
+      "experiment_run",
+      "experiment_conclusion",
+      "research_conclusion",
+      "applied_learning",
     ]),
     sourceId: UuidSchema,
     sourceVersion: z.number().int().positive().nullable(),
@@ -131,6 +138,26 @@ export const EmployeeInterpretationSchema = z
   })
   .strict();
 
+export const ResearchEvaluationFactSchema = SourceFactIdentitySchema.extend({
+  sourceType: z.literal("research"),
+  factType: z.enum([
+    "research_question",
+    "source_synthesis",
+    "experiment_method",
+    "experiment_run",
+    "experiment_conclusion",
+    "research_decision",
+    "applied_learning",
+  ]),
+  relatedWorkItemId: UuidSchema.nullable(),
+  humanConfirmationState: z.enum(["employee_confirmed", "human_decision"]),
+  verificationState: FactVerificationStateSchema,
+  responsibilityWindowIds: z.array(UuidSchema),
+  summary: z.string().trim().min(1).max(4_000),
+  limitations: z.array(z.string().trim().min(1).max(2_000)).max(100),
+  uncertainty: z.string().trim().min(1).max(4_000).nullable(),
+}).strict();
+
 export const SourceCoverageNoteSchema = z
   .object({
     kind: z.literal("coverage_note"),
@@ -171,7 +198,7 @@ const EvaluationFactCycleSchema = z
 
 export const EvaluationFactViewSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     cycle: EvaluationFactCycleSchema,
     subjectEmployeeId: UuidSchema,
     generatedAt: UtcInstantSchema,
@@ -180,6 +207,7 @@ export const EvaluationFactViewSchema = z
     confirmedEvidence: z.array(ConfirmedEvidenceFactSchema),
     checkInFacts: z.array(CheckInFactSchema),
     dynamicCriteriaVersions: z.array(CriterionVersionFactSchema),
+    researchFacts: z.array(ResearchEvaluationFactSchema),
     employeeInterpretations: z.array(EmployeeInterpretationSchema),
     sourceCoverageNotes: z.array(SourceCoverageNoteSchema),
   })
@@ -192,5 +220,6 @@ export type ConfirmedEvidenceFact = z.infer<typeof ConfirmedEvidenceFactSchema>;
 export type CheckInFact = z.infer<typeof CheckInFactSchema>;
 export type CriterionVersionFact = z.infer<typeof CriterionVersionFactSchema>;
 export type EmployeeInterpretation = z.infer<typeof EmployeeInterpretationSchema>;
+export type ResearchEvaluationFact = z.infer<typeof ResearchEvaluationFactSchema>;
 export type SourceCoverageNote = z.infer<typeof SourceCoverageNoteSchema>;
 export type EvaluationFactView = z.infer<typeof EvaluationFactViewSchema>;

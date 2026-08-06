@@ -22,11 +22,20 @@ export default async function ProjectPage({ params }: ProjectPageProperties) {
       locale,
       localeSwitchHref: `/${alternateLocale}/projects/${projectId}`,
     },
-    createElement(WorkspaceClient, {
-      catalog,
-      locale,
-      mode: "project",
-      projectId,
-    }),
+    createElement(
+      "div",
+      { className: "workspaceSection" },
+      createElement(
+        "a",
+        { className: "secondaryLink", href: `/${locale}/projects/${projectId}/research` },
+        catalog["research.open"],
+      ),
+      createElement(WorkspaceClient, {
+        catalog,
+        locale,
+        mode: "project",
+        projectId,
+      }),
+    ),
   );
 }

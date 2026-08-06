@@ -56,10 +56,21 @@ const interpretationId = "ec666666-6666-4666-8666-666666666666";
 const ownerAccessToken = "e2e-access-token";
 const managerAccessToken = "e2e-manager-access-token";
 const otherEmployeeAccessToken = "e2e-other-employee-access-token";
+const unrelatedManagerAccessToken = "e2e-unrelated-manager-access-token";
+const systemAdministratorAccessToken = "e2e-system-administrator-access-token";
+const researchId = "f3111111-1111-4111-8111-111111111111";
+const unsupportedExperimentId = "f3222222-2222-4222-8222-222222222222";
+const supportedExperimentId = "f3333333-3333-4333-8333-333333333333";
+const researchReviewId = "f3444444-4444-4444-8444-444444444444";
+const researchProposalId = "f3555555-5555-4555-8555-555555555555";
+const experimentProposalId = "f3666666-6666-4666-8666-666666666666";
+const workItemProposalId = "f3777777-7777-4777-8777-777777777777";
 const connectedWorkAccessTokens = new Set([
   ownerAccessToken,
   managerAccessToken,
   otherEmployeeAccessToken,
+  unrelatedManagerAccessToken,
+  systemAdministratorAccessToken,
 ]);
 const connectedWorkState = "synthetic-connected-work-state";
 const connectedWorkNonce = "synthetic-connected-work-nonce";
@@ -77,6 +88,8 @@ let employeePerformanceWrites = [];
 let updateLocale = "ar";
 let connectedWorkConnected = true;
 let contextAiAvailable = true;
+let researchAiAvailable = true;
+let researchConfirmed = false;
 let currentUpdateContext = {
   projectId,
   workstreamId: null,
@@ -680,6 +693,33 @@ const server = createServer(async (request, response) => {
     return empty(response, 204);
   }
   if (
+    request.method === "POST" &&
+    url.pathname === "/__e2e/research/reset" &&
+    request.headers["x-e2e-control"] === "research-experiments"
+  ) {
+    resetResearchAcceptanceState();
+    return empty(response, 204);
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/__e2e/research/ai-availability" &&
+    request.headers["x-e2e-control"] === "research-experiments"
+  ) {
+    const body = await readJson(request);
+    if (body === null || typeof body.available !== "boolean") {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    researchAiAvailable = body.available;
+    return empty(response, 204);
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === "/__e2e/research/checkpoint" &&
+    request.headers["x-e2e-control"] === "research-experiments"
+  ) {
+    return json(response, 200, researchCheckpoint());
+  }
+  if (
     request.method === "GET" &&
     url.pathname === "/__e2e/slice-4/state" &&
     request.headers["x-e2e-control"] === "slice-4"
@@ -973,6 +1013,53 @@ const server = createServer(async (request, response) => {
     workItems.unshift(item);
     contextReviewItems[draftIndex].reviewStatus = "CONFIRMED";
     return json(response, 200, { workItem: item });
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/research/source-reviews") {
+    const body = await readJson(request);
+    if (body === null) return json(response, 400, { messageKey: "errors.validation" });
+    if (body.source?.url === "http://127.0.0.1/private") {
+      return json(response, 400, { messageKey: "errors.research.sourceBlocked" });
+    }
+    if (!researchAiAvailable) {
+      return json(response, 503, { messageKey: "errors.research.aiUnavailable" });
+    }
+    return json(response, 200, researchSourceReview());
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/v1/research/source-reviews/${researchReviewId}/disposition`
+  ) {
+    const body = await readJson(request);
+    if (body === null || body.expectedVersion !== 2) {
+      return json(response, 409, { messageKey: "errors.research.sourceReviewVersionConflict" });
+    }
+    if (
+      body.disposition !== "CONFIRM" ||
+      !Array.isArray(body.proposalIds) ||
+      !body.proposalIds.includes(researchProposalId) ||
+      !body.proposalIds.includes(experimentProposalId) ||
+      body.proposalIds.includes(workItemProposalId)
+    ) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    confirmResearchCheckpoint();
+    return json(response, 200, researchSourceReview("CONFIRMED", 3));
+  }
+  if (request.method === "GET" && url.pathname === `/api/v1/research/${researchId}`) {
+    return json(response, 200, researchDetail());
+  }
+  if (
+    request.method === "GET" &&
+    (url.pathname === `/api/v1/experiments/${unsupportedExperimentId}` ||
+      url.pathname === `/api/v1/experiments/${supportedExperimentId}`)
+  ) {
+    return json(
+      response,
+      200,
+      experimentDetail(
+        url.pathname.endsWith(unsupportedExperimentId) ? "unsupported" : "supported",
+      ),
+    );
   }
   if (request.method === "GET" && url.pathname === "/api/v1/me") {
     return json(response, 200, { userId: ownerId });
@@ -1718,7 +1805,7 @@ function evaluationFactView() {
   };
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     cycle: {
       id: evaluationCycleId,
       startsAt: "2026-07-01T00:00:00.000Z",
@@ -1795,6 +1882,60 @@ function evaluationFactView() {
         effectiveUntil: null,
       },
     ],
+    researchFacts: researchConfirmed
+      ? [
+          {
+            kind: "source_fact",
+            sourceType: "research",
+            factType: "research_decision",
+            sourceId: "f3888888-8888-4888-8888-888888888888",
+            sourceOccurredAt: "2026-08-06T14:30:00.000Z",
+            projectId,
+            workstreamId,
+            relatedWorkItemId: workItems[0].id,
+            humanConfirmationState: "human_decision",
+            verificationState: "source_supported",
+            responsibilityWindowIds: [],
+            summary: "The employee confirmed the bounded retrieval decision.",
+            limitations: ["The deterministic fixture does not represent production traffic."],
+            uncertainty: "Production-scale latency remains to be observed.",
+            sourceReferences: [
+              {
+                sourceType: "research_conclusion",
+                sourceId: "f3999999-9999-4999-8999-999999999999",
+                sourceVersion: null,
+                occurredAt: "2026-08-06T14:30:00.000Z",
+                url: null,
+              },
+            ],
+          },
+          {
+            kind: "source_fact",
+            sourceType: "research",
+            factType: "applied_learning",
+            sourceId: "f3aaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            sourceOccurredAt: "2026-08-06T14:35:00.000Z",
+            projectId,
+            workstreamId,
+            relatedWorkItemId: workItems[0].id,
+            humanConfirmationState: "employee_confirmed",
+            verificationState: "source_supported",
+            responsibilityWindowIds: [],
+            summary: "Applied learning linked the confirmed decision to an existing Task.",
+            limitations: [],
+            uncertainty: null,
+            sourceReferences: [
+              {
+                sourceType: "applied_learning",
+                sourceId: "f3aaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                sourceVersion: null,
+                occurredAt: "2026-08-06T14:35:00.000Z",
+                url: null,
+              },
+            ],
+          },
+        ]
+      : [],
     employeeInterpretations: [
       {
         kind: "employee_interpretation",
@@ -1836,6 +1977,260 @@ function resetContextAcceptanceState() {
     contextReviewItems.length,
     ...structuredClone(baseContextReviewItems),
   );
+}
+
+function resetResearchAcceptanceState() {
+  researchAiAvailable = true;
+  researchConfirmed = false;
+  for (let index = timelineItems.length - 1; index >= 0; index -= 1) {
+    if (["research", "experiment", "applied_learning"].includes(timelineItems[index].kind)) {
+      timelineItems.splice(index, 1);
+    }
+  }
+}
+
+function confirmResearchCheckpoint() {
+  if (researchConfirmed) return;
+  researchConfirmed = true;
+  timelineItems.unshift(
+    researchTimelineItem({
+      id: "f3bbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      kind: "applied_learning",
+      occurredAt: "2026-08-06T14:35:00.000Z",
+      title: "Applied learning linked to an existing Task",
+      detail: "The confirmed result changed the existing implementation Task.",
+      sourceReference: "applied-learning:f3aaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    }),
+    researchTimelineItem({
+      id: "f3cccccc-cccc-4ccc-8ccc-cccccccccccc",
+      kind: "research",
+      occurredAt: "2026-08-06T14:30:00.000Z",
+      title: "Research decision confirmed",
+      detail: "The employee adopted the bounded cited approach and retained the failed result.",
+      sourceReference: "research-conclusion:f3999999-9999-4999-8999-999999999999",
+    }),
+  );
+}
+
+function researchTimelineItem({ id, kind, occurredAt, title, detail, sourceReference }) {
+  return {
+    id,
+    kind,
+    projectId,
+    workstreamId,
+    workItemId: workItems[0].id,
+    employeeId: ownerId,
+    occurredAt,
+    title,
+    detail,
+    sourceReferences: [sourceReference],
+    sourceProvenance: "human_decision",
+    reviewState: "human_decision",
+    project: { id: projectId, name: "Atlas Delivery" },
+    workstream: { id: workstreamId, name: "API readiness" },
+    workItem: { id: workItems[0].id, title: workItems[0].title },
+    relatedKpiComponents: [],
+    relatedCriteria: [],
+    verificationState: null,
+    decisionOutcome: null,
+  };
+}
+
+function researchCheckpoint() {
+  if (!researchConfirmed) {
+    return {
+      research: null,
+      experiments: [],
+      evidence: null,
+      appliedLearning: null,
+      officialTaskCount: 0,
+    };
+  }
+  return {
+    research: { id: researchId, state: "CONCLUDED", decisionConfirmed: true },
+    experiments: [
+      { id: unsupportedExperimentId, outcome: "NOT_SUPPORTED", retained: true },
+      {
+        id: supportedExperimentId,
+        outcome: "SUPPORTED",
+        baselinePinned: true,
+        measuresPinned: true,
+        testCasesPinned: true,
+        limitationsPinned: true,
+      },
+    ],
+    evidence: { state: "CONFIRMED" },
+    appliedLearning: { targetKind: "WORK_ITEM" },
+    officialTaskCount: 0,
+  };
+}
+
+function researchSourceReview(state = "READY_FOR_REVIEW", version = 2) {
+  return {
+    id: researchReviewId,
+    scope: { projectId, workstreamId: null, workItemId: null },
+    ownerId,
+    state,
+    version,
+    source: { kind: "URL", url: "https://github.com/example/atlas-research" },
+    displayUrl: "https://github.com/example/atlas-research",
+    retrievalState: "RETRIEVED",
+    retrievalReason: null,
+    contentFingerprint: "sha256:research-e2e-fixture",
+    output: {
+      schemaVersion: "research-source-review-output.v1",
+      summary: "Cited Project relevance review",
+      relevance: "The repository directly addresses the Project retrieval decision.",
+      citations: [
+        {
+          sourceReference: "retrieved-source:atlas-research",
+          locator: "README#retrieval",
+        },
+      ],
+      benefits: ["Provides a bounded implementation pattern to test."],
+      risks: ["Repository behavior may differ from the Project environment."],
+      mismatches: ["The source does not cover production-scale latency."],
+      uncertainties: ["Long-term behavior remains unknown."],
+      disposition: "OPEN_OR_REFINE_RESEARCH",
+      proposals: [
+        {
+          id: researchProposalId,
+          kind: "RESEARCH",
+          title: "Evaluate bounded retrieval",
+          rationale: "The source maps to the approved Project question.",
+          sourceReferences: ["retrieved-source:atlas-research"],
+          question: "Does bounded retrieval improve grounded answers?",
+          objective: "Choose a reproducible Project approach.",
+        },
+        {
+          id: experimentProposalId,
+          kind: "EXPERIMENT",
+          title: "Compare retrieval approaches",
+          rationale: "A controlled comparison can expose benefit and limitations.",
+          sourceReferences: ["retrieved-source:atlas-research"],
+          question: "Which approach meets the grounded-answer threshold?",
+          baseline: "Current Project-approved baseline",
+          measureNames: ["Grounded answer ratio"],
+        },
+        {
+          id: workItemProposalId,
+          kind: "WORK_ITEM",
+          title: "Replace retrieval immediately",
+          rationale: "This proposal is intentionally unsuitable before experiments conclude.",
+          sourceReferences: ["retrieved-source:atlas-research"],
+          description: "Replace the current approach without a confirmed experiment.",
+          proposedAssigneeId: ownerId,
+          acceptanceConditions: ["Employee confirms the source-supported change"],
+        },
+      ],
+    },
+    outputProvenance: {
+      promptVersion: "research-source-review.v1",
+      routeTrace: {
+        aiRunId: "f3dddddd-dddd-4ddd-8ddd-dddddddddddd",
+        routeKey: "research.source-review.v1",
+        routeConfigId: "f3eeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        routeConfigVersion: 1,
+      },
+    },
+    recoveryOptions: [],
+    createdAt: "2026-08-06T14:00:00.000Z",
+    updatedAt: "2026-08-06T14:00:00.000Z",
+  };
+}
+
+function researchDetail() {
+  return {
+    detail: {
+      id: researchId,
+      scope: { projectId, workstreamId, workItemId: workItems[0].id },
+      ownerId,
+      state: "CONCLUDED",
+      revision: 1,
+      version: 3,
+      currentRevision: {
+        id: "f3fffff1-ffff-4fff-8fff-fffffffffff1",
+        revision: 1,
+        question: "Does bounded retrieval improve grounded answers?",
+        objective: "Choose a reproducible Project approach.",
+      },
+    },
+    participantEvents: [],
+    transitions: [],
+    sourceReferences: [
+      {
+        id: "f3fffff2-ffff-4fff-8fff-fffffffffff2",
+        title: "Atlas retrieval reference",
+        canonicalUrl: "https://github.com/example/atlas-research",
+      },
+    ],
+  };
+}
+
+function experimentDetail(kind) {
+  const unsupported = kind === "unsupported";
+  const experimentId = unsupported ? unsupportedExperimentId : supportedExperimentId;
+  const summary = unsupported
+    ? "The approach omitted required citations and did not meet the pinned threshold."
+    : "The bounded cited approach met the pinned threshold.";
+  return {
+    detail: {
+      id: experimentId,
+      researchId,
+      scope: { projectId, workstreamId, workItemId: workItems[0].id },
+      title: unsupported ? "Unsupported retrieval shortcut" : "Bounded retrieval with citations",
+      state: "CONCLUDED",
+      methodRevision: 1,
+      version: 5,
+      currentMethod: {
+        id: unsupported
+          ? "f3fffff3-ffff-4fff-8fff-fffffffffff3"
+          : "f3fffff4-ffff-4fff-8fff-fffffffffff4",
+        revision: 1,
+        question: "Does the approach meet the grounded-answer threshold?",
+        baseline: {
+          description: "Current Project-approved baseline",
+          value: "0.70",
+          sourceReference: null,
+        },
+        measures: [],
+        testCases: [],
+        controls: [],
+        conditions: [],
+        reproducibilityInstructions: "Run the pinned fixture with the recorded inputs.",
+        knownRisks: [],
+        failureCases: [],
+        sourceReferences: ["retrieved-source:atlas-research"],
+        executionMode: "manual",
+        origin: "EMPLOYEE",
+        aiRunId: null,
+        promptVersion: null,
+        routeTrace: null,
+        authorId: ownerId,
+        createdAt: "2026-08-06T14:00:00.000Z",
+      },
+    },
+    methodRevisions: [],
+    runs: [
+      {
+        id: unsupported
+          ? "f3fffff5-ffff-4fff-8fff-fffffffffff5"
+          : "f3fffff6-ffff-4fff-8fff-fffffffffff6",
+        resultStatus: unsupported ? "FAILED" : "COMPLETED",
+        executionNotes: summary,
+      },
+    ],
+    aiDrafts: [],
+    conclusions: [
+      {
+        id: unsupported
+          ? "f3fffff7-ffff-4fff-8fff-fffffffffff7"
+          : "f3fffff8-ffff-4fff-8fff-fffffffffff8",
+        summary,
+        limitations: ["Deterministic acceptance fixture only"],
+      },
+    ],
+  };
 }
 
 function resetSliceFourAcceptanceState() {

@@ -2,10 +2,9 @@
 
 ## Current Goal
 
-Perform the bounded E3 ownership audit, then write the Research & Experiments engine design and detailed
-implementation plan before production code. Continue the remaining engine subsystems in dependency
-order. Keep the final frontend program and live connector installations behind their existing sequence
-and external gates.
+Close the technically complete E3 Research & Experiments checkpoint, then execute E4–E7 in bounded
+feature bundles. Keep the final frontend program and live connector installations behind their existing
+sequence and external gates.
 
 ## Current Reality
 
@@ -163,9 +162,44 @@ and external gates.
 - The E2 source-to-code baseline identifies 44 capabilities: 21 complete, 6 partial, 14 planned, 2
   externally gated, and 1 approved deferred capability. These counts are inventory states, not a
   percent-complete score.
-- Research & Experiments is an authoritative daily-work and evaluation source requirement, but no
-  dedicated production model, public API, domain lifecycle, history, recovery, or journey entry point
-  exists. E3 must close this gap before the evaluation engine is completed.
+- E2 Pull Request #12 passed hosted integrity, quality, build, and integration checks and was
+  squash-merged to `main` at `0a06f97` on 2026-08-05.
+- E3 Research & Experiments is technically implemented through Task 13: migrations `0027`–`0028`,
+  safe explicit-source review, versioned Research and Experiment lifecycles, immutable methods/runs/
+  observations, human-confirmed conclusions and decisions, Applied Learning, confirmed Evidence/Task
+  links, protected APIs, Timeline/readiness/Fact View composition, and a bilingual verification route.
+- The deterministic E3 seed is rerunnable without duplicating append-only history. The focused browser
+  checkpoint passes the source-review UI and fixture-backed browser contract, including two Experiments,
+  a retained failed/`NOT_SUPPORTED` path, Evidence, Applied Learning, Timeline, Fact View, authorization
+  negatives, and Arabic RTL at 390 px. This is technical verification, not final UX acceptance.
+- A separate real E3 Nest/PostgreSQL integration now exercises the production controllers, domain
+  services, exact authorization readers, audit writer, and database from source-backed Research through
+  two retained Experiments, human decision, confirmed Evidence link, Applied Learning, and API readback.
+  It requires no live provider or connector credential.
+- The E3 ownership audit is complete. The approved direction is one bounded Research & Experiments
+  domain: every Research Record belongs to a Project, may optionally link a Workstream/Work Item, and
+  may contain multiple versioned Experiments. Existing Projects, Work Items, Documents, Updates &
+  Evidence, Timeline composition, and AI Router retain their current ownership.
+- The Product Owner approved the written E3 specification on 2026-08-05. It includes a safe source-link
+  intake and Project-relevance review: explicit GitHub/paper/document links are compared with an
+  authorized version-pinned Project Context Snapshot, and Research/Experiment/Work Item proposals remain
+  editable drafts until employee confirmation.
+- The detailed E3 TDD implementation plan is
+  `docs/superpowers/plans/2026-08-05-research-experiments-engine.md`. It maps thirteen independently
+  testable tasks from strict contracts and migration through source security, AI routes, domain
+  lifecycles, composition, bilingual verification, and the final technical checkpoint.
+- The Product Owner approved the complete-engine architecture, dependency order, extensibility rules,
+  cross-domain flow, verification-surface boundary, execution policy, and final completion gate on
+  2026-08-05. The written program design is
+  `docs/superpowers/specs/2026-08-05-complete-engine-program-design.md`.
+- Bounded written designs and detailed TDD plans now cover E4 Employee Evaluation, E5A Identified Upward
+  Manager Evaluation, E5B Coaching & Development, E6A Continuity & Offboarding, E6B
+  Notifications/Reporting/Administration, E6C Security/Recovery/Readiness, and E7 Full Engine Integration
+  Audit. Together with the existing E3 plan, the remaining engine has one dependency-ordered executable
+  plan set; production implementation starts with E3.
+- The Product Owner approved ClickUp 4.0 as a clean-room interaction reference for the future daily-work
+  frontend only. It adds no engine task, integration, dependency, source reuse, or scope change. E7 will
+  carry the approved patterns and explicit exclusions into the later frontend design program.
 
 ## Active Decisions
 
@@ -184,6 +218,20 @@ and external gates.
 - Official Tasks require a Project; private Inbox capture may remain unlinked until promoted. AI drafts Tasks but never creates or assigns them automatically.
 - Gmail and Calendar summaries are private to the employee until the employee confirms a shared Task, Update, Evidence item, or decision record.
 - Automatic source linking requires a deterministic mapping or at least two non-conflicting independent Project anchors; model confidence alone is insufficient.
+- Research/Experiment structure, methods, immutable runs, human-confirmed conclusions, decisions, and
+  applied learning belong to one bounded Research & Experiments domain. It reuses public Project,
+  Work Item, Document, Evidence, Timeline, Fact View, and AI Router contracts and does not create a
+  second evidence lifecycle or generic activity platform.
+- Source relevance is not proof of benefit, progress, contribution, or performance. Explicit link
+  retrieval is bounded and fail-closed; it runs no external code, uses no ambient credentials, and
+  requires employee confirmation before Project sharing or official object creation.
+- All remaining engine capabilities use versioned configuration, stable public contracts, additive
+  migrations, append-only protected history, and narrow connector/provider adapters. Extensibility must
+  follow real approved variation without introducing a speculative plugin platform or microservices.
+- ClickUp 4.0 is the primary future daily-work interaction reference only. The product will reinterpret
+  My Tasks, shared work views, context-preserving detail, Planner composition, embedded assistance, and
+  fast navigation as original clean-room UX after E7. There is no ClickUp API, data, code, asset, schema,
+  or runtime dependency, and no ClickUp feature expands the approved engine scope.
 
 ## Active Risks
 
@@ -224,10 +272,9 @@ and external gates.
 
 ## Next Recommended Action
 
-Verify and publish the E2 feature-register baseline, then perform the bounded E3 ownership audit and
-write the Research & Experiments engine design/implementation plan before production code. Do not start
-the final frontend yet. Live Google/GitHub production configuration and Arabic evaluation release remain
-behind their external human gates.
+Finish the E3 bounded bundle review and hosted PR checks, then begin E4 Employee Evaluation from its
+approved plan using Fast Controlled Execution. Do not start the final frontend yet. Live connector setup
+and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References
 
@@ -252,7 +299,25 @@ behind their external human gates.
 - `docs/superpowers/plans/2026-07-20-slice-5-project-owner-progress.md`
 - `docs/superpowers/plans/2026-07-20-slice-6-evaluation-preparation.md`
 - `docs/superpowers/specs/2026-08-05-technical-completion-frontend-product-acceptance-design.md`
+- `docs/superpowers/specs/2026-08-05-clickup-interaction-reference-design.md`
 - `docs/superpowers/plans/2026-08-05-engine-first-completion-program.md`
+- `docs/superpowers/specs/2026-08-05-research-experiments-engine-design.md`
+- `docs/superpowers/plans/2026-08-05-research-experiments-engine.md`
+- `docs/superpowers/specs/2026-08-05-complete-engine-program-design.md`
+- `docs/superpowers/specs/2026-08-05-employee-evaluation-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-identified-manager-evaluation-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-coaching-development-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-continuity-offboarding-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-notifications-reporting-administration-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-security-recovery-readiness-engine-design.md`
+- `docs/superpowers/specs/2026-08-05-engine-integration-audit-design.md`
+- `docs/superpowers/plans/2026-08-05-employee-evaluation-engine.md`
+- `docs/superpowers/plans/2026-08-05-identified-manager-evaluation-engine.md`
+- `docs/superpowers/plans/2026-08-05-coaching-development-engine.md`
+- `docs/superpowers/plans/2026-08-05-continuity-offboarding-engine.md`
+- `docs/superpowers/plans/2026-08-05-notifications-reporting-administration-engine.md`
+- `docs/superpowers/plans/2026-08-05-security-recovery-readiness-engine.md`
+- `docs/superpowers/plans/2026-08-05-engine-integration-audit.md`
 - `docs/product/PHASE_2_FEATURE_MAP.md`
 - `docs/product/PHASE_2_DAILY_WORK_EXPERIENCE.md`
 - `docs/product/PHASE_2_BACKEND_DELTA.md`

@@ -16,6 +16,7 @@
     "@evaluation/documents": "workspace:*",
     "@evaluation/localization": "workspace:*",
     "@evaluation/projects": "workspace:*",
+    "@evaluation/research-experiments": "workspace:*",
     "@evaluation/updates-evidence": "workspace:*",
     "@evaluation/work-items": "workspace:*"
   },
@@ -29,6 +30,7 @@
     "db:seed": "pnpm --filter @evaluation/database db:seed",
     "db:verify": "node --env-file=.env.example scripts/verify-migrations.mjs",
     "ai:register:project-progress-contract": "tsx scripts/seed-codex-dogfood.ts --register-route",
+    "ai:register:research-experiments": "tsx scripts/register-research-experiments-ai-routes.ts",
     "ai:register:update-transcribe": "tsx scripts/register-update-transcribe-ai-route.ts",
     "dogfood:seed": "tsx scripts/seed-codex-dogfood.ts --seed",
     "dogfood:draft-contract": "tsx scripts/seed-codex-dogfood.ts --draft-contract",
@@ -37,6 +39,7 @@
     "infra:reset": "node scripts/reset-local-infra.mjs",
     "infra:up": "node scripts/run-compose.mjs up -d --wait",
     "infra:verify": "node scripts/verify-infra.mjs",
+    "research:seed": "node --env-file=.env.example --import tsx scripts/seed-research-experiments-acceptance.ts",
     "lint": "turbo run lint && eslint scripts tests && node scripts/validate-boundaries.mjs && node scripts/check-user-visible-copy.mjs",
     "scan:performance-inputs": "node scripts/scan-performance-inputs.mjs",
     "scan:ai-boundary": "node scripts/validate-boundaries.mjs",

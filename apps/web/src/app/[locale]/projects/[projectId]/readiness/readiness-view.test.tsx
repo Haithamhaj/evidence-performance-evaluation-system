@@ -24,6 +24,13 @@ describe("ReadinessView", () => {
               scopeName: "Daily operations",
               correctiveAction: "add_substantive_update",
             },
+            {
+              kind: "RESEARCH_DECISION_MISSING",
+              scopeId: crypto.randomUUID(),
+              scopeKind: "project",
+              scopeName: "Retrieval research",
+              correctiveAction: "RESEARCH_DECISION_MISSING",
+            },
           ],
         },
       }),
@@ -31,6 +38,7 @@ describe("ReadinessView", () => {
 
     expect(markup).toContain("Daily operations");
     expect(markup).toContain("The current record may not be sufficient");
+    expect(markup).toContain("The research record still needs a human decision.");
     expect(markup).not.toMatch(/\d+%|productivity|ranking|leaderboard/iu);
   });
 });
