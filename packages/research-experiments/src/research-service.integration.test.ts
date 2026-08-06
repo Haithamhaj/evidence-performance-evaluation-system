@@ -490,6 +490,76 @@ describe("ResearchService", () => {
     expect(confirmed).toMatchObject({ revision: 3, version: 3 });
   });
 
+  it("revalidates an AI draft's governed sources at confirmation time", async () => {
+    const research = await createDraft();
+    const cited = await service().addSource({
+      actor: actor(),
+      researchId: research.id,
+      correlationId: crypto.randomUUID(),
+      input: {
+        expectedVersion: research.version,
+        source: { kind: "MANUAL_CITATION", canonicalUrl: "https://example.com/ai-draft-source" },
+        kind: "PAPER",
+        title: "AI draft source",
+        relevanceNote: "Supports the AI framing question",
+        credibilityNote: "Employee-reviewed citation",
+      },
+    });
+    const assistant = frameAssistant([cited.sourceReference]);
+    const lifecycle = service({ assistant });
+    const draft = await lifecycle.prepareFrame({
+      actor: actor(),
+      researchId: research.id,
+      correlationId: crypto.randomUUID(),
+    });
+    const retracted = await lifecycle.retractSource({
+      actor: actor(),
+      researchId: research.id,
+      sourceReferenceId: cited.sourceReferenceId,
+      correlationId: crypto.randomUUID(),
+      input: { expectedVersion: cited.version, reason: "Source withdrawn before confirmation" },
+    });
+    await expect(
+      lifecycle.confirmAiRevision({
+        actor: actor(),
+        researchId: research.id,
+        correlationId: crypto.randomUUID(),
+        input: { expectedVersion: retracted.version, revision: draft.revision },
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_INVALID" });
+    await expect(
+      client.researchRecord.findUniqueOrThrow({ where: { id: research.id } }),
+    ).resolves.toMatchObject({ revision: research.revision, version: retracted.version });
+
+    const active = await lifecycle.addSource({
+      actor: actor(),
+      researchId: research.id,
+      correlationId: crypto.randomUUID(),
+      input: {
+        expectedVersion: retracted.version,
+        source: { kind: "MANUAL_CITATION", canonicalUrl: "https://example.com/active-ai-source" },
+        kind: "PAPER",
+        title: "Active AI source",
+        relevanceNote: "Remains available for confirmation",
+        credibilityNote: "Employee-reviewed citation",
+      },
+    });
+    const activeLifecycle = service({ assistant: frameAssistant([active.sourceReference]) });
+    const activeDraft = await activeLifecycle.prepareFrame({
+      actor: actor(),
+      researchId: research.id,
+      correlationId: crypto.randomUUID(),
+    });
+    await expect(
+      activeLifecycle.confirmAiRevision({
+        actor: actor(),
+        researchId: research.id,
+        correlationId: crypto.randomUUID(),
+        input: { expectedVersion: active.version, revision: activeDraft.revision },
+      }),
+    ).resolves.toMatchObject({ revision: activeDraft.revision, version: active.version + 1 });
+  });
+
   it("transfers one active owner with paired events at the same instant and an atomic audit", async () => {
     const research = await createDraft();
     const correlationId = crypto.randomUUID();
@@ -635,6 +705,54 @@ describe("ResearchService", () => {
     ).rejects.toMatchObject({ code: "RESEARCH_SUCCESSOR_INVALID" });
   });
 
+  it("requires current exact-scope authorization for a same-owner DRAFT successor", async () => {
+    const original = await createDraft();
+    const successor = await service().create({
+      actor: actor(),
+      correlationId: crypto.randomUUID(),
+      input: {
+        ...content("Should this narrower-scope draft replace the original?"),
+        scope: { projectId: ids.project, workstreamId: ids.workstream, workItemId: null },
+        idempotencyKey: crypto.randomUUID(),
+      },
+    });
+    const revokedAuthorizer = {
+      authorize(input: any) {
+        return authorizeUsing(client, input);
+      },
+      authorizeTransaction(transaction: any, input: any) {
+        if (input.scope.workstreamId === ids.workstream) throw forbidden();
+        return authorizeUsing(transaction, input);
+      },
+    };
+    await expect(
+      service({ authorizer: revokedAuthorizer }).transition({
+        actor: actor(),
+        researchId: original.id,
+        correlationId: crypto.randomUUID(),
+        input: {
+          expectedVersion: original.version,
+          state: "SUPERSEDED",
+          reason: "Access to the successor was revoked",
+          successorResearchId: successor.id,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SUCCESSOR_INVALID" });
+    await expect(
+      service().transition({
+        actor: actor(),
+        researchId: original.id,
+        correlationId: crypto.randomUUID(),
+        input: {
+          expectedVersion: original.version,
+          state: "SUPERSEDED",
+          reason: "Current exact-scope access is present",
+          successorResearchId: successor.id,
+        },
+      }),
+    ).resolves.toMatchObject({ state: "SUPERSEDED", version: original.version + 1 });
+  });
+
   it("adds only governed sources and retracts by append-only successor event", async () => {
     const research = await createDraft();
     await expect(
@@ -729,6 +847,39 @@ describe("ResearchService", () => {
     });
   });
 });
+
+function frameAssistant(sourceReferences: string[]) {
+  return {
+    async frameResearch(
+      _command: unknown,
+      persist: (transaction: unknown, output: unknown) => Promise<unknown>,
+    ) {
+      const output = {
+        schemaVersion: "research-frame-output.v1",
+        ...content("Which source strategy should be adopted?"),
+        sourceReferences,
+        nextQuestion: null,
+        requiresHumanApproval: true,
+      };
+      await persist(undefined, output);
+      return {
+        output,
+        outputReference: `research-revision:${crypto.randomUUID()}`,
+        promptVersion: "research-frame-prompt.v1",
+        requiresHumanApproval: true as const,
+        routeTrace: {
+          aiRunId: ids.aiRun,
+          routeKey: "research.frame.v1",
+          routeConfigId: ids.routeConfig,
+          routeConfigVersion: 1,
+        },
+      };
+    },
+    async synthesizeResearch() {
+      throw new Error("Not used");
+    },
+  };
+}
 
 function forbidden() {
   return Object.assign(new Error("Forbidden"), { code: "RESEARCH_FORBIDDEN" });

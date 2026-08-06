@@ -413,7 +413,7 @@ export class ResearchService {
             revision: command.input.revision,
           },
         },
-        select: { origin: true },
+        select: { origin: true, sourceReferences: true },
       });
       if (revision?.origin !== AUTOMATED_DRAFT_ORIGIN) throw aiDraftInvalid();
       const latestRevision = await transaction.researchRevision.findFirst({
@@ -431,6 +431,11 @@ export class ResearchService {
         origin: AUTOMATED_DRAFT_ORIGIN,
         employeeConfirmed: true,
       });
+      await validateGovernedSourceReferences(
+        transaction,
+        root.id,
+        stringArray(revision.sourceReferences),
+      );
       await updateRoot(transaction, root.id, root.version, {
         revision: command.input.revision,
         version: { increment: 1 },
@@ -611,18 +616,16 @@ export class ResearchService {
         if (successor?.projectId !== root.projectId || input.successorResearchId === root.id) {
           throw successorInvalid();
         }
-        if (successor.state === "DRAFT") {
-          if (successor.ownerId !== command.actor.userId) throw successorInvalid();
-        } else {
-          await this.#authorizer
-            .authorizeTransaction(transaction, {
-              actor: command.actor,
-              scope: scopeOf(successor),
-              at,
-            })
-            .catch(() => {
-              throw successorInvalid();
-            });
+        if (successor.state === "DRAFT" && successor.ownerId !== command.actor.userId)
+          throw successorInvalid();
+        try {
+          await this.#authorizer.authorizeTransaction(transaction, {
+            actor: command.actor,
+            scope: scopeOf(successor),
+            at,
+          });
+        } catch {
+          throw successorInvalid();
         }
       }
       await updateRoot(transaction, root.id, root.version, {
