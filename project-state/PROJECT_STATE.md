@@ -2,10 +2,9 @@
 
 ## Current Goal
 
-Execute the fully planned E3–E7 engine program in dependency order using bounded Subagent-Driven
-Development for its migration, authorization, privacy, AI, audit, and immutability-critical work. Keep
-the final frontend program and live connector installations behind their existing sequence and external
-gates.
+Close the technically complete E3 Research & Experiments checkpoint, then execute E4–E7 in bounded
+feature bundles. Keep the final frontend program and live connector installations behind their existing
+sequence and external gates.
 
 ## Current Reality
 
@@ -165,9 +164,14 @@ gates.
   percent-complete score.
 - E2 Pull Request #12 passed hosted integrity, quality, build, and integration checks and was
   squash-merged to `main` at `0a06f97` on 2026-08-05.
-- Research & Experiments is an authoritative daily-work and evaluation source requirement, but no
-  dedicated production model, public API, domain lifecycle, history, recovery, or journey entry point
-  exists. E3 must close this gap before the evaluation engine is completed.
+- E3 Research & Experiments is technically implemented through Task 13: migrations `0027`–`0028`,
+  safe explicit-source review, versioned Research and Experiment lifecycles, immutable methods/runs/
+  observations, human-confirmed conclusions and decisions, Applied Learning, confirmed Evidence/Task
+  links, protected APIs, Timeline/readiness/Fact View composition, and a bilingual verification route.
+- The deterministic E3 seed is rerunnable without duplicating append-only history. The focused browser
+  checkpoint passes the source-review UI and full authenticated API lifecycle, including two Experiments,
+  a retained failed/`NOT_SUPPORTED` path, Evidence, Applied Learning, Timeline, Fact View, authorization
+  negatives, and Arabic RTL at 390 px. This is technical verification, not final UX acceptance.
 - The E3 ownership audit is complete. The approved direction is one bounded Research & Experiments
   domain: every Research Record belongs to a Project, may optionally link a Workstream/Work Item, and
   may contain multiple versioned Experiments. Existing Projects, Work Items, Documents, Updates &
@@ -264,10 +268,9 @@ gates.
 
 ## Next Recommended Action
 
-Begin Subagent-Driven E3 execution at Task 1 of
-`docs/superpowers/plans/2026-08-05-research-experiments-engine.md`, then continue through E4–E7 using the
-approved dependency order and durable checkpoints. Do not start the final frontend yet. Live connector
-setup and Arabic evaluation release remain behind their external human gates.
+Finish the E3 bounded bundle review and hosted PR checks, then begin E4 Employee Evaluation from its
+approved plan using Fast Controlled Execution. Do not start the final frontend yet. Live connector setup
+and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References
 

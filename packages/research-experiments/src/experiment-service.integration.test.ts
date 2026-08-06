@@ -244,7 +244,10 @@ function actor(userId = ids.owner, active = true) {
   return { userId, active };
 }
 
-function method(): Omit<import("@evaluation/contracts").ReviseExperimentMethodInput, "expectedVersion"> {
+function method(): Omit<
+  import("@evaluation/contracts").ReviseExperimentMethodInput,
+  "expectedVersion"
+> {
   return {
     question: "Does retrieval reduce p95 latency?",
     baseline: { description: "Current retrieval path", value: "120", sourceReference: null },

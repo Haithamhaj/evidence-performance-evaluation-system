@@ -89,6 +89,21 @@ Every capability selected for the final frontend must have one record with all f
 | Future private feedback modes | only the cycle-approved safe projection                                 | identity/original content without mode-specific permission and pre-access audit |
 | Research/Experiments          | method, results, limitations, decision, applied learning                | volume-based research/experiment productivity score                             |
 
+## CAP-025–027 technical handoff note
+
+The engine now exposes versioned Research, Experiment, Evidence-link, conclusion, decision, and
+Applied Learning contracts with Project-scoped authorization, append-only history, stale-version
+recovery, AI Router-only drafts, Timeline composition, readiness gaps, and neutral Fact View facts.
+The route `/[locale]/projects/[projectId]/research` is only a bilingual technical verification surface
+for explicit source review and proposal confirmation. It is not the final daily Research/Experiment
+experience and does not yet render the complete method/run/decision lifecycle.
+
+The final frontend must consume the protected contracts rather than infer lifecycle state in the
+browser. It must provide one lightweight progression—question/source → next experiment or decision →
+confirmed learning—while keeping full method revisions, runs, failed results, citations, limitations,
+and history progressively disclosed. Failed or unsupported experiments remain visible; source or
+experiment volume must never become Project progress or employee performance.
+
 ## Error and recovery vocabulary
 
 The final interface should translate engine failures into a small shared vocabulary:

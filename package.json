@@ -39,6 +39,7 @@
     "infra:reset": "node scripts/reset-local-infra.mjs",
     "infra:up": "node scripts/run-compose.mjs up -d --wait",
     "infra:verify": "node scripts/verify-infra.mjs",
+    "research:seed": "node --env-file=.env.example --import tsx scripts/seed-research-experiments-acceptance.ts",
     "lint": "turbo run lint && eslint scripts tests && node scripts/validate-boundaries.mjs && node scripts/check-user-visible-copy.mjs",
     "scan:performance-inputs": "node scripts/scan-performance-inputs.mjs",
     "scan:ai-boundary": "node scripts/validate-boundaries.mjs",

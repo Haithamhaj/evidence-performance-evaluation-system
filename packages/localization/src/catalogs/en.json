@@ -645,6 +645,7 @@
   "research.recoveryBody": "Try again, upload the source, or add a citation manually.",
   "research.methodDetails": "Research method details",
   "research.methodDetailsBody": "Question, sources, method, observations, uncertainty, and conclusions remain available when you need them.",
+  "research.modelName": "GPT-5.5",
   "research.experiments": "Experiments",
   "research.experimentState.DRAFT": "Draft",
   "research.experimentState.READY": "Ready",

@@ -645,6 +645,7 @@
   "research.recoveryBody": "حاول مجدداً، أو ارفع المصدر، أو أضف استشهاداً يدوياً.",
   "research.methodDetails": "تفاصيل منهج البحث",
   "research.methodDetailsBody": "يبقى السؤال والمصادر والمنهج والملاحظات وحالة عدم اليقين والخلاصات متاحة عند الحاجة.",
+  "research.modelName": "GPT-5.5",
   "research.experiments": "التجارب",
   "research.experimentState.DRAFT": "مسودة",
   "research.experimentState.READY": "جاهزة",

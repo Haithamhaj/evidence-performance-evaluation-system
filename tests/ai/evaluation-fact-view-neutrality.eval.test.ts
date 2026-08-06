@@ -11,7 +11,7 @@ const interpretationId = "00000000-0000-4000-8000-000000000106";
 
 function neutralView() {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     cycle: {
       id: cycleId,
       startsAt: "2026-07-01T00:00:00.000Z",
@@ -50,6 +50,7 @@ function neutralView() {
     ],
     confirmedEvidence: [],
     checkInFacts: [],
+    researchFacts: [],
     dynamicCriteriaVersions: [],
     employeeInterpretations: [
       {

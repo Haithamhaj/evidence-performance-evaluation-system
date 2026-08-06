@@ -197,7 +197,7 @@ export function ResearchWorkspaceView({
         <summary>{catalog["research.methodDetails"]}</summary>
         <p>{catalog["research.methodDetailsBody"]}</p>
         <p>
-          <bdi dir="ltr">GPT-5.5</bdi>
+          <bdi dir="ltr">{catalog["research.modelName"]}</bdi>
         </p>
       </details>
       {createElement(ExperimentSheet, { catalog, experiments })}
