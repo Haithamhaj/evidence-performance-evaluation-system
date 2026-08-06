@@ -26,6 +26,9 @@ export type {
 
 export * from "./project-context.js";
 export * from "./ai-assistant.js";
+export * from "./experiment-invariants.js";
+export * from "./experiment-query-service.js";
+export * from "./experiment-service.js";
 export * from "./prompts.js";
 export * from "./research-invariants.js";
 export * from "./research-query-service.js";
