@@ -67,10 +67,11 @@ describe("employee evaluation contracts", () => {
     } as const;
 
     expect(SaveAssessmentDraftInputSchema.parse(valid)).toEqual(valid);
-    expect(
-      SaveAssessmentDraftInputSchema.safeParse({ ...valid, expectedVersion: 0 }).success,
-    ).toBe(false);
-    const { idempotencyKey: _omitted, ...withoutIdempotency } = valid;
+    expect(SaveAssessmentDraftInputSchema.safeParse({ ...valid, expectedVersion: 0 }).success).toBe(
+      false,
+    );
+    const withoutIdempotency: Record<string, unknown> = { ...valid };
+    delete withoutIdempotency.idempotencyKey;
     expect(SaveAssessmentDraftInputSchema.safeParse(withoutIdempotency).success).toBe(false);
   });
 
