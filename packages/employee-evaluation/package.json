@@ -1,0 +1,26 @@
+{
+  "name": "@evaluation/employee-evaluation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@evaluation/ai-routing": "workspace:*",
+    "@evaluation/audit": "workspace:*",
+    "@evaluation/contracts": "workspace:*",
+    "@evaluation/database": "workspace:*",
+    "@evaluation/evaluation-preparation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. packages/employee-evaluation/src --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run --root ../.. packages/employee-evaluation/src --include '**/*.integration.test.ts'"
+  }
+}

@@ -26,6 +26,9 @@ importers:
       '@evaluation/documents':
         specifier: workspace:*
         version: link:packages/documents
+      '@evaluation/employee-evaluation':
+        specifier: workspace:*
+        version: link:packages/employee-evaluation
       '@evaluation/localization':
         specifier: workspace:*
         version: link:packages/localization
@@ -135,6 +138,9 @@ importers:
       '@evaluation/documents':
         specifier: workspace:*
         version: link:../../packages/documents
+      '@evaluation/employee-evaluation':
+        specifier: workspace:*
+        version: link:../../packages/employee-evaluation
       '@evaluation/evaluation-preparation':
         specifier: workspace:*
         version: link:../../packages/evaluation-preparation
@@ -230,6 +236,9 @@ importers:
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@evaluation/employee-evaluation':
+        specifier: workspace:*
+        version: link:../../packages/employee-evaluation
       '@evaluation/localization':
         specifier: workspace:*
         version: link:../../packages/localization
@@ -478,6 +487,28 @@ importers:
       '@types/yauzl':
         specifier: 3.4.0
         version: 3.4.0
+
+  packages/employee-evaluation:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      '@evaluation/evaluation-preparation':
+        specifier: workspace:*
+        version: link:../evaluation-preparation
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
 
   packages/evaluation-preparation:
     dependencies:

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@evaluation/contracts": "workspace:*",
+    "@evaluation/employee-evaluation": "workspace:*",
     "@evaluation/localization": "workspace:*",
     "@evaluation/observability": "workspace:*",
     "@evaluation/research-experiments": "workspace:*",
