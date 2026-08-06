@@ -482,7 +482,7 @@ function containsProhibitedJudgment(value: string): boolean {
   return [
     /\b(?:suggested|recommended|predicted|performance|employee|manager)\s+(?:rating|grade)\b/iu,
     /\b(?:rating|grade)\s*(?:of\s+|is\s+|[:=]\s*)?[1-5](?:\s*(?:\/|out\s+of)\s*5)?\b/iu,
-    /\b(?:[1-5]\s*(?:\/|out\s+of)\s*5|five\s+out\s+of\s+five)\b.{0,40}\b(?:rating|employee|worker|performance)\b|\b(?:rating|employee|worker|performance)\b.{0,40}\b(?:[1-5]\s*(?:\/|out\s+of)\s*5|five\s+out\s+of\s+five)\b/iu,
+    /\b(?:[1-5]\s*(?:\/|of|out\s+of)\s*[1-5]|five\s+(?:of|out\s+of)\s+five)\b.{0,40}\b(?:rating|employee|worker|performance)\b|\b(?:rating|employee|worker|performance)\b.{0,40}\b(?:[1-5]\s*(?:\/|of|out\s+of)\s*[1-5]|five\s+(?:of|out\s+of)\s+five)\b/iu,
     /\b(?:employee|worker|manager)?\s*(?:rank|ranking|leaderboard)\b/iu,
     /\bproductivity\s+(?:score|grade|index|rating|ranking)\b/iu,
     /\b(?:employee|worker)\s+performance\b.{0,40}\b(?:excellent|exceptional|outstanding|poor|weak|strong|high|low|score|grade|rating)\b/iu,

@@ -262,6 +262,12 @@ describe("Research & Experiments governed prompts", () => {
     );
   });
 
+  it("rejects an N-of-N employee rating before persistence", () => {
+    expect(() =>
+      assertResearchAiOutputSafe({ nested: ["The employee receives 5 of 5"] }),
+    ).toThrowError(expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }));
+  });
+
   it.each([
     ["observations", "The design appears scientifically valid."],
     ["missingElements", "The experiment has been validated."],
