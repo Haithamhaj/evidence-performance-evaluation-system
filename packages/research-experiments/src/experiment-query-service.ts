@@ -142,7 +142,8 @@ export class ExperimentQueryService {
       detail: projectExperimentDetail(root),
       methodRevisions: root.methodRevisions.map(projectMethodRevision),
       runs: root.runs.map(projectRun),
-      aiDrafts: root.aiDrafts.map(projectAiDraft),
+      aiDrafts:
+        root.research.ownerId === input.actor.userId ? root.aiDrafts.map(projectAiDraft) : [],
       conclusions: root.conclusions.map((conclusion) => ({
         id: conclusion.id,
         outcome: conclusion.outcome,

@@ -308,7 +308,7 @@ describe("ExperimentQueryService", () => {
     ]);
   });
 
-  it("reopens persisted validated AI drafts for an authorized reader", async () => {
+  it("reopens persisted validated AI drafts only for the Research owner", async () => {
     const outputReference = `experiment-method-review:${crypto.randomUUID()}`;
     const body = {
       schemaVersion: "experiment-method-review-output.v1",
@@ -331,14 +331,20 @@ describe("ExperimentQueryService", () => {
       ${crypto.randomUUID()}::uuid, ${at}
     )`;
 
-    const result = await queries.read({
-      actor: { userId: ids.member, active: true },
+    const ownerResult = await queries.read({
+      actor: { userId: ids.owner, active: true },
       experimentId: ids.experiment,
     });
 
-    expect(result.aiDrafts).toEqual([
+    expect(ownerResult.aiDrafts).toEqual([
       expect.objectContaining({ kind: "METHOD_REVIEW", body, outputReference }),
     ]);
+
+    const memberResult = await queries.read({
+      actor: { userId: ids.member, active: true },
+      experimentId: ids.experiment,
+    });
+    expect(memberResult.aiDrafts).toEqual([]);
   });
 
   it("denies unrelated and inactive actors without leaking Experiment existence", async () => {
