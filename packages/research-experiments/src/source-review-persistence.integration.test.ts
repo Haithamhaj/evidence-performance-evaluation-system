@@ -100,6 +100,53 @@ describe("ResearchSourceReviewPersistence", () => {
     ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_REPLAY_MISMATCH" });
   });
 
+  it("reclaims only a stale pending owner and fences the late original owner", async () => {
+    const persistence = new ResearchSourceReviewPersistence(client);
+    const idempotencyKey = crypto.randomUUID();
+    const original = pendingInput(idempotencyKey);
+    const first = await persistence.createOrReplayPending({
+      ...original,
+      createdAt: new Date("2026-08-06T08:00:00.000Z"),
+      claimedAt: new Date("2026-08-06T08:00:00.000Z"),
+      staleBefore: new Date("2026-08-06T07:59:00.000Z"),
+    });
+    const freshReplay = await persistence.createOrReplayPending({
+      ...original,
+      id: crypto.randomUUID(),
+      createdAt: new Date("2026-08-06T08:00:30.000Z"),
+      claimedAt: new Date("2026-08-06T08:00:30.000Z"),
+      staleBefore: new Date("2026-08-06T07:59:30.000Z"),
+    });
+    const reclaimed = await persistence.createOrReplayPending({
+      ...original,
+      id: crypto.randomUUID(),
+      createdAt: new Date("2026-08-06T08:02:00.000Z"),
+      claimedAt: new Date("2026-08-06T08:02:00.000Z"),
+      staleBefore: new Date("2026-08-06T08:01:00.000Z"),
+    });
+
+    expect((first as unknown as { processingClaimed?: boolean }).processingClaimed).toBe(true);
+    expect((freshReplay as unknown as { processingClaimed?: boolean }).processingClaimed).toBe(
+      false,
+    );
+    expect(reclaimed).toMatchObject({ processingClaimed: true, version: 2 });
+    await expect(
+      persistence.appendBlocked({
+        reviewId: first.id,
+        ownerId: ids.owner,
+        expectedVersion: 1,
+        retrievalState: "BLOCKED",
+        retrievalReason: "LATE_OWNER",
+        displayUrl: null,
+        contentFingerprint: null,
+        projectContextFingerprint: "f".repeat(64),
+        sealedRetrievedContent: null,
+        actorId: ids.owner,
+        createdAt: now,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_VERSION_CONFLICT" });
+  });
+
   it("stores only ciphertext for source, retrieved text, AI output, and proposal content", async () => {
     const persistence = new ResearchSourceReviewPersistence(client);
     const created = await persistence.createOrReplayPending(pendingInput());
@@ -134,6 +181,7 @@ describe("ResearchSourceReviewPersistence", () => {
         {
           id: crypto.randomUUID(),
           kind: "WORK_ITEM",
+          originRevision: 1,
           sourceReferences: [`retrieval:${"c".repeat(64)}`],
           sealedContent: {
             ciphertext: "ciphertext:proposal",
@@ -188,6 +236,7 @@ describe("ResearchSourceReviewPersistence", () => {
       proposals: [selectedId, rejectedId].map((id) => ({
         id,
         kind: "RESEARCH" as const,
+        originRevision: 1,
         sourceReferences: [`retrieval:${"e".repeat(64)}`],
         sealedContent: { ciphertext: `proposal:${id}`, keyVersion: "v1" },
       })),
@@ -206,6 +255,8 @@ describe("ResearchSourceReviewPersistence", () => {
       proposalIds: [selectedId],
       reason: "Use only the named Research proposal.",
       actorId: ids.owner,
+      sealedDisposition: JSON.stringify({ ciphertext: "confirm-reason", keyVersion: "v1" }),
+      createdAt: now,
     });
     const replay = await persistence.confirm({
       reviewId: created.id,
@@ -214,6 +265,8 @@ describe("ResearchSourceReviewPersistence", () => {
       proposalIds: [selectedId],
       reason: "Use only the named Research proposal.",
       actorId: ids.owner,
+      sealedDisposition: JSON.stringify({ ciphertext: "confirm-reason", keyVersion: "v1" }),
+      createdAt: now,
     });
     const proposals = await client.researchProposal.findMany({
       where: { reviewId: created.id },

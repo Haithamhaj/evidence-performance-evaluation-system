@@ -211,6 +211,46 @@ const aiOutput = {
   ],
 };
 
+type ReviewOutput = import("@evaluation/contracts").ResearchSourceReviewOutput;
+
+function proposalsForKinds(
+  kinds: readonly ("RESEARCH" | "EXPERIMENT" | "WORK_ITEM")[],
+): ReviewOutput["proposals"] {
+  return kinds.map((kind) => {
+    const common = {
+      id: crypto.randomUUID(),
+      kind,
+      title: `Private ${kind} draft`,
+      rationale: "A bounded employee-reviewed draft.",
+      sourceReferences: [`retrieval:${"a".repeat(64)}`],
+    };
+    if (kind === "RESEARCH") {
+      return {
+        ...common,
+        kind,
+        question: "What should be researched?",
+        objective: "Reduce uncertainty.",
+      };
+    }
+    if (kind === "EXPERIMENT") {
+      return {
+        ...common,
+        kind,
+        question: "Does the method improve the baseline?",
+        baseline: "Current bounded baseline",
+        measureNames: ["quality"],
+      };
+    }
+    return {
+      ...common,
+      kind,
+      description: "Run a bounded comparison.",
+      proposedAssigneeId: ids.owner,
+      acceptanceConditions: ["Record baseline and result."],
+    };
+  });
+}
+
 function protector() {
   return {
     seal: vi.fn(async (value: string) => ({
@@ -223,7 +263,11 @@ function protector() {
   };
 }
 
-function harness(input?: { deny?: boolean; retrievalState?: "RETRIEVED" | "PARTIAL" | "BLOCKED" }) {
+function harness(input?: {
+  deny?: boolean;
+  retrievalState?: "RETRIEVED" | "PARTIAL" | "BLOCKED";
+  proposalKinds?: readonly ("RESEARCH" | "EXPERIMENT" | "WORK_ITEM")[];
+}) {
   const privateProtector = protector();
   const callOrder: string[] = [];
   const authorizer = {
@@ -290,12 +334,15 @@ function harness(input?: { deny?: boolean; retrievalState?: "RETRIEVED" | "PARTI
     reviewSource: vi.fn(
       async (
         _command: unknown,
-        persist: (transaction: unknown, output: typeof aiOutput) => Promise<unknown>,
+        persist: (transaction: unknown, output: ReviewOutput) => Promise<unknown>,
       ) => {
         callOrder.push("ai");
         const generated = {
           ...aiOutput,
-          proposals: aiOutput.proposals.map((proposal) => ({
+          proposals: (input?.proposalKinds === undefined
+            ? aiOutput.proposals
+            : proposalsForKinds(input.proposalKinds)
+          ).map((proposal) => ({
             ...proposal,
             id: crypto.randomUUID(),
           })),
@@ -353,6 +400,37 @@ function harness(input?: { deny?: boolean; retrievalState?: "RETRIEVED" | "PARTI
 }
 
 describe("ResearchSourceReviewService", () => {
+  it("lets only one concurrent starter retrieve and run AI while both receive the winner", async () => {
+    const fixture = harness();
+    let releaseRetrieval!: () => void;
+    const retrievalGate = new Promise<void>((resolve) => {
+      releaseRetrieval = resolve;
+    });
+    const baseRetrieve = fixture.retriever.retrieve.getMockImplementation()!;
+    fixture.retriever.retrieve.mockImplementation(async (...args) => {
+      await retrievalGate;
+      return baseRetrieve(...args);
+    });
+    const command = {
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL" as const, url: "https://example.com/concurrent-paper" },
+      correlationId: crypto.randomUUID(),
+    };
+
+    const first = fixture.service.start(command);
+    await waitUntil(() => fixture.retriever.retrieve.mock.calls.length === 1);
+    const second = fixture.service.start({ ...command, correlationId: crypto.randomUUID() });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    releaseRetrieval();
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(secondResult).toEqual(firstResult);
+    expect(fixture.retriever.retrieve).toHaveBeenCalledTimes(1);
+    expect(fixture.assistant.reviewSource).toHaveBeenCalledTimes(1);
+  });
+
   it("replays an identical start without retrieving or running AI again", async () => {
     const fixture = harness();
     const command = {
@@ -453,6 +531,82 @@ describe("ResearchSourceReviewService", () => {
     expect(fixture.privateProtector.open).not.toHaveBeenCalled();
   });
 
+  it("reads an exact immutable private revision only after owner and current-scope checks", async () => {
+    const fixture = harness();
+    const created = await fixture.service.start({
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL", url: "https://example.com/history-paper" },
+      correlationId: crypto.randomUUID(),
+    });
+    fixture.retriever.retrieve.mockResolvedValue({
+      ...(await fixture.retriever.retrieve()),
+      contentFingerprintSha256: "5".repeat(64),
+      text: "new revision text",
+    });
+    await fixture.service.reanalyze({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      expectedVersion: created.version,
+      correlationId: crypto.randomUUID(),
+    });
+
+    const historical = await fixture.service.getPrivateRevision({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      revision: 1,
+    });
+
+    expect(historical).toMatchObject({
+      revision: 1,
+      retrievalState: "RETRIEVED",
+      retrievedContent: { text: "retrieved source plaintext" },
+      output: { summary: "The retrieved source describes a bounded comparison." },
+    });
+  });
+
+  it("never decrypts historical revisions for outsiders, revoked owners, or unknown revisions", async () => {
+    const fixture = harness();
+    const created = await fixture.service.start({
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL", url: "https://example.com/private-history" },
+      correlationId: crypto.randomUUID(),
+    });
+    fixture.privateProtector.open.mockClear();
+
+    await expect(
+      fixture.service.getPrivateRevision({
+        actor: { userId: ids.other, active: true },
+        reviewId: created.id,
+        revision: 1,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_FORBIDDEN" });
+    expect(fixture.privateProtector.open).not.toHaveBeenCalled();
+
+    fixture.authorizer.authorize.mockRejectedValueOnce(
+      Object.assign(new Error("forbidden"), { code: "RESEARCH_SCOPE_FORBIDDEN" }),
+    );
+    await expect(
+      fixture.service.getPrivateRevision({
+        actor: { userId: ids.owner, active: true },
+        reviewId: created.id,
+        revision: 1,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SCOPE_FORBIDDEN" });
+    expect(fixture.privateProtector.open).not.toHaveBeenCalled();
+
+    await expect(
+      fixture.service.getPrivateRevision({
+        actor: { userId: ids.owner, active: true },
+        reviewId: created.id,
+        revision: 999,
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_REVISION_NOT_FOUND" });
+  });
+
   it("confirms only named proposals after reauthorization and preserves rejected proposals", async () => {
     const fixture = harness();
     const created = await fixture.service.start({
@@ -492,6 +646,143 @@ describe("ResearchSourceReviewService", () => {
         },
       }),
     ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_VERSION_CONFLICT" });
+  });
+
+  it("edits all proposal kinds through append-only successors and confirms successor IDs only", async () => {
+    const fixture = harness({ proposalKinds: ["RESEARCH", "EXPERIMENT", "WORK_ITEM"] });
+    const created = await fixture.service.start({
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL", url: "https://example.com/editable-proposals" },
+      correlationId: crypto.randomUUID(),
+    });
+    const successors: string[] = [];
+
+    for (const proposal of created.output!.proposals) {
+      const oldRow = await client.researchProposal.findUniqueOrThrow({
+        where: { id: proposal.id },
+      });
+      const replacement = {
+        ...proposal,
+        id: crypto.randomUUID(),
+        title: `${proposal.title} — employee edit`,
+      };
+      const edited = await fixture.service.editProposal({
+        actor: { userId: ids.owner, active: true },
+        reviewId: created.id,
+        proposalId: proposal.id,
+        expectedProposalVersion: 1,
+        reason: `Edit the ${proposal.kind} draft.`,
+        replacement,
+        correlationId: crypto.randomUUID(),
+      });
+      const preserved = await client.researchProposal.findUniqueOrThrow({
+        where: { id: proposal.id },
+      });
+
+      expect(edited).toMatchObject({
+        proposalId: replacement.id,
+        proposalVersion: 2,
+        predecessorProposalId: proposal.id,
+        proposal: replacement,
+      });
+      expect(preserved).toMatchObject({ state: "DISMISSED", content: oldRow.content });
+      successors.push(edited.proposalId);
+    }
+
+    await expect(
+      fixture.service.editProposal({
+        actor: { userId: ids.owner, active: true },
+        reviewId: created.id,
+        proposalId: created.output!.proposals[0]!.id,
+        expectedProposalVersion: 1,
+        reason: "A stale edit must conflict.",
+        replacement: {
+          ...created.output!.proposals[0]!,
+          id: crypto.randomUUID(),
+          title: "Stale replacement",
+        },
+        correlationId: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_PROPOSAL_VERSION_CONFLICT" });
+
+    const confirmed = await fixture.service.confirmDisposition({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      correlationId: crypto.randomUUID(),
+      input: {
+        expectedVersion: created.version,
+        disposition: "CONFIRM",
+        reason: "Confirm only the edited successors.",
+        proposalIds: successors,
+      },
+    });
+    expect(confirmed.state).toBe("CONFIRMED");
+  });
+
+  it("confirms with no selected proposal and preserves the employee reason in private history", async () => {
+    const fixture = harness();
+    const created = await fixture.service.start({
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL", url: "https://example.com/retain-private" },
+      correlationId: crypto.randomUUID(),
+    });
+    const beforeWorkItems = await client.workItem.count({ where: { projectId: ids.project } });
+    const reason = "Keep the reviewed finding private without promoting any draft.";
+
+    const confirmed = await fixture.service.confirmDisposition({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      correlationId: crypto.randomUUID(),
+      input: {
+        expectedVersion: created.version,
+        disposition: "CONFIRM",
+        reason,
+        proposalIds: [],
+      },
+    });
+    const disposition = await fixture.service.getPrivateRevision({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      revision: 2,
+    });
+
+    expect(confirmed.state).toBe("CONFIRMED");
+    expect(disposition.disposition).toEqual({ kind: "CONFIRM", reason });
+    expect(await client.workItem.count({ where: { projectId: ids.project } })).toBe(
+      beforeWorkItems,
+    );
+  });
+
+  it("dismisses while preserving the employee reason in an append-only private revision", async () => {
+    const fixture = harness();
+    const created = await fixture.service.start({
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL", url: "https://example.com/dismiss-private" },
+      correlationId: crypto.randomUUID(),
+    });
+    const reason = "The source does not fit the current Project constraints.";
+
+    const dismissed = await fixture.service.dismiss({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      expectedVersion: created.version,
+      reason,
+      correlationId: crypto.randomUUID(),
+    });
+    const disposition = await fixture.service.getPrivateRevision({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      revision: 2,
+    });
+
+    expect(dismissed.state).toBe("DISMISSED");
+    expect(disposition.disposition).toEqual({ kind: "DISMISS", reason });
   });
 
   it("pins changed source and Project fingerprints in new immutable re-analysis revisions", async () => {
@@ -536,4 +827,142 @@ describe("ResearchSourceReviewService", () => {
       projectContextFingerprint: "8".repeat(64),
     });
   });
+
+  it("keeps the previous review usable when candidate analysis fails and permits a clean retry", async () => {
+    const fixture = harness();
+    const created = await fixture.service.start({
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL", url: "https://example.com/atomic-paper" },
+      correlationId: crypto.randomUUID(),
+    });
+    fixture.retriever.retrieve.mockResolvedValue({
+      ...(await fixture.retriever.retrieve()),
+      contentFingerprintSha256: "7".repeat(64),
+      text: "changed source that must be analyzed before persistence",
+    });
+    fixture.assistant.reviewSource.mockRejectedValueOnce(
+      Object.assign(new Error("AI unavailable"), { code: "RESEARCH_AI_ASSISTANCE_UNAVAILABLE" }),
+    );
+
+    await expect(
+      fixture.service.reanalyze({
+        actor: { userId: ids.owner, active: true },
+        reviewId: created.id,
+        expectedVersion: created.version,
+        correlationId: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_AI_ASSISTANCE_UNAVAILABLE" });
+    const afterFailure = await client.researchSourceReview.findUniqueOrThrow({
+      where: { id: created.id },
+      include: { revisions: true },
+    });
+    expect(afterFailure).toMatchObject({
+      state: "READY_FOR_REVIEW",
+      version: created.version,
+      currentRevision: 1,
+    });
+    expect(afterFailure.revisions).toHaveLength(1);
+
+    const retried = await fixture.service.reanalyze({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      expectedVersion: created.version,
+      correlationId: crypto.randomUUID(),
+    });
+    expect(retried).toMatchObject({ state: "READY_FOR_REVIEW", version: created.version + 2 });
+  });
+
+  it("recovers a legacy STALE row even when its pinned fingerprints already match", async () => {
+    const fixture = harness();
+    const created = await fixture.service.start({
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL", url: "https://example.com/legacy-stale" },
+      correlationId: crypto.randomUUID(),
+    });
+    const legacyStale = await new ResearchSourceReviewPersistence(client).appendStale({
+      reviewId: created.id,
+      ownerId: ids.owner,
+      expectedVersion: created.version,
+      displayUrl: "https://example.com/legacy-stale",
+      contentFingerprint: "a".repeat(64),
+      projectContextFingerprint: "c".repeat(64),
+      actorId: ids.owner,
+      createdAt: at,
+    });
+
+    const recovered = await fixture.service.reanalyze({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      expectedVersion: legacyStale.version,
+      correlationId: crypto.randomUUID(),
+    });
+    const revisions = await client.researchSourceReviewRevision.findMany({
+      where: { reviewId: created.id },
+      orderBy: { revision: "asc" },
+    });
+
+    expect(recovered).toMatchObject({
+      state: "READY_FOR_REVIEW",
+      version: legacyStale.version + 1,
+    });
+    expect(revisions.map(({ retrievalState }) => retrievalState)).toEqual([
+      "RETRIEVED",
+      "STALE",
+      "RETRIEVED",
+    ]);
+  });
+
+  it("supersedes prior draft proposals and rejects their IDs after re-analysis", async () => {
+    const fixture = harness();
+    const created = await fixture.service.start({
+      actor: { userId: ids.owner, active: true },
+      scope,
+      idempotencyKey: crypto.randomUUID(),
+      source: { kind: "URL", url: "https://example.com/superseded-paper" },
+      correlationId: crypto.randomUUID(),
+    });
+    const oldProposalId = created.output!.proposals[0]!.id;
+    fixture.retriever.retrieve.mockResolvedValue({
+      ...(await fixture.retriever.retrieve()),
+      contentFingerprintSha256: "6".repeat(64),
+      text: "changed source with a replacement proposal",
+    });
+
+    const updated = await fixture.service.reanalyze({
+      actor: { userId: ids.owner, active: true },
+      reviewId: created.id,
+      expectedVersion: created.version,
+      correlationId: crypto.randomUUID(),
+    });
+    const oldProposal = await client.researchProposal.findUniqueOrThrow({
+      where: { id: oldProposalId },
+    });
+
+    expect(oldProposal.state).toBe("DISMISSED");
+    await expect(
+      fixture.service.confirmDisposition({
+        actor: { userId: ids.owner, active: true },
+        reviewId: created.id,
+        correlationId: crypto.randomUUID(),
+        input: {
+          expectedVersion: updated.version,
+          disposition: "CONFIRM",
+          reason: "A stale proposal must not be eligible.",
+          proposalIds: [oldProposalId],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "RESEARCH_SOURCE_REVIEW_PROPOSAL_INVALID" });
+  });
 });
+
+async function waitUntil(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  throw new Error("Timed out waiting for concurrent test condition.");
+}
