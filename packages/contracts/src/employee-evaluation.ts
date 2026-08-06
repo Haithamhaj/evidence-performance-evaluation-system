@@ -358,12 +358,8 @@ export type AddEvaluationDiscussionEntryInput = z.infer<
   typeof AddEvaluationDiscussionEntryInputSchema
 >;
 export type FinalEvaluationEntry = z.infer<typeof FinalEvaluationEntrySchema>;
-export type FinalizeEmployeeEvaluationInput = z.infer<
-  typeof FinalizeEmployeeEvaluationInputSchema
->;
-export type EvaluationAcknowledgmentInput = z.infer<
-  typeof EvaluationAcknowledgmentInputSchema
->;
+export type FinalizeEmployeeEvaluationInput = z.infer<typeof FinalizeEmployeeEvaluationInputSchema>;
+export type EvaluationAcknowledgmentInput = z.infer<typeof EvaluationAcknowledgmentInputSchema>;
 export type CloseEmployeeEvaluationCycleInput = z.infer<
   typeof CloseEmployeeEvaluationCycleInputSchema
 >;
