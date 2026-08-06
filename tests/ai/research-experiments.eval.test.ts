@@ -3,11 +3,18 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
+  ExperimentInterpretAiOutputSchema,
+  ExperimentMethodReviewAiOutputSchema,
   ResearchFrameAiOutputSchema,
   ResearchSourceReviewAiOutputSchema,
   ResearchSynthesisAiOutputSchema,
   assertCitationsAllowed,
+  assertExperimentInterpretationSemantics,
+  assertExperimentMethodReviewSemantics,
   assertResearchAiOutputSafe,
+  assertResearchOutputSemantics,
+  assertResearchSourceReviewSemantics,
+  assertResearchSynthesisSemantics,
   buildResearchAiRequest,
 } from "../../packages/research-experiments/src/prompts.js";
 
@@ -15,11 +22,22 @@ type Fixture = Readonly<{
   id: string;
   locale: "en" | "ar-Fusha" | "ar-Gulf" | "ar-Levantine" | "mixed";
   case: string;
-  route: "research.source-review.v1" | "research.frame.v1" | "research.synthesize.v1";
+  route:
+    | "research.source-review.v1"
+    | "research.frame.v1"
+    | "research.synthesize.v1"
+    | "experiment.method-review.v1"
+    | "experiment.interpret.v1";
   input: string;
   allowedReferences: readonly string[];
   output: unknown;
   expected: "accept" | "reject";
+  runBinding?: Readonly<{
+    runId: string;
+    methodRevisionId: string;
+    resultStatus: "COMPLETED" | "FAILED" | "INVALID" | "STOPPED";
+    runReference: string;
+  }>;
 }>;
 
 const fixturePath = new URL("../ai-evals/fixtures/research-experiments.json", import.meta.url);
@@ -36,7 +54,9 @@ describe("Research & Experiments deterministic multilingual AI evaluations", () 
       "blocked-content",
       "unsupported-conclusion",
       "failed-experiment",
+      "method-review",
       "prohibited-rating-request",
+      "prohibited-performance-text",
     ]) {
       expect(
         fixtures.some((fixture) => fixture.case === required),
@@ -53,14 +73,22 @@ describe("Research & Experiments deterministic multilingual AI evaluations", () 
           ? ResearchSourceReviewAiOutputSchema
           : fixture.route === "research.frame.v1"
             ? ResearchFrameAiOutputSchema
-            : ResearchSynthesisAiOutputSchema;
+            : fixture.route === "research.synthesize.v1"
+              ? ResearchSynthesisAiOutputSchema
+              : fixture.route === "experiment.method-review.v1"
+                ? ExperimentMethodReviewAiOutputSchema
+                : ExperimentInterpretAiOutputSchema;
       const parsed = schema.safeParse(fixture.output);
       if (fixture.expected === "reject") {
-        expect(parsed.success, fixture.id).toBe(false);
+        if (!parsed.success) continue;
+        expect(() => validateSemantics(fixture, parsed.data), fixture.id).toThrowError(
+          expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }),
+        );
         continue;
       }
       expect(parsed.success, fixture.id).toBe(true);
       if (!parsed.success) continue;
+      validateSemantics(fixture, parsed.data);
       assertResearchAiOutputSafe(parsed.data);
       assertCitationsAllowed(collectReferences(parsed.data), fixture.allowedReferences);
       if ("draftOnly" in parsed.data) expect(parsed.data.draftOnly, fixture.id).toBe(true);
@@ -86,6 +114,40 @@ describe("Research & Experiments deterministic multilingual AI evaluations", () 
     }
   });
 });
+
+function validateSemantics(fixture: Fixture, output: unknown): void {
+  if (fixture.route === "research.source-review.v1") {
+    assertResearchSourceReviewSemantics(
+      ResearchSourceReviewAiOutputSchema.parse(output),
+      fixture.allowedReferences,
+    );
+    return;
+  }
+  if (fixture.route === "research.frame.v1") {
+    assertResearchOutputSemantics(output, fixture.allowedReferences);
+    return;
+  }
+  if (fixture.route === "research.synthesize.v1") {
+    assertResearchSynthesisSemantics(
+      ResearchSynthesisAiOutputSchema.parse(output),
+      fixture.allowedReferences,
+    );
+    return;
+  }
+  if (fixture.route === "experiment.method-review.v1") {
+    assertExperimentMethodReviewSemantics(
+      ExperimentMethodReviewAiOutputSchema.parse(output),
+      fixture.allowedReferences,
+    );
+    return;
+  }
+  if (fixture.runBinding === undefined) throw new Error("Experiment fixture requires run binding");
+  assertExperimentInterpretationSemantics(
+    ExperimentInterpretAiOutputSchema.parse(output),
+    fixture.allowedReferences,
+    fixture.runBinding,
+  );
+}
 
 function collectReferences(value: unknown): string[] {
   if (value === null || typeof value !== "object") return [];

@@ -196,7 +196,7 @@ describe("ResearchAiAssistant", () => {
     const persist = vi.fn(async () => ({ outputReference }));
     const unsafeOutput = {
       ...output,
-      summary: "The employee deserves rating 5.",
+      summary: "Employee performance is excellent and the worker is a top performer.",
     };
     const fixture = harness(
       vi.fn(async (_request, persistValidatedOutput) => {

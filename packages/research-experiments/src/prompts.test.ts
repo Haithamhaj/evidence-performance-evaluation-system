@@ -9,11 +9,14 @@ import {
   RESEARCH_SOURCE_REVIEW_ROUTE,
   RESEARCH_SYNTHESIZE_ROUTE,
   ResearchFrameAiOutputSchema,
+  ResearchSourceReviewAiOutputSchema,
   ResearchSynthesisAiOutputSchema,
   assertCitationsAllowed,
   assertExperimentInterpretationSemantics,
   assertExperimentMethodReviewSemantics,
   assertResearchAiOutputSafe,
+  assertResearchSourceReviewSemantics,
+  assertResearchSynthesisSemantics,
   buildResearchAiRequest,
 } from "./prompts.js";
 
@@ -185,4 +188,260 @@ describe("Research & Experiments governed prompts", () => {
       );
     },
   );
+
+  it.each([
+    {
+      route: RESEARCH_SOURCE_REVIEW_ROUTE,
+      output: () => ({ ...sourceReviewOutput(), benefits: ["Employee performance is excellent."] }),
+    },
+    {
+      route: RESEARCH_FRAME_ROUTE,
+      output: () => ({
+        ...frameOutput(),
+        hypothesis: { kind: "TESTABLE", statement: "This employee is the top performer." },
+      }),
+    },
+    {
+      route: RESEARCH_SYNTHESIZE_ROUTE,
+      output: () => ({
+        ...synthesisOutput(),
+        supportedFindings: [
+          {
+            claim: "The employee has a productivity score of 95.",
+            sourceReferences: [refs.source],
+          },
+        ],
+      }),
+    },
+    {
+      route: EXPERIMENT_METHOD_REVIEW_ROUTE,
+      output: () => ({
+        ...methodReviewOutput(),
+        nextQuestion: "Should the employee receive a 5/5 rating?",
+      }),
+    },
+    {
+      route: EXPERIMENT_INTERPRET_ROUTE,
+      output: () => ({
+        ...interpretOutput(),
+        possibleDecisionPaths: ["Rank the employee first with performance score 95."],
+      }),
+    },
+  ])("rejects prohibited judgment text nested in $route output", ({ output }) => {
+    expect(() => assertResearchAiOutputSafe(output())).toThrowError(
+      expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }),
+    );
+  });
+
+  it.each([
+    "أداء الموظف ممتاز",
+    "تقييم الموظف ٥ من ٥",
+    "ترتيب الموظفة الأولى",
+    "درجة الإنتاجية ٩٥",
+    "The worker is a top performer.",
+    "Employee performance score: 95.",
+  ])("rejects normalized Arabic/English performance judgment: %s", (judgment) => {
+    expect(() =>
+      assertResearchAiOutputSafe({ nested: { values: ["safe", judgment] } }),
+    ).toThrowError(expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }));
+  });
+
+  it.each([
+    ["observations", "The design appears scientifically valid."],
+    ["missingElements", "The experiment has been validated."],
+    ["uncertainties", "The method is proven."],
+    ["nextQuestion", "Since the design is valid, should we proceed?"],
+  ] as const)("rejects automatic method-validity wording in %s", (field, text) => {
+    const base = methodReviewOutput();
+    const candidate =
+      field === "nextQuestion" ? { ...base, nextQuestion: text } : { ...base, [field]: [text] };
+    expect(() => assertExperimentMethodReviewSemantics(candidate, [refs.source])).toThrowError(
+      expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }),
+    );
+  });
+
+  it("preserves legitimate uncertainty about missing method-validity evidence", () => {
+    const output = {
+      ...methodReviewOutput(),
+      missingElements: ["Evidence needed to assess method validity is missing."],
+      uncertainties: ["It is not possible to determine whether the design is valid."],
+    };
+    expect(() => assertExperimentMethodReviewSemantics(output, [refs.source])).not.toThrow();
+  });
+
+  it.each([
+    ["summary", "The failed run proves the hypothesis."],
+    ["observations", "The failed run demonstrates a positive Project outcome."],
+    ["limitations", "The invalid run confirmed Project benefit."],
+    ["possibleDecisionPaths", "Proceed as confirmed and deploy."],
+    ["uncertainties", "The stopped run was successful."],
+  ] as const)("rejects unsupported non-completed run conclusion in %s", (field, text) => {
+    const base = interpretOutput();
+    const candidate =
+      field === "observations"
+        ? {
+            ...base,
+            observations: [
+              { measureStableId: "latency_ms", finding: text, sourceReferences: [refs.run] },
+            ],
+          }
+        : {
+            ...base,
+            [field]: ["limitations", "possibleDecisionPaths", "uncertainties"].includes(field)
+              ? [text]
+              : text,
+          };
+    expect(() =>
+      assertExperimentInterpretationSemantics(candidate, [refs.run], {
+        runId: candidate.runId,
+        methodRevisionId: candidate.methodRevisionId,
+        resultStatus: candidate.resultStatus,
+        runReference: refs.run,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }));
+  });
+
+  it.each(["FAILED", "INVALID", "STOPPED"] as const)(
+    "never treats %s as a supported positive conclusion",
+    (resultStatus) => {
+      const output = {
+        ...interpretOutput(),
+        resultStatus,
+        possibleDecisionPaths: ["Proceed because the positive result is proven."],
+      };
+      expect(() =>
+        assertExperimentInterpretationSemantics(output, [refs.run], {
+          runId: output.runId,
+          methodRevisionId: output.methodRevisionId,
+          resultStatus,
+          runReference: refs.run,
+        }),
+      ).toThrowError(expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }));
+    },
+  );
+
+  it("rejects unsupported definitive Project benefit in a source review", () => {
+    const output = {
+      ...sourceReviewOutput(),
+      relevance: "This source proves a 30% Project benefit.",
+    };
+    expect(() => assertResearchSourceReviewSemantics(output, [refs.source])).toThrowError(
+      expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }),
+    );
+    expect(() =>
+      assertResearchSourceReviewSemantics(
+        {
+          ...sourceReviewOutput(),
+          relevance:
+            "The source reports 30% in its own setting; Project benefit has not been demonstrated.",
+        },
+        [refs.source],
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects an unsupported definitive conclusion outside cited synthesis findings", () => {
+    expect(() =>
+      assertResearchSynthesisSemantics(
+        { ...synthesisOutput(), comparison: "The source guarantees Project benefit." },
+        [refs.source],
+      ),
+    ).toThrowError(expect.objectContaining({ code: "RESEARCH_AI_OUTPUT_INVALID" }));
+    expect(() =>
+      assertResearchSynthesisSemantics(
+        {
+          ...synthesisOutput(),
+          supportedFindings: [
+            {
+              claim: "The confirmed Project measurement shows a 30% latency reduction.",
+              sourceReferences: [refs.source],
+            },
+          ],
+        },
+        [refs.source],
+      ),
+    ).not.toThrow();
+  });
 });
+
+function sourceReviewOutput() {
+  return ResearchSourceReviewAiOutputSchema.parse({
+    schemaVersion: "research-source-review-output.v1",
+    summary: "The source describes a bounded retrieval pattern.",
+    relevance: "It may be compared in a Project Experiment.",
+    citations: [{ sourceReference: refs.source, locator: "README" }],
+    benefits: ["It could provide an alternative to compare."],
+    risks: ["Source conditions differ from the Project."],
+    mismatches: [],
+    uncertainties: ["Project benefit has not been demonstrated."],
+    disposition: "DRAFT_EXPERIMENT",
+    proposals: [],
+  });
+}
+
+function frameOutput() {
+  return ResearchFrameAiOutputSchema.parse({
+    schemaVersion: "research-frame-output.v1",
+    problemStatement: "Retrieval latency is inconsistent.",
+    context: "The Project needs predictable retrieval.",
+    question: "Which bounded approach is stable?",
+    objective: "Compare two approaches.",
+    hypothesis: { kind: "NO_HYPOTHESIS", reason: "Exploratory framing." },
+    assumptions: [],
+    constraints: ["Use approved inputs."],
+    knownUncertainty: ["Production transfer is unknown."],
+    alternatives: ["Keep the baseline."],
+    decisionQuestion: "Should an Experiment be prepared?",
+    sourceReferences: [refs.source],
+    nextQuestion: null,
+    draftOnly: true,
+    requiresHumanApproval: true,
+  });
+}
+
+function synthesisOutput() {
+  return ResearchSynthesisAiOutputSchema.parse({
+    schemaVersion: "research-synthesis-output.v1",
+    comparison: "The cited sources use different conditions.",
+    supportedFindings: [
+      { claim: "One source uses a bounded input.", sourceReferences: [refs.source] },
+    ],
+    unsupportedClaims: ["Project benefit has not been demonstrated."],
+    missingAlternatives: ["The current baseline is missing."],
+    remainingUncertainty: ["Transfer remains unknown."],
+    possibleDecisionPaths: ["Prepare a bounded Experiment."],
+    sourceReferences: [refs.source],
+    draftOnly: true,
+    requiresHumanApproval: true,
+  });
+}
+
+function methodReviewOutput() {
+  return ExperimentMethodReviewAiOutputSchema.parse({
+    schemaVersion: "experiment-method-review-output.v1",
+    missingElements: ["Comparison target is missing."],
+    observations: ["One measure is named."],
+    uncertainties: ["Dataset coverage is unknown."],
+    sourceReferences: [refs.source],
+    nextQuestion: "What target should remain constant?",
+    draftOnly: true,
+    requiresHumanApproval: true,
+  });
+}
+
+function interpretOutput() {
+  return ExperimentInterpretAiOutputSchema.parse({
+    schemaVersion: "experiment-interpret-output.v1",
+    runId: "22222222-2222-4222-8222-222222222222",
+    methodRevisionId: "33333333-3333-4333-8333-333333333333",
+    resultStatus: "FAILED",
+    summary: "The run failed before the intended observation.",
+    observations: [],
+    limitations: ["No outcome can be inferred."],
+    possibleDecisionPaths: ["Correct the environment and record a new run."],
+    uncertainties: ["The failure cause is unknown."],
+    sourceReferences: [refs.run],
+    draftOnly: true,
+    requiresHumanApproval: true,
+  });
+}

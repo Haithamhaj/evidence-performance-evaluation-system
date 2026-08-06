@@ -13,6 +13,8 @@ import {
   assertExperimentInterpretationSemantics,
   assertExperimentMethodReviewSemantics,
   assertResearchOutputSemantics,
+  assertResearchSourceReviewSemantics,
+  assertResearchSynthesisSemantics,
   buildResearchAiRequest,
 } from "./prompts.js";
 
@@ -118,7 +120,7 @@ export class ResearchAiAssistant<TTransaction = unknown> {
       );
     }
     return this.run(RESEARCH_SOURCE_REVIEW_ROUTE, command, persist, (output, references) => {
-      assertResearchOutputSemantics(output, references);
+      assertResearchSourceReviewSemantics(output, references);
       if (command.payload.retrievalState === "PARTIAL" && output.uncertainties.length === 0) {
         throw invalidOutput();
       }
@@ -147,17 +149,7 @@ export class ResearchAiAssistant<TTransaction = unknown> {
       TTransaction
     >,
   ): Promise<GovernedResearchAiResult<import("./prompts.js").ResearchSynthesisAiOutput>> {
-    return this.run(RESEARCH_SYNTHESIZE_ROUTE, command, persist, (output, references) => {
-      assertResearchOutputSemantics(output, references);
-      const topLevel = new Set(output.sourceReferences);
-      if (
-        output.supportedFindings.some(({ sourceReferences }) =>
-          sourceReferences.some((reference) => !topLevel.has(reference)),
-        )
-      ) {
-        throw invalidOutput();
-      }
-    });
+    return this.run(RESEARCH_SYNTHESIZE_ROUTE, command, persist, assertResearchSynthesisSemantics);
   }
 
   async reviewExperimentMethod(

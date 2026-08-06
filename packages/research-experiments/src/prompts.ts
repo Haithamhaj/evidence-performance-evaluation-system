@@ -341,7 +341,7 @@ export function assertResearchAiOutputSafe(output: unknown): void {
   ]);
   if (
     entries.some(({ key }) => prohibitedKeys.has(key.replace(/[^a-z]/giu, "").toLowerCase())) ||
-    entries.some(({ value }) => typeof value === "string" && containsProhibitedJudgment(value))
+    collectStrings(output).some(containsProhibitedJudgment)
   ) {
     throw invalidOutput();
   }
@@ -355,18 +355,60 @@ export function assertResearchOutputSemantics(
   assertCitationsAllowed(collectReferences(output), allowedReferences);
 }
 
+export function assertResearchSourceReviewSemantics(
+  output: z.infer<typeof ResearchSourceReviewAiOutputSchema>,
+  allowedReferences: readonly string[],
+): void {
+  assertResearchOutputSemantics(output, allowedReferences);
+  const uncitedClaims = [
+    output.summary,
+    output.relevance,
+    ...output.benefits,
+    ...output.risks,
+    ...output.mismatches,
+    ...output.uncertainties,
+    ...output.proposals.flatMap(({ rationale }) => [rationale]),
+  ];
+  if (uncitedClaims.some(containsUnsupportedDefinitiveProjectClaim)) throw invalidOutput();
+}
+
+export function assertResearchSynthesisSemantics(
+  output: z.infer<typeof ResearchSynthesisAiOutputSchema>,
+  allowedReferences: readonly string[],
+): void {
+  assertResearchOutputSemantics(output, allowedReferences);
+  const topLevel = new Set(output.sourceReferences);
+  if (
+    output.supportedFindings.some(({ sourceReferences }) =>
+      sourceReferences.some((reference) => !topLevel.has(reference)),
+    )
+  ) {
+    throw invalidOutput();
+  }
+  const unsupportedConclusionFields = [
+    output.comparison,
+    ...output.unsupportedClaims,
+    ...output.missingAlternatives,
+    ...output.remainingUncertainty,
+    ...output.possibleDecisionPaths,
+  ];
+  if (unsupportedConclusionFields.some(containsUnsupportedDefinitiveProjectClaim)) {
+    throw invalidOutput();
+  }
+}
+
 export function assertExperimentMethodReviewSemantics(
   output: z.infer<typeof ExperimentMethodReviewAiOutputSchema>,
   allowedReferences: readonly string[],
 ): void {
   assertResearchOutputSemantics(output, allowedReferences);
-  if (
-    output.observations.some((value) =>
-      /\b(?:method|experiment)\s+is\s+(?:valid|approved|scientifically sound|ready|guaranteed)\b/iu.test(
-        value,
-      ),
-    )
-  ) {
+  const reviewStatements = [
+    ...output.observations,
+    ...output.missingElements,
+    ...output.uncertainties,
+    ...(output.nextQuestion === null ? [] : [output.nextQuestion]),
+  ];
+  if (reviewStatements.some(containsAutomaticValidityClaim)) {
     throw invalidOutput();
   }
 }
@@ -392,9 +434,13 @@ export function assertExperimentInterpretationSemantics(
   }
   if (
     expected.resultStatus !== "COMPLETED" &&
-    /\b(?:confirms?|confirmed|proves?|proven|supports? the hypothesis)\b/iu.test(
-      [output.summary, ...output.observations.map(({ finding }) => finding)].join(" "),
-    )
+    [
+      output.summary,
+      ...output.observations.map(({ finding }) => finding),
+      ...output.limitations,
+      ...output.possibleDecisionPaths,
+      ...output.uncertainties,
+    ].some(containsUnsupportedPositiveRunConclusion)
   ) {
     throw invalidOutput();
   }
@@ -426,21 +472,124 @@ function collectEntries(
   ]);
 }
 
+function collectStrings(value: unknown, seen = new WeakSet<object>()): string[] {
+  if (typeof value === "string") return [value];
+  if (value === null || typeof value !== "object" || seen.has(value)) return [];
+  seen.add(value);
+  if (Array.isArray(value)) return value.flatMap((item) => collectStrings(item, seen));
+  return Object.values(value).flatMap((child) => collectStrings(child, seen));
+}
+
 function containsProhibitedJudgment(value: string): boolean {
-  const normalized = value
+  const normalized = normalizeSemanticText(value);
+  return [
+    /\b(?:suggested|recommended|predicted|performance|employee|manager)\s+(?:rating|grade)\b/iu,
+    /\b(?:rating|grade)\s*(?:of\s+|is\s+|[:=]\s*)?[1-5](?:\s*(?:\/|out\s+of)\s*5)?\b/iu,
+    /\b(?:[1-5]\s*(?:\/|out\s+of)\s*5|five\s+out\s+of\s+five)\b.{0,40}\b(?:rating|employee|worker|performance)\b|\b(?:rating|employee|worker|performance)\b.{0,40}\b(?:[1-5]\s*(?:\/|out\s+of)\s*5|five\s+out\s+of\s+five)\b/iu,
+    /\b(?:employee|worker|manager)?\s*(?:rank|ranking|leaderboard)\b/iu,
+    /\bproductivity\s+(?:score|grade|index|rating|ranking)\b/iu,
+    /\b(?:employee|worker)\s+performance\b.{0,40}\b(?:excellent|exceptional|outstanding|poor|weak|strong|high|low|score|grade|rating)\b/iu,
+    /\b(?:employee|worker)\s+(?:is|was|seems|deserves|ranks? as)\s+(?:(?:an?|the)\s+)?(?:excellent|exceptional|outstanding|poor|weak|strong|high-performing|low-performing|top performer|top score)\b/iu,
+    /\bperformance\s+(?:score|grade|rating|index)\b(?:\s*(?::|is|of|=)?\s*\d+(?:\.\d+)?)?/iu,
+    /\bprogress[\s_-]*percent(?:age)?\b/iu,
+    /(?:تقييم|درجة).{0,24}(?:الموظف|الموظفة|الاداء)|(?:الموظف|الموظفة|الاداء).{0,24}(?:تقييم|درجة)/iu,
+    /(?:ترتيب|رتبة).{0,20}(?:الموظف|الموظفة)/iu,
+    /(?:الموظف|الموظفة).{0,24}(?:الاول|الاولي|ممتاز|ممتازة|متفوق|متفوقة|ضعيف|ضعيفة|يستحق)/iu,
+    /(?:درجة|مؤشر|تقييم).{0,20}(?:الانتاجية|انتاجية)/iu,
+    /(?:تقييم|اداء|الموظف|الموظفة).{0,32}(?:[1-5]\s*(?:\/|من)\s*5|خمس\s+من\s+خمس)/iu,
+    /(?:نسبة|مئوية).{0,12}(?:التقدم|تقدم)/iu,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function containsAutomaticValidityClaim(value: string): boolean {
+  return semanticSegments(value).some(containsAutomaticValidityClaimSegment);
+}
+
+function containsAutomaticValidityClaimSegment(normalized: string): boolean {
+  if (
+    [
+      /\b(?:not|cannot|can't|unable|insufficient|missing|no)\b.{0,70}\b(?:valid|validity|validated|proven|scientifically sound)\b/iu,
+      /\b(?:evidence|information|data)\b.{0,50}\b(?:validity|valid|validation)\b.{0,40}\b(?:missing|insufficient|unknown|required|needed)\b/iu,
+      /\b(?:validity|valid|validation)\b.{0,50}\b(?:cannot|can't|not possible|unknown|uncertain|unverified|undetermined)\b/iu,
+      /(?:لا|لم|لن|غير|تعذر|لا يمكن).{0,70}(?:صالح|صالحة|مثبت|مثبتة|معتمد|معتمدة|صحيح|صحيحة)/iu,
+      /(?:دليل|ادلة|بيانات|معلومات).{0,50}(?:الصلاحية|الصحة).{0,40}(?:ناقص|ناقصة|مفقود|مفقودة|غير كاف)/iu,
+    ].some((pattern) => pattern.test(normalized))
+  ) {
+    return false;
+  }
+  return [
+    /\b(?:method|design|experiment)\b.{0,60}\b(?:appears?|seems?|is|was|has been|was)\b.{0,20}\b(?:scientifically\s+)?(?:valid|validated|proven|approved|ready|sound|guaranteed)\b/iu,
+    /\b(?:method|design|experiment)\b.{0,40}\b(?:validated|proven|approved|guaranteed)\b/iu,
+    /\b(?:validated|proven|approved|scientifically sound)\b.{0,40}\b(?:method|design|experiment)\b/iu,
+    /(?:الطريقة|المنهج|التصميم|التجربة).{0,40}(?:صالح|صالحة|مثبت|مثبتة|معتمد|معتمدة|صحيح|صحيحة|ناجح|ناجحة|مضمون|مضمونة)/iu,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function containsUnsupportedPositiveRunConclusion(value: string): boolean {
+  return semanticSegments(value).some(containsUnsupportedPositiveRunConclusionSegment);
+}
+
+function containsUnsupportedPositiveRunConclusionSegment(normalized: string): boolean {
+  if (
+    [
+      /\b(?:no|not|never|cannot|can't|did not|does not|without|insufficient|unable|unknown|unconfirmed)\b.{0,80}\b(?:confirm|confirmed|prove|proven|demonstrate|support|successful|success|positive result|project (?:benefit|outcome)|hypothesis)\b/iu,
+      /\b(?:confirm|prove|demonstrate|support)\b.{0,60}\b(?:cannot|can't|not possible|insufficient|unknown|uncertain|unconfirmed)\b/iu,
+      /(?:لا|لم|لن|غير|تعذر|لا يمكن).{0,80}(?:يثبت|مثبت|يؤكد|مؤكد|نجح|ناجح|فائدة|نتيجة ايجابية|الفرضية)/iu,
+    ].some((pattern) => pattern.test(normalized))
+  ) {
+    return false;
+  }
+  return [
+    /\b(?:run|result|experiment)\b.{0,60}\b(?:confirms?|confirmed|proves?|proven|demonstrates?|supports?|succeeded|successful|success)\b/iu,
+    /\b(?:confirms?|confirmed|proves?|proven|demonstrates?|supports?)\b.{0,60}\b(?:hypothesis|project (?:benefit|outcome)|positive (?:result|outcome))\b/iu,
+    /\b(?:hypothesis|project (?:benefit|outcome)|positive (?:result|outcome))\b.{0,60}\b(?:is|was|has been)?\s*(?:confirmed|proven|demonstrated|supported|successful)\b/iu,
+    /\bproceed\b.{0,40}\b(?:as|because|result|hypothesis)?\b.{0,20}\b(?:confirmed|proven|successful|success)\b/iu,
+    /(?:التجربة|التشغيل|النتيجة).{0,50}(?:يثبت|يؤكد|نجح|ناجح|مثبت|مؤكد)/iu,
+    /(?:يثبت|يؤكد|مثبت|مؤكد).{0,50}(?:الفرضية|فائدة المشروع|نتيجة المشروع|النتيجة الايجابية)/iu,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function containsUnsupportedDefinitiveProjectClaim(value: string): boolean {
+  return semanticSegments(value).some(containsUnsupportedDefinitiveProjectClaimSegment);
+}
+
+function containsUnsupportedDefinitiveProjectClaimSegment(normalized: string): boolean {
+  if (
+    [
+      /\b(?:may|might|could|can potentially|possible|potential|uncertain|unknown|requires? (?:an? )?(?:test|experiment)|reports?|reported|claims?|claimed)\b/iu,
+      /\b(?:not|never|cannot|can't|has not|have not|is not|was not)\b.{0,80}\b(?:demonstrated|proven|confirmed|guaranteed|project (?:benefit|outcome))\b/iu,
+      /(?:قد|ربما|محتمل|ممكن|يذكر|يشير|يدعي|غير مؤكد|غير معروف|يتطلب).{0,80}(?:فائدة|نتيجة|المشروع|نسبة)/iu,
+      /(?:لا|لم|لن|غير|تعذر|لا يمكن).{0,80}(?:يثبت|مثبت|يؤكد|مؤكد|يضمن|فائدة المشروع|نتيجة المشروع)/iu,
+    ].some((pattern) => pattern.test(normalized))
+  ) {
+    return false;
+  }
+  return [
+    /\b(?:source|paper|repository|approach|method)\b.{0,70}\b(?:proves?|confirms?|guarantees?|delivers?|achieves?|causes?)\b.{0,70}(?:\bproject\s+(?:benefit|outcome)\b|\b\d+(?:\.\d+)?\s*%)/iu,
+    /\b(?:source|paper|repository|approach|method)\b.{0,70}\b(?:proves?|confirms?|guarantees?)\b.{0,70}\bproject\b/iu,
+    /(?:\bproject\s+(?:benefit|outcome)\b|\b\d+(?:\.\d+)?\s*%).{0,60}\b(?:is|was|has been)?\s*(?:proven|confirmed|guaranteed|caused|delivered|achieved)\b/iu,
+    /(?:المصدر|الورقة|المستودع|الطريقة|المنهج).{0,70}(?:يثبت|يؤكد|يضمن|يحقق).{0,70}(?:فائدة المشروع|نتيجة المشروع|\d+(?:\.\d+)?\s*%)/iu,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function normalizeSemanticText(value: string): string {
+  const easternArabicDigits = "٠١٢٣٤٥٦٧٨٩";
+  return value
     .normalize("NFKC")
     .replace(/[\u0640\u064B-\u065F\u0670]/gu, "")
-    .replace(/[إأآٱ]/gu, "ا");
-  return [
-    /\b(?:suggested|recommended|predicted|performance|employee)\s+rating\b/iu,
-    /\brating\s+(?:of\s+)?[1-5]\b/iu,
-    /\b(?:employee\s+)?(?:rank|ranking|leaderboard)\b/iu,
-    /\bproductivity\s+(?:score|grade|index|rating|ranking)\b/iu,
-    /\b(?:employee|worker)\s+(?:is|was|seems|deserves)\s+(?:excellent|poor|weak|strong|high-performing|low-performing|the top score)\b/iu,
-    /(?:تقييم|درجة).{0,24}(?:الموظف|الموظفة|الاداء)/iu,
-    /(?:ترتيب|رتبة).{0,20}(?:الموظف|الموظفة)/iu,
-    /(?:الموظف|الموظفة).{0,20}(?:الاول|الاولي|ممتاز|ضعيف|يستحق)/iu,
-  ].some((pattern) => pattern.test(normalized));
+    .replace(/[إأآٱ]/gu, "ا")
+    .replace(/ى/gu, "ي")
+    .replace(/ؤ/gu, "و")
+    .replace(/ئ/gu, "ي")
+    .replace(/[٠-٩]/gu, (digit) => String(easternArabicDigits.indexOf(digit)))
+    .toLowerCase();
+}
+
+function semanticSegments(value: string): string[] {
+  return normalizeSemanticText(value)
+    .split(/[\n.!?;,،؛؟]+/u)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
 }
 
 function safeSerialize(value: unknown): string {
