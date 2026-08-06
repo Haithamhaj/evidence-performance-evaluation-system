@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Close the technically complete E4 Employee Evaluation checkpoint, then execute E5–E7 in bounded
-feature bundles. Keep the final frontend program, export delivery, Arabic evaluation content, and live
-connector installations behind their existing sequence and external gates.
+Close the technically complete E5A Identified Upward Manager Evaluation checkpoint, then execute E5B–E7
+in bounded feature bundles. Keep the final frontend program, export delivery, Arabic evaluation content,
+and live connector installations behind their existing sequence and external gates.
 
 ## Current Reality
 
@@ -211,6 +211,14 @@ connector installations behind their existing sequence and external gates.
 - E4 adds no migration and no direct provider call. `evaluation.justification` is composed only through
   the AI Router after the human selects a rating. English export generation/delivery remains E6B by the
   approved design; CAP-032 projection support is complete but file export remains partial.
+- E5A Identified Upward Manager Evaluation is technically complete locally: the five approved manager
+  criteria, frozen `IDENTIFIED` cycle/eligibility boundary, immutable named submission, leave-aware
+  completion, immediate manager originals, fail-closed private-mode contracts, and optional cited AI
+  themes are composed behind protected APIs. System Administrator has no response-content access.
+- A rerunnable PostgreSQL acceptance seed proves one named submission, one pending evaluator, one approved
+  leave, exact five-criterion persistence, immediate manager visibility, and unchanged historical data.
+  The English/Arabic route is a bounded technical verification surface, not final UX or Arabic rubric
+  release.
 
 ## Active Decisions
 
@@ -283,8 +291,8 @@ connector installations behind their existing sequence and external gates.
 
 ## Next Recommended Action
 
-Finish the E4 bounded bundle review and hosted PR checks, then begin E5A Identified Upward Manager
-Evaluation from its approved plan using Fast Controlled Execution. Do not start the final frontend or
+Finish the single E5A bundle specification/security review and hosted PR checks, then begin E5B Coaching
+& Development from its approved plan using Fast Controlled Execution. Do not start the final frontend or
 E6B export delivery yet. Live connector setup and Arabic evaluation release remain behind their external
 human gates.
 

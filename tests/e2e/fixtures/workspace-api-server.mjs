@@ -48,6 +48,7 @@ const uncertainSuggestionId = "cb222222-2222-4222-8222-222222222222";
 const rejectedSuggestionId = "cb333333-3333-4333-8333-333333333333";
 const contextTaskDraftId = "cb444444-4444-4444-8444-444444444444";
 const evaluationCycleId = "ec111111-1111-4111-8111-111111111111";
+const managerEvaluationCycleId = "ed111111-1111-4111-8111-111111111111";
 const evaluationAssignmentId = "ec777777-7777-4777-8777-777777777777";
 const evaluationManagerId = "ec888888-8888-4888-8888-888888888888";
 const evaluationSnapshotId = "ec999999-9999-4999-8999-999999999999";
@@ -946,6 +947,16 @@ const server = createServer(async (request, response) => {
       200,
       employeeEvaluationJourney(accessToken === ownerAccessToken ? "self" : "assigned_manager"),
     );
+  }
+
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/manager-evaluation/cycles/${managerEvaluationCycleId}/manager-view`
+  ) {
+    if (accessToken !== managerAccessToken) {
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    }
+    return json(response, 200, identifiedManagerEvaluationView());
   }
 
   if (accessToken !== ownerAccessToken) {
@@ -2048,6 +2059,95 @@ function employeeEvaluationJourney(audience) {
       closedAt: "2026-08-05T09:00:00.000Z",
     },
     independenceGate: { managerSubmittedBeforeSelfProjection: true },
+  };
+}
+
+function identifiedManagerEvaluationView() {
+  const responseId = "ed222222-2222-4222-8222-222222222222";
+  return {
+    schemaVersion: 1,
+    cycleId: managerEvaluationCycleId,
+    managerId: evaluationManagerId,
+    visibilityMode: "IDENTIFIED",
+    period: { startsAt: "2026-07-01T00:00:00.000Z", endsAt: "2026-10-01T00:00:00.000Z" },
+    completion: {
+      schemaVersion: 1,
+      cycleId: managerEvaluationCycleId,
+      managerId: evaluationManagerId,
+      visibilityMode: "IDENTIFIED",
+      eligible: 3,
+      submitted: 1,
+      pending: 1,
+      approvedLeave: 1,
+      postponed: 0,
+      excluded: 0,
+      entries: [
+        {
+          evaluatorId: ownerId,
+          evaluatorDisplayName: "Sarah Ahmed",
+          state: "SUBMITTED",
+          responseId,
+          submittedAt: "2026-08-05T09:00:00.000Z",
+        },
+        {
+          evaluatorId: contributorId,
+          evaluatorDisplayName: "Omar Ali",
+          state: "ELIGIBLE_PENDING",
+          responseId: null,
+          submittedAt: null,
+        },
+        {
+          evaluatorId: "ed333333-3333-4333-8333-333333333333",
+          evaluatorDisplayName: "Lina Salem",
+          state: "APPROVED_LEAVE",
+          responseId: null,
+          submittedAt: null,
+        },
+      ],
+      generatedAt: "2026-08-05T09:05:00.000Z",
+    },
+    responses: [
+      {
+        schemaVersion: 1,
+        responseId,
+        cycleId: managerEvaluationCycleId,
+        managerId: evaluationManagerId,
+        submitterId: ownerId,
+        submitterDisplayName: "Sarah Ahmed",
+        visibilityMode: "IDENTIFIED",
+        state: "SUBMITTED",
+        submittedAt: "2026-08-05T09:00:00.000Z",
+        responses: [
+          {
+            criterionId: "ed444444-4444-4444-8444-444444444444",
+            rating: 4,
+            comment: "Priorities were clear during the delivery period.",
+          },
+          {
+            criterionId: "ed555555-5555-4555-8555-555555555555",
+            rating: 3,
+            comment: "More context before scope changes would help.",
+          },
+          {
+            criterionId: "ed666666-6666-4666-8666-666666666666",
+            rating: 4,
+            comment: "Decisions were timely.",
+          },
+          {
+            criterionId: "ed777777-7777-4777-8777-777777777777",
+            rating: 4,
+            comment: "The manager supported cross-team work.",
+          },
+          {
+            criterionId: "ed888888-8888-4888-8888-888888888888",
+            rating: 3,
+            comment: "More regular development conversations would help.",
+          },
+        ],
+      },
+    ],
+    summaryRevision: null,
+    generatedAt: "2026-08-05T09:05:00.000Z",
   };
 }
 
