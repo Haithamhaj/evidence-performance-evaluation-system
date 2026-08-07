@@ -31,7 +31,7 @@ export class IdentifiedProjectionPolicy {
     clock: () => Date = () => new Date(),
   ) {
     this.#database = database;
-    this.#completion = new IdentifiedCompletionReader(database, clock);
+    this.#completion = new IdentifiedCompletionReader(database, clock, audit);
     this.#audit = audit;
     this.#clock = clock;
   }
@@ -70,73 +70,77 @@ export class IdentifiedProjectionPolicy {
   }
 
   async readManagerCycle(input: Readonly<{ cycleId: string; managerId: string; reason: string }>) {
-    const completion = await this.#completion.read(input);
-    return this.#database.$transaction(async (transaction) => {
-      const cycle = await transaction.managerEvaluationCycle.findUnique({
-        where: { id: input.cycleId },
-        include: {
-          responses: {
-            include: {
-              evaluator: { select: { displayName: true } },
-              criterionResponses: { orderBy: { position: "asc" } },
-            },
-            orderBy: { submittedAt: "asc" },
-          },
-          summaryRevisions: { orderBy: { revision: "desc" }, take: 1 },
-        },
-      });
-      if (
-        cycle === null ||
-        cycle.managerId !== input.managerId ||
-        cycle.visibilityMode !== "IDENTIFIED"
-      ) {
-        throw failure("AUTHZ_SCOPE", 403);
-      }
-      await this.#audit.append(transaction, {
-        eventType: "manager_evaluation.cycle.read",
-        actor: { kind: "human", id: input.managerId },
-        effectiveSubjectId: input.managerId,
-        scopeType: "cycle",
-        scopeId: cycle.id,
-        targetType: "manager_evaluation_cycle",
-        targetId: cycle.id,
-        reason: input.reason,
-        safeDiff: { identifiedOriginalCount: cycle.responses.length },
-        correlationId: crypto.randomUUID(),
-        source: "api",
-      });
-      return IdentifiedManagerEvaluationReportProjectionSchema.parse({
-        schemaVersion: 1,
-        cycleId: cycle.id,
-        managerId: cycle.managerId,
-        visibilityMode: "IDENTIFIED",
-        period: { startsAt: cycle.startsAt.toISOString(), endsAt: cycle.endsAt.toISOString() },
-        completion,
-        responses: cycle.responses.map(serializeResponse),
-        summaryRevision: cycle.summaryRevisions[0]
-          ? {
-              schemaVersion: "manager-evaluation-summary.v1",
-              id: cycle.summaryRevisions[0].id,
-              cycleId: cycle.id,
-              revision: cycle.summaryRevisions[0].revision,
-              visibilityMode: "IDENTIFIED",
-              period: {
-                startsAt: cycle.summaryRevisions[0].periodStartsAt.toISOString(),
-                endsAt: cycle.summaryRevisions[0].periodEndsAt.toISOString(),
+    return this.#database.$transaction(
+      async (transaction) => {
+        const generatedAt = this.#clock();
+        const completion = await this.#completion.readSnapshot(transaction, input, generatedAt);
+        const cycle = await transaction.managerEvaluationCycle.findUnique({
+          where: { id: input.cycleId },
+          include: {
+            responses: {
+              include: {
+                evaluator: { select: { displayName: true } },
+                criterionResponses: { orderBy: { position: "asc" } },
               },
-              sourceResponseIds: await sourceIds(transaction, cycle.summaryRevisions[0].id),
-              distributions: cycle.summaryRevisions[0].distributions,
-              themes: cycle.summaryRevisions[0].themes,
-              limitations: cycle.summaryRevisions[0].limitations,
-              promptVersion: cycle.summaryRevisions[0].promptVersion,
-              outputSchemaVersion: cycle.summaryRevisions[0].outputSchemaVersion,
-              aiRunId: cycle.summaryRevisions[0].aiRunId,
-              createdAt: cycle.summaryRevisions[0].createdAt.toISOString(),
-            }
-          : null,
-        generatedAt: this.#clock().toISOString(),
-      });
-    });
+              orderBy: { submittedAt: "asc" },
+            },
+            summaryRevisions: { orderBy: { revision: "desc" }, take: 1 },
+          },
+        });
+        if (
+          cycle === null ||
+          cycle.managerId !== input.managerId ||
+          cycle.visibilityMode !== "IDENTIFIED"
+        ) {
+          throw failure("AUTHZ_SCOPE", 403);
+        }
+        await this.#audit.append(transaction, {
+          eventType: "manager_evaluation.cycle.read",
+          actor: { kind: "human", id: input.managerId },
+          effectiveSubjectId: input.managerId,
+          scopeType: "cycle",
+          scopeId: cycle.id,
+          targetType: "manager_evaluation_cycle",
+          targetId: cycle.id,
+          reason: input.reason,
+          safeDiff: { identifiedOriginalCount: cycle.responses.length },
+          correlationId: crypto.randomUUID(),
+          source: "api",
+        });
+        return IdentifiedManagerEvaluationReportProjectionSchema.parse({
+          schemaVersion: 1,
+          cycleId: cycle.id,
+          managerId: cycle.managerId,
+          visibilityMode: "IDENTIFIED",
+          period: { startsAt: cycle.startsAt.toISOString(), endsAt: cycle.endsAt.toISOString() },
+          completion,
+          responses: cycle.responses.map(serializeResponse),
+          summaryRevision: cycle.summaryRevisions[0]
+            ? {
+                schemaVersion: "manager-evaluation-summary.v1",
+                id: cycle.summaryRevisions[0].id,
+                cycleId: cycle.id,
+                revision: cycle.summaryRevisions[0].revision,
+                visibilityMode: "IDENTIFIED",
+                period: {
+                  startsAt: cycle.summaryRevisions[0].periodStartsAt.toISOString(),
+                  endsAt: cycle.summaryRevisions[0].periodEndsAt.toISOString(),
+                },
+                sourceResponseIds: await sourceIds(transaction, cycle.summaryRevisions[0].id),
+                distributions: cycle.summaryRevisions[0].distributions,
+                themes: cycle.summaryRevisions[0].themes,
+                limitations: cycle.summaryRevisions[0].limitations,
+                promptVersion: cycle.summaryRevisions[0].promptVersion,
+                outputSchemaVersion: cycle.summaryRevisions[0].outputSchemaVersion,
+                aiRunId: cycle.summaryRevisions[0].aiRunId,
+                createdAt: cycle.summaryRevisions[0].createdAt.toISOString(),
+              }
+            : null,
+          generatedAt: generatedAt.toISOString(),
+        });
+      },
+      { isolationLevel: "RepeatableRead" },
+    );
   }
 }
 

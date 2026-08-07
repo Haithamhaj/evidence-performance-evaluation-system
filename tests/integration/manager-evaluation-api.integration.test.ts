@@ -72,7 +72,7 @@ Module({
     },
     {
       provide: ApiManagerEvaluationSummaryService,
-      useValue: { generate: async () => ({ optional: true }) },
+      useValue: { createSummary: async () => ({ optional: true }) },
     },
   ],
 })(TestModule);

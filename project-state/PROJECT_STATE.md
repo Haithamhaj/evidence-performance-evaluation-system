@@ -220,6 +220,11 @@ behind their existing sequence and external gates.
   leave, exact five-criterion persistence, immediate manager visibility, and unchanged historical data.
   The English/Arabic route is a bounded technical verification surface, not final UX or Arabic rubric
   release.
+- The single E5A P1 remediation cycle is complete: submissions use and persist in-period server time;
+  manager summaries use a verified registered prompt descriptor with untrusted originals; manager-cycle
+  reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus
+  summary-generation audits contain counts and identifiers only. The live-versus-frozen evaluator display
+  label adapter concern is recorded as deferred P2 and does not change frozen IDs or authorization.
 - E5B Coaching & Development remediation is technically complete locally. Exact prompt-artifact and
   untrusted-fact separation, semantic no-rating enforcement, qualified fact intake, current manager access,
   actor-safe read projections, audited formal-plan lifecycle, real idempotency, atomic version writes, and

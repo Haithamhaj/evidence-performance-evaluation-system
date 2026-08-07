@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import {
+  MANAGER_EVALUATION_SUMMARY_TRUSTED_PROMPT,
   ManagerEvaluationAiSummaryOutputSchema,
   assertManagerSummarySemantics,
   buildManagerEvaluationSummaryRequest,
@@ -31,6 +34,12 @@ describe("manager-evaluation.summary v1 evaluation", () => {
     });
     expect(() => assertManagerSummarySemantics(output, responseIds, period)).not.toThrow();
     const request = buildManagerEvaluationSummaryRequest({
+      prompt: {
+        artifactId: "00000000-0000-4000-8000-000000005105",
+        sha256: createHash("sha256")
+          .update(MANAGER_EVALUATION_SUMMARY_TRUSTED_PROMPT)
+          .digest("hex"),
+      },
       cycleId: "00000000-0000-4000-8000-000000005104",
       period,
       responses: responseIds.map((responseId) => ({

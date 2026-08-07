@@ -36,11 +36,7 @@ export class ManagerEvaluationSubmissionService {
       throw failure("IDENTIFIED_NOTICE_REQUIRED", 409);
     }
     const parsed = SubmitManagerEvaluationInputSchema.parse(input);
-    const serverNow = validDate(this.#clock());
     const confirmedAt = new Date(parsed.confirmedAt);
-    if (!Number.isFinite(confirmedAt.getTime()) || confirmedAt > serverNow) {
-      throw failure("MANAGER_EVALUATION_CONFIRMATION_TIME_INVALID", 409);
-    }
     return this.#database.$transaction(
       async (transaction) => {
         const byKey = await transaction.managerEvaluationResponse.findUnique({
@@ -56,6 +52,11 @@ export class ManagerEvaluationSubmissionService {
           },
         });
         if (original !== null) return receipt(original);
+
+        const serverNow = validDate(this.#clock());
+        if (!Number.isFinite(confirmedAt.getTime()) || confirmedAt > serverNow) {
+          throw failure("MANAGER_EVALUATION_CONFIRMATION_TIME_INVALID", 409);
+        }
 
         const eligibility = await transaction.managerEvaluatorEligibility.findUnique({
           where: {
@@ -80,7 +81,7 @@ export class ManagerEvaluationSubmissionService {
         ) {
           throw failure("MANAGER_EVALUATION_CYCLE_NOT_OPEN", 409);
         }
-        if (confirmedAt < cycle.startsAt || confirmedAt >= cycle.endsAt) {
+        if (serverNow < cycle.startsAt || serverNow >= cycle.endsAt) {
           throw failure("MANAGER_EVALUATION_CONFIRMATION_TIME_INVALID", 409);
         }
         const frozen = criteria(cycle.snapshot.criteriaSnapshot);
@@ -96,8 +97,8 @@ export class ManagerEvaluationSubmissionService {
             managerId: cycle.managerId,
             visibilityMode: "IDENTIFIED",
             identifiedNoticeConfirmed: true,
-            submittedAt: confirmedAt,
-            visibleToManagerAt: confirmedAt,
+            submittedAt: serverNow,
+            visibleToManagerAt: serverNow,
             criterionResponses: {
               create: parsed.responses.map((entry, position) => ({
                 criterionId: entry.criterionId,
@@ -110,7 +111,7 @@ export class ManagerEvaluationSubmissionService {
         });
         const advanced = await transaction.managerEvaluatorEligibility.updateMany({
           where: { id: eligibility.id, version: parsed.expectedVersion, state: "ELIGIBLE_PENDING" },
-          data: { state: "SUBMITTED", version: { increment: 1 }, effectiveAt: confirmedAt },
+          data: { state: "SUBMITTED", version: { increment: 1 }, effectiveAt: serverNow },
         });
         if (advanced.count !== 1) throw failure("VERSION_CONFLICT", 409);
         await transaction.managerEvaluatorEligibilityDecision.create({
@@ -120,7 +121,7 @@ export class ManagerEvaluationSubmissionService {
             fromState: "ELIGIBLE_PENDING",
             toState: "SUBMITTED",
             reason: "Employee confirmed the identified manager evaluation submission.",
-            effectiveAt: confirmedAt,
+            effectiveAt: serverNow,
             actorId: parsed.evaluatorId,
             resultingVersion: parsed.expectedVersion + 1,
           },
@@ -177,14 +178,10 @@ function assertResponses(
 }
 
 function assertSame(
-  value: { cycleId: string; evaluatorId: string; submittedAt: Date },
+  value: { cycleId: string; evaluatorId: string },
   input: import("@evaluation/contracts").SubmitManagerEvaluationInput,
 ) {
-  if (
-    value.cycleId !== input.cycleId ||
-    value.evaluatorId !== input.evaluatorId ||
-    value.submittedAt.toISOString() !== input.confirmedAt
-  ) {
+  if (value.cycleId !== input.cycleId || value.evaluatorId !== input.evaluatorId) {
     throw failure("IDEMPOTENCY_KEY_REUSED", 409);
   }
 }
