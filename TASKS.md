@@ -623,7 +623,7 @@ The detailed authority is
 
 ## T060 — Implement Coaching Insight Engine
 
-**Status:** Partial — governed route adapter and manual recovery boundary exist; authorized public-fact composition and persisted runtime route trace remain required.
+**Status:** Complete — source-qualified runtime AI Router drafting, persisted route trace, manual recovery, and protected employee decision flow are verified.
 
 **Priority:** P1
 **Dependencies:** T030, T011, T012, T043
@@ -634,7 +634,7 @@ The detailed authority is
 
 ## T061 — Implement Personal Development Actions
 
-**Status:** Partial — append-only persistence and protected action APIs exist; the full employee create/revise/share journey still needs authenticated acceptance coverage.
+**Status:** Complete — append-only persistence and protected action APIs are verified through the authenticated employee/private/share/manager-support journey.
 
 **Priority:** P1
 **Dependencies:** T060
@@ -645,7 +645,7 @@ The detailed authority is
 
 ## T062 — Implement Formal Development Plans
 
-**Status:** Partial — employee approval, manager agreement, optimistic transitions, and confirmed-evidence linking are implemented; end-to-end acceptance remains required.
+**Status:** Complete — employee approval, manager agreement, optimistic transitions, confirmed-evidence linking, and completion are verified through the authenticated journey.
 
 **Priority:** P1
 **Dependencies:** T051, T061

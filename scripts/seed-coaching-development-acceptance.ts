@@ -8,6 +8,7 @@ import { createDatabaseClient } from "@evaluation/database";
  */
 export async function seedCoachingDevelopmentAcceptance(
   database: ReturnType<typeof createDatabaseClient>,
+  identities?: Readonly<{ employeeId: string; managerId: string }>,
 ) {
   const ids = {
     employee: "c5100000-0000-4000-8000-000000000001",
@@ -17,26 +18,31 @@ export async function seedCoachingDevelopmentAcceptance(
     plan: "c5100000-0000-4000-8000-000000000005",
     evidence: "c5100000-0000-4000-8000-000000000006",
   } as const;
-  const [employee, manager] = await Promise.all([
-    database.user.upsert({
-      where: { id: ids.employee },
-      create: {
-        id: ids.employee,
-        email: "coaching-employee@seed.invalid",
-        displayName: "Coaching Employee",
-      },
-      update: { active: true },
-    }),
-    database.user.upsert({
-      where: { id: ids.manager },
-      create: {
-        id: ids.manager,
-        email: "coaching-manager@seed.invalid",
-        displayName: "Coaching Manager",
-      },
-      update: { active: true },
-    }),
-  ]);
+  const [employee, manager] = identities
+    ? await Promise.all([
+        database.user.findUniqueOrThrow({ where: { id: identities.employeeId } }),
+        database.user.findUniqueOrThrow({ where: { id: identities.managerId } }),
+      ])
+    : await Promise.all([
+        database.user.upsert({
+          where: { id: ids.employee },
+          create: {
+            id: ids.employee,
+            email: "coaching-employee@seed.invalid",
+            displayName: "Coaching Employee",
+          },
+          update: { active: true },
+        }),
+        database.user.upsert({
+          where: { id: ids.manager },
+          create: {
+            id: ids.manager,
+            email: "coaching-manager@seed.invalid",
+            displayName: "Coaching Manager",
+          },
+          update: { active: true },
+        }),
+      ]);
   await database.$transaction(async (tx) => {
     await tx.coachingInsight.upsert({
       where: { id: ids.insight },

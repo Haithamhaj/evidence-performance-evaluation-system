@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { DevelopmentActionService, ManagerSupportService } from "@evaluation/coaching-development";
 
 import { CoachingPolicyGuard, type CoachingRequest } from "./coaching-policy.guard.js";
@@ -34,6 +34,8 @@ export class CoachingActionsController {
     return this.support.append({ ...(body as object), managerId: request.principal!.userId });
   }
 }
+Inject(DevelopmentActionService)(CoachingActionsController, undefined, 0);
+Inject(ManagerSupportService)(CoachingActionsController, undefined, 1);
 Controller("api/v1/coaching/actions")(CoachingActionsController);
 UseGuards(CoachingPolicyGuard)(CoachingActionsController);
 let descriptor = Object.getOwnPropertyDescriptor(CoachingActionsController.prototype, "read")!;

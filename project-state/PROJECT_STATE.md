@@ -302,9 +302,9 @@ and live connector installations behind their existing sequence and external gat
 
 Complete hosted checks and merge Pull Request #17 when GitHub creates a green exact-head run. E5B now has
 an isolated `0031_coaching_development` domain with append-only action/plan persistence, bounded manager
-support, and confirmed-evidence linking. The active E5B risk is still the authenticated employee-to-manager
-acceptance journey and runtime AI Router trace persistence; close those before the single E5
-specification/security review across E5A and E5B. Do not start the final frontend or E6B export delivery yet.
+support, confirmed-evidence linking, and a passing authenticated PostgreSQL/Nest journey. The runtime AI
+Router insight route persists source and route traces. Proceed to the single E5 specification/security review
+across E5A and E5B; do not start the final frontend or E6B export delivery yet.
 Live connector setup and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References

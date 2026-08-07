@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { Body, Controller, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Inject, Post, Req, UseGuards } from "@nestjs/common";
 import { FormalDevelopmentPlanService } from "@evaluation/coaching-development";
 import { CoachingPolicyGuard, type CoachingRequest } from "./coaching-policy.guard.js";
 export class CoachingFormalPlansController {
@@ -35,6 +35,7 @@ export class CoachingFormalPlansController {
     });
   }
 }
+Inject(FormalDevelopmentPlanService)(CoachingFormalPlansController, undefined, 0);
 Controller("api/v1/coaching/formal-plans")(CoachingFormalPlansController);
 UseGuards(CoachingPolicyGuard)(CoachingFormalPlansController);
 for (const [name, path] of [
