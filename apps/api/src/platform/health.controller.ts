@@ -118,7 +118,7 @@ export class HealthController {
   async ready(response: PassthroughResponse) {
     const result = await evaluateReadiness(this.probes);
     response.status(result.status === "ready" ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
-    return result;
+    return { status: result.status } as const;
   }
 }
 

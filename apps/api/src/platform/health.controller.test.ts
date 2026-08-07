@@ -27,10 +27,7 @@ describe("HealthController", () => {
     const response = { status: vi.fn() };
     const result = await controller.ready(response);
     expect(response.status).toHaveBeenCalledWith(200);
-    expect(result).toEqual({
-      status: "ready",
-      checks: { configuration: "up", postgres: "up", redis: "up" },
-    });
+    expect(result).toEqual({ status: "ready" });
   });
 
   it("returns a sanitized HTTP 503 response when any readiness check is down", async () => {
@@ -41,10 +38,7 @@ describe("HealthController", () => {
     });
 
     const response = { status: vi.fn() };
-    await expect(controller.ready(response)).resolves.toEqual({
-      status: "not_ready",
-      checks: { configuration: "up", postgres: "up", redis: "down" },
-    });
+    await expect(controller.ready(response)).resolves.toEqual({ status: "not_ready" });
     expect(response.status).toHaveBeenCalledWith(503);
   });
 
