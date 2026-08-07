@@ -9,7 +9,9 @@ interface PrivatePolicy {
 }
 
 interface Ports {
-  readonly auditBeforeRead: (input: Readonly<{ mode: FutureMode; reason: string }>) => Promise<unknown>;
+  readonly auditBeforeRead: (
+    input: Readonly<{ mode: FutureMode; reason: string }>,
+  ) => Promise<unknown>;
   readonly readSealedIdentity?: (reference: string) => Promise<string>;
 }
 
@@ -22,7 +24,11 @@ interface ReadInput {
 }
 
 export class PrivateModeIsolation {
-  constructor(private readonly ports: Ports) {}
+  private readonly ports: Ports;
+
+  constructor(ports: Ports) {
+    this.ports = ports;
+  }
 
   async read(input: ReadInput) {
     if (
@@ -30,7 +36,9 @@ export class PrivateModeIsolation {
       !input.policy.enabled ||
       input.policy.mode !== input.mode ||
       input.policy.managerCanReadIdentity ||
-      input.policy.managerCanReadOriginals
+      input.policy.managerCanReadOriginals ||
+      !Number.isInteger(input.policy.minimumTopicSupport) ||
+      input.policy.minimumTopicSupport < 2
     ) {
       return { allowed: false } as const;
     }
@@ -39,8 +47,14 @@ export class PrivateModeIsolation {
       .filter(({ support }) => support >= input.policy!.minimumTopicSupport)
       .map(({ key }) => key);
     let identity: string | null = null;
-    if (input.sensitiveAccess?.authorized && input.identityLink && this.ports.readSealedIdentity) {
-      await this.ports.auditBeforeRead({ mode: input.mode, reason: input.sensitiveAccess.reason });
+    const sensitiveReason = input.sensitiveAccess?.reason.trim() ?? "";
+    if (
+      input.sensitiveAccess?.authorized &&
+      sensitiveReason.length > 0 &&
+      input.identityLink &&
+      this.ports.readSealedIdentity
+    ) {
+      await this.ports.auditBeforeRead({ mode: input.mode, reason: sensitiveReason });
       identity = await this.ports.readSealedIdentity(input.identityLink);
     }
     return {

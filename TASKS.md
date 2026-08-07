@@ -350,7 +350,7 @@ The detailed authority is
 | E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Technical checkpoint complete locally, including real production API+PostgreSQL lifecycle; hosted PR checks pending |
 | E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Technical checkpoint complete locally; E6B export delivery is now complete; final frontend remains later            |
 | E5         | Identified upward manager evaluation, coaching, and development                | E5A and E5B technical checkpoints complete locally; combined review and hosted checks pending                       |
-| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | E6A and E6B technical checkpoints complete locally; E6C security/recovery/readiness remains next                    |
+| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Technical checkpoint complete locally through E6C; production infrastructure remains externally gated               |
 | E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6                                                           |
 
 ## T030 — Implement Activity Timeline
@@ -759,6 +759,8 @@ The detailed authority is
 
 ## T074 — Security and Privacy Hardening
 
+**Execution status:** Complete at the E6C technical checkpoint — protected APIs are machine-classified, retention and future-private-mode controls fail closed, logs/health are redacted and bounded, and incident/revocation procedures are verified. Production credentials and telemetry remain external gates.
+
 **Priority:** P0
 **Dependencies:** All protected features
 **Purpose:** Threat modeling, permission testing for all feedback-visibility modes, encryption review, prompt-injection controls, and Arabic input safety.
@@ -766,11 +768,15 @@ The detailed authority is
 
 ## T075 — Backup and Restore Drill
 
+**Execution status:** Complete for the protected local-isolated drill — signed encrypted database/object/config bundles verify and restore with schema/hash/protected-integrity comparison. Shared or production restore remains a direct human gate; production destination and key custody remain external gates.
+
 **Priority:** P0
 **Dependencies:** T004, T022
 **Verification:** restore database and object storage; validate audit and evaluation integrity.
 
 ## T076 — Pilot Dry Run
+
+**Execution status:** Complete at the technical engine checkpoint — the English simulated-quarter stages and cross-engine browser journey pass; Arabic evaluation remains gated and final frontend/product acceptance remains the next program after E7.
 
 **Priority:** P0
 **Dependencies:** T001–T015, T017–T075
@@ -778,6 +784,8 @@ The detailed authority is
 **Verification:** all English critical workflows pass; identified manager-feedback behavior is understood; monthly readiness and Fact View are reviewed; issues logged and resolved. Arabic release validation remains conditional on T016 approval.
 
 ## T077 — Production Pilot Launch
+
+**Execution status:** Not started — blocked by E7, final frontend/customer-journey acceptance, Product Owner launch approval, and the external production gates recorded in `docs/operations/EXTERNAL_GATE_REGISTER.md`.
 
 **Priority:** P0
 **Dependencies:** T076

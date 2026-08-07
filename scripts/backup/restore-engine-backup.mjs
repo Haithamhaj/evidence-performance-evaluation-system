@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { Buffer } from "node:buffer";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";

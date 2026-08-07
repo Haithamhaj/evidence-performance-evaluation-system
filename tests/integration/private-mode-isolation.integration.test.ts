@@ -10,6 +10,24 @@ describe("future manager-feedback privacy isolation", () => {
     ).resolves.toEqual({ allowed: false });
   });
 
+  it("fails closed when the approved aggregation threshold is unsafe", async () => {
+    const isolation = new PrivateModeIsolation({ auditBeforeRead: vi.fn() });
+    await expect(
+      isolation.read({
+        policy: {
+          enabled: true,
+          mode: "ANONYMOUS_AGGREGATED",
+          managerCanReadIdentity: false,
+          managerCanReadOriginals: false,
+          minimumTopicSupport: 1,
+        },
+        mode: "ANONYMOUS_AGGREGATED",
+        identityLink: null,
+        topics: [{ key: "unique-topic", support: 1 }],
+      }),
+    ).resolves.toEqual({ allowed: false });
+  });
+
   it("separates identity, suppresses unique topics, and audits before a sensitive read", async () => {
     const order: string[] = [];
     const isolation = new PrivateModeIsolation({
@@ -42,5 +60,29 @@ describe("future manager-feedback privacy isolation", () => {
       identity: "employee-opaque-reference",
       managerProjection: { identity: null, originals: null, topics: ["clear-direction"] },
     });
+  });
+
+  it("does not audit or reveal a sealed identity without a non-empty reason", async () => {
+    const auditBeforeRead = vi.fn();
+    const readSealedIdentity = vi.fn(async () => "must-not-be-returned");
+    const isolation = new PrivateModeIsolation({ auditBeforeRead, readSealedIdentity });
+
+    const result = await isolation.read({
+      policy: {
+        enabled: true,
+        mode: "MANAGER_BLINDED",
+        managerCanReadIdentity: false,
+        managerCanReadOriginals: false,
+        minimumTopicSupport: 2,
+      },
+      mode: "MANAGER_BLINDED",
+      identityLink: "sealed:v1:reference",
+      topics: [],
+      sensitiveAccess: { authorized: true, reason: "   " },
+    });
+
+    expect(auditBeforeRead).not.toHaveBeenCalled();
+    expect(readSealedIdentity).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ allowed: true, identity: null });
   });
 });

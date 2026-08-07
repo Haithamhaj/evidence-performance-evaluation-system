@@ -45,6 +45,7 @@
     "ai:register:research-experiments": "tsx scripts/register-research-experiments-ai-routes.ts",
     "ai:register:update-transcribe": "tsx scripts/register-update-transcribe-ai-route.ts",
     "dogfood:seed": "tsx scripts/seed-codex-dogfood.ts --seed",
+    "engine:dry-run": "tsx scripts/seed-engine-dry-run.ts",
     "dogfood:draft-contract": "tsx scripts/seed-codex-dogfood.ts --draft-contract",
     "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs prettier.config.mjs vitest.config.ts vitest.workspace.ts .github apps packages scripts tests",
     "infra:down": "node scripts/run-compose.mjs down",

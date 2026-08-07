@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Complete the technically verified E6B notifications/reporting/administration checkpoint, then execute E6C–E7 in bounded feature bundles.
+Complete the technically verified E6C security/recovery/readiness checkpoint, then execute the E7 source-to-code engine integration audit.
 Keep the final frontend program, Arabic evaluation content, and live connector/provider installations
 behind their existing sequence and external gates.
 
@@ -201,6 +201,15 @@ behind their existing sequence and external gates.
   frontend only. It adds no engine task, integration, dependency, source reuse, or scope change. E7 will
   carry the approved patterns and explicit exclusions into the later frontend design program.
 
+- E6C is technically complete locally: 46 API controllers are classified in the protected matrix;
+  versioned archive-only retention and fail-closed future privacy modes are implemented; structured
+  redaction, bounded dependency signals and action alerts are verified; encrypted signed backups and
+  protected isolated restore pass; shared/production restore remains a direct human gate.
+- The real E6C technical dry run passed all eight stages on a freshly migrated isolated test database:
+  daily work, Research/Experiments, employee evaluation, identified upward feedback, coaching,
+  continuity, operations, and backup/restore. A cross-engine English/Arabic browser journey also passes.
+  This is engine verification, not final UX or production launch acceptance.
+
 - E4 Employee Evaluation is technically complete locally: versioned templates and immutable Cycle 1
   snapshots, Fact View-first self assessment, independent manager assessment, source-authorized
   discussion, final human manager judgment, acknowledgment/reservation, closure, and immutable report
@@ -327,9 +336,8 @@ behind their existing sequence and external gates.
 - Research/Experiment facts are currently representable only as generic Timeline/Evidence text; that
   is insufficient for hypotheses, baselines, measures, reproducibility, conclusions, and applied
   learning. E3 must not overload generic event JSON or duplicate the existing evidence lifecycle.
-- `PARTIAL` administration, observability, security/retention, and offboarding capabilities require
-  explicit E6 closure before pilot launch; existing foundations must not be mistaken for finished
-  user workflows.
+- Production telemetry, provider/connector credentials, backup destination/key custody, email,
+  deployment, and any shared/production restore remain explicit external or direct-human gates.
 
 ## Protected Areas
 
@@ -339,9 +347,9 @@ behind their existing sequence and external gates.
 
 ## Next Recommended Action
 
-Integrate the exact verified E6B checkpoint after its bounded branch handoff, then proceed to E6C
-Security/Recovery/Readiness and E7 integration audit. Do not start the final frontend yet. Live email,
-connector setup, and Arabic evaluation release remain behind their external human gates.
+Integrate the exact verified E6C checkpoint after its bounded branch handoff, then execute the E7
+source-to-code integration audit and frontend handoff. Do not start the final frontend before E7. Live
+email, connector setup, production recovery, and Arabic evaluation release remain behind their gates.
 
 ## Critical References
 

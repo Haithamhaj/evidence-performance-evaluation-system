@@ -1,5 +1,3 @@
-import type { EngineSignal } from "./engine-signals.js";
-
 export interface EngineAlertPolicy {
   readonly schemaVersion: 1;
   readonly version: number;
@@ -7,7 +5,10 @@ export interface EngineAlertPolicy {
   readonly maxFailureCount: number;
 }
 
-export function evaluateEngineAlerts(signals: readonly EngineSignal[], policy: EngineAlertPolicy) {
+export function evaluateEngineAlerts(
+  signals: readonly import("./engine-signals.js").EngineSignal[],
+  policy: EngineAlertPolicy,
+) {
   if (policy.version < 1) throw new TypeError("alert policy version must be positive");
   return signals.flatMap((signal) => {
     if (signal.kind === "BACKUP" && (signal.ageSeconds ?? 0) > policy.maxBackupAgeSeconds) {
@@ -23,7 +24,7 @@ export function evaluateEngineAlerts(signals: readonly EngineSignal[], policy: E
 }
 
 function alert(
-  signal: EngineSignal,
+  signal: import("./engine-signals.js").EngineSignal,
   policyVersion: number,
   kind: "BACKUP_STALE" | "DEPENDENCY_FAILURE",
   nextActionKey: string,

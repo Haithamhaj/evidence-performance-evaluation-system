@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 export const PROTECTED_API_MATRIX = Object.freeze([
@@ -172,7 +173,8 @@ async function registeredControllerRoutes(root) {
 }
 
 function matchesPrefix(route, prefix) {
-  return route === prefix || route.startsWith(`${prefix}/`) || prefix.startsWith(`${route}/`);
+  if (prefix === "api/v1") return route === prefix;
+  return route === prefix || route.startsWith(`${prefix}/`);
 }
 
 export async function validateProtectedApiMatrix(root) {

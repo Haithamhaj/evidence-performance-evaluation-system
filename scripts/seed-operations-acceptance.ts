@@ -43,15 +43,19 @@ export async function seedOperationsAcceptance() {
     const intents = new NotificationIntentService(database);
     const preferences = new NotificationPreferenceService(database);
     const email = new InMemoryEmailAdapter();
-    const delivery = new NotificationDeliveryService(database, preferences, email);
     const now = new Date("2026-08-07T12:00:00.000Z");
+    const delivery = new NotificationDeliveryService(database, preferences, email, () => now);
     const producer = new NotificationEventProducer(intents, {
       enqueue: async (job) => {
         const attempted = await database.notificationDeliveryAttempt.count({
           where: { intentId: job.intentId },
         });
         if (attempted === 0) {
-          await delivery.deliver(job.intentId, job.correlationId);
+          try {
+            await delivery.deliver(job.intentId, job.correlationId);
+          } catch (error) {
+            if (!isExpectedRetry(error)) throw error;
+          }
         }
         return { jobId: job.intentId };
       },
@@ -97,9 +101,10 @@ export async function seedOperationsAcceptance() {
     });
 
     const storage = new InMemoryReportStorage();
+    const registry = createEvaluationProjectionRegistry(database);
     const exports = new ExportService(
       database,
-      createEvaluationProjectionRegistry(database),
+      registry,
       storage,
       () => now,
       (generatedAt) => new Date(generatedAt.getTime() + 24 * 60 * 60 * 1_000),
@@ -173,6 +178,14 @@ export async function seedOperationsAcceptance() {
   } finally {
     await database.$disconnect();
   }
+}
+
+function isExpectedRetry(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error as Error & { retryable?: boolean }).retryable === true &&
+    ["NOTIFICATION_EMAIL_TRANSIENT", "NOTIFICATION_RETRY_NOT_DUE"].includes(error.message)
+  );
 }
 
 function required(name: string): string {

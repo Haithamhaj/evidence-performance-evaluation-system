@@ -1,10 +1,4 @@
-import {
-  RetentionHoldSchema,
-  RetentionPolicySchema,
-  type RetentionDataType,
-  type RetentionHold,
-  type RetentionPolicy,
-} from "@evaluation/contracts";
+import { RetentionHoldSchema, RetentionPolicySchema } from "@evaluation/contracts";
 
 export type RetentionDecision =
   | { readonly allowed: false }
@@ -16,9 +10,9 @@ export type RetentionDecision =
     };
 
 export function resolveRetentionPolicy(
-  policies: readonly RetentionPolicy[],
-  holds: readonly RetentionHold[],
-  dataType: RetentionDataType,
+  policies: readonly import("@evaluation/contracts").RetentionPolicy[],
+  holds: readonly import("@evaluation/contracts").RetentionHold[],
+  dataType: import("@evaluation/contracts").RetentionDataType,
 ): RetentionDecision {
   const active = policies
     .map((policy) => RetentionPolicySchema.parse(policy))

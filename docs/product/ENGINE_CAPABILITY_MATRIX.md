@@ -64,17 +64,17 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 
 ## System administrator and operations capability view
 
-| Operational outcome                                   | Register IDs     | Baseline         | Missing dependency or constraint                                                           |
-| ----------------------------------------------------- | ---------------- | ---------------- | ------------------------------------------------------------------------------------------ |
-| Govern identity, permissions, and protected audit     | CAP-001–002      | Complete         | Production OIDC administrator configuration                                                |
-| Govern AI routes without exposing provider secrets    | CAP-003          | Complete         | Live provider/service credentials                                                          |
-| Operate durable jobs and correlation                  | CAP-005          | Complete         | Production Redis/worker deployment                                                         |
-| Configure Google and GitHub connectors                | CAP-019, CAP-021 | External gate    | Provider consoles, administrator approvals, and secrets                                    |
-| Configure organizations, templates, routes, retention | CAP-040          | Partial          | Safe owner composition exists; capability-specific owner adapters remain fail-closed       |
-| Monitor health and investigate safely                 | CAP-041–042      | Complete/partial | Safe health is complete; telemetry destination and incident procedures remain external/E6C |
-| Notify users                                          | CAP-039          | Complete         | Live email provider remains an external gate                                               |
-| Back up and restore                                   | CAP-043          | Planned          | Backup target, encrypted procedure, restore drill                                          |
-| Run and launch the pilot                              | CAP-044          | Planned          | E3–E7, final frontend, external configuration, Product Owner gate                          |
+| Operational outcome                                   | Register IDs     | Baseline       | Missing dependency or constraint                                                           |
+| ----------------------------------------------------- | ---------------- | -------------- | ------------------------------------------------------------------------------------------ |
+| Govern identity, permissions, and protected audit     | CAP-001–002      | Complete       | Production OIDC administrator configuration                                                |
+| Govern AI routes without exposing provider secrets    | CAP-003          | Complete       | Live provider/service credentials                                                          |
+| Operate durable jobs and correlation                  | CAP-005          | Complete       | Production Redis/worker deployment                                                         |
+| Configure Google and GitHub connectors                | CAP-019, CAP-021 | External gate  | Provider consoles, administrator approvals, and secrets                                    |
+| Configure organizations, templates, routes, retention | CAP-040          | Partial        | Safe owner composition exists; capability-specific owner adapters remain fail-closed       |
+| Monitor health and investigate safely                 | CAP-041–042      | Complete       | Engine controls/runbooks pass; production telemetry and secrets remain external gates      |
+| Notify users                                          | CAP-039          | Complete       | Live email provider remains an external gate                                               |
+| Back up and restore                                   | CAP-043          | Complete/local | Encrypted isolated drill passes; production target/key custody/human restore gate remain   |
+| Run and launch the pilot                              | CAP-044          | Partial        | Technical dry run passes; E7, final frontend, external setup and Product Owner gate remain |
 
 ## Dependency spine
 

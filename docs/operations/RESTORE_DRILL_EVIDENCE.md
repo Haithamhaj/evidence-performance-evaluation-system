@@ -19,4 +19,13 @@
 | Connectors and queue replay                                            | `disabled`                      |
 | Production target without direct human gate                            | Rejected                        |
 
-The executed date, command result, and exact test count are recorded during the final E6C technical dry run. Promotion remains a separate direct-human decision.
+## Executed result — 2026-08-07
+
+- The executable E6C dry run passed its `backup-restore` stage as part of an 8/8-stage run.
+- Four focused tests passed: secret-free manifest creation/verification, production-target rejection without direct human approval, isolated restore/integrity verification, and local runbook-link validation.
+- Database migration verification passed all 37 migrations from empty and previous-release snapshots, detected no schema drift, proved rebuild equivalence, and passed 77 database tests.
+- The temporary encrypted bundle, key, and isolated restore directory were deleted after verification.
+- No connector or queue replay occurred; both remained `disabled`.
+- No shared or production database, object store, or configuration was mutated.
+
+Promotion remains a separate direct-human decision. A real production drill additionally requires the external backup destination, accountable key custody, maintenance window, safety backup, and explicit approval reference recorded in the external gate register.

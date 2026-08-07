@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
