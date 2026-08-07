@@ -12,6 +12,7 @@ export * from "./evaluation-fact-view.js";
 export * from "./employee-evaluation.js";
 export * from "./github-integration.js";
 export * from "./jobs.js";
+export * from "./manager-evaluation.js";
 export * from "./performance-rating.js";
 export * from "./progress-contracts.js";
 export * from "./projects.js";

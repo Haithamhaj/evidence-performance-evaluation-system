@@ -573,6 +573,7 @@ The detailed authority is
 
 ## T055 — Implement Manager Evaluation Configuration
 
+**Execution status:** Complete — five approved manager criteria, frozen `IDENTIFIED` policy, and disabled future-mode contracts are persisted and verified.
 **Priority:** P1
 **Dependencies:** T010, T046, T014
 **Purpose:** Seed five manager criteria and freeze the selected feedback-visibility mode in the cycle.
@@ -582,6 +583,7 @@ The detailed authority is
 
 ## T056 — Implement Identified Manager Evaluation Submissions
 
+**Execution status:** Complete — one immutable/idempotent named five-criterion submission is enforced transactionally with explicit identified notice confirmation.
 **Priority:** P1
 **Dependencies:** T055, T007
 **Purpose:** Allow employees to submit named criterion ratings and comments to the manager.
@@ -591,6 +593,7 @@ The detailed authority is
 
 ## T057 — Implement Manager Completion and Response View
 
+**Execution status:** Complete — the frozen manager receives immediate named originals and leave-aware completion; peers, administrators, and other managers are denied.
 **Priority:** P1
 **Dependencies:** T056, T014
 **Purpose:** Show who submitted, who is pending, who is on approved leave, and what each employee rated.
@@ -600,6 +603,7 @@ The detailed authority is
 
 ## T058 — Implement Optional Manager Feedback Aggregation
 
+**Execution status:** Complete — optional AI Router summaries are versioned, source-cited, support-bounded, limitation-bearing, and contain no manager rating or judgment.
 **Priority:** P1
 **Dependencies:** T056, T012
 **Purpose:** Add trends and repeated themes without replacing identified responses.
@@ -609,6 +613,7 @@ The detailed authority is
 
 ## T059 — Implement Future Feedback Visibility Mode Foundation
 
+**Execution status:** Complete — private-mode policy/identity-link contracts exist but fail closed and cannot reuse the `IDENTIFIED` projection.
 **Priority:** P2
 **Dependencies:** T055, T007, T009
 **Purpose:** Avoid hardcoding the pilot’s Identified choice and prepare Manager-Blinded and Anonymous Aggregated modes.

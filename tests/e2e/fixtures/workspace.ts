@@ -9,6 +9,7 @@ export const workstreamId = "22222222-2222-4222-8222-222222222222";
 export const historicalWorkstreamId = "12121212-1212-4212-8212-121212121212";
 export const ownerId = "44444444-4444-4444-8444-444444444444";
 export const evaluationCycleId = "ec111111-1111-4111-8111-111111111111";
+export const managerEvaluationCycleId = "ed111111-1111-4111-8111-111111111111";
 export const sourceHash = "a".repeat(64);
 export const managerAccessToken = "e2e-manager-access-token";
 export const otherEmployeeAccessToken = "e2e-other-employee-access-token";

@@ -32,6 +32,9 @@ importers:
       '@evaluation/localization':
         specifier: workspace:*
         version: link:packages/localization
+      '@evaluation/manager-evaluation':
+        specifier: workspace:*
+        version: link:packages/manager-evaluation
       '@evaluation/projects':
         specifier: workspace:*
         version: link:packages/projects
@@ -147,6 +150,9 @@ importers:
       '@evaluation/github-integration':
         specifier: workspace:*
         version: link:../../packages/github-integration
+      '@evaluation/manager-evaluation':
+        specifier: workspace:*
+        version: link:../../packages/manager-evaluation
       '@evaluation/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -242,6 +248,9 @@ importers:
       '@evaluation/localization':
         specifier: workspace:*
         version: link:../../packages/localization
+      '@evaluation/manager-evaluation':
+        specifier: workspace:*
+        version: link:../../packages/manager-evaluation
       '@evaluation/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -534,6 +543,28 @@ importers:
 
   packages/localization:
     dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
+
+  packages/manager-evaluation:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
       zod:
         specifier: 4.4.3
         version: 4.4.3

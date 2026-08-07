@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Close the technically complete E4 Employee Evaluation checkpoint, then execute E5–E7 in bounded
-feature bundles. Keep the final frontend program, export delivery, Arabic evaluation content, and live
-connector installations behind their existing sequence and external gates.
+Close the technically complete E5A Identified Upward Manager Evaluation checkpoint, then execute E5B–E7
+in bounded feature bundles. Keep the final frontend program, export delivery, Arabic evaluation content,
+and live connector installations behind their existing sequence and external gates.
 
 ## Current Reality
 
@@ -212,6 +212,19 @@ connector installations behind their existing sequence and external gates.
   `evaluation.justification` is composed only through
   the AI Router after the human selects a rating. English export generation/delivery remains E6B by the
   approved design; CAP-032 projection support is complete but file export remains partial.
+- E5A Identified Upward Manager Evaluation is technically complete locally: the five approved manager
+  criteria, frozen `IDENTIFIED` cycle/eligibility boundary, immutable named submission, leave-aware
+  completion, immediate manager originals, fail-closed private-mode contracts, and optional cited AI
+  themes are composed behind protected APIs. System Administrator has no response-content access.
+- A rerunnable PostgreSQL acceptance seed proves one named submission, one pending evaluator, one approved
+  leave, exact five-criterion persistence, immediate manager visibility, and unchanged historical data.
+  The English/Arabic route is a bounded technical verification surface, not final UX or Arabic rubric
+  release.
+- The single E5A P1 remediation cycle is complete: submissions use and persist in-period server time;
+  manager summaries use a verified registered prompt descriptor with untrusted originals; manager-cycle
+  reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus
+  summary-generation audits contain counts and identifiers only. The live-versus-frozen evaluator display
+  label adapter concern is recorded as deferred P2 and does not change frozen IDs or authorization.
 - E4 final specification and security/code-quality reviews found three related P1 lifecycle/scope
   defects. Commit `09f8674` closes them with transactional stage-readiness gates, checked closure only,
   department/organization validation, and separate cycle-administration versus manager-finalization
@@ -293,9 +306,10 @@ connector installations behind their existing sequence and external gates.
 ## Next Recommended Action
 
 Complete hosted checks and merge Pull Request #17 when GitHub creates a green exact-head run. Continue
-E5A Identified Upward Manager Evaluation on its isolated stacked branch in the meantime, then rebase it
-onto the merged E4 commit before its merge gate. Do not start the final frontend or E6B export delivery
-yet. Live connector setup and Arabic evaluation release remain behind their external human gates.
+with E5B Coaching & Development on an isolated stacked branch in the meantime. Perform the single E5
+specification/security review across E5A and E5B before their merge gate. Do not start the final frontend
+or E6B export delivery yet. Live connector setup and Arabic evaluation release remain behind their
+external human gates.
 
 ## Critical References
 
