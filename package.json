@@ -13,6 +13,7 @@
     "@evaluation/contracts": "workspace:*",
     "@evaluation/connected-work-context": "workspace:*",
     "@evaluation/coaching-development": "workspace:*",
+    "@evaluation/continuity": "workspace:*",
     "@evaluation/database": "workspace:*",
     "@evaluation/documents": "workspace:*",
     "@evaluation/employee-evaluation": "workspace:*",

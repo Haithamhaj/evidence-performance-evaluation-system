@@ -1,0 +1,24 @@
+{
+  "name": "@evaluation/continuity",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@evaluation/audit": "workspace:*",
+    "@evaluation/auth": "workspace:*",
+    "@evaluation/contracts": "workspace:*",
+    "@evaluation/database": "workspace:*",
+    "@evaluation/permissions": "workspace:*",
+    "@evaluation/projects": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": { "@types/node": "26.1.1" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. packages/continuity/src --passWithNoTests",
+    "test:integration": "vitest run --root ../.. packages/continuity/src --passWithNoTests"
+  }
+}
