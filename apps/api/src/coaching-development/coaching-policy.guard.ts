@@ -9,6 +9,7 @@ export type CoachingRequest = Readonly<{
   principal?: import("@evaluation/auth").AuthenticatedPrincipal;
   params: Record<string, string | undefined>;
   body?: unknown;
+  correlationId?: string;
 }>;
 export class CoachingPolicyGuard {
   constructor(private readonly auth: AuthGuard) {}

@@ -1,4 +1,5 @@
 import { createDatabaseClient } from "@evaluation/database";
+import { databaseAuditWriter } from "@evaluation/audit";
 import {
   CoachingDevelopmentPersistence,
   CoachingInsightService,
@@ -18,7 +19,6 @@ import { CoachingInsightsController } from "../../apps/api/src/coaching-developm
 import { CoachingPolicyGuard } from "../../apps/api/src/coaching-development/coaching-policy.guard.js";
 import { AppErrorFilter } from "../../apps/api/src/platform/error.filter.js";
 import { CorrelationMiddleware } from "../../apps/api/src/platform/correlation.middleware.js";
-import { seedCoachingDevelopmentAcceptance } from "../../scripts/seed-coaching-development-acceptance.js";
 import { seedManagerEvaluationAcceptance } from "../../scripts/seed-manager-evaluation-acceptance.js";
 
 const database = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
@@ -29,6 +29,7 @@ let managerId = "";
 let outsiderId = "";
 let insightId = "";
 let evidenceId = "";
+let outsiderInsightId = "";
 
 const authGuard = {
   canActivate(context: import("@nestjs/common").ExecutionContext): boolean {
@@ -60,7 +61,7 @@ Module({
     CoachingPolicyGuard,
     {
       provide: CoachingDevelopmentPersistence,
-      useFactory: () => new CoachingDevelopmentPersistence(database),
+      useFactory: () => new CoachingDevelopmentPersistence(database, databaseAuditWriter as never),
     },
     {
       provide: CoachingInsightService,
@@ -89,7 +90,10 @@ Module({
           find: (id) => store.findPlan(id),
           append: (event) => store.appendPlan(event),
           create: (event) => store.createPlan(event),
+          revise: (event) => store.revisePlan(event),
           linkEvidence: (event) => store.linkPlanEvidence(event),
+          auditRead: (event) => store.auditRead(event),
+          findIdempotentPlan: (key) => store.findIdempotentPlan(key),
         }),
       inject: [CoachingDevelopmentPersistence],
     },
@@ -102,12 +106,8 @@ beforeAll(async () => {
     adminSubject: "coaching-journey-admin",
     oidcIssuer: "https://issuer.coaching-journey.test",
   });
-  const fixture = await seedCoachingDevelopmentAcceptance(database, {
-    employeeId: evaluation.employeeId,
-    managerId: evaluation.managerId,
-  });
-  employeeId = fixture.employeeId;
-  managerId = fixture.managerId;
+  employeeId = evaluation.employeeId;
+  managerId = evaluation.managerId;
   insightId = (
     await database.coachingInsight.create({
       data: { employeeId, state: "DRAFT", version: 1 },
@@ -119,6 +119,9 @@ beforeAll(async () => {
       create: { email: "coaching-journey-outsider@test.invalid", displayName: "Outside Manager" },
       update: { active: true },
     })
+  ).id;
+  outsiderInsightId = (
+    await database.coachingInsight.create({ data: { employeeId: outsiderId, state: "DRAFT" } })
   ).id;
   evidenceId = await createConfirmedEvidence(employeeId);
 
@@ -141,17 +144,33 @@ afterAll(async () => {
 
 describe("coaching development authenticated retained journey", () => {
   it("keeps employee decisions private, permits bounded manager support after sharing, and completes only with confirmed evidence", async () => {
+    const decisionKey = crypto.randomUUID();
     expect(
       await api("POST", "/api/v1/coaching/insights/decide", employeeId, {
         schemaVersion: 1,
         insightId,
         expectedVersion: 1,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: decisionKey,
         decision: "EDIT_AND_ACCEPT",
         privateReason: "Employee-owned reflection",
         personalNote: "Keep this note private",
       }),
     ).toMatchObject({ status: 201, body: { insightId, version: 2 } });
+    expect(await api("GET", `/api/v1/coaching/insights/${insightId}`, employeeId)).toMatchObject({
+      status: 200,
+      body: {
+        id: insightId,
+        decisions: [
+          expect.objectContaining({
+            privateReason: "Employee-owned reflection",
+            personalNote: "Keep this note private",
+          }),
+        ],
+      },
+    });
+    expect(await api("GET", `/api/v1/coaching/insights/${insightId}`, managerId)).toMatchObject({
+      status: 403,
+    });
 
     const created = await api("POST", "/api/v1/coaching/actions", employeeId, actionInput());
     expect(created).toMatchObject({ status: 201, body: { id: expect.any(String), version: 1 } });
@@ -165,18 +184,23 @@ describe("coaching development authenticated retained journey", () => {
       status: 403,
     });
 
+    const privacyKey = crypto.randomUUID();
     expect(
       await api("POST", "/api/v1/coaching/actions/privacy", employeeId, {
         schemaVersion: 1,
         actionId,
         expectedVersion: 1,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: privacyKey,
         privacy: "SHARED",
       }),
     ).toMatchObject({ status: 201, body: { id: actionId, version: 2 } });
     expect(await api("GET", `/api/v1/coaching/actions/${actionId}`, managerId)).toMatchObject({
       status: 200,
       body: { id: actionId, employeeId, privacy: "SHARED" },
+    });
+    expect(await api("GET", `/api/v1/coaching/actions/${actionId}`, managerId)).toMatchObject({
+      status: 200,
+      body: { title: "Document one blocker response", objective: "Improve decision traceability" },
     });
     expect(await support(actionId, managerId, 2)).toMatchObject({ status: 201 });
     expect(await support(actionId, outsiderId, 2)).toMatchObject({ status: 403 });
@@ -209,7 +233,8 @@ describe("coaching development authenticated retained journey", () => {
     const planId = (plan.body as { id: string }).id;
 
     expect(await planTransition("agree", planId, managerId, 1)).toMatchObject({ status: 409 });
-    expect(await planTransition("approve", planId, employeeId, 1)).toMatchObject({
+    const firstApprovalKey = crypto.randomUUID();
+    expect(await planTransition("approve", planId, employeeId, 1, firstApprovalKey)).toMatchObject({
       status: 201,
       body: { version: 2 },
     });
@@ -223,33 +248,149 @@ describe("coaching development authenticated retained journey", () => {
     });
 
     expect(
-      await api("POST", "/api/v1/coaching/formal-plans/evidence", employeeId, {
+      await api("POST", "/api/v1/coaching/formal-plans/revise", employeeId, {
         schemaVersion: 1,
         planId,
         expectedVersion: 4,
+        idempotencyKey: crypto.randomUUID(),
+        developmentArea: "Revised decision documentation",
+        reason: "Employee changed the agreed activity",
+        expectedBehavior: "Describe the next decision, source, and limitation.",
+        activities: ["Practice twice on current work items"],
+        followUpOwnerId: managerId,
+        targetDate: null,
+        completionEvidenceDefinition: "Employee-confirmed Evidence Record",
+        sourceEvaluationAssignmentId: null,
+      }),
+    ).toMatchObject({ status: 201, body: { state: "DRAFT", version: 5 } });
+    expect(await planTransition("agree", planId, managerId, 5)).toMatchObject({ status: 409 });
+    expect(await planTransition("approve", planId, employeeId, 5)).toMatchObject({
+      status: 201,
+      body: { version: 6 },
+    });
+    expect(await planTransition("agree", planId, managerId, 6)).toMatchObject({
+      status: 201,
+      body: { version: 7 },
+    });
+    expect(await planTransition("activate", planId, managerId, 7)).toMatchObject({
+      status: 201,
+      body: { version: 8 },
+    });
+    expect(await api("GET", `/api/v1/coaching/formal-plans/${planId}`, managerId)).toMatchObject({
+      status: 200,
+      body: {
+        id: planId,
+        developmentArea: "Revised decision documentation",
+        state: "ACTIVE",
+      },
+    });
+    expect(await planTransition("complete", planId, managerId, 8)).toMatchObject({ status: 409 });
+
+    expect(
+      await api("POST", "/api/v1/coaching/formal-plans/evidence", employeeId, {
+        schemaVersion: 1,
+        planId,
+        expectedVersion: 8,
         idempotencyKey: crypto.randomUUID(),
         evidenceId,
         confirmed: true,
       }),
     ).toMatchObject({ status: 201 });
-    expect(await planTransition("complete", planId, managerId, 4)).toMatchObject({
+    expect(await planTransition("complete", planId, managerId, 8)).toMatchObject({
       status: 201,
-      body: { state: "COMPLETED", version: 5 },
+      body: { state: "COMPLETED", version: 9 },
+    });
+    expect(
+      await api("POST", "/api/v1/coaching/formal-plans/close", managerId, {
+        schemaVersion: 1,
+        planId,
+        expectedVersion: 9,
+        idempotencyKey: crypto.randomUUID(),
+        reason: "The participants completed and closed the plan.",
+      }),
+    ).toMatchObject({
+      status: 201,
+      body: { state: "CLOSED", version: 10 },
     });
 
     const retained = await database.formalDevelopmentPlan.findUniqueOrThrow({
       where: { id: planId },
       include: { agreements: true, evidenceLinks: true, transitions: true },
     });
-    expect(retained.state).toBe("COMPLETED");
+    expect(retained.state).toBe("CLOSED");
     expect(retained.agreements.map(({ kind }) => kind)).toEqual([
+      "EMPLOYEE_APPROVED",
+      "MANAGER_AGREED",
       "EMPLOYEE_APPROVED",
       "MANAGER_AGREED",
     ]);
     expect(retained.evidenceLinks).toEqual(
       expect.arrayContaining([expect.objectContaining({ evidenceId, confirmed: true })]),
     );
-    expect(retained.transitions).toHaveLength(4);
+    expect(retained.transitions).toHaveLength(9);
+    expect(
+      await api("POST", "/api/v1/coaching/insights/decide", employeeId, {
+        schemaVersion: 1,
+        insightId,
+        expectedVersion: 1,
+        idempotencyKey: decisionKey,
+        decision: "EDIT_AND_ACCEPT",
+        privateReason: "Employee-owned reflection",
+        personalNote: "Keep this note private",
+      }),
+    ).toMatchObject({ status: 201, body: { version: 2 } });
+    expect(
+      await api("POST", "/api/v1/coaching/actions/privacy", employeeId, {
+        schemaVersion: 1,
+        actionId,
+        expectedVersion: 1,
+        idempotencyKey: privacyKey,
+        privacy: "SHARED",
+      }),
+    ).toMatchObject({ status: 201, body: { version: 2 } });
+    expect(await planTransition("approve", planId, employeeId, 1, firstApprovalKey)).toMatchObject({
+      status: 201,
+      body: { version: 2 },
+    });
+    const audits = await database.auditEvent.findMany({
+      where: { targetId: { in: [insightId, actionId, planId] } },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(audits.map(({ eventType }) => eventType)).toEqual(
+      expect.arrayContaining([
+        "coaching.insight.decided",
+        "coaching.insight.employee_read",
+        "coaching.action.privacy_changed",
+        "coaching.action.shared_read",
+        "coaching.action.support_added",
+        "coaching.plan.agreement_recorded",
+        "coaching.plan.participant_read",
+        "coaching.plan.completed",
+      ]),
+    );
+    expect(JSON.stringify(audits)).not.toContain("Employee-owned reflection");
+    expect(JSON.stringify(audits)).not.toContain("Keep this note private");
+  });
+
+  it("does not authorize a historical assignment outside its cycle window", async () => {
+    const persistenceAtFutureDate = new CoachingDevelopmentPersistence(
+      database,
+      undefined,
+      () => new Date("2030-01-01T00:00:00Z"),
+    );
+    await expect(persistenceAtFutureDate.isAuthorizedManager(employeeId, managerId)).resolves.toBe(
+      false,
+    );
+  });
+
+  it("rejects an action linked to another employee's coaching insight", async () => {
+    expect(
+      await api("POST", "/api/v1/coaching/actions", employeeId, {
+        ...actionInput(),
+        insightId: outsiderInsightId,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).toMatchObject({ status: 403 });
   });
 });
 
@@ -299,11 +440,13 @@ function planTransition(
   planId: string,
   actorId: string,
   expectedVersion: number,
+  idempotencyKey = crypto.randomUUID(),
 ) {
   return api("POST", `/api/v1/coaching/formal-plans/${transition}`, actorId, {
+    schemaVersion: 1,
     planId,
     expectedVersion,
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey,
   });
 }
 

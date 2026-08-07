@@ -5,6 +5,7 @@ type Store = Readonly<{
   find(actionId: string): Promise<{ privacy: string; employeeId: string } | null>;
   isAuthorizedManager(employeeId: string, managerId: string): Promise<boolean>;
   append(entry: Record<string, unknown>): Promise<void>;
+  auditRead?(event: Record<string, unknown>): Promise<void>;
 }>;
 export class ManagerSupportService {
   constructor(private readonly store: Store) {}

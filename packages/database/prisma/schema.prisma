@@ -150,6 +150,7 @@ model User {
   coachingInsightsOwned CoachingInsight[] @relation("CoachingInsightEmployee")
   coachingInsightRevisions CoachingInsightRevision[] @relation("CoachingInsightRevisionAuthor")
   coachingInsightDecisions CoachingInsightDecision[] @relation("CoachingInsightDecisionEmployee")
+  formalPlanEvidenceConfirmations FormalDevelopmentPlanEvidenceLink[] @relation("FormalPlanEvidenceConfirmedBy")
   developmentActionsOwned DevelopmentAction[] @relation("DevelopmentActionEmployee")
   developmentActionRevisions DevelopmentActionRevision[] @relation("DevelopmentActionRevisionAuthor")
   developmentActionTransitions DevelopmentActionTransition[] @relation("DevelopmentActionTransitionActor")
@@ -1843,6 +1844,7 @@ model EvidenceRecord {
   confirmation         EvidenceConfirmation?
   acceptedEvent        AcceptedEvidenceEvent?
   researchEvidenceLinks ResearchEvidenceLink[]
+  formalDevelopmentPlanLinks FormalDevelopmentPlanEvidenceLink[]
   createdAt            DateTime               @default(now()) @db.Timestamptz(6)
   updatedAt            DateTime               @updatedAt @db.Timestamptz(6)
 
@@ -3705,6 +3707,7 @@ model AiRun {
   researchConclusions ResearchConclusion[] @relation("ResearchConclusionAiRun")
   assessmentRevisions AssessmentRevision[] @relation("AssessmentRevisionAiRun")
   managerEvaluationSummaryRevisions ManagerEvaluationSummaryRevision[] @relation("ManagerEvaluationSummaryAiRun")
+  coachingInsightRevisions CoachingInsightRevision[]
   createdAt              DateTime                        @default(now()) @db.Timestamptz(6)
 
   @@index([routeId, routeConfigVersion, createdAt])
@@ -3944,6 +3947,7 @@ model EvaluationAssignment {
   finalDecisions         FinalEvaluationDecision[]
   finalSnapshot          FinalEvaluationSnapshot?
   acknowledgment         EvaluationAcknowledgment?
+  formalDevelopmentPlanRevisions FormalDevelopmentPlanRevision[]
   createdAt              DateTime                           @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                           @updatedAt @db.Timestamptz(6)
 
@@ -4548,20 +4552,24 @@ model CoachingInsight {
   employee User @relation("CoachingInsightEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
   state CoachingInsightState @default(DRAFT)
   currentRevisionId String? @unique @db.Uuid
+  currentRevision CoachingInsightRevision? @relation("CurrentCoachingInsightRevision", fields: [currentRevisionId, id], references: [id, insightId], onDelete: Restrict)
   version Int @default(1)
   schemaVersion Int @default(1)
-  revisions CoachingInsightRevision[]
+  revisions CoachingInsightRevision[] @relation("CoachingInsightRevisions")
   sources CoachingInsightSource[]
   decisions CoachingInsightDecision[]
+  developmentActions DevelopmentAction[]
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
   @@index([employeeId, state, createdAt])
+  @@unique([currentRevisionId, id])
 }
 
 model CoachingInsightRevision {
   id String @id @default(uuid()) @db.Uuid
   insightId String @db.Uuid
-  insight CoachingInsight @relation(fields: [insightId], references: [id], onDelete: Restrict)
+  insight CoachingInsight @relation("CoachingInsightRevisions", fields: [insightId], references: [id], onDelete: Restrict)
+  currentFor CoachingInsight? @relation("CurrentCoachingInsightRevision")
   revision Int
   pattern String
   periodStartsAt DateTime @db.Timestamptz(6)
@@ -4575,10 +4583,13 @@ model CoachingInsightRevision {
   promptVersion String?
   outputSchemaVersion String?
   aiRunId String? @db.Uuid
+  aiRun AiRun? @relation(fields: [aiRunId], references: [id], onDelete: Restrict)
   createdById String @db.Uuid
   createdBy User @relation("CoachingInsightRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  sources CoachingInsightSource[]
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   @@unique([insightId, revision])
+  @@unique([id, insightId])
   @@index([createdById, createdAt])
 }
 
@@ -4587,6 +4598,7 @@ model CoachingInsightSource {
   insightId String @db.Uuid
   insight CoachingInsight @relation(fields: [insightId], references: [id], onDelete: Restrict)
   revisionId String @db.Uuid
+  revision CoachingInsightRevision @relation(fields: [revisionId, insightId], references: [id, insightId], onDelete: Restrict)
   sourceId String @db.Uuid
   sourceKind String
   excerpt String?
@@ -4609,6 +4621,7 @@ model CoachingInsightDecision {
   resultingVersion Int
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   @@index([insightId, createdAt])
+  @@unique([insightId, resultingVersion])
 }
 
 model DevelopmentAction {
@@ -4616,24 +4629,29 @@ model DevelopmentAction {
   employeeId String @db.Uuid
   employee User @relation("DevelopmentActionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
   insightId String? @db.Uuid
+  insight CoachingInsight? @relation(fields: [insightId], references: [id], onDelete: Restrict)
   privacy DevelopmentActionPrivacy @default(PRIVATE)
   state DevelopmentActionState @default(DRAFT)
   currentRevisionId String? @unique @db.Uuid
+  currentRevision DevelopmentActionRevision? @relation("CurrentDevelopmentActionRevision", fields: [currentRevisionId, id], references: [id, actionId], onDelete: Restrict)
   version Int @default(1)
   schemaVersion Int @default(1)
-  revisions DevelopmentActionRevision[]
+  revisions DevelopmentActionRevision[] @relation("DevelopmentActionRevisions")
   transitions DevelopmentActionTransition[]
   supportEntries ManagerSupportEntry[]
   formalPlans FormalDevelopmentPlan[]
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
   @@index([employeeId, privacy, state, createdAt])
+  @@unique([currentRevisionId, id])
 }
 
 model DevelopmentActionRevision {
   id String @id @default(uuid()) @db.Uuid
   actionId String @db.Uuid
-  action DevelopmentAction @relation(fields: [actionId], references: [id], onDelete: Restrict)
+  action DevelopmentAction @relation("DevelopmentActionRevisions", fields: [actionId], references: [id], onDelete: Restrict)
+  currentFor DevelopmentAction? @relation("CurrentDevelopmentActionRevision")
+  idempotencyKey String? @unique @db.Uuid
   revision Int
   title String
   objective String
@@ -4649,6 +4667,7 @@ model DevelopmentActionRevision {
   createdBy User @relation("DevelopmentActionRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   @@unique([actionId, revision])
+  @@unique([id, actionId])
 }
 
 model DevelopmentActionTransition {
@@ -4665,6 +4684,7 @@ model DevelopmentActionTransition {
   resultingVersion Int
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   @@index([actionId, createdAt])
+  @@unique([actionId, resultingVersion])
 }
 
 model ManagerSupportEntry {
@@ -4689,11 +4709,13 @@ model FormalDevelopmentPlan {
   manager User @relation("FormalPlanManager", fields: [managerId], references: [id], onDelete: Restrict)
   actionId String? @db.Uuid
   action DevelopmentAction? @relation(fields: [actionId], references: [id], onDelete: Restrict)
+  idempotencyKey String? @unique @db.Uuid
   state FormalDevelopmentPlanState @default(DRAFT)
   currentRevisionId String? @unique @db.Uuid
+  currentRevision FormalDevelopmentPlanRevision? @relation("CurrentFormalDevelopmentPlanRevision", fields: [currentRevisionId, id], references: [id, planId], onDelete: Restrict)
   version Int @default(1)
   schemaVersion Int @default(1)
-  revisions FormalDevelopmentPlanRevision[]
+  revisions FormalDevelopmentPlanRevision[] @relation("FormalDevelopmentPlanRevisions")
   agreements FormalDevelopmentPlanAgreement[]
   transitions FormalDevelopmentPlanTransition[]
   evidenceLinks FormalDevelopmentPlanEvidenceLink[]
@@ -4701,12 +4723,15 @@ model FormalDevelopmentPlan {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
   @@index([employeeId, state, createdAt])
   @@index([managerId, state, createdAt])
+  @@unique([currentRevisionId, id])
 }
 
 model FormalDevelopmentPlanRevision {
   id String @id @default(uuid()) @db.Uuid
   planId String @db.Uuid
-  plan FormalDevelopmentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  plan FormalDevelopmentPlan @relation("FormalDevelopmentPlanRevisions", fields: [planId], references: [id], onDelete: Restrict)
+  currentFor FormalDevelopmentPlan? @relation("CurrentFormalDevelopmentPlanRevision")
+  idempotencyKey String? @unique @db.Uuid
   revision Int
   developmentArea String
   reason String
@@ -4716,10 +4741,13 @@ model FormalDevelopmentPlanRevision {
   targetDate DateTime? @db.Timestamptz(6)
   completionEvidenceDefinition String
   sourceEvaluationAssignmentId String? @db.Uuid
+  sourceEvaluationAssignment EvaluationAssignment? @relation(fields: [sourceEvaluationAssignmentId], references: [id], onDelete: Restrict)
   createdById String @db.Uuid
   createdBy User @relation("FormalPlanRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  agreements FormalDevelopmentPlanAgreement[]
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   @@unique([planId, revision])
+  @@unique([id, planId])
 }
 
 model FormalDevelopmentPlanAgreement {
@@ -4728,6 +4756,7 @@ model FormalDevelopmentPlanAgreement {
   planId String @db.Uuid
   plan FormalDevelopmentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
   revisionId String @db.Uuid
+  revision FormalDevelopmentPlanRevision @relation(fields: [revisionId, planId], references: [id, planId], onDelete: Restrict)
   kind FormalPlanAgreementKind
   actorId String @db.Uuid
   actor User @relation("FormalPlanAgreementActor", fields: [actorId], references: [id], onDelete: Restrict)
@@ -4748,6 +4777,7 @@ model FormalDevelopmentPlanTransition {
   reason String?
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   @@index([planId, createdAt])
+  @@unique([planId, resultingVersion])
 }
 
 model FormalDevelopmentPlanEvidenceLink {
@@ -4755,9 +4785,11 @@ model FormalDevelopmentPlanEvidenceLink {
   planId String @db.Uuid
   plan FormalDevelopmentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
   evidenceId String @db.Uuid
+  evidence EvidenceRecord @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
   confirmed Boolean @default(false)
   confirmedAt DateTime? @db.Timestamptz(6)
   confirmedById String? @db.Uuid
+  confirmedBy User? @relation("FormalPlanEvidenceConfirmedBy", fields: [confirmedById], references: [id], onDelete: Restrict)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   @@unique([planId, evidenceId])
 }

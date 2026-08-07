@@ -60,4 +60,40 @@ describe("DevelopmentActionService", () => {
       }),
     ).rejects.toMatchObject({ code: "AUTHZ_ACTION" });
   });
+
+  it("returns a manager allowlist for a shared action without employee-selected context", async () => {
+    const service = new DevelopmentActionService({
+      find: async () => ({
+        id: actionId,
+        employeeId,
+        privacy: "SHARED",
+        state: "ACTIVE",
+        version: 3,
+        currentRevision: {
+          title: "Shared title",
+          objective: "Shared objective",
+          expectedBenefit: "Shared benefit",
+          activity: "Shared activity",
+          completionEvidenceDefinition: "Confirmed evidence",
+          targetDate: null,
+          projectId: null,
+          researchId: null,
+          workItemId: null,
+          employeeSelectedContext: "PRIVATE CONTEXT",
+        },
+      }),
+      append: async () => undefined,
+      isAuthorizedManager: async () => true,
+    });
+    const projection = await service.read({ actionId, actorId: managerId, managerId });
+    expect(projection).toMatchObject({
+      id: actionId,
+      employeeId,
+      privacy: "SHARED",
+      title: "Shared title",
+      objective: "Shared objective",
+    });
+    expect(JSON.stringify(projection)).not.toContain("PRIVATE CONTEXT");
+    expect(projection).not.toHaveProperty("currentRevision");
+  });
 });

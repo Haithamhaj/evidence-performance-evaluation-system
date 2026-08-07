@@ -13,6 +13,7 @@ export class CoachingActionsController {
       actionId,
       actorId: request.principal!.userId,
       managerId: request.principal!.userId,
+      ...(request.correlationId ? { correlationId: request.correlationId } : {}),
     });
   }
   create(request: CoachingRequest, body: unknown) {

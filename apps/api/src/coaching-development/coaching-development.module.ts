@@ -1,4 +1,5 @@
 import { createDatabaseClient } from "@evaluation/database";
+import { databaseAuditWriter } from "@evaluation/audit";
 import {
   CoachingDevelopmentPersistence,
   CoachingInsightService,
@@ -38,7 +39,8 @@ Module({
     { provide: COACHING_DEVELOPMENT_POLICY_DATABASE, useExisting: COACHING_DEVELOPMENT_DATABASE },
     {
       provide: CoachingDevelopmentPersistence,
-      useFactory: (database: Database) => new CoachingDevelopmentPersistence(database),
+      useFactory: (database: Database) =>
+        new CoachingDevelopmentPersistence(database, databaseAuditWriter as never),
       inject: [COACHING_DEVELOPMENT_DATABASE],
     },
     {
@@ -72,6 +74,7 @@ Module({
           isAuthorizedManager: (employeeId, managerId) =>
             store.isAuthorizedManager(employeeId, managerId),
           append: (entry) => store.appendSupport(entry),
+          auditRead: (event) => store.auditRead(event),
         }),
       inject: [CoachingDevelopmentPersistence],
     },
@@ -82,7 +85,10 @@ Module({
           find: (id) => store.findPlan(id),
           append: (event) => store.appendPlan(event),
           create: (event) => store.createPlan(event),
+          revise: (event) => store.revisePlan(event),
           linkEvidence: (event) => store.linkPlanEvidence(event),
+          auditRead: (event) => store.auditRead(event),
+          findIdempotentPlan: (key) => store.findIdempotentPlan(key),
         }),
       inject: [CoachingDevelopmentPersistence],
     },

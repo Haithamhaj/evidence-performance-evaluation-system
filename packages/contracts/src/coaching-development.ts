@@ -196,6 +196,17 @@ export const CreateFormalPlanInputSchema = command({
   completionEvidenceDefinition: text(4_000),
   sourceEvaluationAssignmentId: UuidSchema.nullable(),
 });
+export const ReviseFormalPlanInputSchema = CreateFormalPlanInputSchema.omit({
+  managerId: true,
+  actionId: true,
+}).extend({
+  planId: UuidSchema,
+}).strict();
+export const EndFormalPlanInputSchema = command({
+  planId: UuidSchema,
+  actorId: UuidSchema,
+  reason: text(4_000),
+});
 export const LinkFormalPlanEvidenceInputSchema = command({
   planId: UuidSchema,
   employeeId: UuidSchema,

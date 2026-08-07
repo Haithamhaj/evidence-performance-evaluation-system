@@ -16,7 +16,11 @@ export class CoachingInsightsController {
     });
   }
   read(request: CoachingRequest, insightId: string) {
-    return this.insights.read({ insightId, actorId: request.principal!.userId });
+    return this.insights.read({
+      insightId,
+      actorId: request.principal!.userId,
+      ...(request.correlationId ? { correlationId: request.correlationId } : {}),
+    });
   }
   decide(request: CoachingRequest, body: unknown) {
     return this.insights.decide({ ...(body as object), employeeId: request.principal!.userId });

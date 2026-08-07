@@ -20,6 +20,10 @@ export interface CoachingRepository {
   createInsight(input: Record<string, unknown>): Promise<Record<string, unknown>>;
   findInsight(id: string): Promise<Record<string, unknown> | null>;
   appendInsightDecision(input: Record<string, unknown>): Promise<void>;
+  findInsightDecisionByIdempotencyKey?(
+    idempotencyKey: string,
+  ): Promise<Record<string, unknown> | null>;
+  auditRead?(event: Record<string, unknown>): Promise<void>;
 }
 
 export interface CoachingAuditWriter {
