@@ -1,4 +1,5 @@
 export * from "./insight-generator.js";
+export * from "./prompts.js";
 export * from "./insight-service.js";
 export * from "./action-service.js";
 export * from "./ai-insight-service.js";
@@ -8,4 +9,3 @@ export * from "./formal-plan-service.js";
 export * from "./report-reader.js";
 export * from "./ports.js";
 export * from "./persistence.js";
-export * from "./prompts.js";

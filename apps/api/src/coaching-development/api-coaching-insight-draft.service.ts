@@ -7,6 +7,9 @@ import { AppError } from "@evaluation/contracts";
 import {
   CoachingInsightAiService,
   CoachingDevelopmentPersistence,
+  COACHING_INSIGHT_OUTPUT_SCHEMA_VERSION,
+  COACHING_INSIGHT_PROMPT_VERSION,
+  qualifyCoachingFacts,
 } from "@evaluation/coaching-development";
 import { EvaluationFactViewService } from "@evaluation/evaluation-preparation";
 
@@ -45,13 +48,15 @@ export class ApiCoachingInsightDraftService {
         active: true,
       },
     });
-    const facts = [...view.confirmedEvidence, ...view.projectFacts, ...view.researchFacts]
-      .slice(0, 100)
-      .map((fact) => ({
+    const facts = qualifyCoachingFacts(
+      [...view.confirmedEvidence, ...view.projectFacts, ...view.researchFacts]
+        .slice(0, 100)
+        .map((fact) => ({
         sourceId: fact.sourceId,
-        kind: "EVALUATION_FACT",
+        kind: "EVALUATION_FACT" as const,
         text: JSON.stringify(fact),
-      }));
+        })),
+    );
     if (facts.length === 0)
       throw new AppError("COACHING_MANUAL_RECOVERY_REQUIRED", "errors.coaching.aiUnavailable", 503);
     const router = createDeferredRuntimeAiRouter(() =>
@@ -60,7 +65,13 @@ export class ApiCoachingInsightDraftService {
         secretResolver: new EnvironmentAiCredentialSecretResolver(),
       }),
     );
-    const result = await new CoachingInsightAiService(router).draft({
+    const result = await new CoachingInsightAiService(router, {
+      read: (routeKey, version) =>
+        this.database.analysisPromptArtifact.findUnique({
+          where: { routeKey_version: { routeKey, version } },
+          select: { id: true, routeKey: true, version: true, bodyHash: true, trustedBody: true },
+        }),
+    }).draft({
       employeeId: input.actorId,
       departmentId: assignment.cycle.departmentId,
       systemId: await resolveSystemAiScopeId(this.database, "coaching.insight"),
@@ -72,7 +83,10 @@ export class ApiCoachingInsightDraftService {
     });
     return this.persistence.createInsight({
       employeeId: input.actorId,
-      state: result.confidence === "REVIEW_REQUIRED" ? "REVIEW_REQUIRED" : "DRAFT",
+      state:
+        result.confidence === "REVIEW_REQUIRED" || result.confidence === "LIMITED"
+          ? "REVIEW_REQUIRED"
+          : "DRAFT",
       pattern: result.pattern,
       periodStartsAt: assignment.cycle.startsAt.toISOString(),
       periodEndsAt: assignment.cycle.endsAt.toISOString(),
@@ -82,8 +96,8 @@ export class ApiCoachingInsightDraftService {
       conflicts: result.conflicts,
       cannotConclude: result.cannotConclude,
       actionDraft: result.actionDraft,
-      promptVersion: "coaching-insight.v1",
-      outputSchemaVersion: "coaching-insight.v1",
+      promptVersion: COACHING_INSIGHT_PROMPT_VERSION,
+      outputSchemaVersion: COACHING_INSIGHT_OUTPUT_SCHEMA_VERSION,
       aiRunId: result.aiRunId,
       sources: facts
         .filter((fact) => result.sourceIds.includes(fact.sourceId))

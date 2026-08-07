@@ -28,4 +28,24 @@ describe("CoachingInsightGenerator", () => {
       }),
     ).toThrowError(expect.objectContaining({ code: "COACHING_SOURCE_UNQUALIFIED" }));
   });
+
+  it.each([
+    "Approved leave lasted one week",
+    "42 commits were pushed",
+    "One incident missed a deadline",
+  ])("excludes an unsafe single-source pattern: %s", (text) => {
+    expect(() =>
+      new CoachingInsightGenerator().draft({
+        employeeId: "10000000-0000-4000-8000-000000000001",
+        period: { startsAt: "2026-07-01T00:00:00Z", endsAt: "2026-08-01T00:00:00Z" },
+        facts: [
+          {
+            sourceId: "30000000-0000-4000-8000-000000000001",
+            kind: "EVIDENCE",
+            text,
+          },
+        ],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "COACHING_SOURCE_UNQUALIFIED" }));
+  });
 });

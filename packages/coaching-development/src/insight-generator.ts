@@ -11,7 +11,7 @@ export class CoachingInsightGenerator {
       facts: readonly CoachingFact[];
     }>,
   ) {
-    const facts = input.facts.filter((fact) => qualifies(fact));
+    const facts = qualifyCoachingFacts(input.facts);
     if (facts.length === 0) throw error("COACHING_SOURCE_UNQUALIFIED", 409);
     const reviewRequired = facts.length < 2;
     return CoachingInsightSchema.parse({
@@ -35,12 +35,23 @@ export class CoachingInsightGenerator {
   }
 }
 
+export function qualifyCoachingFacts(facts: readonly CoachingFact[]) {
+  const qualified = facts.filter((fact) => qualifies(fact));
+  if (qualified.length === 1 && isNegativeSingleIncident(qualified[0]!.text)) return [];
+  return qualified;
+}
+
 function qualifies(fact: CoachingFact) {
   const text = fact.text.toLowerCase();
   return (
     text.trim().length > 0 &&
-    !/\b\d+\s+(updates|commits|tasks|activities)\b/u.test(text) &&
-    !/\bleave\b/u.test(text)
+    !/\b\d+\s+(updates|commits|tasks|activities|pull requests|prs|tickets)\b/u.test(text) &&
+    !/\b(?:approved\s+)?leave\b|إجازة/u.test(text)
+  );
+}
+function isNegativeSingleIncident(text: string) {
+  return /\b(?:one|single|isolated)\s+(?:incident|event|case)\b.{0,100}\b(?:miss|fail|delay|late|error|problem|block)/iu.test(
+    text,
   );
 }
 function error(code: string, status: number) {
