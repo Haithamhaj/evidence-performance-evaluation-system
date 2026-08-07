@@ -43,3 +43,48 @@ export class ActingAuthorityReader {
     );
   }
 }
+
+export class PrismaActingAuthoritySource implements ActingAuthoritySource {
+  constructor(private readonly database: import("@evaluation/database").DatabaseClient) {}
+
+  async findActiveCandidates(actorId: string): Promise<readonly ActingAuthority[]> {
+    const rows = await this.database.delegationScope.findMany({
+      where: {
+        responsibilityWindowId: { not: null },
+        delegation: { delegateId: actorId, state: "ACTIVE" },
+      },
+      include: {
+        delegation: {
+          include: { periods: { orderBy: [{ startsAt: "asc" }, { id: "asc" }] } },
+        },
+        responsibilityWindow: { select: { id: true, startsAt: true, endsAt: true } },
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    return rows.flatMap((row) => {
+      const period = row.delegation.periods[0];
+      const window = row.responsibilityWindow;
+      const scopeId = row.projectId ?? row.workstreamId;
+      if (!period || !window || !scopeId || window.endsAt === null) return [];
+      return [
+        {
+          delegationId: row.delegationId,
+          actorId,
+          scopeType: row.projectId ? ("project" as const) : ("workstream" as const),
+          scopeId,
+          action: row.action,
+          startsAt: later(period.startsAt, window.startsAt).toISOString(),
+          endsAt: earlier(period.endsAt, window.endsAt).toISOString(),
+        },
+      ];
+    });
+  }
+}
+
+function later(left: Date, right: Date) {
+  return left > right ? left : right;
+}
+
+function earlier(left: Date, right: Date) {
+  return left < right ? left : right;
+}

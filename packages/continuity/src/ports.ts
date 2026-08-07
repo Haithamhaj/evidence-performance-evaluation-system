@@ -28,6 +28,13 @@ export interface ContinuityTransaction {
   appendEligibilityEffect(input: Record<string, unknown>): Promise<void>;
   appendAudit(input: Record<string, unknown>): Promise<{ id: string }>;
   findApprovedLeaveAt(employeeId: string, occurredAt: string): Promise<LeaveRow | null>;
+  findHandover(handoverId: string): Promise<Readonly<{
+    id: string;
+    leaveId: string;
+    employeeId: string;
+    currentRevisionId: string | null;
+    currentRevision: number;
+  }> | null>;
   currentHandoverRevision(handoverId: string): Promise<number>;
   appendHandoverRevision(input: Record<string, unknown>): Promise<{ revision: number }>;
   appendHandoverConfirmation(input: Record<string, unknown>): Promise<void>;

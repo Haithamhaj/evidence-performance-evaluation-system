@@ -88,11 +88,23 @@ export class MemoryContinuityStore implements ContinuityStore {
       ) ?? null
     );
   }
+  async findHandover(handoverId: string) {
+    const rows = this.handoverRevisions.filter((item) => item.handoverId === handoverId);
+    const current = rows.at(-1);
+    if (!current) return null;
+    return {
+      id: handoverId,
+      leaveId: current.leaveId as string,
+      employeeId: current.employeeId as string,
+      currentRevisionId: (current.id as string | undefined) ?? null,
+      currentRevision: current.revision as number,
+    };
+  }
   async currentHandoverRevision(handoverId: string) {
     return this.handoverRevisions.filter((item) => item.handoverId === handoverId).length;
   }
   async appendHandoverRevision(input: Record<string, unknown>) {
-    this.handoverRevisions.push(input);
+    this.handoverRevisions.push({ id: crypto.randomUUID(), ...input });
     return { revision: input.revision as number };
   }
   async appendHandoverConfirmation(input: Record<string, unknown>) {

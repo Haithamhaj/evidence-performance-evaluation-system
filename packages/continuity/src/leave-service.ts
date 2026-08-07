@@ -147,12 +147,14 @@ export class LeaveService {
       });
       if (parsed.decision === "APPROVED") {
         await transaction.appendEligibilityEffect({
+          leaveId: fresh.id,
           employeeId: fresh.employeeId,
           startsAt: fresh.startsAt,
           endsAt: fresh.endsAt,
           checkInRequired: false,
           negativeRegularitySignal: false,
           evaluationObligationSuspended: true,
+          auditEventId: audit.id,
         });
       }
       return transaction.updateLeave(fresh.id, parsed.decision, fresh.version + 1);
@@ -247,6 +249,45 @@ export class LeaveService {
         auditEventId: audit.id,
       });
       return transaction.updateLeave(fresh.id, state, fresh.version + 1);
+    });
+  }
+}
+
+export class PrismaApprovedLeaveReader {
+  constructor(private readonly database: import("@evaluation/database").DatabaseClient) {}
+
+  async findApprovedLeave(input: {
+    employeeId: string;
+    startsAt: string;
+    endsAt: string;
+  }): Promise<{ leaveId: string } | null> {
+    const effect = await this.database.leaveEligibilityEffect.findFirst({
+      where: {
+        employeeId: input.employeeId,
+        startsAt: { lt: new Date(input.endsAt) },
+        endsAt: { gt: new Date(input.startsAt) },
+        leave: { state: { in: ["APPROVED", "ACTIVE"] } },
+      },
+      orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+      select: { leaveId: true },
+    });
+    return effect;
+  }
+
+  async coversInterval(input: {
+    employeeId: string;
+    startsAt: string;
+    endsAt: string;
+  }): Promise<{ leaveId: string } | null> {
+    return this.database.leaveEligibilityEffect.findFirst({
+      where: {
+        employeeId: input.employeeId,
+        startsAt: { lte: new Date(input.startsAt) },
+        endsAt: { gte: new Date(input.endsAt) },
+        leave: { state: { in: ["APPROVED", "ACTIVE"] } },
+      },
+      orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+      select: { leaveId: true },
     });
   }
 }

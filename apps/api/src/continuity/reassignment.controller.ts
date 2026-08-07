@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { OffboardingService } from "@evaluation/continuity";
-import { Body, Controller, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ContinuityPolicyGuard, type ContinuityRequest } from "./continuity-policy.guard.js";
 
 export class ReassignmentController {
@@ -21,6 +21,9 @@ export class ReassignmentController {
       correlationId: correlation(request),
     });
   }
+  queue(request: ContinuityRequest) {
+    return this.service.managerQueue(request.principal!.userId);
+  }
 }
 Inject(OffboardingService)(ReassignmentController, undefined, 0);
 Controller("api/v1/continuity")(ReassignmentController);
@@ -35,6 +38,9 @@ Req()(ReassignmentController.prototype, "resolve", 0);
 Param("caseId")(ReassignmentController.prototype, "resolve", 1);
 Body()(ReassignmentController.prototype, "resolve", 2);
 Post("reassignments/:caseId/resolve")(ReassignmentController.prototype, "resolve", descriptor);
+descriptor = Object.getOwnPropertyDescriptor(ReassignmentController.prototype, "queue")!;
+Req()(ReassignmentController.prototype, "queue", 0);
+Get("reassignments/queue")(ReassignmentController.prototype, "queue", descriptor);
 function object(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }

@@ -52,6 +52,9 @@ class MemoryOffboardingStore implements OffboardingStore, OffboardingTransaction
   async appendNotificationIntent(input: Record<string, unknown>) {
     this.intents.push(input);
   }
+  async listManagerQueue() {
+    return this.cases.filter((item) => item.state === "REASSIGNMENT_REQUIRED");
+  }
 }
 
 function fixture() {

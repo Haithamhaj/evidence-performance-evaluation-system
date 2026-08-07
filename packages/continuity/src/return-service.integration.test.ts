@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ReturnService,
   type ReturnDelegation,
+  type ReturnRecord,
   type ReturnStore,
   type ReturnTransaction,
 } from "./return-service.js";
@@ -12,13 +13,16 @@ const delegation: ReturnDelegation = {
   id: "30000000-0000-4000-8000-000000000001",
   ownerId: "30000000-0000-4000-8000-000000000002",
   delegateId: "30000000-0000-4000-8000-000000000003",
+  managerId: "30000000-0000-4000-8000-000000000004",
+  departmentId: "30000000-0000-4000-8000-000000000005",
   state: "ACTIVE" as const,
 };
-const correlationId = "30000000-0000-4000-8000-000000000004";
+const returnId = "30000000-0000-4000-8000-000000000006";
+const correlationId = "30000000-0000-4000-8000-000000000007";
 
 class MemoryReturnStore implements ReturnStore, ReturnTransaction {
   current = delegation;
-  records: Record<string, unknown>[] = [];
+  record: ReturnRecord | null = null;
   audits: Record<string, unknown>[] = [];
   async transaction<T>(operation: (tx: ReturnTransaction) => Promise<T>) {
     return operation(this);
@@ -26,12 +30,38 @@ class MemoryReturnStore implements ReturnStore, ReturnTransaction {
   async findDelegation() {
     return this.current;
   }
+  async findReturn() {
+    return this.record;
+  }
   async expireDelegation() {
     this.current = { ...this.current, state: "RETURNED" as const };
   }
   async appendReturn(input: Record<string, unknown>) {
-    this.records.push(input);
-    return input;
+    this.record = {
+      id: input.id as string,
+      delegationId: input.delegationId as string,
+      actingOwnerId: input.actingOwnerId as string,
+      originalOwnerId: input.originalOwnerId as string,
+      state: "DRAFT",
+      version: 1,
+      choice: null,
+    };
+    return this.record;
+  }
+  async confirmReturn(_id: string, input: Record<string, unknown>) {
+    if (!this.record || this.record.version !== input.expectedVersion) throw new Error("conflict");
+    this.record = { ...this.record, state: "OWNER_CONFIRMED", version: 2 };
+    return this.record;
+  }
+  async finalizeReturn(_id: string, input: Record<string, unknown>) {
+    if (!this.record || this.record.version !== input.expectedVersion) throw new Error("conflict");
+    this.record = {
+      ...this.record,
+      state: "FINALIZED",
+      version: 3,
+      choice: input.choice as ReturnRecord["choice"],
+    };
+    return this.record;
   }
   async appendAudit(input: Record<string, unknown>) {
     this.audits.push(input);
@@ -40,24 +70,58 @@ class MemoryReturnStore implements ReturnStore, ReturnTransaction {
 }
 
 describe("ReturnService", () => {
-  it("expires acting authority immediately and preserves a return handover", async () => {
+  it("binds acting draft, owner confirmation, and manager final choice to three principals", async () => {
     const store = new MemoryReturnStore();
-    const result = await new ReturnService(store).complete({
+    const service = new ReturnService(store, {
+      canManageEmployee: async (actor) => actor === delegation.managerId,
+    });
+    const draft = await service.draft({
+      id: returnId,
       delegationId: delegation.id,
-      actingOwnerId: delegation.delegateId,
-      originalOwnerId: delegation.ownerId,
+      actorId: delegation.delegateId,
       completedWork: "Reviewed the active work",
       decisionsAndChanges: "Accepted one delivery decision",
       openWork: "One approval remains",
       risksAndNextSteps: "Owner should confirm the approval",
+      correlationId,
+    });
+    await expect(
+      service.confirm({
+        returnId,
+        delegationId: delegation.id,
+        actorId: delegation.delegateId,
+        expectedVersion: draft.version,
+        correlationId,
+      }),
+    ).rejects.toMatchObject({ code: "RETURN_HANDOVER_INVALID" });
+    const confirmed = await service.confirm({
+      returnId,
+      delegationId: delegation.id,
+      actorId: delegation.ownerId,
+      expectedVersion: draft.version,
+      correlationId,
+    });
+    await expect(
+      service.finalize({
+        returnId,
+        delegationId: delegation.id,
+        managerId: delegation.delegateId,
+        expectedVersion: confirmed.version,
+        choice: "RETURN",
+        occurredAt: "2026-08-12T08:00:00.000Z",
+        correlationId,
+      }),
+    ).rejects.toMatchObject({ code: "AUTHZ_SCOPE" });
+    const result = await service.finalize({
+      returnId,
+      delegationId: delegation.id,
+      managerId: delegation.managerId,
+      expectedVersion: confirmed.version,
       choice: "RETURN",
-      confirmedById: delegation.ownerId,
       occurredAt: "2026-08-12T08:00:00.000Z",
       correlationId,
     });
-
-    expect(result).toMatchObject({ delegationId: delegation.id, choice: "RETURN" });
+    expect(result).toMatchObject({ state: "FINALIZED", choice: "RETURN" });
     expect(store.current.state).toBe("RETURNED");
-    expect(store.records).toHaveLength(1);
   });
 });

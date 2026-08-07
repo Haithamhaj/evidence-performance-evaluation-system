@@ -227,6 +227,10 @@ behind their existing sequence and external gates.
   Administrator cannot select a successor, and deactivation preserves all historical references.
   The English/Arabic route is a bounded technical verification surface, not final UX or Arabic rubric
   release.
+- E6A's bounded P1 remediation is complete locally: authoritative leave/handover sourcing, exact
+  revision confirmation, atomic real acting responsibility, manager-only gap resolution and expiry,
+  three-principal return, durable leave eligibility effects, and the manager reassignment queue are
+  exercised by a rerunnable PostgreSQL journey through permanent successor assignment.
 - The single E5A P1 remediation cycle is complete: submissions use and persist in-period server time;
   manager summaries use a verified registered prompt descriptor with untrusted originals; manager-cycle
   reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus

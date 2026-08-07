@@ -119,18 +119,22 @@ model User {
   confirmedResearchConclusions ResearchConclusion[]                @relation("ResearchConclusionConfirmer")
   confirmedAppliedLearning AppliedLearning[]                       @relation("AppliedLearningConfirmer")
   continuityLeaves         LeaveRecord[]                           @relation("ContinuityLeaveEmployee")
+  continuityLeaveEligibilityEffects LeaveEligibilityEffect[]       @relation("ContinuityLeaveEligibilityEmployee")
   continuityLeaveDecisions LeaveDecision[]                         @relation("ContinuityLeaveDecisionManager")
   continuityLeaveTransitions LeaveTransition[]                     @relation("ContinuityLeaveTransitionActor")
   continuityHandovers      HandoverRecord[]                        @relation("ContinuityHandoverEmployee")
   continuityHandoverRevisions HandoverRevision[]                   @relation("ContinuityHandoverRevisionAuthor")
+  continuityHandoverConfirmations HandoverConfirmation[]           @relation("ContinuityHandoverConfirmationEmployee")
   continuityDelegationsOwned Delegation[]                          @relation("ContinuityDelegationOwner")
   continuityDelegationsReceived Delegation[]                       @relation("ContinuityDelegationDelegate")
   continuityDelegationsManaged Delegation[]                        @relation("ContinuityDelegationManager")
   continuityDelegateConfirmations DelegateConfirmation[]           @relation("ContinuityDelegateConfirmationActor")
   continuityAccessGaps     DelegationAccessGap[]                    @relation("ContinuityAccessGapReporter")
+  continuityAccessGapResolutions DelegationAccessGapResolution[]    @relation("ContinuityAccessGapResolutionActor")
   continuityReturnHandoversActing ReturnHandover[]                 @relation("ContinuityReturnActingOwner")
   continuityReturnHandoversOriginal ReturnHandover[]               @relation("ContinuityReturnOriginalOwner")
   continuityReturnConfirmations ReturnHandover[]                   @relation("ContinuityReturnConfirmer")
+  continuityReturnFinalizations ReturnHandover[]                   @relation("ContinuityReturnFinalizer")
   continuityReassignmentCases ReassignmentRequiredCase[]          @relation("ContinuityReassignmentFormerOwner")
   continuityReassignmentResolutions ReassignmentResolution[]      @relation("ContinuityReassignmentActor")
   continuityReassignmentSuccessions ReassignmentResolution[]      @relation("ContinuityReassignmentSuccessor")
@@ -2023,7 +2027,7 @@ model ResponsibilityWindow {
   closedForTransfer        OwnershipTransfer? @relation("ClosedResponsibilityWindow")
   newForTransfer           OwnershipTransfer? @relation("NewResponsibilityWindow")
   returnForTransfer        OwnershipTransfer? @relation("ReturnResponsibilityWindow")
-  continuityDelegationScope DelegationScope?
+  continuityDelegationScopes DelegationScope[]
   createdAt                DateTime           @default(now()) @db.Timestamptz(6)
 
   @@index([projectId, employeeId, startsAt, endsAt])
@@ -3470,6 +3474,17 @@ enum DelegationGapState {
   RESOLVED
 }
 
+enum DelegationGapResolutionKind {
+  RESOLVED
+  EMERGENCY_OVERRIDE
+}
+
+enum ReturnHandoverState {
+  DRAFT
+  OWNER_CONFIRMED
+  FINALIZED
+}
+
 enum ReturnChoice {
   RETURN
   EXTEND
@@ -3502,6 +3517,7 @@ model LeaveRecord {
   version        Int                 @default(1)
   decisions      LeaveDecision[]
   transitions    LeaveTransition[]
+  eligibilityEffect LeaveEligibilityEffect?
   handovers      HandoverRecord[]
   delegations    Delegation[]
   createdAt      DateTime            @default(now()) @db.Timestamptz(6)
@@ -3509,6 +3525,24 @@ model LeaveRecord {
 
   @@index([employeeId, startsAt, endsAt])
   @@index([departmentId, state, startsAt])
+}
+
+model LeaveEligibilityEffect {
+  id                            String      @id @default(uuid()) @db.Uuid
+  leaveId                       String      @unique @db.Uuid
+  leave                         LeaveRecord @relation(fields: [leaveId], references: [id], onDelete: Restrict)
+  employeeId                    String      @db.Uuid
+  employee                      User        @relation("ContinuityLeaveEligibilityEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  startsAt                      DateTime    @db.Timestamptz(6)
+  endsAt                        DateTime    @db.Timestamptz(6)
+  checkInRequired               Boolean
+  negativeRegularitySignal      Boolean
+  evaluationObligationSuspended Boolean
+  auditEventId                  String      @db.Uuid
+  publishedAt                   DateTime    @db.Timestamptz(6)
+  createdAt                     DateTime    @default(now()) @db.Timestamptz(6)
+
+  @@index([employeeId, startsAt, endsAt])
 }
 
 model LeaveDecision {
@@ -3551,6 +3585,7 @@ model HandoverRecord {
   currentRevisionId String?            @db.Uuid
   currentRevision   HandoverRevision?  @relation("ContinuityCurrentHandoverRevision", fields: [currentRevisionId, id], references: [id, handoverId], onDelete: Restrict)
   revisions         HandoverRevision[] @relation("ContinuityHandoverRevisions")
+  confirmations     HandoverConfirmation[]
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
 
@@ -3568,10 +3603,29 @@ model HandoverRevision {
   author       User            @relation("ContinuityHandoverRevisionAuthor", fields: [authorId], references: [id], onDelete: Restrict)
   auditEventId String          @db.Uuid
   items        HandoverItem[]
+  confirmations HandoverConfirmation[]
+  delegations  Delegation[]
   createdAt    DateTime        @default(now()) @db.Timestamptz(6)
 
   @@unique([handoverId, revision])
   @@unique([id, handoverId])
+}
+
+model HandoverConfirmation {
+  id                String           @id @default(uuid()) @db.Uuid
+  handoverId        String           @db.Uuid
+  handover          HandoverRecord   @relation(fields: [handoverId], references: [id], onDelete: Restrict)
+  revisionId        String           @db.Uuid
+  revision          HandoverRevision @relation(fields: [revisionId, handoverId], references: [id, handoverId], onDelete: Restrict)
+  employeeId        String           @db.Uuid
+  employee          User             @relation("ContinuityHandoverConfirmationEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  confirmedRevision Int
+  auditEventId      String           @db.Uuid
+  confirmedAt       DateTime         @db.Timestamptz(6)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+
+  @@unique([handoverId, revisionId, employeeId])
+  @@index([handoverId, confirmedAt])
 }
 
 model HandoverItem {
@@ -3610,6 +3664,8 @@ model Delegation {
   delegate              User                   @relation("ContinuityDelegationDelegate", fields: [delegateId], references: [id], onDelete: Restrict)
   managerId             String                 @db.Uuid
   manager               User                   @relation("ContinuityDelegationManager", fields: [managerId], references: [id], onDelete: Restrict)
+  handoverRevisionId    String                 @db.Uuid
+  handoverRevision      HandoverRevision       @relation(fields: [handoverRevisionId], references: [id], onDelete: Restrict)
   state                 DelegationState        @default(DRAFT)
   emergency             Boolean                @default(false)
   emergencyReason       String?
@@ -3649,13 +3705,14 @@ model DelegationScope {
   workstreamId           String?               @db.Uuid
   workstream             Workstream?           @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
   action                 String
-  responsibilityWindowId String?               @unique @db.Uuid
+  responsibilityWindowId String?               @db.Uuid
   responsibilityWindow   ResponsibilityWindow? @relation(fields: [responsibilityWindowId], references: [id], onDelete: Restrict)
   createdAt              DateTime              @default(now()) @db.Timestamptz(6)
 
   @@unique([delegationId, projectId, workstreamId, action])
   @@index([projectId, action, delegationId])
   @@index([workstreamId, action, delegationId])
+  @@index([responsibilityWindowId])
 }
 
 model DelegateConfirmation {
@@ -3685,8 +3742,22 @@ model DelegationAccessGap {
   reportedAt   DateTime           @db.Timestamptz(6)
   resolvedAt   DateTime?          @db.Timestamptz(6)
   createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  resolution   DelegationAccessGapResolution?
 
   @@index([delegationId, state, reportedAt])
+}
+
+model DelegationAccessGapResolution {
+  id           String                      @id @default(uuid()) @db.Uuid
+  gapId        String                      @unique @db.Uuid
+  gap          DelegationAccessGap         @relation(fields: [gapId], references: [id], onDelete: Restrict)
+  actorId      String                      @db.Uuid
+  actor        User                        @relation("ContinuityAccessGapResolutionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  kind         DelegationGapResolutionKind
+  reason       String
+  auditEventId String                      @db.Uuid
+  resolvedAt   DateTime                    @db.Timestamptz(6)
+  createdAt    DateTime                    @default(now()) @db.Timestamptz(6)
 }
 
 model ReturnHandover {
@@ -3701,9 +3772,15 @@ model ReturnHandover {
   decisionsAndChanges String
   openWork            String
   risksAndNextSteps   String
-  choice              ReturnChoice
+  state               ReturnHandoverState @default(DRAFT)
+  version             Int                 @default(1)
+  choice              ReturnChoice?
   confirmedById       String?      @db.Uuid
   confirmedBy         User?        @relation("ContinuityReturnConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  confirmedAt         DateTime?     @db.Timestamptz(6)
+  finalizedById       String?       @db.Uuid
+  finalizedBy         User?         @relation("ContinuityReturnFinalizer", fields: [finalizedById], references: [id], onDelete: Restrict)
+  finalizedAt         DateTime?     @db.Timestamptz(6)
   auditEventId        String       @db.Uuid
   createdAt           DateTime     @default(now()) @db.Timestamptz(6)
 
@@ -3722,11 +3799,24 @@ model ReassignmentRequiredCase {
   state         ReassignmentCaseState   @default(REASSIGNMENT_REQUIRED)
   auditEventId  String                  @db.Uuid
   resolution    ReassignmentResolution?
+  queueItem     ReassignmentQueueItem?
   createdAt     DateTime                @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime                @updatedAt @db.Timestamptz(6)
 
-  @@unique([formerOwnerId, projectId, workstreamId, state], map: "ReassignmentRequiredCase_owner_scope_state_key")
   @@index([state, createdAt])
+}
+
+model ReassignmentQueueItem {
+  id           String                   @id @default(uuid()) @db.Uuid
+  caseId       String                   @unique @db.Uuid
+  case         ReassignmentRequiredCase @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  departmentId String                   @db.Uuid
+  state        ReassignmentCaseState    @default(REASSIGNMENT_REQUIRED)
+  auditEventId String                   @db.Uuid
+  createdAt    DateTime                 @default(now()) @db.Timestamptz(6)
+  resolvedAt   DateTime?                @db.Timestamptz(6)
+
+  @@index([departmentId, state, createdAt])
 }
 
 model ReassignmentResolution {

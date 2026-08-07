@@ -7,6 +7,7 @@ const projectId = crypto.randomUUID();
 const projectScopeId = `project:${projectId}`;
 const workstreamId = crypto.randomUUID();
 const workstreamScopeId = `workstream:${workstreamId}`;
+const noLeave = { findApprovedLeave: vi.fn(async () => null) };
 
 describe("ReadinessQueryService", () => {
   it("identifies thin source records using boolean gaps, not quotas or penalties", async () => {
@@ -22,7 +23,7 @@ describe("ReadinessQueryService", () => {
         artifactRequiredScopeIds: [workstreamScopeId],
       })),
     };
-    const service = new ReadinessQueryService(source);
+    const service = new ReadinessQueryService(source, null, noLeave);
 
     const result = await service.employeeProjectMonth(
       employeeId,
@@ -42,13 +43,17 @@ describe("ReadinessQueryService", () => {
   });
 
   it("returns a manager-safe coarse projection without employee correction detail", async () => {
-    const service = new ReadinessQueryService({
-      loadEmployeeMonth: vi.fn(),
-      loadManagerProjectMonth: vi.fn(async () => ({
-        project: { id: projectId, name: "Customer workspace" },
-        gapKinds: ["silent_active_scope" as const],
-      })),
-    });
+    const service = new ReadinessQueryService(
+      {
+        loadEmployeeMonth: vi.fn(),
+        loadManagerProjectMonth: vi.fn(async () => ({
+          project: { id: projectId, name: "Customer workspace" },
+          gapKinds: ["silent_active_scope" as const],
+        })),
+      },
+      null,
+      noLeave,
+    );
 
     const result = await service.managerProjectMonth(
       crypto.randomUUID(),
@@ -91,6 +96,7 @@ describe("ReadinessQueryService", () => {
           },
         ]),
       },
+      noLeave,
     );
 
     const result = await service.employeeProjectMonth(
@@ -107,5 +113,45 @@ describe("ReadinessQueryService", () => {
       }),
     ]);
     expect(result.state).toBe("attention");
+  });
+
+  it("excludes approved leave from silence while preserving source and research gaps", async () => {
+    const researchId = crypto.randomUUID();
+    const service = new ReadinessQueryService(
+      {
+        loadEmployeeMonth: vi.fn(async () => ({
+          project: { id: projectId, name: "Customer workspace" },
+          scopes: [{ id: projectScopeId, kind: "project" as const, name: "Customer workspace" }],
+          substantiveScopeIds: [],
+          evidenceScopeIds: [],
+          artifactRequiredScopeIds: [projectScopeId],
+        })),
+      },
+      {
+        readEmployeeProjectGaps: vi.fn(async () => [
+          {
+            actionCode: "RESEARCH_DECISION_MISSING" as const,
+            projectId,
+            workstreamId: null,
+            workItemId: null,
+            researchId,
+            experimentId: null,
+          },
+        ]),
+      },
+      { findApprovedLeave: vi.fn(async () => ({ leaveId: crypto.randomUUID() })) },
+    );
+
+    const result = await service.employeeProjectMonth(
+      employeeId,
+      projectId,
+      new Date("2026-08-20"),
+    );
+
+    expect(result.approvedLeaveExcluded).toBe(true);
+    expect(result.gaps.map((gap) => gap.kind)).toEqual([
+      "artifact_criterion_without_source",
+      "RESEARCH_DECISION_MISSING",
+    ]);
   });
 });

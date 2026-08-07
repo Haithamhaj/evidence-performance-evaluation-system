@@ -29,6 +29,13 @@ export class DelegationController {
       correlationId: correlation(request),
     });
   }
+  resolveGap(request: ContinuityRequest, body: unknown) {
+    return this.service.resolveGap({
+      ...object(body),
+      managerId: request.principal!.userId,
+      correlationId: correlation(request),
+    });
+  }
   activate(request: ContinuityRequest, delegationId: string) {
     return this.service.activate({
       delegationId,
@@ -43,11 +50,38 @@ export class DelegationController {
       correlationId: correlation(request),
     });
   }
-  completeReturn(request: ContinuityRequest, delegationId: string, body: unknown) {
-    return this.returns.complete({
-      ...object(body),
+  draftReturn(request: ContinuityRequest, delegationId: string, body: unknown) {
+    const input = object(body);
+    return this.returns.draft({
+      id: input.id,
+      completedWork: input.completedWork,
+      decisionsAndChanges: input.decisionsAndChanges,
+      openWork: input.openWork,
+      risksAndNextSteps: input.risksAndNextSteps,
       delegationId,
-      actingOwnerId: request.principal!.userId,
+      actorId: request.principal!.userId,
+      correlationId: correlation(request),
+    });
+  }
+  confirmReturn(request: ContinuityRequest, delegationId: string, body: unknown) {
+    const input = object(body);
+    return this.returns.confirm({
+      returnId: input.returnId,
+      expectedVersion: input.expectedVersion,
+      delegationId,
+      actorId: request.principal!.userId,
+      correlationId: correlation(request),
+    });
+  }
+  finalizeReturn(request: ContinuityRequest, delegationId: string, body: unknown) {
+    const input = object(body);
+    return this.returns.finalize({
+      returnId: input.returnId,
+      expectedVersion: input.expectedVersion,
+      choice: input.choice,
+      occurredAt: input.occurredAt,
+      delegationId,
+      managerId: request.principal!.userId,
       correlationId: correlation(request),
     });
   }
@@ -60,9 +94,12 @@ for (const [method, path, parameters] of [
   ["approve", "approve", [Req(), Body()]],
   ["confirm", "confirm", [Req(), Body()]],
   ["reportGap", "access-gaps", [Req(), Body()]],
+  ["resolveGap", "access-gaps/resolve", [Req(), Body()]],
   ["activate", ":delegationId/activate", [Req(), Param("delegationId")]],
   ["expire", ":delegationId/expire", [Req(), Param("delegationId")]],
-  ["completeReturn", ":delegationId/return", [Req(), Param("delegationId"), Body()]],
+  ["draftReturn", ":delegationId/return", [Req(), Param("delegationId"), Body()]],
+  ["confirmReturn", ":delegationId/return/confirm", [Req(), Param("delegationId"), Body()]],
+  ["finalizeReturn", ":delegationId/return/finalize", [Req(), Param("delegationId"), Body()]],
 ] as const) {
   const descriptor = Object.getOwnPropertyDescriptor(DelegationController.prototype, method)!;
   parameters.forEach((parameter, index) =>

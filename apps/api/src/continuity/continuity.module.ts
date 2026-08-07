@@ -1,12 +1,15 @@
 /* eslint-disable no-unused-vars */
 import { databaseAuditWriter } from "@evaluation/audit";
 import { deactivateInternalUser } from "@evaluation/auth";
+import { AppError } from "@evaluation/contracts";
 import {
   DelegationService,
+  ActingAuthorityReader,
   HandoverService,
   LeaveService,
   OffboardingService,
   PrismaContinuityPersistence,
+  PrismaActingAuthoritySource,
   ReturnService,
   type ContinuityAuthorizationPort,
   type ContinuityScope,
@@ -29,6 +32,32 @@ const CONTINUITY_LIFECYCLE = Symbol("CONTINUITY_LIFECYCLE");
 type Database = ReturnType<typeof createDatabaseClient>;
 
 export class ContinuityModule {}
+
+/** Database-backed composition used by the module and deterministic acceptance journeys. */
+export function createDatabaseContinuityRuntime(database: Database) {
+  const persistence = new PrismaContinuityPersistence(database);
+  const responsibilities = createResponsibilityService(database, databaseAuditWriter as never);
+  return {
+    persistence,
+    responsibilities,
+    leave: new LeaveService(persistence, scopeReader(database), managerAuthorization(database)),
+    handover: new HandoverService(persistence, scopeReader(database)),
+    delegation: new DelegationService(
+      persistence,
+      managerAuthorization(database),
+      delegationSource(database),
+      delegationAuthority(database, responsibilities, persistence),
+    ),
+    actingAuthority: new ActingAuthorityReader(new PrismaActingAuthoritySource(database)),
+    returns: new ReturnService(persistence, managerAuthorization(database)),
+    offboarding: new OffboardingService(
+      persistence,
+      deactivationPort(database),
+      ownershipPort(database, responsibilities, persistence),
+      reassignmentAuthorization(database),
+    ),
+  };
+}
 
 Module({
   imports: [AuthModule],
@@ -65,14 +94,30 @@ Module({
     },
     {
       provide: DelegationService,
-      useFactory: (store: PrismaContinuityPersistence, database: Database) =>
-        new DelegationService(store, managerAuthorization(database)),
-      inject: [PrismaContinuityPersistence, CONTINUITY_DATABASE],
+      useFactory: (
+        store: PrismaContinuityPersistence,
+        database: Database,
+        responsibilities: ResponsibilityService,
+      ) =>
+        new DelegationService(
+          store,
+          managerAuthorization(database),
+          delegationSource(database),
+          delegationAuthority(database, responsibilities, store),
+        ),
+      inject: [PrismaContinuityPersistence, CONTINUITY_DATABASE, ResponsibilityService],
+    },
+    {
+      provide: ActingAuthorityReader,
+      useFactory: (database: Database) =>
+        new ActingAuthorityReader(new PrismaActingAuthoritySource(database)),
+      inject: [CONTINUITY_DATABASE],
     },
     {
       provide: ReturnService,
-      useFactory: (store: PrismaContinuityPersistence) => new ReturnService(store),
-      inject: [PrismaContinuityPersistence],
+      useFactory: (store: PrismaContinuityPersistence, database: Database) =>
+        new ReturnService(store, managerAuthorization(database)),
+      inject: [PrismaContinuityPersistence, CONTINUITY_DATABASE],
     },
     {
       provide: OffboardingService,
@@ -91,7 +136,176 @@ Module({
     },
     ContinuityPolicyGuard,
   ],
+  exports: [ActingAuthorityReader],
 })(ContinuityModule);
+
+function delegationSource(database: Database) {
+  return {
+    async verifyApprovalSource(input: {
+      leaveId: string;
+      ownerId: string;
+      delegateId: string;
+      departmentId: string;
+      startsAt: string;
+      endsAt: string;
+      projectIds: readonly string[];
+      workstreamIds: readonly string[];
+    }) {
+      const startsAt = new Date(input.startsAt);
+      const endsAt = new Date(input.endsAt);
+      const leave = await database.leaveRecord.findUnique({
+        where: { id: input.leaveId },
+        include: {
+          handovers: {
+            where: { employeeId: input.ownerId },
+            include: {
+              currentRevision: {
+                include: {
+                  confirmations: { where: { employeeId: input.ownerId }, take: 1 },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (
+        !leave ||
+        leave.employeeId !== input.ownerId ||
+        leave.departmentId !== input.departmentId ||
+        !["APPROVED", "ACTIVE"].includes(leave.state) ||
+        startsAt < leave.startsAt ||
+        endsAt > leave.endsAt
+      ) {
+        throw continuityError("DELEGATION_LEAVE_INVALID");
+      }
+      const handover = leave.handovers[0];
+      if (!handover?.currentRevision || handover.currentRevision.confirmations.length !== 1) {
+        throw continuityError("DELEGATION_HANDOVER_CONFIRMATION_REQUIRED");
+      }
+      const affected = new Set(
+        (leave.affectedScopes as Array<{ kind: string; id: string }>).map(
+          (scope) => `${scope.kind}:${scope.id}`,
+        ),
+      );
+      if (
+        input.projectIds.some((id) => !affected.has(`PROJECT:${id}`)) ||
+        input.workstreamIds.some((id) => !affected.has(`WORKSTREAM:${id}`))
+      ) {
+        throw continuityError("DELEGATION_SCOPE_INVALID");
+      }
+      const departmentScope = await database.authorizationScope.findFirst({
+        where: { departmentId: input.departmentId, scopeType: "department" },
+        select: { id: true },
+      });
+      const delegate = departmentScope
+        ? await database.user.findFirst({
+            where: {
+              id: input.delegateId,
+              active: true,
+              roleAssignments: {
+                some: {
+                  role: "employee",
+                  scopeType: "department",
+                  scopeId: departmentScope.id,
+                },
+              },
+            },
+            select: { id: true },
+          })
+        : null;
+      if (!delegate) throw continuityError("DELEGATION_DELEGATE_INVALID");
+      const [ownedProjects, ownedWorkstreams] = await Promise.all([
+        database.responsibilityWindow.count({
+          where: {
+            employeeId: input.ownerId,
+            projectId: { in: [...input.projectIds] },
+            responsibilityType: { in: ["original", "permanent"] },
+            startsAt: { lte: startsAt },
+            OR: [{ endsAt: null }, { endsAt: { gt: startsAt } }],
+            project: { departmentId: input.departmentId },
+          },
+        }),
+        database.responsibilityWindow.count({
+          where: {
+            employeeId: input.ownerId,
+            workstreamId: { in: [...input.workstreamIds] },
+            responsibilityType: { in: ["original", "permanent"] },
+            startsAt: { lte: startsAt },
+            OR: [{ endsAt: null }, { endsAt: { gt: startsAt } }],
+            workstream: { project: { departmentId: input.departmentId } },
+          },
+        }),
+      ]);
+      if (
+        ownedProjects !== new Set(input.projectIds).size ||
+        ownedWorkstreams !== new Set(input.workstreamIds).size
+      ) {
+        throw continuityError("DELEGATION_OWNER_SCOPE_INVALID");
+      }
+      return { handoverRevisionId: handover.currentRevision.id };
+    },
+  };
+}
+
+function delegationAuthority(
+  database: Database,
+  responsibilities: ResponsibilityService,
+  persistence: PrismaContinuityPersistence,
+) {
+  return {
+    async activate(
+      record: import("@evaluation/continuity").DelegationRecord,
+      input: { actorId: string; correlationId: string },
+    ) {
+      const workstreams = await database.workstream.findMany({
+        where: { id: { in: [...record.workstreamIds] } },
+        select: { id: true, projectId: true },
+      });
+      let activated: import("@evaluation/continuity").DelegationRecord | undefined;
+      await responsibilities.activateActingDelegation(
+        {
+          actor: { userId: input.actorId, active: true },
+          correlationId: input.correlationId,
+          delegationId: record.id,
+          ownerId: record.ownerId,
+          delegateId: record.delegateId,
+          startsAt: record.startsAt,
+          endsAt: record.endsAt,
+          handoverRevisionId: record.handoverRevisionId,
+          reason: record.emergencyReason ?? "Approved leave continuity delegation",
+          scopes: [
+            ...record.projectIds.map((id) => ({ kind: "PROJECT" as const, id })),
+            ...workstreams.map((scope) => ({
+              kind: "WORKSTREAM" as const,
+              id: scope.id,
+              projectId: scope.projectId,
+            })),
+          ],
+        },
+        async (transaction, windows) => {
+          activated = await persistence.activateDelegationInTransaction(
+            transaction,
+            record,
+            windows,
+            input,
+          );
+        },
+      );
+      if (!activated) throw new Error("Atomic delegation activation missing");
+      return activated;
+    },
+    async expire(
+      record: import("@evaluation/continuity").DelegationRecord,
+      input: { actorId: string; correlationId: string; occurredAt: string },
+    ) {
+      return persistence.expireDelegationAuthority(record, input);
+    },
+  };
+}
+
+function continuityError(code: string) {
+  return new AppError(code, "errors.continuity.invalid", 409);
+}
 
 function managerAuthorization(database: Database): ContinuityAuthorizationPort {
   return {

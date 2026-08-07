@@ -53,8 +53,19 @@ export class HandoverService {
   ) {}
 
   async revise(input: unknown) {
-    if (containsSensitiveKey(input)) throw failure("HANDOVER_SENSITIVE_CONTENT", 400);
+    if (containsSensitiveContent(input)) throw failure("HANDOVER_SENSITIVE_CONTENT", 400);
     const parsed = Revise.parse(input);
+    const leave = await this.store.findLeave(parsed.leaveId);
+    if (!leave || leave.employeeId !== parsed.employeeId) {
+      throw failure("HANDOVER_LEAVE_MISMATCH", 409);
+    }
+    const stored = await this.store.findHandover(parsed.handoverId);
+    if (
+      stored !== null &&
+      (stored.leaveId !== parsed.leaveId || stored.employeeId !== parsed.employeeId)
+    ) {
+      throw failure("HANDOVER_LEAVE_MISMATCH", 409);
+    }
     await Promise.all(
       parsed.items.map((item) => this.scopes.assertEmployeeScope(parsed.employeeId, item.scope)),
     );
@@ -81,8 +92,15 @@ export class HandoverService {
   async confirm(input: unknown) {
     const parsed = Confirm.parse(input);
     return this.store.transaction(async (transaction) => {
-      const current = await transaction.currentHandoverRevision(parsed.handoverId);
-      if (current !== parsed.expectedRevision) throw failure("VERSION_CONFLICT", 409);
+      const handover = await transaction.findHandover(parsed.handoverId);
+      if (
+        !handover ||
+        handover.employeeId !== parsed.employeeId ||
+        handover.currentRevision !== parsed.expectedRevision ||
+        handover.currentRevisionId === null
+      ) {
+        throw failure("VERSION_CONFLICT", 409);
+      }
       const audit = await transaction.appendAudit({
         eventType: "continuity.handover.confirmed",
         actorId: parsed.actorId,
@@ -94,20 +112,24 @@ export class HandoverService {
       });
       await transaction.appendHandoverConfirmation({
         ...parsed,
-        confirmedRevision: current,
+        revisionId: handover.currentRevisionId,
+        confirmedRevision: handover.currentRevision,
         auditEventId: audit.id,
       });
-      return { handoverId: parsed.handoverId, confirmedRevision: current };
+      return { handoverId: parsed.handoverId, confirmedRevision: handover.currentRevision };
     });
   }
 }
 
-const sensitive = /(?:password|secret|token|credential|private.?key)/iu;
-function containsSensitiveKey(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(containsSensitiveKey);
+const sensitiveKey = /(?:password|secret|token|credential|private.?key)/iu;
+const sensitiveValue =
+  /(?:authorization\s*:\s*bearer|bearer\s+[a-z0-9._-]{8,}|(?:password|secret|token|credential|private.?key)\s*[:=]\s*\S+|sk-[a-z0-9_-]{8,}|gh[pousr]_[a-z0-9]{8,}|AIza[0-9A-Za-z_-]{12,})/iu;
+function containsSensitiveContent(value: unknown): boolean {
+  if (typeof value === "string") return sensitiveValue.test(value);
+  if (Array.isArray(value)) return value.some(containsSensitiveContent);
   if (value === null || typeof value !== "object") return false;
   return Object.entries(value).some(
-    ([key, child]) => sensitive.test(key) || containsSensitiveKey(child),
+    ([key, child]) => sensitiveKey.test(key) || containsSensitiveContent(child),
   );
 }
 function failure(code: string, status: number) {

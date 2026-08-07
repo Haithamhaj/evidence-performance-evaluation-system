@@ -42,6 +42,7 @@ export interface OffboardingTransaction {
   markResolved(id: string, input: Record<string, unknown>): Promise<OffboardingCase>;
   appendAudit(input: Record<string, unknown>): Promise<{ id: string }>;
   appendNotificationIntent(input: Record<string, unknown>): Promise<void>;
+  listManagerQueue(managerId: string): Promise<readonly OffboardingCase[]>;
 }
 export interface OffboardingStore extends OffboardingTransaction {
   transaction<T>(operation: (tx: OffboardingTransaction) => Promise<T>): Promise<T>;
@@ -139,6 +140,11 @@ export class OffboardingService {
       reason: parsed.reason,
       correlationId: parsed.correlationId,
     });
+  }
+
+  async managerQueue(actorId: string): Promise<readonly OffboardingCase[]> {
+    z.string().uuid().parse(actorId);
+    return this.store.listManagerQueue(actorId);
   }
 }
 

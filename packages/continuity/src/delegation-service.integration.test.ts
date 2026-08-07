@@ -38,6 +38,15 @@ class MemoryDelegationStore implements DelegationStore, DelegationTransaction {
   async confirmReceipt(id: string) {
     this.confirmations.add(id);
   }
+  async findReceipt(id: string) {
+    return this.confirmations.has(id)
+      ? {
+          delegateId: ids.delegate,
+          receiptConfirmed: true as const,
+          accessConfirmed: true as const,
+        }
+      : null;
+  }
   async isReceiptConfirmed(id: string) {
     return this.confirmations.has(id);
   }
@@ -46,6 +55,9 @@ class MemoryDelegationStore implements DelegationStore, DelegationTransaction {
   }
   async hasOpenAccessGap(id: string) {
     return this.gaps.includes(id);
+  }
+  async resolveAccessGap() {
+    this.gaps.splice(0);
   }
   async appendAudit(event: Record<string, unknown>) {
     this.audits.push(event);
@@ -70,28 +82,56 @@ const normalApproval = {
   correlationId: ids.correlation,
 };
 
+function service(
+  store: MemoryDelegationStore,
+  canManageEmployee: (
+    managerId: string,
+    employeeId: string,
+    departmentId: string,
+  ) => Promise<boolean> = async () => true,
+) {
+  return new DelegationService(
+    store,
+    { canManageEmployee },
+    { verifyApprovalSource: async () => ({ handoverRevisionId: crypto.randomUUID() }) },
+    {
+      activate: async (record) => {
+        if (record.emergency) {
+          await store.appendAudit({
+            eventType: "continuity.delegation.emergency_activated",
+            actorId: record.managerId,
+            targetId: record.id,
+          });
+        }
+        const active = { ...record, state: "ACTIVE" as const, version: record.version + 1 };
+        return store.save(active);
+      },
+      expire: async (record) =>
+        store.save({ ...record, state: "EXPIRED" as const, version: record.version + 1 }),
+    },
+  );
+}
+
 describe("DelegationService", () => {
   it("requires manager approval, delegate receipt/access confirmation, and no open gap", async () => {
     const store = new MemoryDelegationStore();
-    const service = new DelegationService(store, {
-      canManageEmployee: async (managerId) => managerId === ids.manager,
-    });
+    const subject = service(store, async (managerId) => managerId === ids.manager);
 
     await expect(
-      service.approve({ ...normalApproval, managerId: ids.owner }),
+      subject.approve({ ...normalApproval, managerId: ids.owner }),
     ).rejects.toMatchObject({
       code: "AUTHZ_SCOPE",
     });
-    expect((await service.approve(normalApproval)).state).toBe("PENDING_DELEGATE");
+    expect((await subject.approve(normalApproval)).state).toBe("PENDING_DELEGATE");
     await expect(
-      service.activate({
+      subject.activate({
         delegationId: ids.delegation,
         actorId: ids.manager,
         correlationId: ids.correlation,
       }),
     ).rejects.toMatchObject({ code: "DELEGATE_CONFIRMATION_REQUIRED" });
 
-    await service.confirm({
+    await subject.confirm({
       delegationId: ids.delegation,
       delegateId: ids.delegate,
       receiptConfirmed: true,
@@ -100,7 +140,7 @@ describe("DelegationService", () => {
     });
     expect(
       (
-        await service.activate({
+        await subject.activate({
           delegationId: ids.delegation,
           actorId: ids.manager,
           correlationId: ids.correlation,
@@ -111,23 +151,23 @@ describe("DelegationService", () => {
 
   it("does not widen permissions when an access gap is reported", async () => {
     const store = new MemoryDelegationStore();
-    const service = new DelegationService(store, { canManageEmployee: async () => true });
-    await service.approve(normalApproval);
-    await service.confirm({
+    const subject = service(store);
+    await subject.approve(normalApproval);
+    await subject.confirm({
       delegationId: ids.delegation,
       delegateId: ids.delegate,
       receiptConfirmed: true,
       accessConfirmed: true,
       correlationId: ids.correlation,
     });
-    await service.reportGap({
+    await subject.reportGap({
       delegationId: ids.delegation,
       delegateId: ids.delegate,
       description: "Repository access is missing",
       correlationId: ids.correlation,
     });
     await expect(
-      service.activate({
+      subject.activate({
         delegationId: ids.delegation,
         actorId: ids.manager,
         correlationId: ids.correlation,
@@ -137,11 +177,11 @@ describe("DelegationService", () => {
 
   it("requires a reason and audit for emergency activation", async () => {
     const store = new MemoryDelegationStore();
-    const service = new DelegationService(store, { canManageEmployee: async () => true });
+    const subject = service(store);
     await expect(
-      service.approve({ ...normalApproval, emergency: true, emergencyReason: "" }),
+      subject.approve({ ...normalApproval, emergency: true, emergencyReason: "" }),
     ).rejects.toThrow();
-    const active = await service.approve({
+    const active = await subject.approve({
       ...normalApproval,
       emergency: true,
       emergencyReason: "Owner became unexpectedly unavailable",

@@ -13,7 +13,12 @@ import type {
   OwnedScope,
 } from "./offboarding-service.js";
 import type { ContinuityStore, ContinuityTransaction, LeaveRow } from "./ports.js";
-import type { ReturnDelegation, ReturnStore, ReturnTransaction } from "./return-service.js";
+import type {
+  ReturnDelegation,
+  ReturnRecord,
+  ReturnStore,
+  ReturnTransaction,
+} from "./return-service.js";
 
 type Db = DatabaseClient | DatabaseTransaction;
 
@@ -30,9 +35,21 @@ export class PrismaContinuityPersistence
         OffboardingTransaction,
     ) => Promise<T>,
   ): Promise<T> {
-    return this.client.$transaction((transaction) =>
-      operation(new PrismaContinuityTransaction(transaction)),
-    );
+    return this.client
+      .$transaction((transaction) => operation(new PrismaContinuityTransaction(transaction)), {
+        isolationLevel: "Serializable",
+      })
+      .catch((error: unknown) => {
+        if (
+          hasCode(error, "P2034") ||
+          hasCode(error, "P2002") ||
+          hasCode(error, "40001") ||
+          hasCode(error, "23505")
+        ) {
+          throw continuityConflict();
+        }
+        throw error;
+      });
   }
 
   private root() {
@@ -63,6 +80,9 @@ export class PrismaContinuityPersistence
   findApprovedLeaveAt(employeeId: string, occurredAt: string) {
     return this.root().findApprovedLeaveAt(employeeId, occurredAt);
   }
+  findHandover(id: string) {
+    return this.root().findHandover(id);
+  }
   currentHandoverRevision(handoverId: string) {
     return this.root().currentHandoverRevision(handoverId);
   }
@@ -81,6 +101,9 @@ export class PrismaContinuityPersistence
   confirmReceipt(id: string, input: Record<string, unknown>) {
     return this.root().confirmReceipt(id, input);
   }
+  findReceipt(id: string) {
+    return this.root().findReceipt(id);
+  }
   isReceiptConfirmed(id: string) {
     return this.root().isReceiptConfirmed(id);
   }
@@ -90,14 +113,26 @@ export class PrismaContinuityPersistence
   hasOpenAccessGap(id: string) {
     return this.root().hasOpenAccessGap(id);
   }
+  resolveAccessGap(id: string, input: Record<string, unknown>) {
+    return this.root().resolveAccessGap(id, input);
+  }
   findDelegation(id: string) {
     return this.root().findDelegation(id);
+  }
+  findReturn(id: string) {
+    return this.root().findReturn(id);
   }
   expireDelegation(id: string, occurredAt: string) {
     return this.root().expireDelegation(id, occurredAt);
   }
   appendReturn(input: Record<string, unknown>) {
     return this.root().appendReturn(input);
+  }
+  confirmReturn(id: string, input: Record<string, unknown>) {
+    return this.root().confirmReturn(id, input);
+  }
+  finalizeReturn(id: string, input: Record<string, unknown>) {
+    return this.root().finalizeReturn(id, input);
   }
   createCaseIfMissing(input: Omit<OffboardingCase, "id" | "state">) {
     return this.root().createCaseIfMissing(input);
@@ -110,6 +145,9 @@ export class PrismaContinuityPersistence
   }
   appendNotificationIntent(input: Record<string, unknown>) {
     return this.root().appendNotificationIntent(input);
+  }
+  listManagerQueue(managerId: string) {
+    return this.root().listManagerQueue(managerId);
   }
 
   async resolveCaseInTransaction(
@@ -133,6 +171,66 @@ export class PrismaContinuityPersistence
       correlationId: input.correlationId,
     });
     return adapter.markResolved(caseId, { ...input, auditEventId: audit.id });
+  }
+
+  async activateDelegationInTransaction(
+    transaction: DatabaseTransaction,
+    record: DelegationRecord,
+    windows: ReadonlyMap<string, string>,
+    input: Readonly<{ actorId: string; correlationId: string }>,
+  ) {
+    const adapter = new PrismaContinuityTransaction(transaction);
+    const audit = await adapter.appendAudit({
+      eventType: record.emergency
+        ? "continuity.delegation.emergency_activated"
+        : "continuity.delegation.activated",
+      actorId: input.actorId,
+      subjectId: record.delegateId,
+      targetId: record.id,
+      reason: record.emergencyReason,
+      correlationId: input.correlationId,
+    });
+    const advanced = await transaction.delegation.updateMany({
+      where: { id: record.id, state: "PENDING_DELEGATE", version: record.version },
+      data: { state: "ACTIVE", version: { increment: 1 } },
+    });
+    if (advanced.count !== 1) throw continuityConflict();
+    for (const [key, responsibilityWindowId] of windows) {
+      const [scopeKind, scopeId] = key.split(":") as ["project" | "workstream", string];
+      await transaction.delegationScope.updateMany({
+        where: {
+          delegationId: record.id,
+          ...(scopeKind === "project" ? { projectId: scopeId } : { workstreamId: scopeId }),
+        },
+        data: { responsibilityWindowId },
+      });
+    }
+    return {
+      ...record,
+      state: "ACTIVE" as const,
+      version: record.version + 1,
+      activationAuditEventId: audit.id,
+    };
+  }
+
+  async expireDelegationAuthority(
+    record: DelegationRecord,
+    input: Readonly<{ actorId: string; correlationId: string; occurredAt: string }>,
+  ) {
+    return this.client.$transaction(
+      async (transaction) => {
+        const adapter = new PrismaContinuityTransaction(transaction);
+        await adapter.appendAudit({
+          eventType: "continuity.delegation.expired",
+          actorId: input.actorId,
+          targetId: record.id,
+          correlationId: input.correlationId,
+        });
+        await adapter.expireDelegation(record.id, input.occurredAt, "EXPIRED");
+        return { ...record, state: "EXPIRED" as const, version: record.version + 1 };
+      },
+      { isolationLevel: "Serializable" },
+    );
   }
 }
 
@@ -165,9 +263,13 @@ class PrismaContinuityTransaction
   }
 
   async updateLeave(id: string, state: LeaveRow["state"], version: number): Promise<LeaveRow> {
-    return serializeLeave(
-      await this.db.leaveRecord.update({ where: { id }, data: { state, version } }),
-    );
+    const updated = await this.db.leaveRecord.updateMany({
+      where: { id, version: version - 1 },
+      data: { state, version },
+    });
+    if (updated.count !== 1) throw continuityConflict();
+    const row = await this.db.leaveRecord.findUniqueOrThrow({ where: { id } });
+    return serializeLeave(row);
   }
 
   async appendLeaveDecision(input: Record<string, unknown>) {
@@ -198,7 +300,20 @@ class PrismaContinuityTransaction
   }
 
   async appendEligibilityEffect(_input: Record<string, unknown>) {
-    // Eligibility is projected from the approved leave interval; no duplicate mutable score row.
+    const input = _input;
+    await this.db.leaveEligibilityEffect.create({
+      data: {
+        leaveId: text(input.leaveId),
+        employeeId: text(input.employeeId),
+        startsAt: new Date(text(input.startsAt)),
+        endsAt: new Date(text(input.endsAt)),
+        checkInRequired: false,
+        negativeRegularitySignal: false,
+        evaluationObligationSuspended: true,
+        auditEventId: text(input.auditEventId),
+        publishedAt: new Date(),
+      },
+    });
   }
 
   async appendAudit(input: Record<string, unknown>) {
@@ -232,6 +347,22 @@ class PrismaContinuityTransaction
       orderBy: [{ startsAt: "desc" }, { id: "desc" }],
     });
     return row ? serializeLeave(row) : null;
+  }
+
+  async findHandover(handoverId: string) {
+    const row = await this.db.handoverRecord.findUnique({
+      where: { id: handoverId },
+      include: { currentRevision: { select: { id: true, revision: true } } },
+    });
+    return row
+      ? {
+          id: row.id,
+          leaveId: row.leaveId,
+          employeeId: row.employeeId,
+          currentRevisionId: row.currentRevision?.id ?? null,
+          currentRevision: row.currentRevision?.revision ?? 0,
+        }
+      : null;
   }
 
   async currentHandoverRevision(handoverId: string) {
@@ -283,14 +414,30 @@ class PrismaContinuityTransaction
     return { revision: revision.revision };
   }
 
-  async appendHandoverConfirmation(_input: Record<string, unknown>) {
-    // The append-only audit event is the employee confirmation receipt.
+  async appendHandoverConfirmation(input: Record<string, unknown>) {
+    const handoverId = text(input.handoverId);
+    const revisionId = text(input.revisionId);
+    const employeeId = text(input.employeeId);
+    await this.db.handoverConfirmation.upsert({
+      where: {
+        handoverId_revisionId_employeeId: { handoverId, revisionId, employeeId },
+      },
+      create: {
+        handoverId,
+        revisionId,
+        employeeId,
+        confirmedRevision: number(input.confirmedRevision),
+        auditEventId: text(input.auditEventId),
+        confirmedAt: new Date(),
+      },
+      update: {},
+    });
   }
 
   async find(id: string): Promise<DelegationRecord | null> {
     const row = await this.db.delegation.findUnique({
       where: { id },
-      include: { periods: true, scopes: true },
+      include: { periods: true, scopes: true, leave: { select: { departmentId: true } } },
     });
     return row ? serializeDelegation(row) : null;
   }
@@ -298,10 +445,11 @@ class PrismaContinuityTransaction
   async save(record: DelegationRecord): Promise<DelegationRecord> {
     const existing = await this.db.delegation.findUnique({ where: { id: record.id } });
     if (existing) {
-      await this.db.delegation.update({
-        where: { id: record.id },
+      const updated = await this.db.delegation.updateMany({
+        where: { id: record.id, version: record.version - 1 },
         data: { state: record.state, version: record.version },
       });
+      if (updated.count !== 1) throw continuityConflict();
       return record;
     }
     await this.db.delegation.create({
@@ -311,6 +459,7 @@ class PrismaContinuityTransaction
         ownerId: record.ownerId,
         delegateId: record.delegateId,
         managerId: record.managerId,
+        handoverRevisionId: record.handoverRevisionId,
         state: record.state,
         emergency: record.emergency,
         emergencyReason: record.emergencyReason,
@@ -338,8 +487,14 @@ class PrismaContinuityTransaction
   }
 
   async confirmReceipt(delegationId: string, input: Record<string, unknown>) {
-    await this.db.delegateConfirmation.create({
-      data: {
+    await this.db.delegateConfirmation.upsert({
+      where: {
+        delegationId_delegateId: {
+          delegationId,
+          delegateId: text(input.delegateId),
+        },
+      },
+      create: {
         delegationId,
         delegateId: text(input.delegateId),
         receiptConfirmed: true,
@@ -347,7 +502,22 @@ class PrismaContinuityTransaction
         auditEventId: text(input.auditEventId),
         confirmedAt: new Date(),
       },
+      update: {},
     });
+  }
+
+  async findReceipt(delegationId: string) {
+    const row = await this.db.delegateConfirmation.findFirst({
+      where: { delegationId },
+      select: { delegateId: true, receiptConfirmed: true, accessConfirmed: true },
+    });
+    return row?.receiptConfirmed && row.accessConfirmed
+      ? {
+          delegateId: row.delegateId,
+          receiptConfirmed: true as const,
+          accessConfirmed: true as const,
+        }
+      : null;
   }
 
   async isReceiptConfirmed(delegationId: string) {
@@ -372,24 +542,101 @@ class PrismaContinuityTransaction
 
   async hasOpenAccessGap(delegationId: string) {
     return (
-      (await this.db.delegationAccessGap.count({ where: { delegationId, state: "OPEN" } })) > 0
+      (await this.db.delegationAccessGap.count({
+        where: { delegationId, state: "OPEN", resolution: null },
+      })) > 0
     );
+  }
+
+  async resolveAccessGap(gapId: string, input: Record<string, unknown>) {
+    const gap = await this.db.delegationAccessGap.findUnique({ where: { id: gapId } });
+    if (!gap || gap.delegationId !== text(input.delegationId)) {
+      throw continuityConflict("DELEGATION_ACCESS_GAP_NOT_FOUND", 404);
+    }
+    await this.db.delegationAccessGapResolution.create({
+      data: {
+        gapId,
+        actorId: text(input.managerId),
+        kind: text(input.resolution) as "RESOLVED" | "EMERGENCY_OVERRIDE",
+        reason: text(input.reason),
+        auditEventId: text(input.auditEventId),
+        resolvedAt: new Date(),
+      },
+    });
   }
 
   async findDelegation(id: string): Promise<ReturnDelegation | null> {
     const row = await this.db.delegation.findUnique({
       where: { id },
-      select: { id: true, ownerId: true, delegateId: true, state: true },
+      select: {
+        id: true,
+        ownerId: true,
+        delegateId: true,
+        managerId: true,
+        state: true,
+        leave: { select: { departmentId: true } },
+      },
     });
     if (!row || !["ACTIVE", "RETURNED", "EXPIRED"].includes(row.state)) return null;
-    return { ...row, state: row.state as ReturnDelegation["state"] };
+    return {
+      id: row.id,
+      ownerId: row.ownerId,
+      delegateId: row.delegateId,
+      managerId: row.managerId,
+      departmentId: row.leave.departmentId,
+      state: row.state as ReturnDelegation["state"],
+    };
   }
 
-  async expireDelegation(id: string, _occurredAt: string) {
-    await this.db.delegation.update({ where: { id }, data: { state: "RETURNED" } });
+  async findReturn(id: string) {
+    const row = await this.db.returnHandover.findUnique({ where: { id } });
+    return row ? serializeReturn(row) : null;
   }
 
-  async appendReturn(input: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async expireDelegation(
+    id: string,
+    occurredAt: string,
+    state: "RETURNED" | "EXPIRED" = "RETURNED",
+  ) {
+    const at = new Date(occurredAt);
+    const delegation = await this.db.delegation.findUniqueOrThrow({
+      where: { id },
+      include: {
+        scopes: {
+          where: { responsibilityWindowId: { not: null } },
+          include: { responsibilityWindow: true },
+        },
+      },
+    });
+    for (const scope of delegation.scopes) {
+      const acting = scope.responsibilityWindow;
+      if (!acting || acting.endsAt === null || at >= acting.endsAt) continue;
+      await this.db.responsibilityWindow.update({
+        where: { id: acting.id },
+        data: { endsAt: at },
+      });
+      const where =
+        acting.projectId !== null
+          ? { projectId: acting.projectId }
+          : { workstreamId: acting.workstreamId! };
+      await this.db.responsibilityWindow.updateMany({
+        where: {
+          ...where,
+          employeeId: delegation.ownerId,
+          responsibilityType: "permanent",
+          startsAt: acting.endsAt,
+        },
+        data: { startsAt: at },
+      });
+    }
+    const updated = await this.db.delegation.updateMany({
+      where: { id, state: "ACTIVE", version: delegation.version },
+      data: { state, version: { increment: 1 } },
+    });
+    if (updated.count !== 1) throw continuityConflict();
+  }
+
+  async appendReturn(input: Record<string, unknown>): Promise<ReturnRecord> {
     const row = await this.db.returnHandover.create({
       data: {
         id: text(input.id),
@@ -400,29 +647,67 @@ class PrismaContinuityTransaction
         decisionsAndChanges: text(input.decisionsAndChanges),
         openWork: text(input.openWork),
         risksAndNextSteps: text(input.risksAndNextSteps),
-        choice: text(input.choice) as "RETURN" | "EXTEND" | "PERMANENT_TRANSFER",
-        confirmedById: optionalText(input.confirmedById),
+        state: "DRAFT",
+        version: 1,
         auditEventId: text(input.auditEventId),
       },
     });
-    return { ...row, createdAt: row.createdAt.toISOString() };
+    return serializeReturn(row);
+  }
+
+  async confirmReturn(id: string, input: Record<string, unknown>) {
+    const updated = await this.db.returnHandover.updateMany({
+      where: { id, state: "DRAFT", version: number(input.expectedVersion) },
+      data: {
+        state: "OWNER_CONFIRMED",
+        version: { increment: 1 },
+        confirmedById: text(input.confirmedById),
+        confirmedAt: new Date(),
+      },
+    });
+    if (updated.count !== 1) throw continuityConflict();
+    return serializeReturn(await this.db.returnHandover.findUniqueOrThrow({ where: { id } }));
+  }
+
+  async finalizeReturn(id: string, input: Record<string, unknown>) {
+    const updated = await this.db.returnHandover.updateMany({
+      where: { id, state: "OWNER_CONFIRMED", version: number(input.expectedVersion) },
+      data: {
+        state: "FINALIZED",
+        version: { increment: 1 },
+        choice: text(input.choice) as "RETURN" | "EXTEND" | "PERMANENT_TRANSFER",
+        finalizedById: text(input.finalizedById),
+        finalizedAt: new Date(),
+      },
+    });
+    if (updated.count !== 1) throw continuityConflict();
+    return serializeReturn(await this.db.returnHandover.findUniqueOrThrow({ where: { id } }));
   }
 
   async createCaseIfMissing(input: Omit<OffboardingCase, "id" | "state">) {
     const where = scopeWhere(input.scope);
-    const existing = await this.db.reassignmentRequiredCase.findFirst({
+    const id = crypto.randomUUID();
+    const auditEventId = text((input as Record<string, unknown>).auditEventId);
+    if (input.scope.kind === "PROJECT") {
+      await this.db.$executeRaw`
+        INSERT INTO "ReassignmentRequiredCase"
+          ("id","formerOwnerId","scopeKind","projectId","state","auditEventId","createdAt","updatedAt")
+        VALUES
+          (${id}::uuid,${input.formerOwnerId}::uuid,'PROJECT',${input.scope.id}::uuid,'REASSIGNMENT_REQUIRED',${auditEventId}::uuid,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+        ON CONFLICT DO NOTHING
+      `;
+    } else {
+      await this.db.$executeRaw`
+        INSERT INTO "ReassignmentRequiredCase"
+          ("id","formerOwnerId","scopeKind","workstreamId","state","auditEventId","createdAt","updatedAt")
+        VALUES
+          (${id}::uuid,${input.formerOwnerId}::uuid,'WORKSTREAM',${input.scope.id}::uuid,'REASSIGNMENT_REQUIRED',${auditEventId}::uuid,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+        ON CONFLICT DO NOTHING
+      `;
+    }
+    const row = await this.db.reassignmentRequiredCase.findFirstOrThrow({
       where: { formerOwnerId: input.formerOwnerId, state: "REASSIGNMENT_REQUIRED", ...where },
     });
-    const row =
-      existing ??
-      (await this.db.reassignmentRequiredCase.create({
-        data: {
-          formerOwnerId: input.formerOwnerId,
-          scopeKind: input.scope.kind,
-          ...where,
-          auditEventId: text((input as Record<string, unknown>).auditEventId),
-        },
-      }));
     return serializeCase(row, input.scope);
   }
 
@@ -461,11 +746,67 @@ class PrismaContinuityTransaction
       },
     });
     await this.db.reassignmentRequiredCase.update({ where: { id }, data: { state: "RESOLVED" } });
+    await this.db.reassignmentQueueItem.updateMany({
+      where: { caseId: id, state: "REASSIGNMENT_REQUIRED" },
+      data: { state: "RESOLVED", resolvedAt: new Date() },
+    });
     return { ...current, state: "RESOLVED" as const };
   }
 
-  async appendNotificationIntent(_input: Record<string, unknown>) {
-    // Durable queue wiring is intentionally outside E6A; the case itself is the operational queue.
+  async appendNotificationIntent(input: Record<string, unknown>) {
+    const caseId = text(input.caseId);
+    const record = await this.db.reassignmentRequiredCase.findUniqueOrThrow({
+      where: { id: caseId },
+      include: {
+        project: { select: { departmentId: true } },
+        workstream: { select: { project: { select: { departmentId: true } } } },
+      },
+    });
+    const departmentId = record.project?.departmentId ?? record.workstream?.project.departmentId;
+    if (!departmentId) throw new Error("Reassignment queue department missing");
+    await this.db.reassignmentQueueItem.upsert({
+      where: { caseId },
+      create: {
+        caseId,
+        departmentId,
+        state: "REASSIGNMENT_REQUIRED",
+        auditEventId: record.auditEventId,
+      },
+      update: {},
+    });
+  }
+
+  async listManagerQueue(managerId: string): Promise<readonly OffboardingCase[]> {
+    const assignments = await this.db.roleAssignment.findMany({
+      where: { userId: managerId, role: "manager", scopeType: "department" },
+      include: { scope: { select: { departmentId: true } } },
+    });
+    const departmentIds = assignments.flatMap(({ scope }) =>
+      scope.departmentId ? [scope.departmentId] : [],
+    );
+    const rows = await this.db.reassignmentQueueItem.findMany({
+      where: { departmentId: { in: departmentIds }, state: "REASSIGNMENT_REQUIRED" },
+      include: {
+        case: {
+          include: {
+            project: { select: { version: true } },
+            workstream: { select: { version: true, projectId: true } },
+          },
+        },
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    return rows.map(({ case: record }) => {
+      const scope: OwnedScope = record.projectId
+        ? { kind: "PROJECT", id: record.projectId, version: record.project?.version ?? 1 }
+        : {
+            kind: "WORKSTREAM",
+            id: record.workstreamId!,
+            ...(record.workstream?.projectId ? { projectId: record.workstream.projectId } : {}),
+            version: record.workstream?.version ?? 1,
+          };
+      return serializeCase(record, scope);
+    });
   }
 }
 
@@ -499,6 +840,8 @@ function serializeDelegation(row: {
   ownerId: string;
   delegateId: string;
   managerId: string;
+  handoverRevisionId: string;
+  leave: { departmentId: string };
   state: string;
   emergency: boolean;
   emergencyReason: string | null;
@@ -514,7 +857,8 @@ function serializeDelegation(row: {
     ownerId: row.ownerId,
     delegateId: row.delegateId,
     managerId: row.managerId,
-    departmentId: "00000000-0000-4000-8000-000000000000",
+    departmentId: row.leave.departmentId,
+    handoverRevisionId: row.handoverRevisionId,
     state: row.state as DelegationRecord["state"],
     startsAt: period.startsAt.toISOString(),
     endsAt: period.endsAt.toISOString(),
@@ -544,6 +888,26 @@ function serializeCase(
   };
 }
 
+function serializeReturn(row: {
+  id: string;
+  delegationId: string;
+  actingOwnerId: string;
+  originalOwnerId: string;
+  state: string;
+  version: number;
+  choice: string | null;
+}): ReturnRecord {
+  return {
+    id: row.id,
+    delegationId: row.delegationId,
+    actingOwnerId: row.actingOwnerId,
+    originalOwnerId: row.originalOwnerId,
+    state: row.state as ReturnRecord["state"],
+    version: row.version,
+    choice: row.choice as ReturnRecord["choice"],
+  };
+}
+
 function scopeWhere(scope: OwnedScope) {
   return scope.kind === "PROJECT" ? { projectId: scope.id } : { workstreamId: scope.id };
 }
@@ -558,4 +922,19 @@ function optionalText(value: unknown): string | null {
 function number(value: unknown): number {
   if (typeof value !== "number") throw new Error("continuity persistence number missing");
   return value;
+}
+
+function continuityConflict(code = "VERSION_CONFLICT", status = 409) {
+  const error = new Error(code) as Error & { code: string; status: number };
+  error.code = code;
+  error.status = status;
+  return error;
+}
+
+function hasCode(error: unknown, code: string): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  if ("code" in error && error.code === code) return true;
+  if ("cause" in error && hasCode(error.cause, code)) return true;
+  if ("driverAdapterError" in error && hasCode(error.driverAdapterError, code)) return true;
+  return "meta" in error && hasCode(error.meta, code);
 }

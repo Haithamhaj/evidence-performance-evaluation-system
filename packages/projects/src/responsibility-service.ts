@@ -61,6 +61,21 @@ export type ReassignmentOwnershipCommand = Readonly<{
   reason: string;
 }>;
 
+export type ActingDelegationCommand = Readonly<{
+  actor: Readonly<{ userId: string; active: boolean }>;
+  correlationId: string;
+  delegationId: string;
+  ownerId: string;
+  delegateId: string;
+  startsAt: string;
+  endsAt: string;
+  handoverRevisionId: string;
+  reason: string;
+  scopes: ReadonlyArray<
+    Readonly<{ kind: "PROJECT" | "WORKSTREAM"; id: string; projectId?: string }>
+  >;
+}>;
+
 export class ResponsibilityService {
   private readonly client: DatabaseClient;
   private readonly auditWriter: AuditWriter;
@@ -124,6 +139,173 @@ export class ResponsibilityService {
           WorkstreamTransferSchema.parse(input),
           afterTransfer,
         );
+  }
+
+  async activateActingDelegation(
+    command: ActingDelegationCommand,
+    afterActivation: (
+      transaction: Transaction,
+      windows: ReadonlyMap<string, string>,
+    ) => Promise<void>,
+  ): Promise<ReadonlyMap<string, string>> {
+    const current = validClock(this.clock());
+    const startsAt = new Date(command.startsAt);
+    const endsAt = new Date(command.endsAt);
+    validClock(startsAt);
+    validClock(endsAt);
+    if (startsAt >= endsAt) throw resourceError("RESPONSIBILITY_PERIOD_INVALID", 400);
+    const scopes = [...command.scopes]
+      .map((scope) =>
+        scope.kind === "PROJECT"
+          ? ({ kind: "project", projectId: scope.id, workstreamId: null } as const)
+          : ({
+              kind: "workstream",
+              projectId: scope.projectId!,
+              workstreamId: scope.id,
+            } as const),
+      )
+      .sort((left, right) => resourceId(left).localeCompare(resourceId(right)));
+    return serializable(this.client, async (transaction) => {
+      const windows = new Map<string, string>();
+      for (const scope of scopes) {
+        await lockResource(transaction, scope);
+        const authorization = await authorizeTransfer(transaction, command.actor, scope, current);
+        if (authorization.status !== "active" && authorization.status !== "paused") {
+          throw resourceError("RESOURCE_STATE_INVALID", 409);
+        }
+        const target = await transaction.user.findFirst({
+          where: {
+            id: command.delegateId,
+            active: true,
+            roleAssignments: {
+              some: {
+                role: "employee",
+                scopeType: "department",
+                scopeId: authorization.departmentScopeId,
+              },
+            },
+          },
+          select: { id: true },
+        });
+        if (target === null) throw resourceError("RESPONSIBILITY_TARGET_INVALID", 400);
+        const closedWindow = await transaction.responsibilityWindow.findFirst({
+          where: {
+            ...scopeWhere(scope),
+            employeeId: command.ownerId,
+            responsibilityType: { in: ["original", "permanent"] },
+            startsAt: { lte: startsAt },
+            OR: [{ endsAt: null }, { endsAt: { gt: startsAt } }],
+          },
+          orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+        });
+        if (closedWindow === null || startsAt <= closedWindow.startsAt) {
+          throw resourceError("PRIMARY_OWNER_REQUIRED", 409);
+        }
+        await ensureMembership(transaction, scope, target.id, startsAt, {
+          actor: command.actor,
+          correlationId: command.correlationId,
+          projectId: scope.projectId,
+          ...(scope.workstreamId ? { workstreamId: scope.workstreamId } : {}),
+          input: {
+            transferKind: "acting",
+            toUserId: target.id,
+            effectiveAt: command.startsAt,
+            endsAt: command.endsAt,
+            delegationType: "approved_leave",
+            relatedHandoverReference: command.handoverRevisionId,
+            expectedVersion: authorization.version,
+            reason: command.reason,
+          },
+        } as never);
+        await transaction.responsibilityWindow.update({
+          where: { id: closedWindow.id },
+          data: { endsAt: startsAt },
+        });
+        await transaction.roleAssignment.upsert({
+          where: {
+            userId_role_scopeType_scopeId: {
+              userId: target.id,
+              role: "acting_owner",
+              scopeType: scope.kind,
+              scopeId: resourceId(scope),
+            },
+          },
+          create: {
+            userId: target.id,
+            role: "acting_owner",
+            scopeType: scope.kind,
+            scopeId: resourceId(scope),
+          },
+          update: {},
+        });
+        const common = {
+          ...scopeCreateData(scope),
+          reason: command.reason,
+          managerDecisionById: command.actor.userId,
+          managerDecisionAt: current,
+          managerDecisionReason: command.reason,
+          relatedHandoverReference: command.handoverRevisionId,
+          createdById: command.actor.userId,
+        };
+        const acting = await transaction.responsibilityWindow.create({
+          data: {
+            ...common,
+            employeeId: target.id,
+            responsibilityType: "acting",
+            startsAt,
+            endsAt,
+            delegationType: "approved_leave",
+          },
+        });
+        const returning = await transaction.responsibilityWindow.create({
+          data: {
+            ...common,
+            employeeId: command.ownerId,
+            responsibilityType: "permanent",
+            startsAt: endsAt,
+          },
+        });
+        const transfer = await transaction.ownershipTransfer.create({
+          data: {
+            ...scopeCreateData(scope),
+            transferKind: "acting",
+            closedWindowId: closedWindow.id,
+            newOwnerWindowId: acting.id,
+            returnWindowId: returning.id,
+            effectiveAt: startsAt,
+            reason: command.reason,
+            managerDecisionById: command.actor.userId,
+            managerDecisionAt: current,
+            managerDecisionReason: command.reason,
+          },
+        });
+        await incrementVersion(transaction, scope, authorization.version);
+        await this.auditWriter.append(transaction, {
+          eventType:
+            scope.kind === "project" ? "project.owner_transferred" : "workstream.owner_transferred",
+          actor: { kind: "human", id: command.actor.userId },
+          effectiveSubjectId: target.id,
+          scopeType: scope.kind,
+          scopeId: resourceId(scope),
+          targetType: "ownership_transfer",
+          targetId: transfer.id,
+          reason: command.reason,
+          safeDiff: {
+            delegationId: command.delegationId,
+            fromUserId: command.ownerId,
+            toUserId: target.id,
+            transferKind: "acting",
+            effectiveAt: command.startsAt,
+            endsAt: command.endsAt,
+          },
+          correlationId: command.correlationId,
+          source: "api",
+        });
+        windows.set(`${scope.kind}:${resourceId(scope)}`, acting.id);
+      }
+      await afterActivation(transaction, windows);
+      return windows;
+    });
   }
 
   async responsibilitiesAt(command: unknown) {

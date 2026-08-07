@@ -65,6 +65,16 @@ const Gap = z
     correlationId: z.string().uuid(),
   })
   .strict();
+const ResolveGap = z
+  .object({
+    delegationId: z.string().uuid(),
+    gapId: z.string().uuid(),
+    managerId: z.string().uuid(),
+    resolution: z.enum(["RESOLVED", "EMERGENCY_OVERRIDE"]),
+    reason: z.string().trim().min(1).max(2_000),
+    correlationId: z.string().uuid(),
+  })
+  .strict();
 const Transition = z
   .object({
     delegationId: z.string().uuid(),
@@ -80,6 +90,7 @@ export type DelegationRecord = Readonly<{
   delegateId: string;
   managerId: string;
   departmentId: string;
+  handoverRevisionId: string;
   state: "PENDING_DELEGATE" | "ACTIVE" | "EXPIRED";
   startsAt: string;
   endsAt: string;
@@ -94,10 +105,16 @@ export type DelegationRecord = Readonly<{
 export interface DelegationTransaction {
   find(id: string): Promise<DelegationRecord | null>;
   save(record: DelegationRecord): Promise<DelegationRecord>;
+  findReceipt(delegationId: string): Promise<Readonly<{
+    delegateId: string;
+    receiptConfirmed: true;
+    accessConfirmed: true;
+  }> | null>;
   confirmReceipt(delegationId: string, input: Record<string, unknown>): Promise<void>;
   isReceiptConfirmed(delegationId: string): Promise<boolean>;
   reportAccessGap(delegationId: string, input: Record<string, unknown>): Promise<void>;
   hasOpenAccessGap(delegationId: string): Promise<boolean>;
+  resolveAccessGap(gapId: string, input: Record<string, unknown>): Promise<void>;
   appendAudit(event: Record<string, unknown>): Promise<{ id: string }>;
 }
 
@@ -109,10 +126,45 @@ export type DelegationAuthorization = Readonly<{
   canManageEmployee(managerId: string, employeeId: string, departmentId: string): Promise<boolean>;
 }>;
 
+export interface DelegationSourcePort {
+  verifyApprovalSource(
+    input: Readonly<{
+      leaveId: string;
+      ownerId: string;
+      delegateId: string;
+      departmentId: string;
+      startsAt: string;
+      endsAt: string;
+      projectIds: readonly string[];
+      workstreamIds: readonly string[];
+    }>,
+  ): Promise<Readonly<{ handoverRevisionId: string }>>;
+}
+
+export interface DelegationAuthorityPort {
+  activate(
+    record: DelegationRecord,
+    input: Readonly<{
+      actorId: string;
+      correlationId: string;
+    }>,
+  ): Promise<DelegationRecord>;
+  expire(
+    record: DelegationRecord,
+    input: Readonly<{
+      actorId: string;
+      correlationId: string;
+      occurredAt: string;
+    }>,
+  ): Promise<DelegationRecord>;
+}
+
 export class DelegationService {
   constructor(
     private readonly store: DelegationStore,
     private readonly authorization: DelegationAuthorization,
+    private readonly sources: DelegationSourcePort,
+    private readonly authority: DelegationAuthorityPort,
   ) {}
 
   async approve(input: unknown): Promise<DelegationRecord> {
@@ -126,12 +178,12 @@ export class DelegationService {
     ) {
       throw failure("AUTHZ_SCOPE", 403);
     }
-    return this.store.transaction(async (tx) => {
+    const source = await this.sources.verifyApprovalSource(parsed);
+    const pending = await this.store.transaction(async (tx) => {
       if (await tx.find(parsed.id)) throw failure("DELEGATION_ALREADY_EXISTS", 409);
-      const state = parsed.emergency ? "ACTIVE" : "PENDING_DELEGATE";
       const audit = await tx.appendAudit({
         eventType: parsed.emergency
-          ? "continuity.delegation.emergency_activated"
+          ? "continuity.delegation.emergency_approved"
           : "continuity.delegation.manager_approved",
         actorId: parsed.managerId,
         subjectId: parsed.delegateId,
@@ -146,7 +198,8 @@ export class DelegationService {
         delegateId: parsed.delegateId,
         managerId: parsed.managerId,
         departmentId: parsed.departmentId,
-        state,
+        handoverRevisionId: source.handoverRevisionId,
+        state: "PENDING_DELEGATE",
         startsAt: parsed.startsAt,
         endsAt: parsed.endsAt,
         projectIds: parsed.projectIds,
@@ -158,6 +211,12 @@ export class DelegationService {
         emergencyAuditEventId: parsed.emergency ? audit.id : undefined,
       } as DelegationRecord);
     });
+    return parsed.emergency
+      ? this.authority.activate(pending, {
+          actorId: parsed.managerId,
+          correlationId: parsed.correlationId,
+        })
+      : pending;
   }
 
   async confirm(input: unknown): Promise<DelegationRecord> {
@@ -165,6 +224,17 @@ export class DelegationService {
     return this.store.transaction(async (tx) => {
       const record = await required(tx, parsed.delegationId);
       if (record.delegateId !== parsed.delegateId) throw failure("AUTHZ_SCOPE", 403);
+      const existing = await tx.findReceipt(record.id);
+      if (existing !== null) {
+        if (
+          existing.delegateId !== parsed.delegateId ||
+          !existing.receiptConfirmed ||
+          !existing.accessConfirmed
+        ) {
+          throw failure("DELEGATE_CONFIRMATION_CONFLICT", 409);
+        }
+        return record;
+      }
       if (record.state !== "PENDING_DELEGATE") throw failure("DELEGATION_TRANSITION_INVALID", 409);
       const audit = await tx.appendAudit({
         eventType: "continuity.delegation.delegate_confirmed",
@@ -193,38 +263,83 @@ export class DelegationService {
     });
   }
 
-  async activate(input: unknown): Promise<DelegationRecord> {
-    const parsed = Transition.parse(input);
+  async resolveGap(input: unknown): Promise<DelegationRecord> {
+    const parsed = ResolveGap.parse(input);
     return this.store.transaction(async (tx) => {
       const record = await required(tx, parsed.delegationId);
-      if (record.managerId !== parsed.actorId) throw failure("AUTHZ_SCOPE", 403);
+      if (
+        record.managerId !== parsed.managerId ||
+        !(await this.authorization.canManageEmployee(
+          parsed.managerId,
+          record.ownerId,
+          record.departmentId,
+        ))
+      ) {
+        throw failure("AUTHZ_SCOPE", 403);
+      }
+      const audit = await tx.appendAudit({
+        eventType:
+          parsed.resolution === "EMERGENCY_OVERRIDE"
+            ? "continuity.delegation.access_gap_emergency_override"
+            : "continuity.delegation.access_gap_resolved",
+        actorId: parsed.managerId,
+        targetId: parsed.gapId,
+        reason: parsed.reason,
+        correlationId: parsed.correlationId,
+      });
+      await tx.resolveAccessGap(parsed.gapId, { ...parsed, auditEventId: audit.id });
+      return record;
+    });
+  }
+
+  async activate(input: unknown): Promise<DelegationRecord> {
+    const parsed = Transition.parse(input);
+    const record = await this.store.transaction(async (tx) => {
+      const record = await required(tx, parsed.delegationId);
+      if (
+        record.managerId !== parsed.actorId ||
+        !(await this.authorization.canManageEmployee(
+          parsed.actorId,
+          record.ownerId,
+          record.departmentId,
+        ))
+      ) {
+        throw failure("AUTHZ_SCOPE", 403);
+      }
       if (record.state !== "PENDING_DELEGATE") throw failure("DELEGATION_TRANSITION_INVALID", 409);
       if (!(await tx.isReceiptConfirmed(record.id))) {
         throw failure("DELEGATE_CONFIRMATION_REQUIRED", 409);
       }
       if (await tx.hasOpenAccessGap(record.id)) throw failure("DELEGATION_ACCESS_GAP_OPEN", 409);
-      await tx.appendAudit({
-        eventType: "continuity.delegation.activated",
-        actorId: parsed.actorId,
-        targetId: record.id,
-        correlationId: parsed.correlationId,
-      });
-      return tx.save({ ...record, state: "ACTIVE", version: record.version + 1 });
+      return record;
+    });
+    return this.authority.activate(record, {
+      actorId: parsed.actorId,
+      correlationId: parsed.correlationId,
     });
   }
 
   async expire(input: unknown): Promise<DelegationRecord> {
     const parsed = Transition.parse(input);
-    return this.store.transaction(async (tx) => {
+    const record = await this.store.transaction(async (tx) => {
       const record = await required(tx, parsed.delegationId);
+      if (
+        record.managerId !== parsed.actorId ||
+        !(await this.authorization.canManageEmployee(
+          parsed.actorId,
+          record.ownerId,
+          record.departmentId,
+        ))
+      ) {
+        throw failure("AUTHZ_SCOPE", 403);
+      }
       if (record.state !== "ACTIVE") throw failure("DELEGATION_TRANSITION_INVALID", 409);
-      await tx.appendAudit({
-        eventType: "continuity.delegation.expired",
-        actorId: parsed.actorId,
-        targetId: record.id,
-        correlationId: parsed.correlationId,
-      });
-      return tx.save({ ...record, state: "EXPIRED", version: record.version + 1 });
+      return record;
+    });
+    return this.authority.expire(record, {
+      actorId: parsed.actorId,
+      correlationId: parsed.correlationId,
+      occurredAt: new Date().toISOString(),
     });
   }
 }

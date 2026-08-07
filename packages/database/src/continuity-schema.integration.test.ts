@@ -13,16 +13,20 @@ describe("continuity and offboarding database schema", () => {
       "DeactivationReceipt",
       "Delegation",
       "DelegationAccessGap",
+      "DelegationAccessGapResolution",
       "DelegationPeriod",
       "DelegationScope",
       "HandoverItem",
+      "HandoverConfirmation",
       "HandoverRecord",
       "HandoverRevision",
       "LeaveDecision",
+      "LeaveEligibilityEffect",
       "LeaveRecord",
       "LeaveTransition",
       "ReassignmentRequiredCase",
       "ReassignmentResolution",
+      "ReassignmentQueueItem",
       "RetentionPolicyReference",
       "ReturnHandover",
     ].sort();
@@ -41,10 +45,12 @@ describe("continuity and offboarding database schema", () => {
       "LeaveTransition",
       "HandoverRevision",
       "HandoverItem",
+      "HandoverConfirmation",
       "DelegationPeriod",
       "DelegationScope",
       "DelegateConfirmation",
       "DelegationAccessGap",
+      "DelegationAccessGapResolution",
       "ReturnHandover",
       "ReassignmentResolution",
       "RetentionPolicyReference",
@@ -87,5 +93,20 @@ describe("continuity and offboarding database schema", () => {
     const definition = rows[0]!.definition.toLowerCase();
     expect(definition).toContain("to_jsonb(new)");
     expect(definition).not.toContain('else new."delegationid"');
+  });
+
+  it("deduplicates unresolved reassignment cases despite nullable scope columns", async () => {
+    const expected = [
+      "ReassignmentRequiredCase_open_project_key",
+      "ReassignmentRequiredCase_open_workstream_key",
+    ].sort();
+    const rows = await database.$queryRaw<Array<{ indexname: string; indexdef: string }>>`
+      SELECT indexname, indexdef
+      FROM pg_indexes
+      WHERE schemaname = 'public' AND indexname = ANY(${expected}::text[])
+      ORDER BY indexname
+    `;
+    expect(rows.map(({ indexname }) => indexname)).toEqual(expected);
+    expect(rows.every(({ indexdef }) => indexdef.includes("WHERE"))).toBe(true);
   });
 });
