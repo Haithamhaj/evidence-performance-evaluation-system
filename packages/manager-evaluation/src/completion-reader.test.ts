@@ -25,12 +25,15 @@ describe("identified completion read audit", () => {
     const transaction = {
       managerEvaluationCycle: { findUnique: vi.fn(async () => cycle) },
     };
-    const transact = vi.fn(
-      async (work: (value: typeof transaction) => Promise<unknown>) => work(transaction),
+    const transact = vi.fn(async (work: (value: typeof transaction) => Promise<unknown>) =>
+      work(transaction),
     );
     const auditAppend = vi.fn(async () => ({ id: crypto.randomUUID() }));
     const reader = new IdentifiedCompletionReader(
-      { managerEvaluationCycle: transaction.managerEvaluationCycle, $transaction: transact } as never,
+      {
+        managerEvaluationCycle: transaction.managerEvaluationCycle,
+        $transaction: transact,
+      } as never,
       () => new Date("2026-08-07T12:05:00.000Z"),
       { append: auditAppend } as never,
     );

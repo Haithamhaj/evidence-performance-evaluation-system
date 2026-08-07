@@ -220,6 +220,11 @@ and live connector installations behind their existing sequence and external gat
   leave, exact five-criterion persistence, immediate manager visibility, and unchanged historical data.
   The English/Arabic route is a bounded technical verification surface, not final UX or Arabic rubric
   release.
+- The single E5A P1 remediation cycle is complete: submissions use and persist in-period server time;
+  manager summaries use a verified registered prompt descriptor with untrusted originals; manager-cycle
+  reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus
+  summary-generation audits contain counts and identifiers only. The live-versus-frozen evaluator display
+  label adapter concern is recorded as deferred P2 and does not change frozen IDs or authorization.
 - E4 final specification and security/code-quality reviews found three related P1 lifecycle/scope
   defects. Commit `09f8674` closes them with transactional stage-readiness gates, checked closure only,
   department/organization validation, and separate cycle-administration versus manager-finalization

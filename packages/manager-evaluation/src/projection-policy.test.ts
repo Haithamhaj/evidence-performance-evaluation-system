@@ -70,8 +70,8 @@ describe("manager evaluation projection policy", () => {
       managerEvaluationCycle: { findUnique: vi.fn(async () => currentCycle) },
       managerEvaluationSummarySource: { findMany: vi.fn(async () => []) },
     };
-    const transact = vi.fn(
-      async (work: (value: typeof transaction) => Promise<unknown>) => work(transaction),
+    const transact = vi.fn(async (work: (value: typeof transaction) => Promise<unknown>) =>
+      work(transaction),
     );
     const auditAppend = vi.fn(async () => ({ id: crypto.randomUUID() }));
     const service = new IdentifiedProjectionPolicy(

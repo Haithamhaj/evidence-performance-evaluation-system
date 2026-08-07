@@ -13,10 +13,7 @@ const ids = {
   run: "00000000-0000-4000-8000-000000006205",
   revision: "00000000-0000-4000-8000-000000006206",
   criterion: "00000000-0000-4000-8000-000000006207",
-  responses: [
-    "00000000-0000-4000-8000-000000006208",
-    "00000000-0000-4000-8000-000000006209",
-  ],
+  responses: ["00000000-0000-4000-8000-000000006208", "00000000-0000-4000-8000-000000006209"],
 } as const;
 const version = "manager-evaluation-summary.v1";
 const promptHash = createHash("sha256")
@@ -27,8 +24,9 @@ describe("manager evaluation summary governance", () => {
   it("uses the verified prompt descriptor and writes a content-free generation audit", async () => {
     const harness = summaryHarness();
 
-    await expect(harness.service.createSummary({ cycleId: ids.cycle, managerId: ids.manager }))
-      .resolves.toMatchObject({ cycleId: ids.cycle, sourceResponseIds: ids.responses });
+    await expect(
+      harness.service.createSummary({ cycleId: ids.cycle, managerId: ids.manager }),
+    ).resolves.toMatchObject({ cycleId: ids.cycle, sourceResponseIds: ids.responses });
 
     expect(harness.findPrompt).toHaveBeenCalledWith({
       where: { routeKey_version: { routeKey: "manager-evaluation.summary", version } },

@@ -20,9 +20,9 @@ describe("manager evaluation submission server time", () => {
   it("rejects after the cycle closes even when the client confirmation is backdated", async () => {
     const harness = submissionHarness(new Date("2026-10-01T00:00:00.000Z"));
 
-    await expect(
-      harness.service.submit(input("2026-09-30T12:00:00.000Z")),
-    ).rejects.toMatchObject({ code: "MANAGER_EVALUATION_CONFIRMATION_TIME_INVALID" });
+    await expect(harness.service.submit(input("2026-09-30T12:00:00.000Z"))).rejects.toMatchObject({
+      code: "MANAGER_EVALUATION_CONFIRMATION_TIME_INVALID",
+    });
     expect(harness.createResponse).not.toHaveBeenCalled();
   });
 
