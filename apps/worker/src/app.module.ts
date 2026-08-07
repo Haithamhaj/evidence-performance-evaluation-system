@@ -11,11 +11,17 @@ import {
 } from "./health/health.controller.js";
 import { QueueModule } from "./queue/queue.module.js";
 import { NotificationsWorkerModule } from "./notifications/notifications.module.js";
+import { ReportingWorkerModule } from "./reporting/reporting.module.js";
 
 export class AppModule {}
 
 Module({
-  imports: [AnalysisCriteriaWorkerModule, NotificationsWorkerModule, QueueModule],
+  imports: [
+    AnalysisCriteriaWorkerModule,
+    NotificationsWorkerModule,
+    QueueModule,
+    ReportingWorkerModule,
+  ],
   controllers: [WorkerHealthController],
   providers: [
     {
