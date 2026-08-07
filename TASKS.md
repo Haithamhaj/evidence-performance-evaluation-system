@@ -349,7 +349,7 @@ The detailed authority is
 | E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                                                                          |
 | E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Technical checkpoint complete locally, including real production API+PostgreSQL lifecycle; hosted PR checks pending |
 | E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Technical checkpoint complete locally; final frontend and E6B export delivery remain later                          |
-| E5         | Identified upward manager evaluation, coaching, and development                | Two bounded designs and detailed TDD plans approved                                                                 |
+| E5         | Identified upward manager evaluation, coaching, and development                | E5A and E5B technical checkpoints complete locally; combined review and hosted checks pending                       |
 | E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs and detailed TDD plans approved                                                               |
 | E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6                                                           |
 
@@ -623,6 +623,8 @@ The detailed authority is
 
 ## T060 — Implement Coaching Insight Engine
 
+**Status:** Complete — source-qualified runtime AI Router drafting, persisted route trace, manual recovery, and protected employee decision flow are verified.
+
 **Priority:** P1
 **Dependencies:** T030, T011, T012, T043
 **Purpose:** Generate source-grounded, non-scoring coaching insights.
@@ -631,6 +633,8 @@ The detailed authority is
 **Verification:** No ratings, ranking, prediction, or activity-volume score; Arabic and English fixtures pass.
 
 ## T061 — Implement Personal Development Actions
+
+**Status:** Complete — append-only persistence and protected action APIs are verified through the authenticated employee/private/share/manager-support journey.
 
 **Priority:** P1
 **Dependencies:** T060
@@ -641,6 +645,8 @@ The detailed authority is
 
 ## T062 — Implement Formal Development Plans
 
+**Status:** Complete — employee approval, manager agreement, optimistic transitions, confirmed-evidence linking, and completion are verified through the authenticated journey.
+
 **Priority:** P1
 **Dependencies:** T051, T061
 **Purpose:** Convert approved development needs into formal trackable plans.
@@ -649,6 +655,8 @@ The detailed authority is
 **Verification:** Employee approval required for conversion; completion evidence and history retained.
 
 ## T063 — Build Manager Evaluation and Coaching UI
+
+**Status:** Partial — protected API routes and localized technical checkpoint are implemented; production interaction screens remain required.
 
 **Priority:** P1
 **Dependencies:** T055–T062, T015

@@ -33,7 +33,7 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Review neutral facts before self-assessment                 | CAP-024, CAP-028 | Complete           | Final everyday evaluation UX remains later                                     |
 | Submit self-assessment                                      | CAP-028–029      | Complete           | Technical engine verified; final everyday UX remains later                     |
 | Compare, discuss, acknowledge, or reserve                   | CAP-031          | Complete           | Technical engine verified; final everyday UX remains later                     |
-| Receive coaching and maintain development actions           | CAP-035–036      | Planned            | Depends on verified fact sources and human acceptance                          |
+| Receive coaching and maintain development actions           | CAP-035–036      | Complete           | Technical engine verified; final everyday UI remains                           |
 | Manage leave, handover, and return                          | CAP-037          | Planned            | Continuity domain is missing                                                   |
 
 ## Project and Workstream owner capability view
@@ -51,16 +51,16 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 
 ## Manager capability view
 
-| Manager outcome                                                | Register IDs     | Baseline        | Missing dependency or constraint                          |
-| -------------------------------------------------------------- | ---------------- | --------------- | --------------------------------------------------------- |
-| See operational action queues without employee scoring         | CAP-023          | Complete        | Final manager UX not designed                             |
-| Read source-supported employee facts without readiness leakage | CAP-024, CAP-028 | Complete        | Final manager UX remains later                            |
-| Independently assess an employee                               | CAP-028, CAP-030 | Complete        | Technical engine verified; final manager UX remains later |
-| Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete        | Technical engine verified; final manager UX remains later |
-| Read identified upward feedback truthfully                     | CAP-033          | Planned         | E5 and active cycle engine                                |
-| Support coaching and formal development                        | CAP-035–036      | Planned         | E5                                                        |
-| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Planned/partial | E6                                                        |
-| Generate authorized reports without ranking                    | CAP-032          | Partial         | Immutable projections complete; E6B delivers export files |
+| Manager outcome                                                | Register IDs     | Baseline        | Missing dependency or constraint                              |
+| -------------------------------------------------------------- | ---------------- | --------------- | ------------------------------------------------------------- |
+| See operational action queues without employee scoring         | CAP-023          | Complete        | Final manager UX not designed                                 |
+| Read source-supported employee facts without readiness leakage | CAP-024, CAP-028 | Complete        | Final manager UX remains later                                |
+| Independently assess an employee                               | CAP-028, CAP-030 | Complete        | Technical engine verified; final manager UX remains later     |
+| Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete        | Technical engine verified; final manager UX remains later     |
+| Read identified upward feedback truthfully                     | CAP-033          | Planned         | E5 and active cycle engine                                    |
+| Support coaching and formal development                        | CAP-035–036      | Complete        | Bounded shared-action support verified; production UI remains |
+| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Planned/partial | E6                                                            |
+| Generate authorized reports without ranking                    | CAP-032          | Partial         | Immutable projections complete; E6B delivers export files     |
 
 ## System administrator and operations capability view
 

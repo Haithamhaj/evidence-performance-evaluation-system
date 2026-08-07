@@ -14,6 +14,9 @@ importers:
       '@evaluation/audit':
         specifier: workspace:*
         version: link:packages/audit
+      '@evaluation/coaching-development':
+        specifier: workspace:*
+        version: link:packages/coaching-development
       '@evaluation/connected-work-context':
         specifier: workspace:*
         version: link:packages/connected-work-context
@@ -385,6 +388,28 @@ importers:
       jose:
         specifier: 6.2.3
         version: 6.2.3
+
+  packages/coaching-development:
+    dependencies:
+      '@evaluation/ai-routing':
+        specifier: workspace:*
+        version: link:../ai-routing
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
 
   packages/config: {}
 
