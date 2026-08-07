@@ -6,4 +6,5 @@ export * from "./today-reader.js";
 export * from "./formal-plan-service.js";
 export * from "./report-reader.js";
 export * from "./ports.js";
+export * from "./persistence.js";
 export * from "./prompts.js";

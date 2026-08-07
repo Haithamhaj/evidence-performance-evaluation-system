@@ -15,6 +15,18 @@ export class CoachingActionsController {
       managerId: request.principal!.userId,
     });
   }
+  create(request: CoachingRequest, body: unknown) {
+    return this.actions.create({ ...(body as object), employeeId: request.principal!.userId });
+  }
+  revise(request: CoachingRequest, body: unknown) {
+    return this.actions.revise({ ...(body as object), employeeId: request.principal!.userId });
+  }
+  changePrivacy(request: CoachingRequest, body: unknown) {
+    return this.actions.changePrivacy({
+      ...(body as object),
+      employeeId: request.principal!.userId,
+    });
+  }
   transition(request: CoachingRequest, body: unknown) {
     return this.actions.transition({ ...(body as object), employeeId: request.principal!.userId });
   }
@@ -32,6 +44,18 @@ descriptor = Object.getOwnPropertyDescriptor(CoachingActionsController.prototype
 Req()(CoachingActionsController.prototype, "transition", 0);
 Body()(CoachingActionsController.prototype, "transition", 1);
 Post("transition")(CoachingActionsController.prototype, "transition", descriptor);
+descriptor = Object.getOwnPropertyDescriptor(CoachingActionsController.prototype, "create")!;
+Req()(CoachingActionsController.prototype, "create", 0);
+Body()(CoachingActionsController.prototype, "create", 1);
+Post()(CoachingActionsController.prototype, "create", descriptor);
+descriptor = Object.getOwnPropertyDescriptor(CoachingActionsController.prototype, "revise")!;
+Req()(CoachingActionsController.prototype, "revise", 0);
+Body()(CoachingActionsController.prototype, "revise", 1);
+Post("revise")(CoachingActionsController.prototype, "revise", descriptor);
+descriptor = Object.getOwnPropertyDescriptor(CoachingActionsController.prototype, "changePrivacy")!;
+Req()(CoachingActionsController.prototype, "changePrivacy", 0);
+Body()(CoachingActionsController.prototype, "changePrivacy", 1);
+Post("privacy")(CoachingActionsController.prototype, "changePrivacy", descriptor);
 descriptor = Object.getOwnPropertyDescriptor(CoachingActionsController.prototype, "addSupport")!;
 Req()(CoachingActionsController.prototype, "addSupport", 0);
 Body()(CoachingActionsController.prototype, "addSupport", 1);

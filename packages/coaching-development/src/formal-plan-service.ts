@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { AppError } from "@evaluation/contracts";
+import { AppError, CreateFormalPlanInputSchema, LinkFormalPlanEvidenceInputSchema } from "@evaluation/contracts";
 
 type Plan = Readonly<{
   id: string;
@@ -12,9 +12,24 @@ type Plan = Readonly<{
 type Store = Readonly<{
   find(planId: string): Promise<Plan | null>;
   append(event: Record<string, unknown>): Promise<void>;
+  create?(event: Record<string, unknown>): Promise<{ id: string; version: number }>;
+  linkEvidence?(event: Record<string, unknown>): Promise<void>;
 }>;
 export class FormalDevelopmentPlanService {
   constructor(private readonly store: Store) {}
+  async create(input: unknown) {
+    const parsed = CreateFormalPlanInputSchema.parse(input);
+    if (!this.store.create) throw fail("FORMAL_PLAN_STORE_UNAVAILABLE", 500);
+    return this.store.create(parsed);
+  }
+  async linkEvidence(input: unknown) {
+    const parsed = LinkFormalPlanEvidenceInputSchema.parse(input);
+    const plan = await this.require(parsed.planId);
+    if (plan.employeeId !== parsed.employeeId) throw fail("AUTHZ_SCOPE", 403);
+    if (plan.version !== parsed.expectedVersion) throw fail("VERSION_CONFLICT", 409);
+    if (!this.store.linkEvidence) throw fail("FORMAL_PLAN_STORE_UNAVAILABLE", 500);
+    await this.store.linkEvidence(parsed);
+  }
   async approve(
     input: Readonly<{
       planId: string;

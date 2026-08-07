@@ -166,6 +166,14 @@ export const TransitionDevelopmentActionInputSchema = command({
   employeeId: UuidSchema,
   toState: DevelopmentActionStateSchema,
 });
+export const ReviseDevelopmentActionInputSchema = CreateDevelopmentActionInputSchema.extend({
+  actionId: UuidSchema,
+}).strict();
+export const ChangeDevelopmentActionPrivacyInputSchema = command({
+  actionId: UuidSchema,
+  employeeId: UuidSchema,
+  privacy: DevelopmentActionPrivacySchema,
+});
 export const AddManagerSupportInputSchema = command({
   actionId: UuidSchema,
   managerId: UuidSchema,
@@ -175,6 +183,25 @@ export const AddManagerSupportInputSchema = command({
 });
 export const ApproveFormalPlanInputSchema = command({ planId: UuidSchema, employeeId: UuidSchema });
 export const AgreeFormalPlanInputSchema = command({ planId: UuidSchema, managerId: UuidSchema });
+export const CreateFormalPlanInputSchema = command({
+  employeeId: UuidSchema,
+  managerId: UuidSchema,
+  actionId: UuidSchema.nullable(),
+  developmentArea: text(1_000),
+  reason: text(4_000),
+  expectedBehavior: text(4_000),
+  activities: z.array(text(4_000)).min(1).max(20),
+  followUpOwnerId: UuidSchema,
+  targetDate: UtcSchema.nullable(),
+  completionEvidenceDefinition: text(4_000),
+  sourceEvaluationAssignmentId: UuidSchema.nullable(),
+});
+export const LinkFormalPlanEvidenceInputSchema = command({
+  planId: UuidSchema,
+  employeeId: UuidSchema,
+  evidenceId: UuidSchema,
+  confirmed: z.literal(true),
+});
 
 export type CoachingInsight = z.infer<typeof CoachingInsightSchema>;
 export type DevelopmentAction = z.infer<typeof DevelopmentActionSchema>;
