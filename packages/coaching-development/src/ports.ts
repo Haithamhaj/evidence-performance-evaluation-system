@@ -1,11 +1,19 @@
 export type CoachingFact = Readonly<{
   sourceId: string;
-  kind: "EVIDENCE" | "UPDATE" | "RESEARCH" | "EXPERIMENT" | "EVALUATION_FACT" | "MANAGER_FEEDBACK_THEME";
+  kind:
+    | "EVIDENCE"
+    | "UPDATE"
+    | "RESEARCH"
+    | "EXPERIMENT"
+    | "EVALUATION_FACT"
+    | "MANAGER_FEEDBACK_THEME";
   text: string;
 }>;
 
 export interface CoachingFactReader {
-  readEmployeeFacts(input: Readonly<{ employeeId: string; startsAt: string; endsAt: string }>): Promise<readonly CoachingFact[]>;
+  readEmployeeFacts(
+    input: Readonly<{ employeeId: string; startsAt: string; endsAt: string }>,
+  ): Promise<readonly CoachingFact[]>;
 }
 
 export interface CoachingRepository {

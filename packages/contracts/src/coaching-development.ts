@@ -132,7 +132,14 @@ export const FormalDevelopmentPlanSchema = z
   .strict();
 
 const command = <T extends z.ZodRawShape>(shape: T) =>
-  z.object({ schemaVersion: z.literal(1), ...shape, expectedVersion: VersionSchema, idempotencyKey: UuidSchema }).strict();
+  z
+    .object({
+      schemaVersion: z.literal(1),
+      ...shape,
+      expectedVersion: VersionSchema,
+      idempotencyKey: UuidSchema,
+    })
+    .strict();
 export const DecideCoachingInsightInputSchema = command({
   insightId: UuidSchema,
   employeeId: UuidSchema,
@@ -143,17 +150,28 @@ export const DecideCoachingInsightInputSchema = command({
 export const CreateDevelopmentActionInputSchema = command({
   employeeId: UuidSchema,
   insightId: UuidSchema.nullable().optional(),
-  title: text(500), objective: text(4_000), expectedBenefit: text(4_000), activity: text(4_000),
-  completionEvidenceDefinition: text(4_000), targetDate: UtcSchema.nullable(),
-  privacy: DevelopmentActionPrivacySchema, projectId: UuidSchema.nullable().optional(),
-  researchId: UuidSchema.nullable().optional(), workItemId: UuidSchema.nullable().optional(),
+  title: text(500),
+  objective: text(4_000),
+  expectedBenefit: text(4_000),
+  activity: text(4_000),
+  completionEvidenceDefinition: text(4_000),
+  targetDate: UtcSchema.nullable(),
+  privacy: DevelopmentActionPrivacySchema,
+  projectId: UuidSchema.nullable().optional(),
+  researchId: UuidSchema.nullable().optional(),
+  workItemId: UuidSchema.nullable().optional(),
 });
 export const TransitionDevelopmentActionInputSchema = command({
-  actionId: UuidSchema, employeeId: UuidSchema, toState: DevelopmentActionStateSchema,
+  actionId: UuidSchema,
+  employeeId: UuidSchema,
+  toState: DevelopmentActionStateSchema,
 });
 export const AddManagerSupportInputSchema = command({
-  actionId: UuidSchema, managerId: UuidSchema, kind: ManagerSupportKindSchema,
-  body: text(4_000), resourceUrl: z.url().nullable(),
+  actionId: UuidSchema,
+  managerId: UuidSchema,
+  kind: ManagerSupportKindSchema,
+  body: text(4_000),
+  resourceUrl: z.url().nullable(),
 });
 export const ApproveFormalPlanInputSchema = command({ planId: UuidSchema, employeeId: UuidSchema });
 export const AgreeFormalPlanInputSchema = command({ planId: UuidSchema, managerId: UuidSchema });

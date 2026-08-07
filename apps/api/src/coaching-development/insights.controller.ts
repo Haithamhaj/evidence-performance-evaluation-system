@@ -1,0 +1,24 @@
+/* eslint-disable no-unused-vars */
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { CoachingInsightService } from "@evaluation/coaching-development";
+
+import { CoachingPolicyGuard, type CoachingRequest } from "./coaching-policy.guard.js";
+export class CoachingInsightsController {
+  constructor(private readonly insights: CoachingInsightService) {}
+  read(request: CoachingRequest, insightId: string) {
+    return this.insights.read({ insightId, actorId: request.principal!.userId });
+  }
+  decide(request: CoachingRequest, body: unknown) {
+    return this.insights.decide({ ...(body as object), employeeId: request.principal!.userId });
+  }
+}
+Controller("api/v1/coaching/insights")(CoachingInsightsController);
+UseGuards(CoachingPolicyGuard)(CoachingInsightsController);
+let descriptor = Object.getOwnPropertyDescriptor(CoachingInsightsController.prototype, "read")!;
+Req()(CoachingInsightsController.prototype, "read", 0);
+Param("insightId")(CoachingInsightsController.prototype, "read", 1);
+Get(":insightId")(CoachingInsightsController.prototype, "read", descriptor);
+descriptor = Object.getOwnPropertyDescriptor(CoachingInsightsController.prototype, "decide")!;
+Req()(CoachingInsightsController.prototype, "decide", 0);
+Body()(CoachingInsightsController.prototype, "decide", 1);
+Post("decide")(CoachingInsightsController.prototype, "decide", descriptor);
