@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ebpes.local/schemas/backup-manifest-v1.json",
+  "title": "EBPES encrypted backup manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "environment",
+    "startedAt",
+    "completedAt",
+    "recoveryPoint",
+    "databaseSha256",
+    "objectInventorySha256",
+    "configInventorySha256",
+    "encryptedBundleSha256",
+    "inventories",
+    "encryption",
+    "toolVersions",
+    "verification",
+    "bundleFile",
+    "signature"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environment": { "const": "local-isolated" },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" },
+    "recoveryPoint": { "type": "string", "format": "date-time" },
+    "databaseSha256": { "$ref": "#/$defs/hash" },
+    "objectInventorySha256": { "$ref": "#/$defs/hash" },
+    "configInventorySha256": { "$ref": "#/$defs/hash" },
+    "encryptedBundleSha256": { "$ref": "#/$defs/hash" },
+    "inventories": { "type": "object" },
+    "encryption": { "type": "object" },
+    "toolVersions": { "type": "object" },
+    "verification": { "type": "object" },
+    "bundleFile": { "type": "string" },
+    "signature": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

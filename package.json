@@ -30,6 +30,8 @@
   "scripts": {
     "dev": "node scripts/run-local-development.mjs",
     "build": "turbo run build",
+    "backup:create": "node scripts/backup/create-engine-backup.mjs",
+    "backup:verify": "node scripts/backup/verify-engine-backup.mjs",
     "db:deploy": "pnpm --filter @evaluation/database db:deploy",
     "db:generate": "pnpm --filter @evaluation/database db:generate",
     "db:migrate": "pnpm --filter @evaluation/database db:migrate",
