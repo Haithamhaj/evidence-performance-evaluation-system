@@ -1,7 +1,3 @@
-import {
-  createRuntimeAiRouter,
-  EnvironmentAiCredentialSecretResolver,
-} from "@evaluation/ai-routing";
 import { databaseAuditWriter } from "@evaluation/audit";
 import { AppError } from "@evaluation/contracts";
 import { createDatabaseClient } from "@evaluation/database";
@@ -10,13 +6,11 @@ import {
   IdentifiedProjectionPolicy,
   ManagerEvaluationCycleService,
   ManagerEvaluationSubmissionService,
-  ManagerEvaluationSummaryService,
 } from "@evaluation/manager-evaluation";
 import { Module } from "@nestjs/common";
 
-import { createDeferredRuntimeAiRouter } from "../ai-routing/deferred-runtime-ai-router.js";
-import { resolveSystemAiScopeId } from "../ai-routing/system-ai-scope.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { ApiManagerEvaluationSummaryService } from "./api-manager-evaluation-summary.service.js";
 import { ManagerEvaluationCyclesController } from "./cycles.controller.js";
 import { ManagerEvaluationManagerViewController } from "./manager-view.controller.js";
 import {
@@ -29,26 +23,7 @@ export const MANAGER_EVALUATION_DATABASE = Symbol("MANAGER_EVALUATION_DATABASE")
 const MANAGER_EVALUATION_DATABASE_LIFECYCLE = Symbol("MANAGER_EVALUATION_DATABASE_LIFECYCLE");
 type Database = ReturnType<typeof createDatabaseClient>;
 
-export class ApiManagerEvaluationSummaryService {
-  private readonly database: Database;
-  constructor(database: Database) {
-    this.database = database;
-  }
-  async createSummary(input: Readonly<{ cycleId: string; managerId: string }>) {
-    const router = createDeferredRuntimeAiRouter(() =>
-      createRuntimeAiRouter({
-        database: this.database,
-        secretResolver: new EnvironmentAiCredentialSecretResolver(),
-      }),
-    );
-    return new ManagerEvaluationSummaryService({
-      database: this.database,
-      router,
-      systemId: await resolveSystemAiScopeId(this.database, "manager-evaluation.summary"),
-      timeoutMs: 30_000,
-    }).createSummary(input);
-  }
-}
+export { ApiManagerEvaluationSummaryService } from "./api-manager-evaluation-summary.service.js";
 
 export class ApiFrozenEmployeeEvaluationBoundaryReader {
   async read(

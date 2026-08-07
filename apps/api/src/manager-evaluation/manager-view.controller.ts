@@ -4,7 +4,7 @@ import {
 } from "@evaluation/manager-evaluation";
 import { Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 
-import { ApiManagerEvaluationSummaryService } from "./manager-evaluation.module.js";
+import { ApiManagerEvaluationSummaryService } from "./api-manager-evaluation-summary.service.js";
 import { ManagerEvaluationPolicyGuard } from "./manager-evaluation-policy.guard.js";
 import { parseManagerEvaluationUuid } from "./manager-evaluation-input.js";
 
