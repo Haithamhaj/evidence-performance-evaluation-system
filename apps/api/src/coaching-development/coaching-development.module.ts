@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { createDatabaseClient } from "@evaluation/database";
 import {
   CoachingDevelopmentPersistence,

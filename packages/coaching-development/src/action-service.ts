@@ -56,9 +56,11 @@ export class DevelopmentActionService {
     const action = await this.require(input.actionId);
     if (
       action.employeeId !== input.actorId &&
-      !(action.privacy === "SHARED" &&
+      !(
+        action.privacy === "SHARED" &&
         input.managerId === input.actorId &&
-        (await this.store.isAuthorizedManager?.(action.employeeId, input.actorId)))
+        (await this.store.isAuthorizedManager?.(action.employeeId, input.actorId))
+      )
     )
       throw fail("AUTHZ_SCOPE", 403);
     return action;
