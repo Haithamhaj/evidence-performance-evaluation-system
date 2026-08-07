@@ -1,6 +1,7 @@
 export * from "./insight-generator.js";
 export * from "./insight-service.js";
 export * from "./action-service.js";
+export * from "./ai-insight-service.js";
 export * from "./manager-support-service.js";
 export * from "./today-reader.js";
 export * from "./formal-plan-service.js";
