@@ -15,6 +15,25 @@ export class EvaluationReportReader {
     this.#database = database;
   }
 
+  async resolveEmployeeExportSnapshot(input: Readonly<{ cycleId: string; employeeId: string }>) {
+    const assignment = await this.#database.evaluationAssignment.findUnique({
+      where: { cycleId_employeeId: { cycleId: input.cycleId, employeeId: input.employeeId } },
+      select: {
+        id: true,
+        finalSnapshot: { select: { id: true, version: true } },
+        cycle: { select: { state: true } },
+      },
+    });
+    if (!assignment || assignment.cycle.state !== "CLOSED" || !assignment.finalSnapshot) {
+      throw reportError("EVALUATION_EXPORT_NOT_READY", 409);
+    }
+    return {
+      assignmentId: assignment.id,
+      snapshotId: assignment.finalSnapshot.id,
+      version: assignment.finalSnapshot.version,
+    };
+  }
+
   async readEmployee(
     input: Readonly<{
       assignmentId: string;

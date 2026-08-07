@@ -20,6 +20,7 @@ import { GitHubIntegrationModule } from "./github-integration/github-integration
 import { ManagerEvaluationModule } from "./manager-evaluation/manager-evaluation.module.js";
 import { CoachingDevelopmentModule } from "./coaching-development/coaching-development.module.js";
 import { ContinuityModule } from "./continuity/continuity.module.js";
+import { OperationsModule } from "./operations/operations.module.js";
 import {
   createEnvironmentReadinessProbes,
   HealthController,
@@ -48,6 +49,7 @@ Module({
     EvaluationPreparationModule,
     GitHubIntegrationModule,
     ManagerEvaluationModule,
+    OperationsModule,
     PermissionsModule,
     ProjectsModule,
     ResearchExperimentsModule,

@@ -90,7 +90,10 @@ export class ExportService {
     });
     if (existing?.manifest) return { request: existing, manifest: manifestView(existing.manifest) };
 
-    const sourceVersions = await this.registry.pin(parsed.reportType, parsed.audience);
+    const sourceVersions = await this.registry.pin(parsed.reportType, parsed.audience, {
+      requesterId: parsed.requesterId,
+      cycleId: parsed.cycleId,
+    });
     const requestId = randomUUID();
     const manifestId = randomUUID();
     const [request, manifest] = await this.database.$transaction([
@@ -138,6 +141,7 @@ export class ExportService {
       request.reportType as import("./projection-registry.js").ReportType,
       request.audience as import("./projection-registry.js").ReportAudience,
       sourceVersions,
+      { requesterId: request.requesterId, cycleId: request.cycleId },
     );
     const generatedAt = this.now();
     const content =
@@ -172,6 +176,35 @@ export class ExportService {
       return created;
     });
     return artifactView(artifact);
+  }
+
+  async generateFor(requesterId: string, requestId: string) {
+    const request = await this.database.exportRequest.findUnique({ where: { id: requestId } });
+    if (!request || request.requesterId !== requesterId) {
+      throw new AppError("EXPORT_FORBIDDEN", "errors.exports.forbidden", 403);
+    }
+    return this.generate(requestId);
+  }
+
+  async readRequest(
+    requesterId: string,
+    requestId: string,
+  ): Promise<
+    Readonly<{ id: string; state: string; artifactId: string | null; expiresAt: Date | null }>
+  > {
+    const request = await this.database.exportRequest.findUnique({
+      where: { id: requestId },
+      include: { manifest: { include: { artifact: true } } },
+    });
+    if (!request || request.requesterId !== requesterId) {
+      throw new AppError("EXPORT_FORBIDDEN", "errors.exports.forbidden", 403);
+    }
+    return {
+      id: request.id,
+      state: request.state,
+      artifactId: request.manifest?.artifact?.id ?? null,
+      expiresAt: request.manifest?.artifact?.expiresAt ?? null,
+    };
   }
 }
 
