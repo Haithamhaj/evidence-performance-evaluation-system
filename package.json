@@ -54,7 +54,7 @@
     "scan:performance-inputs": "node scripts/scan-performance-inputs.mjs",
     "scan:ai-boundary": "node scripts/validate-boundaries.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck --concurrency=1",
     "test": "pnpm test:task-graph && vitest run --project unit",
     "test:coverage": "pnpm test:task-graph && vitest run --project unit --coverage --coverage.provider=v8 --coverage.reporter=text --coverage.include='apps/**/src/**/*.{ts,tsx}' --coverage.include='packages/**/src/**/*.ts' --coverage.include='scripts/**/*.mjs'",
     "test:task-graph": "python3 -m unittest scripts.tests.test_validate_task_graph -v",
