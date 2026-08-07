@@ -6,6 +6,7 @@ export default [
       name: "unit",
       include: [
         "tests/repository/**/*.test.ts",
+        "tests/performance/**/*.test.ts",
         "apps/**/*.test.{ts,tsx}",
         "packages/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
