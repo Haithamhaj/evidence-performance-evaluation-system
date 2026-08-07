@@ -25,12 +25,14 @@ beforeAll(async () => {
 afterAll(async () => database.$disconnect());
 
 async function artifact(expiresAt = new Date(Date.now() + 60_000)) {
+  let currentlyAuthorized = true;
   const registry = new ProjectionRegistry();
   registry.register({
     reportType: "PROJECT_OPERATIONAL",
     audience: "EMPLOYEE_SELF",
     source: "projects",
     projectionVersion: 1,
+    authorizeCurrent: async () => currentlyAuthorized,
     snapshot: async () => ({ snapshotId: randomUUID(), version: 1 }),
     read: async () => ({ title: "Project", lines: ["Current state"] }),
   });
@@ -55,7 +57,15 @@ async function artifact(expiresAt = new Date(Date.now() + 60_000)) {
     timezone: "Asia/Riyadh",
   });
   const generated = await service.materialize(requested.request.id);
-  return { access: new ArtifactAccessService(database, storage), generated };
+  return {
+    access: new ArtifactAccessService(database, storage, registry),
+    generated,
+    revokeSourceAccess: () => {
+      currentlyAuthorized = false;
+    },
+    requestId: requested.request.id,
+    exports: new ExportService(database, registry, storage),
+  };
 }
 
 describe("artifact authorization", () => {
@@ -86,6 +96,27 @@ describe("artifact authorization", () => {
     await expect(access.open(ownerId, generated.artifactId, randomUUID())).resolves.toEqual({
       allowed: false,
       reason: "REVOKED",
+    });
+  });
+
+  it("reruns the current report source authorization before signing", async () => {
+    const { access, generated, revokeSourceAccess } = await artifact();
+    revokeSourceAccess();
+    await expect(access.open(ownerId, generated.artifactId, randomUUID())).resolves.toEqual({
+      allowed: false,
+      reason: "DENIED",
+    });
+  });
+
+  it("reports effective revoked and expired request states", async () => {
+    const revoked = await artifact();
+    await revoked.access.revoke(ownerId, revoked.generated.artifactId, "No longer required");
+    await expect(revoked.exports.readRequest(ownerId, revoked.requestId)).resolves.toMatchObject({
+      state: "REVOKED",
+    });
+    const expired = await artifact(new Date(Date.now() - 1_000));
+    await expect(expired.exports.readRequest(ownerId, expired.requestId)).resolves.toMatchObject({
+      state: "EXPIRED",
     });
   });
 });

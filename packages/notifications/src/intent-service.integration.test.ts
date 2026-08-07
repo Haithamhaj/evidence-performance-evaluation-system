@@ -51,6 +51,10 @@ describe("NotificationIntentService", () => {
       channels: ["IN_APP"],
       deliverAfter: new Date(),
     });
+    await database.notificationIntent.update({
+      where: { id: intent.id },
+      data: { inAppState: "READY" },
+    });
 
     await expect(service.open(intent.id, recipientId, async () => false)).resolves.toEqual({
       allowed: false,
@@ -65,5 +69,26 @@ describe("NotificationIntentService", () => {
 
     await expect(preferences.emailAllowed(recipientId, "CHECK_IN_DUE")).resolves.toBe(false);
     await expect(preferences.emailAllowed(recipientId, "SECURITY_ALERT")).resolves.toBe(true);
+  });
+
+  it("keeps future and undelivered intents out of the inbox", async () => {
+    const service = new NotificationIntentService(
+      database,
+      () => new Date("2026-08-07T10:00:00.000Z"),
+    );
+    const intent = await service.create({
+      recipientId,
+      category: "CHECK_IN_DUE",
+      urgency: "ACTION_REQUIRED",
+      template: { version: 1, key: "check_in_due", arguments: {} },
+      action: { kind: "CHECK_IN", resourceId: randomUUID() },
+      source: { eventId: randomUUID(), eventVersion: 1 },
+      dedupeKey: randomUUID(),
+      channels: ["IN_APP"],
+      deliverAfter: new Date("2026-08-08T10:00:00.000Z"),
+    });
+    await expect(service.inbox(recipientId)).resolves.not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: intent.id })]),
+    );
   });
 });

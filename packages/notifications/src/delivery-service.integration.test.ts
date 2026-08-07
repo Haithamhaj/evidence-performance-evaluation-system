@@ -44,13 +44,47 @@ describe("NotificationDeliveryService", () => {
       email,
     );
 
-    const result = await delivery.deliver(intent.id, randomUUID());
-
-    expect(result).toMatchObject({ inAppState: "READY", emailState: "RETRY_SCHEDULED" });
+    await expect(delivery.deliver(intent.id, randomUUID())).rejects.toMatchObject({
+      retryable: true,
+    });
     const stored = await database.notificationIntent.findUniqueOrThrow({
       where: { id: intent.id },
     });
     expect(stored.inAppState).toBe("READY");
+    await expect(
+      database.notificationDeliveryAttempt.findFirstOrThrow({
+        where: { intentId: intent.id, channel: "EMAIL" },
+        orderBy: { attempt: "desc" },
+      }),
+    ).resolves.toMatchObject({ state: "RETRY_SCHEDULED", nextRetryAt: expect.any(Date) });
+  });
+
+  it("does not deliver before deliverAfter", async () => {
+    const service = new NotificationIntentService(database);
+    const intent = await service.create({
+      recipientId,
+      category: "EXPORT_READY",
+      urgency: "ACTION",
+      template: { version: 1, key: "export_ready", arguments: {} },
+      action: { kind: "DOWNLOAD_EXPORT", resourceId: randomUUID() },
+      source: { eventId: randomUUID(), eventVersion: 1 },
+      dedupeKey: randomUUID(),
+      channels: ["IN_APP", "EMAIL"],
+      deliverAfter: new Date(Date.now() + 60_000),
+    });
+    const email = new InMemoryEmailAdapter();
+    const delivery = new NotificationDeliveryService(
+      database,
+      new NotificationPreferenceService(database),
+      email,
+    );
+    await expect(delivery.deliver(intent.id, randomUUID())).rejects.toMatchObject({
+      retryable: true,
+    });
+    expect(email.messages).toHaveLength(0);
+    await expect(
+      database.notificationIntent.findUniqueOrThrow({ where: { id: intent.id } }),
+    ).resolves.toMatchObject({ inAppState: "PENDING" });
   });
 
   it("does not duplicate a successful authoritative delivery", async () => {

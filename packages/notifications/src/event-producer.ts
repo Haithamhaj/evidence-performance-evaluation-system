@@ -17,7 +17,10 @@ export class NotificationEventProducer {
   async publish(input: unknown) {
     const event = NotificationDomainEventSchema.parse(input);
     const intent = await this.intents.create(toIntent(event));
-    await this.queue.enqueue({ intentId: intent.id, correlationId: randomUUID() });
+    await this.queue.enqueue(
+      { intentId: intent.id, correlationId: randomUUID() },
+      { deliverAfter: intent.deliverAfter },
+    );
     return intent;
   }
 }

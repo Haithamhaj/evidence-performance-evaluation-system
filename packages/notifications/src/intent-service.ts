@@ -36,19 +36,25 @@ export type NotificationIntentRecord = Readonly<{
   actionKind: string;
   actionResourceId: string;
   inAppState: string;
+  deliverAfter: Date;
   readAt: Date | null;
   createdAt: Date;
 }>;
 
 export class NotificationIntentService {
   private readonly database: import("@evaluation/database").DatabaseClient;
+  private readonly now: () => Date;
 
-  constructor(database: import("@evaluation/database").DatabaseClient) {
+  constructor(
+    database: import("@evaluation/database").DatabaseClient,
+    now: () => Date = () => new Date(),
+  ) {
     this.database = database;
+    this.now = now;
   }
 
   async create(input: IntentInput): Promise<NotificationIntentRecord> {
-    const now = new Date();
+    const now = this.now();
     const parsed = NotificationIntentSchema.parse({
       ...input,
       id: randomUUID(),
@@ -93,7 +99,7 @@ export class NotificationIntentService {
   ): Promise<readonly NotificationIntentRecord[]> {
     const limit = Math.min(Math.max(options.limit ?? 25, 1), 100);
     return this.database.notificationIntent.findMany({
-      where: { recipientId },
+      where: { recipientId, inAppState: "READY", deliverAfter: { lte: this.now() } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit,
       ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
@@ -108,6 +114,9 @@ export class NotificationIntentService {
     const intent = await this.database.notificationIntent.findUnique({ where: { id: intentId } });
     if (!intent || intent.recipientId !== actorId)
       return { allowed: false as const, reason: "DENIED" };
+    if (intent.inAppState !== "READY" || intent.deliverAfter > this.now()) {
+      return { allowed: false as const, reason: "NOT_DELIVERED" };
+    }
     const allowed = await authorizeTarget({
       kind: intent.actionKind,
       resourceId: intent.actionResourceId,
@@ -115,7 +124,7 @@ export class NotificationIntentService {
     if (!allowed) return { allowed: false as const, reason: "TARGET_ACCESS_REVOKED" };
     await this.database.notificationIntent.update({
       where: { id: intent.id },
-      data: { readAt: intent.readAt ?? new Date() },
+      data: { readAt: intent.readAt ?? this.now() },
     });
     return {
       allowed: true as const,

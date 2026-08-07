@@ -8,15 +8,18 @@ export class NotificationDeliveryService {
   private readonly database: import("@evaluation/database").DatabaseClient;
   private readonly preferences: import("./preference-service.js").NotificationPreferenceService;
   private readonly email: import("./adapters/in-memory-email.js").EmailAdapter;
+  private readonly now: () => Date;
 
   constructor(
     database: import("@evaluation/database").DatabaseClient,
     preferences: import("./preference-service.js").NotificationPreferenceService,
     email: import("./adapters/in-memory-email.js").EmailAdapter,
+    now: () => Date = () => new Date(),
   ) {
     this.database = database;
     this.preferences = preferences;
     this.email = email;
+    this.now = now;
   }
 
   async deliver(intentId: string, correlationId: string) {
@@ -24,6 +27,9 @@ export class NotificationDeliveryService {
       where: { id: intentId },
       include: { deliveryAttempts: { orderBy: { attempt: "asc" } } },
     });
+    if (intent.deliverAfter > this.now()) {
+      throw retryable("NOTIFICATION_NOT_DUE");
+    }
     const inAppAttempt = intent.deliveryAttempts.find(({ channel }) => channel === "IN_APP");
     if (!inAppAttempt) {
       await this.database.$transaction([
@@ -53,6 +59,13 @@ export class NotificationDeliveryService {
       return { inAppState: "READY" as const, emailState: previousEmail.state };
     }
     if (
+      previousEmail?.state === "RETRY_SCHEDULED" &&
+      previousEmail.nextRetryAt &&
+      previousEmail.nextRetryAt > this.now()
+    ) {
+      throw retryable("NOTIFICATION_RETRY_NOT_DUE");
+    }
+    if (
       !(await this.preferences.emailAllowed(
         intent.recipientId,
         intent.category as NotificationCategory,
@@ -77,7 +90,8 @@ export class NotificationDeliveryService {
     } catch (error) {
       const category = error instanceof EmailDeliveryError ? error.category : "TRANSIENT";
       const state = category === "TRANSIENT" ? "RETRY_SCHEDULED" : "FAILED";
-      const nextRetryAt = category === "TRANSIENT" ? new Date(Date.now() + 60_000) : undefined;
+      const nextRetryAt =
+        category === "TRANSIENT" ? new Date(this.now().getTime() + 1_000) : undefined;
       await this.recordEmailAttempt(
         intent.id,
         attempt,
@@ -87,6 +101,7 @@ export class NotificationDeliveryService {
         category,
         nextRetryAt,
       );
+      if (category === "TRANSIENT") throw retryable("NOTIFICATION_EMAIL_TRANSIENT");
       return { inAppState: "READY" as const, emailState: state };
     }
   }
@@ -114,4 +129,8 @@ export class NotificationDeliveryService {
       },
     });
   }
+}
+
+function retryable(code: string) {
+  return Object.assign(new Error(code), { retryable: true as const, code });
 }

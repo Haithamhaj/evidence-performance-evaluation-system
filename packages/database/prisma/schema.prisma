@@ -5372,12 +5372,15 @@ model ExportRequest {
   state           ExportState     @default(REQUESTED)
   failureCategory String?
   attemptCount    Int             @default(0)
+  generationToken String?         @db.Uuid
+  generationLeaseUntil DateTime?  @db.Timestamptz(6)
   createdAt       DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
   manifest        ExportManifest?
 
   @@unique([requesterId, idempotencyKey])
   @@index([state, createdAt])
+  @@index([state, generationLeaseUntil], map: "ExportRequest_generationLeaseUntil_idx")
 }
 
 model ExportManifest {
@@ -5388,6 +5391,14 @@ model ExportManifest {
   projectionVersion Int
   rendererVersion   Int
   sourceVersions    Json
+  requesterId       String          @db.Uuid
+  reportType        String
+  audience          String
+  format            String
+  locale            String
+  timezone          String
+  cycleId           String?         @db.Uuid
+  renderAt          DateTime        @db.Timestamptz(6)
   createdAt         DateTime        @default(now()) @db.Timestamptz(6)
   artifact          ExportArtifact?
 }

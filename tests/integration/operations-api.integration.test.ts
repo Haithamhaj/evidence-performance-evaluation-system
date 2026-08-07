@@ -68,7 +68,7 @@ describe("operations API authorization", () => {
     const controller = new NotificationsController(
       intents,
       new NotificationPreferenceService(database),
-      new OperationsTargetAuthorizer(database),
+      new OperationsTargetAuthorizer(database, new ProjectionRegistry()),
     );
     await expect(controller.inbox(request(otherEmployeeId))).resolves.toEqual([]);
   });
@@ -80,6 +80,7 @@ describe("operations API authorization", () => {
       audience: "EMPLOYEE_SELF",
       source: "projects",
       projectionVersion: 1,
+      authorizeCurrent: async () => true,
       snapshot: async () => ({ snapshotId: randomUUID(), version: 1 }),
       read: async () => ({ title: "Project", lines: ["Current state"] }),
     });
@@ -98,7 +99,7 @@ describe("operations API authorization", () => {
     const artifact = await exports.materialize(requested.request.id);
     const controller = new ExportsController(
       exports,
-      new ArtifactAccessService(database, storage),
+      new ArtifactAccessService(database, storage, registry),
       new ExportQueueProducer({ add: async () => ({}), close: async () => undefined }),
     );
     await expect(

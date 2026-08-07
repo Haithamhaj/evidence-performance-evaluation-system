@@ -12,6 +12,7 @@ import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
 import { ManagerOperationsQueryService } from "./manager-operations-query.service.js";
 import { ReadinessQueryService } from "./readiness-query.service.js";
+import { AuthoritativeOperationsEventPublisher } from "../operations/authoritative-event-publisher.js";
 
 type Request = Readonly<{
   principal: import("@evaluation/auth").AuthenticatedPrincipal;
@@ -30,17 +31,20 @@ export class DailyWorkController {
   private readonly checkIns: Pick<CheckInService, "listForEmployee"> | undefined;
   private readonly readiness: Pick<ReadinessQueryService, "employeeProjectMonth"> | undefined;
   private readonly managerOperations: Pick<ManagerOperationsQueryService, "load"> | undefined;
+  private readonly operationsEvents: AuthoritativeOperationsEventPublisher | undefined;
 
   constructor(
     query: DailyWorkQueryService,
     checkIns?: Pick<CheckInService, "listForEmployee">,
     readiness?: Pick<ReadinessQueryService, "employeeProjectMonth">,
     managerOperations?: Pick<ManagerOperationsQueryService, "load">,
+    operationsEvents?: AuthoritativeOperationsEventPublisher,
   ) {
     this.query = query;
     this.checkIns = checkIns;
     this.readiness = readiness;
     this.managerOperations = managerOperations;
+    this.operationsEvents = operationsEvents;
   }
 
   myWork(request: Request): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot> {
@@ -59,9 +63,13 @@ export class DailyWorkController {
     return this.query.project(request.principal.userId, z.string().uuid().parse(projectId));
   }
 
-  checkInObligations(request: Request) {
+  async checkInObligations(request: Request) {
     if (this.checkIns === undefined) throw new Error("Check-in service is not configured");
-    return this.checkIns.listForEmployee({ employeeId: request.principal.userId });
+    const obligations = await this.checkIns.listForEmployee({
+      employeeId: request.principal.userId,
+    });
+    await this.operationsEvents?.publishDueCheckIns(request.principal.userId, obligations);
+    return obligations;
   }
 
   readinessForProject(request: Request, projectId: string) {
@@ -145,6 +153,7 @@ Inject(DailyWorkQueryService)(DailyWorkController, undefined, 0);
 Inject(CheckInService)(DailyWorkController, undefined, 1);
 Inject(ReadinessQueryService)(DailyWorkController, undefined, 2);
 Inject(ManagerOperationsQueryService)(DailyWorkController, undefined, 3);
+Inject(AuthoritativeOperationsEventPublisher)(DailyWorkController, undefined, 4);
 
 const myWork = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "myWork")!;
 Req()(DailyWorkController.prototype, "myWork", 0);

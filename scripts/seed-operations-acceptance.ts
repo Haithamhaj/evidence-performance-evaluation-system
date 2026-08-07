@@ -115,7 +115,7 @@ export async function seedOperationsAcceptance() {
       timezone: "Asia/Riyadh",
     });
     const artifact = await exports.materializeFor(assignment.employeeId, requested.request.id);
-    const access = new ArtifactAccessService(database, storage, () => now);
+    const access = new ArtifactAccessService(database, storage, registry, () => now);
     const existingRevocation = await database.exportRevocation.findFirst({
       where: { artifactId: artifact.artifactId },
     });

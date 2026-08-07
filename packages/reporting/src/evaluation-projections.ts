@@ -15,6 +15,30 @@ export function createEvaluationProjectionRegistry(database: Database) {
     audience: "EMPLOYEE_SELF",
     source: "employee-evaluation",
     projectionVersion: 2,
+    authorizeCurrent: async ({ requesterId, cycleId }) => {
+      if (!cycleId) return false;
+      const assignment = await database.evaluationAssignment.findFirst({
+        where: {
+          cycleId,
+          employeeId: requesterId,
+          employee: { active: true },
+          cycle: { state: "CLOSED" },
+        },
+        select: { cycle: { select: { departmentId: true } } },
+      });
+      if (!assignment) return false;
+      return Boolean(
+        await database.roleAssignment.findFirst({
+          where: {
+            userId: requesterId,
+            role: "employee",
+            scopeType: "department",
+            scope: { departmentId: assignment.cycle.departmentId },
+          },
+          select: { id: true },
+        }),
+      );
+    },
     snapshot: async ({ requesterId, cycleId }) => {
       if (!cycleId) throw new Error("EVALUATION_CYCLE_REQUIRED");
       const snapshot = await employee.resolveEmployeeExportSnapshot({
@@ -52,6 +76,8 @@ export function createEvaluationProjectionRegistry(database: Database) {
     audience: "MANAGER_DEPARTMENT",
     source: "employee-evaluation-department",
     projectionVersion: 2,
+    authorizeCurrent: async ({ requesterId, cycleId }) =>
+      (await closedEmployeeCycle(database, cycleId, requesterId).catch(() => null)) !== null,
     snapshot: async ({ requesterId, cycleId }) => {
       const cycle = await closedEmployeeCycle(database, cycleId, requesterId);
       return { snapshotId: cycle.id, version: cycle.version };
@@ -87,6 +113,8 @@ export function createEvaluationProjectionRegistry(database: Database) {
     audience: "MANAGER_IDENTIFIED_UPWARD",
     source: "manager-evaluation-identified",
     projectionVersion: 1,
+    authorizeCurrent: async ({ requesterId, cycleId }) =>
+      (await closedManagerCycle(database, cycleId, requesterId).catch(() => null)) !== null,
     snapshot: async ({ requesterId, cycleId }) => {
       const cycle = await closedManagerCycle(database, cycleId, requesterId);
       return { snapshotId: cycle.snapshot!.id, version: cycle.version };
@@ -125,7 +153,19 @@ async function closedEmployeeCycle(database: Database, cycleId: string | null, m
       assignments: { where: { managerId }, select: { id: true }, take: 1 },
     },
   });
-  if (!cycle || cycle.state !== "CLOSED" || cycle.assignments.length === 0) {
+  const managerRole = cycle
+    ? await database.roleAssignment.findFirst({
+        where: {
+          userId: managerId,
+          role: "manager",
+          scopeType: "department",
+          scope: { departmentId: cycle.departmentId },
+          user: { active: true },
+        },
+        select: { id: true },
+      })
+    : null;
+  if (!cycle || cycle.state !== "CLOSED" || cycle.assignments.length === 0 || !managerRole) {
     throw new Error("DEPARTMENT_EVALUATION_EXPORT_NOT_READY");
   }
   return cycle;
@@ -139,17 +179,31 @@ async function closedManagerCycle(database: Database, cycleId: string | null, ma
       id: true,
       version: true,
       state: true,
+      departmentId: true,
       managerId: true,
       visibilityMode: true,
       snapshot: { select: { id: true } },
     },
   });
+  const managerRole = cycle
+    ? await database.roleAssignment.findFirst({
+        where: {
+          userId: managerId,
+          role: "manager",
+          scopeType: "department",
+          scope: { departmentId: cycle.departmentId },
+          user: { active: true },
+        },
+        select: { id: true },
+      })
+    : null;
   if (
     !cycle ||
     cycle.state !== "CLOSED" ||
     cycle.managerId !== managerId ||
     cycle.visibilityMode !== "IDENTIFIED" ||
-    !cycle.snapshot
+    !cycle.snapshot ||
+    !managerRole
   ) {
     throw new Error("MANAGER_EVALUATION_EXPORT_NOT_READY");
   }

@@ -8,6 +8,7 @@ export interface NotificationDeliveryQueue {
       import("@evaluation/contracts").NotificationDeliveryJob,
       "schemaVersion" | "jobType"
     >,
+    options?: Readonly<{ deliverAfter?: Date }>,
   ): Promise<Readonly<{ jobId: string }>>;
   close(): Promise<unknown>;
 }
@@ -33,6 +34,7 @@ export class BullNotificationDeliveryQueue implements NotificationDeliveryQueue 
       import("@evaluation/contracts").NotificationDeliveryJob,
       "schemaVersion" | "jobType"
     >,
+    options: Readonly<{ deliverAfter?: Date }> = {},
   ) {
     const job = NotificationDeliveryJobSchema.parse({
       schemaVersion: 1,
@@ -45,6 +47,9 @@ export class BullNotificationDeliveryQueue implements NotificationDeliveryQueue 
       backoff: { type: "exponential", delay: 1_000 },
       removeOnComplete: false,
       removeOnFail: false,
+      ...(options.deliverAfter
+        ? { delay: Math.max(0, options.deliverAfter.getTime() - Date.now()) }
+        : {}),
     });
     return { jobId: queued.id ?? job.intentId };
   }

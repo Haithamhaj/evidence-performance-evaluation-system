@@ -18,4 +18,27 @@ describe("evaluation projection registry", () => {
       "REPORT_PROJECTION_NOT_ALLOWED",
     );
   });
+
+  it("reauthorizes employee export access against the current department role", async () => {
+    let rolePresent = true;
+    const database = {
+      evaluationAssignment: {
+        findFirst: async () => ({ cycle: { departmentId: "department" } }),
+      },
+      roleAssignment: {
+        findFirst: async () => (rolePresent ? { id: "role" } : null),
+      },
+    };
+    const entry = createEvaluationProjectionRegistry(database as never).resolve(
+      "EMPLOYEE_EVALUATION",
+      "EMPLOYEE_SELF",
+    );
+    const context = {
+      requesterId: "10000000-0000-4000-8000-000000000001",
+      cycleId: "10000000-0000-4000-8000-000000000002",
+    };
+    await expect(entry.authorizeCurrent(context)).resolves.toBe(true);
+    rolePresent = false;
+    await expect(entry.authorizeCurrent(context)).resolves.toBe(false);
+  });
 });

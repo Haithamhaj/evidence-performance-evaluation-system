@@ -12,6 +12,7 @@ export type ProjectionRegistration = Readonly<{
   audience: ReportAudience;
   source: string;
   projectionVersion: number;
+  authorizeCurrent(context: ProjectionContext): Promise<boolean>;
   snapshot(context: ProjectionContext): Promise<Readonly<{ snapshotId: string; version: number }>>;
   read(version: SourceVersion, context: ProjectionContext): Promise<ReportProjection>;
 }>;
@@ -51,6 +52,10 @@ export class ProjectionRegistry {
     const pinned = versions.find(({ source }) => source === entry.source);
     if (!pinned) throw new Error("REPORT_SOURCE_VERSION_MISSING");
     return entry.read(pinned, context);
+  }
+
+  authorizeCurrent(reportType: ReportType, audience: ReportAudience, context: ProjectionContext) {
+    return this.resolve(reportType, audience).authorizeCurrent(context);
   }
 }
 

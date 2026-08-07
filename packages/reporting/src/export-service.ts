@@ -10,6 +10,7 @@ export interface ReportObjectStorage {
     input: Readonly<{ key: string; content: Buffer; contentType: string; encrypted: true }>,
   ): Promise<void>;
   signGet(input: Readonly<{ key: string; expiresInSeconds: number }>): Promise<string>;
+  probe?(): Promise<boolean>;
 }
 
 export class InMemoryReportStorage implements ReportObjectStorage {
@@ -30,6 +31,10 @@ export class InMemoryReportStorage implements ReportObjectStorage {
 
   async signGet(input: Readonly<{ key: string; expiresInSeconds: number }>) {
     return `memory-report:${input.key}:${input.expiresInSeconds}:${randomUUID()}`;
+  }
+
+  async probe() {
+    return true;
   }
 }
 
@@ -52,6 +57,13 @@ type ExportRequestResult = Readonly<{
   manifest: Readonly<{
     id: string;
     sourceVersions: import("./projection-registry.js").SourceVersion[];
+    reportType: string;
+    audience: string;
+    format: string;
+    locale: string;
+    timezone: string;
+    cycleId: string | null;
+    renderAt: string;
   }>;
 }>;
 
@@ -103,6 +115,7 @@ export class ExportService {
     });
     const requestId = randomUUID();
     const manifestId = randomUUID();
+    const renderAt = this.now();
     const [request, manifest] = await this.database.$transaction([
       this.database.exportRequest.create({
         data: {
@@ -127,6 +140,14 @@ export class ExportService {
             .projectionVersion,
           rendererVersion: 1,
           sourceVersions,
+          requesterId: parsed.requesterId,
+          reportType: parsed.reportType,
+          audience: parsed.audience,
+          format: parsed.format,
+          locale: parsed.locale,
+          timezone: parsed.timezone,
+          cycleId: parsed.cycleId,
+          renderAt,
         },
       }),
     ]);
@@ -140,33 +161,48 @@ export class ExportService {
     });
     if (!request.manifest) throw new Error("EXPORT_MANIFEST_MISSING");
     if (request.manifest.artifact) return artifactView(request.manifest.artifact);
-    await this.database.exportRequest.update({
-      where: { id: request.id },
-      data: { state: "GENERATING", attemptCount: { increment: 1 } },
+    const claimToken = randomUUID();
+    const claimedAt = this.now();
+    const claimed = await this.database.exportRequest.updateMany({
+      where: {
+        id: request.id,
+        OR: [
+          { state: { in: ["REQUESTED", "FAILED"] } },
+          { state: "GENERATING", generationLeaseUntil: { lt: claimedAt } },
+        ],
+      },
+      data: {
+        state: "GENERATING",
+        attemptCount: { increment: 1 },
+        generationToken: claimToken,
+        generationLeaseUntil: new Date(claimedAt.getTime() + 30_000),
+      },
     });
+    if (claimed.count !== 1) return this.waitForArtifact(request.id);
     try {
       const sourceVersions = request.manifest
         .sourceVersions as unknown as import("./projection-registry.js").SourceVersion[];
+      const pins = request.manifest;
       const projection = await this.registry.read(
-        request.reportType as import("./projection-registry.js").ReportType,
-        request.audience as import("./projection-registry.js").ReportAudience,
+        pins.reportType as import("./projection-registry.js").ReportType,
+        pins.audience as import("./projection-registry.js").ReportAudience,
         sourceVersions,
-        { requesterId: request.requesterId, cycleId: request.cycleId },
+        { requesterId: pins.requesterId, cycleId: pins.cycleId },
       );
-      const generatedAt = this.now();
+      const generatedAt = pins.renderAt;
       const content =
-        request.format === "PDF"
+        pins.format === "PDF"
           ? renderPdf(projection)
           : Buffer.from(
               renderHtml(projection, {
-                locale: request.locale as "en" | "ar",
-                timezone: request.timezone,
+                locale: pins.locale as "en" | "ar",
+                timezone: pins.timezone,
                 generatedAt,
               }),
             );
-      const contentType = request.format === "PDF" ? "application/pdf" : "text/html";
+      const contentType = pins.format === "PDF" ? "application/pdf" : "text/html";
       const contentHash = createHash("sha256").update(content).digest("hex");
-      const storageKey = `reports/${request.id}/${contentHash}.${request.format.toLowerCase()}`;
+      const storageKey = `reports/${request.id}/${contentHash}.${pins.format.toLowerCase()}`;
       await this.storage.put({ key: storageKey, content, contentType, encrypted: true });
       const artifact = await this.database.$transaction(async (transaction) => {
         const created = await transaction.exportArtifact.create({
@@ -182,17 +218,28 @@ export class ExportService {
             createdAt: generatedAt,
           },
         });
-        await transaction.exportRequest.update({
-          where: { id: request.id },
-          data: { state: "READY", failureCategory: null },
+        const completed = await transaction.exportRequest.updateMany({
+          where: { id: request.id, state: "GENERATING", generationToken: claimToken },
+          data: {
+            state: "READY",
+            failureCategory: null,
+            generationToken: null,
+            generationLeaseUntil: null,
+          },
         });
+        if (completed.count !== 1) throw new Error("EXPORT_GENERATION_CLAIM_LOST");
         return created;
       });
       return artifactView(artifact);
     } catch {
-      await this.database.exportRequest.update({
-        where: { id: request.id },
-        data: { state: "FAILED", failureCategory: "GENERATION" },
+      await this.database.exportRequest.updateMany({
+        where: { id: request.id, state: "GENERATING", generationToken: claimToken },
+        data: {
+          state: "FAILED",
+          failureCategory: "GENERATION",
+          generationToken: null,
+          generationLeaseUntil: null,
+        },
       });
       throw new Error("EXPORT_GENERATION_FAILED");
     }
@@ -214,17 +261,40 @@ export class ExportService {
   > {
     const request = await this.database.exportRequest.findUnique({
       where: { id: requestId },
-      include: { manifest: { include: { artifact: true } } },
+      include: {
+        manifest: {
+          include: { artifact: { include: { revocations: { take: 1 } } } },
+        },
+      },
     });
     if (!request || request.requesterId !== requesterId) {
       throw new AppError("EXPORT_FORBIDDEN", "errors.exports.forbidden", 403);
     }
+    const artifact = request.manifest?.artifact;
+    const state = artifact?.revocations.length
+      ? "REVOKED"
+      : artifact && artifact.expiresAt.getTime() <= this.now().getTime()
+        ? "EXPIRED"
+        : request.state;
     return {
       id: request.id,
-      state: request.state,
-      artifactId: request.manifest?.artifact?.id ?? null,
-      expiresAt: request.manifest?.artifact?.expiresAt ?? null,
+      state,
+      artifactId: artifact?.id ?? null,
+      expiresAt: artifact?.expiresAt ?? null,
     };
+  }
+
+  private async waitForArtifact(requestId: string) {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const current = await this.database.exportRequest.findUniqueOrThrow({
+        where: { id: requestId },
+        include: { manifest: { include: { artifact: true } } },
+      });
+      if (current.manifest?.artifact) return artifactView(current.manifest.artifact);
+      if (current.state === "FAILED") throw new Error("EXPORT_GENERATION_FAILED");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    throw Object.assign(new Error("EXPORT_GENERATION_IN_PROGRESS"), { retryable: true as const });
   }
 }
 
@@ -234,10 +304,27 @@ function isEvaluationReport(reportType: string) {
   );
 }
 
-function manifestView(manifest: { id: string; sourceVersions: unknown }) {
+function manifestView(manifest: {
+  id: string;
+  sourceVersions: unknown;
+  reportType: string;
+  audience: string;
+  format: string;
+  locale: string;
+  timezone: string;
+  cycleId: string | null;
+  renderAt: Date;
+}) {
   return {
     id: manifest.id,
     sourceVersions: manifest.sourceVersions as import("./projection-registry.js").SourceVersion[],
+    reportType: manifest.reportType,
+    audience: manifest.audience,
+    format: manifest.format,
+    locale: manifest.locale,
+    timezone: manifest.timezone,
+    cycleId: manifest.cycleId,
+    renderAt: manifest.renderAt.toISOString(),
   };
 }
 

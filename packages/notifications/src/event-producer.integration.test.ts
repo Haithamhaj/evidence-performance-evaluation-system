@@ -33,10 +33,10 @@ describe("NotificationEventProducer", () => {
     const second = await producer.publish(event);
     expect(second.id).toBe(first.id);
     expect(enqueue).toHaveBeenCalledTimes(2);
-    expect(enqueue).toHaveBeenLastCalledWith({
-      intentId: first.id,
-      correlationId: expect.any(String),
-    });
+    expect(enqueue).toHaveBeenLastCalledWith(
+      { intentId: first.id, correlationId: expect.any(String) },
+      { deliverAfter: new Date(event.dueAt) },
+    );
     expect(JSON.stringify(enqueue.mock.calls)).not.toMatch(/rating|score|readiness/iu);
   });
 });
