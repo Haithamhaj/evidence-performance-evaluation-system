@@ -225,19 +225,22 @@ behind their existing sequence and external gates.
   reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus
   summary-generation audits contain counts and identifiers only. The live-versus-frozen evaluator display
   label adapter concern is recorded as deferred P2 and does not change frozen IDs or authorization.
-- E5B Coaching & Development remediation is technically complete locally. Exact prompt-artifact and
+- E5B Coaching & Development remediation and its bounded specification/security re-review are complete.
+  Exact prompt-artifact and
   untrusted-fact separation, semantic no-rating enforcement, qualified fact intake, current manager access,
   actor-safe read projections, audited formal-plan lifecycle, real idempotency, atomic version writes, and
   append-only/referential database integrity are verified through forward migration `0032` and real
-  PostgreSQL/Nest tests. Production route registration and Node 24 hosted confirmation remain external gates.
+  PostgreSQL/Nest tests. The unified E5 head passes Node.js 24 coverage, build, 798 integration tests, and
+  51 browser journeys. Production route registration remains an external deployment gate.
 - E4 final specification and security/code-quality reviews found three related P1 lifecycle/scope
   defects. Commit `09f8674` closes them with transactional stage-readiness gates, checked closure only,
   department/organization validation, and separate cycle-administration versus manager-finalization
   authority. Both scoped re-reviews report the original findings addressed.
 - Pull Request #17 contains the exact verified E4 head. Local final verification passed 1,287 unit/
   coverage tests, 774 integration tests, 186 AI checks, all 29 migrations with 73 database tests, and
-  three E4 browser journeys. GitHub had not created the configured CI run at the last check, so E4 is
-  not merged; E5A starts on an isolated stacked branch while that external hosted gate is retried.
+  three E4 browser journeys. Its hosted CI is being retriggered. Pull Request #18 contains the exact
+  E5A head and all four hosted CI jobs are green. E5B remains stacked until the verified branches are
+  merged in dependency order.
 
 ## Active Decisions
 
@@ -310,11 +313,11 @@ behind their existing sequence and external gates.
 
 ## Next Recommended Action
 
-Proceed to the single E5 specification/security review across the technically verified E5A and E5B
-checkpoints, while completing any outstanding hosted exact-head checks. Do not start the final frontend or
-E6B export delivery before their approved sequence. Register the coaching AI route only with authorized
-production context and approved provider configuration.
-Live connector setup and Arabic evaluation release remain behind their external human gates.
+Push the exact verified E5B head, complete hosted CI, and merge E4, E5A, then E5B in dependency order.
+After the engine checkpoint is integrated, proceed to the next approved engine bundle; do not start the
+final frontend yet. Register the coaching AI route only with authorized production context and approved
+provider configuration. Live connector setup and Arabic evaluation release remain behind their external
+human gates.
 
 ## Critical References
 
