@@ -93,6 +93,7 @@ export class CoachingInsightAiService {
     if (
       !output.limitations.some((item) => /cannot infer performance rating/iu.test(item)) ||
       !/cannot infer performance rating/iu.test(output.cannotConclude) ||
+      containsBlankSemantics(output) ||
       containsProhibitedSemantics(output)
     )
       throw unavailable("COACHING_AI_OUTPUT_UNSAFE", 409);
@@ -108,7 +109,22 @@ export class CoachingInsightAiService {
     };
   }
 }
-function containsProhibitedSemantics(output: import("zod").infer<typeof CoachingInsightAiOutputSchema>) {
+function containsBlankSemantics(output: import("zod").infer<typeof CoachingInsightAiOutputSchema>) {
+  const required = [
+    output.pattern,
+    output.confidenceBasis,
+    output.cannotConclude,
+    ...output.limitations,
+    ...output.conflicts,
+    ...(output.actionDraft
+      ? [output.actionDraft.title, output.actionDraft.objective, output.actionDraft.activity]
+      : []),
+  ];
+  return required.some((value) => value.trim().length === 0);
+}
+function containsProhibitedSemantics(
+  output: import("zod").infer<typeof CoachingInsightAiOutputSchema>,
+) {
   const disclaimer = /cannot infer performance rating/giu;
   const content = JSON.stringify(output).replace(disclaimer, "");
   return /\b(?:rating|rank(?:ing|ed)?|score|promotion|promote|discipline|disciplinary)\b|\bleave\b.{0,40}\bpenalt|\bpenalt.{0,40}\bleave\b|\bevidence\b.{0,40}\bquota\b|\bquota\b.{0,40}\bevidence\b|تقييم\s+الأداء|ترتيب|درجة|ترقية|تأديب|عقوبة.{0,30}إجازة|حصة.{0,30}الأدلة/iu.test(

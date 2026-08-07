@@ -21,6 +21,7 @@
 ### Task 1: Governed AI envelope and qualified facts
 
 **Files:**
+
 - Modify: `packages/coaching-development/src/prompts.ts`
 - Modify: `packages/coaching-development/src/ai-insight-service.ts`
 - Modify: `packages/coaching-development/src/insight-generator.ts`
@@ -29,18 +30,20 @@
 - Test: `packages/coaching-development/src/insight-generator.test.ts`
 
 **Interfaces:**
+
 - Consumes: exact registered `AnalysisPromptArtifact` descriptor and qualified public evaluation facts.
 - Produces: prompt-aware `{ trustedInstruction, untrustedContent }` requests and semantic-safe coaching output.
 
-- [ ] Add tests proving the request contains the exact artifact descriptor, untrusted fact content, and an adapter-compatible shape; prove every prohibited semantic category is rejected.
-- [ ] Run focused tests and confirm failures arise from the current raw input envelope and incomplete semantic validation.
-- [ ] Add exact prompt/schema artifact reads, prompt-aware request construction, semantic rejection, and fact qualification that excludes volume, leave, and single-incident negative patterns.
-- [ ] Force one qualifying support to `REVIEW_REQUIRED`/`LIMITED` on the server even if the model claims `SUPPORTED`.
-- [ ] Run focused tests and commit.
+- [x] Add tests proving the request contains the exact artifact descriptor, untrusted fact content, and an adapter-compatible shape; prove every prohibited semantic category is rejected.
+- [x] Run focused tests and confirm failures arise from the current raw input envelope and incomplete semantic validation.
+- [x] Add exact prompt/schema artifact reads, prompt-aware request construction, semantic rejection, and fact qualification that excludes volume, leave, and single-incident negative patterns.
+- [x] Force one qualifying support to `REVIEW_REQUIRED`/`LIMITED` on the server even if the model claims `SUPPORTED`.
+- [x] Run focused tests and commit.
 
 ### Task 2: Current authorization, projections, and audit
 
 **Files:**
+
 - Modify: `packages/coaching-development/src/ports.ts`
 - Modify: `packages/coaching-development/src/persistence.ts`
 - Modify: `packages/coaching-development/src/insight-service.ts`
@@ -52,16 +55,18 @@
 - Test: `tests/integration/coaching-development-journey.integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: current active evaluation assignment bounded by cycle time and injected safe audit writer.
 - Produces: employee insight projection, manager shared-action allowlist, participant-safe plan projection, and non-payload audit events.
 
-- [ ] Add failing PostgreSQL/API tests for expired assignment denial, projection field allowlists, private read denial, and audit metadata without private payloads.
-- [ ] Implement current/time-bounded relationship query, joined current revisions/sources, GET routes, and audit calls.
-- [ ] Run focused tests and commit.
+- [x] Add failing PostgreSQL/API tests for expired assignment denial, projection field allowlists, private read denial, and audit metadata without private payloads.
+- [x] Implement current/time-bounded relationship query, joined current revisions/sources, GET routes, and audit calls.
+- [x] Run focused tests and commit.
 
 ### Task 3: Formal plan lifecycle and real idempotency
 
 **Files:**
+
 - Modify: `packages/contracts/src/coaching-development.ts`
 - Modify: `packages/coaching-development/src/formal-plan-service.ts`
 - Modify: `packages/coaching-development/src/persistence.ts`
@@ -70,15 +75,17 @@
 - Test: `tests/integration/coaching-development-journey.integration.test.ts`
 
 **Interfaces:**
+
 - Produces: revise, withdraw-with-reason, close, non-empty confirmed-evidence completion, and idempotent retry semantics checked before mutable state.
 
-- [ ] Add failing tests for empty-evidence completion, approval invalidation on revise, withdraw reason, close, retry after version/state movement, and cross-employee links.
-- [ ] Implement minimal service and persistence behavior with ownership validation through domain records.
-- [ ] Run focused tests and commit.
+- [x] Add failing tests for empty-evidence completion, approval invalidation on revise, withdraw reason, close, retry after version/state movement, and cross-employee links.
+- [x] Implement minimal service and persistence behavior with ownership validation through domain records.
+- [x] Run focused tests and commit.
 
 ### Task 4: Database integrity and atomic concurrency
 
 **Files:**
+
 - Create: `packages/database/prisma/migrations/0032_coaching_development_integrity/migration.sql`
 - Modify: `packages/database/prisma/schema.prisma`
 - Modify: `packages/coaching-development/src/persistence.ts`
@@ -86,20 +93,22 @@
 - Test: `tests/integration/coaching-development-journey.integration.test.ts`
 
 **Interfaces:**
+
 - Produces: immutable history triggers, current-revision ownership constraints, source/AI-run/evidence references, unique resulting versions, and atomic compare-and-swap writes.
 
-- [ ] Add failing database tests that attempt history mutation, cross-root current pointers, orphan sources/evidence/AI runs, and duplicate resulting versions; add concurrent writer tests.
-- [ ] Add forward migration and Prisma relations/uniqueness, then change persistence to update by `id + version + state/privacy` and serialize support inside a transaction.
-- [ ] Run database verification and focused integration tests, then commit.
+- [x] Add failing database tests that attempt history mutation, cross-root current pointers, orphan sources/evidence/AI runs, and duplicate resulting versions; add concurrent writer tests.
+- [x] Add forward migration and Prisma relations/uniqueness, then change persistence to update by `id + version + state/privacy` and serialize support inside a transaction.
+- [x] Run database verification and focused integration tests, then commit.
 
 ### Task 5: Delivery evidence
 
 **Files:**
+
 - Modify: `.superpowers/sdd/2026-08-05-coaching-development-engine/progress.md`
 - Modify: `.superpowers/sdd/2026-08-05-coaching-development-engine/bundle-report.md`
 - Modify: `TASKS.md`
 - Modify: `project-state/PROJECT_STATE.md`
 
-- [ ] Reconcile claims against exact passing evidence and document remaining deployment-only risks.
-- [ ] Run focused tests, `db:verify`, type checks, lint, and protected scans.
-- [ ] Confirm a clean worktree and commit documentation without pushing.
+- [x] Reconcile claims against exact passing evidence and document remaining deployment-only risks.
+- [x] Run focused tests, `db:verify`, type checks, lint, and protected scans.
+- [x] Confirm a clean worktree and commit documentation without pushing.

@@ -16,11 +16,11 @@ CREATE UNIQUE INDEX "DevelopmentActionTransition_actionId_resultingVersion_key" 
 CREATE UNIQUE INDEX "FormalDevelopmentPlanTransition_planId_resultingVersion_key" ON "FormalDevelopmentPlanTransition"("planId", "resultingVersion");
 
 ALTER TABLE "CoachingInsight"
-  ADD CONSTRAINT "CoachingInsight_currentRevision_owner_fkey"
+  ADD CONSTRAINT "CoachingInsight_currentRevisionId_id_fkey"
   FOREIGN KEY ("currentRevisionId", "id") REFERENCES "CoachingInsightRevision"("id", "insightId")
   ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
 ALTER TABLE "CoachingInsightSource"
-  ADD CONSTRAINT "CoachingInsightSource_revision_owner_fkey"
+  ADD CONSTRAINT "CoachingInsightSource_revisionId_insightId_fkey"
   FOREIGN KEY ("revisionId", "insightId") REFERENCES "CoachingInsightRevision"("id", "insightId")
   ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
 ALTER TABLE "CoachingInsightRevision"
@@ -30,15 +30,15 @@ ALTER TABLE "DevelopmentAction"
   ADD CONSTRAINT "DevelopmentAction_insightId_fkey"
   FOREIGN KEY ("insightId") REFERENCES "CoachingInsight"("id") ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
 ALTER TABLE "DevelopmentAction"
-  ADD CONSTRAINT "DevelopmentAction_currentRevision_owner_fkey"
+  ADD CONSTRAINT "DevelopmentAction_currentRevisionId_id_fkey"
   FOREIGN KEY ("currentRevisionId", "id") REFERENCES "DevelopmentActionRevision"("id", "actionId")
   ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
 ALTER TABLE "FormalDevelopmentPlan"
-  ADD CONSTRAINT "FormalDevelopmentPlan_currentRevision_owner_fkey"
+  ADD CONSTRAINT "FormalDevelopmentPlan_currentRevisionId_id_fkey"
   FOREIGN KEY ("currentRevisionId", "id") REFERENCES "FormalDevelopmentPlanRevision"("id", "planId")
   ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
 ALTER TABLE "FormalDevelopmentPlanAgreement"
-  ADD CONSTRAINT "FormalDevelopmentPlanAgreement_revision_owner_fkey"
+  ADD CONSTRAINT "FormalDevelopmentPlanAgreement_revisionId_planId_fkey"
   FOREIGN KEY ("revisionId", "planId") REFERENCES "FormalDevelopmentPlanRevision"("id", "planId")
   ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
 ALTER TABLE "FormalDevelopmentPlanRevision"

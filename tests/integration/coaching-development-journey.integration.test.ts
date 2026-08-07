@@ -30,6 +30,7 @@ let outsiderId = "";
 let insightId = "";
 let evidenceId = "";
 let outsiderInsightId = "";
+const insightSourceId = crypto.randomUUID();
 
 const authGuard = {
   canActivate(context: import("@nestjs/common").ExecutionContext): boolean {
@@ -109,8 +110,23 @@ beforeAll(async () => {
   employeeId = evaluation.employeeId;
   managerId = evaluation.managerId;
   insightId = (
-    await database.coachingInsight.create({
-      data: { employeeId, state: "DRAFT", version: 1 },
+    await new CoachingDevelopmentPersistence(database).createInsight({
+      employeeId,
+      state: "DRAFT",
+      pattern: "The employee documented how one blocker was resolved.",
+      periodStartsAt: "2026-07-01T00:00:00Z",
+      periodEndsAt: "2026-08-01T00:00:00Z",
+      confidence: "LIMITED",
+      confidenceBasis: "One confirmed source supports a narrow observation.",
+      limitations: ["One source cannot establish a sustained performance pattern."],
+      cannotConclude: "This cannot determine a rating or broad performance conclusion.",
+      sources: [
+        {
+          sourceId: insightSourceId,
+          kind: "EVIDENCE",
+          excerpt: "A concise source-supported work record.",
+        },
+      ],
     })
   ).id;
   outsiderId = (
@@ -160,6 +176,10 @@ describe("coaching development authenticated retained journey", () => {
       status: 200,
       body: {
         id: insightId,
+        currentRevision: {
+          pattern: "The employee documented how one blocker was resolved.",
+        },
+        sources: [expect.objectContaining({ sourceId: insightSourceId })],
         decisions: [
           expect.objectContaining({
             privateReason: "Employee-owned reflection",
@@ -391,6 +411,33 @@ describe("coaching development authenticated retained journey", () => {
         idempotencyKey: crypto.randomUUID(),
       }),
     ).toMatchObject({ status: 403 });
+  });
+
+  it("allows only one concurrent action version transition", async () => {
+    const created = await api("POST", "/api/v1/coaching/actions", employeeId, actionInput());
+    const actionId = (created.body as { id: string }).id;
+    const responses = await Promise.all([
+      api("POST", "/api/v1/coaching/actions/privacy", employeeId, {
+        schemaVersion: 1,
+        actionId,
+        expectedVersion: 1,
+        idempotencyKey: crypto.randomUUID(),
+        privacy: "SHARED",
+      }),
+      api("POST", "/api/v1/coaching/actions/privacy", employeeId, {
+        schemaVersion: 1,
+        actionId,
+        expectedVersion: 1,
+        idempotencyKey: crypto.randomUUID(),
+        privacy: "SHARED",
+      }),
+    ]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([201, 409]);
+    await expect(
+      database.developmentActionTransition.count({
+        where: { actionId, resultingVersion: 2 },
+      }),
+    ).resolves.toBe(1);
   });
 });
 

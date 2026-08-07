@@ -52,9 +52,9 @@ export class ApiCoachingInsightDraftService {
       [...view.confirmedEvidence, ...view.projectFacts, ...view.researchFacts]
         .slice(0, 100)
         .map((fact) => ({
-        sourceId: fact.sourceId,
-        kind: "EVALUATION_FACT" as const,
-        text: JSON.stringify(fact),
+          sourceId: fact.sourceId,
+          kind: "EVALUATION_FACT" as const,
+          text: JSON.stringify(fact),
         })),
     );
     if (facts.length === 0)

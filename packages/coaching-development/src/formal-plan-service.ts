@@ -75,7 +75,11 @@ export class FormalDevelopmentPlanService {
     const parsed = ReviseFormalPlanInputSchema.parse(input);
     const replay = await this.replay(parsed.idempotencyKey, parsed.planId);
     if (replay)
-      return { id: replay.planId, state: replay.toState ?? "DRAFT", version: replay.resultingVersion };
+      return {
+        id: replay.planId,
+        state: replay.toState ?? "DRAFT",
+        version: replay.resultingVersion,
+      };
     const plan = await this.require(parsed.planId);
     if (plan.employeeId !== parsed.employeeId) throw fail("AUTHZ_SCOPE", 403);
     if (plan.version !== parsed.expectedVersion) throw fail("VERSION_CONFLICT", 409);
@@ -92,7 +96,11 @@ export class FormalDevelopmentPlanService {
   ) {
     const replay = await this.replay(input.idempotencyKey, input.planId);
     if (replay)
-      return { planId: replay.planId, state: "EMPLOYEE_APPROVED" as const, version: replay.resultingVersion };
+      return {
+        planId: replay.planId,
+        state: "EMPLOYEE_APPROVED" as const,
+        version: replay.resultingVersion,
+      };
     const plan = await this.require(input.planId);
     if (plan.employeeId !== input.actorId) throw fail("AUTHZ_SCOPE", 403);
     if (plan.state !== "DRAFT") throw fail("FORMAL_PLAN_TRANSITION_INVALID", 409);
@@ -114,7 +122,11 @@ export class FormalDevelopmentPlanService {
   ) {
     const replay = await this.replay(input.idempotencyKey, input.planId);
     if (replay)
-      return { planId: replay.planId, state: "MANAGER_AGREED" as const, version: replay.resultingVersion };
+      return {
+        planId: replay.planId,
+        state: "MANAGER_AGREED" as const,
+        version: replay.resultingVersion,
+      };
     const plan = await this.require(input.planId);
     if (plan.managerId !== input.actorId) throw fail("AUTHZ_SCOPE", 403);
     if (plan.state !== "EMPLOYEE_APPROVED") throw fail("EMPLOYEE_APPROVAL_REQUIRED", 409);
@@ -159,7 +171,11 @@ export class FormalDevelopmentPlanService {
   ) {
     const replay = await this.replay(input.idempotencyKey, input.planId);
     if (replay)
-      return { planId: replay.planId, state: "COMPLETED" as const, version: replay.resultingVersion };
+      return {
+        planId: replay.planId,
+        state: "COMPLETED" as const,
+        version: replay.resultingVersion,
+      };
     const plan = await this.require(input.planId);
     if (plan.employeeId !== input.actorId && plan.managerId !== input.actorId)
       throw fail("AUTHZ_SCOPE", 403);
@@ -178,7 +194,11 @@ export class FormalDevelopmentPlanService {
     const parsed = EndFormalPlanInputSchema.parse(input);
     const replay = await this.replay(parsed.idempotencyKey, parsed.planId);
     if (replay)
-      return { planId: replay.planId, state: "WITHDRAWN" as const, version: replay.resultingVersion };
+      return {
+        planId: replay.planId,
+        state: "WITHDRAWN" as const,
+        version: replay.resultingVersion,
+      };
     const plan = await this.require(parsed.planId);
     if (plan.employeeId !== parsed.actorId) throw fail("AUTHZ_SCOPE", 403);
     if (["COMPLETED", "CLOSED", "WITHDRAWN"].includes(plan.state))

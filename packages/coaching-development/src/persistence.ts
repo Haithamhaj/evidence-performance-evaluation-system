@@ -22,7 +22,9 @@ export class CoachingDevelopmentPersistence {
     const [currentRevision, sources, decisions] = await Promise.all([
       root.currentRevisionId === null
         ? null
-        : this.database.coachingInsightRevision.findUnique({ where: { id: root.currentRevisionId } }),
+        : this.database.coachingInsightRevision.findUnique({
+            where: { id: root.currentRevisionId },
+          }),
       root.currentRevisionId === null
         ? []
         : this.database.coachingInsightSource.findMany({
@@ -156,7 +158,10 @@ export class CoachingDevelopmentPersistence {
         },
       });
       const revision = await tx.developmentActionRevision.create({
-        data: { ...revisionData(action.id, 1, input), idempotencyKey: String(input.idempotencyKey) } as never,
+        data: {
+          ...revisionData(action.id, 1, input),
+          idempotencyKey: String(input.idempotencyKey),
+        } as never,
       });
       await tx.developmentAction.update({
         where: { id: action.id },
@@ -190,7 +195,12 @@ export class CoachingDevelopmentPersistence {
       if (action.version !== Number(input.expectedVersion)) throw failure("VERSION_CONFLICT", 409);
       await validateActionLinks(tx, input, this.now());
       const updated = await tx.developmentAction.updateMany({
-        where: { id: action.id, version: action.version, state: action.state, privacy: action.privacy },
+        where: {
+          id: action.id,
+          version: action.version,
+          state: action.state,
+          privacy: action.privacy,
+        },
         data: { version: { increment: 1 } },
       });
       if (updated.count !== 1) throw failure("VERSION_CONFLICT", 409);
@@ -200,7 +210,10 @@ export class CoachingDevelopmentPersistence {
           idempotencyKey: String(input.idempotencyKey),
         } as never,
       });
-      await tx.developmentAction.update({ where: { id: action.id }, data: { currentRevisionId: revision.id } });
+      await tx.developmentAction.update({
+        where: { id: action.id },
+        data: { currentRevisionId: revision.id },
+      });
       return { id: action.id, version: action.version + 1 };
     });
   }
@@ -232,10 +245,17 @@ export class CoachingDevelopmentPersistence {
           resultingVersion: action.version + 1,
         },
       });
-      await this.auditEvent(tx, input, "coaching.action.privacy_changed", action.employeeId, action.id, {
-        fromPrivacy: action.privacy,
-        toPrivacy: String(input.privacy),
-      });
+      await this.auditEvent(
+        tx,
+        input,
+        "coaching.action.privacy_changed",
+        action.employeeId,
+        action.id,
+        {
+          fromPrivacy: action.privacy,
+          toPrivacy: String(input.privacy),
+        },
+      );
       return { id: action.id, version: action.version + 1 };
     });
   }
@@ -284,8 +304,7 @@ export class CoachingDevelopmentPersistence {
         resultingVersion: transition.resultingVersion,
         toState: transition.toState,
       };
-    if (revision)
-      return { actionId: revision.actionId, resultingVersion: revision.revision };
+    if (revision) return { actionId: revision.actionId, resultingVersion: revision.revision };
     return null;
   }
   async isAuthorizedManager(employeeId: string, managerId: string) {
@@ -320,9 +339,16 @@ export class CoachingDevelopmentPersistence {
           resourceUrl: (entry.resourceUrl as string | null) ?? null,
         },
       });
-      await this.auditEvent(tx, entry, "coaching.action.support_added", action.employeeId, action.id, {
-        kind: String(entry.kind),
-      });
+      await this.auditEvent(
+        tx,
+        entry,
+        "coaching.action.support_added",
+        action.employeeId,
+        action.id,
+        {
+          kind: String(entry.kind),
+        },
+      );
     });
   }
   async findPlan(planId: string) {
@@ -368,10 +394,7 @@ export class CoachingDevelopmentPersistence {
         });
         if (!action || action.employeeId !== event.employeeId) throw failure("AUTHZ_SCOPE", 403);
       }
-      if (
-        event.followUpOwnerId !== event.employeeId &&
-        event.followUpOwnerId !== event.managerId
-      )
+      if (event.followUpOwnerId !== event.employeeId && event.followUpOwnerId !== event.managerId)
         throw failure("AUTHZ_SCOPE", 403);
       if (event.sourceEvaluationAssignmentId) {
         const assignment = await tx.evaluationAssignment.findUnique({
@@ -494,11 +517,11 @@ export class CoachingDevelopmentPersistence {
       if (!existing)
         await tx.formalDevelopmentPlanEvidenceLink.create({
           data: {
-          planId: plan.id,
-          evidenceId: String(event.evidenceId),
-          confirmed: true,
-          confirmedAt: new Date(),
-          confirmedById: String(event.employeeId),
+            planId: plan.id,
+            evidenceId: String(event.evidenceId),
+            confirmed: true,
+            confirmedAt: new Date(),
+            confirmedById: String(event.employeeId),
           },
         });
     });
@@ -510,7 +533,9 @@ export class CoachingDevelopmentPersistence {
         where: { idempotencyKey: String(event.idempotencyKey) },
       });
       if (existing) return { id: existing.planId, state: "DRAFT", version: existing.revision };
-      const plan = await tx.formalDevelopmentPlan.findUnique({ where: { id: String(event.planId) } });
+      const plan = await tx.formalDevelopmentPlan.findUnique({
+        where: { id: String(event.planId) },
+      });
       if (!plan || plan.employeeId !== event.employeeId) throw failure("AUTHZ_SCOPE", 403);
       if (plan.version !== Number(event.expectedVersion)) throw failure("VERSION_CONFLICT", 409);
       const updated = await tx.formalDevelopmentPlan.updateMany({
@@ -536,7 +561,8 @@ export class CoachingDevelopmentPersistence {
           toState: "DRAFT",
           actorId: plan.employeeId,
           resultingVersion: plan.version + 1,
-          reason: "Employee revised the plan; prior approvals no longer apply to the current revision.",
+          reason:
+            "Employee revised the plan; prior approvals no longer apply to the current revision.",
         },
       });
       return { id: plan.id, state: "DRAFT", version: plan.version + 1 };

@@ -27,6 +27,8 @@ describe("coaching development schema", () => {
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public' AND table_name = ANY(${ownedTables}::text[])
     `;
-    expect(tables.map(({ table_name }) => table_name)).toEqual(expect.arrayContaining(ownedTables));
+    expect(tables.map(({ table_name }) => table_name)).toEqual(
+      expect.arrayContaining([...ownedTables]),
+    );
   });
 });

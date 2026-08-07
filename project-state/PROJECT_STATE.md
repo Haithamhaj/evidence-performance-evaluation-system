@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Close the technically complete E5A Identified Upward Manager Evaluation checkpoint, then execute E5B–E7
-in bounded feature bundles. Keep the final frontend program, export delivery, Arabic evaluation content,
-and live connector installations behind their existing sequence and external gates.
+Complete the technically verified E5A and E5B checkpoints, then execute E6–E7 in bounded feature bundles.
+Keep the final frontend program, export delivery, Arabic evaluation content, and live connector installations
+behind their existing sequence and external gates.
 
 ## Current Reality
 
@@ -220,6 +220,11 @@ and live connector installations behind their existing sequence and external gat
   leave, exact five-criterion persistence, immediate manager visibility, and unchanged historical data.
   The English/Arabic route is a bounded technical verification surface, not final UX or Arabic rubric
   release.
+- E5B Coaching & Development remediation is technically complete locally. Exact prompt-artifact and
+  untrusted-fact separation, semantic no-rating enforcement, qualified fact intake, current manager access,
+  actor-safe read projections, audited formal-plan lifecycle, real idempotency, atomic version writes, and
+  append-only/referential database integrity are verified through forward migration `0032` and real
+  PostgreSQL/Nest tests. Production route registration and Node 24 hosted confirmation remain external gates.
 - E4 final specification and security/code-quality reviews found three related P1 lifecycle/scope
   defects. Commit `09f8674` closes them with transactional stage-readiness gates, checked closure only,
   department/organization validation, and separate cycle-administration versus manager-finalization
@@ -300,11 +305,10 @@ and live connector installations behind their existing sequence and external gat
 
 ## Next Recommended Action
 
-Complete hosted checks and merge Pull Request #17 when GitHub creates a green exact-head run. E5B now has
-an isolated `0031_coaching_development` domain with append-only action/plan persistence, bounded manager
-support, confirmed-evidence linking, and a passing authenticated PostgreSQL/Nest journey. The runtime AI
-Router insight route persists source and route traces. Proceed to the single E5 specification/security review
-across E5A and E5B; do not start the final frontend or E6B export delivery yet.
+Proceed to the single E5 specification/security review across the technically verified E5A and E5B
+checkpoints, while completing any outstanding hosted exact-head checks. Do not start the final frontend or
+E6B export delivery before their approved sequence. Register the coaching AI route only with authorized
+production context and approved provider configuration.
 Live connector setup and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References

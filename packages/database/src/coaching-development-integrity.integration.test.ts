@@ -6,6 +6,7 @@ const employeeId = crypto.randomUUID();
 const otherEmployeeId = crypto.randomUUID();
 const insightId = crypto.randomUUID();
 const otherInsightId = crypto.randomUUID();
+const planId = crypto.randomUUID();
 let revisionId = "";
 let otherRevisionId = "";
 
@@ -27,6 +28,9 @@ beforeAll(async () => {
       { id: otherInsightId, employeeId: otherEmployeeId },
     ],
   });
+  await database.formalDevelopmentPlan.create({
+    data: { id: planId, employeeId, managerId: otherEmployeeId },
+  });
   const [revision, otherRevision] = await Promise.all([
     database.coachingInsightRevision.create({ data: insightRevision(insightId, employeeId) }),
     database.coachingInsightRevision.create({
@@ -36,7 +40,10 @@ beforeAll(async () => {
   revisionId = revision.id;
   otherRevisionId = otherRevision.id;
   await Promise.all([
-    database.coachingInsight.update({ where: { id: insightId }, data: { currentRevisionId: revisionId } }),
+    database.coachingInsight.update({
+      where: { id: insightId },
+      data: { currentRevisionId: revisionId },
+    }),
     database.coachingInsight.update({
       where: { id: otherInsightId },
       data: { currentRevisionId: otherRevisionId },
@@ -55,6 +62,9 @@ describe("coaching development database integrity", () => {
         database.$executeRaw`UPDATE "CoachingInsightRevision" SET "pattern" = 'Original pattern' WHERE "id" = ${revisionId}::uuid`,
     );
     expect(changed).toBe(false);
+    await expect(
+      database.$executeRaw`DELETE FROM "CoachingInsightRevision" WHERE "id" = ${revisionId}::uuid`,
+    ).rejects.toBeDefined();
   });
 
   it("rejects a current revision pointer owned by another insight", async () => {
@@ -82,7 +92,8 @@ describe("coaching development database integrity", () => {
           INSERT INTO "CoachingInsightSource" ("id", "insightId", "revisionId", "sourceId", "sourceKind", "position")
           VALUES (${sourceId}::uuid, ${insightId}::uuid, ${orphanRevisionId}::uuid, ${crypto.randomUUID()}::uuid, 'EVIDENCE', 0)
         `,
-      () => database.$executeRaw`DELETE FROM "CoachingInsightSource" WHERE "id" = ${sourceId}::uuid`,
+      () =>
+        database.$executeRaw`DELETE FROM "CoachingInsightSource" WHERE "id" = ${sourceId}::uuid`,
     );
     const aiRevisionId = crypto.randomUUID();
     const aiInserted = await mutationSucceeded(
@@ -93,9 +104,24 @@ describe("coaching development database integrity", () => {
           VALUES
             (${aiRevisionId}::uuid, ${insightId}::uuid, 2, 'AI pattern', now(), now(), 'LIMITED', 'One source', '[]'::jsonb, '[]'::jsonb, 'Cannot infer performance rating.', ${crypto.randomUUID()}::uuid, ${employeeId}::uuid)
         `,
-      () => database.$executeRaw`DELETE FROM "CoachingInsightRevision" WHERE "id" = ${aiRevisionId}::uuid`,
+      () =>
+        database.$executeRaw`DELETE FROM "CoachingInsightRevision" WHERE "id" = ${aiRevisionId}::uuid`,
     );
-    expect({ sourceInserted, aiInserted }).toEqual({ sourceInserted: false, aiInserted: false });
+    const evidenceLinkId = crypto.randomUUID();
+    const evidenceInserted = await mutationSucceeded(
+      () =>
+        database.$executeRaw`
+          INSERT INTO "FormalDevelopmentPlanEvidenceLink" ("id", "planId", "evidenceId")
+          VALUES (${evidenceLinkId}::uuid, ${planId}::uuid, ${crypto.randomUUID()}::uuid)
+        `,
+      () =>
+        database.$executeRaw`DELETE FROM "FormalDevelopmentPlanEvidenceLink" WHERE "id" = ${evidenceLinkId}::uuid`,
+    );
+    expect({ sourceInserted, aiInserted, evidenceInserted }).toEqual({
+      sourceInserted: false,
+      aiInserted: false,
+      evidenceInserted: false,
+    });
   });
 
   it("rejects duplicate resulting versions", async () => {

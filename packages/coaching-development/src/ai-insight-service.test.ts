@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 
 import { CoachingInsightAiService } from "./ai-insight-service.js";
-import {
-  COACHING_INSIGHT_PROMPT_VERSION,
-  COACHING_INSIGHT_TRUSTED_PROMPT,
-} from "./prompts.js";
+import { COACHING_INSIGHT_PROMPT_VERSION, COACHING_INSIGHT_TRUSTED_PROMPT } from "./prompts.js";
 
 const employeeId = "10000000-0000-4000-8000-000000000001";
 const sourceId = "10000000-0000-4000-8000-000000000002";

@@ -119,7 +119,10 @@ describe("FormalDevelopmentPlanService", () => {
         reason: "The participants explicitly ended this plan.",
       }),
     ).resolves.toMatchObject({ state, version: 5 });
-    expect(event).toMatchObject({ toState: state, reason: "The participants explicitly ended this plan." });
+    expect(event).toMatchObject({
+      toState: state,
+      reason: "The participants explicitly ended this plan.",
+    });
   });
 
   it("returns a participant-safe current-revision projection", async () => {

@@ -13,9 +13,7 @@ export class CoachingInsightService {
     private readonly audit?: CoachingAuditWriter,
   ) {}
 
-  async read(
-    input: Readonly<{ insightId: string; actorId: string; correlationId?: string }>,
-  ) {
+  async read(input: Readonly<{ insightId: string; actorId: string; correlationId?: string }>) {
     const insight = await this.repository.findInsight(input.insightId);
     if (insight === null) throw fail("COACHING_INSIGHT_NOT_FOUND", 404);
     if (insight.employeeId !== input.actorId) throw fail("AUTHZ_SCOPE", 403);

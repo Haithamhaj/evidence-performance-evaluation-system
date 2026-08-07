@@ -349,7 +349,7 @@ The detailed authority is
 | E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                                                                          |
 | E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Technical checkpoint complete locally, including real production API+PostgreSQL lifecycle; hosted PR checks pending |
 | E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Technical checkpoint complete locally; final frontend and E6B export delivery remain later                          |
-| E5         | Identified upward manager evaluation, coaching, and development                | Two bounded designs and detailed TDD plans approved                                                                 |
+| E5         | Identified upward manager evaluation, coaching, and development                | E5A and E5B technical checkpoints complete locally; combined review and hosted checks pending                       |
 | E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs and detailed TDD plans approved                                                               |
 | E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6                                                           |
 

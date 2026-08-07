@@ -199,9 +199,11 @@ export const CreateFormalPlanInputSchema = command({
 export const ReviseFormalPlanInputSchema = CreateFormalPlanInputSchema.omit({
   managerId: true,
   actionId: true,
-}).extend({
-  planId: UuidSchema,
-}).strict();
+})
+  .extend({
+    planId: UuidSchema,
+  })
+  .strict();
 export const EndFormalPlanInputSchema = command({
   planId: UuidSchema,
   actorId: UuidSchema,
