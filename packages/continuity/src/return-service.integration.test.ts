@@ -73,13 +73,29 @@ class MemoryReturnStore implements ReturnStore, ReturnTransaction {
   }
 }
 
+function decisions(
+  store: MemoryReturnStore,
+  permanentTransfer: (input: Record<string, unknown>) => void = () => undefined,
+) {
+  return {
+    async finalize(input: Record<string, unknown>) {
+      const record = store.record;
+      if (!record || record.version !== input.expectedVersion) throw new Error("conflict");
+      if (input.choice === "RETURN") await store.expireDelegation();
+      if (input.choice === "EXTEND") await store.extendDelegation(delegation.id, input);
+      if (input.choice === "PERMANENT_TRANSFER") permanentTransfer(input);
+      return store.finalizeReturn(record.id, input);
+    },
+  };
+}
+
 describe("ReturnService", () => {
   it("binds acting draft, owner confirmation, and manager final choice to three principals", async () => {
     const store = new MemoryReturnStore();
     const service = new ReturnService(
       store,
       { canManageEmployee: async (actor) => actor === delegation.managerId },
-      { permanentTransfer: async () => undefined },
+      decisions(store),
     );
     const draft = await service.draft({
       id: returnId,
@@ -138,7 +154,7 @@ describe("ReturnService", () => {
     const service = new ReturnService(
       store,
       { canManageEmployee: async (actor) => actor === delegation.managerId },
-      { permanentTransfer: async () => undefined },
+      decisions(store),
     );
     const draft = await service.draft(draftInput());
     await expect(
@@ -162,11 +178,7 @@ describe("ReturnService", () => {
     const service = new ReturnService(
       store,
       { canManageEmployee: async () => true },
-      {
-        permanentTransfer: async (_delegation, input) => {
-          transfers.push(input);
-        },
-      },
+      decisions(store, (input) => transfers.push(input)),
     );
     const draft = await service.draft(draftInput());
     await service.finalize({
@@ -187,11 +199,7 @@ describe("ReturnService", () => {
     const second = new ReturnService(
       secondStore,
       { canManageEmployee: async () => true },
-      {
-        permanentTransfer: async (_delegation, input) => {
-          transfers.push(input);
-        },
-      },
+      decisions(secondStore, (input) => transfers.push(input)),
     );
     const secondReturnId = crypto.randomUUID();
     const secondDraft = await second.draft({ ...draftInput(), id: secondReturnId });

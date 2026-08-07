@@ -233,6 +233,11 @@ behind their existing sequence and external gates.
   permanent-transfer responsibility changes, durable leave eligibility effects, and atomic account
   deactivation plus manager reassignment queue creation are exercised by a rerunnable PostgreSQL journey.
   The same journey verifies emergency approval, bounded authority, expiry, and its three audit events.
+  Return/extension/permanent-transfer decisions now lock and validate the authoritative return first,
+  then commit every affected scope and its audit/state changes through one Projects-owned transaction.
+  A real Nest HTTP/PostgreSQL acceptance journey covers controllers, guards, authenticated principals,
+  planned return, emergency expiry, and offboarding reassignment; Playwright remains limited to the
+  bilingual technical UI checkpoint.
 - The single E5A P1 remediation cycle is complete: submissions use and persist in-period server time;
   manager summaries use a verified registered prompt descriptor with untrusted originals; manager-cycle
   reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus

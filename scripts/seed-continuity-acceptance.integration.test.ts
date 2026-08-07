@@ -20,7 +20,6 @@ describe.sequential("continuity acceptance seed", () => {
       delegation,
       confirmationCount,
       returnRecord,
-      permanentReturn,
       owner,
       resolvedCase,
       queueItem,
@@ -37,13 +36,12 @@ describe.sequential("continuity acceptance seed", () => {
       }),
       database.delegateConfirmation.count({ where: { delegationId: ids.delegation } }),
       database.returnHandover.findUniqueOrThrow({ where: { id: ids.return } }),
-      database.returnHandover.findUniqueOrThrow({ where: { id: ids.permanentReturn } }),
-      database.user.findUniqueOrThrow({ where: { id: ids.delegate } }),
+      database.user.findUniqueOrThrow({ where: { id: ids.owner } }),
       database.reassignmentRequiredCase.findFirstOrThrow({
-        where: { formerOwnerId: ids.delegate, state: "RESOLVED" },
+        where: { formerOwnerId: ids.owner, state: "RESOLVED" },
       }),
       database.reassignmentQueueItem.findFirstOrThrow({
-        where: { case: { formerOwnerId: ids.delegate } },
+        where: { case: { formerOwnerId: ids.owner } },
       }),
       database.responsibilityWindow.findFirstOrThrow({
         where: {
@@ -81,7 +79,6 @@ describe.sequential("continuity acceptance seed", () => {
     ]);
     expect(confirmationCount).toBe(1);
     expect(returnRecord).toMatchObject({ state: "FINALIZED", choice: "RETURN" });
-    expect(permanentReturn).toMatchObject({ state: "FINALIZED", choice: "PERMANENT_TRANSFER" });
     expect(owner.active).toBe(false);
     expect(resolvedCase.state).toBe("RESOLVED");
     expect(queueItem.state).toBe("RESOLVED");

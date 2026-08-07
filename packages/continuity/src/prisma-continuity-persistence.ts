@@ -263,6 +263,135 @@ export class PrismaContinuityPersistence
     );
   }
 
+  async prepareReturnDecisionInTransaction(
+    transaction: DatabaseTransaction,
+    input: Readonly<{
+      returnId: string;
+      delegationId: string;
+      managerId: string;
+      expectedVersion: number;
+      choice: "RETURN" | "EXTEND" | "PERMANENT_TRANSFER";
+      occurredAt: string;
+      extendedEndsAt?: string;
+      reason: string;
+      correlationId: string;
+    }>,
+  ) {
+    await transaction.$queryRaw`SELECT id FROM "ReturnHandover" WHERE id = ${input.returnId}::uuid FOR UPDATE`;
+    const record = await transaction.returnHandover.findUnique({ where: { id: input.returnId } });
+    const delegation = await transaction.delegation.findUnique({
+      where: { id: input.delegationId },
+      include: {
+        leave: { select: { endsAt: true } },
+        periods: { orderBy: [{ startsAt: "asc" }, { id: "asc" }] },
+        scopes: {
+          select: {
+            projectId: true,
+            workstreamId: true,
+            workstream: { select: { projectId: true } },
+          },
+        },
+      },
+    });
+    const currentPeriod = delegation?.periods.at(-1);
+    const occurredAt = new Date(input.occurredAt);
+    const extendedEndsAt = input.extendedEndsAt ? new Date(input.extendedEndsAt) : null;
+    if (
+      !record ||
+      !delegation ||
+      !currentPeriod ||
+      delegation.state !== "ACTIVE" ||
+      delegation.managerId !== input.managerId ||
+      record.delegationId !== delegation.id ||
+      record.actingOwnerId !== delegation.delegateId ||
+      record.originalOwnerId !== delegation.ownerId ||
+      !["DRAFT", "OWNER_CONFIRMED"].includes(record.state) ||
+      record.version !== input.expectedVersion
+    ) {
+      throw continuityConflict("RETURN_HANDOVER_INVALID", 409);
+    }
+    if (
+      input.choice === "EXTEND"
+        ? !extendedEndsAt ||
+          extendedEndsAt <= currentPeriod.endsAt ||
+          extendedEndsAt > delegation.leave.endsAt
+        : occurredAt < delegation.periods[0]!.startsAt || occurredAt >= currentPeriod.endsAt
+    ) {
+      throw continuityConflict("RETURN_HANDOVER_INVALID", 409);
+    }
+
+    const adapter = new PrismaContinuityTransaction(transaction);
+    const audit = await adapter.appendAudit({
+      eventType: "continuity.return.manager_finalized",
+      actorId: input.managerId,
+      subjectId: delegation.ownerId,
+      targetId: record.id,
+      reason: input.reason,
+      safeDiff: {
+        choice: input.choice,
+        occurredAt: input.occurredAt,
+        ...(input.extendedEndsAt ? { extendedEndsAt: input.extendedEndsAt } : {}),
+      },
+      correlationId: input.correlationId,
+    });
+    if (input.choice === "EXTEND") {
+      await transaction.delegationPeriod.create({
+        data: {
+          delegationId: delegation.id,
+          startsAt: currentPeriod.endsAt,
+          endsAt: extendedEndsAt!,
+        },
+      });
+      const advanced = await transaction.delegation.updateMany({
+        where: { id: delegation.id, state: "ACTIVE", version: delegation.version },
+        data: { version: { increment: 1 } },
+      });
+      if (advanced.count !== 1) throw continuityConflict();
+    } else {
+      const returned = await transaction.delegation.updateMany({
+        where: { id: delegation.id, state: "ACTIVE", version: delegation.version },
+        data: { state: "RETURNED", version: { increment: 1 } },
+      });
+      if (returned.count !== 1) throw continuityConflict();
+    }
+    const result = await adapter.finalizeReturn(record.id, {
+      choice: input.choice,
+      finalizedById: input.managerId,
+      expectedVersion: input.expectedVersion,
+      auditEventId: audit.id,
+    });
+    const scopeMap = new Map<
+      string,
+      { kind: "PROJECT" | "WORKSTREAM"; id: string; projectId?: string }
+    >();
+    for (const scope of delegation.scopes) {
+      if (scope.projectId) {
+        scopeMap.set(`PROJECT:${scope.projectId}`, { kind: "PROJECT", id: scope.projectId });
+      } else if (scope.workstreamId && scope.workstream?.projectId) {
+        scopeMap.set(`WORKSTREAM:${scope.workstreamId}`, {
+          kind: "WORKSTREAM",
+          id: scope.workstreamId,
+          projectId: scope.workstream.projectId,
+        });
+      }
+    }
+    return {
+      actor: { userId: input.managerId, active: true as const },
+      correlationId: input.correlationId,
+      delegationId: delegation.id,
+      ownerId: delegation.ownerId,
+      delegateId: delegation.delegateId,
+      handoverRevisionId: delegation.handoverRevisionId,
+      choice: input.choice,
+      occurredAt: input.occurredAt,
+      currentEndsAt: currentPeriod.endsAt.toISOString(),
+      extendedEndsAt: input.extendedEndsAt ?? null,
+      reason: input.reason,
+      scopes: [...scopeMap.values()],
+      result,
+    };
+  }
+
   async resolveCaseInTransaction(
     transaction: DatabaseTransaction,
     caseId: string,

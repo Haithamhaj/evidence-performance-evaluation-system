@@ -31,17 +31,17 @@ The Arabic route is RTL and the English route is LTR. The checkpoint intentional
 ## Verification evidence
 
 - Contract and domain tests cover minimized leave input, approval scope, leave neutrality, stale handover revisions, sensitive-field rejection, delegate confirmation, access gaps, emergency reason/audit, boundary times, cross-scope denial, return, duplicate reassignment cases, and manager/admin separation.
-- Migration verification covers clean installation, upgrade from migration `0032`, append-only history, exact-scope checks, overlap rejection, retention constraints, and schema drift.
-- API composition tests prove that controllers derive employee/delegate/manager/admin identity from the authenticated principal rather than trusting body identity fields.
+- Migration verification covers clean installation, upgrade from migration `0033`, append-only history, exact-scope checks, overlap rejection, retention constraints, and schema drift.
+- A real Nest HTTP acceptance journey uses the production continuity controllers, authentication and continuity guards, real Prisma/PostgreSQL services, and bearer-token test principals. It proves that employee/delegate/manager/admin identity comes from the authenticated principal rather than body identity, and covers planned leave through return, emergency activation/expiry, and deactivation through manager reassignment.
 - The PostgreSQL acceptance journey proves the production composition, including one-time delegation-scope binding, early-return responsibility-window correction, resolved manager queue, preserved inactive owner history, and a successor's permanent responsibility window.
-- The focused browser journey verifies the bilingual technical checkpoint and RTL/LTR shell.
+- Playwright is intentionally limited to the bilingual technical UI checkpoint and RTL/LTR behavior. Lifecycle, authorization, current-principal, transaction, and persistence acceptance belongs to the real Nest/PostgreSQL HTTP journey above.
 
 ## Bounded P1 remediation
 
 - Handover confirmation is bound to the exact current revision and stored leave/employee identity; secrets are rejected in keys and values.
 - Delegation approval now requires the authoritative approved leave, a confirmed latest handover, eligible owner/delegate, and exact affected scopes. Activation and expiry are manager-authorized and atomically update real responsibility authority.
 - Access-gap resolution is append-only, manager-authorized, and blocks activation while unresolved.
-- Return is a three-principal workflow: acting-owner draft, original-owner confirmation, then manager finalization. Early return shortens only the continuity acting window and advances its paired scheduled return while the original plan remains preserved in delegation/transfer history.
+- Return supports an acting-owner draft, optional original-owner confirmation, and an authorized manager decision. `RETURN`, `EXTEND`, and `PERMANENT_TRANSFER` validate the locked return/delegation state before responsibility mutation and commit all affected scopes, return state, delegation state, and audit as one Projects-owned transaction. Stale, missing, concurrent, or later-scope-failing decisions leave every responsibility window unchanged.
 - Approved leave now has a durable eligibility effect used by check-ins, readiness, and evaluation eligibility. It suppresses absence-based regularity only; missing sources and research decisions remain visible.
 - Offboarding creates a durable department-scoped manager queue transactionally, preserves history, and resolves through the existing permanent owner-transfer command.
 - Serializable transactions, optimistic version checks, nullable-scope-safe uniqueness, and the real acceptance seed cover concurrent retries and duplicate submission boundaries.

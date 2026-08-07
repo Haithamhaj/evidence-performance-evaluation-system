@@ -76,6 +76,24 @@ export type ActingDelegationCommand = Readonly<{
   >;
 }>;
 
+export type ContinuityAuthorityDecision<T> = Readonly<{
+  actor: Readonly<{ userId: string; active: boolean }>;
+  correlationId: string;
+  delegationId: string;
+  ownerId: string;
+  delegateId: string;
+  handoverRevisionId: string;
+  choice: "RETURN" | "EXTEND" | "PERMANENT_TRANSFER";
+  occurredAt: string;
+  currentEndsAt: string;
+  extendedEndsAt: string | null;
+  reason: string;
+  scopes: ReadonlyArray<
+    Readonly<{ kind: "PROJECT" | "WORKSTREAM"; id: string; projectId?: string }>
+  >;
+  result: T;
+}>;
+
 export class ResponsibilityService {
   private readonly client: DatabaseClient;
   private readonly auditWriter: AuditWriter;
@@ -305,6 +323,117 @@ export class ResponsibilityService {
       }
       await afterActivation(transaction, windows);
       return windows;
+    });
+  }
+
+  async finalizeContinuityAuthority<T>(
+    prepare: (transaction: Transaction) => Promise<ContinuityAuthorityDecision<T>>,
+  ): Promise<T> {
+    const current = validClock(this.clock());
+    return serializable(this.client, async (transaction) => {
+      const decision = await prepare(transaction);
+      const occurredAt = validClock(new Date(decision.occurredAt));
+      const currentEndsAt = validClock(new Date(decision.currentEndsAt));
+      const extendedEndsAt = decision.extendedEndsAt
+        ? validClock(new Date(decision.extendedEndsAt))
+        : null;
+      const scopes = [...decision.scopes]
+        .map((scope) =>
+          scope.kind === "PROJECT"
+            ? ({ kind: "project", projectId: scope.id, workstreamId: null } as const)
+            : ({
+                kind: "workstream",
+                projectId: scope.projectId!,
+                workstreamId: scope.id,
+              } as const),
+        )
+        .sort((left, right) => resourceId(left).localeCompare(resourceId(right)));
+
+      for (const scope of scopes) {
+        await lockResource(transaction, scope);
+        const authorization = await authorizeTransfer(transaction, decision.actor, scope, current);
+        if (authorization.status !== "active" && authorization.status !== "paused") {
+          throw resourceError("RESOURCE_STATE_INVALID", 409);
+        }
+        const scopeFilter = scopeWhere(scope);
+        if (decision.choice === "EXTEND") {
+          if (!extendedEndsAt || extendedEndsAt <= currentEndsAt) {
+            throw resourceError("RESPONSIBILITY_PERIOD_INVALID", 400);
+          }
+          const shifted = await transaction.responsibilityWindow.updateMany({
+            where: {
+              ...scopeFilter,
+              employeeId: decision.ownerId,
+              responsibilityType: "permanent",
+              startsAt: currentEndsAt,
+              relatedHandoverReference: decision.handoverRevisionId,
+            },
+            data: { startsAt: extendedEndsAt },
+          });
+          if (shifted.count !== 1) throw resourceError("PRIMARY_OWNER_REQUIRED", 409);
+          await transaction.responsibilityWindow.create({
+            data: {
+              ...scopeCreateData(scope),
+              employeeId: decision.delegateId,
+              responsibilityType: "acting",
+              startsAt: currentEndsAt,
+              endsAt: extendedEndsAt,
+              reason: decision.reason,
+              managerDecisionById: decision.actor.userId,
+              managerDecisionAt: current,
+              managerDecisionReason: decision.reason,
+              relatedHandoverReference: decision.handoverRevisionId,
+              delegationType: "approved_leave",
+              createdById: decision.actor.userId,
+            },
+          });
+          await incrementVersion(transaction, scope, authorization.version);
+          continue;
+        }
+
+        const acting = await transaction.responsibilityWindow.findFirst({
+          where: {
+            ...scopeFilter,
+            employeeId: decision.delegateId,
+            responsibilityType: "acting",
+            relatedHandoverReference: decision.handoverRevisionId,
+            startsAt: { lte: occurredAt },
+            endsAt: { gt: occurredAt },
+          },
+          orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+        });
+        if (!acting?.endsAt) throw resourceError("PRIMARY_OWNER_REQUIRED", 409);
+        await transaction.responsibilityWindow.update({
+          where: { id: acting.id },
+          data: { endsAt: occurredAt },
+        });
+        const shifted = await transaction.responsibilityWindow.updateMany({
+          where: {
+            ...scopeFilter,
+            employeeId: decision.ownerId,
+            responsibilityType: "permanent",
+            startsAt: acting.endsAt,
+            relatedHandoverReference: decision.handoverRevisionId,
+          },
+          data: { startsAt: occurredAt },
+        });
+        if (shifted.count !== 1) throw resourceError("PRIMARY_OWNER_REQUIRED", 409);
+
+        if (decision.choice === "RETURN") {
+          await incrementVersion(transaction, scope, authorization.version);
+          continue;
+        }
+        await applyContinuityPermanentTransfer(
+          transaction,
+          scope,
+          authorization,
+          decision,
+          new Date(occurredAt.getTime() + 1),
+          current,
+          this.auditWriter,
+        );
+      }
+      return decision.result;
     });
   }
 
@@ -554,6 +683,129 @@ export class ResponsibilityService {
       return rows.map(serializeWindow);
     });
   }
+}
+
+async function applyContinuityPermanentTransfer<T>(
+  transaction: Transaction,
+  scope: TransferScope,
+  authorization: Awaited<ReturnType<typeof authorizeTransfer>>,
+  decision: ContinuityAuthorityDecision<T>,
+  effectiveAt: Date,
+  current: Date,
+  auditWriter: AuditWriter,
+) {
+  const target = await transaction.user.findFirst({
+    where: {
+      id: decision.delegateId,
+      active: true,
+      roleAssignments: {
+        some: {
+          role: "employee",
+          scopeType: "department",
+          scopeId: authorization.departmentScopeId,
+        },
+      },
+    },
+    select: { id: true },
+  });
+  if (!target) throw resourceError("RESPONSIBILITY_TARGET_INVALID", 400);
+  const closedWindow = await transaction.responsibilityWindow.findFirst({
+    where: {
+      ...scopeWhere(scope),
+      employeeId: decision.ownerId,
+      responsibilityType: { in: ["original", "permanent"] },
+      startsAt: { lte: effectiveAt },
+      OR: [{ endsAt: null }, { endsAt: { gt: effectiveAt } }],
+    },
+    orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+  });
+  if (!closedWindow || effectiveAt <= closedWindow.startsAt) {
+    throw resourceError("PRIMARY_OWNER_REQUIRED", 409);
+  }
+  await ensureMembership(transaction, scope, target.id, effectiveAt, {
+    actor: decision.actor,
+    correlationId: decision.correlationId,
+    projectId: scope.projectId,
+    ...(scope.workstreamId ? { workstreamId: scope.workstreamId } : {}),
+    input: {
+      transferKind: "permanent",
+      toUserId: target.id,
+      effectiveAt: effectiveAt.toISOString(),
+      expectedVersion: authorization.version,
+      reason: decision.reason,
+    },
+  } as never);
+  await transaction.responsibilityWindow.update({
+    where: { id: closedWindow.id },
+    data: { endsAt: effectiveAt },
+  });
+  const ownerRole = scope.kind === "project" ? "project_owner" : "workstream_owner";
+  await transaction.roleAssignment.upsert({
+    where: {
+      userId_role_scopeType_scopeId: {
+        userId: target.id,
+        role: ownerRole,
+        scopeType: scope.kind,
+        scopeId: resourceId(scope),
+      },
+    },
+    create: {
+      userId: target.id,
+      role: ownerRole,
+      scopeType: scope.kind,
+      scopeId: resourceId(scope),
+    },
+    update: {},
+  });
+  const newOwnerWindow = await transaction.responsibilityWindow.create({
+    data: {
+      ...scopeCreateData(scope),
+      employeeId: target.id,
+      responsibilityType: "permanent",
+      startsAt: effectiveAt,
+      reason: decision.reason,
+      managerDecisionById: decision.actor.userId,
+      managerDecisionAt: current,
+      managerDecisionReason: decision.reason,
+      relatedHandoverReference: decision.handoverRevisionId,
+      createdById: decision.actor.userId,
+    },
+  });
+  const transfer = await transaction.ownershipTransfer.create({
+    data: {
+      ...scopeCreateData(scope),
+      transferKind: "permanent",
+      closedWindowId: closedWindow.id,
+      newOwnerWindowId: newOwnerWindow.id,
+      effectiveAt,
+      reason: decision.reason,
+      managerDecisionById: decision.actor.userId,
+      managerDecisionAt: current,
+      managerDecisionReason: decision.reason,
+    },
+  });
+  await incrementVersion(transaction, scope, authorization.version);
+  await auditWriter.append(transaction, {
+    eventType:
+      scope.kind === "project" ? "project.owner_transferred" : "workstream.owner_transferred",
+    actor: { kind: "human", id: decision.actor.userId },
+    effectiveSubjectId: target.id,
+    scopeType: scope.kind,
+    scopeId: resourceId(scope),
+    targetType: "ownership_transfer",
+    targetId: transfer.id,
+    reason: decision.reason,
+    safeDiff: {
+      delegationId: decision.delegationId,
+      fromUserId: decision.ownerId,
+      toUserId: target.id,
+      transferKind: "permanent",
+      effectiveAt: effectiveAt.toISOString(),
+      version: authorization.version + 1,
+    },
+    correlationId: decision.correlationId,
+    source: "api",
+  });
 }
 
 export function createResponsibilityService(

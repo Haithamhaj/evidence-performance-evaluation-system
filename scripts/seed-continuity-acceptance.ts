@@ -19,7 +19,6 @@ const ids = {
   ownerWindow: "e6a00000-0000-4000-8000-000000000014",
   return: "e6a00000-0000-4000-8000-000000000015",
   extensionReturn: "e6a00000-0000-4000-8000-000000000016",
-  permanentReturn: "e6a00000-0000-4000-8000-000000000017",
   emergencyProject: "e6a00000-0000-4000-8000-000000000020",
   emergencyOwner: "e6a00000-0000-4000-8000-000000000021",
   emergencyDelegate: "e6a00000-0000-4000-8000-000000000022",
@@ -34,7 +33,7 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
   if (
     completed?.state === "FINALIZED" &&
     (await database.reassignmentRequiredCase.count({
-      where: { formerOwnerId: ids.delegate, state: "RESOLVED" },
+      where: { formerOwnerId: ids.owner, state: "RESOLVED" },
     })) > 0 &&
     (await database.delegation.count({
       where: { id: ids.emergencyDelegation, state: "EXPIRED", emergency: true },
@@ -464,18 +463,6 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
       occurredAt: "2026-08-12T12:00:00.000Z",
     });
     if (!extendedAuthority) throw new Error("Extended acting authority was not active");
-    if (!(await database.returnHandover.findUnique({ where: { id: ids.permanentReturn } }))) {
-      await runtime.returns.draft({
-        id: ids.permanentReturn,
-        delegationId: ids.delegation,
-        actorId: ids.delegate,
-        completedWork: "Completed the acting ownership period",
-        decisionsAndChanges: "Manager will decide permanent responsibility",
-        openWork: "Continue project ownership without interruption",
-        risksAndNextSteps: "Apply an audited permanent transfer after return",
-        correlationId: crypto.randomUUID(),
-      });
-    }
     let returnRecord = await database.returnHandover.findUnique({ where: { id: ids.return } });
     if (!returnRecord) {
       await runtime.returns.draft({
@@ -512,33 +499,18 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
         correlationId: crypto.randomUUID(),
       });
     }
-    const permanentReturn = await database.returnHandover.findUniqueOrThrow({
-      where: { id: ids.permanentReturn },
-    });
-    if (permanentReturn.state === "DRAFT") {
-      await runtime.returns.finalize({
-        returnId: ids.permanentReturn,
-        delegationId: ids.delegation,
-        managerId: ids.manager,
-        expectedVersion: permanentReturn.version,
-        choice: "PERMANENT_TRANSFER",
-        occurredAt: "2026-08-12T13:30:00.000Z",
-        reason: "Manager approved permanent responsibility transfer",
-        correlationId: crypto.randomUUID(),
-      });
-    }
   }
-  const owner = await database.user.findUniqueOrThrow({ where: { id: ids.delegate } });
+  const owner = await database.user.findUniqueOrThrow({ where: { id: ids.owner } });
   if (owner.active) {
     await runtime.offboarding.deactivate({
       administratorId: ids.administrator,
-      userId: ids.delegate,
+      userId: ids.owner,
       occurredAt: "2026-08-12T14:00:00.000Z",
       correlationId: crypto.randomUUID(),
     });
   }
   const queue = await runtime.offboarding.managerQueue(ids.manager);
-  for (const item of queue.filter((candidate) => candidate.formerOwnerId === ids.delegate)) {
+  for (const item of queue.filter((candidate) => candidate.formerOwnerId === ids.owner)) {
     await runtime.offboarding.resolve({
       caseId: item.id,
       actorId: ids.manager,

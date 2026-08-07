@@ -89,15 +89,7 @@ export interface ReturnAuthorizationPort {
 }
 
 export interface ReturnDecisionPort {
-  permanentTransfer(
-    delegation: ReturnDelegation,
-    input: Readonly<{
-      managerId: string;
-      occurredAt: string;
-      reason: string;
-      correlationId: string;
-    }>,
-  ): Promise<void>;
+  finalize(input: z.infer<typeof Finalize>): Promise<ReturnRecord>;
 }
 
 export class ReturnService {
@@ -170,55 +162,7 @@ export class ReturnService {
     ) {
       throw failure("AUTHZ_SCOPE", 403);
     }
-    if (parsed.choice === "PERMANENT_TRANSFER") {
-      await this.decisions.permanentTransfer(delegation, parsed);
-    }
-    return this.store.transaction(async (tx) => {
-      const freshDelegation = await requiredDelegation(tx, parsed.delegationId);
-      const record = await requiredReturn(tx, parsed.returnId);
-      const delegationStateAllowed =
-        freshDelegation.state === "ACTIVE" ||
-        (parsed.choice === "PERMANENT_TRANSFER" && freshDelegation.state === "RETURNED");
-      if (
-        !delegationStateAllowed ||
-        record.delegationId !== freshDelegation.id ||
-        !["DRAFT", "OWNER_CONFIRMED"].includes(record.state) ||
-        record.version !== parsed.expectedVersion
-      ) {
-        throw failure("RETURN_HANDOVER_INVALID", 409);
-      }
-      const audit = await tx.appendAudit({
-        eventType: "continuity.return.manager_finalized",
-        actorId: parsed.managerId,
-        subjectId: freshDelegation.ownerId,
-        targetId: record.id,
-        reason: parsed.reason,
-        safeDiff: {
-          choice: parsed.choice,
-          occurredAt: parsed.occurredAt,
-          ...(parsed.extendedEndsAt ? { extendedEndsAt: parsed.extendedEndsAt } : {}),
-        },
-        correlationId: parsed.correlationId,
-      });
-      if (parsed.choice === "RETURN") {
-        await tx.expireDelegation(parsed.delegationId, parsed.occurredAt);
-      } else if (parsed.choice === "EXTEND") {
-        await tx.extendDelegation(parsed.delegationId, {
-          managerId: parsed.managerId,
-          occurredAt: parsed.occurredAt,
-          extendedEndsAt: parsed.extendedEndsAt!,
-          reason: parsed.reason,
-          correlationId: parsed.correlationId,
-          auditEventId: audit.id,
-        });
-      }
-      return tx.finalizeReturn(record.id, {
-        choice: parsed.choice,
-        finalizedById: parsed.managerId,
-        expectedVersion: parsed.expectedVersion,
-        auditEventId: audit.id,
-      });
-    });
+    return this.decisions.finalize(parsed);
   }
 }
 
