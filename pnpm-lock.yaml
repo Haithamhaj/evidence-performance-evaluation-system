@@ -478,7 +478,11 @@ importers:
         specifier: 26.1.1
         version: 26.1.1
 
-  packages/config: {}
+  packages/config:
+    dependencies:
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/connected-work-context:
     dependencies:

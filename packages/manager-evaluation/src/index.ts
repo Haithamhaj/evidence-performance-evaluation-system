@@ -33,6 +33,7 @@ export type {
 } from "./ports.js";
 export { ManagerEvaluationSubmissionService } from "./submission-service.js";
 export { createProjectionPolicy, IdentifiedProjectionPolicy } from "./projection-policy.js";
+export { PrivateModeIsolation } from "./private-mode-isolation.js";
 export {
   MANAGER_EVALUATION_SUMMARY_ROUTE,
   MANAGER_EVALUATION_SUMMARY_TRUSTED_PROMPT,
