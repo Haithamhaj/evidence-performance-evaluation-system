@@ -31,7 +31,7 @@ export class IdentifiedProjectionPolicy {
     clock: () => Date = () => new Date(),
   ) {
     this.#database = database;
-    this.#completion = new IdentifiedCompletionReader(database, clock);
+    this.#completion = new IdentifiedCompletionReader(database, clock, audit);
     this.#audit = audit;
     this.#clock = clock;
   }
@@ -70,8 +70,9 @@ export class IdentifiedProjectionPolicy {
   }
 
   async readManagerCycle(input: Readonly<{ cycleId: string; managerId: string; reason: string }>) {
-    const completion = await this.#completion.read(input);
     return this.#database.$transaction(async (transaction) => {
+      const generatedAt = this.#clock();
+      const completion = await this.#completion.readSnapshot(transaction, input, generatedAt);
       const cycle = await transaction.managerEvaluationCycle.findUnique({
         where: { id: input.cycleId },
         include: {
@@ -134,9 +135,9 @@ export class IdentifiedProjectionPolicy {
               createdAt: cycle.summaryRevisions[0].createdAt.toISOString(),
             }
           : null,
-        generatedAt: this.#clock().toISOString(),
+        generatedAt: generatedAt.toISOString(),
       });
-    });
+    }, { isolationLevel: "RepeatableRead" });
   }
 }
 
