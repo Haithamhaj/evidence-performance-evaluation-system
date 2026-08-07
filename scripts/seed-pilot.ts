@@ -2,7 +2,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { databaseAuditWriter } from "@evaluation/audit";
-import { createDatabaseClient, seedPilot } from "@evaluation/database";
+import {
+  createDatabaseClient,
+  seedPilot,
+  seedPilotEvaluationTemplateVersionOne,
+} from "@evaluation/database";
 import { approvedEnglishRubric } from "@evaluation/localization";
 
 type SeedTransaction = Parameters<typeof seedPilot>[0];
@@ -186,10 +190,41 @@ export async function seedPilotWithAudit(
       approvedEnglishRubric,
       writer,
     );
+    const rubricVersionId =
+      rubricActivation?.rubricVersionId ??
+      (
+        await transaction.rubricVersion.findUniqueOrThrow({
+          where: {
+            organizationId_version: {
+              organizationId: organization.id,
+              version: approvedEnglishRubric.version,
+            },
+          },
+          select: { id: true },
+        })
+      ).id;
+    const [department, administrator] = await Promise.all([
+      transaction.department.findUniqueOrThrow({
+        where: { key: "ai-department" },
+        select: { id: true },
+      }),
+      transaction.user.findUniqueOrThrow({
+        where: { pilotKey: "system-admin" },
+        select: { id: true },
+      }),
+    ]);
+    const evaluationTemplate = await seedPilotEvaluationTemplateVersionOne(transaction, {
+      organizationId: organization.id,
+      departmentId: department.id,
+      rubricVersionId,
+      createdById: administrator.id,
+      rubric: approvedEnglishRubric,
+    });
     return {
       roleChanges,
       auditEventIds: auditEvents.map(({ id }) => id),
       rubricActivation,
+      evaluationTemplate,
     };
   });
 }

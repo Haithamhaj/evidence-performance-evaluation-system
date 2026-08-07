@@ -14,6 +14,7 @@
     "@evaluation/connected-work-context": "workspace:*",
     "@evaluation/database": "workspace:*",
     "@evaluation/documents": "workspace:*",
+    "@evaluation/employee-evaluation": "workspace:*",
     "@evaluation/localization": "workspace:*",
     "@evaluation/projects": "workspace:*",
     "@evaluation/research-experiments": "workspace:*",

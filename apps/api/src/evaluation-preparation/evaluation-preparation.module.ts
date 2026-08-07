@@ -55,4 +55,5 @@ Module({
     },
     EvaluationFactViewPolicyGuard,
   ],
+  exports: [EvaluationFactViewService],
 })(EvaluationPreparationModule);

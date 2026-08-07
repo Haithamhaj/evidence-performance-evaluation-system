@@ -4,6 +4,9 @@ export type DatabaseTransaction = import("./generated/prisma/client.js").Prisma.
 export {
   PILOT_SEED_ISSUER,
   seedPilot,
+  seedPilotEvaluationTemplateVersionOne,
+  type PilotEvaluationRubricSeed,
+  type PilotEvaluationTemplateSeedInput,
   type PilotSubjects,
   type RoleAssignmentChange,
 } from "./seed-pilot.js";

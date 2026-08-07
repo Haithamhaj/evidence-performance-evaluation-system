@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Close the technically complete E3 Research & Experiments checkpoint, then execute E4–E7 in bounded
-feature bundles. Keep the final frontend program and live connector installations behind their existing
-sequence and external gates.
+Close the technically complete E4 Employee Evaluation checkpoint, then execute E5–E7 in bounded
+feature bundles. Keep the final frontend program, export delivery, Arabic evaluation content, and live
+connector installations behind their existing sequence and external gates.
 
 ## Current Reality
 
@@ -201,6 +201,26 @@ sequence and external gates.
   frontend only. It adds no engine task, integration, dependency, source reuse, or scope change. E7 will
   carry the approved patterns and explicit exclusions into the later frontend design program.
 
+- E4 Employee Evaluation is technically complete locally: versioned templates and immutable Cycle 1
+  snapshots, Fact View-first self assessment, independent manager assessment, source-authorized
+  discussion, final human manager judgment, acknowledgment/reservation, closure, and immutable report
+  projections are composed behind protected APIs.
+- A deterministic PostgreSQL acceptance seed closes one real employee/assigned-manager cycle through
+  public domain services. The bounded English/Arabic verification route uses fixture-backed browser
+  data and is explicitly not final UX acceptance; Arabic rubric content remains disabled pending T016.
+- E4 adds forward-only migration `0029_employee_evaluation` and no direct provider call.
+  `evaluation.justification` is composed only through
+  the AI Router after the human selects a rating. English export generation/delivery remains E6B by the
+  approved design; CAP-032 projection support is complete but file export remains partial.
+- E4 final specification and security/code-quality reviews found three related P1 lifecycle/scope
+  defects. Commit `09f8674` closes them with transactional stage-readiness gates, checked closure only,
+  department/organization validation, and separate cycle-administration versus manager-finalization
+  authority. Both scoped re-reviews report the original findings addressed.
+- Pull Request #17 contains the exact verified E4 head. Local final verification passed 1,287 unit/
+  coverage tests, 774 integration tests, 186 AI checks, all 29 migrations with 73 database tests, and
+  three E4 browser journeys. GitHub had not created the configured CI run at the last check, so E4 is
+  not merged; E5A starts on an isolated stacked branch while that external hosted gate is retried.
+
 ## Active Decisions
 
 - Use a modular monolith with three Phase 1 domain packages: `projects`, `documents`, and `criteria`; controllers do not access another module's tables directly.
@@ -272,9 +292,10 @@ sequence and external gates.
 
 ## Next Recommended Action
 
-Finish the E3 bounded bundle review and hosted PR checks, then begin E4 Employee Evaluation from its
-approved plan using Fast Controlled Execution. Do not start the final frontend yet. Live connector setup
-and Arabic evaluation release remain behind their external human gates.
+Complete hosted checks and merge Pull Request #17 when GitHub creates a green exact-head run. Continue
+E5A Identified Upward Manager Evaluation on its isolated stacked branch in the meantime, then rebase it
+onto the merged E4 commit before its merge gate. Do not start the final frontend or E6B export delivery
+yet. Live connector setup and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References
 
