@@ -40,7 +40,8 @@ jobs:
       - run: pnpm scan:performance-inputs
       - run: pnpm format:check
       - run: pnpm lint
-      - run: pnpm typecheck
+      # Keep TypeScript workers within the GitHub-hosted runner memory budget.
+      - run: pnpm exec turbo run typecheck --concurrency=2
       - run: pnpm test:coverage
 
   build:
