@@ -16,175 +16,181 @@ model SystemMetadata {
 }
 
 model User {
-  id                        String                                 @id @default(uuid()) @db.Uuid
-  pilotKey                  String?                                @unique
-  email                     String                                 @unique
-  displayName               String
-  active                    Boolean                                @default(true)
-  identities                OidcIdentity[]
-  roleAssignments           RoleAssignment[]
-  aiRouteConfigs            AiRouteConfig[]
-  aiProviderConfigs         AiProviderConfig[]
-  aiTrustPolicies           AiLocalTrustPolicy[]
-  aiSchemaArtifacts         AiOutputSchemaArtifact[]
-  managedEvaluationCycles   EvaluationCycle[]                      @relation("EvaluationCycleManager")
-  eligibilityEntries        EligibilityEntry[]                     @relation("EligibilityEmployee")
-  createdProjects           Project[]                              @relation("ProjectCreatedBy")
-  createdWorkstreams        Workstream[]                           @relation("WorkstreamCreatedBy")
-  projectMemberships        ProjectMember[]                        @relation("ProjectMemberEmployee")
-  createdProjectMembers     ProjectMember[]                        @relation("ProjectMemberCreatedBy")
-  workstreamMemberships     WorkstreamMember[]                     @relation("WorkstreamMemberEmployee")
-  createdWorkstreamMembers  WorkstreamMember[]                     @relation("WorkstreamMemberCreatedBy")
-  responsibilities          ResponsibilityWindow[]                 @relation("ResponsibilityEmployee")
-  responsibilityDecisions   ResponsibilityWindow[]                 @relation("ResponsibilityDecisionBy")
-  createdResponsibilities   ResponsibilityWindow[]                 @relation("ResponsibilityCreatedBy")
-  projectStatusChanges      ProjectStatusTransition[]              @relation("ProjectStatusActor")
-  workstreamStatusChanges   WorkstreamStatusTransition[]           @relation("WorkstreamStatusActor")
-  ownershipTransfers        OwnershipTransfer[]                    @relation("OwnershipTransferDecisionBy")
-  createdDocumentTemplates  DocumentTemplate[]                     @relation("DocumentTemplateCreatedBy")
-  createdTemplateVersions   DocumentTemplateVersion[]              @relation("DocumentTemplateVersionCreatedBy")
-  createdUploadedSources    UploadedSource[]                       @relation("UploadedSourceCreatedBy")
-  voiceUpdateSessions       VoiceUpdateSession[]                 @relation("VoiceUpdateSessionEmployee")
-  voiceTranscriptConfirmations VoiceTranscriptConfirmation[]     @relation("VoiceTranscriptConfirmationEmployee")
-  createdDocumentRecords    DocumentRecord[]                       @relation("DocumentRecordCreatedBy")
-  createdDocumentVersions   DocumentVersion[]                      @relation("DocumentVersionCreatedBy")
-  registeredPromptArtifacts AnalysisPromptArtifact[]               @relation("AnalysisPromptArtifactRegisteredBy")
-  createdReadinessChecks    DocumentReadinessCheck[]               @relation("DocumentReadinessCheckCreatedBy")
-  readinessTransitions      DocumentReadinessLifecycleTransition[] @relation("ReadinessTransitionActor")
-  createdComparisons        DocumentComparison[]                   @relation("DocumentComparisonCreatedBy")
-  comparisonReviews         DocumentComparisonReview[]             @relation("DocumentComparisonReviewer")
-  createdCriteriaProposals  DynamicCriteriaProposal[]              @relation("DynamicCriteriaProposalCreatedBy")
-  criteriaTransitions       DynamicCriteriaProposalTransition[]    @relation("CriteriaProposalTransitionActor")
-  ownedCriteriaSnapshots    CriteriaReviewSnapshot[]               @relation("CriteriaReviewSnapshotOwner")
-  criteriaEligibility       CriteriaReviewEligibility[]            @relation("CriteriaReviewEligibilityEmployee")
-  criteriaResponses         CriteriaContributorResponse[]          @relation("CriteriaContributorResponseEmployee")
-  criteriaResolutions       CriteriaManagerResolution[]            @relation("CriteriaManagerResolutionActor")
-  criteriaSetTransitions    DynamicCriteriaSetTransition[]         @relation("DynamicCriteriaSetTransitionActor")
-  createdWorkItems          WorkItem[]                             @relation("WorkItemCreatedBy")
-  assignedWorkItems         WorkItem[]                             @relation("WorkItemAssignee")
-  workItemParticipations    WorkItemParticipant[]                  @relation("WorkItemParticipantEmployee")
-  workItemParticipationAdds WorkItemParticipant[]                  @relation("WorkItemParticipantCreatedBy")
-  workItemStatusChanges     WorkItemStatusHistory[]                @relation("WorkItemStatusActor")
-  workItemAssignmentChanges WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentActor")
-  workItemAssignmentsFrom   WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentFrom")
-  workItemAssignmentsTo     WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentTo")
-  privateInboxItems         PrivateInboxItem[]                     @relation("PrivateInboxEmployee")
-  connectedWorkAccount      ConnectedWorkAccount?                  @relation("ConnectedWorkAccountEmployee")
-  connectedSourceItems      ConnectedSourceItem[]                  @relation("ConnectedSourceItemEmployee")
-  connectedSourceExclusions ConnectedSourceExclusion[]             @relation("ConnectedSourceExclusionEmployee")
-  connectorSyncCursors      ConnectorSyncCursor[]                  @relation("ConnectorSyncCursorEmployee")
-  sourceProjectLinks        SourceProjectLink[]                    @relation("SourceProjectLinkEmployee")
-  sourceProjectLinksCreated SourceProjectLink[]                    @relation("SourceProjectLinkLinkedBy")
-  sourceProjectLinksRemoved SourceProjectLink[]                    @relation("SourceProjectLinkUnlinkedBy")
-  contextAnalyses           ContextAnalysis[]                      @relation("ContextAnalysisEmployee")
-  contextAnalysisRevisions  ContextAnalysis[]                      @relation("ContextAnalysisCreatedBy")
-  projectLinkSuggestions    ProjectLinkSuggestion[]                @relation("ProjectLinkSuggestionEmployee")
-  projectSuggestionRevisions ProjectLinkSuggestion[]               @relation("ProjectLinkSuggestionCreatedBy")
-  taskDrafts                TaskDraft[]                            @relation("TaskDraftEmployee")
-  taskDraftRevisions        TaskDraft[]                            @relation("TaskDraftCreatedBy")
-  proposedTaskAssignments   TaskDraft[]                            @relation("TaskDraftProposedAssignee")
-  sourceLinkCorrections     SourceLinkCorrection[]                 @relation("SourceLinkCorrectionEmployee")
-  correctedSourceLinks      SourceLinkCorrection[]                 @relation("SourceLinkCorrectionCorrectedBy")
-  ownedProgressContracts    ProgressContract[]                     @relation("ProgressContractOwner")
-  approvedProgressContracts ProgressContract[]                     @relation("ProgressContractApprover")
-  createdProgressContracts  ProgressContract[]                     @relation("ProgressContractCreatedBy")
-  progressTransitions       ProgressContractTransition[]           @relation("ProgressContractTransitionActor")
-  progressConfirmations     ProgressHumanConfirmation[]            @relation("ProgressHumanConfirmationActor")
-  progressSnapshots         ProgressSnapshot[]                     @relation("ProgressSnapshotActor")
-  progressContractAiDraftRequests  ProgressContractAiDraftRequest[]  @relation("ProgressContractAiDraftRequestedBy")
-  progressContractAiDraftRevisions ProgressContractAiDraftRevision[] @relation("ProgressContractAiDraftRevisionEditor")
-  updateSources             UpdateSource[]                         @relation("UpdateSourceEmployee")
-  clarificationAnswers      ClarificationAnswer[]                  @relation("ClarificationAnswerEmployee")
-  updateDraftRevisions      StructuredUpdateDraftRevision[]        @relation("StructuredUpdateDraftRevisionCreatedBy")
-  updateConfirmations       UpdateConfirmation[]                   @relation("UpdateConfirmationEmployee")
-  acceptedUpdateEvents      AcceptedUpdateEvent[]                  @relation("AcceptedUpdateEventEmployee")
-  evidenceRecords           EvidenceRecord[]                       @relation("EvidenceRecordEmployee")
-  evidenceRevisions         EvidenceRevision[]                     @relation("EvidenceRevisionCreatedBy")
-  evidenceAttributions      EvidenceAttribution[]                  @relation("EvidenceAttributionEmployee")
-  proposedAttributions      EvidenceAttribution[]                  @relation("EvidenceAttributionProposedBy")
-  evidenceVerifications     EvidenceVerification[]                 @relation("EvidenceVerificationActor")
-  evidenceConfirmations     EvidenceConfirmation[]                 @relation("EvidenceConfirmationEmployee")
-  ownedResearchRecords      ResearchRecord[]                       @relation("ResearchRecordOwner")
-  authoredResearchRevisions ResearchRevision[]                     @relation("ResearchRevisionAuthor")
-  researchParticipantEvents ResearchParticipantEvent[]             @relation("ResearchParticipantEmployee")
-  actedResearchParticipantEvents ResearchParticipantEvent[]        @relation("ResearchParticipantActor")
-  researchTransitions       ResearchTransition[]                   @relation("ResearchTransitionActor")
-  ownedResearchSourceReviews ResearchSourceReview[]                @relation("ResearchSourceReviewOwner")
-  authoredResearchSourceReviewRevisions ResearchSourceReviewRevision[] @relation("ResearchSourceReviewRevisionAuthor")
-  researchProposalTransitions ResearchProposalTransition[]         @relation("ResearchProposalTransitionActor")
-  addedResearchSourceReferences ResearchSourceReference[]          @relation("ResearchSourceReferenceAddedBy")
-  authoredExperimentMethods ExperimentMethodRevision[]             @relation("ExperimentMethodRevisionAuthor")
-  executedExperimentRuns   ExperimentRun[]                         @relation("ExperimentRunExecutor")
-  confirmedExperimentConclusions ExperimentConclusion[]            @relation("ExperimentConclusionConfirmer")
-  confirmedResearchConclusions ResearchConclusion[]                @relation("ResearchConclusionConfirmer")
-  confirmedAppliedLearning AppliedLearning[]                       @relation("AppliedLearningConfirmer")
-  continuityLeaves         LeaveRecord[]                           @relation("ContinuityLeaveEmployee")
-  continuityLeaveEligibilityEffects LeaveEligibilityEffect[]       @relation("ContinuityLeaveEligibilityEmployee")
-  continuityLeaveDecisions LeaveDecision[]                         @relation("ContinuityLeaveDecisionManager")
-  continuityLeaveTransitions LeaveTransition[]                     @relation("ContinuityLeaveTransitionActor")
-  continuityHandovers      HandoverRecord[]                        @relation("ContinuityHandoverEmployee")
-  continuityHandoverRevisions HandoverRevision[]                   @relation("ContinuityHandoverRevisionAuthor")
-  continuityHandoverConfirmations HandoverConfirmation[]           @relation("ContinuityHandoverConfirmationEmployee")
-  continuityDelegationsOwned Delegation[]                          @relation("ContinuityDelegationOwner")
-  continuityDelegationsReceived Delegation[]                       @relation("ContinuityDelegationDelegate")
-  continuityDelegationsManaged Delegation[]                        @relation("ContinuityDelegationManager")
-  continuityDelegateConfirmations DelegateConfirmation[]           @relation("ContinuityDelegateConfirmationActor")
-  continuityAccessGaps     DelegationAccessGap[]                    @relation("ContinuityAccessGapReporter")
-  continuityAccessGapResolutions DelegationAccessGapResolution[]    @relation("ContinuityAccessGapResolutionActor")
-  continuityReturnHandoversActing ReturnHandover[]                 @relation("ContinuityReturnActingOwner")
-  continuityReturnHandoversOriginal ReturnHandover[]               @relation("ContinuityReturnOriginalOwner")
-  continuityReturnConfirmations ReturnHandover[]                   @relation("ContinuityReturnConfirmer")
-  continuityReturnFinalizations ReturnHandover[]                   @relation("ContinuityReturnFinalizer")
-  continuityReassignmentCases ReassignmentRequiredCase[]          @relation("ContinuityReassignmentFormerOwner")
-  continuityReassignmentResolutions ReassignmentResolution[]      @relation("ContinuityReassignmentActor")
-  continuityReassignmentSuccessions ReassignmentResolution[]      @relation("ContinuityReassignmentSuccessor")
-  continuityDeactivations  DeactivationReceipt[]                   @relation("ContinuityDeactivatedUser")
-  continuityDeactivationActors DeactivationReceipt[]               @relation("ContinuityDeactivationAdministrator")
-  continuityRetentionReferences RetentionPolicyReference[]         @relation("ContinuityRetentionActor")
-  confirmedResearchEvidenceLinks ResearchEvidenceLink[]            @relation("ResearchEvidenceLinkConfirmer")
-  createdEvaluationTemplates EvaluationTemplate[] @relation("EvaluationTemplateCreatedBy")
-  createdEvaluationTemplateVersions EvaluationTemplateVersion[] @relation("EvaluationTemplateVersionCreatedBy")
-  activatedEvaluationTemplateVersions EvaluationTemplateVersion[] @relation("EvaluationTemplateVersionActivatedBy")
-  createdEmployeeEvaluationCycles EmployeeEvaluationCycle[] @relation("EmployeeEvaluationCycleCreatedBy")
-  employeeEvaluationAssignments EvaluationAssignment[] @relation("EvaluationAssignmentEmployee")
-  managedEvaluationAssignments EvaluationAssignment[] @relation("EvaluationAssignmentManager")
-  evaluationEligibilityDecisions EvaluationEligibilityDecision[] @relation("EvaluationEligibilityDecisionActor")
-  employeeEvaluationCycleTransitions EmployeeEvaluationCycleTransition[] @relation("EmployeeEvaluationCycleTransitionActor")
-  createdAssessmentRevisions AssessmentRevision[] @relation("AssessmentRevisionCreatedBy")
-  assessmentSubmissions AssessmentSubmission[] @relation("AssessmentSubmissionSubmitter")
-  evaluationDiscussionEntries EvaluationDiscussionEntry[] @relation("EvaluationDiscussionEntryActor")
-  finalEvaluationDecisions FinalEvaluationDecision[] @relation("FinalEvaluationDecisionManager")
-  finalEvaluationSnapshotsAsEmployee FinalEvaluationSnapshot[] @relation("FinalEvaluationSnapshotEmployee")
-  finalEvaluationSnapshotsAsManager FinalEvaluationSnapshot[] @relation("FinalEvaluationSnapshotManager")
-  evaluationAcknowledgments EvaluationAcknowledgment[] @relation("EvaluationAcknowledgmentActor")
-  createdManagerEvaluationTemplates ManagerEvaluationTemplate[] @relation("ManagerEvaluationTemplateCreatedBy")
-  createdManagerEvaluationTemplateVersions ManagerEvaluationTemplateVersion[] @relation("ManagerEvaluationTemplateVersionCreatedBy")
-  activatedManagerEvaluationTemplateVersions ManagerEvaluationTemplateVersion[] @relation("ManagerEvaluationTemplateVersionActivatedBy")
-  createdManagerEvaluationVisibilityPolicies ManagerEvaluationVisibilityPolicy[] @relation("ManagerEvaluationVisibilityPolicyCreatedBy")
-  createdManagerEvaluationCycles ManagerEvaluationCycle[] @relation("ManagerEvaluationCycleCreatedBy")
-  managedManagerEvaluationCycles ManagerEvaluationCycle[] @relation("ManagerEvaluationCycleManager")
-  managerEvaluationCycleSnapshots ManagerEvaluationCycleSnapshot[] @relation("ManagerEvaluationCycleSnapshotManager")
-  managerEvaluatorEligibilities ManagerEvaluatorEligibility[] @relation("ManagerEvaluatorEligibilityEvaluator")
-  managerEvaluationEligibilityDecisions ManagerEvaluatorEligibilityDecision[] @relation("ManagerEvaluatorEligibilityDecisionActor")
-  managerEvaluationCycleTransitions ManagerEvaluationCycleTransition[] @relation("ManagerEvaluationCycleTransitionActor")
-  managerEvaluationResponses ManagerEvaluationResponse[] @relation("ManagerEvaluationResponseEvaluator")
-  receivedManagerEvaluationResponses ManagerEvaluationResponse[] @relation("ManagerEvaluationResponseManager")
-  requestedManagerEvaluationSummaries ManagerEvaluationSummaryRevision[] @relation("ManagerEvaluationSummaryRequestedBy")
-  coachingInsightsOwned CoachingInsight[] @relation("CoachingInsightEmployee")
-  coachingInsightRevisions CoachingInsightRevision[] @relation("CoachingInsightRevisionAuthor")
-  coachingInsightDecisions CoachingInsightDecision[] @relation("CoachingInsightDecisionEmployee")
-  formalPlanEvidenceConfirmations FormalDevelopmentPlanEvidenceLink[] @relation("FormalPlanEvidenceConfirmedBy")
-  developmentActionsOwned DevelopmentAction[] @relation("DevelopmentActionEmployee")
-  developmentActionRevisions DevelopmentActionRevision[] @relation("DevelopmentActionRevisionAuthor")
-  developmentActionTransitions DevelopmentActionTransition[] @relation("DevelopmentActionTransitionActor")
-  managerSupportEntries ManagerSupportEntry[] @relation("ManagerSupportManager")
-  formalPlansOwned FormalDevelopmentPlan[] @relation("FormalPlanEmployee")
-  formalPlansManaged FormalDevelopmentPlan[] @relation("FormalPlanManager")
-  formalPlanRevisions FormalDevelopmentPlanRevision[] @relation("FormalPlanRevisionAuthor")
-  formalPlanAgreements FormalDevelopmentPlanAgreement[] @relation("FormalPlanAgreementActor")
-  formalPlanTransitions FormalDevelopmentPlanTransition[] @relation("FormalPlanTransitionActor")
-  createdAt                 DateTime                               @default(now()) @db.Timestamptz(6)
-  updatedAt                 DateTime                               @updatedAt @db.Timestamptz(6)
+  id                                         String                                 @id @default(uuid()) @db.Uuid
+  pilotKey                                   String?                                @unique
+  email                                      String                                 @unique
+  displayName                                String
+  active                                     Boolean                                @default(true)
+  identities                                 OidcIdentity[]
+  roleAssignments                            RoleAssignment[]
+  aiRouteConfigs                             AiRouteConfig[]
+  aiProviderConfigs                          AiProviderConfig[]
+  aiTrustPolicies                            AiLocalTrustPolicy[]
+  aiSchemaArtifacts                          AiOutputSchemaArtifact[]
+  managedEvaluationCycles                    EvaluationCycle[]                      @relation("EvaluationCycleManager")
+  eligibilityEntries                         EligibilityEntry[]                     @relation("EligibilityEmployee")
+  createdProjects                            Project[]                              @relation("ProjectCreatedBy")
+  createdWorkstreams                         Workstream[]                           @relation("WorkstreamCreatedBy")
+  projectMemberships                         ProjectMember[]                        @relation("ProjectMemberEmployee")
+  createdProjectMembers                      ProjectMember[]                        @relation("ProjectMemberCreatedBy")
+  workstreamMemberships                      WorkstreamMember[]                     @relation("WorkstreamMemberEmployee")
+  createdWorkstreamMembers                   WorkstreamMember[]                     @relation("WorkstreamMemberCreatedBy")
+  responsibilities                           ResponsibilityWindow[]                 @relation("ResponsibilityEmployee")
+  responsibilityDecisions                    ResponsibilityWindow[]                 @relation("ResponsibilityDecisionBy")
+  createdResponsibilities                    ResponsibilityWindow[]                 @relation("ResponsibilityCreatedBy")
+  projectStatusChanges                       ProjectStatusTransition[]              @relation("ProjectStatusActor")
+  workstreamStatusChanges                    WorkstreamStatusTransition[]           @relation("WorkstreamStatusActor")
+  ownershipTransfers                         OwnershipTransfer[]                    @relation("OwnershipTransferDecisionBy")
+  createdDocumentTemplates                   DocumentTemplate[]                     @relation("DocumentTemplateCreatedBy")
+  createdTemplateVersions                    DocumentTemplateVersion[]              @relation("DocumentTemplateVersionCreatedBy")
+  createdUploadedSources                     UploadedSource[]                       @relation("UploadedSourceCreatedBy")
+  voiceUpdateSessions                        VoiceUpdateSession[]                   @relation("VoiceUpdateSessionEmployee")
+  voiceTranscriptConfirmations               VoiceTranscriptConfirmation[]          @relation("VoiceTranscriptConfirmationEmployee")
+  createdDocumentRecords                     DocumentRecord[]                       @relation("DocumentRecordCreatedBy")
+  createdDocumentVersions                    DocumentVersion[]                      @relation("DocumentVersionCreatedBy")
+  registeredPromptArtifacts                  AnalysisPromptArtifact[]               @relation("AnalysisPromptArtifactRegisteredBy")
+  createdReadinessChecks                     DocumentReadinessCheck[]               @relation("DocumentReadinessCheckCreatedBy")
+  readinessTransitions                       DocumentReadinessLifecycleTransition[] @relation("ReadinessTransitionActor")
+  createdComparisons                         DocumentComparison[]                   @relation("DocumentComparisonCreatedBy")
+  comparisonReviews                          DocumentComparisonReview[]             @relation("DocumentComparisonReviewer")
+  createdCriteriaProposals                   DynamicCriteriaProposal[]              @relation("DynamicCriteriaProposalCreatedBy")
+  criteriaTransitions                        DynamicCriteriaProposalTransition[]    @relation("CriteriaProposalTransitionActor")
+  ownedCriteriaSnapshots                     CriteriaReviewSnapshot[]               @relation("CriteriaReviewSnapshotOwner")
+  criteriaEligibility                        CriteriaReviewEligibility[]            @relation("CriteriaReviewEligibilityEmployee")
+  criteriaResponses                          CriteriaContributorResponse[]          @relation("CriteriaContributorResponseEmployee")
+  criteriaResolutions                        CriteriaManagerResolution[]            @relation("CriteriaManagerResolutionActor")
+  criteriaSetTransitions                     DynamicCriteriaSetTransition[]         @relation("DynamicCriteriaSetTransitionActor")
+  createdWorkItems                           WorkItem[]                             @relation("WorkItemCreatedBy")
+  assignedWorkItems                          WorkItem[]                             @relation("WorkItemAssignee")
+  workItemParticipations                     WorkItemParticipant[]                  @relation("WorkItemParticipantEmployee")
+  workItemParticipationAdds                  WorkItemParticipant[]                  @relation("WorkItemParticipantCreatedBy")
+  workItemStatusChanges                      WorkItemStatusHistory[]                @relation("WorkItemStatusActor")
+  workItemAssignmentChanges                  WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentActor")
+  workItemAssignmentsFrom                    WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentFrom")
+  workItemAssignmentsTo                      WorkItemAssignmentHistory[]            @relation("WorkItemAssignmentTo")
+  privateInboxItems                          PrivateInboxItem[]                     @relation("PrivateInboxEmployee")
+  connectedWorkAccount                       ConnectedWorkAccount?                  @relation("ConnectedWorkAccountEmployee")
+  connectedSourceItems                       ConnectedSourceItem[]                  @relation("ConnectedSourceItemEmployee")
+  connectedSourceExclusions                  ConnectedSourceExclusion[]             @relation("ConnectedSourceExclusionEmployee")
+  connectorSyncCursors                       ConnectorSyncCursor[]                  @relation("ConnectorSyncCursorEmployee")
+  sourceProjectLinks                         SourceProjectLink[]                    @relation("SourceProjectLinkEmployee")
+  sourceProjectLinksCreated                  SourceProjectLink[]                    @relation("SourceProjectLinkLinkedBy")
+  sourceProjectLinksRemoved                  SourceProjectLink[]                    @relation("SourceProjectLinkUnlinkedBy")
+  contextAnalyses                            ContextAnalysis[]                      @relation("ContextAnalysisEmployee")
+  contextAnalysisRevisions                   ContextAnalysis[]                      @relation("ContextAnalysisCreatedBy")
+  projectLinkSuggestions                     ProjectLinkSuggestion[]                @relation("ProjectLinkSuggestionEmployee")
+  projectSuggestionRevisions                 ProjectLinkSuggestion[]                @relation("ProjectLinkSuggestionCreatedBy")
+  taskDrafts                                 TaskDraft[]                            @relation("TaskDraftEmployee")
+  taskDraftRevisions                         TaskDraft[]                            @relation("TaskDraftCreatedBy")
+  proposedTaskAssignments                    TaskDraft[]                            @relation("TaskDraftProposedAssignee")
+  sourceLinkCorrections                      SourceLinkCorrection[]                 @relation("SourceLinkCorrectionEmployee")
+  correctedSourceLinks                       SourceLinkCorrection[]                 @relation("SourceLinkCorrectionCorrectedBy")
+  ownedProgressContracts                     ProgressContract[]                     @relation("ProgressContractOwner")
+  approvedProgressContracts                  ProgressContract[]                     @relation("ProgressContractApprover")
+  createdProgressContracts                   ProgressContract[]                     @relation("ProgressContractCreatedBy")
+  progressTransitions                        ProgressContractTransition[]           @relation("ProgressContractTransitionActor")
+  progressConfirmations                      ProgressHumanConfirmation[]            @relation("ProgressHumanConfirmationActor")
+  progressSnapshots                          ProgressSnapshot[]                     @relation("ProgressSnapshotActor")
+  progressContractAiDraftRequests            ProgressContractAiDraftRequest[]       @relation("ProgressContractAiDraftRequestedBy")
+  progressContractAiDraftRevisions           ProgressContractAiDraftRevision[]      @relation("ProgressContractAiDraftRevisionEditor")
+  updateSources                              UpdateSource[]                         @relation("UpdateSourceEmployee")
+  clarificationAnswers                       ClarificationAnswer[]                  @relation("ClarificationAnswerEmployee")
+  updateDraftRevisions                       StructuredUpdateDraftRevision[]        @relation("StructuredUpdateDraftRevisionCreatedBy")
+  updateConfirmations                        UpdateConfirmation[]                   @relation("UpdateConfirmationEmployee")
+  acceptedUpdateEvents                       AcceptedUpdateEvent[]                  @relation("AcceptedUpdateEventEmployee")
+  evidenceRecords                            EvidenceRecord[]                       @relation("EvidenceRecordEmployee")
+  evidenceRevisions                          EvidenceRevision[]                     @relation("EvidenceRevisionCreatedBy")
+  evidenceAttributions                       EvidenceAttribution[]                  @relation("EvidenceAttributionEmployee")
+  proposedAttributions                       EvidenceAttribution[]                  @relation("EvidenceAttributionProposedBy")
+  evidenceVerifications                      EvidenceVerification[]                 @relation("EvidenceVerificationActor")
+  evidenceConfirmations                      EvidenceConfirmation[]                 @relation("EvidenceConfirmationEmployee")
+  ownedResearchRecords                       ResearchRecord[]                       @relation("ResearchRecordOwner")
+  authoredResearchRevisions                  ResearchRevision[]                     @relation("ResearchRevisionAuthor")
+  researchParticipantEvents                  ResearchParticipantEvent[]             @relation("ResearchParticipantEmployee")
+  actedResearchParticipantEvents             ResearchParticipantEvent[]             @relation("ResearchParticipantActor")
+  researchTransitions                        ResearchTransition[]                   @relation("ResearchTransitionActor")
+  ownedResearchSourceReviews                 ResearchSourceReview[]                 @relation("ResearchSourceReviewOwner")
+  authoredResearchSourceReviewRevisions      ResearchSourceReviewRevision[]         @relation("ResearchSourceReviewRevisionAuthor")
+  researchProposalTransitions                ResearchProposalTransition[]           @relation("ResearchProposalTransitionActor")
+  addedResearchSourceReferences              ResearchSourceReference[]              @relation("ResearchSourceReferenceAddedBy")
+  authoredExperimentMethods                  ExperimentMethodRevision[]             @relation("ExperimentMethodRevisionAuthor")
+  executedExperimentRuns                     ExperimentRun[]                        @relation("ExperimentRunExecutor")
+  confirmedExperimentConclusions             ExperimentConclusion[]                 @relation("ExperimentConclusionConfirmer")
+  confirmedResearchConclusions               ResearchConclusion[]                   @relation("ResearchConclusionConfirmer")
+  confirmedAppliedLearning                   AppliedLearning[]                      @relation("AppliedLearningConfirmer")
+  continuityLeaves                           LeaveRecord[]                          @relation("ContinuityLeaveEmployee")
+  continuityLeaveEligibilityEffects          LeaveEligibilityEffect[]               @relation("ContinuityLeaveEligibilityEmployee")
+  continuityLeaveDecisions                   LeaveDecision[]                        @relation("ContinuityLeaveDecisionManager")
+  continuityLeaveTransitions                 LeaveTransition[]                      @relation("ContinuityLeaveTransitionActor")
+  continuityHandovers                        HandoverRecord[]                       @relation("ContinuityHandoverEmployee")
+  continuityHandoverRevisions                HandoverRevision[]                     @relation("ContinuityHandoverRevisionAuthor")
+  continuityHandoverConfirmations            HandoverConfirmation[]                 @relation("ContinuityHandoverConfirmationEmployee")
+  continuityDelegationsOwned                 Delegation[]                           @relation("ContinuityDelegationOwner")
+  continuityDelegationsReceived              Delegation[]                           @relation("ContinuityDelegationDelegate")
+  continuityDelegationsManaged               Delegation[]                           @relation("ContinuityDelegationManager")
+  continuityDelegateConfirmations            DelegateConfirmation[]                 @relation("ContinuityDelegateConfirmationActor")
+  continuityAccessGaps                       DelegationAccessGap[]                  @relation("ContinuityAccessGapReporter")
+  continuityAccessGapResolutions             DelegationAccessGapResolution[]        @relation("ContinuityAccessGapResolutionActor")
+  continuityReturnHandoversActing            ReturnHandover[]                       @relation("ContinuityReturnActingOwner")
+  continuityReturnHandoversOriginal          ReturnHandover[]                       @relation("ContinuityReturnOriginalOwner")
+  continuityReturnConfirmations              ReturnHandover[]                       @relation("ContinuityReturnConfirmer")
+  continuityReturnFinalizations              ReturnHandover[]                       @relation("ContinuityReturnFinalizer")
+  continuityReassignmentCases                ReassignmentRequiredCase[]             @relation("ContinuityReassignmentFormerOwner")
+  continuityReassignmentResolutions          ReassignmentResolution[]               @relation("ContinuityReassignmentActor")
+  continuityReassignmentSuccessions          ReassignmentResolution[]               @relation("ContinuityReassignmentSuccessor")
+  continuityDeactivations                    DeactivationReceipt[]                  @relation("ContinuityDeactivatedUser")
+  continuityDeactivationActors               DeactivationReceipt[]                  @relation("ContinuityDeactivationAdministrator")
+  continuityRetentionReferences              RetentionPolicyReference[]             @relation("ContinuityRetentionActor")
+  confirmedResearchEvidenceLinks             ResearchEvidenceLink[]                 @relation("ResearchEvidenceLinkConfirmer")
+  createdEvaluationTemplates                 EvaluationTemplate[]                   @relation("EvaluationTemplateCreatedBy")
+  createdEvaluationTemplateVersions          EvaluationTemplateVersion[]            @relation("EvaluationTemplateVersionCreatedBy")
+  activatedEvaluationTemplateVersions        EvaluationTemplateVersion[]            @relation("EvaluationTemplateVersionActivatedBy")
+  createdEmployeeEvaluationCycles            EmployeeEvaluationCycle[]              @relation("EmployeeEvaluationCycleCreatedBy")
+  employeeEvaluationAssignments              EvaluationAssignment[]                 @relation("EvaluationAssignmentEmployee")
+  managedEvaluationAssignments               EvaluationAssignment[]                 @relation("EvaluationAssignmentManager")
+  evaluationEligibilityDecisions             EvaluationEligibilityDecision[]        @relation("EvaluationEligibilityDecisionActor")
+  employeeEvaluationCycleTransitions         EmployeeEvaluationCycleTransition[]    @relation("EmployeeEvaluationCycleTransitionActor")
+  createdAssessmentRevisions                 AssessmentRevision[]                   @relation("AssessmentRevisionCreatedBy")
+  assessmentSubmissions                      AssessmentSubmission[]                 @relation("AssessmentSubmissionSubmitter")
+  evaluationDiscussionEntries                EvaluationDiscussionEntry[]            @relation("EvaluationDiscussionEntryActor")
+  finalEvaluationDecisions                   FinalEvaluationDecision[]              @relation("FinalEvaluationDecisionManager")
+  finalEvaluationSnapshotsAsEmployee         FinalEvaluationSnapshot[]              @relation("FinalEvaluationSnapshotEmployee")
+  finalEvaluationSnapshotsAsManager          FinalEvaluationSnapshot[]              @relation("FinalEvaluationSnapshotManager")
+  evaluationAcknowledgments                  EvaluationAcknowledgment[]             @relation("EvaluationAcknowledgmentActor")
+  createdManagerEvaluationTemplates          ManagerEvaluationTemplate[]            @relation("ManagerEvaluationTemplateCreatedBy")
+  createdManagerEvaluationTemplateVersions   ManagerEvaluationTemplateVersion[]     @relation("ManagerEvaluationTemplateVersionCreatedBy")
+  activatedManagerEvaluationTemplateVersions ManagerEvaluationTemplateVersion[]     @relation("ManagerEvaluationTemplateVersionActivatedBy")
+  createdManagerEvaluationVisibilityPolicies ManagerEvaluationVisibilityPolicy[]    @relation("ManagerEvaluationVisibilityPolicyCreatedBy")
+  createdManagerEvaluationCycles             ManagerEvaluationCycle[]               @relation("ManagerEvaluationCycleCreatedBy")
+  managedManagerEvaluationCycles             ManagerEvaluationCycle[]               @relation("ManagerEvaluationCycleManager")
+  managerEvaluationCycleSnapshots            ManagerEvaluationCycleSnapshot[]       @relation("ManagerEvaluationCycleSnapshotManager")
+  managerEvaluatorEligibilities              ManagerEvaluatorEligibility[]          @relation("ManagerEvaluatorEligibilityEvaluator")
+  managerEvaluationEligibilityDecisions      ManagerEvaluatorEligibilityDecision[]  @relation("ManagerEvaluatorEligibilityDecisionActor")
+  managerEvaluationCycleTransitions          ManagerEvaluationCycleTransition[]     @relation("ManagerEvaluationCycleTransitionActor")
+  managerEvaluationResponses                 ManagerEvaluationResponse[]            @relation("ManagerEvaluationResponseEvaluator")
+  receivedManagerEvaluationResponses         ManagerEvaluationResponse[]            @relation("ManagerEvaluationResponseManager")
+  requestedManagerEvaluationSummaries        ManagerEvaluationSummaryRevision[]     @relation("ManagerEvaluationSummaryRequestedBy")
+  coachingInsightsOwned                      CoachingInsight[]                      @relation("CoachingInsightEmployee")
+  coachingInsightRevisions                   CoachingInsightRevision[]              @relation("CoachingInsightRevisionAuthor")
+  coachingInsightDecisions                   CoachingInsightDecision[]              @relation("CoachingInsightDecisionEmployee")
+  formalPlanEvidenceConfirmations            FormalDevelopmentPlanEvidenceLink[]    @relation("FormalPlanEvidenceConfirmedBy")
+  developmentActionsOwned                    DevelopmentAction[]                    @relation("DevelopmentActionEmployee")
+  developmentActionRevisions                 DevelopmentActionRevision[]            @relation("DevelopmentActionRevisionAuthor")
+  developmentActionTransitions               DevelopmentActionTransition[]          @relation("DevelopmentActionTransitionActor")
+  managerSupportEntries                      ManagerSupportEntry[]                  @relation("ManagerSupportManager")
+  formalPlansOwned                           FormalDevelopmentPlan[]                @relation("FormalPlanEmployee")
+  formalPlansManaged                         FormalDevelopmentPlan[]                @relation("FormalPlanManager")
+  formalPlanRevisions                        FormalDevelopmentPlanRevision[]        @relation("FormalPlanRevisionAuthor")
+  formalPlanAgreements                       FormalDevelopmentPlanAgreement[]       @relation("FormalPlanAgreementActor")
+  formalPlanTransitions                      FormalDevelopmentPlanTransition[]      @relation("FormalPlanTransitionActor")
+  notificationIntents                        NotificationIntent[]                   @relation("NotificationIntentRecipient")
+  notificationPreferences                    NotificationPreference[]               @relation("NotificationPreferenceRecipient")
+  exportRequests                             ExportRequest[]                        @relation("ExportRequestRequester")
+  exportAccessEvents                         ExportAccessEvent[]                    @relation("ExportAccessActor")
+  exportRevocations                          ExportRevocation[]                     @relation("ExportRevocationActor")
+  adminMutationReceipts                      AdminMutationReceipt[]                 @relation("AdminMutationActor")
+  createdAt                                  DateTime                               @default(now()) @db.Timestamptz(6)
+  updatedAt                                  DateTime                               @updatedAt @db.Timestamptz(6)
 }
 
 model OidcIdentity {
@@ -218,21 +224,21 @@ enum ScopeType {
 }
 
 model Organization {
-  id                String             @id @default(uuid()) @db.Uuid
-  key               String             @unique
-  name              String
-  departments       Department[]
-  operations        Operation[]
-  rubricVersions    RubricVersion[]
-  projects          Project[]
-  documentTemplates DocumentTemplate[]
-  uploadedSources   UploadedSource[]
-  documentRecords   DocumentRecord[]
-  evaluationTemplates EvaluationTemplate[]
-  managerEvaluationTemplates ManagerEvaluationTemplate[]
+  id                                  String                              @id @default(uuid()) @db.Uuid
+  key                                 String                              @unique
+  name                                String
+  departments                         Department[]
+  operations                          Operation[]
+  rubricVersions                      RubricVersion[]
+  projects                            Project[]
+  documentTemplates                   DocumentTemplate[]
+  uploadedSources                     UploadedSource[]
+  documentRecords                     DocumentRecord[]
+  evaluationTemplates                 EvaluationTemplate[]
+  managerEvaluationTemplates          ManagerEvaluationTemplate[]
   managerEvaluationVisibilityPolicies ManagerEvaluationVisibilityPolicy[]
-  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  createdAt                           DateTime                            @default(now()) @db.Timestamptz(6)
+  updatedAt                           DateTime                            @updatedAt @db.Timestamptz(6)
 }
 
 enum OperationStatus {
@@ -283,24 +289,24 @@ model OperationEffectReceipt {
 }
 
 model Department {
-  id                  String               @id @default(uuid()) @db.Uuid
-  key                 String               @unique
-  name                String
-  organizationId      String               @db.Uuid
-  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  authorizationScopes AuthorizationScope[]
-  evaluationCycles    EvaluationCycle[]
-  projects            Project[]
-  documentTemplates   DocumentTemplate[]
-  uploadedSources     UploadedSource[]
-  documentRecords     DocumentRecord[]
-  evaluationTemplates EvaluationTemplate[]
-  employeeEvaluationCycles EmployeeEvaluationCycle[]
-  managerEvaluationTemplates ManagerEvaluationTemplate[]
-  managerEvaluationCycles ManagerEvaluationCycle[]
+  id                              String                           @id @default(uuid()) @db.Uuid
+  key                             String                           @unique
+  name                            String
+  organizationId                  String                           @db.Uuid
+  organization                    Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  authorizationScopes             AuthorizationScope[]
+  evaluationCycles                EvaluationCycle[]
+  projects                        Project[]
+  documentTemplates               DocumentTemplate[]
+  uploadedSources                 UploadedSource[]
+  documentRecords                 DocumentRecord[]
+  evaluationTemplates             EvaluationTemplate[]
+  employeeEvaluationCycles        EmployeeEvaluationCycle[]
+  managerEvaluationTemplates      ManagerEvaluationTemplate[]
+  managerEvaluationCycles         ManagerEvaluationCycle[]
   managerEvaluationCycleSnapshots ManagerEvaluationCycleSnapshot[]
-  createdAt           DateTime             @default(now()) @db.Timestamptz(6)
-  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
+  createdAt                       DateTime                         @default(now()) @db.Timestamptz(6)
+  updatedAt                       DateTime                         @updatedAt @db.Timestamptz(6)
 
   @@unique([id, organizationId])
   @@index([organizationId])
@@ -342,17 +348,17 @@ model EvaluationCycle {
 }
 
 model EligibilitySnapshot {
-  id             String                 @id @default(uuid()) @db.Uuid
-  cycleId        String                 @unique @db.Uuid
-  cycle          EvaluationCycle        @relation(fields: [cycleId], references: [id], onDelete: Restrict)
-  version        Int
-  visibilityMode FeedbackVisibilityMode
-  sourceReason   String
-  effectiveFrom  DateTime               @db.Timestamptz(6)
-  effectiveTo    DateTime               @db.Timestamptz(6)
-  entries        EligibilityEntry[]
+  id                               String                            @id @default(uuid()) @db.Uuid
+  cycleId                          String                            @unique @db.Uuid
+  cycle                            EvaluationCycle                   @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  version                          Int
+  visibilityMode                   FeedbackVisibilityMode
+  sourceReason                     String
+  effectiveFrom                    DateTime                          @db.Timestamptz(6)
+  effectiveTo                      DateTime                          @db.Timestamptz(6)
+  entries                          EligibilityEntry[]
   employeeEvaluationCycleSnapshots EmployeeEvaluationCycleSnapshot[]
-  createdAt      DateTime               @default(now()) @db.Timestamptz(6)
+  createdAt                        DateTime                          @default(now()) @db.Timestamptz(6)
 
   @@unique([id, cycleId])
 }
@@ -430,52 +436,52 @@ enum OwnershipTransferKind {
 }
 
 model Project {
-  id                     String                    @id @default(uuid()) @db.Uuid
-  organizationId         String                    @db.Uuid
-  organization           Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  departmentId           String                    @db.Uuid
-  department             Department                @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  authorizationScopeId   String                    @unique @db.Uuid
-  authorizationScopeType ScopeType                 @default(project)
-  authorizationScope     AuthorizationScope        @relation("ProjectAuthorizationScope", fields: [authorizationScopeId, authorizationScopeType, departmentId], references: [id, scopeType, departmentId], onDelete: Restrict)
-  name                   String
-  description            String
-  status                 ProjectStatus             @default(draft)
-  version                Int                       @default(1)
-  createdById            String                    @db.Uuid
-  createdBy              User                      @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  workstreams            Workstream[]
-  members                ProjectMember[]
-  responsibilities       ResponsibilityWindow[]
-  ownershipTransfers     OwnershipTransfer[]
-  statusTransitions      ProjectStatusTransition[]
-  uploadedSources        UploadedSource[]
-  documentRecord         DocumentRecord?
-  criteriaProposals      DynamicCriteriaProposal[]
-  criteriaSets           DynamicCriteriaSet[]
-  workItems              WorkItem[]
-  privateInboxItems      PrivateInboxItem[]
-  sourceProjectLinks     SourceProjectLink[]
-  projectLinkSuggestions ProjectLinkSuggestion[] @relation("ProjectLinkSuggestionProject")
-  taskDrafts             TaskDraft[] @relation("TaskDraftProject")
-  sourceLinkCorrectionsFrom SourceLinkCorrection[] @relation("SourceLinkCorrectionPreviousProject")
-  sourceLinkCorrectionsTo SourceLinkCorrection[] @relation("SourceLinkCorrectionCorrectedProject")
-  progressContracts      ProgressContract[]
+  id                              String                           @id @default(uuid()) @db.Uuid
+  organizationId                  String                           @db.Uuid
+  organization                    Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId                    String                           @db.Uuid
+  department                      Department                       @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  authorizationScopeId            String                           @unique @db.Uuid
+  authorizationScopeType          ScopeType                        @default(project)
+  authorizationScope              AuthorizationScope               @relation("ProjectAuthorizationScope", fields: [authorizationScopeId, authorizationScopeType, departmentId], references: [id, scopeType, departmentId], onDelete: Restrict)
+  name                            String
+  description                     String
+  status                          ProjectStatus                    @default(draft)
+  version                         Int                              @default(1)
+  createdById                     String                           @db.Uuid
+  createdBy                       User                             @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  workstreams                     Workstream[]
+  members                         ProjectMember[]
+  responsibilities                ResponsibilityWindow[]
+  ownershipTransfers              OwnershipTransfer[]
+  statusTransitions               ProjectStatusTransition[]
+  uploadedSources                 UploadedSource[]
+  documentRecord                  DocumentRecord?
+  criteriaProposals               DynamicCriteriaProposal[]
+  criteriaSets                    DynamicCriteriaSet[]
+  workItems                       WorkItem[]
+  privateInboxItems               PrivateInboxItem[]
+  sourceProjectLinks              SourceProjectLink[]
+  projectLinkSuggestions          ProjectLinkSuggestion[]          @relation("ProjectLinkSuggestionProject")
+  taskDrafts                      TaskDraft[]                      @relation("TaskDraftProject")
+  sourceLinkCorrectionsFrom       SourceLinkCorrection[]           @relation("SourceLinkCorrectionPreviousProject")
+  sourceLinkCorrectionsTo         SourceLinkCorrection[]           @relation("SourceLinkCorrectionCorrectedProject")
+  progressContracts               ProgressContract[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
-  updateSources          UpdateSource[]
-  voiceUpdateSessions    VoiceUpdateSession[]
-  evidenceRecords        EvidenceRecord[]
-  acceptedUpdateEvents   AcceptedUpdateEvent[]
-  acceptedEvidenceEvents AcceptedEvidenceEvent[]
-  githubProjectBindings  GitHubProjectBinding[]
-  githubProgressReviews  GitHubProgressReview[]
-  researchRecords        ResearchRecord[]
-  researchSourceReviews  ResearchSourceReview[]
-  continuityHandoverItems HandoverItem[]
-  continuityDelegationScopes DelegationScope[]
-  continuityReassignmentCases ReassignmentRequiredCase[]
-  createdAt              DateTime                  @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime                  @updatedAt @db.Timestamptz(6)
+  updateSources                   UpdateSource[]
+  voiceUpdateSessions             VoiceUpdateSession[]
+  evidenceRecords                 EvidenceRecord[]
+  acceptedUpdateEvents            AcceptedUpdateEvent[]
+  acceptedEvidenceEvents          AcceptedEvidenceEvent[]
+  githubProjectBindings           GitHubProjectBinding[]
+  githubProgressReviews           GitHubProgressReview[]
+  researchRecords                 ResearchRecord[]
+  researchSourceReviews           ResearchSourceReview[]
+  continuityHandoverItems         HandoverItem[]
+  continuityDelegationScopes      DelegationScope[]
+  continuityReassignmentCases     ReassignmentRequiredCase[]
+  createdAt                       DateTime                         @default(now()) @db.Timestamptz(6)
+  updatedAt                       DateTime                         @updatedAt @db.Timestamptz(6)
 
   @@unique([authorizationScopeId, authorizationScopeType])
   @@unique([authorizationScopeId, authorizationScopeType, departmentId])
@@ -516,20 +522,20 @@ model GitHubAppInstallation {
 }
 
 model GitHubProjectBinding {
-  id                    String                      @id @default(uuid()) @db.Uuid
-  projectId             String                      @db.Uuid
-  project               Project                     @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  installationId        String                      @db.Uuid
-  installation          GitHubAppInstallation       @relation(fields: [installationId], references: [id], onDelete: Restrict)
-  repositoryId          String
-  boundAt               DateTime                    @db.Timestamptz(6)
-  unboundAt             DateTime?                   @db.Timestamptz(6)
-  sourceEvents          GitHubSourceEvent[]
-  contractRules         GitHubContractRule[]
-  progressReviews       GitHubProgressReview[]
-  reconciliationCursor  GitHubReconciliationCursor?
-  createdAt             DateTime                    @default(now()) @db.Timestamptz(6)
-  updatedAt             DateTime                    @updatedAt @db.Timestamptz(6)
+  id                   String                      @id @default(uuid()) @db.Uuid
+  projectId            String                      @db.Uuid
+  project              Project                     @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  installationId       String                      @db.Uuid
+  installation         GitHubAppInstallation       @relation(fields: [installationId], references: [id], onDelete: Restrict)
+  repositoryId         String
+  boundAt              DateTime                    @db.Timestamptz(6)
+  unboundAt            DateTime?                   @db.Timestamptz(6)
+  sourceEvents         GitHubSourceEvent[]
+  contractRules        GitHubContractRule[]
+  progressReviews      GitHubProgressReview[]
+  reconciliationCursor GitHubReconciliationCursor?
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                    @updatedAt @db.Timestamptz(6)
 
   @@unique([id, installationId, repositoryId])
   @@index([projectId, repositoryId, unboundAt, boundAt(sort: Desc)], map: "GitHubProjectBinding_project_repository_active_idx")
@@ -585,20 +591,20 @@ enum GitHubProgressReviewDisposition {
 }
 
 model GitHubContractRule {
-  id              String                   @id @default(uuid()) @db.Uuid
-  bindingId       String                   @db.Uuid
-  binding         GitHubProjectBinding     @relation(fields: [bindingId], references: [id], onDelete: Restrict)
-  contractId      String                   @db.Uuid
-  contractVersion Int
-  contract        ProgressContract         @relation(fields: [contractId, contractVersion], references: [id, contractVersion], onDelete: Restrict)
-  componentId     String                   @db.Uuid
-  component       ProgressContractComponent @relation(fields: [componentId, contractId], references: [id, contractId], onDelete: Restrict)
-  sourceId        String
-  eventKind       GitHubGovernedEventKind
-  acceptanceState GitHubGovernedAcceptanceState
-  effectiveAt     DateTime                 @db.Timestamptz(6)
-  expiresAt       DateTime?                @db.Timestamptz(6)
-  createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
+  id               String                          @id @default(uuid()) @db.Uuid
+  bindingId        String                          @db.Uuid
+  binding          GitHubProjectBinding            @relation(fields: [bindingId], references: [id], onDelete: Restrict)
+  contractId       String                          @db.Uuid
+  contractVersion  Int
+  contract         ProgressContract                @relation(fields: [contractId, contractVersion], references: [id, contractVersion], onDelete: Restrict)
+  componentId      String                          @db.Uuid
+  component        ProgressContractComponent       @relation(fields: [componentId, contractId], references: [id, contractId], onDelete: Restrict)
+  sourceId         String
+  eventKind        GitHubGovernedEventKind
+  acceptanceState  GitHubGovernedAcceptanceState
+  effectiveAt      DateTime                        @db.Timestamptz(6)
+  expiresAt        DateTime?                       @db.Timestamptz(6)
+  createdAt        DateTime                        @default(now()) @db.Timestamptz(6)
   reviewCandidates GitHubProgressReviewCandidate[]
 
   @@unique([bindingId, contractId, componentId, sourceId, eventKind, acceptanceState, effectiveAt], map: "GitHubContractRule_unique_identity")
@@ -608,20 +614,20 @@ model GitHubContractRule {
 }
 
 model GitHubProgressReview {
-  id                 String                           @id @default(uuid()) @db.Uuid
-  sourceEventId      String                           @db.Uuid
-  sourceEvent        GitHubSourceEvent                @relation(fields: [sourceEventId], references: [id], onDelete: Restrict)
-  bindingId          String                           @db.Uuid
-  binding            GitHubProjectBinding             @relation(fields: [bindingId], references: [id], onDelete: Restrict)
-  projectId          String                           @db.Uuid
-  project            Project                          @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  contractId         String?                          @db.Uuid
+  id                 String                          @id @default(uuid()) @db.Uuid
+  sourceEventId      String                          @db.Uuid
+  sourceEvent        GitHubSourceEvent               @relation(fields: [sourceEventId], references: [id], onDelete: Restrict)
+  bindingId          String                          @db.Uuid
+  binding            GitHubProjectBinding            @relation(fields: [bindingId], references: [id], onDelete: Restrict)
+  projectId          String                          @db.Uuid
+  project            Project                         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  contractId         String?                         @db.Uuid
   contractVersion    Int?
-  contract           ProgressContract?                @relation(fields: [contractId, contractVersion], references: [id, contractVersion], onDelete: Restrict)
+  contract           ProgressContract?               @relation(fields: [contractId, contractVersion], references: [id, contractVersion], onDelete: Restrict)
   evaluationSequence Int
   disposition        GitHubProgressReviewDisposition
   candidates         GitHubProgressReviewCandidate[]
-  createdAt          DateTime                         @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime                        @default(now()) @db.Timestamptz(6)
 
   @@unique([sourceEventId, evaluationSequence], map: "GitHubProgressReview_source_sequence_key")
   @@unique([id, sourceEventId, bindingId, projectId], map: "GitHubProgressReview_id_source_binding_project_key")
@@ -647,18 +653,18 @@ model GitHubProgressReviewCandidate {
 }
 
 model GitHubReconciliationCursor {
-  id                String                @id @default(uuid()) @db.Uuid
-  bindingId         String                @unique @db.Uuid
-  installationId    String                @db.Uuid
-  repositoryId      String
-  binding           GitHubProjectBinding  @relation(fields: [bindingId, installationId, repositoryId], references: [id, installationId, repositoryId], onDelete: Restrict)
-  cursor            String
-  lastReconciledAt  DateTime              @db.Timestamptz(6)
-  createdAt         DateTime              @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime              @updatedAt @db.Timestamptz(6)
+  id               String               @id @default(uuid()) @db.Uuid
+  bindingId        String               @unique @db.Uuid
+  installationId   String               @db.Uuid
+  repositoryId     String
+  binding          GitHubProjectBinding @relation(fields: [bindingId, installationId, repositoryId], references: [id, installationId, repositoryId], onDelete: Restrict)
+  cursor           String
+  lastReconciledAt DateTime             @db.Timestamptz(6)
+  createdAt        DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime             @updatedAt @db.Timestamptz(6)
 
-  @@index([installationId, repositoryId, lastReconciledAt(sort: Desc)], map: "GitHubReconciliationCursor_repository_time_idx")
   @@unique([bindingId, installationId, repositoryId])
+  @@index([installationId, repositoryId, lastReconciledAt(sort: Desc)], map: "GitHubReconciliationCursor_repository_time_idx")
 }
 
 model ProjectMember {
@@ -680,42 +686,42 @@ model ProjectMember {
 }
 
 model Workstream {
-  id                     String                       @id @default(uuid()) @db.Uuid
-  projectId              String                       @db.Uuid
-  project                Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  authorizationScopeId   String                       @unique @db.Uuid
-  authorizationScopeType ScopeType                    @default(workstream)
-  authorizationScope     AuthorizationScope           @relation("WorkstreamAuthorizationScope", fields: [authorizationScopeId, authorizationScopeType], references: [id, scopeType], onDelete: Restrict)
-  name                   String
-  description            String
-  status                 WorkstreamStatus             @default(draft)
-  version                Int                          @default(1)
-  createdById            String                       @db.Uuid
-  createdBy              User                         @relation("WorkstreamCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  members                WorkstreamMember[]
-  responsibilities       ResponsibilityWindow[]
-  ownershipTransfers     OwnershipTransfer[]
-  statusTransitions      WorkstreamStatusTransition[]
-  uploadedSources        UploadedSource[]
-  documentRecord         DocumentRecord?
-  criteriaProposals      DynamicCriteriaProposal[]
-  criteriaSets           DynamicCriteriaSet[]
-  workItems              WorkItem[]
-  progressContracts      ProgressContract[]
-  updateSources          UpdateSource[]
-  voiceUpdateSessions    VoiceUpdateSession[]
-  evidenceRecords        EvidenceRecord[]
-  acceptedUpdateEvents   AcceptedUpdateEvent[]
-  acceptedEvidenceEvents AcceptedEvidenceEvent[]
-  taskDrafts             TaskDraft[] @relation("TaskDraftWorkstream")
-  researchRecords        ResearchRecord[]
-  researchSourceReviews  ResearchSourceReview[]
-  experiments            Experiment[]
-  continuityHandoverItems HandoverItem[]
-  continuityDelegationScopes DelegationScope[]
+  id                          String                       @id @default(uuid()) @db.Uuid
+  projectId                   String                       @db.Uuid
+  project                     Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  authorizationScopeId        String                       @unique @db.Uuid
+  authorizationScopeType      ScopeType                    @default(workstream)
+  authorizationScope          AuthorizationScope           @relation("WorkstreamAuthorizationScope", fields: [authorizationScopeId, authorizationScopeType], references: [id, scopeType], onDelete: Restrict)
+  name                        String
+  description                 String
+  status                      WorkstreamStatus             @default(draft)
+  version                     Int                          @default(1)
+  createdById                 String                       @db.Uuid
+  createdBy                   User                         @relation("WorkstreamCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  members                     WorkstreamMember[]
+  responsibilities            ResponsibilityWindow[]
+  ownershipTransfers          OwnershipTransfer[]
+  statusTransitions           WorkstreamStatusTransition[]
+  uploadedSources             UploadedSource[]
+  documentRecord              DocumentRecord?
+  criteriaProposals           DynamicCriteriaProposal[]
+  criteriaSets                DynamicCriteriaSet[]
+  workItems                   WorkItem[]
+  progressContracts           ProgressContract[]
+  updateSources               UpdateSource[]
+  voiceUpdateSessions         VoiceUpdateSession[]
+  evidenceRecords             EvidenceRecord[]
+  acceptedUpdateEvents        AcceptedUpdateEvent[]
+  acceptedEvidenceEvents      AcceptedEvidenceEvent[]
+  taskDrafts                  TaskDraft[]                  @relation("TaskDraftWorkstream")
+  researchRecords             ResearchRecord[]
+  researchSourceReviews       ResearchSourceReview[]
+  experiments                 Experiment[]
+  continuityHandoverItems     HandoverItem[]
+  continuityDelegationScopes  DelegationScope[]
   continuityReassignmentCases ReassignmentRequiredCase[]
-  createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
+  createdAt                   DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt                   DateTime                     @updatedAt @db.Timestamptz(6)
 
   @@unique([authorizationScopeId, authorizationScopeType])
   @@unique([id, projectId])
@@ -829,42 +835,42 @@ enum SourceLinkCorrectionAction {
 }
 
 model WorkItem {
-  id                   String                      @id @default(uuid()) @db.Uuid
-  projectId            String                      @db.Uuid
-  project              Project                     @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId         String?                     @db.Uuid
-  workstream           Workstream?                 @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
-  title                String
-  description          String
-  status               WorkItemStatus              @default(planned)
-  priority             WorkItemPriority            @default(normal)
-  assigneeId           String?                     @db.Uuid
-  assignee             User?                       @relation("WorkItemAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
-  dueAt                DateTime?                   @db.Timestamptz(6)
-  requirements         Json
-  acceptanceConditions Json
-  blocker              String?
-  nextAction           String?
-  version              Int                         @default(1)
-  createdById          String                      @db.Uuid
-  createdBy            User                        @relation("WorkItemCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  participants         WorkItemParticipant[]
-  dependencies         WorkItemDependency[]        @relation("WorkItemDependencies")
-  blocks               WorkItemDependency[]        @relation("WorkItemBlocks")
-  statusHistory        WorkItemStatusHistory[]
-  assignmentHistory    WorkItemAssignmentHistory[]
-  checklistItems       WorkItemChecklistItem[]
-  promotedFromInboxItem PrivateInboxItem?            @relation("PrivateInboxPromotion")
-  updateSources        UpdateSource[]
-  voiceUpdateSessions  VoiceUpdateSession[]
-  evidenceRecords      EvidenceRecord[]
-  evidenceLinks        EvidenceLink[]
-  acceptedUpdateEvents AcceptedUpdateEvent[]
-  researchRecords      ResearchRecord[]
+  id                    String                      @id @default(uuid()) @db.Uuid
+  projectId             String                      @db.Uuid
+  project               Project                     @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId          String?                     @db.Uuid
+  workstream            Workstream?                 @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  title                 String
+  description           String
+  status                WorkItemStatus              @default(planned)
+  priority              WorkItemPriority            @default(normal)
+  assigneeId            String?                     @db.Uuid
+  assignee              User?                       @relation("WorkItemAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  dueAt                 DateTime?                   @db.Timestamptz(6)
+  requirements          Json
+  acceptanceConditions  Json
+  blocker               String?
+  nextAction            String?
+  version               Int                         @default(1)
+  createdById           String                      @db.Uuid
+  createdBy             User                        @relation("WorkItemCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  participants          WorkItemParticipant[]
+  dependencies          WorkItemDependency[]        @relation("WorkItemDependencies")
+  blocks                WorkItemDependency[]        @relation("WorkItemBlocks")
+  statusHistory         WorkItemStatusHistory[]
+  assignmentHistory     WorkItemAssignmentHistory[]
+  checklistItems        WorkItemChecklistItem[]
+  promotedFromInboxItem PrivateInboxItem?           @relation("PrivateInboxPromotion")
+  updateSources         UpdateSource[]
+  voiceUpdateSessions   VoiceUpdateSession[]
+  evidenceRecords       EvidenceRecord[]
+  evidenceLinks         EvidenceLink[]
+  acceptedUpdateEvents  AcceptedUpdateEvent[]
+  researchRecords       ResearchRecord[]
   researchSourceReviews ResearchSourceReview[]
-  experiments          Experiment[]
-  createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime                    @updatedAt @db.Timestamptz(6)
+  experiments           Experiment[]
+  createdAt             DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                    @updatedAt @db.Timestamptz(6)
 
   @@unique([id, projectId])
   @@index([projectId, status, createdAt])
@@ -975,23 +981,23 @@ model ConnectedSourceExclusion {
 }
 
 model SourceProjectLink {
-  id           String              @id @default(uuid()) @db.Uuid
-  sourceItemId String              @db.Uuid
-  employeeId   String              @db.Uuid
-  sourceItem   ConnectedSourceItem @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
-  employee     User                @relation("SourceProjectLinkEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  id                  String                  @id @default(uuid()) @db.Uuid
+  sourceItemId        String                  @db.Uuid
+  employeeId          String                  @db.Uuid
+  sourceItem          ConnectedSourceItem     @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee            User                    @relation("SourceProjectLinkEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
   projectId           String                  @db.Uuid
   project             Project                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
   origin              SourceProjectLinkOrigin @default(EMPLOYEE_MANUAL)
   contextSuggestionId String?                 @db.Uuid
   contextSuggestion   ProjectLinkSuggestion?  @relation("SourceProjectLinkContextSuggestion", fields: [contextSuggestionId, sourceItemId, employeeId, projectId], references: [id, sourceItemId, employeeId, projectId], onDelete: Restrict)
   linkedById          String                  @db.Uuid
-  linkedBy     User                @relation("SourceProjectLinkLinkedBy", fields: [linkedById], references: [id], onDelete: Restrict)
-  linkedAt     DateTime            @db.Timestamptz(6)
-  unlinkedAt   DateTime?           @db.Timestamptz(6)
-  unlinkedById String?             @db.Uuid
-  unlinkedBy   User?               @relation("SourceProjectLinkUnlinkedBy", fields: [unlinkedById], references: [id], onDelete: Restrict)
-  unlinkReason String?
+  linkedBy            User                    @relation("SourceProjectLinkLinkedBy", fields: [linkedById], references: [id], onDelete: Restrict)
+  linkedAt            DateTime                @db.Timestamptz(6)
+  unlinkedAt          DateTime?               @db.Timestamptz(6)
+  unlinkedById        String?                 @db.Uuid
+  unlinkedBy          User?                   @relation("SourceProjectLinkUnlinkedBy", fields: [unlinkedById], references: [id], onDelete: Restrict)
+  unlinkReason        String?
 
   @@index([employeeId, unlinkedAt, linkedAt(sort: Desc)])
   @@index([projectId, unlinkedAt, linkedAt(sort: Desc)])
@@ -1005,30 +1011,30 @@ enum SourceProjectLinkOrigin {
 }
 
 model ContextAnalysis {
-  id                   String                            @id @default(uuid()) @db.Uuid
-  sourceItemId         String                            @db.Uuid
-  employeeId           String                            @db.Uuid
-  sourceItem           ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
-  employee             User                              @relation("ContextAnalysisEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  revision             Int
-  schemaVersion        String
-  promptVersion        String
-  aiRunTraceId         String                            @db.Uuid
-  aiRunTrace           AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
-  outputCiphertext     String
-  outputKeyVersion     String
-  sourceReferences     Json
-  reviewStatus         ContextIntelligenceReviewStatus   @default(PENDING)
-  revisionOrigin       ContextIntelligenceRevisionOrigin
+  id                         String                            @id @default(uuid()) @db.Uuid
+  sourceItemId               String                            @db.Uuid
+  employeeId                 String                            @db.Uuid
+  sourceItem                 ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee                   User                              @relation("ContextAnalysisEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  revision                   Int
+  schemaVersion              String
+  promptVersion              String
+  aiRunTraceId               String                            @db.Uuid
+  aiRunTrace                 AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
+  outputCiphertext           String
+  outputKeyVersion           String
+  sourceReferences           Json
+  reviewStatus               ContextIntelligenceReviewStatus   @default(PENDING)
+  revisionOrigin             ContextIntelligenceRevisionOrigin
   correctionReasonCiphertext String?
   correctionReasonKeyVersion String?
-  supersedesAnalysisId String?                           @unique @db.Uuid
-  supersedesAnalysis   ContextAnalysis?                  @relation("ContextAnalysisSupersession", fields: [supersedesAnalysisId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
-  supersedingAnalysis  ContextAnalysis?                  @relation("ContextAnalysisSupersession")
-  createdById          String                            @db.Uuid
-  createdBy            User                              @relation("ContextAnalysisCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  suggestions          ProjectLinkSuggestion[]
-  createdAt            DateTime                          @default(now()) @db.Timestamptz(6)
+  supersedesAnalysisId       String?                           @unique @db.Uuid
+  supersedesAnalysis         ContextAnalysis?                  @relation("ContextAnalysisSupersession", fields: [supersedesAnalysisId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  supersedingAnalysis        ContextAnalysis?                  @relation("ContextAnalysisSupersession")
+  createdById                String                            @db.Uuid
+  createdBy                  User                              @relation("ContextAnalysisCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  suggestions                ProjectLinkSuggestion[]
+  createdAt                  DateTime                          @default(now()) @db.Timestamptz(6)
 
   @@unique([id, sourceItemId, employeeId])
   @@unique([sourceItemId, employeeId, revision])
@@ -1039,38 +1045,38 @@ model ContextAnalysis {
 }
 
 model ProjectLinkSuggestion {
-  id                     String                            @id @default(uuid()) @db.Uuid
-  analysisId             String                            @db.Uuid
-  sourceItemId           String                            @db.Uuid
-  employeeId             String                            @db.Uuid
-  analysis               ContextAnalysis                   @relation(fields: [analysisId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
-  sourceItem             ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
-  employee               User                              @relation("ProjectLinkSuggestionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  projectId              String?                           @db.Uuid
-  project                Project?                          @relation("ProjectLinkSuggestionProject", fields: [projectId], references: [id], onDelete: Restrict)
-  decision               ProjectLinkDecision
-  explanationCiphertext String
-  explanationKeyVersion String
-  anchors                Json
-  revision               Int
-  schemaVersion          String
-  promptVersion          String
-  aiRunTraceId           String                            @db.Uuid
-  aiRunTrace             AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
-  sourceReferences       Json
-  reviewStatus           ContextIntelligenceReviewStatus   @default(PENDING)
-  revisionOrigin         ContextIntelligenceRevisionOrigin
+  id                         String                            @id @default(uuid()) @db.Uuid
+  analysisId                 String                            @db.Uuid
+  sourceItemId               String                            @db.Uuid
+  employeeId                 String                            @db.Uuid
+  analysis                   ContextAnalysis                   @relation(fields: [analysisId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  sourceItem                 ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee                   User                              @relation("ProjectLinkSuggestionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  projectId                  String?                           @db.Uuid
+  project                    Project?                          @relation("ProjectLinkSuggestionProject", fields: [projectId], references: [id], onDelete: Restrict)
+  decision                   ProjectLinkDecision
+  explanationCiphertext      String
+  explanationKeyVersion      String
+  anchors                    Json
+  revision                   Int
+  schemaVersion              String
+  promptVersion              String
+  aiRunTraceId               String                            @db.Uuid
+  aiRunTrace                 AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
+  sourceReferences           Json
+  reviewStatus               ContextIntelligenceReviewStatus   @default(PENDING)
+  revisionOrigin             ContextIntelligenceRevisionOrigin
   correctionReasonCiphertext String?
   correctionReasonKeyVersion String?
-  supersedesSuggestionId String?                           @unique @db.Uuid
-  supersedesSuggestion   ProjectLinkSuggestion?            @relation("ProjectLinkSuggestionSupersession", fields: [supersedesSuggestionId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
-  supersedingSuggestion  ProjectLinkSuggestion?            @relation("ProjectLinkSuggestionSupersession")
-  createdById            String                            @db.Uuid
-  createdBy              User                              @relation("ProjectLinkSuggestionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  corrections            SourceLinkCorrection[]            @relation("SourceLinkCorrectionOriginalSuggestion")
-  resultingCorrections   SourceLinkCorrection[]            @relation("SourceLinkCorrectionSupersedingSuggestion")
-  contextProjectLinks    SourceProjectLink[]                @relation("SourceProjectLinkContextSuggestion")
-  createdAt              DateTime                          @default(now()) @db.Timestamptz(6)
+  supersedesSuggestionId     String?                           @unique @db.Uuid
+  supersedesSuggestion       ProjectLinkSuggestion?            @relation("ProjectLinkSuggestionSupersession", fields: [supersedesSuggestionId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  supersedingSuggestion      ProjectLinkSuggestion?            @relation("ProjectLinkSuggestionSupersession")
+  createdById                String                            @db.Uuid
+  createdBy                  User                              @relation("ProjectLinkSuggestionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  corrections                SourceLinkCorrection[]            @relation("SourceLinkCorrectionOriginalSuggestion")
+  resultingCorrections       SourceLinkCorrection[]            @relation("SourceLinkCorrectionSupersedingSuggestion")
+  contextProjectLinks        SourceProjectLink[]               @relation("SourceProjectLinkContextSuggestion")
+  createdAt                  DateTime                          @default(now()) @db.Timestamptz(6)
 
   @@unique([id, sourceItemId, employeeId])
   @@unique([id, sourceItemId, employeeId, projectId])
@@ -1084,36 +1090,36 @@ model ProjectLinkSuggestion {
 }
 
 model TaskDraft {
-  id                    String                            @id @default(uuid()) @db.Uuid
-  sourceItemId          String                            @db.Uuid
-  employeeId            String                            @db.Uuid
-  sourceItem            ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
-  employee              User                              @relation("TaskDraftEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  draftCiphertext       String
-  draftKeyVersion       String
-  projectId             String?                           @db.Uuid
-  project               Project?                          @relation("TaskDraftProject", fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId          String?                           @db.Uuid
-  workstream            Workstream?                       @relation("TaskDraftWorkstream", fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
-  proposedAssigneeId    String?                           @db.Uuid
-  proposedAssignee      User?                             @relation("TaskDraftProposedAssignee", fields: [proposedAssigneeId], references: [id], onDelete: Restrict)
-  dueAt                 DateTime?                         @db.Timestamptz(6)
-  revision              Int
-  schemaVersion         String
-  promptVersion         String
-  aiRunTraceId          String                            @db.Uuid
-  aiRunTrace            AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
-  sourceReferences      Json
-  reviewStatus          ContextIntelligenceReviewStatus   @default(PENDING)
-  revisionOrigin        ContextIntelligenceRevisionOrigin
+  id                         String                            @id @default(uuid()) @db.Uuid
+  sourceItemId               String                            @db.Uuid
+  employeeId                 String                            @db.Uuid
+  sourceItem                 ConnectedSourceItem               @relation(fields: [sourceItemId, employeeId], references: [id, employeeId], onDelete: Restrict)
+  employee                   User                              @relation("TaskDraftEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  draftCiphertext            String
+  draftKeyVersion            String
+  projectId                  String?                           @db.Uuid
+  project                    Project?                          @relation("TaskDraftProject", fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId               String?                           @db.Uuid
+  workstream                 Workstream?                       @relation("TaskDraftWorkstream", fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  proposedAssigneeId         String?                           @db.Uuid
+  proposedAssignee           User?                             @relation("TaskDraftProposedAssignee", fields: [proposedAssigneeId], references: [id], onDelete: Restrict)
+  dueAt                      DateTime?                         @db.Timestamptz(6)
+  revision                   Int
+  schemaVersion              String
+  promptVersion              String
+  aiRunTraceId               String                            @db.Uuid
+  aiRunTrace                 AiRun                             @relation(fields: [aiRunTraceId, schemaVersion, promptVersion], references: [id, outputSchemaVersion, promptTemplateVersion], onDelete: Restrict)
+  sourceReferences           Json
+  reviewStatus               ContextIntelligenceReviewStatus   @default(PENDING)
+  revisionOrigin             ContextIntelligenceRevisionOrigin
   correctionReasonCiphertext String?
   correctionReasonKeyVersion String?
-  supersedesTaskDraftId String?                           @unique @db.Uuid
-  supersedesTaskDraft   TaskDraft?                        @relation("TaskDraftSupersession", fields: [supersedesTaskDraftId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
-  supersedingTaskDraft  TaskDraft?                        @relation("TaskDraftSupersession")
-  createdById           String                            @db.Uuid
-  createdBy             User                              @relation("TaskDraftCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  createdAt             DateTime                          @default(now()) @db.Timestamptz(6)
+  supersedesTaskDraftId      String?                           @unique @db.Uuid
+  supersedesTaskDraft        TaskDraft?                        @relation("TaskDraftSupersession", fields: [supersedesTaskDraftId, sourceItemId, employeeId], references: [id, sourceItemId, employeeId], onDelete: Restrict)
+  supersedingTaskDraft       TaskDraft?                        @relation("TaskDraftSupersession")
+  createdById                String                            @db.Uuid
+  createdBy                  User                              @relation("TaskDraftCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt                  DateTime                          @default(now()) @db.Timestamptz(6)
 
   @@unique([id, sourceItemId, employeeId])
   @@unique([sourceItemId, employeeId, revision])
@@ -1294,33 +1300,33 @@ enum ProgressContractAiDraftRevisionOrigin {
 }
 
 model ProgressContract {
-  id                       String                         @id @default(uuid()) @db.Uuid
+  id                       String                          @id @default(uuid()) @db.Uuid
   scopeKind                ProgressScopeKind
-  projectId                String                         @db.Uuid
-  project                  Project                        @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId             String?                        @db.Uuid
-  workstream               Workstream?                    @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
-  sourceDocumentId         String                         @db.Uuid
-  sourceDocument           DocumentRecord                 @relation(fields: [sourceDocumentId], references: [id], onDelete: Restrict)
-  sourceDocumentVersionId  String                         @db.Uuid
-  sourceDocumentVersion    DocumentVersion                @relation(fields: [sourceDocumentVersionId, sourceDocumentId], references: [id, documentId], onDelete: Restrict)
+  projectId                String                          @db.Uuid
+  project                  Project                         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId             String?                         @db.Uuid
+  workstream               Workstream?                     @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  sourceDocumentId         String                          @db.Uuid
+  sourceDocument           DocumentRecord                  @relation(fields: [sourceDocumentId], references: [id], onDelete: Restrict)
+  sourceDocumentVersionId  String                          @db.Uuid
+  sourceDocumentVersion    DocumentVersion                 @relation(fields: [sourceDocumentVersionId, sourceDocumentId], references: [id, documentId], onDelete: Restrict)
   sourceDocumentVersionNo  Int
   calculationKind          ProgressCalculationKind
   calculationSchemaVersion String
   contractVersion          Int
-  version                  Int                            @default(1)
-  state                    ProgressContractState          @default(draft)
-  ownerId                  String                         @db.Uuid
-  owner                    User                           @relation("ProgressContractOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  approverId               String?                        @db.Uuid
-  approver                 User?                          @relation("ProgressContractApprover", fields: [approverId], references: [id], onDelete: Restrict)
-  effectiveAt              DateTime                       @db.Timestamptz(6)
-  approvedAt               DateTime?                      @db.Timestamptz(6)
-  previousContractId       String?                        @unique @db.Uuid
-  previousContract         ProgressContract?              @relation("ProgressContractSuccessor", fields: [previousContractId], references: [id], onDelete: Restrict)
-  successorContract        ProgressContract?              @relation("ProgressContractSuccessor")
-  createdById              String                         @db.Uuid
-  createdBy                User                           @relation("ProgressContractCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  version                  Int                             @default(1)
+  state                    ProgressContractState           @default(draft)
+  ownerId                  String                          @db.Uuid
+  owner                    User                            @relation("ProgressContractOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  approverId               String?                         @db.Uuid
+  approver                 User?                           @relation("ProgressContractApprover", fields: [approverId], references: [id], onDelete: Restrict)
+  effectiveAt              DateTime                        @db.Timestamptz(6)
+  approvedAt               DateTime?                       @db.Timestamptz(6)
+  previousContractId       String?                         @unique @db.Uuid
+  previousContract         ProgressContract?               @relation("ProgressContractSuccessor", fields: [previousContractId], references: [id], onDelete: Restrict)
+  successorContract        ProgressContract?               @relation("ProgressContractSuccessor")
+  createdById              String                          @db.Uuid
+  createdBy                User                            @relation("ProgressContractCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   components               ProgressContractComponent[]
   githubRules              GitHubContractRule[]
   githubProgressReviews    GitHubProgressReview[]
@@ -1328,15 +1334,15 @@ model ProgressContract {
   confirmations            ProgressHumanConfirmation[]
   snapshots                ProgressSnapshot[]
   recalculationRequests    ProgressRecalculationRequest[]
-  appliedAiDraftRequest    ProgressContractAiDraftRequest?          @relation("AppliedProgressContractAiDraft")
-  createdAt                DateTime                       @default(now()) @db.Timestamptz(6)
-  updatedAt                DateTime                       @updatedAt @db.Timestamptz(6)
+  appliedAiDraftRequest    ProgressContractAiDraftRequest? @relation("AppliedProgressContractAiDraft")
+  createdAt                DateTime                        @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime                        @updatedAt @db.Timestamptz(6)
 
+  @@unique([id, contractVersion])
   @@index([projectId, state, effectiveAt])
   @@index([workstreamId, state, effectiveAt])
   @@index([sourceDocumentVersionId])
   @@index([ownerId, state])
-  @@unique([id, contractVersion])
 }
 
 model ProgressContractAiDraftRequest {
@@ -1376,18 +1382,18 @@ model ProgressContractAiDraftRequest {
 }
 
 model ProgressContractAiDraftRevision {
-  id               String                                @id @default(uuid()) @db.Uuid
-  requestId        String                                @db.Uuid
-  request          ProgressContractAiDraftRequest        @relation(fields: [requestId], references: [id], onDelete: Restrict)
-  revision         Int
-  content          Json
-  origin           ProgressContractAiDraftRevisionOrigin
-  editorId         String                                @db.Uuid
-  editor           User                                  @relation("ProgressContractAiDraftRevisionEditor", fields: [editorId], references: [id], onDelete: Restrict)
-  reason           String
-  sourceReferences Json
+  id                String                                    @id @default(uuid()) @db.Uuid
+  requestId         String                                    @db.Uuid
+  request           ProgressContractAiDraftRequest            @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  revision          Int
+  content           Json
+  origin            ProgressContractAiDraftRevisionOrigin
+  editorId          String                                    @db.Uuid
+  editor            User                                      @relation("ProgressContractAiDraftRevisionEditor", fields: [editorId], references: [id], onDelete: Restrict)
+  reason            String
+  sourceReferences  Json
   appliedComponents ProgressContractAiDraftAppliedComponent[]
-  createdAt        DateTime                              @default(now()) @db.Timestamptz(6)
+  createdAt         DateTime                                  @default(now()) @db.Timestamptz(6)
 
   @@unique([requestId, revision])
   @@index([requestId, createdAt])
@@ -1411,27 +1417,27 @@ model ProgressContractAiDraftAppliedComponent {
 }
 
 model ProgressContractComponent {
-  id                   String                      @id @default(uuid()) @db.Uuid
-  contractId           String                      @db.Uuid
-  contract             ProgressContract            @relation(fields: [contractId], references: [id], onDelete: Restrict)
-  position             Int
-  kind                 ProgressComponentKind
-  name                 String
-  description          String
-  weight               Decimal?                    @db.Decimal(7, 4)
-  baseline             Decimal?                    @db.Decimal(20, 6)
-  target               Decimal?                    @db.Decimal(20, 6)
-  unit                 String?
-  direction            ProgressDirection?
-  acceptanceConditions Json
-  requiredEvidence     Json
-  confirmationMode     ProgressConfirmationMode
-  confirmations        ProgressHumanConfirmation[]
-  snapshotSources      ProgressSnapshotSource[]
-  evidenceLinks        EvidenceLink[]
+  id                     String                                    @id @default(uuid()) @db.Uuid
+  contractId             String                                    @db.Uuid
+  contract               ProgressContract                          @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  position               Int
+  kind                   ProgressComponentKind
+  name                   String
+  description            String
+  weight                 Decimal?                                  @db.Decimal(7, 4)
+  baseline               Decimal?                                  @db.Decimal(20, 6)
+  target                 Decimal?                                  @db.Decimal(20, 6)
+  unit                   String?
+  direction              ProgressDirection?
+  acceptanceConditions   Json
+  requiredEvidence       Json
+  confirmationMode       ProgressConfirmationMode
+  confirmations          ProgressHumanConfirmation[]
+  snapshotSources        ProgressSnapshotSource[]
+  evidenceLinks          EvidenceLink[]
   appliedAiDraftMappings ProgressContractAiDraftAppliedComponent[]
   githubRules            GitHubContractRule[]
-  createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
+  createdAt              DateTime                                  @default(now()) @db.Timestamptz(6)
 
   @@unique([contractId, position])
   @@unique([id, contractId])
@@ -1635,50 +1641,52 @@ model UpdateSource {
 }
 
 model VoiceUpdateSession {
-  id                         String                  @id @default(uuid()) @db.Uuid
-  idempotencyKey             String                  @unique @db.Uuid
-  projectId                  String                  @db.Uuid
-  project                    Project                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId               String?                 @db.Uuid
-  workstream                 Workstream?             @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
-  workItemId                 String?                 @db.Uuid
-  workItem                   WorkItem?               @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
-  employeeId                 String                  @db.Uuid
-  employee                   User                    @relation("VoiceUpdateSessionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  uploadedSourceId           String                  @db.Uuid
-  uploadedSource             UploadedSource          @relation(fields: [uploadedSourceId], references: [id], onDelete: Restrict)
-  state                      VoiceUpdateSessionState
-  transcriptionAttemptToken String                  @default(uuid()) @db.Uuid
-  transcriptionAttemptStartedAt DateTime             @default(now()) @db.Timestamptz(6)
-  declaredDurationSeconds    Int
-  language                   String?
-  dialect                    String?
-  aiRunId                    String?                 @db.Uuid
-  aiRun                      AiRun?                  @relation("VoiceSessionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
-  retentionPolicyKey         String
-  retentionMetadata          Json
-  temporaryArtifactsCleanedAt DateTime?              @db.Timestamptz(6)
-  transcriptRevisions        VoiceTranscriptRevision[]
-  confirmation               VoiceTranscriptConfirmation?
-  updateAttachments          UpdateSourceAttachment[]
-  createdAt                  DateTime                @default(now()) @db.Timestamptz(6)
+  id                            String                       @id @default(uuid()) @db.Uuid
+  idempotencyKey                String                       @unique @db.Uuid
+  projectId                     String                       @db.Uuid
+  project                       Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId                  String?                      @db.Uuid
+  workstream                    Workstream?                  @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  workItemId                    String?                      @db.Uuid
+  workItem                      WorkItem?                    @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
+  employeeId                    String                       @db.Uuid
+  employee                      User                         @relation("VoiceUpdateSessionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  uploadedSourceId              String                       @db.Uuid
+  uploadedSource                UploadedSource               @relation(fields: [uploadedSourceId], references: [id], onDelete: Restrict)
+  state                         VoiceUpdateSessionState
+  transcriptionAttemptToken     String                       @default(uuid()) @db.Uuid
+  transcriptionAttemptStartedAt DateTime                     @default(now()) @db.Timestamptz(6)
+  declaredDurationSeconds       Int
+  language                      String?
+  dialect                       String?
+  aiRunId                       String?                      @db.Uuid
+  aiRun                         AiRun?                       @relation("VoiceSessionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  retentionPolicyKey            String
+  retentionMetadata             Json
+  temporaryArtifactsCleanedAt   DateTime?                    @db.Timestamptz(6)
+  transcriptRevisions           VoiceTranscriptRevision[]
+  confirmation                  VoiceTranscriptConfirmation?
+  updateAttachments             UpdateSourceAttachment[]
+  createdAt                     DateTime                     @default(now()) @db.Timestamptz(6)
+
   @@index([employeeId, createdAt])
   @@index([projectId, workstreamId, createdAt])
 }
 
 model VoiceTranscriptRevision {
-  id             String                         @id @default(uuid()) @db.Uuid
-  voiceSessionId String                         @db.Uuid
-  voiceSession   VoiceUpdateSession             @relation(fields: [voiceSessionId], references: [id], onDelete: Restrict)
+  id             String                        @id @default(uuid()) @db.Uuid
+  voiceSessionId String                        @db.Uuid
+  voiceSession   VoiceUpdateSession            @relation(fields: [voiceSessionId], references: [id], onDelete: Restrict)
   revision       Int
   origin         VoiceTranscriptRevisionOrigin
   transcript     String
   language       String
   dialect        String
-  aiRunId        String?                        @db.Uuid
-  aiRun          AiRun?                         @relation("VoiceTranscriptRevisionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
-  createdAt      DateTime                       @default(now()) @db.Timestamptz(6)
+  aiRunId        String?                       @db.Uuid
+  aiRun          AiRun?                        @relation("VoiceTranscriptRevisionAiRun", fields: [aiRunId], references: [id], onDelete: Restrict)
+  createdAt      DateTime                      @default(now()) @db.Timestamptz(6)
   confirmation   VoiceTranscriptConfirmation?
+
   @@unique([voiceSessionId, revision])
 }
 
@@ -1851,31 +1859,31 @@ model ProgressRecalculationRequest {
 }
 
 model EvidenceRecord {
-  id                   String                 @id @default(uuid()) @db.Uuid
-  idempotencyKey       String                 @unique @db.Uuid
-  projectId            String                 @db.Uuid
-  project              Project                @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId         String?                @db.Uuid
-  workstream           Workstream?            @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
-  workItemId           String?                @db.Uuid
-  workItem             WorkItem?              @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
-  capturedFromWorkItem Boolean                @default(false)
-  updateSourceId       String?                @db.Uuid
-  updateSource         UpdateSource?          @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
-  githubSourceEventId  String?                @db.Uuid
-  githubSourceEvent    GitHubSourceEvent?     @relation(fields: [githubSourceEventId], references: [id], onDelete: Restrict)
-  employeeId           String                 @db.Uuid
-  employee             User                   @relation("EvidenceRecordEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  state                EvidenceRecordState    @default(draft)
-  version              Int                    @default(1)
-  currentRevision      Int                    @default(1)
-  revisions            EvidenceRevision[]
-  confirmation         EvidenceConfirmation?
-  acceptedEvent        AcceptedEvidenceEvent?
-  researchEvidenceLinks ResearchEvidenceLink[]
+  id                         String                              @id @default(uuid()) @db.Uuid
+  idempotencyKey             String                              @unique @db.Uuid
+  projectId                  String                              @db.Uuid
+  project                    Project                             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId               String?                             @db.Uuid
+  workstream                 Workstream?                         @relation(fields: [workstreamId, projectId], references: [id, projectId], onDelete: Restrict)
+  workItemId                 String?                             @db.Uuid
+  workItem                   WorkItem?                           @relation(fields: [workItemId, projectId], references: [id, projectId], onDelete: Restrict)
+  capturedFromWorkItem       Boolean                             @default(false)
+  updateSourceId             String?                             @db.Uuid
+  updateSource               UpdateSource?                       @relation(fields: [updateSourceId], references: [id], onDelete: Restrict)
+  githubSourceEventId        String?                             @db.Uuid
+  githubSourceEvent          GitHubSourceEvent?                  @relation(fields: [githubSourceEventId], references: [id], onDelete: Restrict)
+  employeeId                 String                              @db.Uuid
+  employee                   User                                @relation("EvidenceRecordEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  state                      EvidenceRecordState                 @default(draft)
+  version                    Int                                 @default(1)
+  currentRevision            Int                                 @default(1)
+  revisions                  EvidenceRevision[]
+  confirmation               EvidenceConfirmation?
+  acceptedEvent              AcceptedEvidenceEvent?
+  researchEvidenceLinks      ResearchEvidenceLink[]
   formalDevelopmentPlanLinks FormalDevelopmentPlanEvidenceLink[]
-  createdAt            DateTime               @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime               @updatedAt @db.Timestamptz(6)
+  createdAt                  DateTime                            @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                            @updatedAt @db.Timestamptz(6)
 
   @@index([employeeId, state, createdAt])
   @@index([projectId, workstreamId, state, createdAt])
@@ -1885,31 +1893,31 @@ model EvidenceRecord {
 }
 
 model EvidenceRevision {
-  id                  String                   @id @default(uuid()) @db.Uuid
-  evidenceId          String                   @db.Uuid
-  evidence            EvidenceRecord           @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
-  revision            Int
-  revisionKind        EvidenceRevisionKind
-  sourceKind          ManualEvidenceSourceKind
-  objectKey           String?
-  sourceText          String?
-  sourceUrl           String?
-  mediaType           String?
-  checksumSha256      String?
-  sizeBytes           Int?
-  supportedClaim      String
-  contributionContext String
-  executionMode       Phase2ExecutionMode
-  aiRunId             String?                  @db.Uuid
-  aiRun               AiRun?                   @relation(fields: [aiRunId], references: [id], onDelete: Restrict)
-  createdById         String                   @db.Uuid
-  createdBy           User                     @relation("EvidenceRevisionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  links               EvidenceLink[]
-  attributions        EvidenceAttribution[]
-  verifications       EvidenceVerification[]
-  confirmation        EvidenceConfirmation?
+  id                    String                   @id @default(uuid()) @db.Uuid
+  evidenceId            String                   @db.Uuid
+  evidence              EvidenceRecord           @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  revision              Int
+  revisionKind          EvidenceRevisionKind
+  sourceKind            ManualEvidenceSourceKind
+  objectKey             String?
+  sourceText            String?
+  sourceUrl             String?
+  mediaType             String?
+  checksumSha256        String?
+  sizeBytes             Int?
+  supportedClaim        String
+  contributionContext   String
+  executionMode         Phase2ExecutionMode
+  aiRunId               String?                  @db.Uuid
+  aiRun                 AiRun?                   @relation(fields: [aiRunId], references: [id], onDelete: Restrict)
+  createdById           String                   @db.Uuid
+  createdBy             User                     @relation("EvidenceRevisionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  links                 EvidenceLink[]
+  attributions          EvidenceAttribution[]
+  verifications         EvidenceVerification[]
+  confirmation          EvidenceConfirmation?
   researchEvidenceLinks ResearchEvidenceLink[]
-  createdAt           DateTime                 @default(now()) @db.Timestamptz(6)
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(6)
 
   @@unique([evidenceId, revision])
   @@unique([id, evidenceId])
@@ -2005,30 +2013,30 @@ model AcceptedEvidenceEvent {
 }
 
 model ResponsibilityWindow {
-  id                       String             @id @default(uuid()) @db.Uuid
-  employeeId               String             @db.Uuid
-  employee                 User               @relation("ResponsibilityEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  projectId                String?            @db.Uuid
-  project                  Project?           @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId             String?            @db.Uuid
-  workstream               Workstream?        @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
-  responsibilityType       ResponsibilityType
-  startsAt                 DateTime           @db.Timestamptz(6)
-  endsAt                   DateTime?          @db.Timestamptz(6)
-  reason                   String
-  managerDecisionById      String?            @db.Uuid
-  managerDecisionBy        User?              @relation("ResponsibilityDecisionBy", fields: [managerDecisionById], references: [id], onDelete: Restrict)
-  managerDecisionAt        DateTime?          @db.Timestamptz(6)
-  managerDecisionReason    String?
-  relatedHandoverReference String?
-  delegationType           String?
-  createdById              String             @db.Uuid
-  createdBy                User               @relation("ResponsibilityCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  closedForTransfer        OwnershipTransfer? @relation("ClosedResponsibilityWindow")
-  newForTransfer           OwnershipTransfer? @relation("NewResponsibilityWindow")
-  returnForTransfer        OwnershipTransfer? @relation("ReturnResponsibilityWindow")
+  id                         String             @id @default(uuid()) @db.Uuid
+  employeeId                 String             @db.Uuid
+  employee                   User               @relation("ResponsibilityEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  projectId                  String?            @db.Uuid
+  project                    Project?           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId               String?            @db.Uuid
+  workstream                 Workstream?        @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  responsibilityType         ResponsibilityType
+  startsAt                   DateTime           @db.Timestamptz(6)
+  endsAt                     DateTime?          @db.Timestamptz(6)
+  reason                     String
+  managerDecisionById        String?            @db.Uuid
+  managerDecisionBy          User?              @relation("ResponsibilityDecisionBy", fields: [managerDecisionById], references: [id], onDelete: Restrict)
+  managerDecisionAt          DateTime?          @db.Timestamptz(6)
+  managerDecisionReason      String?
+  relatedHandoverReference   String?
+  delegationType             String?
+  createdById                String             @db.Uuid
+  createdBy                  User               @relation("ResponsibilityCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  closedForTransfer          OwnershipTransfer? @relation("ClosedResponsibilityWindow")
+  newForTransfer             OwnershipTransfer? @relation("NewResponsibilityWindow")
+  returnForTransfer          OwnershipTransfer? @relation("ReturnResponsibilityWindow")
   continuityDelegationScopes DelegationScope[]
-  createdAt                DateTime           @default(now()) @db.Timestamptz(6)
+  createdAt                  DateTime           @default(now()) @db.Timestamptz(6)
 
   @@index([projectId, employeeId, startsAt, endsAt])
   @@index([workstreamId, employeeId, startsAt, endsAt])
@@ -2141,28 +2149,28 @@ model DocumentTemplateSection {
 }
 
 model UploadedSource {
-  id                    String                 @id @default(uuid()) @db.Uuid
-  organizationId        String                 @db.Uuid
-  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  departmentId          String                 @db.Uuid
-  department            Department             @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  projectId             String?                @db.Uuid
-  project               Project?               @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId          String?                @db.Uuid
-  workstream            Workstream?            @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
-  originalFilename      String
-  objectKey             String                 @unique
-  detectedType          String
-  detectedMime          String
-  byteSize              Int
-  sha256                String
-  createdById           String                 @db.Uuid
-  createdBy             User                   @relation("UploadedSourceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  reason                String
-  documentVersionSource DocumentVersionSource?
+  id                      String                   @id @default(uuid()) @db.Uuid
+  organizationId          String                   @db.Uuid
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId            String                   @db.Uuid
+  department              Department               @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  projectId               String?                  @db.Uuid
+  project                 Project?                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId            String?                  @db.Uuid
+  workstream              Workstream?              @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  originalFilename        String
+  objectKey               String                   @unique
+  detectedType            String
+  detectedMime            String
+  byteSize                Int
+  sha256                  String
+  createdById             String                   @db.Uuid
+  createdBy               User                     @relation("UploadedSourceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reason                  String
+  documentVersionSource   DocumentVersionSource?
   updateSourceAttachments UpdateSourceAttachment[]
-  voiceUpdateSessions VoiceUpdateSession[]
-  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+  voiceUpdateSessions     VoiceUpdateSession[]
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(6)
 
   @@index([projectId, createdAt])
   @@index([workstreamId, createdAt])
@@ -2172,58 +2180,58 @@ model UploadedSource {
 }
 
 model DocumentRecord {
-  id                String                    @id @default(uuid()) @db.Uuid
-  organizationId    String                    @db.Uuid
-  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  departmentId      String                    @db.Uuid
-  department        Department                @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  projectId         String?                   @unique @db.Uuid
-  project           Project?                  @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  workstreamId      String?                   @unique @db.Uuid
-  workstream        Workstream?               @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
-  templateVersionId String                    @db.Uuid
-  templateVersion   DocumentTemplateVersion   @relation("DocumentRecordPinnedTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
-  currentVersion    Int                       @default(0)
-  createdById       String                    @db.Uuid
-  createdBy         User                      @relation("DocumentRecordCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  versions          DocumentVersion[]
-  analysisRequests  DocumentAnalysisRequest[]
-  readinessChecks   DocumentReadinessCheck[]
-  comparisons       DocumentComparison[]
-  progressContracts ProgressContract[]
+  id                              String                           @id @default(uuid()) @db.Uuid
+  organizationId                  String                           @db.Uuid
+  organization                    Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departmentId                    String                           @db.Uuid
+  department                      Department                       @relation(fields: [departmentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  projectId                       String?                          @unique @db.Uuid
+  project                         Project?                         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workstreamId                    String?                          @unique @db.Uuid
+  workstream                      Workstream?                      @relation(fields: [workstreamId], references: [id], onDelete: Restrict)
+  templateVersionId               String                           @db.Uuid
+  templateVersion                 DocumentTemplateVersion          @relation("DocumentRecordPinnedTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
+  currentVersion                  Int                              @default(0)
+  createdById                     String                           @db.Uuid
+  createdBy                       User                             @relation("DocumentRecordCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  versions                        DocumentVersion[]
+  analysisRequests                DocumentAnalysisRequest[]
+  readinessChecks                 DocumentReadinessCheck[]
+  comparisons                     DocumentComparison[]
+  progressContracts               ProgressContract[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
-  createdAt         DateTime                  @default(now()) @db.Timestamptz(6)
+  createdAt                       DateTime                         @default(now()) @db.Timestamptz(6)
 
   @@index([departmentId, createdAt])
   @@index([createdById, createdAt])
 }
 
 model DocumentVersion {
-  id                      String                                 @id @default(uuid()) @db.Uuid
-  documentId              String                                 @db.Uuid
-  document                DocumentRecord                         @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  version                 Int
-  templateVersionId       String                                 @db.Uuid
-  templateVersion         DocumentTemplateVersion                @relation("DocumentVersionTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
-  createdById             String                                 @db.Uuid
-  createdBy               User                                   @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  reason                  String
-  sources                 DocumentVersionSource[]
-  currentAnalysisRequests DocumentAnalysisRequest[]              @relation("AnalysisCurrentVersion")
-  beforeAnalysisRequests  DocumentAnalysisRequest[]              @relation("AnalysisBeforeVersion")
-  afterAnalysisRequests   DocumentAnalysisRequest[]              @relation("AnalysisAfterVersion")
-  readinessChecks         DocumentReadinessCheck[]
-  readinessTransitions    DocumentReadinessLifecycleTransition[]
-  comparisonsBefore       DocumentComparison[]                   @relation("ComparisonBeforeVersion")
-  comparisonsAfter        DocumentComparison[]                   @relation("ComparisonAfterVersion")
-  criteriaProposals       DynamicCriteriaProposal[]
-  criteriaSets            DynamicCriteriaSet[]
-  progressContracts       ProgressContract[]
+  id                              String                                 @id @default(uuid()) @db.Uuid
+  documentId                      String                                 @db.Uuid
+  document                        DocumentRecord                         @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version                         Int
+  templateVersionId               String                                 @db.Uuid
+  templateVersion                 DocumentTemplateVersion                @relation("DocumentVersionTemplate", fields: [templateVersionId], references: [id], onDelete: Restrict)
+  createdById                     String                                 @db.Uuid
+  createdBy                       User                                   @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reason                          String
+  sources                         DocumentVersionSource[]
+  currentAnalysisRequests         DocumentAnalysisRequest[]              @relation("AnalysisCurrentVersion")
+  beforeAnalysisRequests          DocumentAnalysisRequest[]              @relation("AnalysisBeforeVersion")
+  afterAnalysisRequests           DocumentAnalysisRequest[]              @relation("AnalysisAfterVersion")
+  readinessChecks                 DocumentReadinessCheck[]
+  readinessTransitions            DocumentReadinessLifecycleTransition[]
+  comparisonsBefore               DocumentComparison[]                   @relation("ComparisonBeforeVersion")
+  comparisonsAfter                DocumentComparison[]                   @relation("ComparisonAfterVersion")
+  criteriaProposals               DynamicCriteriaProposal[]
+  criteriaSets                    DynamicCriteriaSet[]
+  progressContracts               ProgressContract[]
   progressContractAiDraftRequests ProgressContractAiDraftRequest[]
-  researchSourceReviews ResearchSourceReview[]
-  researchSourceReferences ResearchSourceReference[]
-  appliedLearnings AppliedLearning[]
-  createdAt               DateTime                               @default(now()) @db.Timestamptz(6)
+  researchSourceReviews           ResearchSourceReview[]
+  researchSourceReferences        ResearchSourceReference[]
+  appliedLearnings                AppliedLearning[]
+  createdAt                       DateTime                               @default(now()) @db.Timestamptz(6)
 
   @@unique([documentId, version])
   @@unique([id, documentId])
@@ -3250,21 +3258,21 @@ model ExperimentRun {
 }
 
 model ExperimentAiDraft {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  experimentId       String                   @db.Uuid
-  experiment         Experiment               @relation(fields: [experimentId], references: [id], onDelete: Restrict)
-  methodRevisionId   String                   @db.Uuid
-  methodRevision     ExperimentMethodRevision @relation(fields: [methodRevisionId], references: [id], onDelete: Restrict)
-  runId              String?                  @db.Uuid
-  run                ExperimentRun?           @relation(fields: [runId], references: [id], onDelete: Restrict)
-  kind               ExperimentAiDraftKind
-  body               Json
-  sourceReferences   Json
-  outputReference    String                   @unique
-  promptVersion      String
-  routeTrace         Json
-  aiRunId            String                   @db.Uuid
-  createdAt          DateTime                 @default(now()) @db.Timestamptz(6)
+  id               String                   @id @default(uuid()) @db.Uuid
+  experimentId     String                   @db.Uuid
+  experiment       Experiment               @relation(fields: [experimentId], references: [id], onDelete: Restrict)
+  methodRevisionId String                   @db.Uuid
+  methodRevision   ExperimentMethodRevision @relation(fields: [methodRevisionId], references: [id], onDelete: Restrict)
+  runId            String?                  @db.Uuid
+  run              ExperimentRun?           @relation(fields: [runId], references: [id], onDelete: Restrict)
+  kind             ExperimentAiDraftKind
+  body             Json
+  sourceReferences Json
+  outputReference  String                   @unique
+  promptVersion    String
+  routeTrace       Json
+  aiRunId          String                   @db.Uuid
+  createdAt        DateTime                 @default(now()) @db.Timestamptz(6)
 
   @@index([experimentId, createdAt, id])
   @@index([methodRevisionId, createdAt])
@@ -3505,23 +3513,23 @@ enum ReassignmentResolutionKind {
 }
 
 model LeaveRecord {
-  id             String              @id @default(uuid()) @db.Uuid
-  employeeId     String              @db.Uuid
-  employee       User                @relation("ContinuityLeaveEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  departmentId   String              @db.Uuid
-  state          LeaveState          @default(DRAFT)
-  startsAt       DateTime            @db.Timestamptz(6)
-  endsAt         DateTime            @db.Timestamptz(6)
-  reasonCategory LeaveReasonCategory
-  affectedScopes Json
-  version        Int                 @default(1)
-  decisions      LeaveDecision[]
-  transitions    LeaveTransition[]
+  id                String                  @id @default(uuid()) @db.Uuid
+  employeeId        String                  @db.Uuid
+  employee          User                    @relation("ContinuityLeaveEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  departmentId      String                  @db.Uuid
+  state             LeaveState              @default(DRAFT)
+  startsAt          DateTime                @db.Timestamptz(6)
+  endsAt            DateTime                @db.Timestamptz(6)
+  reasonCategory    LeaveReasonCategory
+  affectedScopes    Json
+  version           Int                     @default(1)
+  decisions         LeaveDecision[]
+  transitions       LeaveTransition[]
   eligibilityEffect LeaveEligibilityEffect?
-  handovers      HandoverRecord[]
-  delegations    Delegation[]
-  createdAt      DateTime            @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime            @updatedAt @db.Timestamptz(6)
+  handovers         HandoverRecord[]
+  delegations       Delegation[]
+  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @db.Timestamptz(6)
 
   @@index([employeeId, startsAt, endsAt])
   @@index([departmentId, state, startsAt])
@@ -3577,35 +3585,35 @@ model LeaveTransition {
 }
 
 model HandoverRecord {
-  id                String             @id @default(uuid()) @db.Uuid
-  leaveId           String             @db.Uuid
-  leave             LeaveRecord        @relation(fields: [leaveId], references: [id], onDelete: Restrict)
-  employeeId        String             @db.Uuid
-  employee          User               @relation("ContinuityHandoverEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  currentRevisionId String?            @db.Uuid
-  currentRevision   HandoverRevision?  @relation("ContinuityCurrentHandoverRevision", fields: [currentRevisionId, id], references: [id, handoverId], onDelete: Restrict)
-  revisions         HandoverRevision[] @relation("ContinuityHandoverRevisions")
+  id                String                 @id @default(uuid()) @db.Uuid
+  leaveId           String                 @db.Uuid
+  leave             LeaveRecord            @relation(fields: [leaveId], references: [id], onDelete: Restrict)
+  employeeId        String                 @db.Uuid
+  employee          User                   @relation("ContinuityHandoverEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  currentRevisionId String?                @db.Uuid
+  currentRevision   HandoverRevision?      @relation("ContinuityCurrentHandoverRevision", fields: [currentRevisionId, id], references: [id, handoverId], onDelete: Restrict)
+  revisions         HandoverRevision[]     @relation("ContinuityHandoverRevisions")
   confirmations     HandoverConfirmation[]
-  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  createdAt         DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime               @updatedAt @db.Timestamptz(6)
 
   @@unique([leaveId, employeeId])
   @@unique([currentRevisionId, id])
 }
 
 model HandoverRevision {
-  id           String          @id @default(uuid()) @db.Uuid
-  handoverId   String          @db.Uuid
-  handover     HandoverRecord  @relation("ContinuityHandoverRevisions", fields: [handoverId], references: [id], onDelete: Restrict)
-  currentFor   HandoverRecord? @relation("ContinuityCurrentHandoverRevision")
-  revision     Int
-  authorId     String          @db.Uuid
-  author       User            @relation("ContinuityHandoverRevisionAuthor", fields: [authorId], references: [id], onDelete: Restrict)
-  auditEventId String          @db.Uuid
-  items        HandoverItem[]
+  id            String                 @id @default(uuid()) @db.Uuid
+  handoverId    String                 @db.Uuid
+  handover      HandoverRecord         @relation("ContinuityHandoverRevisions", fields: [handoverId], references: [id], onDelete: Restrict)
+  currentFor    HandoverRecord?        @relation("ContinuityCurrentHandoverRevision")
+  revision      Int
+  authorId      String                 @db.Uuid
+  author        User                   @relation("ContinuityHandoverRevisionAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  auditEventId  String                 @db.Uuid
+  items         HandoverItem[]
   confirmations HandoverConfirmation[]
-  delegations  Delegation[]
-  createdAt    DateTime        @default(now()) @db.Timestamptz(6)
+  delegations   Delegation[]
+  createdAt     DateTime               @default(now()) @db.Timestamptz(6)
 
   @@unique([handoverId, revision])
   @@unique([id, handoverId])
@@ -3731,17 +3739,17 @@ model DelegateConfirmation {
 }
 
 model DelegationAccessGap {
-  id           String             @id @default(uuid()) @db.Uuid
-  delegationId String             @db.Uuid
-  delegation   Delegation         @relation(fields: [delegationId], references: [id], onDelete: Restrict)
-  delegateId   String             @db.Uuid
-  delegate     User               @relation("ContinuityAccessGapReporter", fields: [delegateId], references: [id], onDelete: Restrict)
+  id           String                         @id @default(uuid()) @db.Uuid
+  delegationId String                         @db.Uuid
+  delegation   Delegation                     @relation(fields: [delegationId], references: [id], onDelete: Restrict)
+  delegateId   String                         @db.Uuid
+  delegate     User                           @relation("ContinuityAccessGapReporter", fields: [delegateId], references: [id], onDelete: Restrict)
   description  String
-  state        DelegationGapState @default(OPEN)
-  auditEventId String             @db.Uuid
-  reportedAt   DateTime           @db.Timestamptz(6)
-  resolvedAt   DateTime?          @db.Timestamptz(6)
-  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  state        DelegationGapState             @default(OPEN)
+  auditEventId String                         @db.Uuid
+  reportedAt   DateTime                       @db.Timestamptz(6)
+  resolvedAt   DateTime?                      @db.Timestamptz(6)
+  createdAt    DateTime                       @default(now()) @db.Timestamptz(6)
   resolution   DelegationAccessGapResolution?
 
   @@index([delegationId, state, reportedAt])
@@ -3761,13 +3769,13 @@ model DelegationAccessGapResolution {
 }
 
 model ReturnHandover {
-  id                  String       @id @default(uuid()) @db.Uuid
-  delegationId        String       @db.Uuid
-  delegation          Delegation   @relation(fields: [delegationId], references: [id], onDelete: Restrict)
-  actingOwnerId       String       @db.Uuid
-  actingOwner         User         @relation("ContinuityReturnActingOwner", fields: [actingOwnerId], references: [id], onDelete: Restrict)
-  originalOwnerId     String       @db.Uuid
-  originalOwner       User         @relation("ContinuityReturnOriginalOwner", fields: [originalOwnerId], references: [id], onDelete: Restrict)
+  id                  String              @id @default(uuid()) @db.Uuid
+  delegationId        String              @db.Uuid
+  delegation          Delegation          @relation(fields: [delegationId], references: [id], onDelete: Restrict)
+  actingOwnerId       String              @db.Uuid
+  actingOwner         User                @relation("ContinuityReturnActingOwner", fields: [actingOwnerId], references: [id], onDelete: Restrict)
+  originalOwnerId     String              @db.Uuid
+  originalOwner       User                @relation("ContinuityReturnOriginalOwner", fields: [originalOwnerId], references: [id], onDelete: Restrict)
   completedWork       String
   decisionsAndChanges String
   openWork            String
@@ -3775,14 +3783,14 @@ model ReturnHandover {
   state               ReturnHandoverState @default(DRAFT)
   version             Int                 @default(1)
   choice              ReturnChoice?
-  confirmedById       String?      @db.Uuid
-  confirmedBy         User?        @relation("ContinuityReturnConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
-  confirmedAt         DateTime?     @db.Timestamptz(6)
-  finalizedById       String?       @db.Uuid
-  finalizedBy         User?         @relation("ContinuityReturnFinalizer", fields: [finalizedById], references: [id], onDelete: Restrict)
-  finalizedAt         DateTime?     @db.Timestamptz(6)
-  auditEventId        String       @db.Uuid
-  createdAt           DateTime     @default(now()) @db.Timestamptz(6)
+  confirmedById       String?             @db.Uuid
+  confirmedBy         User?               @relation("ContinuityReturnConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  confirmedAt         DateTime?           @db.Timestamptz(6)
+  finalizedById       String?             @db.Uuid
+  finalizedBy         User?               @relation("ContinuityReturnFinalizer", fields: [finalizedById], references: [id], onDelete: Restrict)
+  finalizedAt         DateTime?           @db.Timestamptz(6)
+  auditEventId        String              @db.Uuid
+  createdAt           DateTime            @default(now()) @db.Timestamptz(6)
 
   @@index([delegationId, createdAt])
 }
@@ -3879,18 +3887,18 @@ enum RubricCriterionKind {
 }
 
 model RubricVersion {
-  id             String         @id @default(uuid()) @db.Uuid
-  organizationId String         @db.Uuid
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  version        String
-  status         RubricStatus   @default(draft)
-  activatedAt    DateTime?      @db.Timestamptz(6)
-  locales        RubricLocale[]
-  evaluationTemplateVersions EvaluationTemplateVersion[]
-  employeeEvaluationCycleSnapshots EmployeeEvaluationCycleSnapshot[]
+  id                                String                             @id @default(uuid()) @db.Uuid
+  organizationId                    String                             @db.Uuid
+  organization                      Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  version                           String
+  status                            RubricStatus                       @default(draft)
+  activatedAt                       DateTime?                          @db.Timestamptz(6)
+  locales                           RubricLocale[]
+  evaluationTemplateVersions        EvaluationTemplateVersion[]
+  employeeEvaluationCycleSnapshots  EmployeeEvaluationCycleSnapshot[]
   managerEvaluationTemplateVersions ManagerEvaluationTemplateVersion[]
-  managerEvaluationCycleSnapshots ManagerEvaluationCycleSnapshot[]
-  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
+  managerEvaluationCycleSnapshots   ManagerEvaluationCycleSnapshot[]
+  createdAt                         DateTime                           @default(now()) @db.Timestamptz(6)
 
   @@unique([organizationId, version])
   @@index([organizationId, status])
@@ -3930,21 +3938,21 @@ model RubricSection {
 }
 
 model RubricCriterion {
-  id              String              @id @default(uuid()) @db.Uuid
-  rubricLocaleId  String              @db.Uuid
-  rubricLocale    RubricLocale        @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
-  sectionId       String?             @db.Uuid
-  section         RubricSection?      @relation(fields: [sectionId, rubricLocaleId], references: [id, rubricLocaleId], onDelete: Restrict)
-  stableId        String
-  kind            RubricCriterionKind
-  title           String
-  assessmentBasis String?
-  internalWeight  Int?
-  content         Json
-  displayOrder    Int
-  anchors         RubricAnchor[]
+  id                        String                       @id @default(uuid()) @db.Uuid
+  rubricLocaleId            String                       @db.Uuid
+  rubricLocale              RubricLocale                 @relation(fields: [rubricLocaleId], references: [id], onDelete: Restrict)
+  sectionId                 String?                      @db.Uuid
+  section                   RubricSection?               @relation(fields: [sectionId, rubricLocaleId], references: [id, rubricLocaleId], onDelete: Restrict)
+  stableId                  String
+  kind                      RubricCriterionKind
+  title                     String
+  assessmentBasis           String?
+  internalWeight            Int?
+  content                   Json
+  displayOrder              Int
+  anchors                   RubricAnchor[]
   managerEvaluationCriteria ManagerEvaluationCriterion[]
-  createdAt       DateTime            @default(now()) @db.Timestamptz(6)
+  createdAt                 DateTime                     @default(now()) @db.Timestamptz(6)
 
   @@unique([rubricLocaleId, stableId])
   @@unique([rubricLocaleId, displayOrder])
@@ -4111,66 +4119,66 @@ model AiOutputSchemaArtifact {
 }
 
 model AiRun {
-  id                     String                          @id @default(uuid()) @db.Uuid
-  routeKey               String
-  routeId                String                          @db.Uuid
-  route                  AiRoute                         @relation(fields: [routeId, routeKey, routeLevel, scopeId], references: [id, routeKey, level, scopeId], onDelete: Restrict)
-  routeConfigId          String                          @db.Uuid
-  routeConfigVersion     Int
-  routeConfig            AiRouteConfig                   @relation(fields: [routeConfigId, routeId, routeConfigVersion], references: [id, routeId, version], onDelete: Restrict)
-  routeLevel             ScopeType
-  scopeId                String                          @db.Uuid
-  routeConfigProviderId  String                          @db.Uuid
-  providerConfigId       String                          @db.Uuid
-  providerConfigVersion  Int
-  routeConfigProvider    AiRouteConfigProvider           @relation(fields: [routeConfigProviderId, routeConfigId, providerConfigId, providerConfigVersion], references: [id, routeConfigId, providerConfigId, providerConfigVersion], onDelete: Restrict)
-  projectScopeId         String?                         @db.Uuid
-  projectScopeType       ScopeType?
-  projectScope           AuthorizationScope?             @relation("AiRunProjectScope", fields: [projectScopeId, projectScopeType], references: [id, scopeType], onDelete: Restrict)
-  departmentScopeId      String?                         @db.Uuid
-  departmentScopeType    ScopeType?
-  departmentScope        AuthorizationScope?             @relation("AiRunDepartmentScope", fields: [departmentScopeId, departmentScopeType], references: [id, scopeType], onDelete: Restrict)
-  classification         AiDataClassification
-  inputReference         String
-  inputSchemaVersion     String
-  outputSchemaVersion    String
-  outputSchemaArtifactId String                          @db.Uuid
-  outputSchemaHash       String
-  outputSchemaArtifact   AiOutputSchemaArtifact          @relation(fields: [outputSchemaArtifactId, routeKey, outputSchemaVersion, outputSchemaHash], references: [id, routeKey, version, schemaHash], onDelete: Restrict)
-  promptTemplateVersion  String
-  sourceReferences       Json
-  outputReference        String?
-  startedAt              DateTime                        @db.Timestamptz(6)
-  completedAt            DateTime                        @db.Timestamptz(6)
-  latencyMs              Int
-  usage                  Json?
-  costUsd                Float?
-  state                  AiRunState
-  errorCategory          String?
-  fallbackChain          Json
-  humanApprovalState     AiHumanApprovalState
-  correlationId          String                          @db.Uuid
-  validationIssueCodes   Json
-  updateDraftRevisions   StructuredUpdateDraftRevision[]
-  evidenceRevisions      EvidenceRevision[]
-  progressContractAiDraftRequests ProgressContractAiDraftRequest[]
-  contextAnalyses        ContextAnalysis[]
-  projectLinkSuggestions ProjectLinkSuggestion[]
-  taskDrafts             TaskDraft[]
-  voiceSessions          VoiceUpdateSession[]          @relation("VoiceSessionAiRun")
-  voiceTranscriptRevisions VoiceTranscriptRevision[]   @relation("VoiceTranscriptRevisionAiRun")
-  researchRevisions ResearchRevision[] @relation("ResearchRevisionAiRun")
-  researchSourceReviewRevisions ResearchSourceReviewRevision[] @relation("ResearchSourceReviewRevisionAiRun")
-  experimentMethodRevisions ExperimentMethodRevision[] @relation("ExperimentMethodRevisionAiRun")
-  experimentConclusions ExperimentConclusion[] @relation("ExperimentConclusionAiRun")
-  researchConclusions ResearchConclusion[] @relation("ResearchConclusionAiRun")
-  assessmentRevisions AssessmentRevision[] @relation("AssessmentRevisionAiRun")
+  id                                String                             @id @default(uuid()) @db.Uuid
+  routeKey                          String
+  routeId                           String                             @db.Uuid
+  route                             AiRoute                            @relation(fields: [routeId, routeKey, routeLevel, scopeId], references: [id, routeKey, level, scopeId], onDelete: Restrict)
+  routeConfigId                     String                             @db.Uuid
+  routeConfigVersion                Int
+  routeConfig                       AiRouteConfig                      @relation(fields: [routeConfigId, routeId, routeConfigVersion], references: [id, routeId, version], onDelete: Restrict)
+  routeLevel                        ScopeType
+  scopeId                           String                             @db.Uuid
+  routeConfigProviderId             String                             @db.Uuid
+  providerConfigId                  String                             @db.Uuid
+  providerConfigVersion             Int
+  routeConfigProvider               AiRouteConfigProvider              @relation(fields: [routeConfigProviderId, routeConfigId, providerConfigId, providerConfigVersion], references: [id, routeConfigId, providerConfigId, providerConfigVersion], onDelete: Restrict)
+  projectScopeId                    String?                            @db.Uuid
+  projectScopeType                  ScopeType?
+  projectScope                      AuthorizationScope?                @relation("AiRunProjectScope", fields: [projectScopeId, projectScopeType], references: [id, scopeType], onDelete: Restrict)
+  departmentScopeId                 String?                            @db.Uuid
+  departmentScopeType               ScopeType?
+  departmentScope                   AuthorizationScope?                @relation("AiRunDepartmentScope", fields: [departmentScopeId, departmentScopeType], references: [id, scopeType], onDelete: Restrict)
+  classification                    AiDataClassification
+  inputReference                    String
+  inputSchemaVersion                String
+  outputSchemaVersion               String
+  outputSchemaArtifactId            String                             @db.Uuid
+  outputSchemaHash                  String
+  outputSchemaArtifact              AiOutputSchemaArtifact             @relation(fields: [outputSchemaArtifactId, routeKey, outputSchemaVersion, outputSchemaHash], references: [id, routeKey, version, schemaHash], onDelete: Restrict)
+  promptTemplateVersion             String
+  sourceReferences                  Json
+  outputReference                   String?
+  startedAt                         DateTime                           @db.Timestamptz(6)
+  completedAt                       DateTime                           @db.Timestamptz(6)
+  latencyMs                         Int
+  usage                             Json?
+  costUsd                           Float?
+  state                             AiRunState
+  errorCategory                     String?
+  fallbackChain                     Json
+  humanApprovalState                AiHumanApprovalState
+  correlationId                     String                             @db.Uuid
+  validationIssueCodes              Json
+  updateDraftRevisions              StructuredUpdateDraftRevision[]
+  evidenceRevisions                 EvidenceRevision[]
+  progressContractAiDraftRequests   ProgressContractAiDraftRequest[]
+  contextAnalyses                   ContextAnalysis[]
+  projectLinkSuggestions            ProjectLinkSuggestion[]
+  taskDrafts                        TaskDraft[]
+  voiceSessions                     VoiceUpdateSession[]               @relation("VoiceSessionAiRun")
+  voiceTranscriptRevisions          VoiceTranscriptRevision[]          @relation("VoiceTranscriptRevisionAiRun")
+  researchRevisions                 ResearchRevision[]                 @relation("ResearchRevisionAiRun")
+  researchSourceReviewRevisions     ResearchSourceReviewRevision[]     @relation("ResearchSourceReviewRevisionAiRun")
+  experimentMethodRevisions         ExperimentMethodRevision[]         @relation("ExperimentMethodRevisionAiRun")
+  experimentConclusions             ExperimentConclusion[]             @relation("ExperimentConclusionAiRun")
+  researchConclusions               ResearchConclusion[]               @relation("ResearchConclusionAiRun")
+  assessmentRevisions               AssessmentRevision[]               @relation("AssessmentRevisionAiRun")
   managerEvaluationSummaryRevisions ManagerEvaluationSummaryRevision[] @relation("ManagerEvaluationSummaryAiRun")
-  coachingInsightRevisions CoachingInsightRevision[]
-  createdAt              DateTime                        @default(now()) @db.Timestamptz(6)
+  coachingInsightRevisions          CoachingInsightRevision[]
+  createdAt                         DateTime                           @default(now()) @db.Timestamptz(6)
 
-  @@index([routeId, routeConfigVersion, createdAt])
   @@unique([id, outputSchemaVersion, promptTemplateVersion])
+  @@index([routeId, routeConfigVersion, createdAt])
   @@index([routeKey, createdAt])
   @@index([state, createdAt])
   @@index([scopeId, createdAt])
@@ -4327,32 +4335,32 @@ model EvaluationTemplateItemLocale {
 }
 
 model EmployeeEvaluationCycle {
-  id                String                              @id @default(uuid()) @db.Uuid
-  idempotencyKey    String                              @unique @db.Uuid
-  departmentId      String                              @db.Uuid
-  department        Department                          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  templateVersionId String                              @db.Uuid
-  templateVersion   EvaluationTemplateVersion           @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
-  sequence          Int
-  cycleType         EmployeeEvaluationCycleType
-  state             EmployeeEvaluationCycleState        @default(DRAFT)
-  visibilityMode    FeedbackVisibilityMode              @default(identified)
-  startsAt          DateTime                            @db.Timestamptz(6)
-  endsAt            DateTime                            @db.Timestamptz(6)
-  schemaVersion     Int                                 @default(1)
-  version           Int                                 @default(1)
-  createdById       String                              @db.Uuid
-  createdBy         User                                @relation("EmployeeEvaluationCycleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  openedAt          DateTime?                           @db.Timestamptz(6)
-  closedAt          DateTime?                           @db.Timestamptz(6)
-  cancelledAt       DateTime?                           @db.Timestamptz(6)
-  snapshot          EmployeeEvaluationCycleSnapshot?
-  assignments       EvaluationAssignment[]
-  transitions       EmployeeEvaluationCycleTransition[]
-  finalSnapshots    FinalEvaluationSnapshot[]
+  id                     String                              @id @default(uuid()) @db.Uuid
+  idempotencyKey         String                              @unique @db.Uuid
+  departmentId           String                              @db.Uuid
+  department             Department                          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  templateVersionId      String                              @db.Uuid
+  templateVersion        EvaluationTemplateVersion           @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  sequence               Int
+  cycleType              EmployeeEvaluationCycleType
+  state                  EmployeeEvaluationCycleState        @default(DRAFT)
+  visibilityMode         FeedbackVisibilityMode              @default(identified)
+  startsAt               DateTime                            @db.Timestamptz(6)
+  endsAt                 DateTime                            @db.Timestamptz(6)
+  schemaVersion          Int                                 @default(1)
+  version                Int                                 @default(1)
+  createdById            String                              @db.Uuid
+  createdBy              User                                @relation("EmployeeEvaluationCycleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  openedAt               DateTime?                           @db.Timestamptz(6)
+  closedAt               DateTime?                           @db.Timestamptz(6)
+  cancelledAt            DateTime?                           @db.Timestamptz(6)
+  snapshot               EmployeeEvaluationCycleSnapshot?
+  assignments            EvaluationAssignment[]
+  transitions            EmployeeEvaluationCycleTransition[]
+  finalSnapshots         FinalEvaluationSnapshot[]
   managerEvaluationCycle ManagerEvaluationCycle?
-  createdAt         DateTime                            @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime                            @updatedAt @db.Timestamptz(6)
+  createdAt              DateTime                            @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                            @updatedAt @db.Timestamptz(6)
 
   @@unique([departmentId, sequence])
   @@index([departmentId, state, startsAt])
@@ -4388,27 +4396,27 @@ model EmployeeEvaluationCycleSnapshot {
 }
 
 model EvaluationAssignment {
-  id                     String                             @id @default(uuid()) @db.Uuid
-  cycleId                String                             @db.Uuid
-  cycle                  EmployeeEvaluationCycle            @relation(fields: [cycleId], references: [id], onDelete: Restrict)
-  employeeId             String                             @db.Uuid
-  employee               User                               @relation("EvaluationAssignmentEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  managerId              String                             @db.Uuid
-  manager                User                               @relation("EvaluationAssignmentManager", fields: [managerId], references: [id], onDelete: Restrict)
-  eligibilityState       EmployeeEvaluationEligibilityState
-  eligibilityReason      String
-  eligibilityEffectiveAt DateTime                           @db.Timestamptz(6)
-  version                Int                                @default(1)
-  assessments            Assessment[]
-  submissions            AssessmentSubmission[]
-  eligibilityDecisions   EvaluationEligibilityDecision[]
-  discussionEntries      EvaluationDiscussionEntry[]
-  finalDecisions         FinalEvaluationDecision[]
-  finalSnapshot          FinalEvaluationSnapshot?
-  acknowledgment         EvaluationAcknowledgment?
+  id                             String                             @id @default(uuid()) @db.Uuid
+  cycleId                        String                             @db.Uuid
+  cycle                          EmployeeEvaluationCycle            @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  employeeId                     String                             @db.Uuid
+  employee                       User                               @relation("EvaluationAssignmentEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  managerId                      String                             @db.Uuid
+  manager                        User                               @relation("EvaluationAssignmentManager", fields: [managerId], references: [id], onDelete: Restrict)
+  eligibilityState               EmployeeEvaluationEligibilityState
+  eligibilityReason              String
+  eligibilityEffectiveAt         DateTime                           @db.Timestamptz(6)
+  version                        Int                                @default(1)
+  assessments                    Assessment[]
+  submissions                    AssessmentSubmission[]
+  eligibilityDecisions           EvaluationEligibilityDecision[]
+  discussionEntries              EvaluationDiscussionEntry[]
+  finalDecisions                 FinalEvaluationDecision[]
+  finalSnapshot                  FinalEvaluationSnapshot?
+  acknowledgment                 EvaluationAcknowledgment?
   formalDevelopmentPlanRevisions FormalDevelopmentPlanRevision[]
-  createdAt              DateTime                           @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime                           @updatedAt @db.Timestamptz(6)
+  createdAt                      DateTime                           @default(now()) @db.Timestamptz(6)
+  updatedAt                      DateTime                           @updatedAt @db.Timestamptz(6)
 
   @@unique([cycleId, employeeId])
   @@index([employeeId, cycleId])
@@ -4755,6 +4763,7 @@ model ManagerEvaluationCycle {
   privateIdentityLinks      ManagerEvaluationPrivateIdentityLink[]
   createdAt                 DateTime                               @default(now()) @db.Timestamptz(6)
   updatedAt                 DateTime                               @updatedAt @db.Timestamptz(6)
+
   @@index([departmentId, state, startsAt])
   @@index([managerId, state, startsAt])
   @@index([templateVersionId])
@@ -4960,11 +4969,13 @@ enum CoachingInsightState {
   REVIEW_REQUIRED
   DECIDED
 }
+
 enum CoachingConfidence {
   SUPPORTED
   REVIEW_REQUIRED
   LIMITED
 }
+
 enum CoachingInsightDecisionKind {
   ACCEPT
   EDIT_AND_ACCEPT
@@ -4972,6 +4983,7 @@ enum CoachingInsightDecisionKind {
   REJECT
   SUPERSEDE
 }
+
 enum DevelopmentActionState {
   DRAFT
   ACCEPTED
@@ -4981,16 +4993,19 @@ enum DevelopmentActionState {
   CANCELLED
   SUPERSEDED
 }
+
 enum DevelopmentActionPrivacy {
   PRIVATE
   SHARED
 }
+
 enum ManagerSupportKind {
   COMMENT
   RESOURCE
   APPLICATION_OPPORTUNITY
   DISCUSSION_REQUEST
 }
+
 enum FormalDevelopmentPlanState {
   DRAFT
   EMPLOYEE_APPROVED
@@ -5000,255 +5015,449 @@ enum FormalDevelopmentPlanState {
   CLOSED
   WITHDRAWN
 }
+
 enum FormalPlanAgreementKind {
   EMPLOYEE_APPROVED
   MANAGER_AGREED
 }
 
 model CoachingInsight {
-  id String @id @default(uuid()) @db.Uuid
-  employeeId String @db.Uuid
-  employee User @relation("CoachingInsightEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  state CoachingInsightState @default(DRAFT)
-  currentRevisionId String? @unique @db.Uuid
-  currentRevision CoachingInsightRevision? @relation("CurrentCoachingInsightRevision", fields: [currentRevisionId, id], references: [id, insightId], onDelete: Restrict)
-  version Int @default(1)
-  schemaVersion Int @default(1)
-  revisions CoachingInsightRevision[] @relation("CoachingInsightRevisions")
-  sources CoachingInsightSource[]
-  decisions CoachingInsightDecision[]
+  id                 String                    @id @default(uuid()) @db.Uuid
+  employeeId         String                    @db.Uuid
+  employee           User                      @relation("CoachingInsightEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  state              CoachingInsightState      @default(DRAFT)
+  currentRevisionId  String?                   @unique @db.Uuid
+  currentRevision    CoachingInsightRevision?  @relation("CurrentCoachingInsightRevision", fields: [currentRevisionId, id], references: [id, insightId], onDelete: Restrict)
+  version            Int                       @default(1)
+  schemaVersion      Int                       @default(1)
+  revisions          CoachingInsightRevision[] @relation("CoachingInsightRevisions")
+  sources            CoachingInsightSource[]
+  decisions          CoachingInsightDecision[]
   developmentActions DevelopmentAction[]
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
-  @@index([employeeId, state, createdAt])
+  createdAt          DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                  @updatedAt @db.Timestamptz(6)
+
   @@unique([currentRevisionId, id])
+  @@index([employeeId, state, createdAt])
 }
 
 model CoachingInsightRevision {
-  id String @id @default(uuid()) @db.Uuid
-  insightId String @db.Uuid
-  insight CoachingInsight @relation("CoachingInsightRevisions", fields: [insightId], references: [id], onDelete: Restrict)
-  currentFor CoachingInsight? @relation("CurrentCoachingInsightRevision")
-  revision Int
-  pattern String
-  periodStartsAt DateTime @db.Timestamptz(6)
-  periodEndsAt DateTime @db.Timestamptz(6)
-  confidence CoachingConfidence
-  confidenceBasis String
-  limitations Json
-  conflicts Json
-  cannotConclude String
-  actionDraft Json?
-  promptVersion String?
+  id                  String                  @id @default(uuid()) @db.Uuid
+  insightId           String                  @db.Uuid
+  insight             CoachingInsight         @relation("CoachingInsightRevisions", fields: [insightId], references: [id], onDelete: Restrict)
+  currentFor          CoachingInsight?        @relation("CurrentCoachingInsightRevision")
+  revision            Int
+  pattern             String
+  periodStartsAt      DateTime                @db.Timestamptz(6)
+  periodEndsAt        DateTime                @db.Timestamptz(6)
+  confidence          CoachingConfidence
+  confidenceBasis     String
+  limitations         Json
+  conflicts           Json
+  cannotConclude      String
+  actionDraft         Json?
+  promptVersion       String?
   outputSchemaVersion String?
-  aiRunId String? @db.Uuid
-  aiRun AiRun? @relation(fields: [aiRunId], references: [id], onDelete: Restrict)
-  createdById String @db.Uuid
-  createdBy User @relation("CoachingInsightRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  sources CoachingInsightSource[]
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  aiRunId             String?                 @db.Uuid
+  aiRun               AiRun?                  @relation(fields: [aiRunId], references: [id], onDelete: Restrict)
+  createdById         String                  @db.Uuid
+  createdBy           User                    @relation("CoachingInsightRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  sources             CoachingInsightSource[]
+  createdAt           DateTime                @default(now()) @db.Timestamptz(6)
+
   @@unique([insightId, revision])
   @@unique([id, insightId])
   @@index([createdById, createdAt])
 }
 
 model CoachingInsightSource {
-  id String @id @default(uuid()) @db.Uuid
-  insightId String @db.Uuid
-  insight CoachingInsight @relation(fields: [insightId], references: [id], onDelete: Restrict)
-  revisionId String @db.Uuid
-  revision CoachingInsightRevision @relation(fields: [revisionId, insightId], references: [id, insightId], onDelete: Restrict)
-  sourceId String @db.Uuid
+  id         String                  @id @default(uuid()) @db.Uuid
+  insightId  String                  @db.Uuid
+  insight    CoachingInsight         @relation(fields: [insightId], references: [id], onDelete: Restrict)
+  revisionId String                  @db.Uuid
+  revision   CoachingInsightRevision @relation(fields: [revisionId, insightId], references: [id, insightId], onDelete: Restrict)
+  sourceId   String                  @db.Uuid
   sourceKind String
-  excerpt String?
-  position Int
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  excerpt    String?
+  position   Int
+  createdAt  DateTime                @default(now()) @db.Timestamptz(6)
+
   @@unique([revisionId, sourceId])
   @@index([insightId, revisionId])
 }
 
 model CoachingInsightDecision {
-  id String @id @default(uuid()) @db.Uuid
-  idempotencyKey String @unique @db.Uuid
-  insightId String @db.Uuid
-  insight CoachingInsight @relation(fields: [insightId], references: [id], onDelete: Restrict)
-  employeeId String @db.Uuid
-  employee User @relation("CoachingInsightDecisionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  decision CoachingInsightDecisionKind
-  privateReason String?
-  personalNote String?
+  id               String                      @id @default(uuid()) @db.Uuid
+  idempotencyKey   String                      @unique @db.Uuid
+  insightId        String                      @db.Uuid
+  insight          CoachingInsight             @relation(fields: [insightId], references: [id], onDelete: Restrict)
+  employeeId       String                      @db.Uuid
+  employee         User                        @relation("CoachingInsightDecisionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  decision         CoachingInsightDecisionKind
+  privateReason    String?
+  personalNote     String?
   resultingVersion Int
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  @@index([insightId, createdAt])
+  createdAt        DateTime                    @default(now()) @db.Timestamptz(6)
+
   @@unique([insightId, resultingVersion])
+  @@index([insightId, createdAt])
 }
 
 model DevelopmentAction {
-  id String @id @default(uuid()) @db.Uuid
-  employeeId String @db.Uuid
-  employee User @relation("DevelopmentActionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  insightId String? @db.Uuid
-  insight CoachingInsight? @relation(fields: [insightId], references: [id], onDelete: Restrict)
-  privacy DevelopmentActionPrivacy @default(PRIVATE)
-  state DevelopmentActionState @default(DRAFT)
-  currentRevisionId String? @unique @db.Uuid
-  currentRevision DevelopmentActionRevision? @relation("CurrentDevelopmentActionRevision", fields: [currentRevisionId, id], references: [id, actionId], onDelete: Restrict)
-  version Int @default(1)
-  schemaVersion Int @default(1)
-  revisions DevelopmentActionRevision[] @relation("DevelopmentActionRevisions")
-  transitions DevelopmentActionTransition[]
-  supportEntries ManagerSupportEntry[]
-  formalPlans FormalDevelopmentPlan[]
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
-  @@index([employeeId, privacy, state, createdAt])
+  id                String                        @id @default(uuid()) @db.Uuid
+  employeeId        String                        @db.Uuid
+  employee          User                          @relation("DevelopmentActionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  insightId         String?                       @db.Uuid
+  insight           CoachingInsight?              @relation(fields: [insightId], references: [id], onDelete: Restrict)
+  privacy           DevelopmentActionPrivacy      @default(PRIVATE)
+  state             DevelopmentActionState        @default(DRAFT)
+  currentRevisionId String?                       @unique @db.Uuid
+  currentRevision   DevelopmentActionRevision?    @relation("CurrentDevelopmentActionRevision", fields: [currentRevisionId, id], references: [id, actionId], onDelete: Restrict)
+  version           Int                           @default(1)
+  schemaVersion     Int                           @default(1)
+  revisions         DevelopmentActionRevision[]   @relation("DevelopmentActionRevisions")
+  transitions       DevelopmentActionTransition[]
+  supportEntries    ManagerSupportEntry[]
+  formalPlans       FormalDevelopmentPlan[]
+  createdAt         DateTime                      @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                      @updatedAt @db.Timestamptz(6)
+
   @@unique([currentRevisionId, id])
+  @@index([employeeId, privacy, state, createdAt])
 }
 
 model DevelopmentActionRevision {
-  id String @id @default(uuid()) @db.Uuid
-  actionId String @db.Uuid
-  action DevelopmentAction @relation("DevelopmentActionRevisions", fields: [actionId], references: [id], onDelete: Restrict)
-  currentFor DevelopmentAction? @relation("CurrentDevelopmentActionRevision")
-  idempotencyKey String? @unique @db.Uuid
-  revision Int
-  title String
-  objective String
-  expectedBenefit String
-  activity String
+  id                           String             @id @default(uuid()) @db.Uuid
+  actionId                     String             @db.Uuid
+  action                       DevelopmentAction  @relation("DevelopmentActionRevisions", fields: [actionId], references: [id], onDelete: Restrict)
+  currentFor                   DevelopmentAction? @relation("CurrentDevelopmentActionRevision")
+  idempotencyKey               String?            @unique @db.Uuid
+  revision                     Int
+  title                        String
+  objective                    String
+  expectedBenefit              String
+  activity                     String
   completionEvidenceDefinition String
-  targetDate DateTime? @db.Timestamptz(6)
-  projectId String? @db.Uuid
-  researchId String? @db.Uuid
-  workItemId String? @db.Uuid
-  employeeSelectedContext String?
-  createdById String @db.Uuid
-  createdBy User @relation("DevelopmentActionRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  targetDate                   DateTime?          @db.Timestamptz(6)
+  projectId                    String?            @db.Uuid
+  researchId                   String?            @db.Uuid
+  workItemId                   String?            @db.Uuid
+  employeeSelectedContext      String?
+  createdById                  String             @db.Uuid
+  createdBy                    User               @relation("DevelopmentActionRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt                    DateTime           @default(now()) @db.Timestamptz(6)
+
   @@unique([actionId, revision])
   @@unique([id, actionId])
 }
 
 model DevelopmentActionTransition {
-  id String @id @default(uuid()) @db.Uuid
-  idempotencyKey String @unique @db.Uuid
-  actionId String @db.Uuid
-  action DevelopmentAction @relation(fields: [actionId], references: [id], onDelete: Restrict)
-  fromState DevelopmentActionState
-  toState DevelopmentActionState
-  fromPrivacy DevelopmentActionPrivacy
-  toPrivacy DevelopmentActionPrivacy
-  actorId String @db.Uuid
-  actor User @relation("DevelopmentActionTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  id               String                   @id @default(uuid()) @db.Uuid
+  idempotencyKey   String                   @unique @db.Uuid
+  actionId         String                   @db.Uuid
+  action           DevelopmentAction        @relation(fields: [actionId], references: [id], onDelete: Restrict)
+  fromState        DevelopmentActionState
+  toState          DevelopmentActionState
+  fromPrivacy      DevelopmentActionPrivacy
+  toPrivacy        DevelopmentActionPrivacy
+  actorId          String                   @db.Uuid
+  actor            User                     @relation("DevelopmentActionTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
   resultingVersion Int
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  @@index([actionId, createdAt])
+  createdAt        DateTime                 @default(now()) @db.Timestamptz(6)
+
   @@unique([actionId, resultingVersion])
+  @@index([actionId, createdAt])
 }
 
 model ManagerSupportEntry {
-  id String @id @default(uuid()) @db.Uuid
-  idempotencyKey String @unique @db.Uuid
-  actionId String @db.Uuid
-  action DevelopmentAction @relation(fields: [actionId], references: [id], onDelete: Restrict)
-  managerId String @db.Uuid
-  manager User @relation("ManagerSupportManager", fields: [managerId], references: [id], onDelete: Restrict)
-  kind ManagerSupportKind
-  body String
-  resourceUrl String?
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  id             String             @id @default(uuid()) @db.Uuid
+  idempotencyKey String             @unique @db.Uuid
+  actionId       String             @db.Uuid
+  action         DevelopmentAction  @relation(fields: [actionId], references: [id], onDelete: Restrict)
+  managerId      String             @db.Uuid
+  manager        User               @relation("ManagerSupportManager", fields: [managerId], references: [id], onDelete: Restrict)
+  kind           ManagerSupportKind
+  body           String
+  resourceUrl    String?
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+
   @@index([actionId, createdAt])
 }
 
 model FormalDevelopmentPlan {
-  id String @id @default(uuid()) @db.Uuid
-  employeeId String @db.Uuid
-  employee User @relation("FormalPlanEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  managerId String @db.Uuid
-  manager User @relation("FormalPlanManager", fields: [managerId], references: [id], onDelete: Restrict)
-  actionId String? @db.Uuid
-  action DevelopmentAction? @relation(fields: [actionId], references: [id], onDelete: Restrict)
-  idempotencyKey String? @unique @db.Uuid
-  state FormalDevelopmentPlanState @default(DRAFT)
-  currentRevisionId String? @unique @db.Uuid
-  currentRevision FormalDevelopmentPlanRevision? @relation("CurrentFormalDevelopmentPlanRevision", fields: [currentRevisionId, id], references: [id, planId], onDelete: Restrict)
-  version Int @default(1)
-  schemaVersion Int @default(1)
-  revisions FormalDevelopmentPlanRevision[] @relation("FormalDevelopmentPlanRevisions")
-  agreements FormalDevelopmentPlanAgreement[]
-  transitions FormalDevelopmentPlanTransition[]
-  evidenceLinks FormalDevelopmentPlanEvidenceLink[]
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  id                String                              @id @default(uuid()) @db.Uuid
+  employeeId        String                              @db.Uuid
+  employee          User                                @relation("FormalPlanEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  managerId         String                              @db.Uuid
+  manager           User                                @relation("FormalPlanManager", fields: [managerId], references: [id], onDelete: Restrict)
+  actionId          String?                             @db.Uuid
+  action            DevelopmentAction?                  @relation(fields: [actionId], references: [id], onDelete: Restrict)
+  idempotencyKey    String?                             @unique @db.Uuid
+  state             FormalDevelopmentPlanState          @default(DRAFT)
+  currentRevisionId String?                             @unique @db.Uuid
+  currentRevision   FormalDevelopmentPlanRevision?      @relation("CurrentFormalDevelopmentPlanRevision", fields: [currentRevisionId, id], references: [id, planId], onDelete: Restrict)
+  version           Int                                 @default(1)
+  schemaVersion     Int                                 @default(1)
+  revisions         FormalDevelopmentPlanRevision[]     @relation("FormalDevelopmentPlanRevisions")
+  agreements        FormalDevelopmentPlanAgreement[]
+  transitions       FormalDevelopmentPlanTransition[]
+  evidenceLinks     FormalDevelopmentPlanEvidenceLink[]
+  createdAt         DateTime                            @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                            @updatedAt @db.Timestamptz(6)
+
+  @@unique([currentRevisionId, id])
   @@index([employeeId, state, createdAt])
   @@index([managerId, state, createdAt])
-  @@unique([currentRevisionId, id])
 }
 
 model FormalDevelopmentPlanRevision {
-  id String @id @default(uuid()) @db.Uuid
-  planId String @db.Uuid
-  plan FormalDevelopmentPlan @relation("FormalDevelopmentPlanRevisions", fields: [planId], references: [id], onDelete: Restrict)
-  currentFor FormalDevelopmentPlan? @relation("CurrentFormalDevelopmentPlanRevision")
-  idempotencyKey String? @unique @db.Uuid
-  revision Int
-  developmentArea String
-  reason String
-  expectedBehavior String
-  activities Json
-  followUpOwnerId String @db.Uuid
-  targetDate DateTime? @db.Timestamptz(6)
+  id                           String                           @id @default(uuid()) @db.Uuid
+  planId                       String                           @db.Uuid
+  plan                         FormalDevelopmentPlan            @relation("FormalDevelopmentPlanRevisions", fields: [planId], references: [id], onDelete: Restrict)
+  currentFor                   FormalDevelopmentPlan?           @relation("CurrentFormalDevelopmentPlanRevision")
+  idempotencyKey               String?                          @unique @db.Uuid
+  revision                     Int
+  developmentArea              String
+  reason                       String
+  expectedBehavior             String
+  activities                   Json
+  followUpOwnerId              String                           @db.Uuid
+  targetDate                   DateTime?                        @db.Timestamptz(6)
   completionEvidenceDefinition String
-  sourceEvaluationAssignmentId String? @db.Uuid
-  sourceEvaluationAssignment EvaluationAssignment? @relation(fields: [sourceEvaluationAssignmentId], references: [id], onDelete: Restrict)
-  createdById String @db.Uuid
-  createdBy User @relation("FormalPlanRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  agreements FormalDevelopmentPlanAgreement[]
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  sourceEvaluationAssignmentId String?                          @db.Uuid
+  sourceEvaluationAssignment   EvaluationAssignment?            @relation(fields: [sourceEvaluationAssignmentId], references: [id], onDelete: Restrict)
+  createdById                  String                           @db.Uuid
+  createdBy                    User                             @relation("FormalPlanRevisionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  agreements                   FormalDevelopmentPlanAgreement[]
+  createdAt                    DateTime                         @default(now()) @db.Timestamptz(6)
+
   @@unique([planId, revision])
   @@unique([id, planId])
 }
 
 model FormalDevelopmentPlanAgreement {
-  id String @id @default(uuid()) @db.Uuid
-  idempotencyKey String @unique @db.Uuid
-  planId String @db.Uuid
-  plan FormalDevelopmentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
-  revisionId String @db.Uuid
-  revision FormalDevelopmentPlanRevision @relation(fields: [revisionId, planId], references: [id, planId], onDelete: Restrict)
-  kind FormalPlanAgreementKind
-  actorId String @db.Uuid
-  actor User @relation("FormalPlanAgreementActor", fields: [actorId], references: [id], onDelete: Restrict)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  id             String                        @id @default(uuid()) @db.Uuid
+  idempotencyKey String                        @unique @db.Uuid
+  planId         String                        @db.Uuid
+  plan           FormalDevelopmentPlan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+  revisionId     String                        @db.Uuid
+  revision       FormalDevelopmentPlanRevision @relation(fields: [revisionId, planId], references: [id, planId], onDelete: Restrict)
+  kind           FormalPlanAgreementKind
+  actorId        String                        @db.Uuid
+  actor          User                          @relation("FormalPlanAgreementActor", fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt      DateTime                      @default(now()) @db.Timestamptz(6)
+
   @@unique([planId, revisionId, kind])
 }
 
 model FormalDevelopmentPlanTransition {
-  id String @id @default(uuid()) @db.Uuid
-  idempotencyKey String @unique @db.Uuid
-  planId String @db.Uuid
-  plan FormalDevelopmentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
-  fromState FormalDevelopmentPlanState
-  toState FormalDevelopmentPlanState
-  actorId String @db.Uuid
-  actor User @relation("FormalPlanTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  id               String                     @id @default(uuid()) @db.Uuid
+  idempotencyKey   String                     @unique @db.Uuid
+  planId           String                     @db.Uuid
+  plan             FormalDevelopmentPlan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  fromState        FormalDevelopmentPlanState
+  toState          FormalDevelopmentPlanState
+  actorId          String                     @db.Uuid
+  actor            User                       @relation("FormalPlanTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
   resultingVersion Int
-  reason String?
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  @@index([planId, createdAt])
+  reason           String?
+  createdAt        DateTime                   @default(now()) @db.Timestamptz(6)
+
   @@unique([planId, resultingVersion])
+  @@index([planId, createdAt])
 }
 
 model FormalDevelopmentPlanEvidenceLink {
-  id String @id @default(uuid()) @db.Uuid
-  planId String @db.Uuid
-  plan FormalDevelopmentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
-  evidenceId String @db.Uuid
-  evidence EvidenceRecord @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
-  confirmed Boolean @default(false)
-  confirmedAt DateTime? @db.Timestamptz(6)
-  confirmedById String? @db.Uuid
-  confirmedBy User? @relation("FormalPlanEvidenceConfirmedBy", fields: [confirmedById], references: [id], onDelete: Restrict)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  id            String                @id @default(uuid()) @db.Uuid
+  planId        String                @db.Uuid
+  plan          FormalDevelopmentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  evidenceId    String                @db.Uuid
+  evidence      EvidenceRecord        @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  confirmed     Boolean               @default(false)
+  confirmedAt   DateTime?             @db.Timestamptz(6)
+  confirmedById String?               @db.Uuid
+  confirmedBy   User?                 @relation("FormalPlanEvidenceConfirmedBy", fields: [confirmedById], references: [id], onDelete: Restrict)
+  createdAt     DateTime              @default(now()) @db.Timestamptz(6)
+
   @@unique([planId, evidenceId])
+}
+
+enum NotificationDeliveryState {
+  PENDING
+  READY
+  SENT
+  RETRY_SCHEDULED
+  FAILED
+  MUTED
+}
+
+enum ExportState {
+  REQUESTED
+  GENERATING
+  READY
+  FAILED
+  EXPIRED
+  REVOKED
+}
+
+model NotificationIntent {
+  id                 String                        @id @default(uuid()) @db.Uuid
+  schemaVersion      Int                           @default(1)
+  recipientId        String                        @db.Uuid
+  recipient          User                          @relation("NotificationIntentRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  category           String
+  urgency            String
+  templateVersion    Int
+  templateKey        String
+  templateArguments  Json
+  actionKind         String
+  actionResourceId   String
+  sourceEventId      String
+  sourceEventVersion Int
+  dedupeKey          String
+  channels           Json
+  deliverAfter       DateTime                      @db.Timestamptz(6)
+  inAppState         NotificationDeliveryState     @default(PENDING)
+  readAt             DateTime?                     @db.Timestamptz(6)
+  resolvedAt         DateTime?                     @db.Timestamptz(6)
+  createdAt          DateTime                      @default(now()) @db.Timestamptz(6)
+  deliveryAttempts   NotificationDeliveryAttempt[]
+
+  @@unique([recipientId, category, dedupeKey])
+  @@index([recipientId, readAt, deliverAfter])
+}
+
+model NotificationPreference {
+  id           String   @id @default(uuid()) @db.Uuid
+  recipientId  String   @db.Uuid
+  recipient    User     @relation("NotificationPreferenceRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  category     String
+  emailEnabled Boolean  @default(true)
+  version      Int      @default(1)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([recipientId, category])
+}
+
+model NotificationDeliveryAttempt {
+  id              String                    @id @default(uuid()) @db.Uuid
+  intentId        String                    @db.Uuid
+  intent          NotificationIntent        @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  channel         String
+  state           NotificationDeliveryState
+  attempt         Int
+  providerReceipt String?
+  failureCategory String?
+  nextRetryAt     DateTime?                 @db.Timestamptz(6)
+  correlationId   String
+  createdAt       DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@unique([intentId, channel, attempt])
+  @@index([state, nextRetryAt])
+}
+
+model ExportRequest {
+  id              String          @id @default(uuid()) @db.Uuid
+  schemaVersion   Int             @default(1)
+  requesterId     String          @db.Uuid
+  requester       User            @relation("ExportRequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  idempotencyKey  String          @db.Uuid
+  reportType      String
+  audience        String
+  format          String
+  locale          String
+  timezone        String
+  cycleId         String?         @db.Uuid
+  state           ExportState     @default(REQUESTED)
+  failureCategory String?
+  attemptCount    Int             @default(0)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+  manifest        ExportManifest?
+
+  @@unique([requesterId, idempotencyKey])
+  @@index([state, createdAt])
+}
+
+model ExportManifest {
+  id                String          @id @default(uuid()) @db.Uuid
+  requestId         String          @unique @db.Uuid
+  request           ExportRequest   @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  schemaVersion     Int             @default(1)
+  projectionVersion Int
+  rendererVersion   Int
+  sourceVersions    Json
+  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
+  artifact          ExportArtifact?
+}
+
+model ExportArtifact {
+  id           String              @id @default(uuid()) @db.Uuid
+  manifestId   String              @unique @db.Uuid
+  manifest     ExportManifest      @relation(fields: [manifestId], references: [id], onDelete: Restrict)
+  storageKey   String              @unique
+  contentHash  String
+  byteSize     BigInt
+  contentType  String
+  encrypted    Boolean             @default(true)
+  expiresAt    DateTime            @db.Timestamptz(6)
+  createdAt    DateTime            @default(now()) @db.Timestamptz(6)
+  accessEvents ExportAccessEvent[]
+  revocations  ExportRevocation[]
+
+  @@index([expiresAt])
+}
+
+model ExportAccessEvent {
+  id            String         @id @default(uuid()) @db.Uuid
+  artifactId    String         @db.Uuid
+  artifact      ExportArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
+  actorId       String         @db.Uuid
+  actor         User           @relation("ExportAccessActor", fields: [actorId], references: [id], onDelete: Restrict)
+  allowed       Boolean
+  reason        String
+  correlationId String
+  accessedAt    DateTime       @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@index([artifactId, accessedAt])
+}
+
+model ExportRevocation {
+  id         String         @id @default(uuid()) @db.Uuid
+  artifactId String         @db.Uuid
+  artifact   ExportArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
+  actorId    String         @db.Uuid
+  actor      User           @relation("ExportRevocationActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason     String
+  revokedAt  DateTime       @db.Timestamptz(6)
+  createdAt  DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@index([artifactId, revokedAt])
+}
+
+model AdminMutationReceipt {
+  id              String   @id @default(uuid()) @db.Uuid
+  idempotencyKey  String   @unique @db.Uuid
+  actorId         String   @db.Uuid
+  actor           User     @relation("AdminMutationActor", fields: [actorId], references: [id], onDelete: Restrict)
+  capability      String
+  ownerDomain     String
+  ownerReceiptId  String
+  expectedVersion Int
+  reason          String?
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model AdminProbeHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  dependency    String
+  state         String
+  nextActionKey String?
+  correlationId String
+  checkedAt     DateTime @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([dependency, checkedAt])
 }
