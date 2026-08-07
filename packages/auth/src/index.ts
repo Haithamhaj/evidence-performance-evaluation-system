@@ -7,6 +7,7 @@ export {
 } from "./token-validator.js";
 export {
   deactivateInternalUser,
+  deactivateInternalUserInTransaction,
   syncOidcUser,
   type UserDeactivationClient,
   type UserSyncClient,

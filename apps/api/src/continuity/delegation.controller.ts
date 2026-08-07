@@ -80,6 +80,8 @@ export class DelegationController {
       expectedVersion: input.expectedVersion,
       choice: input.choice,
       occurredAt: input.occurredAt,
+      extendedEndsAt: input.extendedEndsAt,
+      reason: input.reason,
       delegationId,
       managerId: request.principal!.userId,
       correlationId: correlation(request),

@@ -72,6 +72,20 @@ export interface OwnershipContinuityPort {
 export interface ReassignmentAuthorizationPort {
   canResolveReassignment(actorId: string, scope: OwnedScope): Promise<boolean>;
 }
+export interface AtomicOffboardingPort {
+  deactivateWithContinuity(input: {
+    administratorId: string;
+    userId: string;
+    occurredAt: string;
+    correlationId: string;
+  }): Promise<{
+    userId: string;
+    administratorId: string;
+    deactivatedAt: string;
+    preservedHistory: true;
+    reassignmentCaseIds: readonly string[];
+  }>;
+}
 
 export class OffboardingService {
   constructor(
@@ -79,10 +93,12 @@ export class OffboardingService {
     private readonly auth: AuthDeactivationPort,
     private readonly ownership: OwnershipContinuityPort,
     private readonly authorization: ReassignmentAuthorizationPort,
+    private readonly atomic?: AtomicOffboardingPort,
   ) {}
 
   async deactivate(input: unknown) {
     const parsed = Deactivate.parse(input);
+    if (this.atomic) return this.atomic.deactivateWithContinuity(parsed);
     const receipt = await this.auth.deactivate(parsed);
     const scopes = await this.ownership.listActiveOwnedScopes(parsed.userId, parsed.occurredAt);
     const cases = await this.store.transaction(async (tx) => {

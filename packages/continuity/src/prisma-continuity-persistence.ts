@@ -1,4 +1,6 @@
 /* eslint-disable no-unused-vars */
+import { databaseAuditWriter } from "@evaluation/audit";
+import { deactivateInternalUserInTransaction } from "@evaluation/auth";
 import type { DatabaseClient, DatabaseTransaction } from "@evaluation/database";
 
 import type {
@@ -125,6 +127,9 @@ export class PrismaContinuityPersistence
   expireDelegation(id: string, occurredAt: string) {
     return this.root().expireDelegation(id, occurredAt);
   }
+  extendDelegation(id: string, input: Record<string, unknown>) {
+    return this.root().extendDelegation(id, input);
+  }
   appendReturn(input: Record<string, unknown>) {
     return this.root().appendReturn(input);
   }
@@ -148,6 +153,114 @@ export class PrismaContinuityPersistence
   }
   listManagerQueue(managerId: string) {
     return this.root().listManagerQueue(managerId);
+  }
+
+  async deactivateWithContinuity(
+    input: Readonly<{
+      administratorId: string;
+      userId: string;
+      occurredAt: string;
+      correlationId: string;
+    }>,
+    afterAuthDisabled?: () => Promise<void>,
+  ) {
+    return this.client.$transaction(
+      async (transaction) => {
+        const adapter = new PrismaContinuityTransaction(transaction);
+        const existingReceipt = await transaction.deactivationReceipt.findUnique({
+          where: { idempotencyKey: input.correlationId },
+        });
+        if (existingReceipt) {
+          const existingCases = await transaction.reassignmentRequiredCase.findMany({
+            where: { formerOwnerId: input.userId },
+            select: { id: true },
+          });
+          return {
+            userId: input.userId,
+            administratorId: input.administratorId,
+            deactivatedAt: existingReceipt.deactivatedAt.toISOString(),
+            preservedHistory: true as const,
+            reassignmentCaseIds: existingCases.map(({ id }) => id),
+          };
+        }
+
+        const at = new Date(input.occurredAt);
+        const rows = await transaction.responsibilityWindow.findMany({
+          where: {
+            employeeId: input.userId,
+            responsibilityType: { in: ["original", "permanent"] },
+            startsAt: { lte: at },
+            OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+          },
+          include: {
+            project: { select: { version: true } },
+            workstream: { select: { version: true, projectId: true } },
+          },
+        });
+        const receipt = await deactivateInternalUserInTransaction(
+          transaction as never,
+          databaseAuditWriter as never,
+          input,
+        );
+        const identityAudit = await transaction.auditEvent.findFirstOrThrow({
+          where: { correlationId: input.correlationId, eventType: "identity.deactivated" },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        });
+        await transaction.deactivationReceipt.create({
+          data: {
+            idempotencyKey: input.correlationId,
+            userId: input.userId,
+            administratorId: input.administratorId,
+            preservedHistory: true,
+            auditEventId: identityAudit.id,
+            deactivatedAt: at,
+          },
+        });
+        await afterAuthDisabled?.();
+
+        const caseIds: string[] = [];
+        for (const row of rows) {
+          const scope: OwnedScope | null = row.projectId
+            ? { kind: "PROJECT", id: row.projectId, version: row.project?.version ?? 1 }
+            : row.workstreamId
+              ? {
+                  kind: "WORKSTREAM",
+                  id: row.workstreamId,
+                  ...(row.workstream?.projectId ? { projectId: row.workstream.projectId } : {}),
+                  version: row.workstream?.version ?? 1,
+                }
+              : null;
+          if (!scope) continue;
+          const audit = await adapter.appendAudit({
+            eventType: "continuity.reassignment.required",
+            actorId: input.administratorId,
+            subjectId: input.userId,
+            targetId: scope.id,
+            correlationId: input.correlationId,
+          });
+          const item = await adapter.createCaseIfMissing({
+            formerOwnerId: input.userId,
+            scope,
+            createdAt: receipt.deactivatedAt,
+            auditEventId: audit.id,
+          } as Omit<OffboardingCase, "id" | "state">);
+          await adapter.appendNotificationIntent({
+            kind: "REASSIGNMENT_REQUIRED",
+            caseId: item.id,
+            formerOwnerId: input.userId,
+          });
+          caseIds.push(item.id);
+        }
+        return {
+          userId: input.userId,
+          administratorId: input.administratorId,
+          deactivatedAt: receipt.deactivatedAt,
+          preservedHistory: true as const,
+          reassignmentCaseIds: caseIds,
+        };
+      },
+      { isolationLevel: "Serializable" },
+    );
   }
 
   async resolveCaseInTransaction(
@@ -329,6 +442,11 @@ class PrismaContinuityTransaction
         targetType: "continuity_record",
         targetId: optionalText(input.targetId) ?? actorId,
         reason: optionalText(input.reason),
+        ...(input.safeDiff !== undefined
+          ? {
+              safeDiff: input.safeDiff as never,
+            }
+          : {}),
         correlationId: text(input.correlationId),
         source: "api",
       },
@@ -463,6 +581,7 @@ class PrismaContinuityTransaction
         state: record.state,
         emergency: record.emergency,
         emergencyReason: record.emergencyReason,
+        emergencyAuditEventId: record.emergencyAuditEventId ?? null,
         version: record.version,
         periods: {
           create: { startsAt: new Date(record.startsAt), endsAt: new Date(record.endsAt) },
@@ -609,22 +728,35 @@ class PrismaContinuityTransaction
       },
     });
     for (const scope of delegation.scopes) {
-      const acting = scope.responsibilityWindow;
-      if (!acting || acting.endsAt === null || at >= acting.endsAt) continue;
+      const plannedActing = scope.responsibilityWindow;
+      if (!plannedActing) continue;
+      const scopeFilter =
+        plannedActing.projectId !== null
+          ? { projectId: plannedActing.projectId }
+          : { workstreamId: plannedActing.workstreamId! };
+      const acting = await this.db.responsibilityWindow.findFirst({
+        where: {
+          ...scopeFilter,
+          employeeId: delegation.delegateId,
+          responsibilityType: "acting",
+          relatedHandoverReference: delegation.handoverRevisionId,
+          startsAt: { lte: at },
+          endsAt: { gt: at },
+        },
+        orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+      });
+      if (!acting?.endsAt) continue;
       await this.db.responsibilityWindow.update({
         where: { id: acting.id },
         data: { endsAt: at },
       });
-      const where =
-        acting.projectId !== null
-          ? { projectId: acting.projectId }
-          : { workstreamId: acting.workstreamId! };
       await this.db.responsibilityWindow.updateMany({
         where: {
-          ...where,
+          ...scopeFilter,
           employeeId: delegation.ownerId,
           responsibilityType: "permanent",
           startsAt: acting.endsAt,
+          relatedHandoverReference: delegation.handoverRevisionId,
         },
         data: { startsAt: at },
       });
@@ -655,6 +787,73 @@ class PrismaContinuityTransaction
     return serializeReturn(row);
   }
 
+  async extendDelegation(id: string, input: Record<string, unknown>) {
+    const extendedEndsAt = new Date(text(input.extendedEndsAt));
+    const delegation = await this.db.delegation.findUniqueOrThrow({
+      where: { id },
+      include: {
+        leave: { select: { endsAt: true } },
+        periods: { orderBy: [{ endsAt: "desc" }, { id: "desc" }] },
+        scopes: {
+          where: { responsibilityWindowId: { not: null } },
+          include: { responsibilityWindow: true },
+        },
+      },
+    });
+    const currentPeriod = delegation.periods[0];
+    if (
+      delegation.state !== "ACTIVE" ||
+      !currentPeriod ||
+      extendedEndsAt <= currentPeriod.endsAt ||
+      extendedEndsAt > delegation.leave.endsAt
+    ) {
+      throw continuityConflict("DELEGATION_EXTENSION_INVALID", 409);
+    }
+
+    for (const scope of delegation.scopes) {
+      const acting = scope.responsibilityWindow;
+      if (!acting) continue;
+      const scopeWhere = acting.projectId
+        ? { projectId: acting.projectId }
+        : { workstreamId: acting.workstreamId! };
+      const shifted = await this.db.responsibilityWindow.updateMany({
+        where: {
+          ...scopeWhere,
+          employeeId: delegation.ownerId,
+          responsibilityType: "permanent",
+          startsAt: currentPeriod.endsAt,
+          relatedHandoverReference: delegation.handoverRevisionId,
+        },
+        data: { startsAt: extendedEndsAt },
+      });
+      if (shifted.count !== 1) throw continuityConflict("DELEGATION_EXTENSION_INVALID", 409);
+      await this.db.responsibilityWindow.create({
+        data: {
+          employeeId: delegation.delegateId,
+          ...scopeWhere,
+          responsibilityType: "acting",
+          startsAt: currentPeriod.endsAt,
+          endsAt: extendedEndsAt,
+          reason: text(input.reason),
+          managerDecisionById: text(input.managerId),
+          managerDecisionAt: new Date(text(input.occurredAt)),
+          managerDecisionReason: text(input.reason),
+          relatedHandoverReference: delegation.handoverRevisionId,
+          delegationType: "temporary",
+          createdById: text(input.managerId),
+        },
+      });
+    }
+    await this.db.delegationPeriod.create({
+      data: { delegationId: id, startsAt: currentPeriod.endsAt, endsAt: extendedEndsAt },
+    });
+    const updated = await this.db.delegation.updateMany({
+      where: { id, state: "ACTIVE", version: delegation.version },
+      data: { version: { increment: 1 } },
+    });
+    if (updated.count !== 1) throw continuityConflict();
+  }
+
   async confirmReturn(id: string, input: Record<string, unknown>) {
     const updated = await this.db.returnHandover.updateMany({
       where: { id, state: "DRAFT", version: number(input.expectedVersion) },
@@ -671,7 +870,11 @@ class PrismaContinuityTransaction
 
   async finalizeReturn(id: string, input: Record<string, unknown>) {
     const updated = await this.db.returnHandover.updateMany({
-      where: { id, state: "OWNER_CONFIRMED", version: number(input.expectedVersion) },
+      where: {
+        id,
+        state: { in: ["DRAFT", "OWNER_CONFIRMED"] },
+        version: number(input.expectedVersion),
+      },
       data: {
         state: "FINALIZED",
         version: { increment: 1 },

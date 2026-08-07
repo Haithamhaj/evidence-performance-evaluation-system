@@ -24,6 +24,7 @@ class MemoryReturnStore implements ReturnStore, ReturnTransaction {
   current = delegation;
   record: ReturnRecord | null = null;
   audits: Record<string, unknown>[] = [];
+  extensions: Record<string, unknown>[] = [];
   async transaction<T>(operation: (tx: ReturnTransaction) => Promise<T>) {
     return operation(this);
   }
@@ -35,6 +36,9 @@ class MemoryReturnStore implements ReturnStore, ReturnTransaction {
   }
   async expireDelegation() {
     this.current = { ...this.current, state: "RETURNED" as const };
+  }
+  async extendDelegation(_id: string, input: Record<string, unknown>) {
+    this.extensions.push(input);
   }
   async appendReturn(input: Record<string, unknown>) {
     this.record = {
@@ -72,9 +76,11 @@ class MemoryReturnStore implements ReturnStore, ReturnTransaction {
 describe("ReturnService", () => {
   it("binds acting draft, owner confirmation, and manager final choice to three principals", async () => {
     const store = new MemoryReturnStore();
-    const service = new ReturnService(store, {
-      canManageEmployee: async (actor) => actor === delegation.managerId,
-    });
+    const service = new ReturnService(
+      store,
+      { canManageEmployee: async (actor) => actor === delegation.managerId },
+      { permanentTransfer: async () => undefined },
+    );
     const draft = await service.draft({
       id: returnId,
       delegationId: delegation.id,
@@ -109,6 +115,7 @@ describe("ReturnService", () => {
         expectedVersion: confirmed.version,
         choice: "RETURN",
         occurredAt: "2026-08-12T08:00:00.000Z",
+        reason: "Owner resumed responsibility",
         correlationId,
       }),
     ).rejects.toMatchObject({ code: "AUTHZ_SCOPE" });
@@ -119,9 +126,98 @@ describe("ReturnService", () => {
       expectedVersion: confirmed.version,
       choice: "RETURN",
       occurredAt: "2026-08-12T08:00:00.000Z",
+      reason: "Owner resumed responsibility",
       correlationId,
     });
     expect(result).toMatchObject({ state: "FINALIZED", choice: "RETURN" });
     expect(store.current.state).toBe("RETURNED");
   });
+
+  it("allows the authorized manager to return authority without owner confirmation", async () => {
+    const store = new MemoryReturnStore();
+    const service = new ReturnService(
+      store,
+      { canManageEmployee: async (actor) => actor === delegation.managerId },
+      { permanentTransfer: async () => undefined },
+    );
+    const draft = await service.draft(draftInput());
+    await expect(
+      service.finalize({
+        returnId,
+        delegationId: delegation.id,
+        managerId: delegation.managerId,
+        expectedVersion: draft.version,
+        choice: "RETURN",
+        occurredAt: "2026-08-11T08:00:00.000Z",
+        reason: "Manager confirmed operational return",
+        correlationId,
+      }),
+    ).resolves.toMatchObject({ state: "FINALIZED", choice: "RETURN" });
+    expect(store.current.state).toBe("RETURNED");
+  });
+
+  it("executes extension and permanent-transfer choices instead of only storing them", async () => {
+    const store = new MemoryReturnStore();
+    const transfers: Record<string, unknown>[] = [];
+    const service = new ReturnService(
+      store,
+      { canManageEmployee: async () => true },
+      {
+        permanentTransfer: async (_delegation, input) => {
+          transfers.push(input);
+        },
+      },
+    );
+    const draft = await service.draft(draftInput());
+    await service.finalize({
+      returnId,
+      delegationId: delegation.id,
+      managerId: delegation.managerId,
+      expectedVersion: draft.version,
+      choice: "EXTEND",
+      occurredAt: "2026-08-11T08:00:00.000Z",
+      extendedEndsAt: "2026-08-12T12:00:00.000Z",
+      reason: "Coverage remains necessary",
+      correlationId,
+    });
+    expect(store.extensions).toHaveLength(1);
+    expect(store.current.state).toBe("ACTIVE");
+
+    const secondStore = new MemoryReturnStore();
+    const second = new ReturnService(
+      secondStore,
+      { canManageEmployee: async () => true },
+      {
+        permanentTransfer: async (_delegation, input) => {
+          transfers.push(input);
+        },
+      },
+    );
+    const secondReturnId = crypto.randomUUID();
+    const secondDraft = await second.draft({ ...draftInput(), id: secondReturnId });
+    await second.finalize({
+      returnId: secondReturnId,
+      delegationId: delegation.id,
+      managerId: delegation.managerId,
+      expectedVersion: secondDraft.version,
+      choice: "PERMANENT_TRANSFER",
+      occurredAt: "2026-08-11T08:00:00.000Z",
+      reason: "Approved permanent ownership",
+      correlationId,
+    });
+    expect(transfers).toHaveLength(1);
+  });
 });
+
+function draftInput() {
+  return {
+    id: returnId,
+    delegationId: delegation.id,
+    actorId: delegation.delegateId,
+    completedWork: "Completed",
+    decisionsAndChanges: "None",
+    openWork: "One item",
+    risksAndNextSteps: "Manager decision",
+    correlationId,
+  };
+}

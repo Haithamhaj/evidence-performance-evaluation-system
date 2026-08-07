@@ -117,13 +117,10 @@ function decideOwnerManagement(
   }
 
   const isPermanentOwner = hasRole(subject, ownerRole);
-  const isActingOwner = hasRole(subject, "acting_owner");
   const hasPermanentScope =
     isPermanentOwner && hasScopedRole(subject, ownerRole, scopeType, scopeId);
-  const hasActingScope =
-    isActingOwner && hasScopedRole(subject, "acting_owner", scopeType, scopeId);
-  if (!hasPermanentScope && !hasActingScope) {
-    return isPermanentOwner || isActingOwner || hasRole(subject, "manager")
+  if (!hasPermanentScope) {
+    return isPermanentOwner || hasRole(subject, "acting_owner") || hasRole(subject, "manager")
       ? deny("SCOPE_MISMATCH")
       : deny("ROLE_REQUIRED");
   }
@@ -131,9 +128,7 @@ function decideOwnerManagement(
   const permanentIsActive =
     hasPermanentScope &&
     activeResponsibility(subject, context, scopeType, scopeId, ["original", "permanent"]);
-  const actingIsActive =
-    hasActingScope && activeResponsibility(subject, context, scopeType, scopeId, ["acting"]);
-  return permanentIsActive || actingIsActive ? allow : deny("RESOURCE_STATE");
+  return permanentIsActive ? allow : deny("RESOURCE_STATE");
 }
 
 function decideContribution(
@@ -464,11 +459,19 @@ function decideExactActingAuthority(
   resource: import("./model.js").PolicyResource,
   context: import("./model.js").PolicyContext,
 ): import("./model.js").Decision {
-  if (!hasRole(subject, "acting_owner")) return deny("ROLE_REQUIRED");
   if (resource.kind !== "project" && resource.kind !== "workstream") {
     return deny("RESOURCE_STATE");
   }
   const scopeId = resource.kind === "project" ? resource.projectId : resource.workstreamId;
+  if (managerCanAccessDepartment(subject, resource.departmentId)) return allow;
+  const permanentRole = resource.kind === "project" ? "project_owner" : "workstream_owner";
+  if (
+    hasScopedRole(subject, permanentRole, resource.kind, scopeId) &&
+    activeResponsibility(subject, context, resource.kind, scopeId, ["original", "permanent"])
+  ) {
+    return allow;
+  }
+  if (!hasRole(subject, "acting_owner")) return deny("ROLE_REQUIRED");
   if (!hasScopedRole(subject, "acting_owner", resource.kind, scopeId)) {
     return deny("SCOPE_MISMATCH");
   }

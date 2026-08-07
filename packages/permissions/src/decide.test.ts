@@ -567,7 +567,7 @@ describe("authorization decision contract", () => {
     ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
-  it("allows an acting owner only during the matching responsibility window", () => {
+  it("denies broad project management to an acting owner even during the window", () => {
     expect(
       decide(
         actingOwner,
@@ -587,7 +587,7 @@ describe("authorization decision contract", () => {
           ],
         },
       ),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
   it("denies an acting owner after the responsibility window ends", () => {
@@ -610,7 +610,7 @@ describe("authorization decision contract", () => {
           ],
         },
       ),
-    ).toEqual({ allowed: false, reasonCode: "RESOURCE_STATE" });
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
   it("denies an acting owner outside the delegated scope", () => {
@@ -701,7 +701,7 @@ describe("authorization decision contract", () => {
     ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
-  it("allows a Workstream Acting Owner only during the matching responsibility window", () => {
+  it("denies broad Workstream management to an Acting Owner during the window", () => {
     expect(
       decide(
         workstreamActingOwner,
@@ -727,7 +727,7 @@ describe("authorization decision contract", () => {
           ],
         },
       ),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
   it("denies a Workstream Acting Owner after the responsibility window ends", () => {
@@ -756,7 +756,7 @@ describe("authorization decision contract", () => {
           ],
         },
       ),
-    ).toEqual({ allowed: false, reasonCode: "RESOURCE_STATE" });
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
   it("denies a Workstream Acting Owner outside the delegated scope", () => {

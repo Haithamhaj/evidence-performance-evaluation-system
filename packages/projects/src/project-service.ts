@@ -275,6 +275,7 @@ export class ProjectService {
           parsed.actor,
           parsed.projectId,
           current,
+          "project.participants.manage",
         );
         if (
           authorization.project.status === "completed" ||
@@ -381,7 +382,13 @@ export class ProjectService {
     return serializable(
       this.client,
       async (transaction) => {
-        await authorizeProjectManagement(transaction, parsed.actor, parsed.projectId, current);
+        await authorizeProjectManagement(
+          transaction,
+          parsed.actor,
+          parsed.projectId,
+          current,
+          "project.participants.manage",
+        );
         const owner = await transaction.responsibilityWindow.findFirst({
           where: {
             projectId: parsed.projectId,
@@ -458,6 +465,7 @@ export class ProjectService {
           parsed.actor,
           parsed.projectId,
           current,
+          "project.stage.close",
         );
         const activeOwner = await currentProjectOwner(transaction, parsed.projectId, current);
         assertLifecycleTransition(project.status, parsed.input.status, activeOwner !== null);
@@ -595,6 +603,7 @@ async function authorizeProjectManagement(
   actor: Readonly<{ userId: string; active: boolean }>,
   projectId: string,
   now: Date,
+  action: "project.participants.manage" | "project.stage.close",
 ) {
   const user = await transaction.user.findUnique({
     where: { id: actor.userId },
@@ -615,14 +624,17 @@ async function authorizeProjectManagement(
     where: { userId: actor.userId },
     select: { role: true, scopeType: true, scopeId: true },
   });
-  const windows = await transaction.responsibilityWindow.findMany({
-    where: { employeeId: actor.userId, projectId },
-    select: {
-      responsibilityType: true,
-      startsAt: true,
-      endsAt: true,
-    },
-  });
+  const [windows, actingAuthorities] = await Promise.all([
+    transaction.responsibilityWindow.findMany({
+      where: { employeeId: actor.userId, projectId },
+      select: {
+        responsibilityType: true,
+        startsAt: true,
+        endsAt: true,
+      },
+    }),
+    loadProjectActingAuthorities(transaction, actor.userId, projectId),
+  ]);
   if (user === null || !user.active || !actor.active) throw authorizationError("INACTIVE");
   if (project === null) throw resourceError("PROJECT_NOT_FOUND", 404);
   const departmentScope = await transaction.authorizationScope.findFirst({
@@ -632,7 +644,7 @@ async function authorizeProjectManagement(
   if (departmentScope === null) throw resourceError("PROJECT_SCOPE_INVALID", 500);
   const decision = decide(
     { subjectId: actor.userId, active: user.active, roles },
-    "project.manage",
+    action,
     { kind: "project", projectId, departmentId: departmentScope.id },
     {
       now: now.toISOString(),
@@ -644,10 +656,49 @@ async function authorizeProjectManagement(
         startsAt: window.startsAt.toISOString(),
         endsAt: window.endsAt?.toISOString() ?? null,
       })),
+      actingAuthorities,
     },
   );
   if (!decision.allowed) throw authorizationError(decision.reasonCode);
   return { project, roles, departmentScopeId: departmentScope.id };
+}
+
+async function loadProjectActingAuthorities(
+  transaction: Transaction,
+  actorId: string,
+  projectId: string,
+) {
+  const rows = await transaction.delegationScope.findMany({
+    where: {
+      projectId,
+      responsibilityWindowId: { not: null },
+      delegation: { delegateId: actorId, state: "ACTIVE" },
+    },
+    include: {
+      delegation: { include: { periods: { orderBy: [{ startsAt: "asc" }, { id: "asc" }] } } },
+      responsibilityWindow: { select: { startsAt: true, endsAt: true } },
+    },
+  });
+  return rows.flatMap((row) => {
+    const period = row.delegation.periods[0];
+    const lastPeriod = row.delegation.periods.at(-1);
+    const window = row.responsibilityWindow;
+    if (!period || !lastPeriod || !window?.endsAt) return [];
+    return [
+      {
+        delegationId: row.delegationId,
+        subjectId: actorId,
+        scopeType: "project" as const,
+        scopeId: projectId,
+        action: row.action,
+        startsAt: (period.startsAt > window.startsAt
+          ? period.startsAt
+          : window.startsAt
+        ).toISOString(),
+        endsAt: lastPeriod.endsAt.toISOString(),
+      },
+    ];
+  });
 }
 
 async function currentProjectOwner(transaction: Transaction, projectId: string, at: Date) {

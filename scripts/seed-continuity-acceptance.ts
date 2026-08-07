@@ -18,6 +18,15 @@ const ids = {
   systemScope: "e6a00000-0000-4000-8000-000000000013",
   ownerWindow: "e6a00000-0000-4000-8000-000000000014",
   return: "e6a00000-0000-4000-8000-000000000015",
+  extensionReturn: "e6a00000-0000-4000-8000-000000000016",
+  permanentReturn: "e6a00000-0000-4000-8000-000000000017",
+  emergencyProject: "e6a00000-0000-4000-8000-000000000020",
+  emergencyOwner: "e6a00000-0000-4000-8000-000000000021",
+  emergencyDelegate: "e6a00000-0000-4000-8000-000000000022",
+  emergencyLeave: "e6a00000-0000-4000-8000-000000000023",
+  emergencyHandover: "e6a00000-0000-4000-8000-000000000024",
+  emergencyDelegation: "e6a00000-0000-4000-8000-000000000025",
+  emergencyOwnerWindow: "e6a00000-0000-4000-8000-000000000026",
 } as const;
 
 export async function seedContinuityAcceptance(database: ReturnType<typeof createDatabaseClient>) {
@@ -25,8 +34,11 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
   if (
     completed?.state === "FINALIZED" &&
     (await database.reassignmentRequiredCase.count({
-      where: { formerOwnerId: ids.owner, state: "RESOLVED" },
-    })) > 0
+      where: { formerOwnerId: ids.delegate, state: "RESOLVED" },
+    })) > 0 &&
+    (await database.delegation.count({
+      where: { id: ids.emergencyDelegation, state: "EXPIRED", emergency: true },
+    })) === 1
   ) {
     return ids;
   }
@@ -67,6 +79,8 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
       [ids.manager, "continuity-manager@seed.invalid", "Continuity Manager"],
       [ids.administrator, "continuity-admin@seed.invalid", "Continuity Administrator"],
       [ids.successor, "continuity-successor@seed.invalid", "Continuity Successor"],
+      [ids.emergencyOwner, "continuity-emergency-owner@seed.invalid", "Emergency Owner"],
+      [ids.emergencyDelegate, "continuity-emergency-delegate@seed.invalid", "Emergency Delegate"],
     ] as const) {
       await tx.user.upsert({
         where: { id },
@@ -98,7 +112,37 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
       },
       update: {},
     });
-    for (const userId of [ids.owner, ids.delegate, ids.successor]) {
+    await tx.authorizationScope.upsert({
+      where: { id: ids.emergencyProject },
+      create: {
+        id: ids.emergencyProject,
+        key: "continuity-emergency-project",
+        scopeType: "project",
+        departmentId: ids.department,
+      },
+      update: {},
+    });
+    await tx.project.upsert({
+      where: { id: ids.emergencyProject },
+      create: {
+        id: ids.emergencyProject,
+        organizationId: ids.organization,
+        departmentId: ids.department,
+        authorizationScopeId: ids.emergencyProject,
+        name: "Emergency Continuity Project",
+        description: "Emergency exact-authority acceptance fixture",
+        status: "active",
+        createdById: ids.emergencyOwner,
+      },
+      update: {},
+    });
+    for (const userId of [
+      ids.owner,
+      ids.delegate,
+      ids.successor,
+      ids.emergencyOwner,
+      ids.emergencyDelegate,
+    ]) {
       await tx.roleAssignment.upsert({
         where: {
           userId_role_scopeType_scopeId: {
@@ -130,6 +174,26 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
         });
       }
     }
+    for (const userId of [ids.emergencyOwner, ids.emergencyDelegate]) {
+      const existingMember = await tx.projectMember.findFirst({
+        where: {
+          projectId: ids.emergencyProject,
+          employeeId: userId,
+          startsAt: new Date("2026-08-01T00:00:00Z"),
+        },
+      });
+      if (!existingMember) {
+        await tx.projectMember.create({
+          data: {
+            projectId: ids.emergencyProject,
+            employeeId: userId,
+            startsAt: new Date("2026-08-01T00:00:00Z"),
+            reason: "Emergency continuity acceptance",
+            createdById: ids.manager,
+          },
+        });
+      }
+    }
     await tx.roleAssignment.upsert({
       where: {
         userId_role_scopeType_scopeId: {
@@ -144,6 +208,23 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
         role: "manager",
         scopeType: "department",
         scopeId: ids.departmentScope,
+      },
+      update: {},
+    });
+    await tx.roleAssignment.upsert({
+      where: {
+        userId_role_scopeType_scopeId: {
+          userId: ids.emergencyOwner,
+          role: "project_owner",
+          scopeType: "project",
+          scopeId: ids.emergencyProject,
+        },
+      },
+      create: {
+        userId: ids.emergencyOwner,
+        role: "project_owner",
+        scopeType: "project",
+        scopeId: ids.emergencyProject,
       },
       update: {},
     });
@@ -197,6 +278,24 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
         },
       });
     }
+    if (
+      (await tx.responsibilityWindow.count({ where: { projectId: ids.emergencyProject } })) === 0
+    ) {
+      await tx.responsibilityWindow.create({
+        data: {
+          id: ids.emergencyOwnerWindow,
+          employeeId: ids.emergencyOwner,
+          projectId: ids.emergencyProject,
+          responsibilityType: "original",
+          startsAt: new Date("2026-08-01T00:00:00.000Z"),
+          reason: "Emergency continuity owner",
+          managerDecisionById: ids.manager,
+          managerDecisionAt: new Date("2026-08-01T00:00:00.000Z"),
+          managerDecisionReason: "Emergency continuity owner",
+          createdById: ids.manager,
+        },
+      });
+    }
   });
   const runtime = createDatabaseContinuityRuntime(database);
   let leaveRecord = await database.leaveRecord.findUnique({ where: { id: ids.leave } });
@@ -207,7 +306,7 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
       actorId: ids.owner,
       departmentId: ids.department,
       startsAt: "2026-08-10T08:00:00.000Z",
-      endsAt: "2026-08-12T08:00:00.000Z",
+      endsAt: "2026-08-14T08:00:00.000Z",
       reasonCategory: "PLANNED_LEAVE",
       affectedScopes: [{ kind: "PROJECT", id: ids.project }],
       correlationId: crypto.randomUUID(),
@@ -327,6 +426,56 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
       occurredAt: "2026-08-10T12:00:00.000Z",
     });
     if (!authority) throw new Error("Continuity acceptance acting authority was not activated");
+    let extensionReturn = await database.returnHandover.findUnique({
+      where: { id: ids.extensionReturn },
+    });
+    if (!extensionReturn) {
+      await runtime.returns.draft({
+        id: ids.extensionReturn,
+        delegationId: ids.delegation,
+        actorId: ids.delegate,
+        completedWork: "Maintained continuity through the initial period",
+        decisionsAndChanges: "Coverage must continue for one additional day",
+        openWork: "Complete the remaining operational handover",
+        risksAndNextSteps: "Manager extends exact authority within approved leave",
+        correlationId: crypto.randomUUID(),
+      });
+      extensionReturn = await database.returnHandover.findUniqueOrThrow({
+        where: { id: ids.extensionReturn },
+      });
+    }
+    if (extensionReturn.state === "DRAFT") {
+      await runtime.returns.finalize({
+        returnId: ids.extensionReturn,
+        delegationId: ids.delegation,
+        managerId: ids.manager,
+        expectedVersion: extensionReturn.version,
+        choice: "EXTEND",
+        occurredAt: "2026-08-11T07:00:00.000Z",
+        extendedEndsAt: "2026-08-13T08:00:00.000Z",
+        reason: "Approved leave coverage remains necessary",
+        correlationId: crypto.randomUUID(),
+      });
+    }
+    const extendedAuthority = await runtime.actingAuthority.readAt({
+      actorId: ids.delegate,
+      action: "project.update",
+      resourceId: ids.project,
+      occurredAt: "2026-08-12T12:00:00.000Z",
+    });
+    if (!extendedAuthority) throw new Error("Extended acting authority was not active");
+    if (!(await database.returnHandover.findUnique({ where: { id: ids.permanentReturn } }))) {
+      await runtime.returns.draft({
+        id: ids.permanentReturn,
+        delegationId: ids.delegation,
+        actorId: ids.delegate,
+        completedWork: "Completed the acting ownership period",
+        decisionsAndChanges: "Manager will decide permanent responsibility",
+        openWork: "Continue project ownership without interruption",
+        risksAndNextSteps: "Apply an audited permanent transfer after return",
+        correlationId: crypto.randomUUID(),
+      });
+    }
     let returnRecord = await database.returnHandover.findUnique({ where: { id: ids.return } });
     if (!returnRecord) {
       await runtime.returns.draft({
@@ -358,28 +507,150 @@ export async function seedContinuityAcceptance(database: ReturnType<typeof creat
         managerId: ids.manager,
         expectedVersion: returnRecord.version,
         choice: "RETURN",
-        occurredAt: "2026-08-11T08:00:00.000Z",
+        occurredAt: "2026-08-12T13:00:00.000Z",
+        reason: "Original owner resumed responsibility",
+        correlationId: crypto.randomUUID(),
+      });
+    }
+    const permanentReturn = await database.returnHandover.findUniqueOrThrow({
+      where: { id: ids.permanentReturn },
+    });
+    if (permanentReturn.state === "DRAFT") {
+      await runtime.returns.finalize({
+        returnId: ids.permanentReturn,
+        delegationId: ids.delegation,
+        managerId: ids.manager,
+        expectedVersion: permanentReturn.version,
+        choice: "PERMANENT_TRANSFER",
+        occurredAt: "2026-08-12T13:30:00.000Z",
+        reason: "Manager approved permanent responsibility transfer",
         correlationId: crypto.randomUUID(),
       });
     }
   }
-  const owner = await database.user.findUniqueOrThrow({ where: { id: ids.owner } });
+  const owner = await database.user.findUniqueOrThrow({ where: { id: ids.delegate } });
   if (owner.active) {
     await runtime.offboarding.deactivate({
       administratorId: ids.administrator,
-      userId: ids.owner,
-      occurredAt: "2026-08-11T12:00:00.000Z",
+      userId: ids.delegate,
+      occurredAt: "2026-08-12T14:00:00.000Z",
       correlationId: crypto.randomUUID(),
     });
   }
   const queue = await runtime.offboarding.managerQueue(ids.manager);
-  for (const item of queue.filter((candidate) => candidate.formerOwnerId === ids.owner)) {
+  for (const item of queue.filter((candidate) => candidate.formerOwnerId === ids.delegate)) {
     await runtime.offboarding.resolve({
       caseId: item.id,
       actorId: ids.manager,
       successorId: ids.successor,
-      effectiveAt: "2026-08-11T13:00:00.000Z",
+      effectiveAt: "2026-08-12T15:00:00.000Z",
       reason: "Continuity acceptance permanent reassignment",
+      correlationId: crypto.randomUUID(),
+    });
+  }
+
+  let emergencyLeave = await database.leaveRecord.findUnique({
+    where: { id: ids.emergencyLeave },
+  });
+  if (!emergencyLeave) {
+    await runtime.leave.submit({
+      id: ids.emergencyLeave,
+      employeeId: ids.emergencyOwner,
+      actorId: ids.emergencyOwner,
+      departmentId: ids.department,
+      startsAt: "2026-08-06T08:00:00.000Z",
+      endsAt: "2026-08-09T08:00:00.000Z",
+      reasonCategory: "UNPLANNED_LEAVE",
+      affectedScopes: [{ kind: "PROJECT", id: ids.emergencyProject }],
+      correlationId: crypto.randomUUID(),
+    });
+    emergencyLeave = await database.leaveRecord.findUniqueOrThrow({
+      where: { id: ids.emergencyLeave },
+    });
+  }
+  if (emergencyLeave.state === "SUBMITTED") {
+    await runtime.leave.decide({
+      leaveId: ids.emergencyLeave,
+      managerId: ids.manager,
+      decision: "APPROVED",
+      reason: "Unexpected absence requires immediate bounded coverage",
+      correlationId: crypto.randomUUID(),
+    });
+  }
+  if (
+    (await database.handoverRevision.count({ where: { handoverId: ids.emergencyHandover } })) === 0
+  ) {
+    await runtime.handover.revise({
+      handoverId: ids.emergencyHandover,
+      leaveId: ids.emergencyLeave,
+      employeeId: ids.emergencyOwner,
+      actorId: ids.emergencyOwner,
+      expectedRevision: 0,
+      correlationId: crypto.randomUUID(),
+      items: [
+        {
+          scope: { kind: "PROJECT", id: ids.emergencyProject },
+          currentState: "Unexpected owner absence",
+          completedWork: "Current operational state recorded",
+          openWork: "Maintain project decisions during the absence",
+          blockersAndRisks: "Delegate confirmation cannot be awaited",
+          immediateNextStep: "Activate exact emergency update authority",
+          keyLinks: ["https://example.invalid/continuity/emergency"],
+          requiredAccess: ["Project update"],
+          pendingDecisions: ["Manager expiry decision"],
+          proposedDelegateId: ids.emergencyDelegate,
+        },
+      ],
+    });
+  }
+  if (
+    (await database.handoverConfirmation.count({
+      where: { handoverId: ids.emergencyHandover },
+    })) === 0
+  ) {
+    await runtime.handover.confirm({
+      handoverId: ids.emergencyHandover,
+      employeeId: ids.emergencyOwner,
+      actorId: ids.emergencyOwner,
+      expectedRevision: 1,
+      correlationId: crypto.randomUUID(),
+    });
+  }
+  let emergencyDelegation = await database.delegation.findUnique({
+    where: { id: ids.emergencyDelegation },
+  });
+  if (!emergencyDelegation) {
+    await runtime.delegation.approve({
+      id: ids.emergencyDelegation,
+      leaveId: ids.emergencyLeave,
+      ownerId: ids.emergencyOwner,
+      delegateId: ids.emergencyDelegate,
+      managerId: ids.manager,
+      departmentId: ids.department,
+      startsAt: "2026-08-06T08:00:00.000Z",
+      endsAt: "2026-08-09T08:00:00.000Z",
+      projectIds: [ids.emergencyProject],
+      workstreamIds: [],
+      actions: ["project.update"],
+      emergency: true,
+      emergencyReason: "Owner became unexpectedly unavailable",
+      correlationId: crypto.randomUUID(),
+    });
+    emergencyDelegation = await database.delegation.findUniqueOrThrow({
+      where: { id: ids.emergencyDelegation },
+    });
+  }
+  if (emergencyDelegation.state === "ACTIVE") {
+    const emergencyAuthority = await runtime.actingAuthority.readAt({
+      actorId: ids.emergencyDelegate,
+      action: "project.update",
+      resourceId: ids.emergencyProject,
+      occurredAt: "2026-08-07T12:00:00.000Z",
+    });
+    if (!emergencyAuthority) throw new Error("Emergency exact authority was not activated");
+    await runtime.delegation.expire({
+      delegationId: ids.emergencyDelegation,
+      actorId: ids.manager,
       correlationId: crypto.randomUUID(),
     });
   }

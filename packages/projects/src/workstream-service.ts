@@ -226,6 +226,7 @@ export class WorkstreamService {
         parsed.projectId,
         parsed.workstreamId,
         current,
+        "workstream.participants.manage",
       );
       if (
         authorization.workstream.status === "completed" ||
@@ -325,6 +326,7 @@ export class WorkstreamService {
         parsed.projectId,
         parsed.workstreamId,
         current,
+        "workstream.participants.manage",
       );
       const owner = await transaction.responsibilityWindow.findFirst({
         where: {
@@ -399,6 +401,7 @@ export class WorkstreamService {
         parsed.projectId,
         parsed.workstreamId,
         current,
+        "workstream.stage.close",
       );
       const activeOwner = await currentWorkstreamOwner(transaction, parsed.workstreamId, current);
       assertLifecycleTransition(workstream.status, parsed.input.status, activeOwner !== null);
@@ -535,6 +538,7 @@ async function authorizeWorkstreamManagement(
   projectId: string,
   workstreamId: string,
   now: Date,
+  action: "workstream.participants.manage" | "workstream.stage.close",
 ) {
   const user = await transaction.user.findUnique({
     where: { id: actor.userId },
@@ -556,16 +560,19 @@ async function authorizeWorkstreamManagement(
     where: { userId: actor.userId },
     select: { role: true, scopeType: true, scopeId: true },
   });
-  const windows = await transaction.responsibilityWindow.findMany({
-    where: { employeeId: actor.userId, workstreamId },
-    select: { responsibilityType: true, startsAt: true, endsAt: true },
-  });
+  const [windows, actingAuthorities] = await Promise.all([
+    transaction.responsibilityWindow.findMany({
+      where: { employeeId: actor.userId, workstreamId },
+      select: { responsibilityType: true, startsAt: true, endsAt: true },
+    }),
+    loadWorkstreamActingAuthorities(transaction, actor.userId, projectId, workstreamId),
+  ]);
   if (user === null || !user.active || !actor.active) throw authorizationError("INACTIVE");
   if (workstream === null) throw resourceError("WORKSTREAM_NOT_FOUND", 404);
   const departmentScopeId = await departmentScopeFor(transaction, workstream.project.departmentId);
   const decision = decide(
     { subjectId: actor.userId, active: user.active, roles },
-    "workstream.manage",
+    action,
     { kind: "workstream", workstreamId, projectId, departmentId: departmentScopeId },
     {
       now: now.toISOString(),
@@ -578,10 +585,51 @@ async function authorizeWorkstreamManagement(
         startsAt: window.startsAt.toISOString(),
         endsAt: window.endsAt?.toISOString() ?? null,
       })),
+      actingAuthorities,
     },
   );
   if (!decision.allowed) throw authorizationError(decision.reasonCode);
   return { workstream, roles, departmentScopeId };
+}
+
+async function loadWorkstreamActingAuthorities(
+  transaction: Transaction,
+  actorId: string,
+  projectId: string,
+  workstreamId: string,
+) {
+  const rows = await transaction.delegationScope.findMany({
+    where: {
+      workstreamId,
+      responsibilityWindowId: { not: null },
+      delegation: { delegateId: actorId, state: "ACTIVE" },
+    },
+    include: {
+      delegation: { include: { periods: { orderBy: [{ startsAt: "asc" }, { id: "asc" }] } } },
+      responsibilityWindow: { select: { startsAt: true, endsAt: true } },
+    },
+  });
+  return rows.flatMap((row) => {
+    const period = row.delegation.periods[0];
+    const lastPeriod = row.delegation.periods.at(-1);
+    const window = row.responsibilityWindow;
+    if (!period || !lastPeriod || !window?.endsAt) return [];
+    return [
+      {
+        delegationId: row.delegationId,
+        subjectId: actorId,
+        scopeType: "workstream" as const,
+        scopeId: workstreamId,
+        projectId,
+        action: row.action,
+        startsAt: (period.startsAt > window.startsAt
+          ? period.startsAt
+          : window.startsAt
+        ).toISOString(),
+        endsAt: lastPeriod.endsAt.toISOString(),
+      },
+    ];
+  });
 }
 
 async function eligibleDepartmentEmployee(

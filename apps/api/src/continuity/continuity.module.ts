@@ -49,12 +49,17 @@ export function createDatabaseContinuityRuntime(database: Database) {
       delegationAuthority(database, responsibilities, persistence),
     ),
     actingAuthority: new ActingAuthorityReader(new PrismaActingAuthoritySource(database)),
-    returns: new ReturnService(persistence, managerAuthorization(database)),
+    returns: new ReturnService(
+      persistence,
+      managerAuthorization(database),
+      returnDecisionPort(database, responsibilities, persistence),
+    ),
     offboarding: new OffboardingService(
       persistence,
       deactivationPort(database),
       ownershipPort(database, responsibilities, persistence),
       reassignmentAuthorization(database),
+      persistence,
     ),
   };
 }
@@ -115,9 +120,17 @@ Module({
     },
     {
       provide: ReturnService,
-      useFactory: (store: PrismaContinuityPersistence, database: Database) =>
-        new ReturnService(store, managerAuthorization(database)),
-      inject: [PrismaContinuityPersistence, CONTINUITY_DATABASE],
+      useFactory: (
+        store: PrismaContinuityPersistence,
+        database: Database,
+        responsibilities: ResponsibilityService,
+      ) =>
+        new ReturnService(
+          store,
+          managerAuthorization(database),
+          returnDecisionPort(database, responsibilities, store),
+        ),
+      inject: [PrismaContinuityPersistence, CONTINUITY_DATABASE, ResponsibilityService],
     },
     {
       provide: OffboardingService,
@@ -131,6 +144,7 @@ Module({
           deactivationPort(database),
           ownershipPort(database, responsibilities, store),
           reassignmentAuthorization(database),
+          store,
         ),
       inject: [PrismaContinuityPersistence, CONTINUITY_DATABASE, ResponsibilityService],
     },
@@ -299,6 +313,85 @@ function delegationAuthority(
       input: { actorId: string; correlationId: string; occurredAt: string },
     ) {
       return persistence.expireDelegationAuthority(record, input);
+    },
+  };
+}
+
+function returnDecisionPort(
+  database: Database,
+  responsibilities: ResponsibilityService,
+  persistence: PrismaContinuityPersistence,
+) {
+  return {
+    async permanentTransfer(
+      delegation: import("@evaluation/continuity").ReturnDelegation,
+      input: {
+        managerId: string;
+        occurredAt: string;
+        reason: string;
+        correlationId: string;
+      },
+    ) {
+      if (delegation.state === "ACTIVE") {
+        await persistence.transaction(async (transaction) => {
+          await transaction.expireDelegation(delegation.id, input.occurredAt);
+        });
+      }
+      const scopes = await database.delegationScope.findMany({
+        where: { delegationId: delegation.id },
+        select: {
+          projectId: true,
+          workstreamId: true,
+          workstream: { select: { projectId: true } },
+        },
+        distinct: ["projectId", "workstreamId"],
+      });
+      const effectiveAt = new Date(Date.parse(input.occurredAt) + 1).toISOString();
+      for (const row of scopes) {
+        const scope = row.projectId
+          ? ({ kind: "PROJECT" as const, id: row.projectId } as const)
+          : ({
+              kind: "WORKSTREAM" as const,
+              id: row.workstreamId!,
+              projectId: row.workstream!.projectId,
+            } as const);
+        const scopeFilter =
+          scope.kind === "PROJECT" ? { projectId: scope.id } : { workstreamId: scope.id };
+        const currentOwner = await database.responsibilityWindow.findFirst({
+          where: {
+            ...scopeFilter,
+            startsAt: { lte: new Date(effectiveAt) },
+            OR: [{ endsAt: null }, { endsAt: { gt: new Date(effectiveAt) } }],
+          },
+          orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+          select: { employeeId: true, responsibilityType: true },
+        });
+        if (
+          currentOwner?.employeeId === delegation.delegateId &&
+          currentOwner.responsibilityType === "permanent"
+        ) {
+          continue;
+        }
+        const resource =
+          scope.kind === "PROJECT"
+            ? await database.project.findUniqueOrThrow({
+                where: { id: scope.id },
+                select: { version: true },
+              })
+            : await database.workstream.findUniqueOrThrow({
+                where: { id: scope.id },
+                select: { version: true },
+              });
+        await responsibilities.resolvePermanentReassignment({
+          actor: { userId: input.managerId, active: true },
+          correlationId: input.correlationId,
+          scope,
+          successorId: delegation.delegateId,
+          effectiveAt,
+          expectedVersion: resource.version,
+          reason: input.reason,
+        });
+      }
     },
   };
 }

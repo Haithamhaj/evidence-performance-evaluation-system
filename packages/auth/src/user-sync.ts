@@ -53,51 +53,64 @@ export async function deactivateInternalUser(
     occurredAt: string;
   }>,
 ) {
+  return client.$transaction((transaction) =>
+    deactivateInternalUserInTransaction(transaction, auditWriter, input),
+  );
+}
+
+export async function deactivateInternalUserInTransaction(
+  transaction: DeactivationTransaction,
+  auditWriter: import("@evaluation/contracts").AuditWriter<DeactivationTransaction>,
+  input: Readonly<{
+    administratorId: string;
+    userId: string;
+    correlationId: string;
+    occurredAt: string;
+  }>,
+) {
   const occurredAt = new Date(input.occurredAt);
   if (!Number.isFinite(occurredAt.getTime())) {
     throw new AppError("AUTH_DEACTIVATION_TIME_INVALID", "errors.auth.invalid", 400);
   }
-  return client.$transaction(async (transaction) => {
-    const [administrator, target, systemScope] = await Promise.all([
-      transaction.user.findUnique({ where: { id: input.administratorId } }),
-      transaction.user.findUnique({ where: { id: input.userId } }),
-      transaction.authorizationScope.findUnique({ where: { key: "system" } }),
-    ]);
-    if (!administrator?.active) inactiveUser();
-    if (!target) throw new AppError("AUTH_USER_NOT_FOUND", "errors.auth.userNotFound", 404);
-    if (!systemScope) throw new Error("Canonical system authorization scope is missing");
-    const administratorRole = await transaction.roleAssignment.findFirst({
-      where: {
-        userId: input.administratorId,
-        role: "system_administrator",
-        scopeType: "system",
-        scopeId: systemScope.id,
-      },
-    });
-    if (!administratorRole) {
-      throw new AppError("AUTHZ_ROLE_REQUIRED", "errors.authorization.denied", 403);
-    }
-    if (target.active) {
-      await transaction.user.update({ where: { id: input.userId }, data: { active: false } });
-    }
-    await auditWriter.append(transaction, {
-      eventType: "identity.deactivated",
-      actor: { kind: "human", id: input.administratorId },
-      effectiveSubjectId: input.userId,
+  const administrator = await transaction.user.findUnique({
+    where: { id: input.administratorId },
+  });
+  const target = await transaction.user.findUnique({ where: { id: input.userId } });
+  const systemScope = await transaction.authorizationScope.findUnique({ where: { key: "system" } });
+  if (!administrator?.active) inactiveUser();
+  if (!target) throw new AppError("AUTH_USER_NOT_FOUND", "errors.auth.userNotFound", 404);
+  if (!systemScope) throw new Error("Canonical system authorization scope is missing");
+  const administratorRole = await transaction.roleAssignment.findFirst({
+    where: {
+      userId: input.administratorId,
+      role: "system_administrator",
       scopeType: "system",
       scopeId: systemScope.id,
-      targetType: "user",
-      targetId: input.userId,
-      correlationId: input.correlationId,
-      source: "api",
-      safeDiff: {
-        active: false,
-        alreadyInactive: !target.active,
-        preservedHistory: true,
-      },
-    });
-    return { userId: input.userId, deactivatedAt: occurredAt.toISOString() };
+    },
   });
+  if (!administratorRole) {
+    throw new AppError("AUTHZ_ROLE_REQUIRED", "errors.authorization.denied", 403);
+  }
+  if (target.active) {
+    await transaction.user.update({ where: { id: input.userId }, data: { active: false } });
+  }
+  await auditWriter.append(transaction, {
+    eventType: "identity.deactivated",
+    actor: { kind: "human", id: input.administratorId },
+    effectiveSubjectId: input.userId,
+    scopeType: "system",
+    scopeId: systemScope.id,
+    targetType: "user",
+    targetId: input.userId,
+    correlationId: input.correlationId,
+    source: "api",
+    safeDiff: {
+      active: false,
+      alreadyInactive: !target.active,
+      preservedHistory: true,
+    },
+  });
+  return { userId: input.userId, deactivatedAt: occurredAt.toISOString() };
 }
 
 function inactiveUser(): never {

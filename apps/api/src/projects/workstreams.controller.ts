@@ -187,7 +187,7 @@ Post(":workstreamId/contributors")(
   "addContributor",
   addDescriptor,
 );
-SetMetadata(PROJECT_POLICY_ACTION, "workstream.manage")(
+SetMetadata(PROJECT_POLICY_ACTION, "workstream.participants.manage")(
   WorkstreamsController.prototype,
   "addContributor",
   addDescriptor,
@@ -208,7 +208,7 @@ Post(":workstreamId/contributors/:userId/end")(
   "endContributor",
   endDescriptor,
 );
-SetMetadata(PROJECT_POLICY_ACTION, "workstream.manage")(
+SetMetadata(PROJECT_POLICY_ACTION, "workstream.participants.manage")(
   WorkstreamsController.prototype,
   "endContributor",
   endDescriptor,
@@ -224,7 +224,7 @@ Param("projectId")(WorkstreamsController.prototype, "transition", 1);
 Param("workstreamId")(WorkstreamsController.prototype, "transition", 2);
 Body()(WorkstreamsController.prototype, "transition", 3);
 Patch(":workstreamId/status")(WorkstreamsController.prototype, "transition", transitionDescriptor);
-SetMetadata(PROJECT_POLICY_ACTION, "workstream.manage")(
+SetMetadata(PROJECT_POLICY_ACTION, "workstream.stage.close")(
   WorkstreamsController.prototype,
   "transition",
   transitionDescriptor,

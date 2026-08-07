@@ -698,7 +698,7 @@ The detailed authority is
 
 ## T067 — Implement Return Handover
 
-**Status:** Complete — return handover persistence and immediate expiry of temporary authority are verified.
+**Status:** Complete — manager-direct return, append-only extension, immediate return, and real permanent responsibility transfer are verified.
 
 **Priority:** P1
 **Dependencies:** T066
@@ -706,7 +706,7 @@ The detailed authority is
 
 ## T068 — Implement Account Deactivation and Archiving
 
-**Status:** Complete — scoped administrator deactivation denies later authentication while preserving user and historical records.
+**Status:** Complete — scoped administrator deactivation is atomic with continuity-case creation, denies later authentication, and preserves user and historical records.
 
 **Priority:** P1
 **Dependencies:** T006, T020
@@ -715,7 +715,7 @@ The detailed authority is
 
 ## T069 — Implement Reassignment Required
 
-**Status:** Complete — deduplicated ownerless-work cases and manager-only permanent resolution through Projects are verified.
+**Status:** Complete — atomically queued, deduplicated ownerless-work cases and manager-only permanent resolution through Projects are verified.
 
 **Priority:** P1
 **Dependencies:** T068, T018, T019

@@ -1,4 +1,5 @@
 import { AppError } from "@evaluation/contracts";
+import { PrismaActingAuthoritySource } from "@evaluation/continuity";
 import { decide } from "@evaluation/permissions";
 import { Inject, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
@@ -11,8 +12,22 @@ type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type ProjectPolicyAction =
   | "project.create"
   | "project.manage"
+  | "project.update"
+  | "project.document.update"
+  | "project.criteria.approve"
+  | "project.participants.manage"
+  | "project.decision.record"
+  | "project.source.manage"
+  | "project.stage.close"
   | "workstream.create"
   | "workstream.manage"
+  | "workstream.update"
+  | "workstream.document.update"
+  | "workstream.criteria.approve"
+  | "workstream.participants.manage"
+  | "workstream.decision.record"
+  | "workstream.source.manage"
+  | "workstream.stage.close"
   | "responsibility.transfer"
   | "resource.read";
 
@@ -85,20 +100,25 @@ export class ProjectPolicyGuard {
       select: { id: true },
     });
     if (scope === null) throw authorizationError("RESOURCE_STATE");
-    const windows = await this.database.responsibilityWindow.findMany({
-      where: {
-        employeeId: principal.userId,
-        OR: [{ projectId: projectId! }, { workstream: { projectId: projectId! } }],
-      },
-      select: {
-        projectId: true,
-        workstreamId: true,
-        workstream: { select: { projectId: true } },
-        responsibilityType: true,
-        startsAt: true,
-        endsAt: true,
-      },
-    });
+    const [windows, actingAuthorities] = await Promise.all([
+      this.database.responsibilityWindow.findMany({
+        where: {
+          employeeId: principal.userId,
+          OR: [{ projectId: projectId! }, { workstream: { projectId: projectId! } }],
+        },
+        select: {
+          projectId: true,
+          workstreamId: true,
+          workstream: { select: { projectId: true } },
+          responsibilityType: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      }),
+      roles.some(({ role }) => role === "acting_owner")
+        ? loadActingAuthorities(this.database, principal.userId)
+        : Promise.resolve([]),
+    ]);
     enforce(
       decide(
         { subjectId: principal.userId, active: principal.active, roles },
@@ -123,6 +143,7 @@ export class ProjectPolicyGuard {
             }
             return { ...period, scopeType: "project" as const, scopeId: projectId! };
           }),
+          actingAuthorities,
         },
       ),
     );
@@ -150,19 +171,24 @@ export class ProjectPolicyGuard {
       select: { id: true },
     });
     if (scope === null) throw authorizationError("RESOURCE_STATE");
-    const windows = await this.database.responsibilityWindow.findMany({
-      where: {
-        employeeId: principal.userId,
-        OR: [{ projectId }, { workstreamId }],
-      },
-      select: {
-        projectId: true,
-        workstreamId: true,
-        responsibilityType: true,
-        startsAt: true,
-        endsAt: true,
-      },
-    });
+    const [windows, actingAuthorities] = await Promise.all([
+      this.database.responsibilityWindow.findMany({
+        where: {
+          employeeId: principal.userId,
+          OR: [{ projectId }, { workstreamId }],
+        },
+        select: {
+          projectId: true,
+          workstreamId: true,
+          responsibilityType: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      }),
+      roles.some(({ role }) => role === "acting_owner")
+        ? loadActingAuthorities(this.database, principal.userId)
+        : Promise.resolve([]),
+    ]);
     enforce(
       decide(
         { subjectId: principal.userId, active: principal.active, roles },
@@ -182,11 +208,17 @@ export class ProjectPolicyGuard {
               endsAt: window.endsAt?.toISOString() ?? null,
             };
           }),
+          actingAuthorities,
         },
       ),
     );
     return true;
   }
+}
+
+async function loadActingAuthorities(database: DatabaseClient, actorId: string) {
+  const rows = await new PrismaActingAuthoritySource(database).findActiveCandidates(actorId);
+  return rows.map(({ actorId: subjectId, ...authority }) => ({ ...authority, subjectId }));
 }
 
 const ResourceIdSchema = z.string().uuid();

@@ -99,6 +99,7 @@ export type DelegationRecord = Readonly<{
   actions: readonly z.infer<typeof Action>[];
   emergency: boolean;
   emergencyReason: string | null;
+  emergencyAuditEventId?: string;
   version: number;
 }>;
 

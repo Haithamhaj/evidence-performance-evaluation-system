@@ -32,9 +32,23 @@ const Finalize = z
     expectedVersion: z.number().int().positive(),
     choice: z.enum(["RETURN", "EXTEND", "PERMANENT_TRANSFER"]),
     occurredAt: Utc,
+    extendedEndsAt: Utc.optional(),
+    reason: z.string().trim().min(1).max(2_000),
     correlationId: z.string().uuid(),
   })
-  .strict();
+  .strict()
+  .superRefine((input, context) => {
+    if (
+      input.choice === "EXTEND" &&
+      (input.extendedEndsAt === undefined ||
+        Date.parse(input.extendedEndsAt) <= Date.parse(input.occurredAt))
+    ) {
+      context.addIssue({ code: "custom", message: "valid extension end is required" });
+    }
+    if (input.choice !== "EXTEND" && input.extendedEndsAt !== undefined) {
+      context.addIssue({ code: "custom", message: "extension end is not allowed" });
+    }
+  });
 
 export type ReturnDelegation = Readonly<{
   id: string;
@@ -59,6 +73,7 @@ export interface ReturnTransaction {
   findDelegation(id: string): Promise<ReturnDelegation | null>;
   findReturn(id: string): Promise<ReturnRecord | null>;
   expireDelegation(id: string, occurredAt: string): Promise<void>;
+  extendDelegation(id: string, input: Record<string, unknown>): Promise<void>;
   appendReturn(input: Record<string, unknown>): Promise<ReturnRecord>;
   confirmReturn(id: string, input: Record<string, unknown>): Promise<ReturnRecord>;
   finalizeReturn(id: string, input: Record<string, unknown>): Promise<ReturnRecord>;
@@ -73,10 +88,23 @@ export interface ReturnAuthorizationPort {
   canManageEmployee(managerId: string, employeeId: string, departmentId: string): Promise<boolean>;
 }
 
+export interface ReturnDecisionPort {
+  permanentTransfer(
+    delegation: ReturnDelegation,
+    input: Readonly<{
+      managerId: string;
+      occurredAt: string;
+      reason: string;
+      correlationId: string;
+    }>,
+  ): Promise<void>;
+}
+
 export class ReturnService {
   constructor(
     private readonly store: ReturnStore,
     private readonly authorization: ReturnAuthorizationPort,
+    private readonly decisions: ReturnDecisionPort,
   ) {}
 
   async draft(input: unknown): Promise<ReturnRecord> {
@@ -142,13 +170,19 @@ export class ReturnService {
     ) {
       throw failure("AUTHZ_SCOPE", 403);
     }
+    if (parsed.choice === "PERMANENT_TRANSFER") {
+      await this.decisions.permanentTransfer(delegation, parsed);
+    }
     return this.store.transaction(async (tx) => {
       const freshDelegation = await requiredDelegation(tx, parsed.delegationId);
       const record = await requiredReturn(tx, parsed.returnId);
+      const delegationStateAllowed =
+        freshDelegation.state === "ACTIVE" ||
+        (parsed.choice === "PERMANENT_TRANSFER" && freshDelegation.state === "RETURNED");
       if (
-        freshDelegation.state !== "ACTIVE" ||
+        !delegationStateAllowed ||
         record.delegationId !== freshDelegation.id ||
-        record.state !== "OWNER_CONFIRMED" ||
+        !["DRAFT", "OWNER_CONFIRMED"].includes(record.state) ||
         record.version !== parsed.expectedVersion
       ) {
         throw failure("RETURN_HANDOVER_INVALID", 409);
@@ -158,10 +192,25 @@ export class ReturnService {
         actorId: parsed.managerId,
         subjectId: freshDelegation.ownerId,
         targetId: record.id,
+        reason: parsed.reason,
+        safeDiff: {
+          choice: parsed.choice,
+          occurredAt: parsed.occurredAt,
+          ...(parsed.extendedEndsAt ? { extendedEndsAt: parsed.extendedEndsAt } : {}),
+        },
         correlationId: parsed.correlationId,
       });
       if (parsed.choice === "RETURN") {
         await tx.expireDelegation(parsed.delegationId, parsed.occurredAt);
+      } else if (parsed.choice === "EXTEND") {
+        await tx.extendDelegation(parsed.delegationId, {
+          managerId: parsed.managerId,
+          occurredAt: parsed.occurredAt,
+          extendedEndsAt: parsed.extendedEndsAt!,
+          reason: parsed.reason,
+          correlationId: parsed.correlationId,
+          auditEventId: audit.id,
+        });
       }
       return tx.finalizeReturn(record.id, {
         choice: parsed.choice,

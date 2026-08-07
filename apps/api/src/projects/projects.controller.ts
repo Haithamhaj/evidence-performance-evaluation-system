@@ -160,7 +160,7 @@ Req()(ProjectsController.prototype, "addMember", 0);
 Param("projectId")(ProjectsController.prototype, "addMember", 1);
 Body()(ProjectsController.prototype, "addMember", 2);
 Post(":projectId/members")(ProjectsController.prototype, "addMember", addMemberDescriptor);
-SetMetadata(PROJECT_POLICY_ACTION, "project.manage")(
+SetMetadata(PROJECT_POLICY_ACTION, "project.participants.manage")(
   ProjectsController.prototype,
   "addMember",
   addMemberDescriptor,
@@ -180,7 +180,7 @@ Post(":projectId/members/:userId/end")(
   "endMember",
   endMemberDescriptor,
 );
-SetMetadata(PROJECT_POLICY_ACTION, "project.manage")(
+SetMetadata(PROJECT_POLICY_ACTION, "project.participants.manage")(
   ProjectsController.prototype,
   "endMember",
   endMemberDescriptor,
@@ -195,7 +195,7 @@ Req()(ProjectsController.prototype, "transition", 0);
 Param("projectId")(ProjectsController.prototype, "transition", 1);
 Body()(ProjectsController.prototype, "transition", 2);
 Patch(":projectId/status")(ProjectsController.prototype, "transition", transitionDescriptor);
-SetMetadata(PROJECT_POLICY_ACTION, "project.manage")(
+SetMetadata(PROJECT_POLICY_ACTION, "project.stage.close")(
   ProjectsController.prototype,
   "transition",
   transitionDescriptor,

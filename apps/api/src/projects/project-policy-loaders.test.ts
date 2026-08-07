@@ -18,6 +18,75 @@ function context(request: Record<string, unknown>) {
 }
 
 describe("ProjectPolicyGuard", () => {
+  it("uses exact persisted delegation actions instead of broad acting-owner management", async () => {
+    const projectId = "00000000-0000-4000-8000-000000000050";
+    const actor = { ...principal, userId: "00000000-0000-4000-8000-000000000051" };
+    const action = { current: "project.update" };
+    const reflector = { get: vi.fn(() => action.current) };
+    const database = {
+      roleAssignment: {
+        findMany: vi.fn(async () => [
+          { role: "acting_owner", scopeType: "project", scopeId: projectId },
+        ]),
+      },
+      project: {
+        findUnique: vi.fn(async () => ({
+          departmentId: "00000000-0000-4000-8000-000000000052",
+        })),
+      },
+      authorizationScope: {
+        findFirst: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000053" })),
+      },
+      responsibilityWindow: {
+        findMany: vi.fn(async () => [
+          {
+            projectId,
+            workstreamId: null,
+            workstream: null,
+            responsibilityType: "acting",
+            startsAt: new Date("2020-01-01T00:00:00Z"),
+            endsAt: new Date("2099-01-01T00:00:00Z"),
+          },
+        ]),
+      },
+      delegationScope: {
+        findMany: vi.fn(async () => [
+          {
+            projectId,
+            workstreamId: null,
+            action: "project.update",
+            delegationId: crypto.randomUUID(),
+            delegation: {
+              periods: [
+                {
+                  startsAt: new Date("2020-01-01T00:00:00Z"),
+                  endsAt: new Date("2099-01-01T00:00:00Z"),
+                },
+              ],
+            },
+            responsibilityWindow: {
+              id: crypto.randomUUID(),
+              startsAt: new Date("2020-01-01T00:00:00Z"),
+              endsAt: new Date("2099-01-01T00:00:00Z"),
+            },
+          },
+        ]),
+      },
+    };
+    const guard = new ProjectPolicyGuard(reflector as never, database as never);
+    const request = context({ principal: actor, params: { projectId } });
+
+    await expect(guard.canActivate(request)).resolves.toBe(true);
+    action.current = "project.stage.close";
+    await expect(guard.canActivate(request)).rejects.toMatchObject({
+      code: "AUTHZ_RESOURCE_STATE",
+    });
+    action.current = "project.manage";
+    await expect(guard.canActivate(request)).rejects.toMatchObject({
+      code: "AUTHZ_SCOPE_MISMATCH",
+    });
+  });
+
   it("rejects invalid resource identifiers before persistence queries", async () => {
     const reflector = { get: vi.fn(() => "project.manage") };
     const database = {

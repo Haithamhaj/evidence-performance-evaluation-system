@@ -229,8 +229,10 @@ behind their existing sequence and external gates.
   release.
 - E6A's bounded P1 remediation is complete locally: authoritative leave/handover sourcing, exact
   revision confirmation, atomic real acting responsibility, manager-only gap resolution and expiry,
-  three-principal return, durable leave eligibility effects, and the manager reassignment queue are
-  exercised by a rerunnable PostgreSQL journey through permanent successor assignment.
+  exact-action controller/service enforcement, manager-direct return decisions, real extension/return/
+  permanent-transfer responsibility changes, durable leave eligibility effects, and atomic account
+  deactivation plus manager reassignment queue creation are exercised by a rerunnable PostgreSQL journey.
+  The same journey verifies emergency approval, bounded authority, expiry, and its three audit events.
 - The single E5A P1 remediation cycle is complete: submissions use and persist in-period server time;
   manager summaries use a verified registered prompt descriptor with untrusted originals; manager-cycle
   reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus

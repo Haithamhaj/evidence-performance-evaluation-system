@@ -63,9 +63,10 @@ export class PrismaActingAuthoritySource implements ActingAuthoritySource {
     });
     return rows.flatMap((row) => {
       const period = row.delegation.periods[0];
+      const lastPeriod = row.delegation.periods.at(-1);
       const window = row.responsibilityWindow;
       const scopeId = row.projectId ?? row.workstreamId;
-      if (!period || !window || !scopeId || window.endsAt === null) return [];
+      if (!period || !lastPeriod || !window || !scopeId || window.endsAt === null) return [];
       return [
         {
           delegationId: row.delegationId,
@@ -74,7 +75,7 @@ export class PrismaActingAuthoritySource implements ActingAuthoritySource {
           scopeId,
           action: row.action,
           startsAt: later(period.startsAt, window.startsAt).toISOString(),
-          endsAt: earlier(period.endsAt, window.endsAt).toISOString(),
+          endsAt: lastPeriod.endsAt.toISOString(),
         },
       ];
     });
@@ -83,8 +84,4 @@ export class PrismaActingAuthoritySource implements ActingAuthoritySource {
 
 function later(left: Date, right: Date) {
   return left > right ? left : right;
-}
-
-function earlier(left: Date, right: Date) {
-  return left < right ? left : right;
 }
