@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@evaluation/ai-routing": "workspace:*",
+    "@evaluation/administration": "workspace:*",
     "@evaluation/audit": "workspace:*",
     "@evaluation/contracts": "workspace:*",
     "@evaluation/connected-work-context": "workspace:*",
@@ -19,8 +20,10 @@
     "@evaluation/employee-evaluation": "workspace:*",
     "@evaluation/localization": "workspace:*",
     "@evaluation/manager-evaluation": "workspace:*",
+    "@evaluation/notifications": "workspace:*",
     "@evaluation/projects": "workspace:*",
     "@evaluation/research-experiments": "workspace:*",
+    "@evaluation/reporting": "workspace:*",
     "@evaluation/updates-evidence": "workspace:*",
     "@evaluation/work-items": "workspace:*"
   },
