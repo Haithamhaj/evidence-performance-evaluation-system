@@ -1,19 +1,16 @@
 import { createHash } from "node:crypto";
 
-import {
-  AiRouter,
-  OpaqueReferenceSchema,
-  PromptAwareOpenAiCompatibleAdapter,
-} from "@evaluation/ai-routing";
+import { AiRouter, OpaqueReferenceSchema } from "@evaluation/ai-routing";
 import { describe, expect, it } from "vitest";
 
-import { CoachingInsightAiService } from "./ai-insight-service.js";
+import { PromptAwareOpenAiCompatibleAdapter } from "../../packages/ai-routing/src/adapters/prompt-aware-openai-compatible.js";
+import { CoachingInsightAiService } from "../../packages/coaching-development/src/ai-insight-service.js";
 import {
   COACHING_INSIGHT_OUTPUT_SCHEMA_VERSION,
   COACHING_INSIGHT_PROMPT_VERSION,
   COACHING_INSIGHT_ROUTE,
   COACHING_INSIGHT_TRUSTED_PROMPT,
-} from "./prompts.js";
+} from "../../packages/coaching-development/src/prompts.js";
 
 describe("coaching prompt-aware production adapter contract", () => {
   it("loads the exact trusted artifact and sends facts only as untrusted user content", async () => {
