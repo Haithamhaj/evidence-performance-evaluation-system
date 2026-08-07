@@ -4,35 +4,38 @@ import { Module } from "@nestjs/common";
 
 import { AdminCommandService, AdminHealthComposition } from "@evaluation/administration";
 import { createDatabaseClient } from "@evaluation/database";
-import { EvaluationReportReader } from "@evaluation/employee-evaluation";
-import { NotificationIntentService, NotificationPreferenceService } from "@evaluation/notifications";
+import {
+  NotificationIntentService,
+  NotificationPreferenceService,
+} from "@evaluation/notifications";
 import {
   ArtifactAccessService,
+  createEvaluationProjectionRegistry,
   ExportService,
   ProjectionRegistry,
   type ReportObjectStorage,
 } from "@evaluation/reporting";
 
+import { AiRouteManagementService, AiRoutingModule } from "../ai-routing/ai-routing.module.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { AdministrationController } from "./administration.controller.js";
 import { ExportsController } from "./exports.controller.js";
+import { createExportQueueProducer, ExportQueueProducer } from "./export-queue-producer.js";
 import { NotificationsController } from "./notifications.controller.js";
-import {
-  OPERATIONS_POLICY_DATABASE,
-  OperationsPolicyGuard,
-} from "./operations-policy.guard.js";
+import { OPERATIONS_POLICY_DATABASE, OperationsPolicyGuard } from "./operations-policy.guard.js";
 import { S3ReportStorage } from "./s3-report-storage.js";
 import { OperationsTargetAuthorizer } from "./target-authorizer.js";
 
 export const OPERATIONS_DATABASE = Symbol("OPERATIONS_DATABASE");
 export const REPORT_STORAGE = Symbol("REPORT_STORAGE");
 const OPERATIONS_LIFECYCLE = Symbol("OPERATIONS_LIFECYCLE");
+const EXPORT_QUEUE_LIFECYCLE = Symbol("EXPORT_QUEUE_LIFECYCLE");
 type Database = ReturnType<typeof createDatabaseClient>;
 
 export class OperationsModule {}
 
 Module({
-  imports: [AuthModule],
+  imports: [AuthModule, AiRoutingModule],
   controllers: [NotificationsController, ExportsController, AdministrationController],
   providers: [
     { provide: OPERATIONS_DATABASE, useFactory: () => createDatabaseClient(databaseUrl()) },
@@ -41,6 +44,15 @@ Module({
       provide: OPERATIONS_LIFECYCLE,
       inject: [OPERATIONS_DATABASE],
       useFactory: (database: Database) => ({ onModuleDestroy: () => database.$disconnect() }),
+    },
+    {
+      provide: ExportQueueProducer,
+      useFactory: () => createExportQueueProducer(requiredEnvironment("REDIS_URL")),
+    },
+    {
+      provide: EXPORT_QUEUE_LIFECYCLE,
+      inject: [ExportQueueProducer],
+      useFactory: (queue: ExportQueueProducer) => ({ onModuleDestroy: () => queue.close() }),
     },
     {
       provide: NotificationIntentService,
@@ -55,7 +67,7 @@ Module({
     {
       provide: ProjectionRegistry,
       inject: [OPERATIONS_DATABASE],
-      useFactory: (database: Database) => evaluationProjectionRegistry(database),
+      useFactory: (database: Database) => createEvaluationProjectionRegistry(database),
     },
     {
       provide: REPORT_STORAGE,
@@ -80,8 +92,11 @@ Module({
     {
       provide: ExportService,
       inject: [OPERATIONS_DATABASE, ProjectionRegistry, REPORT_STORAGE],
-      useFactory: (database: Database, registry: ProjectionRegistry, storage: ReportObjectStorage) =>
-        new ExportService(database, registry, storage),
+      useFactory: (
+        database: Database,
+        registry: ProjectionRegistry,
+        storage: ReportObjectStorage,
+      ) => new ExportService(database, registry, storage),
     },
     {
       provide: ArtifactAccessService,
@@ -96,8 +111,8 @@ Module({
     },
     {
       provide: AdminCommandService,
-      inject: [OPERATIONS_DATABASE],
-      useFactory: (database: Database) =>
+      inject: [OPERATIONS_DATABASE, AiRouteManagementService],
+      useFactory: (database: Database, aiRoutes: AiRouteManagementService) =>
         new AdminCommandService(
           database,
           {
@@ -109,7 +124,11 @@ Module({
                 }),
               ),
           },
-          {},
+          {
+            AI_ROUTES_MANAGE: {
+              execute: (command) => aiRoutes.executeAdminCommand(command),
+            },
+          },
         ),
     },
     {
@@ -120,51 +139,6 @@ Module({
     OperationsPolicyGuard,
   ],
 })(OperationsModule);
-
-function evaluationProjectionRegistry(database: Database) {
-  const reader = new EvaluationReportReader(database);
-  const registry = new ProjectionRegistry();
-  registry.register({
-    reportType: "EMPLOYEE_EVALUATION",
-    audience: "EMPLOYEE_SELF",
-    source: "employee-evaluation",
-    projectionVersion: 2,
-    snapshot: async ({ requesterId, cycleId }) => {
-      if (!cycleId) throw new Error("EVALUATION_CYCLE_REQUIRED");
-      const snapshot = await reader.resolveEmployeeExportSnapshot({
-        cycleId,
-        employeeId: requesterId,
-      });
-      return { snapshotId: snapshot.snapshotId, version: snapshot.version };
-    },
-    read: async (version, { requesterId, cycleId }) => {
-      if (!cycleId) throw new Error("EVALUATION_CYCLE_REQUIRED");
-      const snapshot = await reader.resolveEmployeeExportSnapshot({
-        cycleId,
-        employeeId: requesterId,
-      });
-      if (snapshot.snapshotId !== version.snapshotId || snapshot.version !== version.version) {
-        throw new Error("EVALUATION_SNAPSHOT_VERSION_MISMATCH");
-      }
-      const projection = await reader.readEmployee({
-        assignmentId: snapshot.assignmentId,
-        requester: { actorId: requesterId, access: "self", active: true },
-      });
-      return {
-        title: "Employee evaluation",
-        lines: [
-          `Cycle: ${projection.cycleType}`,
-          `State: ${projection.state}`,
-          ...(projection.finalSnapshot?.entries.map(
-            (decision) =>
-              `${decision.criterionId}: ${decision.rating} — ${decision.justification}`,
-          ) ?? []),
-        ],
-      };
-    },
-  });
-  return registry;
-}
 
 function operationsHealth(database: Database) {
   return new AdminHealthComposition([
@@ -217,7 +191,11 @@ function operationsHealth(database: Database) {
 }
 
 function databaseUrl() {
-  const value = process.env.DATABASE_URL?.trim();
-  if (!value) throw new Error("DATABASE_URL is required");
+  return requiredEnvironment("DATABASE_URL");
+}
+
+function requiredEnvironment(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required`);
   return value;
 }

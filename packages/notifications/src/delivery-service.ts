@@ -52,7 +52,12 @@ export class NotificationDeliveryService {
     if (previousEmail?.state === "SENT" || previousEmail?.state === "FAILED") {
       return { inAppState: "READY" as const, emailState: previousEmail.state };
     }
-    if (!(await this.preferences.emailAllowed(intent.recipientId, intent.category as NotificationCategory))) {
+    if (
+      !(await this.preferences.emailAllowed(
+        intent.recipientId,
+        intent.category as NotificationCategory,
+      ))
+    ) {
       if (!previousEmail) {
         await this.recordEmailAttempt(intent.id, 1, "MUTED", correlationId);
       }

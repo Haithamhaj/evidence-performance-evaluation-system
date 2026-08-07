@@ -78,6 +78,16 @@ export const ExportArtifactDescriptorSchema = z
     expiresAt: UtcSchema,
   })
   .strict();
+export const ExportGenerationJobSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    jobType: z.literal("reporting.generate"),
+    requestId: UuidSchema,
+    requesterId: UuidSchema,
+    correlationId: UuidSchema,
+  })
+  .strict();
 
 export type ExportRequest = z.infer<typeof ExportRequestSchema>;
 export type ExportManifest = z.infer<typeof ExportManifestSchema>;
+export type ExportGenerationJob = z.infer<typeof ExportGenerationJobSchema>;

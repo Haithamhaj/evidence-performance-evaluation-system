@@ -49,6 +49,7 @@
     "infra:verify": "node scripts/verify-infra.mjs",
     "research:seed": "node --env-file=.env.example --import tsx scripts/seed-research-experiments-acceptance.ts",
     "continuity:seed": "node --env-file=.env.example --import tsx scripts/seed-continuity-acceptance.ts",
+    "operations:seed": "node --env-file=.env.example --import tsx scripts/seed-operations-acceptance.ts",
     "lint": "turbo run lint && eslint scripts tests && node scripts/validate-boundaries.mjs && node scripts/check-user-visible-copy.mjs",
     "scan:performance-inputs": "node scripts/scan-performance-inputs.mjs",
     "scan:ai-boundary": "node scripts/validate-boundaries.mjs",

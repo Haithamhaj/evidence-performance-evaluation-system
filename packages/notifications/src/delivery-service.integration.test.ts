@@ -47,7 +47,9 @@ describe("NotificationDeliveryService", () => {
     const result = await delivery.deliver(intent.id, randomUUID());
 
     expect(result).toMatchObject({ inAppState: "READY", emailState: "RETRY_SCHEDULED" });
-    const stored = await database.notificationIntent.findUniqueOrThrow({ where: { id: intent.id } });
+    const stored = await database.notificationIntent.findUniqueOrThrow({
+      where: { id: intent.id },
+    });
     expect(stored.inAppState).toBe("READY");
   });
 

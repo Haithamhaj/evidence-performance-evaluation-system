@@ -7,7 +7,10 @@ export class AdminHealthComposition {
   private readonly probes: readonly import("./ports.js").AdminHealthProbe[];
   private readonly now: () => Date;
 
-  constructor(probes: readonly import("./ports.js").AdminHealthProbe[], now: () => Date = () => new Date()) {
+  constructor(
+    probes: readonly import("./ports.js").AdminHealthProbe[],
+    now: () => Date = () => new Date(),
+  ) {
     this.probes = probes;
     this.now = now;
   }

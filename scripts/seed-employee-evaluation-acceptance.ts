@@ -20,7 +20,13 @@ const templateActivationKey = "ee200000-0000-4000-8000-000000000002";
 const sourceId = "ee200000-0000-4000-8000-000000000003";
 const projectId = "ee200000-0000-4000-8000-000000000004";
 
-async function main(): Promise<void> {
+export async function seedEmployeeEvaluationAcceptance(): Promise<
+  Readonly<{
+    cycleId: string;
+    assignmentId: string | null;
+    state: string;
+  }>
+> {
   const database = createDatabaseClient(required("DATABASE_URL"));
   try {
     await seedPilotWithAudit(database, {
@@ -82,8 +88,11 @@ async function main(): Promise<void> {
       include: { assignments: true },
     });
     if (existing?.state === "CLOSED") {
-      printReceipt(existing.id, existing.assignments[0]?.id ?? null, existing.state);
-      return;
+      return {
+        cycleId: existing.id,
+        assignmentId: existing.assignments[0]?.id ?? null,
+        state: existing.state,
+      };
     }
     if (existing !== null) {
       throw new Error(`Acceptance cycle exists in incomplete state ${existing.state}`);
@@ -271,7 +280,7 @@ async function main(): Promise<void> {
       idempotencyKey: keyed(21),
       reason: "Close after the human decision and employee acknowledgment were preserved.",
     });
-    printReceipt(closed.cycleId, assignment.id, closed.state);
+    return { cycleId: closed.cycleId, assignmentId: assignment.id, state: closed.state };
   } finally {
     await database.$disconnect();
   }
@@ -402,9 +411,11 @@ function required(name: string): string {
   return value;
 }
 
-function printReceipt(cycleId: string, assignmentId: string | null, state: string): void {
+function printReceipt(
+  receipt: Readonly<{ cycleId: string; assignmentId: string | null; state: string }>,
+): void {
   process.stdout.write(
-    `${JSON.stringify({ cycleId, assignmentId, state, fixture: "postgresql-domain-services" })}\n`,
+    `${JSON.stringify({ ...receipt, fixture: "postgresql-domain-services" })}\n`,
   );
 }
 
@@ -412,5 +423,5 @@ if (
   process.argv[1] !== undefined &&
   fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 ) {
-  await main();
+  printReceipt(await seedEmployeeEvaluationAcceptance());
 }

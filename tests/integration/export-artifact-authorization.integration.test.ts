@@ -37,7 +37,13 @@ async function artifact(expiresAt = new Date(Date.now() + 60_000)) {
   const storage = new InMemoryReportStorage();
   const generatedAt =
     expiresAt.getTime() <= Date.now() ? new Date(expiresAt.getTime() - 60_000) : new Date();
-  const service = new ExportService(database, registry, storage, () => generatedAt, () => expiresAt);
+  const service = new ExportService(
+    database,
+    registry,
+    storage,
+    () => generatedAt,
+    () => expiresAt,
+  );
   const requested = await service.request({
     requesterId: ownerId,
     idempotencyKey: randomUUID(),
@@ -48,7 +54,7 @@ async function artifact(expiresAt = new Date(Date.now() + 60_000)) {
     cycleId: null,
     timezone: "Asia/Riyadh",
   });
-  const generated = await service.generate(requested.request.id);
+  const generated = await service.materialize(requested.request.id);
   return { access: new ArtifactAccessService(database, storage), generated };
 }
 
@@ -60,7 +66,9 @@ describe("artifact authorization", () => {
       reason: "DENIED",
     });
     await expect(
-      database.exportAccessEvent.count({ where: { artifactId: generated.artifactId, allowed: false } }),
+      database.exportAccessEvent.count({
+        where: { artifactId: generated.artifactId, allowed: false },
+      }),
     ).resolves.toBe(1);
   });
 

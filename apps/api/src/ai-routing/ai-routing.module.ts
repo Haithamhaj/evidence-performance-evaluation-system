@@ -6,7 +6,7 @@ import { createDatabaseClient } from "@evaluation/database";
 
 import { AuthGuard } from "../auth/auth.guard.js";
 import { AuthModule } from "../auth/auth.module.js";
-import { createAiGovernanceComposition } from "./admin-composition.js";
+import { createAiGovernanceComposition, executeAiRouteAdminCommand } from "./admin-composition.js";
 
 type DatabaseClient = ReturnType<typeof createDatabaseClient>;
 type RoutePrincipal = Pick<AuthenticatedPrincipal, "active" | "userId">;
@@ -74,6 +74,10 @@ export class AiRouteManagementService {
 
   change(principal: RoutePrincipal, input: unknown) {
     return changeAuthorizedAiRoute(this.database.client, principal, input);
+  }
+
+  executeAdminCommand(command: import("@evaluation/contracts").AdminCommand) {
+    return executeAiRouteAdminCommand(this.database.client, command);
   }
 }
 

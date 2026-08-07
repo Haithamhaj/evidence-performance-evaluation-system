@@ -51,7 +51,11 @@ export class AdminCommandService {
     }
     const ownerReceipt = await owner.execute(command);
     if (!ownerReceipt.auditEventId) {
-      throw new AppError("ADMIN_OWNER_AUDIT_REQUIRED", "errors.administration.ownerAuditRequired", 500);
+      throw new AppError(
+        "ADMIN_OWNER_AUDIT_REQUIRED",
+        "errors.administration.ownerAuditRequired",
+        500,
+      );
     }
     return this.database.adminMutationReceipt.create({
       data: {

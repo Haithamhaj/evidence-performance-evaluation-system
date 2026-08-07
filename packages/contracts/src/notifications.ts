@@ -75,7 +75,9 @@ export const NotificationIntentSchema = z
     urgency: NotificationUrgencySchema,
     template: NotificationTemplateSchema,
     action: NotificationActionSchema,
-    source: z.object({ eventId: RequiredTextSchema, eventVersion: z.number().int().positive() }).strict(),
+    source: z
+      .object({ eventId: RequiredTextSchema, eventVersion: z.number().int().positive() })
+      .strict(),
     dedupeKey: RequiredTextSchema,
     channels: z.array(DeliveryChannelSchema).min(1).max(2),
     deliverAfter: UtcSchema,
@@ -115,6 +117,67 @@ export const NotificationScheduleSchema = z
     version: z.number().int().positive(),
   })
   .strict();
+export const NotificationDeliveryJobSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    jobType: z.literal("notifications.deliver"),
+    intentId: UuidSchema,
+    correlationId: UuidSchema,
+  })
+  .strict();
+export const NotificationDomainEventSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("CHECK_IN_DUE"),
+      eventId: RequiredTextSchema,
+      eventVersion: z.number().int().positive(),
+      recipientId: UuidSchema,
+      obligationId: UuidSchema,
+      dueAt: UtcSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("REASSIGNMENT_REQUIRED"),
+      eventId: RequiredTextSchema,
+      eventVersion: z.number().int().positive(),
+      recipientId: UuidSchema,
+      caseId: UuidSchema,
+      occurredAt: UtcSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("EXPORT_READY"),
+      eventId: RequiredTextSchema,
+      eventVersion: z.number().int().positive(),
+      recipientId: UuidSchema,
+      artifactId: UuidSchema,
+      occurredAt: UtcSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("SYSTEM_HEALTH_ACTION_REQUIRED"),
+      eventId: RequiredTextSchema,
+      eventVersion: z.number().int().positive(),
+      recipientId: UuidSchema,
+      dependency: z.enum([
+        "WORKER",
+        "QUEUE",
+        "OBJECT_STORAGE",
+        "OIDC",
+        "AI_ROUTE",
+        "CONNECTOR",
+        "EMAIL",
+        "BACKUP",
+      ]),
+      occurredAt: UtcSchema,
+    })
+    .strict(),
+]);
 
 export type NotificationIntent = z.infer<typeof NotificationIntentSchema>;
 export type NotificationCategory = z.infer<typeof NotificationCategorySchema>;
+export type NotificationDeliveryJob = z.infer<typeof NotificationDeliveryJobSchema>;
+export type NotificationDomainEvent = z.infer<typeof NotificationDomainEventSchema>;

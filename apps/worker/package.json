@@ -19,6 +19,7 @@
     "@evaluation/criteria": "workspace:*",
     "@evaluation/database": "workspace:*",
     "@evaluation/documents": "workspace:*",
+    "@evaluation/employee-evaluation": "workspace:*",
     "@evaluation/observability": "workspace:*",
     "@evaluation/notifications": "workspace:*",
     "@evaluation/projects": "workspace:*",

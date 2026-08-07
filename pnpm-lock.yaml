@@ -363,6 +363,9 @@ importers:
       '@evaluation/documents':
         specifier: workspace:*
         version: link:../../packages/documents
+      '@evaluation/employee-evaluation':
+        specifier: workspace:*
+        version: link:../../packages/employee-evaluation
       '@evaluation/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
@@ -698,6 +701,9 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:../database
+      bullmq:
+        specifier: 5.80.3
+        version: 5.80.3(redis@6.1.0)
     devDependencies:
       '@types/node':
         specifier: 26.1.1
@@ -747,6 +753,12 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:../database
+      '@evaluation/employee-evaluation':
+        specifier: workspace:*
+        version: link:../employee-evaluation
+      '@evaluation/manager-evaluation':
+        specifier: workspace:*
+        version: link:../manager-evaluation
     devDependencies:
       '@types/node':
         specifier: 26.1.1

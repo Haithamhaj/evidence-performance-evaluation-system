@@ -12,7 +12,9 @@ export class NotificationPreferenceService {
     this.database = database;
   }
 
-  async set(input: Readonly<{ recipientId: string; category: NotificationCategory; emailEnabled: boolean }>) {
+  async set(
+    input: Readonly<{ recipientId: string; category: NotificationCategory; emailEnabled: boolean }>,
+  ) {
     return this.database.notificationPreference.upsert({
       where: {
         recipientId_category: { recipientId: input.recipientId, category: input.category },

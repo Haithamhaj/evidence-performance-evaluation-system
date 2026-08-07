@@ -39,7 +39,10 @@ export class ArtifactAccessService {
       },
     });
     if (!artifact || reason !== "ALLOWED") return { allowed: false as const, reason };
-    const descriptor = await this.storage.signGet({ key: artifact.storageKey, expiresInSeconds: 60 });
+    const descriptor = await this.storage.signGet({
+      key: artifact.storageKey,
+      expiresInSeconds: 60,
+    });
     return { allowed: true as const, descriptor, expiresInSeconds: 60 };
   }
 

@@ -70,8 +70,49 @@ const AiRouteChangeSchema = z
       ),
   })
   .strict();
+const AdminAiRoutePayloadSchema = AiRouteChangeSchema.omit({ reason: true, correlationId: true });
 
 type AiRouteChangeRequest = Readonly<z.infer<typeof AiRouteChangeSchema>>;
+
+export async function executeAiRouteAdminCommand(
+  client: DatabaseClient,
+  command: import("@evaluation/contracts").AdminCommand,
+) {
+  if (command.capability !== "AI_ROUTES_MANAGE" || command.reason === null) {
+    throw new AppError(
+      "ADMIN_AI_ROUTE_COMMAND_INVALID",
+      "errors.administration.invalidCommand",
+      400,
+    );
+  }
+  const payload = AdminAiRoutePayloadSchema.parse(command.payload);
+  const result = await serializable(client, async (transaction) => {
+    await authorizeSystemAdministrator(transaction, { userId: command.actorId, active: true });
+    const existing = await transaction.auditEvent.findFirst({
+      where: {
+        correlationId: command.idempotencyKey,
+        eventType: "ai.route.changed",
+        actorId: command.actorId,
+      },
+      select: { id: true, targetId: true },
+    });
+    if (existing) {
+      return { configId: existing.targetId, auditEventId: existing.id };
+    }
+    return changeRouteInTransaction(
+      transaction,
+      databaseAuditWriter as AuditWriter,
+      command.actorId,
+      { ...payload, reason: command.reason!, correlationId: command.idempotencyKey },
+      command.expectedVersion,
+    );
+  });
+  return {
+    ownerDomain: "ai-routing",
+    ownerReceiptId: result.configId,
+    auditEventId: result.auditEventId,
+  };
+}
 
 const LocalTrustPolicySchema = z
   .object({
@@ -370,6 +411,7 @@ async function changeRouteInTransaction(
   writer: AuditWriter,
   administratorId: string,
   input: AiRouteChangeRequest,
+  expectedVersion?: number,
 ) {
   const scope = await transaction.authorizationScope.findUnique({
     where: { id_scopeType: { id: input.scopeId, scopeType: input.level } },
@@ -410,6 +452,9 @@ async function changeRouteInTransaction(
     include: { providers: { orderBy: { position: "asc" }, include: { providerConfig: true } } },
   });
   const version = (previous?.version ?? 0) + 1;
+  if (expectedVersion !== undefined && version !== expectedVersion) {
+    throw new AppError("ADMIN_VERSION_CONFLICT", "errors.administration.versionConflict", 409);
+  }
   const config = await transaction.aiRouteConfig.create({
     data: {
       routeId: route.id,
@@ -440,7 +485,7 @@ async function changeRouteInTransaction(
             locality: providerConfig.locality,
           })),
         };
-  await writer.append(transaction, {
+  const audit = await writer.append(transaction, {
     eventType: "ai.route.changed",
     actor: { kind: "human", id: administratorId },
     effectiveSubjectId: administratorId,
@@ -461,7 +506,12 @@ async function changeRouteInTransaction(
     correlationId: input.correlationId,
     source: "api",
   });
-  return { routeId: route.id, configId: config.id, configVersion: version };
+  return {
+    routeId: route.id,
+    configId: config.id,
+    configVersion: version,
+    auditEventId: audit.id,
+  };
 }
 
 async function authorizeSystemAdministrator(

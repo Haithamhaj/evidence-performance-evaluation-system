@@ -106,7 +106,8 @@ export class NotificationIntentService {
     authorizeTarget: (action: Readonly<{ kind: string; resourceId: string }>) => Promise<boolean>,
   ) {
     const intent = await this.database.notificationIntent.findUnique({ where: { id: intentId } });
-    if (!intent || intent.recipientId !== actorId) return { allowed: false as const, reason: "DENIED" };
+    if (!intent || intent.recipientId !== actorId)
+      return { allowed: false as const, reason: "DENIED" };
     const allowed = await authorizeTarget({
       kind: intent.actionKind,
       resourceId: intent.actionResourceId,

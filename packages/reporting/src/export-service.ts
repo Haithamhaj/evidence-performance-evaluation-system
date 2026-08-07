@@ -6,14 +6,21 @@ import { renderHtml } from "./renderers/html.js";
 import { renderPdf } from "./renderers/pdf.js";
 
 export interface ReportObjectStorage {
-  put(input: Readonly<{ key: string; content: Buffer; contentType: string; encrypted: true }>): Promise<void>;
+  put(
+    input: Readonly<{ key: string; content: Buffer; contentType: string; encrypted: true }>,
+  ): Promise<void>;
   signGet(input: Readonly<{ key: string; expiresInSeconds: number }>): Promise<string>;
 }
 
 export class InMemoryReportStorage implements ReportObjectStorage {
-  readonly objects = new Map<string, Readonly<{ content: Buffer; contentType: string; encrypted: true }>>();
+  readonly objects = new Map<
+    string,
+    Readonly<{ content: Buffer; contentType: string; encrypted: true }>
+  >();
 
-  async put(input: Readonly<{ key: string; content: Buffer; contentType: string; encrypted: true }>) {
+  async put(
+    input: Readonly<{ key: string; content: Buffer; contentType: string; encrypted: true }>,
+  ) {
     this.objects.set(input.key, {
       content: Buffer.from(input.content),
       contentType: input.contentType,
@@ -116,7 +123,8 @@ export class ExportService {
           id: manifestId,
           requestId,
           schemaVersion: 1,
-          projectionVersion: this.registry.resolve(parsed.reportType, parsed.audience).projectionVersion,
+          projectionVersion: this.registry.resolve(parsed.reportType, parsed.audience)
+            .projectionVersion,
           rendererVersion: 1,
           sourceVersions,
         },
@@ -125,7 +133,7 @@ export class ExportService {
     return { request, manifest: manifestView(manifest) };
   }
 
-  async generate(requestId: string) {
+  async materialize(requestId: string) {
     const request = await this.database.exportRequest.findUniqueOrThrow({
       where: { id: requestId },
       include: { manifest: { include: { artifact: true } } },
@@ -136,54 +144,66 @@ export class ExportService {
       where: { id: request.id },
       data: { state: "GENERATING", attemptCount: { increment: 1 } },
     });
-    const sourceVersions = request.manifest.sourceVersions as unknown as import("./projection-registry.js").SourceVersion[];
-    const projection = await this.registry.read(
-      request.reportType as import("./projection-registry.js").ReportType,
-      request.audience as import("./projection-registry.js").ReportAudience,
-      sourceVersions,
-      { requesterId: request.requesterId, cycleId: request.cycleId },
-    );
-    const generatedAt = this.now();
-    const content =
-      request.format === "PDF"
-        ? renderPdf(projection)
-        : Buffer.from(
-            renderHtml(projection, {
-              locale: request.locale as "en" | "ar",
-              timezone: request.timezone,
-              generatedAt,
-            }),
-          );
-    const contentType = request.format === "PDF" ? "application/pdf" : "text/html";
-    const contentHash = createHash("sha256").update(content).digest("hex");
-    const storageKey = `reports/${request.id}/${contentHash}.${request.format.toLowerCase()}`;
-    await this.storage.put({ key: storageKey, content, contentType, encrypted: true });
-    const artifact = await this.database.$transaction(async (transaction) => {
-      const created = await transaction.exportArtifact.create({
-        data: {
-          id: randomUUID(),
-          manifestId: request.manifest!.id,
-          storageKey,
-          contentHash,
-          byteSize: content.byteLength,
-          contentType,
-          encrypted: true,
-          expiresAt: this.expiresAt(generatedAt),
-          createdAt: generatedAt,
-        },
+    try {
+      const sourceVersions = request.manifest
+        .sourceVersions as unknown as import("./projection-registry.js").SourceVersion[];
+      const projection = await this.registry.read(
+        request.reportType as import("./projection-registry.js").ReportType,
+        request.audience as import("./projection-registry.js").ReportAudience,
+        sourceVersions,
+        { requesterId: request.requesterId, cycleId: request.cycleId },
+      );
+      const generatedAt = this.now();
+      const content =
+        request.format === "PDF"
+          ? renderPdf(projection)
+          : Buffer.from(
+              renderHtml(projection, {
+                locale: request.locale as "en" | "ar",
+                timezone: request.timezone,
+                generatedAt,
+              }),
+            );
+      const contentType = request.format === "PDF" ? "application/pdf" : "text/html";
+      const contentHash = createHash("sha256").update(content).digest("hex");
+      const storageKey = `reports/${request.id}/${contentHash}.${request.format.toLowerCase()}`;
+      await this.storage.put({ key: storageKey, content, contentType, encrypted: true });
+      const artifact = await this.database.$transaction(async (transaction) => {
+        const created = await transaction.exportArtifact.create({
+          data: {
+            id: randomUUID(),
+            manifestId: request.manifest!.id,
+            storageKey,
+            contentHash,
+            byteSize: content.byteLength,
+            contentType,
+            encrypted: true,
+            expiresAt: this.expiresAt(generatedAt),
+            createdAt: generatedAt,
+          },
+        });
+        await transaction.exportRequest.update({
+          where: { id: request.id },
+          data: { state: "READY", failureCategory: null },
+        });
+        return created;
       });
-      await transaction.exportRequest.update({ where: { id: request.id }, data: { state: "READY" } });
-      return created;
-    });
-    return artifactView(artifact);
+      return artifactView(artifact);
+    } catch {
+      await this.database.exportRequest.update({
+        where: { id: request.id },
+        data: { state: "FAILED", failureCategory: "GENERATION" },
+      });
+      throw new Error("EXPORT_GENERATION_FAILED");
+    }
   }
 
-  async generateFor(requesterId: string, requestId: string) {
+  async materializeFor(requesterId: string, requestId: string) {
     const request = await this.database.exportRequest.findUnique({ where: { id: requestId } });
     if (!request || request.requesterId !== requesterId) {
       throw new AppError("EXPORT_FORBIDDEN", "errors.exports.forbidden", 403);
     }
-    return this.generate(requestId);
+    return this.materialize(requestId);
   }
 
   async readRequest(

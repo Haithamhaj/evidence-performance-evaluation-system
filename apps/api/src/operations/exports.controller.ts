@@ -4,24 +4,28 @@ import { ArtifactAccessService, ExportService } from "@evaluation/reporting";
 import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 
 import { OperationsPolicyGuard, type OperationsRequest } from "./operations-policy.guard.js";
+import { ExportQueueProducer } from "./export-queue-producer.js";
 
 export class ExportsController {
   constructor(
     private readonly exports: ExportService,
     private readonly access: ArtifactAccessService,
+    private readonly queue: ExportQueueProducer,
   ) {}
 
-  request(request: OperationsRequest, body: unknown) {
+  async request(request: OperationsRequest, body: unknown) {
     const parsed = ExportRequestSchema.omit({ schemaVersion: true, requesterId: true }).parse(body);
-    return this.exports.request({ ...parsed, requesterId: actor(request) });
+    const result = await this.exports.request({ ...parsed, requesterId: actor(request) });
+    await this.queue.enqueue({
+      requestId: result.request.id,
+      requesterId: actor(request),
+      correlationId: correlation(request),
+    });
+    return result;
   }
 
   status(request: OperationsRequest, requestId: string) {
     return this.exports.readRequest(actor(request), requestId);
-  }
-
-  generate(request: OperationsRequest, requestId: string) {
-    return this.exports.generateFor(actor(request), requestId);
   }
 
   download(request: OperationsRequest, artifactId: string) {
@@ -38,9 +42,9 @@ Controller("api/v1/operations/exports")(ExportsController);
 UseGuards(OperationsPolicyGuard)(ExportsController);
 Inject(ExportService)(ExportsController, undefined, 0);
 Inject(ArtifactAccessService)(ExportsController, undefined, 1);
+Inject(ExportQueueProducer)(ExportsController, undefined, 2);
 decorate("request", Post(), [Req(), Body()]);
 decorate("status", Get(":requestId"), [Req(), Param("requestId")]);
-decorate("generate", Post(":requestId/generate"), [Req(), Param("requestId")]);
 decorate("download", Post("artifacts/:artifactId/open"), [Req(), Param("artifactId")]);
 decorate("revoke", Post("artifacts/:artifactId/revoke"), [Req(), Param("artifactId"), Body()]);
 

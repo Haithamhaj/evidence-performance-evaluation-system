@@ -1,6 +1,9 @@
 /* eslint-disable no-unused-vars */
 import { NotificationCategorySchema } from "@evaluation/contracts";
-import { NotificationIntentService, NotificationPreferenceService } from "@evaluation/notifications";
+import {
+  NotificationIntentService,
+  NotificationPreferenceService,
+} from "@evaluation/notifications";
 import { Body, Controller, Get, Inject, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 
 import { OperationsPolicyGuard, type OperationsRequest } from "./operations-policy.guard.js";

@@ -35,3 +35,9 @@ export class InMemoryEmailAdapter implements EmailAdapter {
     return { receipt: `local:${randomUUID()}` };
   }
 }
+
+export class UnavailableEmailAdapter implements EmailAdapter {
+  async send(): Promise<never> {
+    throw new EmailDeliveryError("PERMANENT");
+  }
+}

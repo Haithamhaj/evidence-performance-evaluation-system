@@ -12,7 +12,9 @@ export class S3ReportStorage implements ReportObjectStorage {
     if (!bucket) throw new Error("DOCUMENT_STORAGE_BUCKET is required for report storage");
   }
 
-  async put(input: Readonly<{ key: string; content: Buffer; contentType: string; encrypted: true }>) {
+  async put(
+    input: Readonly<{ key: string; content: Buffer; contentType: string; encrypted: true }>,
+  ) {
     if (!input.key.startsWith("reports/") || input.key.includes("..")) {
       throw new Error("Invalid report object key");
     }

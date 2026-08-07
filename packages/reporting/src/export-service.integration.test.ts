@@ -48,8 +48,8 @@ describe("ExportService", () => {
     expect(request.manifest.sourceVersions).toEqual([
       { source: "employee-evaluation", snapshotId: "closed-snapshot-1", version: 3 },
     ]);
-    const first = await service.generate(request.request.id);
-    const second = await service.generate(request.request.id);
+    const first = await service.materialize(request.request.id);
+    const second = await service.materialize(request.request.id);
     expect(second.contentHash).toBe(first.contentHash);
     expect(storage.objects.get(first.storageKey)?.encrypted).toBe(true);
   });
@@ -68,5 +68,34 @@ describe("ExportService", () => {
         timezone: "Asia/Riyadh",
       }),
     ).rejects.toMatchObject({ code: "ARABIC_EVALUATION_NOT_APPROVED" });
+  });
+
+  it("records a bounded failed state while leaving the pinned request retryable", async () => {
+    const service = new ExportService(database, registry(), {
+      put: async () => {
+        throw new Error("private provider detail");
+      },
+      signGet: async () => "unused",
+    });
+    const request = await service.request({
+      requesterId: employeeId,
+      idempotencyKey: randomUUID(),
+      reportType: "EMPLOYEE_EVALUATION",
+      audience: "EMPLOYEE_SELF",
+      format: "PDF",
+      locale: "en",
+      cycleId: randomUUID(),
+      timezone: "Asia/Riyadh",
+    });
+    await expect(service.materialize(request.request.id)).rejects.toThrow(
+      "EXPORT_GENERATION_FAILED",
+    );
+    await expect(service.readRequest(employeeId, request.request.id)).resolves.toMatchObject({
+      state: "FAILED",
+      artifactId: null,
+    });
+    await expect(
+      database.exportRequest.findUniqueOrThrow({ where: { id: request.request.id } }),
+    ).resolves.toMatchObject({ failureCategory: "GENERATION", attemptCount: 1 });
   });
 });

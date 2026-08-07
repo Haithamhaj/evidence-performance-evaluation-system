@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createDatabaseClient } from "@evaluation/database";
-import { NotificationIntentService, NotificationPreferenceService } from "@evaluation/notifications";
+import {
+  NotificationIntentService,
+  NotificationPreferenceService,
+} from "@evaluation/notifications";
 import {
   ArtifactAccessService,
   ExportService,
@@ -16,6 +19,7 @@ import { ExportsController } from "../../apps/api/src/operations/exports.control
 import { NotificationsController } from "../../apps/api/src/operations/notifications.controller.js";
 import { OperationsPolicyGuard } from "../../apps/api/src/operations/operations-policy.guard.js";
 import { OperationsTargetAuthorizer } from "../../apps/api/src/operations/target-authorizer.js";
+import { ExportQueueProducer } from "../../apps/api/src/operations/export-queue-producer.js";
 
 const database = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 const employeeId = randomUUID();
@@ -37,7 +41,13 @@ function request(userId: string) {
   return {
     headers: {},
     params: {},
-    principal: { userId, oidcSubject: userId, email: `${userId}@example.test`, roles: [], active: true },
+    principal: {
+      userId,
+      oidcSubject: userId,
+      email: `${userId}@example.test`,
+      roles: [],
+      active: true,
+    },
   };
 }
 
@@ -85,9 +95,15 @@ describe("operations API authorization", () => {
       cycleId: null,
       timezone: "Asia/Riyadh",
     });
-    const artifact = await exports.generate(requested.request.id);
-    const controller = new ExportsController(exports, new ArtifactAccessService(database, storage));
-    await expect(controller.download(request(otherEmployeeId), artifact.artifactId)).resolves.toEqual({
+    const artifact = await exports.materialize(requested.request.id);
+    const controller = new ExportsController(
+      exports,
+      new ArtifactAccessService(database, storage),
+      new ExportQueueProducer({ add: async () => ({}), close: async () => undefined }),
+    );
+    await expect(
+      controller.download(request(otherEmployeeId), artifact.artifactId),
+    ).resolves.toEqual({
       allowed: false,
       reason: "DENIED",
     });
@@ -95,10 +111,7 @@ describe("operations API authorization", () => {
 
   it("denies System Administrator health routes to a manager", async () => {
     const httpRequest = request(managerId);
-    const guard = new OperationsPolicyGuard(
-      { canActivate: async () => true } as never,
-      database,
-    );
+    const guard = new OperationsPolicyGuard({ canActivate: async () => true } as never, database);
     const context = {
       switchToHttp: () => ({ getRequest: () => httpRequest }),
       getClass: () => AdministrationController,

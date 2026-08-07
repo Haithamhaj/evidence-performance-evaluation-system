@@ -348,9 +348,9 @@ The detailed authority is
 | ---------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | E2         | Feature register, capability matrix, system map, and frontend handoff contract | Complete — source-traced baseline verified                                                                          |
 | E3         | Research questions, experiments, conclusions, decisions, and applied learning  | Technical checkpoint complete locally, including real production API+PostgreSQL lifecycle; hosted PR checks pending |
-| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Technical checkpoint complete locally; final frontend and E6B export delivery remain later                          |
+| E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Technical checkpoint complete locally; E6B export delivery is now complete; final frontend remains later            |
 | E5         | Identified upward manager evaluation, coaching, and development                | E5A and E5B technical checkpoints complete locally; combined review and hosted checks pending                       |
-| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Three bounded designs and detailed TDD plans approved                                                               |
+| E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | E6A and E6B technical checkpoints complete locally; E6C security/recovery/readiness remains next                    |
 | E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6                                                           |
 
 ## T030 — Implement Activity Timeline
@@ -552,7 +552,7 @@ The detailed authority is
 
 ## T053 — Implement Evaluation Reports and Export
 
-**Execution status:** Immutable employee/department report projections complete; export generation/delivery remains E6B by approved design.
+**Execution status:** Complete at the engine checkpoint — immutable employee/department/identified-upward projections, asynchronous encrypted export generation, current-access download audit, expiry, and revocation are verified. Arabic evaluation export remains correctly blocked at T016.
 **Priority:** P2
 **Dependencies:** T051
 **Verification:** correct snapshot, calibration label, Arabic and English export, feedback visibility matches the frozen mode, export audit event.
@@ -733,6 +733,8 @@ The detailed authority is
 
 ## T071 — Implement Notification Service
 
+**Execution status:** Complete at the engine checkpoint — source-event dedupe, in-app delivery, email preferences/recovery, versioned Thursday/monthly schedules, and the notification BullMQ runtime are verified. The live email provider is an external deployment gate.
+
 **Priority:** P1
 **Dependencies:** T013
 **Purpose:** In-app and email notifications.
@@ -740,12 +742,16 @@ The detailed authority is
 
 ## T072 — Implement Dashboards
 
+**Execution status:** Technical composition complete — existing employee/manager projections and the safe System Administrator operations projection are available; final daily-use frontend interaction design remains in the approved post-engine frontend program.
+
 **Priority:** P1
 **Dependencies:** Major feature tasks
 **Purpose:** Employee, Manager, and System Administrator dashboards including monthly readiness, operational documentation states, and identified manager-feedback status.
 **Verification:** no unauthorized data; manager sees identified pilot feedback; manager does not see employee Documentation Readiness percentages or ranking; RTL and English layouts pass.
 
 ## T073 — Implement Observability and System Health
+
+**Execution status:** Complete at the bounded engine checkpoint — safe dependency health, correlation, job/provider recovery states, and action-required notifications are verified. Production telemetry destination and backup drill remain E6C/deployment gates.
 
 **Priority:** P2
 **Dependencies:** T005, T013

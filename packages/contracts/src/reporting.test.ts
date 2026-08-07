@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ExportManifestSchema, ExportStateSchema } from "./reporting.js";
+import { ExportGenerationJobSchema, ExportManifestSchema, ExportStateSchema } from "./reporting.js";
 
 const validManifest = {
   schemaVersion: 1,
@@ -26,5 +26,17 @@ describe("reporting contracts", () => {
     expect(() =>
       ExportManifestSchema.parse({ ...validManifest, signedUrl: "https://example.invalid/secret" }),
     ).toThrow();
+  });
+
+  it("accepts only the bounded versioned asynchronous generation job", () => {
+    expect(
+      ExportGenerationJobSchema.parse({
+        schemaVersion: 1,
+        jobType: "reporting.generate",
+        requestId: "10000000-0000-4000-8000-000000000002",
+        requesterId: "10000000-0000-4000-8000-000000000004",
+        correlationId: "10000000-0000-4000-8000-000000000005",
+      }),
+    ).toMatchObject({ jobType: "reporting.generate", schemaVersion: 1 });
   });
 });
