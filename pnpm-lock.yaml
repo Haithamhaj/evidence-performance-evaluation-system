@@ -406,6 +406,12 @@ importers:
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      '@evaluation/observability':
+        specifier: workspace:*
+        version: link:../observability
     devDependencies:
       '@types/node':
         specifier: 26.1.1

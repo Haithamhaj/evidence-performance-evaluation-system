@@ -59,3 +59,5 @@ export const AdminHealthProjectionSchema = z
   .strict();
 
 export type AdminCommand = z.infer<typeof AdminCommandSchema>;
+export type AdminDependencyHealth = z.infer<typeof AdminDependencyHealthSchema>;
+export type AdminHealthProjection = z.infer<typeof AdminHealthProjectionSchema>;
