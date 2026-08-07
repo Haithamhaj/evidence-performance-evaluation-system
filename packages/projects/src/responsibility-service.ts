@@ -51,6 +51,16 @@ type OwnershipTransferResult = Readonly<{
   version: number;
 }>;
 
+export type ReassignmentOwnershipCommand = Readonly<{
+  actor: Readonly<{ userId: string; active: boolean }>;
+  correlationId: string;
+  scope: Readonly<{ kind: "PROJECT" | "WORKSTREAM"; id: string; projectId?: string }>;
+  successorId: string;
+  effectiveAt: string;
+  expectedVersion: number;
+  reason: string;
+}>;
+
 export class ResponsibilityService {
   private readonly client: DatabaseClient;
   private readonly auditWriter: AuditWriter;
@@ -80,6 +90,27 @@ export class ResponsibilityService {
       },
       parsed,
     );
+  }
+
+  async resolvePermanentReassignment(
+    command: ReassignmentOwnershipCommand,
+  ): Promise<OwnershipTransferResult> {
+    const input = {
+      actor: command.actor,
+      correlationId: command.correlationId,
+      projectId: command.scope.kind === "PROJECT" ? command.scope.id : command.scope.projectId,
+      ...(command.scope.kind === "WORKSTREAM" ? { workstreamId: command.scope.id } : {}),
+      input: {
+        transferKind: "permanent" as const,
+        toUserId: command.successorId,
+        effectiveAt: command.effectiveAt,
+        expectedVersion: command.expectedVersion,
+        reason: command.reason,
+      },
+    };
+    return command.scope.kind === "PROJECT"
+      ? this.transferProjectOwner(input)
+      : this.transferWorkstreamOwner(input);
   }
 
   async responsibilitiesAt(command: unknown) {

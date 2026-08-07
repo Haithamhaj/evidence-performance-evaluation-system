@@ -5,4 +5,9 @@ export {
   validateAccessToken,
   type AccessTokenValidationConfig,
 } from "./token-validator.js";
-export { syncOidcUser, type UserSyncClient } from "./user-sync.js";
+export {
+  deactivateInternalUser,
+  syncOidcUser,
+  type UserDeactivationClient,
+  type UserSyncClient,
+} from "./user-sync.js";
