@@ -30,6 +30,7 @@ let outsiderId = "";
 let insightId = "";
 let evidenceId = "";
 let outsiderInsightId = "";
+let outsiderAssignmentId = "";
 const insightSourceId = crypto.randomUUID();
 
 const authGuard = {
@@ -139,6 +140,25 @@ beforeAll(async () => {
   outsiderInsightId = (
     await database.coachingInsight.create({ data: { employeeId: outsiderId, state: "DRAFT" } })
   ).id;
+  const employeeAssignment = await database.evaluationAssignment.findFirstOrThrow({
+    where: { employeeId, managerId },
+  });
+  outsiderAssignmentId = (
+    await database.evaluationAssignment.upsert({
+      where: {
+        cycleId_employeeId: { cycleId: employeeAssignment.cycleId, employeeId: outsiderId },
+      },
+      create: {
+        cycleId: employeeAssignment.cycleId,
+        employeeId: outsiderId,
+        managerId,
+        eligibilityState: "ELIGIBLE",
+        eligibilityReason: "Cross-employee authorization regression fixture.",
+        eligibilityEffectiveAt: new Date("2026-08-01T00:00:00Z"),
+      },
+      update: {},
+    })
+  ).id;
   evidenceId = await createConfirmedEvidence(employeeId);
 
   app = await NestFactory.create(TestModule, { abortOnError: false, logger: false });
@@ -233,11 +253,22 @@ describe("coaching development authenticated retained journey", () => {
       status: 201,
       body: { version: 4 },
     });
+    expect(
+      await api("POST", "/api/v1/coaching/actions/revise", employeeId, {
+        ...actionInput(),
+        actionId,
+        expectedVersion: 4,
+        idempotencyKey: crypto.randomUUID(),
+        title: "Private revised action title",
+        objective: "Private revised objective",
+      }),
+    ).toMatchObject({ status: 201, body: { id: actionId, version: 5 } });
 
-    const plan = await api("POST", "/api/v1/coaching/formal-plans", employeeId, {
+    const planCreateKey = crypto.randomUUID();
+    const planCreateCommand = {
       schemaVersion: 1,
       expectedVersion: 1,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey: planCreateKey,
       managerId,
       actionId,
       developmentArea: "Decision documentation",
@@ -248,7 +279,8 @@ describe("coaching development authenticated retained journey", () => {
       targetDate: null,
       completionEvidenceDefinition: "Employee-confirmed Evidence Record",
       sourceEvaluationAssignmentId: null,
-    });
+    };
+    const plan = await api("POST", "/api/v1/coaching/formal-plans", employeeId, planCreateCommand);
     expect(plan).toMatchObject({ status: 201, body: { id: expect.any(String), version: 1 } });
     const planId = (plan.body as { id: string }).id;
 
@@ -332,6 +364,25 @@ describe("coaching development authenticated retained journey", () => {
       status: 201,
       body: { state: "CLOSED", version: 10 },
     });
+    expect(
+      await api("POST", "/api/v1/coaching/formal-plans", employeeId, planCreateCommand),
+    ).toMatchObject({ status: 201, body: { id: planId, version: 1 } });
+
+    const withdrawn = await api("POST", "/api/v1/coaching/formal-plans", employeeId, {
+      ...planCreateCommand,
+      idempotencyKey: crypto.randomUUID(),
+      reason: "Private withdrawal-plan creation reason",
+    });
+    const withdrawnPlanId = (withdrawn.body as { id: string }).id;
+    expect(
+      await api("POST", "/api/v1/coaching/formal-plans/withdraw", employeeId, {
+        schemaVersion: 1,
+        planId: withdrawnPlanId,
+        expectedVersion: 1,
+        idempotencyKey: crypto.randomUUID(),
+        reason: "Private withdrawal reason must not enter audit metadata.",
+      }),
+    ).toMatchObject({ status: 201, body: { state: "WITHDRAWN", version: 2 } });
 
     const retained = await database.formalDevelopmentPlan.findUniqueOrThrow({
       where: { id: planId },
@@ -373,7 +424,7 @@ describe("coaching development authenticated retained journey", () => {
       body: { version: 2 },
     });
     const audits = await database.auditEvent.findMany({
-      where: { targetId: { in: [insightId, actionId, planId] } },
+      where: { targetId: { in: [insightId, actionId, planId, withdrawnPlanId] } },
       orderBy: { createdAt: "asc" },
     });
     expect(audits.map(({ eventType }) => eventType)).toEqual(
@@ -381,8 +432,17 @@ describe("coaching development authenticated retained journey", () => {
         "coaching.insight.decided",
         "coaching.insight.employee_read",
         "coaching.action.privacy_changed",
+        "coaching.action.created",
+        "coaching.action.revised",
+        "coaching.action.state_changed",
         "coaching.action.shared_read",
         "coaching.action.support_added",
+        "coaching.plan.created",
+        "coaching.plan.evidence_linked",
+        "coaching.plan.revised",
+        "coaching.plan.activated",
+        "coaching.plan.withdrawn",
+        "coaching.plan.closed",
         "coaching.plan.agreement_recorded",
         "coaching.plan.participant_read",
         "coaching.plan.completed",
@@ -390,6 +450,106 @@ describe("coaching development authenticated retained journey", () => {
     );
     expect(JSON.stringify(audits)).not.toContain("Employee-owned reflection");
     expect(JSON.stringify(audits)).not.toContain("Keep this note private");
+    for (const privateContent of [
+      "Document one blocker response",
+      "Private revised action title",
+      "Private revised objective",
+      "Employee-selected action with manager support",
+      "Employee changed the agreed activity",
+      "Optional training resource",
+      "Private withdrawal-plan creation reason",
+      "Private withdrawal reason must not enter audit metadata.",
+      "The participants completed and closed the plan.",
+    ])
+      expect(JSON.stringify(audits)).not.toContain(privateContent);
+    const safeMutationEvents = audits.filter(({ eventType }) =>
+      [
+        "coaching.action.created",
+        "coaching.action.revised",
+        "coaching.action.state_changed",
+        "coaching.plan.created",
+        "coaching.plan.evidence_linked",
+        "coaching.plan.revised",
+        "coaching.plan.activated",
+        "coaching.plan.withdrawn",
+        "coaching.plan.closed",
+      ].includes(eventType),
+    );
+    expect(safeMutationEvents.map(({ eventType }) => eventType).sort()).toEqual(
+      [
+        "coaching.action.created",
+        "coaching.action.revised",
+        "coaching.action.state_changed",
+        "coaching.action.state_changed",
+        "coaching.plan.activated",
+        "coaching.plan.activated",
+        "coaching.plan.closed",
+        "coaching.plan.created",
+        "coaching.plan.created",
+        "coaching.plan.evidence_linked",
+        "coaching.plan.revised",
+        "coaching.plan.withdrawn",
+      ].sort(),
+    );
+    const allowedAuditKeys = new Set([
+      "actionId",
+      "evidenceId",
+      "fromState",
+      "resultingVersion",
+      "revisionId",
+      "sourceEvaluationAssignmentId",
+      "state",
+      "toState",
+    ]);
+    for (const event of safeMutationEvents) {
+      const keys = Object.keys(event.safeDiff as object);
+      expect(keys.length).toBeGreaterThan(0);
+      expect(keys.every((key) => allowedAuditKeys.has(key))).toBe(true);
+    }
+    expect(
+      safeMutationEvents.find(({ eventType }) => eventType === "coaching.action.revised"),
+    ).toMatchObject({
+      targetId: actionId,
+      safeDiff: {
+        state: "ACTIVE",
+        resultingVersion: 5,
+        revisionId: expect.any(String),
+      },
+    });
+    expect(
+      safeMutationEvents.find(
+        ({ eventType, targetId }) =>
+          eventType === "coaching.action.created" && targetId === actionId,
+      ),
+    ).toMatchObject({
+      safeDiff: { state: "DRAFT", resultingVersion: 1, revisionId: expect.any(String) },
+    });
+    expect(
+      safeMutationEvents.find(
+        ({ eventType, targetId }) =>
+          eventType === "coaching.plan.evidence_linked" && targetId === planId,
+      ),
+    ).toMatchObject({ safeDiff: { evidenceId, state: "ACTIVE" } });
+    expect(
+      safeMutationEvents.find(
+        ({ eventType, targetId }) => eventType === "coaching.plan.closed" && targetId === planId,
+      ),
+    ).toMatchObject({
+      safeDiff: { fromState: "COMPLETED", toState: "CLOSED", resultingVersion: 10 },
+    });
+    expect(
+      safeMutationEvents.find(
+        ({ eventType, targetId }) =>
+          eventType === "coaching.plan.withdrawn" && targetId === withdrawnPlanId,
+      ),
+    ).toMatchObject({
+      safeDiff: { fromState: "DRAFT", toState: "WITHDRAWN", resultingVersion: 2 },
+    });
+    expect(
+      audits.filter(
+        ({ eventType, targetId }) => eventType === "coaching.plan.created" && targetId === planId,
+      ),
+    ).toHaveLength(1);
   });
 
   it("does not authorize a historical assignment outside its cycle window", async () => {
@@ -411,6 +571,38 @@ describe("coaching development authenticated retained journey", () => {
         idempotencyKey: crypto.randomUUID(),
       }),
     ).toMatchObject({ status: 403 });
+  });
+
+  it("rejects cross-employee formal-plan action, evaluation, and follow-up references", async () => {
+    const outsiderAction = await api("POST", "/api/v1/coaching/actions", outsiderId, actionInput());
+    const outsiderActionId = (outsiderAction.body as { id: string }).id;
+    const base = {
+      schemaVersion: 1,
+      expectedVersion: 1,
+      managerId,
+      actionId: null,
+      developmentArea: "Reference authorization test",
+      reason: "Authorization test",
+      expectedBehavior: "Reject foreign references.",
+      activities: ["No activity should be persisted"],
+      followUpOwnerId: managerId,
+      targetDate: null,
+      completionEvidenceDefinition: "No evidence",
+      sourceEvaluationAssignmentId: null,
+    };
+
+    for (const overrides of [
+      { actionId: outsiderActionId },
+      { sourceEvaluationAssignmentId: outsiderAssignmentId },
+      { followUpOwnerId: outsiderId },
+    ])
+      expect(
+        await api("POST", "/api/v1/coaching/formal-plans", employeeId, {
+          ...base,
+          ...overrides,
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      ).toMatchObject({ status: 403 });
   });
 
   it("allows only one concurrent action version transition", async () => {

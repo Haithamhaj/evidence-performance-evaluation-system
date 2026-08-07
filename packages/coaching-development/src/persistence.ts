@@ -179,6 +179,11 @@ export class CoachingDevelopmentPersistence {
           resultingVersion: 1,
         },
       });
+      await this.auditEvent(tx, input, "coaching.action.created", action.employeeId, action.id, {
+        revisionId: revision.id,
+        state: "DRAFT",
+        resultingVersion: 1,
+      });
       return { id: action.id, version: 1 };
     });
   }
@@ -213,6 +218,11 @@ export class CoachingDevelopmentPersistence {
       await tx.developmentAction.update({
         where: { id: action.id },
         data: { currentRevisionId: revision.id },
+      });
+      await this.auditEvent(tx, input, "coaching.action.revised", action.employeeId, action.id, {
+        revisionId: revision.id,
+        state: action.state,
+        resultingVersion: action.version + 1,
       });
       return { id: action.id, version: action.version + 1 };
     });
@@ -287,6 +297,18 @@ export class CoachingDevelopmentPersistence {
           resultingVersion: action.version + 1,
         },
       });
+      await this.auditEvent(
+        tx,
+        event,
+        "coaching.action.state_changed",
+        action.employeeId,
+        action.id,
+        {
+          fromState: action.state,
+          toState: String(event.toState),
+          resultingVersion: action.version + 1,
+        },
+      );
     });
   }
   async findIdempotentAction(idempotencyKey: string): Promise<{
@@ -428,6 +450,14 @@ export class CoachingDevelopmentPersistence {
         where: { id: plan.id },
         data: { currentRevisionId: revision.id },
       });
+      await this.auditEvent(tx, event, "coaching.plan.created", plan.employeeId, plan.id, {
+        revisionId: revision.id,
+        state: "DRAFT",
+        resultingVersion: 1,
+        actionId: plan.actionId,
+        sourceEvaluationAssignmentId:
+          (event.sourceEvaluationAssignmentId as string | null | undefined) ?? null,
+      });
       return { id: plan.id, version: 1 };
     });
   }
@@ -482,15 +512,24 @@ export class CoachingDevelopmentPersistence {
           reason: (event.reason as string | null | undefined) ?? null,
         },
       });
-      if (agreement || toState === "COMPLETED")
-        await this.auditEvent(
-          tx,
-          event,
-          agreement ? "coaching.plan.agreement_recorded" : "coaching.plan.completed",
-          plan.employeeId,
-          plan.id,
-          { transition: toState, resultingVersion: plan.version + 1 },
-        );
+      const auditType =
+        toState === "ACTIVE"
+          ? "coaching.plan.activated"
+          : toState === "WITHDRAWN"
+            ? "coaching.plan.withdrawn"
+            : toState === "CLOSED"
+              ? "coaching.plan.closed"
+              : agreement
+                ? "coaching.plan.agreement_recorded"
+                : toState === "COMPLETED"
+                  ? "coaching.plan.completed"
+                  : null;
+      if (auditType !== null)
+        await this.auditEvent(tx, event, auditType, plan.employeeId, plan.id, {
+          fromState: plan.state,
+          toState,
+          resultingVersion: plan.version + 1,
+        });
     });
   }
   async linkPlanEvidence(event: Record<string, unknown>) {
@@ -524,6 +563,15 @@ export class CoachingDevelopmentPersistence {
             confirmedById: String(event.employeeId),
           },
         });
+      if (!existing)
+        await this.auditEvent(
+          tx,
+          event,
+          "coaching.plan.evidence_linked",
+          plan.employeeId,
+          plan.id,
+          { evidenceId: String(event.evidenceId), state: plan.state },
+        );
     });
   }
 
@@ -564,6 +612,12 @@ export class CoachingDevelopmentPersistence {
           reason:
             "Employee revised the plan; prior approvals no longer apply to the current revision.",
         },
+      });
+      await this.auditEvent(tx, event, "coaching.plan.revised", plan.employeeId, plan.id, {
+        revisionId: revision.id,
+        fromState: plan.state,
+        toState: "DRAFT",
+        resultingVersion: plan.version + 1,
       });
       return { id: plan.id, state: "DRAFT", version: plan.version + 1 };
     });

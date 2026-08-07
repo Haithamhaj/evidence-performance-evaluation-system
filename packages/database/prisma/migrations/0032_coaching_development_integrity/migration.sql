@@ -54,6 +54,20 @@ ALTER TABLE "FormalDevelopmentPlanEvidenceLink"
   FOREIGN KEY ("confirmedById") REFERENCES "User"("id")
   ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
 
+-- Existing coaching history must satisfy the newly declared ownership and reference boundaries.
+-- Validation is deliberately part of this forward migration so an invalid pre-0032 database fails
+-- the upgrade instead of retaining an indefinitely unvalidated constraint.
+ALTER TABLE "CoachingInsight" VALIDATE CONSTRAINT "CoachingInsight_currentRevisionId_id_fkey";
+ALTER TABLE "CoachingInsightSource" VALIDATE CONSTRAINT "CoachingInsightSource_revisionId_insightId_fkey";
+ALTER TABLE "CoachingInsightRevision" VALIDATE CONSTRAINT "CoachingInsightRevision_aiRunId_fkey";
+ALTER TABLE "DevelopmentAction" VALIDATE CONSTRAINT "DevelopmentAction_insightId_fkey";
+ALTER TABLE "DevelopmentAction" VALIDATE CONSTRAINT "DevelopmentAction_currentRevisionId_id_fkey";
+ALTER TABLE "FormalDevelopmentPlan" VALIDATE CONSTRAINT "FormalDevelopmentPlan_currentRevisionId_id_fkey";
+ALTER TABLE "FormalDevelopmentPlanAgreement" VALIDATE CONSTRAINT "FormalDevelopmentPlanAgreement_revisionId_planId_fkey";
+ALTER TABLE "FormalDevelopmentPlanRevision" VALIDATE CONSTRAINT "FormalDevelopmentPlanRevision_sourceEvaluationAssignmentId_fkey";
+ALTER TABLE "FormalDevelopmentPlanEvidenceLink" VALIDATE CONSTRAINT "FormalDevelopmentPlanEvidenceLink_evidenceId_fkey";
+ALTER TABLE "FormalDevelopmentPlanEvidenceLink" VALIDATE CONSTRAINT "FormalDevelopmentPlanEvidenceLink_confirmedById_fkey";
+
 CREATE OR REPLACE FUNCTION "reject_coaching_history_mutation"()
 RETURNS trigger
 LANGUAGE plpgsql

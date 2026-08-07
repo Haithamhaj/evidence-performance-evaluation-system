@@ -54,6 +54,29 @@ beforeAll(async () => {
 afterAll(async () => database.$disconnect());
 
 describe("coaching development database integrity", () => {
+  it("validates every referential constraint added by migration 0032", async () => {
+    const expected = [
+      "CoachingInsightRevision_aiRunId_fkey",
+      "CoachingInsightSource_revisionId_insightId_fkey",
+      "CoachingInsight_currentRevisionId_id_fkey",
+      "DevelopmentAction_currentRevisionId_id_fkey",
+      "DevelopmentAction_insightId_fkey",
+      "FormalDevelopmentPlanAgreement_revisionId_planId_fkey",
+      "FormalDevelopmentPlanEvidenceLink_confirmedById_fkey",
+      "FormalDevelopmentPlanEvidenceLink_evidenceId_fkey",
+      "FormalDevelopmentPlanRevision_sourceEvaluationAssignmentId_fkey",
+      "FormalDevelopmentPlan_currentRevisionId_id_fkey",
+    ].sort();
+    const constraints = await database.$queryRaw<Array<{ conname: string; convalidated: boolean }>>`
+      SELECT conname, convalidated
+      FROM pg_constraint
+      WHERE conname = ANY(${expected}::text[])
+      ORDER BY conname
+    `;
+
+    expect(constraints).toEqual(expected.map((conname) => ({ conname, convalidated: true })));
+  });
+
   it("rejects mutation of append-only coaching history", async () => {
     const changed = await mutationSucceeded(
       () =>
