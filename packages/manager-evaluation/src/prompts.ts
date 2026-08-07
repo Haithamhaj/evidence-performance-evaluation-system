@@ -12,6 +12,12 @@ Never recommend, predict, select, validate, normalize, or calculate a manager pe
 const Uuid = z.string().uuid();
 const Text = (max: number) => z.string().trim().min(1).max(max);
 const Period = z.object({ startsAt: z.iso.datetime(), endsAt: z.iso.datetime() }).strict();
+const PromptArtifact = z
+  .object({
+    artifactId: Uuid,
+    sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict();
 
 export const ManagerEvaluationAiSummaryOutputSchema = z
   .object({
@@ -38,6 +44,7 @@ export const ManagerEvaluationAiSummaryOutputSchema = z
 
 export function buildManagerEvaluationSummaryRequest(
   input: Readonly<{
+    prompt: { artifactId: string; sha256: string };
     cycleId: string;
     period: { startsAt: string; endsAt: string };
     responses: ReadonlyArray<{
@@ -47,6 +54,7 @@ export function buildManagerEvaluationSummaryRequest(
     }>;
   }>,
 ) {
+  const prompt = PromptArtifact.parse(input.prompt);
   return {
     routeKey: MANAGER_EVALUATION_SUMMARY_ROUTE,
     inputSchemaVersion: MANAGER_EVALUATION_SUMMARY_VERSION,
@@ -55,10 +63,11 @@ export function buildManagerEvaluationSummaryRequest(
     input: {
       trustedInstruction: {
         routeKey: MANAGER_EVALUATION_SUMMARY_ROUTE,
+        artifactId: prompt.artifactId,
         version: MANAGER_EVALUATION_SUMMARY_VERSION,
-        content: MANAGER_EVALUATION_SUMMARY_TRUSTED_PROMPT,
+        sha256: prompt.sha256,
       },
-      context: {
+      untrustedContent: {
         cycleId: input.cycleId,
         period: input.period,
         identifiedResponses: input.responses.map((response, index) => ({

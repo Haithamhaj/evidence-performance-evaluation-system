@@ -1,6 +1,11 @@
-import { ManagerEvaluationSummaryRevisionSchema } from "@evaluation/contracts";
+import { createHash } from "node:crypto";
+
+import { databaseAuditWriter } from "@evaluation/audit";
+import { AppError, ManagerEvaluationSummaryRevisionSchema } from "@evaluation/contracts";
 
 import {
+  MANAGER_EVALUATION_SUMMARY_ROUTE,
+  MANAGER_EVALUATION_SUMMARY_TRUSTED_PROMPT,
   MANAGER_EVALUATION_SUMMARY_VERSION,
   ManagerEvaluationAiSummaryOutputSchema,
   assertManagerSummarySemantics,
@@ -8,6 +13,8 @@ import {
 } from "./prompts.js";
 
 type Database = import("@evaluation/database").DatabaseClient;
+type Transaction = import("./ports.js").ManagerEvaluationTransaction;
+type Audit = import("@evaluation/contracts").AuditWriter<Transaction>;
 
 export class ManagerEvaluationSummaryService {
   readonly #database: Database;
@@ -15,6 +22,7 @@ export class ManagerEvaluationSummaryService {
   readonly #systemId: string;
   readonly #timeoutMs: number;
   readonly #clock: () => Date;
+  readonly #audit: Audit;
 
   constructor(
     dependencies: Readonly<{
@@ -23,6 +31,7 @@ export class ManagerEvaluationSummaryService {
       systemId: string;
       timeoutMs: number;
       clock?: () => Date;
+      audit?: Audit;
     }>,
   ) {
     this.#database = dependencies.database;
@@ -30,27 +39,64 @@ export class ManagerEvaluationSummaryService {
     this.#systemId = dependencies.systemId;
     this.#timeoutMs = dependencies.timeoutMs;
     this.#clock = dependencies.clock ?? (() => new Date());
+    this.#audit = dependencies.audit ?? (databaseAuditWriter as Audit);
   }
 
   async createSummary(input: Readonly<{ cycleId: string; managerId: string }>) {
-    const cycle = await this.#database.managerEvaluationCycle.findUnique({
-      where: { id: input.cycleId },
-      include: {
-        responses: {
-          include: { criterionResponses: { orderBy: { position: "asc" } } },
-          orderBy: { submittedAt: "asc" },
-        },
+    const { cycle, prompt } = await this.#database.$transaction(
+      async (transaction) => {
+        const [cycle, prompt] = await Promise.all([
+          transaction.managerEvaluationCycle.findUnique({
+            where: { id: input.cycleId },
+            include: {
+              responses: {
+                include: { criterionResponses: { orderBy: { position: "asc" } } },
+                orderBy: { submittedAt: "asc" },
+              },
+            },
+          }),
+          transaction.analysisPromptArtifact.findUnique({
+            where: {
+              routeKey_version: {
+                routeKey: MANAGER_EVALUATION_SUMMARY_ROUTE,
+                version: MANAGER_EVALUATION_SUMMARY_VERSION,
+              },
+            },
+            select: {
+              id: true,
+              routeKey: true,
+              version: true,
+              bodyHash: true,
+              trustedBody: true,
+            },
+          }),
+        ]);
+        return { cycle, prompt };
       },
-    });
+      { isolationLevel: "RepeatableRead" },
+    );
+    if (
+      prompt === null ||
+      prompt.routeKey !== MANAGER_EVALUATION_SUMMARY_ROUTE ||
+      prompt.version !== MANAGER_EVALUATION_SUMMARY_VERSION ||
+      prompt.bodyHash !== summaryPromptHash() ||
+      prompt.trustedBody !== MANAGER_EVALUATION_SUMMARY_TRUSTED_PROMPT
+    ) {
+      throw failure("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
+    }
     if (
       cycle === null ||
       cycle.managerId !== input.managerId ||
       cycle.visibilityMode !== "IDENTIFIED"
     ) {
-      throw new Error("AUTHZ_SCOPE");
+      throw failure("AUTHZ_SCOPE", "errors.managerEvaluation.forbidden", 403);
     }
     if (cycle.responses.length < 2) {
-      throw new Error("MANAGER_EVALUATION_SUMMARY_SUPPORT_INSUFFICIENT");
+      throw failure(
+        "MANAGER_EVALUATION_SUMMARY_SUPPORT_INSUFFICIENT",
+        "errors.managerEvaluation.summarySupportInsufficient",
+        409,
+      );
     }
     const period = { startsAt: cycle.startsAt.toISOString(), endsAt: cycle.endsAt.toISOString() };
     const responses = cycle.responses.map((response) => ({
@@ -62,8 +108,14 @@ export class ManagerEvaluationSummaryService {
         comment: entry.comment,
       })),
     }));
-    const governed = buildManagerEvaluationSummaryRequest({ cycleId: cycle.id, period, responses });
+    const governed = buildManagerEvaluationSummaryRequest({
+      prompt: { artifactId: prompt.id, sha256: prompt.bodyHash },
+      cycleId: cycle.id,
+      period,
+      responses,
+    });
     const reference = `manager-evaluation-cycle:${cycle.id}`;
+    const correlationId = crypto.randomUUID();
     const result = await this.#router.run<
       typeof governed.input,
       import("zod").infer<typeof ManagerEvaluationAiSummaryOutputSchema>
@@ -84,7 +136,7 @@ export class ManagerEvaluationSummaryService {
         classification: "confidential",
         timeoutMs: this.#timeoutMs,
         requiresHumanApproval: false,
-        correlationId: crypto.randomUUID(),
+        correlationId,
       },
       async () => ({ outputReference: reference }),
     );
@@ -105,7 +157,7 @@ export class ManagerEvaluationSummaryService {
         orderBy: { revision: "desc" },
         select: { revision: true },
       });
-      return transaction.managerEvaluationSummaryRevision.create({
+      const revision = await transaction.managerEvaluationSummaryRevision.create({
         data: {
           cycleId: cycle.id,
           revision: (previous?.revision ?? 0) + 1,
@@ -128,6 +180,24 @@ export class ManagerEvaluationSummaryService {
           },
         },
       });
+      await this.#audit.append(transaction, {
+        eventType: "manager_evaluation.summary.generated",
+        actor: { kind: "human", id: input.managerId },
+        effectiveSubjectId: input.managerId,
+        scopeType: "cycle",
+        scopeId: cycle.id,
+        targetType: "manager_evaluation_summary_revision",
+        targetId: revision.id,
+        safeDiff: {
+          visibilityMode: "IDENTIFIED",
+          revision: revision.revision,
+          sourceResponseCount: responses.length,
+          themeCount: themes.length,
+        },
+        correlationId,
+        source: "api",
+      });
+      return revision;
     });
     return ManagerEvaluationSummaryRevisionSchema.parse({
       schemaVersion: MANAGER_EVALUATION_SUMMARY_VERSION,
@@ -146,6 +216,14 @@ export class ManagerEvaluationSummaryService {
       createdAt: revision.createdAt.toISOString(),
     });
   }
+}
+
+function summaryPromptHash(): string {
+  return createHash("sha256").update(MANAGER_EVALUATION_SUMMARY_TRUSTED_PROMPT).digest("hex");
+}
+
+function failure(code: string, messageKey: string, status: number): AppError {
+  return new AppError(code, messageKey, status);
 }
 
 function distributionsFor(
