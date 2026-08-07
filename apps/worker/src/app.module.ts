@@ -10,11 +10,12 @@ import {
   WORKER_READINESS_PROBES,
 } from "./health/health.controller.js";
 import { QueueModule } from "./queue/queue.module.js";
+import { NotificationsWorkerModule } from "./notifications/notifications.module.js";
 
 export class AppModule {}
 
 Module({
-  imports: [AnalysisCriteriaWorkerModule, QueueModule],
+  imports: [AnalysisCriteriaWorkerModule, NotificationsWorkerModule, QueueModule],
   controllers: [WorkerHealthController],
   providers: [
     {
