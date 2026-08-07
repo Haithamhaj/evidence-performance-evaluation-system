@@ -636,6 +636,39 @@ describe("authorization decision contract", () => {
     ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
+  it("requires exact action authority for continuity delegation actions", () => {
+    const project = {
+      kind: "project",
+      projectId: "project-1",
+      departmentId: "department-ai",
+    } as const;
+    const authority = {
+      delegationId: "delegation-1",
+      subjectId: actingOwner.subjectId,
+      scopeType: "project",
+      scopeId: "project-1",
+      action: "project.update",
+      startsAt: "2026-07-15T08:00:00.000Z",
+      endsAt: "2026-07-15T16:00:00.000Z",
+    } as const;
+
+    expect(
+      decide(actingOwner, "project.update", project, { now, actingAuthorities: [authority] }),
+    ).toEqual({ allowed: true });
+    expect(
+      decide(actingOwner, "project.document.update", project, {
+        now,
+        actingAuthorities: [authority],
+      }),
+    ).toEqual({ allowed: false, reasonCode: "RESOURCE_STATE" });
+    expect(
+      decide(actingOwner, "project.transferPermanentOwner", project, {
+        now,
+        actingAuthorities: [authority],
+      }),
+    ).toEqual({ allowed: false, reasonCode: "ROLE_REQUIRED" });
+  });
+
   it("allows a contributor inside the assigned Workstream scope", () => {
     expect(
       decide(

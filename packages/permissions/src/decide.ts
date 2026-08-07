@@ -303,6 +303,24 @@ function decideKnownAction(
   context: import("./model.js").PolicyContext,
 ): import("./model.js").Decision {
   switch (action) {
+    case "project.update":
+    case "project.document.update":
+    case "project.criteria.approve":
+    case "project.participants.manage":
+    case "project.decision.record":
+    case "project.source.manage":
+    case "project.stage.close":
+    case "workstream.update":
+    case "workstream.document.update":
+    case "workstream.criteria.approve":
+    case "workstream.participants.manage":
+    case "workstream.decision.record":
+    case "workstream.source.manage":
+    case "workstream.stage.close":
+      return decideExactActingAuthority(subject, action, resource, context);
+    case "project.transferPermanentOwner":
+    case "workstream.transferPermanentOwner":
+      return deny("ROLE_REQUIRED");
     case "managerFeedback.response.read":
       return decideManagerFeedbackRead(subject, resource);
     case "department.manage":
@@ -438,6 +456,36 @@ function decideKnownAction(
     default:
       return deny("ROLE_REQUIRED");
   }
+}
+
+function decideExactActingAuthority(
+  subject: import("./model.js").PolicyInput,
+  action: string,
+  resource: import("./model.js").PolicyResource,
+  context: import("./model.js").PolicyContext,
+): import("./model.js").Decision {
+  if (!hasRole(subject, "acting_owner")) return deny("ROLE_REQUIRED");
+  if (resource.kind !== "project" && resource.kind !== "workstream") {
+    return deny("RESOURCE_STATE");
+  }
+  const scopeId = resource.kind === "project" ? resource.projectId : resource.workstreamId;
+  if (!hasScopedRole(subject, "acting_owner", resource.kind, scopeId)) {
+    return deny("SCOPE_MISMATCH");
+  }
+  const occurredAt = Date.parse(context.now);
+  const matching = (context.actingAuthorities ?? []).filter(
+    (authority) =>
+      authority.subjectId === subject.subjectId &&
+      authority.scopeType === resource.kind &&
+      authority.scopeId === scopeId &&
+      authority.action === action,
+  );
+  return matching.some(
+    (authority) =>
+      Date.parse(authority.startsAt) <= occurredAt && occurredAt < Date.parse(authority.endsAt),
+  )
+    ? allow
+    : deny("RESOURCE_STATE");
 }
 
 export function decide(
