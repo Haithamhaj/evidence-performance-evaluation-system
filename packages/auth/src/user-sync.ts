@@ -79,19 +79,23 @@ export async function deactivateInternalUser(
     }
     if (target.active) {
       await transaction.user.update({ where: { id: input.userId }, data: { active: false } });
-      await auditWriter.append(transaction, {
-        eventType: "identity.deactivated",
-        actor: { kind: "human", id: input.administratorId },
-        effectiveSubjectId: input.userId,
-        scopeType: "system",
-        scopeId: systemScope.id,
-        targetType: "user",
-        targetId: input.userId,
-        correlationId: input.correlationId,
-        source: "api",
-        safeDiff: { active: false, preservedHistory: true },
-      });
     }
+    await auditWriter.append(transaction, {
+      eventType: "identity.deactivated",
+      actor: { kind: "human", id: input.administratorId },
+      effectiveSubjectId: input.userId,
+      scopeType: "system",
+      scopeId: systemScope.id,
+      targetType: "user",
+      targetId: input.userId,
+      correlationId: input.correlationId,
+      source: "api",
+      safeDiff: {
+        active: false,
+        alreadyInactive: !target.active,
+        preservedHistory: true,
+      },
+    });
     return { userId: input.userId, deactivatedAt: occurredAt.toISOString() };
   });
 }

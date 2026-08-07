@@ -10,6 +10,7 @@ describe("continuity and offboarding database schema", () => {
   it("creates the bounded continuity tables", async () => {
     const expected = [
       "DelegateConfirmation",
+      "DeactivationReceipt",
       "Delegation",
       "DelegationAccessGap",
       "DelegationPeriod",
@@ -73,5 +74,18 @@ describe("continuity and offboarding database schema", () => {
       ORDER BY conname
     `;
     expect(rows).toEqual(expected.map((conname) => ({ conname, convalidated: true })));
+  });
+
+  it("resolves the current delegation without referencing a missing trigger-row field", async () => {
+    const rows = await database.$queryRaw<Array<{ definition: string }>>`
+      SELECT pg_get_functiondef(p.oid) AS definition
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'reject_overlapping_active_delegation'
+    `;
+    expect(rows).toHaveLength(1);
+    const definition = rows[0]!.definition.toLowerCase();
+    expect(definition).toContain("to_jsonb(new)");
+    expect(definition).not.toContain('else new."delegationid"');
   });
 });

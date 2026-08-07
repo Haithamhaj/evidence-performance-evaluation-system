@@ -66,7 +66,7 @@ export interface OwnershipContinuityPort {
     expectedVersion: number;
     reason: string;
     correlationId: string;
-  }): Promise<void>;
+  }): Promise<OffboardingCase>;
 }
 export interface ReassignmentAuthorizationPort {
   canResolveReassignment(actorId: string, scope: OwnedScope): Promise<boolean>;
@@ -128,7 +128,7 @@ export class OffboardingService {
     if (!(await this.authorization.canResolveReassignment(parsed.actorId, caseRecord.scope))) {
       throw failure("AUTHZ_SCOPE", 403);
     }
-    await this.ownership.resolveReassignment({
+    return this.ownership.resolveReassignment({
       caseId: caseRecord.id,
       scope: caseRecord.scope,
       actorId: parsed.actorId,
@@ -138,22 +138,6 @@ export class OffboardingService {
       expectedVersion: caseRecord.scope.version,
       reason: parsed.reason,
       correlationId: parsed.correlationId,
-    });
-    return this.store.transaction(async (tx) => {
-      const audit = await tx.appendAudit({
-        eventType: "continuity.reassignment.resolved",
-        actorId: parsed.actorId,
-        subjectId: parsed.successorId,
-        targetId: caseRecord.id,
-        reason: parsed.reason,
-        correlationId: parsed.correlationId,
-      });
-      return tx.markResolved(caseRecord.id, {
-        successorId: parsed.successorId,
-        effectiveAt: parsed.effectiveAt,
-        reason: parsed.reason,
-        auditEventId: audit.id,
-      });
     });
   }
 }

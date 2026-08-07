@@ -58,7 +58,7 @@ function fixture() {
   const store = new MemoryOffboardingStore();
   const ownership = {
     listActiveOwnedScopes: async () => [{ kind: "PROJECT" as const, id: projectId, version: 3 }],
-    resolveReassignment: async () => undefined,
+    resolveReassignment: async (input: { caseId: string }) => store.markResolved(input.caseId),
   };
   const auth = { deactivate: async () => ({ userId, deactivatedAt: "2026-08-12T08:00:00.000Z" }) };
   const authorization = {

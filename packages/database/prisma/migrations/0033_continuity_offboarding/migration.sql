@@ -259,7 +259,9 @@ DECLARE
   current_delegation UUID;
   conflict_exists BOOLEAN;
 BEGIN
-  current_delegation := CASE WHEN TG_TABLE_NAME = 'Delegation' THEN NEW."id" ELSE NEW."delegationId" END;
+  current_delegation := (
+    to_jsonb(NEW) ->> CASE WHEN TG_TABLE_NAME = 'Delegation' THEN 'id' ELSE 'delegationId' END
+  )::UUID;
   SELECT EXISTS (
     SELECT 1
     FROM "Delegation" candidate

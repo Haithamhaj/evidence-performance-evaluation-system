@@ -94,6 +94,7 @@ export class ResponsibilityService {
 
   async resolvePermanentReassignment(
     command: ReassignmentOwnershipCommand,
+    afterTransfer?: (transaction: Transaction) => Promise<void>,
   ): Promise<OwnershipTransferResult> {
     const input = {
       actor: command.actor,
@@ -109,8 +110,20 @@ export class ResponsibilityService {
       },
     };
     return command.scope.kind === "PROJECT"
-      ? this.transferProjectOwner(input)
-      : this.transferWorkstreamOwner(input);
+      ? this.transferOwner(
+          { kind: "project", projectId: command.scope.id, workstreamId: null },
+          ProjectTransferSchema.parse(input),
+          afterTransfer,
+        )
+      : this.transferOwner(
+          {
+            kind: "workstream",
+            projectId: command.scope.projectId!,
+            workstreamId: command.scope.id,
+          },
+          WorkstreamTransferSchema.parse(input),
+          afterTransfer,
+        );
   }
 
   async responsibilitiesAt(command: unknown) {
@@ -158,6 +171,7 @@ export class ResponsibilityService {
   private async transferOwner(
     scope: TransferScope,
     command: z.infer<typeof ProjectTransferSchema> | z.infer<typeof WorkstreamTransferSchema>,
+    afterTransfer?: (transaction: Transaction) => Promise<void>,
   ): Promise<OwnershipTransferResult> {
     const current = validClock(this.clock());
     const effectiveAt = new Date(command.input.effectiveAt);
@@ -312,6 +326,7 @@ export class ResponsibilityService {
         correlationId: command.correlationId,
         source: "api",
       });
+      await afterTransfer?.(transaction);
       return {
         id: transfer.id,
         transferKind: transfer.transferKind,
