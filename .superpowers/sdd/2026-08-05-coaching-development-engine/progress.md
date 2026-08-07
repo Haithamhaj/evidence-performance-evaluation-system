@@ -9,4 +9,4 @@ Migration resolution: E5A owns `0030_manager_evaluation`; E5B uses forward-only 
 - Task 3 complete: source-qualified non-scoring insight drafting, employee-only decision boundary, and governed prompt/evaluation in commit `068d02c`.
 - Task 4 complete: employee-owned action state boundary, shared-action manager support boundary, and Today-safe projection in commit `5af1490`.
 - Task 5 complete: mutually agreed formal-plan state machine and participant-safe report reader in commit `7e7dd51`.
-- Task 6 checkpoint complete: protected Nest routes, English/RTL verification page, localized copy, API boundary test, and acceptance note are recorded in the final bundle commit.
+- Task 6 remains partial: protected Nest routes, append-only production persistence, server-side manager relationship checks, confirmed-evidence endpoint, AI Router adapter, and a localized browser checkpoint are implemented. The required authenticated full employee-to-manager acceptance journey remains open.

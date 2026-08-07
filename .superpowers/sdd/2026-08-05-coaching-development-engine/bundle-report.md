@@ -25,4 +25,4 @@ No rating, score, rank, prediction, leave penalty, evidence quota, or automatic 
 
 ## Remaining risk
 
-The current technical checkpoint does not yet provide a complete production create/revise/share workflow or a full browser journey seeded from actual public fact readers. Before claiming pilot-release readiness, add those integration paths plus an authenticated employee-to-manager end-to-end journey and wire the governed insight route to the runtime AI Router with persisted route traces.
+The current implementation provides production persistence for action/plan transitions, bounded manager checks, and confirmed-evidence links, but does not yet expose a full authenticated employee-to-manager browser journey seeded from public fact readers. Before claiming pilot-release readiness, finish that acceptance flow and wire the governed insight route to the runtime AI Router with persisted route traces.

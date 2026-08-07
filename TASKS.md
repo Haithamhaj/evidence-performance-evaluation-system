@@ -623,6 +623,8 @@ The detailed authority is
 
 ## T060 — Implement Coaching Insight Engine
 
+**Status:** Partial — governed route adapter and manual recovery boundary exist; authorized public-fact composition and persisted runtime route trace remain required.
+
 **Priority:** P1
 **Dependencies:** T030, T011, T012, T043
 **Purpose:** Generate source-grounded, non-scoring coaching insights.
@@ -631,6 +633,8 @@ The detailed authority is
 **Verification:** No ratings, ranking, prediction, or activity-volume score; Arabic and English fixtures pass.
 
 ## T061 — Implement Personal Development Actions
+
+**Status:** Partial — append-only persistence and protected action APIs exist; the full employee create/revise/share journey still needs authenticated acceptance coverage.
 
 **Priority:** P1
 **Dependencies:** T060
@@ -641,6 +645,8 @@ The detailed authority is
 
 ## T062 — Implement Formal Development Plans
 
+**Status:** Partial — employee approval, manager agreement, optimistic transitions, and confirmed-evidence linking are implemented; end-to-end acceptance remains required.
+
 **Priority:** P1
 **Dependencies:** T051, T061
 **Purpose:** Convert approved development needs into formal trackable plans.
@@ -649,6 +655,8 @@ The detailed authority is
 **Verification:** Employee approval required for conversion; completion evidence and history retained.
 
 ## T063 — Build Manager Evaluation and Coaching UI
+
+**Status:** Partial — protected API routes and localized technical checkpoint are implemented; production interaction screens remain required.
 
 **Priority:** P1
 **Dependencies:** T055–T062, T015

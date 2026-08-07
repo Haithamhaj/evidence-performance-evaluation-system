@@ -296,14 +296,14 @@ The main missing product engines are:
 **ID:** CAP-035 | **Capability:** transparent non-scoring development insights with observed pattern, sources, time range, confidence, limitations, and missing context | **User roles:** employee; manager for authorized individual/team patterns | **User goal:** improve work habits, research, documentation, and blocker resolution continuously
 **Authoritative sources:** `PROJECT_REFERENCE.md` §25; T060 | **Owner module:** future coaching domain using public fact readers | **Inputs/sources:** confirmed facts and longitudinal patterns | **AI role:** draft transparent coaching insights
 **AI prohibitions:** no predicted rating, continuous performance/productivity score, rank, or leave penalty | **Human gate:** employee accepts/edits coaching action | **States/transitions:** proposed → accepted/rejected/superseded | **Public API/events:** none | **Authorization/privacy:** manager view follows allowed source scope | **Audit/history:** source/time/model trace required | **Failure/recovery:** low-confidence insight stays explainable and dismissible | **Tests:** none
-**Status:** PLANNED | **External gate:** completed fact sources | **Frontend implications:** optional assistant suggestion beside real work, never a judgment dashboard
+**Status:** PARTIAL | **External gate:** authorized public fact composition and authenticated acceptance journey | **Frontend implications:** optional assistant suggestion beside real work, never a judgment dashboard
 
 ### CAP-036 — Personal actions and formal development plans
 
 **ID:** CAP-036 | **Capability:** employee development actions and manager-agreed formal plans linked to coaching and real work | **User roles:** employee and manager | **User goal:** turn a discussion into a manageable improvement action with follow-up
 **Authoritative sources:** `PROJECT_REFERENCE.md` §§25–26; T061–T062 | **Owner module:** future coaching/development domain | **Inputs/sources:** human discussion, accepted insight, selected objective | **AI role:** draft action wording after user intent
 **AI prohibitions:** cannot impose plan, discipline, promotion, or rating | **Human gate:** employee acceptance; manager agreement where formal | **States/transitions:** draft → accepted → active → completed/changed/closed | **Public API/events:** none | **Authorization/privacy:** participant-only | **Audit/history:** revisions and agreement retained | **Failure/recovery:** editable draft and explicit withdrawal/change | **Tests:** none
-**Status:** PLANNED | **External gate:** CAP-035 | **Frontend implications:** small actionable plan integrated into Today, not a separate bureaucracy
+**Status:** PARTIAL | **External gate:** authenticated employee-to-manager acceptance journey | **Frontend implications:** small actionable plan integrated into Today, not a separate bureaucracy
 
 ### CAP-037 — Leave, handover, delegation, and return
 

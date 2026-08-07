@@ -12,9 +12,27 @@ describe("DevelopmentActionService", () => {
     const service = new DevelopmentActionService({
       find: async () => null,
       append: async () => undefined,
-      create: async (input) => { calls.push(input); return { id: actionId, version: 1 }; },
+      create: async (input) => {
+        calls.push(input);
+        return { id: actionId, version: 1 };
+      },
     });
-    await service.create({ schemaVersion: 1, employeeId, title: "Practice", objective: "Improve", expectedBenefit: "Clarity", activity: "Write one note", completionEvidenceDefinition: "Confirmed evidence", targetDate: null, privacy: "PRIVATE", projectId: null, researchId: null, workItemId: null, expectedVersion: 1, idempotencyKey: "10000000-0000-4000-8000-000000000009" });
+    await service.create({
+      schemaVersion: 1,
+      employeeId,
+      title: "Practice",
+      objective: "Improve",
+      expectedBenefit: "Clarity",
+      activity: "Write one note",
+      completionEvidenceDefinition: "Confirmed evidence",
+      targetDate: null,
+      privacy: "PRIVATE",
+      projectId: null,
+      researchId: null,
+      workItemId: null,
+      expectedVersion: 1,
+      idempotencyKey: "10000000-0000-4000-8000-000000000009",
+    });
     expect(calls).toHaveLength(1);
   });
   it("keeps private actions employee-only and prevents manager state changes", async () => {
