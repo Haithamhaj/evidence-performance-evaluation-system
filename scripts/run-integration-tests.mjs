@@ -70,6 +70,11 @@ if (!(await exists(localServiceDefaults))) {
       if (generateExit !== 0) {
         process.exitCode = generateExit;
       } else {
+        const migrationExit = await run("pnpm", ["db:deploy"], environment);
+        if (migrationExit !== 0) {
+          process.exitCode = migrationExit;
+          process.exit();
+        }
         process.exitCode = await run(
           process.execPath,
           [
