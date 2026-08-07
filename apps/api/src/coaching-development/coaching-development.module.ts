@@ -7,8 +7,11 @@ import {
   ManagerSupportService,
 } from "@evaluation/coaching-development";
 import { Module } from "@nestjs/common";
+import { EvaluationFactViewService } from "@evaluation/evaluation-preparation";
 
 import { AuthModule } from "../auth/auth.module.js";
+import { EvaluationPreparationModule } from "../evaluation-preparation/evaluation-preparation.module.js";
+import { ApiCoachingInsightDraftService } from "./api-coaching-insight-draft.service.js";
 import { CoachingActionsController } from "./actions.controller.js";
 import { CoachingFormalPlansController } from "./formal-plans.controller.js";
 import { CoachingInsightsController } from "./insights.controller.js";
@@ -21,7 +24,7 @@ export const COACHING_DEVELOPMENT_DATABASE = Symbol("COACHING_DEVELOPMENT_DATABA
 type Database = ReturnType<typeof createDatabaseClient>;
 export class CoachingDevelopmentModule {}
 Module({
-  imports: [AuthModule],
+  imports: [AuthModule, EvaluationPreparationModule],
   controllers: [
     CoachingInsightsController,
     CoachingActionsController,
@@ -42,6 +45,19 @@ Module({
       provide: CoachingInsightService,
       useFactory: (store: CoachingDevelopmentPersistence) => new CoachingInsightService(store),
       inject: [CoachingDevelopmentPersistence],
+    },
+    {
+      provide: ApiCoachingInsightDraftService,
+      useFactory: (
+        database: Database,
+        facts: EvaluationFactViewService,
+        persistence: CoachingDevelopmentPersistence,
+      ) => new ApiCoachingInsightDraftService(database, facts, persistence),
+      inject: [
+        COACHING_DEVELOPMENT_DATABASE,
+        EvaluationFactViewService,
+        CoachingDevelopmentPersistence,
+      ],
     },
     {
       provide: DevelopmentActionService,

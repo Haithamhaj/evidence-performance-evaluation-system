@@ -3,8 +3,18 @@ import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/comm
 import { CoachingInsightService } from "@evaluation/coaching-development";
 
 import { CoachingPolicyGuard, type CoachingRequest } from "./coaching-policy.guard.js";
+import { ApiCoachingInsightDraftService } from "./api-coaching-insight-draft.service.js";
 export class CoachingInsightsController {
-  constructor(private readonly insights: CoachingInsightService) {}
+  constructor(
+    private readonly insights: CoachingInsightService,
+    private readonly drafts: ApiCoachingInsightDraftService,
+  ) {}
+  draft(request: CoachingRequest, body: { assignmentId?: string }) {
+    return this.drafts.draft({
+      actorId: request.principal!.userId,
+      assignmentId: String(body.assignmentId ?? ""),
+    });
+  }
   read(request: CoachingRequest, insightId: string) {
     return this.insights.read({ insightId, actorId: request.principal!.userId });
   }
@@ -22,3 +32,7 @@ descriptor = Object.getOwnPropertyDescriptor(CoachingInsightsController.prototyp
 Req()(CoachingInsightsController.prototype, "decide", 0);
 Body()(CoachingInsightsController.prototype, "decide", 1);
 Post("decide")(CoachingInsightsController.prototype, "decide", descriptor);
+descriptor = Object.getOwnPropertyDescriptor(CoachingInsightsController.prototype, "draft")!;
+Req()(CoachingInsightsController.prototype, "draft", 0);
+Body()(CoachingInsightsController.prototype, "draft", 1);
+Post("draft")(CoachingInsightsController.prototype, "draft", descriptor);
