@@ -47,6 +47,30 @@ beforeAll(async () => {
   );
   employeeA = users[0]!.id;
   employeeB = users[1]!.id;
+  const auditEventId = crypto.randomUUID();
+  await client.leaveRecord.create({
+    data: {
+      employeeId: employeeB,
+      departmentId,
+      state: "APPROVED",
+      startsAt: new Date("2026-07-01T00:00:00.000Z"),
+      endsAt: new Date("2026-09-30T23:59:59.999Z"),
+      reasonCategory: "PLANNED_LEAVE",
+      affectedScopes: [{ kind: "PROJECT", id: crypto.randomUUID() }],
+      eligibilityEffect: {
+        create: {
+          employeeId: employeeB,
+          startsAt: new Date("2026-07-01T00:00:00.000Z"),
+          endsAt: new Date("2026-09-30T23:59:59.999Z"),
+          checkInRequired: false,
+          negativeRegularitySignal: false,
+          evaluationObligationSuspended: true,
+          auditEventId,
+          publishedAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+      },
+    },
+  });
 });
 
 afterAll(async () => client.$disconnect());
