@@ -351,7 +351,7 @@ The detailed authority is
 | E4         | Employee Fact View, self/manager assessment, comparison, and finalization      | Technical checkpoint complete locally; E6B export delivery is now complete; final frontend remains later            |
 | E5         | Identified upward manager evaluation, coaching, and development                | E5A and E5B technical checkpoints complete locally; combined review and hosted checks pending                       |
 | E6         | Leave/delegation, notifications, exports, administration, hardening, recovery  | Technical checkpoint complete locally through E6C; production infrastructure remains externally gated               |
-| E7         | Final source-to-code engine audit and final-frontend handoff                   | Design and detailed audit plan approved; runs after E3–E6                                                           |
+| E7         | Final source-to-code engine audit and final-frontend handoff                   | Complete — 44 capabilities reconciled; ready for Product Owner frontend-handoff review                              |
 
 ## T030 — Implement Activity Timeline
 
@@ -785,7 +785,7 @@ The detailed authority is
 
 ## T077 — Production Pilot Launch
 
-**Execution status:** Not started — blocked by E7, final frontend/customer-journey acceptance, Product Owner launch approval, and the external production gates recorded in `docs/operations/EXTERNAL_GATE_REGISTER.md`.
+**Execution status:** Not started — E7 is complete; blocked by final frontend/customer-journey acceptance, Product Owner launch approval, and the external production gates recorded in `docs/operations/EXTERNAL_GATE_REGISTER.md`.
 
 **Priority:** P0
 **Dependencies:** T076
