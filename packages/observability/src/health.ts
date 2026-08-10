@@ -1,4 +1,13 @@
 export type HealthCheckStatus = "up" | "down";
+export type OperationalHealthState = "HEALTHY" | "DEGRADED" | "ACTION_REQUIRED";
+
+export function combineOperationalHealthStates(
+  states: readonly OperationalHealthState[],
+): OperationalHealthState {
+  if (states.includes("ACTION_REQUIRED")) return "ACTION_REQUIRED";
+  if (states.includes("DEGRADED")) return "DEGRADED";
+  return "HEALTHY";
+}
 
 export interface ReadinessProbes {
   readonly configuration: () => boolean | Promise<boolean>;

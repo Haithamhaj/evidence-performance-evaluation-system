@@ -2,8 +2,8 @@
 
 ## Current Goal
 
-Complete the technically verified E6A continuity/offboarding checkpoint, then execute E6B–E7 in bounded feature bundles.
-Keep the final frontend program, export delivery, Arabic evaluation content, and live connector installations
+Complete the technically verified E6B notifications/reporting/administration checkpoint, then execute E6C–E7 in bounded feature bundles.
+Keep the final frontend program, Arabic evaluation content, and live connector/provider installations
 behind their existing sequence and external gates.
 
 ## Current Reality
@@ -238,6 +238,14 @@ behind their existing sequence and external gates.
   A real Nest HTTP/PostgreSQL acceptance journey covers controllers, guards, authenticated principals,
   planned return, emergency expiry, and offboarding reassignment; Playwright remains limited to the
   bilingual technical UI checkpoint.
+- E6B Notifications/Reporting/Administration is technically complete at its bounded checkpoint through
+  migration `0035`: versioned source-event notification intents, independent in-app/email recovery,
+  real notification/reporting queues, immutable-source encrypted exports, audited current-access
+  download/revocation, representative evaluation report audiences, owner-delegated AI route mutation,
+  and redacted dependency health. The deterministic PostgreSQL seed is safely rerunnable.
+- Live email provider setup is an external gate. Missing provider configuration never removes the
+  authoritative in-app action. Arabic evaluation export remains blocked at T016. Final product UX
+  remains in the post-engine frontend program.
 - The single E5A P1 remediation cycle is complete: submissions use and persist in-period server time;
   manager summaries use a verified registered prompt descriptor with untrusted originals; manager-cycle
   reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus
@@ -331,9 +339,9 @@ behind their existing sequence and external gates.
 
 ## Next Recommended Action
 
-Integrate the exact verified E6A checkpoint after its bounded branch handoff, then proceed to E6B
-Notifications/Reporting/Administration. Do not start the final frontend yet. Live connector setup and
-Arabic evaluation release remain behind their external human gates.
+Integrate the exact verified E6B checkpoint after its bounded branch handoff, then proceed to E6C
+Security/Recovery/Readiness and E7 integration audit. Do not start the final frontend yet. Live email,
+connector setup, and Arabic evaluation release remain behind their external human gates.
 
 ## Critical References
 

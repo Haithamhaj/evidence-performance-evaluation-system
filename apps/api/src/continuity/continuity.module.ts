@@ -26,6 +26,7 @@ import { DelegationController } from "./delegation.controller.js";
 import { HandoverController } from "./handover.controller.js";
 import { LeaveController } from "./leave.controller.js";
 import { ReassignmentController } from "./reassignment.controller.js";
+import { OperationsModule } from "../operations/operations.module.js";
 
 export const CONTINUITY_DATABASE = Symbol("CONTINUITY_DATABASE");
 const CONTINUITY_LIFECYCLE = Symbol("CONTINUITY_LIFECYCLE");
@@ -65,7 +66,7 @@ export function createDatabaseContinuityRuntime(database: Database) {
 }
 
 Module({
-  imports: [AuthModule],
+  imports: [AuthModule, OperationsModule],
   controllers: [LeaveController, HandoverController, DelegationController, ReassignmentController],
   providers: [
     { provide: CONTINUITY_DATABASE, useFactory: () => createDatabaseClient(databaseUrl()) },

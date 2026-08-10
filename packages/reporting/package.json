@@ -1,0 +1,24 @@
+{
+  "name": "@evaluation/reporting",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@evaluation/contracts": "workspace:*",
+    "@evaluation/database": "workspace:*",
+    "@evaluation/employee-evaluation": "workspace:*",
+    "@evaluation/manager-evaluation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. packages/reporting/src --passWithNoTests"
+  }
+}

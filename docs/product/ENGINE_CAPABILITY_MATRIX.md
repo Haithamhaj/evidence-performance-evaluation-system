@@ -60,21 +60,21 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Read identified upward feedback truthfully                     | CAP-033          | Planned         | E5 and active cycle engine                                    |
 | Support coaching and formal development                        | CAP-035–036      | Complete        | Bounded shared-action support verified; production UI remains |
 | Approve leave/delegation and resolve reassignment              | CAP-037–038      | Planned/partial | E6                                                            |
-| Generate authorized reports without ranking                    | CAP-032          | Partial         | Immutable projections complete; E6B delivers export files     |
+| Generate authorized reports without ranking                    | CAP-032          | Complete        | Live storage configuration; Arabic evaluation blocked at T016 |
 
 ## System administrator and operations capability view
 
-| Operational outcome                                   | Register IDs     | Baseline      | Missing dependency or constraint                                  |
-| ----------------------------------------------------- | ---------------- | ------------- | ----------------------------------------------------------------- |
-| Govern identity, permissions, and protected audit     | CAP-001–002      | Complete      | Production OIDC administrator configuration                       |
-| Govern AI routes without exposing provider secrets    | CAP-003          | Complete      | Live provider/service credentials                                 |
-| Operate durable jobs and correlation                  | CAP-005          | Complete      | Production Redis/worker deployment                                |
-| Configure Google and GitHub connectors                | CAP-019, CAP-021 | External gate | Provider consoles, administrator approvals, and secrets           |
-| Configure organizations, templates, routes, retention | CAP-040          | Partial       | Unified admin domain/API is missing                               |
-| Monitor health and investigate safely                 | CAP-041–042      | Partial       | Telemetry destination, incident and retention procedures          |
-| Notify users                                          | CAP-039          | Planned       | Notification domain and email provider                            |
-| Back up and restore                                   | CAP-043          | Planned       | Backup target, encrypted procedure, restore drill                 |
-| Run and launch the pilot                              | CAP-044          | Planned       | E3–E7, final frontend, external configuration, Product Owner gate |
+| Operational outcome                                   | Register IDs     | Baseline         | Missing dependency or constraint                                                           |
+| ----------------------------------------------------- | ---------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| Govern identity, permissions, and protected audit     | CAP-001–002      | Complete         | Production OIDC administrator configuration                                                |
+| Govern AI routes without exposing provider secrets    | CAP-003          | Complete         | Live provider/service credentials                                                          |
+| Operate durable jobs and correlation                  | CAP-005          | Complete         | Production Redis/worker deployment                                                         |
+| Configure Google and GitHub connectors                | CAP-019, CAP-021 | External gate    | Provider consoles, administrator approvals, and secrets                                    |
+| Configure organizations, templates, routes, retention | CAP-040          | Partial          | Safe owner composition exists; capability-specific owner adapters remain fail-closed       |
+| Monitor health and investigate safely                 | CAP-041–042      | Complete/partial | Safe health is complete; telemetry destination and incident procedures remain external/E6C |
+| Notify users                                          | CAP-039          | Complete         | Live email provider remains an external gate                                               |
+| Back up and restore                                   | CAP-043          | Planned          | Backup target, encrypted procedure, restore drill                                          |
+| Run and launch the pilot                              | CAP-044          | Planned          | E3–E7, final frontend, external configuration, Product Owner gate                          |
 
 ## Dependency spine
 

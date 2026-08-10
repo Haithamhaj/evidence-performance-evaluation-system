@@ -2,16 +2,22 @@
 import { OffboardingService } from "@evaluation/continuity";
 import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ContinuityPolicyGuard, type ContinuityRequest } from "./continuity-policy.guard.js";
+import { AuthoritativeOperationsEventPublisher } from "../operations/authoritative-event-publisher.js";
 
 export class ReassignmentController {
-  constructor(private readonly service: OffboardingService) {}
-  deactivate(request: ContinuityRequest, userId: string, body: unknown) {
-    return this.service.deactivate({
+  constructor(
+    private readonly service: OffboardingService,
+    private readonly operationsEvents?: AuthoritativeOperationsEventPublisher,
+  ) {}
+  async deactivate(request: ContinuityRequest, userId: string, body: unknown) {
+    const receipt = await this.service.deactivate({
       ...object(body),
       userId,
       administratorId: request.principal!.userId,
       correlationId: correlation(request),
     });
+    await this.operationsEvents?.publishReassignments(receipt.reassignmentCaseIds);
+    return receipt;
   }
   resolve(request: ContinuityRequest, caseId: string, body: unknown) {
     return this.service.resolve({
@@ -26,6 +32,7 @@ export class ReassignmentController {
   }
 }
 Inject(OffboardingService)(ReassignmentController, undefined, 0);
+Inject(AuthoritativeOperationsEventPublisher)(ReassignmentController, undefined, 1);
 Controller("api/v1/continuity")(ReassignmentController);
 UseGuards(ContinuityPolicyGuard)(ReassignmentController);
 let descriptor = Object.getOwnPropertyDescriptor(ReassignmentController.prototype, "deactivate")!;

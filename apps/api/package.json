@@ -11,7 +11,9 @@
     "test": "vitest run --root ../.. apps/api/src"
   },
   "dependencies": {
+    "@evaluation/administration": "workspace:*",
     "@aws-sdk/client-s3": "3.1087.0",
+    "@aws-sdk/s3-request-presigner": "3.1087.0",
     "@evaluation/ai-routing": "workspace:*",
     "@evaluation/audit": "workspace:*",
     "@evaluation/auth": "workspace:*",
@@ -26,10 +28,12 @@
     "@evaluation/evaluation-preparation": "workspace:*",
     "@evaluation/github-integration": "workspace:*",
     "@evaluation/manager-evaluation": "workspace:*",
+    "@evaluation/notifications": "workspace:*",
     "@evaluation/observability": "workspace:*",
     "@evaluation/permissions": "workspace:*",
     "@evaluation/projects": "workspace:*",
     "@evaluation/research-experiments": "workspace:*",
+    "@evaluation/reporting": "workspace:*",
     "@evaluation/updates-evidence": "workspace:*",
     "@evaluation/work-items": "workspace:*",
     "@nestjs/common": "11.1.28",

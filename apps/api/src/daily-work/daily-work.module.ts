@@ -16,6 +16,7 @@ import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
+import { OperationsModule } from "../operations/operations.module.js";
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
 import { ProjectDashboardQueryService } from "./project-dashboard-query.service.js";
@@ -35,7 +36,7 @@ const DAILY_WORK_DATABASE_LIFECYCLE = Symbol("DAILY_WORK_DATABASE_LIFECYCLE");
 export class DailyWorkModule {}
 
 Module({
-  imports: [AuthModule],
+  imports: [AuthModule, OperationsModule],
   controllers: [DailyWorkController, ProgressContractsController],
   providers: [
     {
