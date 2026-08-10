@@ -16,6 +16,14 @@ export interface ResearchReadinessSource {
   }): Promise<readonly import("@evaluation/research-experiments").ResearchReadinessGap[]>;
 }
 
+export interface ApprovedLeaveIntervalSource {
+  findApprovedLeave(input: {
+    employeeId: string;
+    startsAt: string;
+    endsAt: string;
+  }): Promise<{ leaveId: string } | null>;
+}
+
 type Project = Readonly<{ id: string; name: string }>;
 type Scope = Readonly<{
   id: string;
@@ -49,10 +57,16 @@ export interface ReadinessQuerySource {
 export class ReadinessQueryService {
   private readonly source: ReadinessQuerySource;
   private readonly research: ResearchReadinessSource | null;
+  private readonly leaves: ApprovedLeaveIntervalSource;
 
-  constructor(source: ReadinessQuerySource, research: ResearchReadinessSource | null = null) {
+  constructor(
+    source: ReadinessQuerySource,
+    research: ResearchReadinessSource | null,
+    leaves: ApprovedLeaveIntervalSource,
+  ) {
     this.source = source;
     this.research = research;
+    this.leaves = leaves;
   }
 
   async employeeProjectMonth(employeeId: string, projectId: string, at = new Date()) {
@@ -66,6 +80,11 @@ export class ReadinessQueryService {
     const substantive = new Set(source.substantiveScopeIds);
     const evidence = new Set(source.evidenceScopeIds);
     const artifactRequired = new Set(source.artifactRequiredScopeIds);
+    const approvedLeave = await this.leaves.findApprovedLeave({
+      employeeId,
+      startsAt: month.startsAt.toISOString(),
+      endsAt: month.endsAt.toISOString(),
+    });
     const operationalGaps = source.scopes.flatMap((scope) => {
       const result: Array<{
         kind: MonthlyReadinessGapKind;
@@ -74,7 +93,7 @@ export class ReadinessQueryService {
         scopeName: string;
         correctiveAction: "add_substantive_update" | "attach_source";
       }> = [];
-      if (!substantive.has(scope.id)) {
+      if (!substantive.has(scope.id) && approvedLeave === null) {
         result.push({
           kind: "silent_active_scope",
           scopeId: scope.id,
@@ -126,6 +145,7 @@ export class ReadinessQueryService {
       month: month.key,
       state: gaps.length === 0 ? ("clear" as const) : ("attention" as const),
       messageKey: "readiness.recordMayBeInsufficient" as const,
+      approvedLeaveExcluded: approvedLeave !== null,
       gaps,
     };
   }
@@ -152,9 +172,7 @@ export class ReadinessQueryService {
 
 export function createDatabaseCheckInService(
   client: DatabaseClient,
-  leaves: import("@evaluation/updates-evidence").ApprovedLeaveExemptionReader = {
-    findApprovedLeave: async () => null,
-  },
+  leaves: import("@evaluation/updates-evidence").ApprovedLeaveExemptionReader,
 ) {
   return new CheckInService(
     {
@@ -210,9 +228,10 @@ export function createDatabaseCheckInService(
 
 export function createDatabaseReadinessQueryService(
   client: DatabaseClient,
-  research: ResearchReadinessSource | null = null,
+  research: ResearchReadinessSource | null,
+  leaves: ApprovedLeaveIntervalSource,
 ) {
-  return new ReadinessQueryService(new DatabaseReadinessSource(client), research);
+  return new ReadinessQueryService(new DatabaseReadinessSource(client), research, leaves);
 }
 
 class DatabaseReadinessSource implements ReadinessQuerySource {

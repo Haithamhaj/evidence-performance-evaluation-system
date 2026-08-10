@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { syncOidcUser } from "./index.js";
+import { deactivateInternalUser, syncOidcUser } from "./index.js";
 
 const oidcPrincipal: import("./index.js").ValidatedOidcPrincipal = {
   oidcSubject: "oidc-user-1",
@@ -160,5 +160,90 @@ describe("OIDC user synchronization", () => {
 
     await expect(syncOidcUser(client, oidcPrincipal, auditWriter())).rejects.toBe(failure);
     expect(client.$transaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("internal user deactivation", () => {
+  it("requires a scoped active System Administrator and preserves the user row", async () => {
+    const user = {
+      id: "9a11bb8f-79f5-4a72-a98f-2e763e97699b",
+      email: oidcPrincipal.email,
+      displayName: "Pilot Employee",
+      active: true,
+    };
+    const admin = { id: "9a11bb8f-79f5-4a72-a98f-2e763e976990", active: true };
+    const update = vi.fn().mockResolvedValue({ ...user, active: false });
+    const transaction = {
+      auditEvent: { create: vi.fn() },
+      authorizationScope: { findUnique: vi.fn().mockResolvedValue({ id: systemScopeId }) },
+      roleAssignment: { findFirst: vi.fn().mockResolvedValue({ id: "role-1" }) },
+      user: {
+        findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
+          where.id === admin.id ? admin : user,
+        ),
+        update,
+      },
+    };
+    const client: import("./index.js").UserDeactivationClient = {
+      $transaction: async (operation) => operation(transaction as never),
+    };
+    const writer = auditWriter();
+    const result = await deactivateInternalUser(client, writer, {
+      administratorId: admin.id,
+      userId: user.id,
+      correlationId: "9a11bb8f-79f5-4a72-a98f-2e763e976991",
+      occurredAt: "2026-08-12T08:00:00.000Z",
+    });
+    expect(result).toEqual({ userId: user.id, deactivatedAt: "2026-08-12T08:00:00.000Z" });
+    expect(update).toHaveBeenCalledWith({ where: { id: user.id }, data: { active: false } });
+    expect(writer.append).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        safeDiff: { active: false, alreadyInactive: false, preservedHistory: true },
+      }),
+    );
+  });
+
+  it("reconciles an already inactive user with an auditable idempotent deactivation receipt", async () => {
+    const user = {
+      id: "9a11bb8f-79f5-4a72-a98f-2e763e97699b",
+      email: oidcPrincipal.email,
+      displayName: "Pilot Employee",
+      active: false,
+    };
+    const admin = { id: "9a11bb8f-79f5-4a72-a98f-2e763e976990", active: true };
+    const update = vi.fn();
+    const transaction = {
+      auditEvent: { create: vi.fn() },
+      authorizationScope: { findUnique: vi.fn().mockResolvedValue({ id: systemScopeId }) },
+      roleAssignment: { findFirst: vi.fn().mockResolvedValue({ id: "role-1" }) },
+      user: {
+        findUnique: vi.fn(
+          async ({ where }: { where: { id: string } }) =>
+            (where.id === admin.id ? admin : user) as { id: string; active: boolean },
+        ),
+        update,
+      },
+    };
+    const client: import("./index.js").UserDeactivationClient = {
+      $transaction: async (operation) => operation(transaction as never),
+    };
+    const writer = auditWriter();
+    await expect(
+      deactivateInternalUser(client, writer, {
+        administratorId: admin.id,
+        userId: user.id,
+        correlationId: "9a11bb8f-79f5-4a72-a98f-2e763e976991",
+        occurredAt: "2026-08-12T08:00:00.000Z",
+      }),
+    ).resolves.toMatchObject({ userId: user.id });
+    expect(update).not.toHaveBeenCalled();
+    expect(writer.append).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        eventType: "identity.deactivated",
+        safeDiff: { active: false, alreadyInactive: true, preservedHistory: true },
+      }),
+    );
   });
 });

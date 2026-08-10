@@ -671,12 +671,16 @@ The detailed authority is
 
 ## T064 — Implement Leave Records
 
+**Status:** Complete — minimal leave records, manager-scoped decisions, and neutral check-in/evaluation eligibility projection are verified.
+
 **Priority:** P1
 **Dependencies:** T014, T018
 **Purpose:** Complete the leave workflow and connect approved leave to the earlier evaluation-eligibility foundation, check-ins, and delegation.
 **Verification:** no HR balance logic; check-in and evaluation exemptions.
 
 ## T065 — Implement Handover
+
+**Status:** Complete — append-only versioned handover items, exact-scope validation, employee confirmation, stale-version rejection, and sensitive-field rejection are verified.
 
 **Priority:** P1
 **Dependencies:** T064, T024
@@ -685,6 +689,8 @@ The detailed authority is
 
 ## T066 — Implement Delegation and Acting Ownership
 
+**Status:** Complete — normal/emergency activation, delegate access confirmation, gap blocking, and exact action/scope/time authorization are verified.
+
 **Priority:** P1
 **Dependencies:** T065, T020
 **Purpose:** Delegate confirmation, emergency activation, full time-bounded authority.
@@ -692,11 +698,15 @@ The detailed authority is
 
 ## T067 — Implement Return Handover
 
+**Status:** Complete — manager-direct return, append-only extension, immediate return, and real permanent responsibility transfer are verified.
+
 **Priority:** P1
 **Dependencies:** T066
 **Verification:** original confirms; manager can finalize/extend/transfer; authority ends correctly.
 
 ## T068 — Implement Account Deactivation and Archiving
+
+**Status:** Complete — scoped administrator deactivation is atomic with continuity-case creation, denies later authentication, and preserves user and historical records.
 
 **Priority:** P1
 **Dependencies:** T006, T020
@@ -705,12 +715,16 @@ The detailed authority is
 
 ## T069 — Implement Reassignment Required
 
+**Status:** Complete — atomically queued, deduplicated ownerless-work cases and manager-only permanent resolution through Projects are verified.
+
 **Priority:** P1
 **Dependencies:** T068, T018, T019
 **Purpose:** Flag ownerless active work for manager decision.
 **Verification:** admin cannot assign; manager resolves; critical alert.
 
 ## T070 — Implement Retention Configuration Foundation
+
+**Status:** Complete — forward-only retention references require archive-only behavior and prohibit automatic deletion.
 
 **Priority:** P2
 **Dependencies:** T068

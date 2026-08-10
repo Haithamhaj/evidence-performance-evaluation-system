@@ -20,6 +20,9 @@ importers:
       '@evaluation/connected-work-context':
         specifier: workspace:*
         version: link:packages/connected-work-context
+      '@evaluation/continuity':
+        specifier: workspace:*
+        version: link:packages/continuity
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:packages/contracts
@@ -132,6 +135,9 @@ importers:
       '@evaluation/context-intelligence':
         specifier: workspace:*
         version: link:../../packages/context-intelligence
+      '@evaluation/continuity':
+        specifier: workspace:*
+        version: link:../../packages/continuity
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -242,6 +248,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@evaluation/continuity':
+        specifier: workspace:*
+        version: link:../../packages/continuity
       '@evaluation/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -437,6 +446,34 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+
+  packages/continuity:
+    dependencies:
+      '@evaluation/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@evaluation/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@evaluation/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@evaluation/database':
+        specifier: workspace:*
+        version: link:../database
+      '@evaluation/permissions':
+        specifier: workspace:*
+        version: link:../permissions
+      '@evaluation/projects':
+        specifier: workspace:*
+        version: link:../projects
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.1
+        version: 26.1.1
 
   packages/contracts:
     dependencies:

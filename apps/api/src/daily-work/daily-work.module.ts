@@ -1,5 +1,6 @@
 import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
+import { PrismaApprovedLeaveReader } from "@evaluation/continuity";
 import { ProgressContractDraftSourceLocator, ProgressDocumentReader } from "@evaluation/documents";
 import {
   CriteriaReviewReader,
@@ -88,13 +89,17 @@ Module({
     {
       provide: CheckInService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
-        createDatabaseCheckInService(client),
+        createDatabaseCheckInService(client, new PrismaApprovedLeaveReader(client)),
       inject: [DAILY_WORK_DATABASE],
     },
     {
       provide: ReadinessQueryService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
-        createDatabaseReadinessQueryService(client, new ResearchReadinessReader(client)),
+        createDatabaseReadinessQueryService(
+          client,
+          new ResearchReadinessReader(client),
+          new PrismaApprovedLeaveReader(client),
+        ),
       inject: [DAILY_WORK_DATABASE],
     },
     {

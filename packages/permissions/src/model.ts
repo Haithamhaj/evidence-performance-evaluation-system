@@ -93,9 +93,20 @@ export type ResponsibilityAccessWindow = Readonly<{
   endsAt: string | null;
 }>;
 
+export type ActingAuthority = Readonly<{
+  delegationId: string;
+  subjectId: string;
+  scopeType: "project" | "workstream";
+  scopeId: string;
+  action: string;
+  startsAt: string;
+  endsAt: string;
+}>;
+
 export type PolicyContext = Readonly<{
   now: string;
   responsibilityWindows?: ReadonlyArray<ResponsibilityAccessWindow>;
+  actingAuthorities?: ReadonlyArray<ActingAuthority>;
   incompleteEligibleCount?: number;
   uiVisible?: boolean;
 }>;

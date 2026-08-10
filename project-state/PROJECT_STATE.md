@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Complete the technically verified E5A and E5B checkpoints, then execute E6–E7 in bounded feature bundles.
+Complete the technically verified E6A continuity/offboarding checkpoint, then execute E6B–E7 in bounded feature bundles.
 Keep the final frontend program, export delivery, Arabic evaluation content, and live connector installations
 behind their existing sequence and external gates.
 
@@ -218,8 +218,26 @@ behind their existing sequence and external gates.
   themes are composed behind protected APIs. System Administrator has no response-content access.
 - A rerunnable PostgreSQL acceptance seed proves one named submission, one pending evaluator, one approved
   leave, exact five-criterion persistence, immediate manager visibility, and unchanged historical data.
+- E6A Continuity & Offboarding is technically complete locally through forward-only migration
+  `0033_continuity_offboarding`: minimal approved-leave records, neutral eligibility, versioned handover,
+  exact action/scope/time delegation, delegate access confirmation and gaps, return handover, immediate
+  authentication deactivation, manager-only reassignment, and archive-only retention foundations.
+- The E6A technical API and bilingual checkpoint are intentionally not final UX. No AI provider or
+  external connector is used. Acting authority cannot transfer permanent ownership, the System
+  Administrator cannot select a successor, and deactivation preserves all historical references.
   The English/Arabic route is a bounded technical verification surface, not final UX or Arabic rubric
   release.
+- E6A's bounded P1 remediation is complete locally: authoritative leave/handover sourcing, exact
+  revision confirmation, atomic real acting responsibility, manager-only gap resolution and expiry,
+  exact-action controller/service enforcement, manager-direct return decisions, real extension/return/
+  permanent-transfer responsibility changes, durable leave eligibility effects, and atomic account
+  deactivation plus manager reassignment queue creation are exercised by a rerunnable PostgreSQL journey.
+  The same journey verifies emergency approval, bounded authority, expiry, and its three audit events.
+  Return/extension/permanent-transfer decisions now lock and validate the authoritative return first,
+  then commit every affected scope and its audit/state changes through one Projects-owned transaction.
+  A real Nest HTTP/PostgreSQL acceptance journey covers controllers, guards, authenticated principals,
+  planned return, emergency expiry, and offboarding reassignment; Playwright remains limited to the
+  bilingual technical UI checkpoint.
 - The single E5A P1 remediation cycle is complete: submissions use and persist in-period server time;
   manager summaries use a verified registered prompt descriptor with untrusted originals; manager-cycle
   reports compose completion/originals/summary/audit from one repeatable snapshot; and completion plus
@@ -313,11 +331,9 @@ behind their existing sequence and external gates.
 
 ## Next Recommended Action
 
-Push the exact verified E5B head, complete hosted CI, and merge E4, E5A, then E5B in dependency order.
-After the engine checkpoint is integrated, proceed to the next approved engine bundle; do not start the
-final frontend yet. Register the coaching AI route only with authorized production context and approved
-provider configuration. Live connector setup and Arabic evaluation release remain behind their external
-human gates.
+Integrate the exact verified E6A checkpoint after its bounded branch handoff, then proceed to E6B
+Notifications/Reporting/Administration. Do not start the final frontend yet. Live connector setup and
+Arabic evaluation release remain behind their external human gates.
 
 ## Critical References
 

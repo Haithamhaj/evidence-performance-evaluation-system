@@ -2,6 +2,7 @@ export * from "./audit-writer.js";
 export * from "./analysis-criteria-jobs.js";
 export * from "./connected-work-context.js";
 export * from "./coaching-development.js";
+export * from "./continuity.js";
 export * from "./context-intelligence.js";
 export * from "./criteria.js";
 export * from "./documentation-readiness.js";

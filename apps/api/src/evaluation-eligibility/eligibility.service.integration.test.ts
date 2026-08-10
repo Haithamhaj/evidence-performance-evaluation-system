@@ -14,6 +14,7 @@ let departmentId: string;
 let departmentScopeId: string;
 let employeeId: string;
 let secondEmployeeId: string;
+let approvedLeaveEmployeeId: string;
 let version = Math.floor(Date.now() / 1000);
 
 const auditWriter: import("@evaluation/contracts").AuditWriter<Transaction> = {
@@ -34,9 +35,14 @@ beforeAll(async () => {
   administratorId = administrator.id;
   departmentId = department.id;
   departmentScopeId = scope.id;
+  const latestCycle = await client.evaluationCycle.aggregate({
+    where: { departmentId },
+    _max: { version: true },
+  });
+  version = Math.max(version, (latestCycle._max.version ?? 0) + 1_000);
   const suffix = crypto.randomUUID();
   const employees = await Promise.all(
-    ["one", "two"].map((label) =>
+    ["one", "two", "approved-leave"].map((label) =>
       client.user.create({
         data: {
           email: `eligibility-${label}-${suffix}@example.invalid`,
@@ -54,6 +60,11 @@ beforeAll(async () => {
   );
   employeeId = employees[0]!.id;
   secondEmployeeId = employees[1]!.id;
+  approvedLeaveEmployeeId = employees[2]!.id;
+  await Promise.all([
+    seedApprovedLeave(secondEmployeeId),
+    seedApprovedLeave(approvedLeaveEmployeeId),
+  ]);
 });
 
 afterAll(async () => client.$disconnect());
@@ -87,6 +98,33 @@ function openInput(): import("@evaluation/contracts").OpenCycleInput {
       },
     ],
   };
+}
+
+async function seedApprovedLeave(leaveEmployeeId: string) {
+  const auditEventId = crypto.randomUUID();
+  return client.leaveRecord.create({
+    data: {
+      employeeId: leaveEmployeeId,
+      departmentId,
+      state: "APPROVED",
+      startsAt: new Date("2026-07-01T00:00:00.000Z"),
+      endsAt: new Date("2026-09-30T23:59:59.999Z"),
+      reasonCategory: "PLANNED_LEAVE",
+      affectedScopes: [{ kind: "PROJECT", id: crypto.randomUUID() }],
+      eligibilityEffect: {
+        create: {
+          employeeId: leaveEmployeeId,
+          startsAt: new Date("2026-07-01T00:00:00.000Z"),
+          endsAt: new Date("2026-09-30T23:59:59.999Z"),
+          checkInRequired: false,
+          negativeRegularitySignal: false,
+          evaluationObligationSuspended: true,
+          auditEventId,
+          publishedAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+      },
+    },
+  });
 }
 
 describe("evaluation eligibility persistence", () => {
@@ -141,13 +179,15 @@ describe("evaluation eligibility persistence", () => {
       const service = createEligibilityService(client, auditWriter);
       const input = openInput();
       input.eligibleEmployees[0]!.state = initialState;
+      const subjectId = initialState === "approved_leave" ? approvedLeaveEmployeeId : employeeId;
+      input.eligibleEmployees[0]!.employeeId = subjectId;
       const snapshot = await service.openCycle(input);
       const correlationId = crypto.randomUUID();
 
       await service.excludeEligibility({
         actorId: managerId,
         cycleId: snapshot.cycleId,
-        employeeId,
+        employeeId: subjectId,
         reason: "Manager-approved cycle exclusion",
         effectiveAt: "2026-08-01T10:00:00.000Z",
         correlationId,
@@ -155,7 +195,7 @@ describe("evaluation eligibility persistence", () => {
 
       await expect(
         client.eligibilityEntry.findUniqueOrThrow({
-          where: { cycleId_employeeId: { cycleId: snapshot.cycleId, employeeId } },
+          where: { cycleId_employeeId: { cycleId: snapshot.cycleId, employeeId: subjectId } },
         }),
       ).resolves.toMatchObject({ state: "excluded", version: 2 });
       await expect(

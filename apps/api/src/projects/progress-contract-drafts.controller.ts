@@ -299,12 +299,12 @@ UseGuards(ProjectsAuthenticationGuard)(ProgressContractDraftsController);
 Inject(ProgressContractDraftService)(ProgressContractDraftsController, undefined, 0);
 
 const endpoints = [
-  ["create", "", "project.manage", "post"],
+  ["create", "", "project.document.update", "post"],
   ["latest", "", "resource.read", "get"],
   ["get", ":requestId", "resource.read", "get"],
-  ["revise", ":requestId/revisions", "project.manage", "post"],
-  ["applyRevision", ":requestId/apply", "project.manage", "post"],
-  ["reject", ":requestId/reject", "project.manage", "post"],
+  ["revise", ":requestId/revisions", "project.document.update", "post"],
+  ["applyRevision", ":requestId/apply", "project.criteria.approve", "post"],
+  ["reject", ":requestId/reject", "project.criteria.approve", "post"],
 ] as const;
 
 for (const [method, path, action, verb] of endpoints) {

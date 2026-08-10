@@ -67,8 +67,35 @@ export class EligibilityService {
           effectiveTo: new Date(parsed.effectiveTo),
         },
       });
+      const projectedEligibility = await Promise.all(
+        parsed.eligibleEmployees.map(async (candidate) => {
+          const approvedLeave = await transaction.leaveEligibilityEffect.findFirst({
+            where: {
+              employeeId: candidate.employeeId,
+              startsAt: { lte: new Date(candidate.effectiveFrom) },
+              endsAt: { gte: new Date(candidate.effectiveTo) },
+              leave: { state: { in: ["APPROVED", "ACTIVE"] } },
+            },
+            select: { leaveId: true },
+          });
+          if (candidate.state === "approved_leave" && approvedLeave === null) {
+            throw new AppError(
+              "ELIGIBILITY_APPROVED_LEAVE_SOURCE_REQUIRED",
+              "errors.evaluation.eligibilityTransitionInvalid",
+              409,
+            );
+          }
+          return approvedLeave === null
+            ? candidate
+            : {
+                ...candidate,
+                state: "approved_leave" as const,
+                sourceReason: "Approved leave exclusion from the authoritative continuity record.",
+              };
+        }),
+      );
       await transaction.eligibilityEntry.createMany({
-        data: parsed.eligibleEmployees.map((candidate, position) => ({
+        data: projectedEligibility.map((candidate, position) => ({
           cycleId: cycle.id,
           snapshotId: snapshot.id,
           employeeId: candidate.employeeId,

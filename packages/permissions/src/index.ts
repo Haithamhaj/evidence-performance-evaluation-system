@@ -1,5 +1,6 @@
 export { decide } from "./decide.js";
 export type {
+  ActingAuthority,
   Decision,
   DenialReason,
   PolicyAction,

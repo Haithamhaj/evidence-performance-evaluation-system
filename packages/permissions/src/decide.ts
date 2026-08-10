@@ -117,13 +117,10 @@ function decideOwnerManagement(
   }
 
   const isPermanentOwner = hasRole(subject, ownerRole);
-  const isActingOwner = hasRole(subject, "acting_owner");
   const hasPermanentScope =
     isPermanentOwner && hasScopedRole(subject, ownerRole, scopeType, scopeId);
-  const hasActingScope =
-    isActingOwner && hasScopedRole(subject, "acting_owner", scopeType, scopeId);
-  if (!hasPermanentScope && !hasActingScope) {
-    return isPermanentOwner || isActingOwner || hasRole(subject, "manager")
+  if (!hasPermanentScope) {
+    return isPermanentOwner || hasRole(subject, "acting_owner") || hasRole(subject, "manager")
       ? deny("SCOPE_MISMATCH")
       : deny("ROLE_REQUIRED");
   }
@@ -131,9 +128,7 @@ function decideOwnerManagement(
   const permanentIsActive =
     hasPermanentScope &&
     activeResponsibility(subject, context, scopeType, scopeId, ["original", "permanent"]);
-  const actingIsActive =
-    hasActingScope && activeResponsibility(subject, context, scopeType, scopeId, ["acting"]);
-  return permanentIsActive || actingIsActive ? allow : deny("RESOURCE_STATE");
+  return permanentIsActive ? allow : deny("RESOURCE_STATE");
 }
 
 function decideContribution(
@@ -303,6 +298,24 @@ function decideKnownAction(
   context: import("./model.js").PolicyContext,
 ): import("./model.js").Decision {
   switch (action) {
+    case "project.update":
+    case "project.document.update":
+    case "project.criteria.approve":
+    case "project.participants.manage":
+    case "project.decision.record":
+    case "project.source.manage":
+    case "project.stage.close":
+    case "workstream.update":
+    case "workstream.document.update":
+    case "workstream.criteria.approve":
+    case "workstream.participants.manage":
+    case "workstream.decision.record":
+    case "workstream.source.manage":
+    case "workstream.stage.close":
+      return decideExactActingAuthority(subject, action, resource, context);
+    case "project.transferPermanentOwner":
+    case "workstream.transferPermanentOwner":
+      return deny("ROLE_REQUIRED");
     case "managerFeedback.response.read":
       return decideManagerFeedbackRead(subject, resource);
     case "department.manage":
@@ -438,6 +451,44 @@ function decideKnownAction(
     default:
       return deny("ROLE_REQUIRED");
   }
+}
+
+function decideExactActingAuthority(
+  subject: import("./model.js").PolicyInput,
+  action: string,
+  resource: import("./model.js").PolicyResource,
+  context: import("./model.js").PolicyContext,
+): import("./model.js").Decision {
+  if (resource.kind !== "project" && resource.kind !== "workstream") {
+    return deny("RESOURCE_STATE");
+  }
+  const scopeId = resource.kind === "project" ? resource.projectId : resource.workstreamId;
+  if (managerCanAccessDepartment(subject, resource.departmentId)) return allow;
+  const permanentRole = resource.kind === "project" ? "project_owner" : "workstream_owner";
+  if (
+    hasScopedRole(subject, permanentRole, resource.kind, scopeId) &&
+    activeResponsibility(subject, context, resource.kind, scopeId, ["original", "permanent"])
+  ) {
+    return allow;
+  }
+  if (!hasRole(subject, "acting_owner")) return deny("ROLE_REQUIRED");
+  if (!hasScopedRole(subject, "acting_owner", resource.kind, scopeId)) {
+    return deny("SCOPE_MISMATCH");
+  }
+  const occurredAt = Date.parse(context.now);
+  const matching = (context.actingAuthorities ?? []).filter(
+    (authority) =>
+      authority.subjectId === subject.subjectId &&
+      authority.scopeType === resource.kind &&
+      authority.scopeId === scopeId &&
+      authority.action === action,
+  );
+  return matching.some(
+    (authority) =>
+      Date.parse(authority.startsAt) <= occurredAt && occurredAt < Date.parse(authority.endsAt),
+  )
+    ? allow
+    : deny("RESOURCE_STATE");
 }
 
 export function decide(

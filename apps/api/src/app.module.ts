@@ -19,6 +19,7 @@ import { UpdatesEvidenceModule } from "./updates-evidence/updates-evidence.modul
 import { GitHubIntegrationModule } from "./github-integration/github-integration.module.js";
 import { ManagerEvaluationModule } from "./manager-evaluation/manager-evaluation.module.js";
 import { CoachingDevelopmentModule } from "./coaching-development/coaching-development.module.js";
+import { ContinuityModule } from "./continuity/continuity.module.js";
 import {
   createEnvironmentReadinessProbes,
   HealthController,
@@ -38,6 +39,7 @@ Module({
     AuditModule,
     ConnectedWorkContextModule,
     CoachingDevelopmentModule,
+    ContinuityModule,
     ContextIntelligenceModule,
     DocumentsModule,
     DailyWorkModule,

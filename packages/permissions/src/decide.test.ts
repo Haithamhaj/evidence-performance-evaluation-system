@@ -567,7 +567,7 @@ describe("authorization decision contract", () => {
     ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
-  it("allows an acting owner only during the matching responsibility window", () => {
+  it("denies broad project management to an acting owner even during the window", () => {
     expect(
       decide(
         actingOwner,
@@ -587,7 +587,7 @@ describe("authorization decision contract", () => {
           ],
         },
       ),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
   it("denies an acting owner after the responsibility window ends", () => {
@@ -610,7 +610,7 @@ describe("authorization decision contract", () => {
           ],
         },
       ),
-    ).toEqual({ allowed: false, reasonCode: "RESOURCE_STATE" });
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
   it("denies an acting owner outside the delegated scope", () => {
@@ -634,6 +634,39 @@ describe("authorization decision contract", () => {
         },
       ),
     ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
+  });
+
+  it("requires exact action authority for continuity delegation actions", () => {
+    const project = {
+      kind: "project",
+      projectId: "project-1",
+      departmentId: "department-ai",
+    } as const;
+    const authority = {
+      delegationId: "delegation-1",
+      subjectId: actingOwner.subjectId,
+      scopeType: "project",
+      scopeId: "project-1",
+      action: "project.update",
+      startsAt: "2026-07-15T08:00:00.000Z",
+      endsAt: "2026-07-15T16:00:00.000Z",
+    } as const;
+
+    expect(
+      decide(actingOwner, "project.update", project, { now, actingAuthorities: [authority] }),
+    ).toEqual({ allowed: true });
+    expect(
+      decide(actingOwner, "project.document.update", project, {
+        now,
+        actingAuthorities: [authority],
+      }),
+    ).toEqual({ allowed: false, reasonCode: "RESOURCE_STATE" });
+    expect(
+      decide(actingOwner, "project.transferPermanentOwner", project, {
+        now,
+        actingAuthorities: [authority],
+      }),
+    ).toEqual({ allowed: false, reasonCode: "ROLE_REQUIRED" });
   });
 
   it("allows a contributor inside the assigned Workstream scope", () => {
@@ -668,7 +701,7 @@ describe("authorization decision contract", () => {
     ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
-  it("allows a Workstream Acting Owner only during the matching responsibility window", () => {
+  it("denies broad Workstream management to an Acting Owner during the window", () => {
     expect(
       decide(
         workstreamActingOwner,
@@ -694,7 +727,7 @@ describe("authorization decision contract", () => {
           ],
         },
       ),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
   it("denies a Workstream Acting Owner after the responsibility window ends", () => {
@@ -723,7 +756,7 @@ describe("authorization decision contract", () => {
           ],
         },
       ),
-    ).toEqual({ allowed: false, reasonCode: "RESOURCE_STATE" });
+    ).toEqual({ allowed: false, reasonCode: "SCOPE_MISMATCH" });
   });
 
   it("denies a Workstream Acting Owner outside the delegated scope", () => {
