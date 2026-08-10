@@ -1,7 +1,7 @@
 # Engine Feature Register
 
-**Baseline:** `main` at `1db6bb1372c7e9d91cf09f770728034f6dc3fe57`
-**Audit date:** 2026-08-05
+**Baseline:** `main` at `a631eaa81a5b462f329e5917c5be3301281f970a`
+**Audit date:** 2026-08-10
 **Purpose:** authoritative capability ledger for completing the engine before designing the final frontend.
 
 ## How to read this register
@@ -20,12 +20,9 @@ The temporary Next.js screens are contract-verification surfaces. They are not e
 
 The engine already has a strong governed spine: identity, server-side authorization, append-only audit, AI routing, queues, Projects/Workstreams, responsibility windows, safe documents, dynamic criteria, Work Items, private connected context, Updates/Evidence, GitHub suggestion processing, progress contracts, operational readiness, manager queues, and a neutral Evaluation Fact View.
 
-The main missing product engines are:
-
-1. a first-class Research & Experiments lifecycle;
-2. the employee and manager evaluation workflow after Fact View preparation;
-3. identified upward manager evaluation and coaching/development;
-4. leave, delegation, handover, notifications, exports, administration, recovery, and launch operations.
+The pilot engine is now technically complete. Remaining work is deliberately outside engine
+implementation: final daily-use frontend design and acceptance, production connector/provider setup,
+the protected Arabic-rubric approval, and the Product Owner launch decision.
 
 ## Capability records
 
@@ -274,15 +271,15 @@ The main missing product engines are:
 
 **ID:** CAP-032 | **Capability:** authorized Arabic/English employee cycle, manager upward, and department exports with immutable source snapshot | **User roles:** employee, manager, administrator according to report | **User goal:** retain and share a trustworthy review record
 **Authoritative sources:** `PROJECT_REFERENCE.md` §35; T053 | **Owner module:** immutable projections in `@evaluation/employee-evaluation`; export generation/delivery in E6B | **Inputs/sources:** closed snapshots, sources, visibility mode | **AI role:** none in current projection
-**AI prohibitions:** no ranking, inferred rating, readiness value, or private-mode leakage | **Human gate:** authorized projection read; future generation/download gate remains E6B | **States/transitions:** immutable projection complete; requested → generated/failed/expired export lifecycle deferred to E6B | **Public API/events:** protected employee and assigned-manager department report reads | **Authorization/privacy:** report-specific field allowlists and fresh assignment/department authorization | **Audit/history:** snapshot identity and source context are immutable | **Failure/recovery:** projection is reproducible from closed snapshot; file retry/expiration remains E6B | **Tests:** projection authorization/field tests and closed-cycle seed; Arabic PDF/DOCX fixtures remain required in E6B
-**Status:** PARTIAL — E4 PROJECTION COMPLETE | **External gate:** English export delivery is E6B; Arabic content/export also requires T016 | **Frontend implications:** explicit report audience, locale, content preview, and safe download remain later frontend/export work
+**AI prohibitions:** no ranking, inferred rating, readiness value, or private-mode leakage | **Human gate:** authorized request and current-access download | **States/transitions:** requested → queued → generated/failed → downloaded/expired/revoked | **Public API/events:** protected report reads and `/api/v1/operations/exports/*` request/status/download/revoke routes | **Authorization/privacy:** report-specific allowlists, fresh authorization at download, encrypted artifact storage, and Arabic evaluation export blocked until T016 | **Audit/history:** immutable source manifest plus download/revocation audit | **Failure/recovery:** reproducible retry from pinned sources; expired/revoked artifacts fail closed | **Tests:** reporting package integration, export artifact authorization, worker/API tests, and E6B acceptance
+**Status:** COMPLETE — TECHNICAL CHECKPOINT | **External gate:** production object storage; Arabic evaluation export additionally requires T016 | **Frontend implications:** explicit report audience, locale, content preview, generation state, and safe download
 
 ### CAP-033 — Identified upward manager evaluation
 
 **ID:** CAP-033 | **Capability:** eligible employees submit named ratings/comments about their manager; manager sees identity, status, content, and timestamps in the pilot | **User roles:** employees submit; manager reads; administrator governs | **User goal:** provide accountable upward feedback under the truthful Identified mode
-**Authoritative sources:** protected rules 10–13; `PROJECT_REFERENCE.md` §§23–24; T055–T058 | **Owner module:** future manager-evaluation domain | **Inputs/sources:** frozen cycle visibility mode and five manager criteria | **AI role:** optional aggregation/themes after submissions
-**AI prohibitions:** cannot hide identified originals in pilot, assign manager judgment, or claim anonymity | **Human gate:** employee submission; manager review | **States/transitions:** eligible/pending/submitted/exempt; response immutable | **Public API/events:** no production API | **Authorization/privacy:** pilot manager sees individual identified originals | **Audit/history:** response/status/time required | **Failure/recovery:** idempotent submit and accurate completion counts required | **Tests:** only `identified-visibility-contract.integration.test.ts` foundation
-**Status:** PLANNED | **External gate:** CAP-028 cycle engine | **Frontend implications:** prominently state “Identified”; no anonymity/confidentiality promise
+**Authoritative sources:** protected rules 10–13; `PROJECT_REFERENCE.md` §§23–24; T055–T058 | **Owner module:** `@evaluation/manager-evaluation` with protected API composition | **Inputs/sources:** frozen cycle visibility mode and five approved manager criteria | **AI role:** optional source-linked aggregation/themes after submissions
+**AI prohibitions:** cannot hide identified originals in pilot, assign manager judgment, or claim anonymity | **Human gate:** employee notice confirmation/submission; manager review | **States/transitions:** eligible/pending/submitted/approved-leave/postponed/excluded; immutable response | **Public API/events:** protected manager-evaluation configuration/cycle/submission/completion/summary routes | **Authorization/privacy:** pilot manager sees authorized individual identified originals; peers/admin/other managers are denied | **Audit/history:** response, identity, status, criteria, comments, and timestamps are retained | **Failure/recovery:** idempotent submit, accurate leave-aware completion, and fail-closed future modes | **Tests:** manager-evaluation package, API/PostgreSQL authorization, AI summary evaluations, and E5A acceptance
+**Status:** COMPLETE — TECHNICAL CHECKPOINT | **External gate:** none at engine level | **Frontend implications:** prominently state “Identified”; no anonymity/confidentiality promise
 
 ### CAP-034 — Future blinded/anonymous manager-feedback modes
 
@@ -294,44 +291,44 @@ The main missing product engines are:
 ### CAP-035 — Coaching insights
 
 **ID:** CAP-035 | **Capability:** transparent non-scoring development insights with observed pattern, sources, time range, confidence, limitations, and missing context | **User roles:** employee; manager for authorized individual/team patterns | **User goal:** improve work habits, research, documentation, and blocker resolution continuously
-**Authoritative sources:** `PROJECT_REFERENCE.md` §25; T060 | **Owner module:** future coaching domain using public fact readers | **Inputs/sources:** confirmed facts and longitudinal patterns | **AI role:** draft transparent coaching insights
-**AI prohibitions:** no predicted rating, continuous performance/productivity score, rank, or leave penalty | **Human gate:** employee accepts/edits coaching action | **States/transitions:** proposed → accepted/rejected/superseded | **Public API/events:** none | **Authorization/privacy:** manager view follows allowed source scope | **Audit/history:** source/time/model trace required | **Failure/recovery:** low-confidence insight stays explainable and dismissible | **Tests:** none
+**Authoritative sources:** `PROJECT_REFERENCE.md` §25; T060 | **Owner module:** `@evaluation/coaching-development` using authorized public fact readers | **Inputs/sources:** confirmed facts and source-qualified longitudinal patterns | **AI role:** draft transparent coaching insights through the AI Router
+**AI prohibitions:** no predicted rating, continuous performance/productivity score, rank, or leave penalty | **Human gate:** employee accepts/edits/rejects/defer insight | **States/transitions:** proposed → accepted/rejected/deferred/superseded | **Public API/events:** protected coaching insight and employee decision routes | **Authorization/privacy:** employee-private by default; manager receives only allowed shared projection | **Audit/history:** source/time/model-route trace and decisions retained | **Failure/recovery:** manual creation remains available; low-confidence insight stays explainable and dismissible | **Tests:** coaching-development package/API/AI evaluations and E5B acceptance
 **Status:** COMPLETE | **External gate:** approved production AI credentials/routes | **Frontend implications:** optional assistant suggestion beside real work, never a judgment dashboard
 
 ### CAP-036 — Personal actions and formal development plans
 
 **ID:** CAP-036 | **Capability:** employee development actions and manager-agreed formal plans linked to coaching and real work | **User roles:** employee and manager | **User goal:** turn a discussion into a manageable improvement action with follow-up
-**Authoritative sources:** `PROJECT_REFERENCE.md` §§25–26; T061–T062 | **Owner module:** future coaching/development domain | **Inputs/sources:** human discussion, accepted insight, selected objective | **AI role:** draft action wording after user intent
-**AI prohibitions:** cannot impose plan, discipline, promotion, or rating | **Human gate:** employee acceptance; manager agreement where formal | **States/transitions:** draft → accepted → active → completed/changed/closed | **Public API/events:** none | **Authorization/privacy:** participant-only | **Audit/history:** revisions and agreement retained | **Failure/recovery:** editable draft and explicit withdrawal/change | **Tests:** none
+**Authoritative sources:** `PROJECT_REFERENCE.md` §§25–26; T061–T062 | **Owner module:** `@evaluation/coaching-development` | **Inputs/sources:** human discussion, accepted insight, selected objective, confirmed evidence | **AI role:** draft action wording after user intent
+**AI prohibitions:** cannot impose plan, discipline, promotion, or rating | **Human gate:** employee acceptance and sharing; manager agreement where formal | **States/transitions:** draft → accepted → active → completed/changed/closed | **Public API/events:** protected personal-action, share, manager-support, and formal-plan routes | **Authorization/privacy:** private action details/rejection reasons stay employee-only; manager sees explicitly shared fields | **Audit/history:** append-only revisions, agreement, evidence, and completion retained | **Failure/recovery:** optimistic transitions, editable draft, explicit withdrawal/change | **Tests:** coaching-development real-DB/API journey and E5B acceptance
 **Status:** COMPLETE | **External gate:** none at the engine level | **Frontend implications:** small actionable plan integrated into Today, not a separate bureaucracy
 
 ### CAP-037 — Leave, handover, delegation, and return
 
 **ID:** CAP-037 | **Capability:** approved leave excludes obligations; handover, acting ownership, delegation, return handover, and reassignment use time/scope bounds | **User roles:** employee, manager, acting owner, Project/Workstream owners | **User goal:** preserve work continuity and fair responsibility during absence/change
-**Authoritative sources:** protected rules 14–17; `PROJECT_REFERENCE.md` §§27–28; T064–T067, T069 | **Owner module:** future continuity domain integrated with Projects/eligibility | **Inputs/sources:** leave period, affected scopes, delegate, handover items | **AI role:** may draft handover summary from confirmed work
-**AI prohibitions:** cannot approve leave, appoint delegate, reassign Project, or infer negative performance | **Human gate:** manager approvals and delegate confirmations | **States/transitions:** requested/approved/active/returned; handover incomplete/confirmed; reassignment required/resolved | **Public API/events:** none | **Authorization/privacy:** time- and scope-bounded acting access | **Audit/history:** responsibility and handover history required | **Failure/recovery:** incomplete handover remains visible; prior owner restored/explicitly changed | **Tests:** only responsibility/eligibility foundations
-**Status:** PLANNED | **External gate:** none | **Frontend implications:** calendar-like absence flow plus action queue; never mix leave with performance
+**Authoritative sources:** protected rules 14–17; `PROJECT_REFERENCE.md` §§27–28; T064–T067, T069 | **Owner module:** `@evaluation/continuity` orchestrating public Projects/Auth/eligibility interfaces | **Inputs/sources:** leave period, affected scopes, delegate, handover items | **AI role:** may draft handover completeness only from confirmed work
+**AI prohibitions:** cannot approve leave, appoint delegate, reassign Project, or infer negative performance | **Human gate:** manager approvals, employee/delegate confirmations, manager-owned permanent transfer | **States/transitions:** requested/approved/active/cancelled/returned; versioned handover; bounded delegation; reassignment required/resolved | **Public API/events:** protected leave, handover, delegation, return, deactivation, and reassignment routes | **Authorization/privacy:** acting authority is exact-scope, action, and half-open UTC time bounded | **Audit/history:** append-only decisions/transitions and responsibility attribution retained | **Failure/recovery:** gaps block activation; expiry/return ends authority; manager may extend or transfer through Projects | **Tests:** continuity package real-DB tests, API authorization, cross-domain eligibility/check-in seams, and E6A acceptance
+**Status:** COMPLETE — TECHNICAL CHECKPOINT | **External gate:** none | **Frontend implications:** calendar-like absence flow plus action queue; never mix leave with performance
 
 ### CAP-038 — Deactivation, archival retention, and reassignment safety
 
 **ID:** CAP-038 | **Capability:** block authentication after deactivation while preserving historical foreign keys and flagging active responsibilities for human reassignment | **User roles:** administrator deactivates; manager reassigns | **User goal:** offboard safely without deleting evidence or silently changing ownership
-**Authoritative sources:** protected rules 17, 19; `PROJECT_REFERENCE.md` §28; T068–T070 | **Owner module:** auth/database foundation; continuity/admin workflows missing | **Inputs/sources:** user active state, memberships, responsibility windows | **AI role:** none
-**AI prohibitions:** cannot delete history or decide reassignment | **Human gate:** administrator deactivation; manager reassignment | **States/transitions:** active → deactivated; affected scope → reassignment-required → resolved | **Public API/events:** authentication enforces active state; no complete admin workflow API | **Authorization/privacy:** historical reads retain original identity under policy | **Audit/history:** user/history retained | **Failure/recovery:** login fails closed; workflow for affected responsibilities remains incomplete | **Tests:** auth user-sync tests and deactivation denial coverage
-**Status:** PARTIAL | **External gate:** none | **Frontend implications:** separate technical deactivation from manager-owned reassignment queue
+**Authoritative sources:** protected rules 17, 19; `PROJECT_REFERENCE.md` §28; T068–T070 | **Owner module:** `@evaluation/continuity`, auth, Projects, and retention policy | **Inputs/sources:** user active state, memberships, responsibility windows | **AI role:** none
+**AI prohibitions:** cannot delete history or decide reassignment | **Human gate:** administrator deactivation; manager reassignment | **States/transitions:** active → deactivated; affected scope → reassignment-required → resolved; archive-only retention | **Public API/events:** protected deactivation and manager reassignment-resolution routes; authentication active-state enforcement | **Authorization/privacy:** historical reads retain original identity under policy | **Audit/history:** deactivation, cases, resolution, and protected historical rows retained | **Failure/recovery:** deactivation and case creation are atomic; login fails closed; only manager-owned Projects command resolves reassignment | **Tests:** auth/continuity/projects integration, protected API authorization, retention and E6A acceptance
+**Status:** COMPLETE — TECHNICAL CHECKPOINT | **External gate:** none | **Frontend implications:** separate technical deactivation from manager-owned reassignment queue
 
 ### CAP-039 — In-app and email notifications
 
 **ID:** CAP-039 | **Capability:** configurable notifications for check-ins, readiness, document/criteria review, evidence, attribution, evaluations, leave, handover, failures | **User roles:** all according to event | **User goal:** receive timely reminders without constant manual monitoring
-**Authoritative sources:** `IMPLEMENTATION_PLAN.md` §11; T071 | **Owner module:** future notification boundary consuming domain events | **Inputs/sources:** due state and append-only domain events | **AI role:** optional concise wording; not decision logic
-**AI prohibitions:** no scoring/shaming; no sensitive data beyond channel policy | **Human gate:** channel preferences/admin configuration | **States/transitions:** scheduled → sent/failed/retried/read | **Public API/events:** none | **Authorization/privacy:** recipient and channel allowlists | **Audit/history:** delivery result/correlation retained | **Failure/recovery:** retry/dedupe and in-app fallback required | **Tests:** none
-**Status:** PLANNED | **External gate:** production email provider/domain | **Frontend implications:** unified notification center plus direct links to the smallest next action
+**Authoritative sources:** `IMPLEMENTATION_PLAN.md` §11; T071 | **Owner module:** `@evaluation/notifications` consuming versioned source-domain events | **Inputs/sources:** due state and append-only domain events | **AI role:** none in delivery decision
+**AI prohibitions:** no scoring/shaming; no sensitive data beyond channel policy | **Human gate:** user channel preference and administrator provider configuration | **States/transitions:** intended → queued → sent/failed/retried/read | **Public API/events:** protected notification list/read/preference routes and notification worker job | **Authorization/privacy:** recipient/channel/template allowlists with bounded deep links | **Audit/history:** dedupe key, attempts, provider-safe receipt, and correlation retained | **Failure/recovery:** versioned schedules, retry/dedupe, reconnect-safe replay, and in-app fallback | **Tests:** notifications package/API/worker tests and E6B acceptance
+**Status:** COMPLETE — TECHNICAL CHECKPOINT | **External gate:** production email provider/domain | **Frontend implications:** unified notification center plus direct links to the smallest next action
 
 ### CAP-040 — System administration and configurable pilot
 
 **ID:** CAP-040 | **Capability:** manage users/roles, organizations/departments, templates, localization versions, integrations, AI routes, retention, audit, and health | **User roles:** System Administrator, distinct from manager | **User goal:** operate one configurable pilot safely
-**Authoritative sources:** protected rule 16; `PROJECT_REFERENCE.md` §§29, 34, 36; T008, T055, T070, T073 | **Owner module:** database seed, audit, AI routing, health foundations; unified admin API absent | **Inputs/sources:** approved configuration and reasoned overrides | **AI role:** none for authority
-**AI prohibitions:** cannot grant roles, change protected policy, or reassign Projects | **Human gate:** administrator actions; Product Owner approval for protected changes | **States/transitions:** config draft/active/versioned where required | **Public API/events:** audit and health endpoints; no complete admin API | **Authorization/privacy:** dedicated administrator policies | **Audit/history:** audit and AI route history exist; complete config workflows do not | **Failure/recovery:** must validate and roll back protected changes | **Tests:** seed, audit, health, AI-route tests
-**Status:** PARTIAL | **External gate:** production identity/integration administrators | **Frontend implications:** separate admin console; never expose it through manager navigation
+**Authoritative sources:** protected rule 16; `PROJECT_REFERENCE.md` §§29, 34, 36; T008, T055, T070, T073 | **Owner module:** `@evaluation/administration` composing explicit owner-domain commands | **Inputs/sources:** approved configuration, expected versions, and reasoned overrides | **AI role:** none for authority
+**AI prohibitions:** cannot grant roles, change protected policy, or reassign Projects | **Human gate:** administrator actions; Product Owner approval for protected changes | **States/transitions:** explicit capability command → validated owner mutation → receipt; configuration remains versioned where required | **Public API/events:** protected operations administration capabilities/command/health routes plus owner APIs | **Authorization/privacy:** dedicated administrator policies; no generic table editor | **Audit/history:** owner transaction retains actor/reason/version/receipt; System Administrator cannot decide reassignment | **Failure/recovery:** unsupported adapters fail closed; stale versions and owner/audit failures roll back | **Tests:** administration package, operations API composition, owner authorization, health and E6B acceptance
+**Status:** COMPLETE — TECHNICAL CHECKPOINT | **External gate:** production identity/integration administrators | **Frontend implications:** separate admin console; never expose it through manager navigation
 
 ### CAP-041 — Observability and system health
 
@@ -370,19 +367,20 @@ The following remain historical references only and are not engine requirements:
 - a generic activity platform, second persistence store, second authentication system, microservices, or package-per-screen architecture;
 - treating any temporary verification screen as the final employee experience.
 
-## Baseline conclusion
+## E7 conclusion
 
-Phase 2’s daily-work and evaluation-preparation engine is technically complete, but the **full product engine is not complete**. E3–E6 must close CAP-025–043 according to their dependencies. The final frontend may begin only after E7 re-audits this register and creates a source-to-journey handoff from verified engine contracts.
+The full pilot engine is technically complete and `READY_FOR_FINAL_FRONTEND_DESIGN`. E7 reconciled
+E3–E6 implementation into 39 `COMPLETE`, 2 approved `PARTIAL`, 2 `EXTERNAL_GATE`, and 1
+`DEFERRED_APPROVED` records. No capability remains `PLANNED`. This state authorizes Product Owner
+review of the frontend handoff; it does not claim final interface acceptance or production launch.
 
-## Baseline verification
+## E7 verification
 
-- Merged-main CI run `31008603865` passed `integrity`, `quality`, `build`, and `integration` on commit `1db6bb1`.
-- `pnpm validate:task-graph`: 77 authoritative tasks, valid.
-- `pnpm scan:performance-inputs`: 585 files, valid.
-- `pnpm scan:ai-boundary`: 584 source files, valid.
-- Repository and changed-document formatting checks passed on Node.js `24.18.0` and pnpm `11.13.0`.
-- `git diff --check` passed.
-- Automated register-shape check found 44 records and exactly 44 occurrences of every required field.
-- Status recount matched this document: 21 `COMPLETE`, 6 `PARTIAL`, 14 `PLANNED`, 2 `EXTERNAL_GATE`, and 1 `DEFERRED_APPROVED`.
-- All 21 `COMPLETE` records contain a cited test or acceptance artifact; no evidence-free `COMPLETE` claim remains.
-- `SYSTEM_MAP.html` was rendered in a real browser at desktop and 390 px mobile widths; headings, navigation, flow cards, and responsive stacking were readable. The only console event was a non-product missing `favicon.ico` from the temporary static server.
+- The E6C merged baseline and exact verification counts are recorded in
+  `docs/reviews/ENGINE_FINAL_VERIFICATION.md`.
+- `pnpm validate:engine-capabilities` verifies all 44 record shapes, allowed final states, and gate
+  requirements.
+- `pnpm validate:task-graph` still reports 77 authoritative tasks.
+- The completion decision, bidirectional trace, and customer journeys are recorded in
+  `docs/reviews/ENGINE_COMPLETION_AUDIT.md`, `docs/reviews/ENGINE_BIDIRECTIONAL_TRACE.md`, and
+  `docs/product/ENGINE_CUSTOMER_JOURNEY_MAP.md`.

@@ -1,5 +1,11 @@
 # Engine → Frontend Handoff Schema
 
+**E7 state:** `READY_FOR_FINAL_FRONTEND_DESIGN` (2026-08-10)
+
+**Engine baseline:** `main` at `a631eaa81a5b462f329e5917c5be3301281f970a`
+
+**Journey authority:** `docs/product/ENGINE_CUSTOMER_JOURNEY_MAP.md`
+
 ## Purpose
 
 This contract prevents the final frontend from being designed around backend packages, temporary screens, or a conventional project-management dashboard. The frontend program must start from the employee/manager journey and use the verified engine capabilities in `ENGINE_FEATURE_REGISTER.md`.
@@ -128,3 +134,7 @@ The full frontend program may start only when E7 confirms:
 6. protected visibility fields have positive and negative authorization tests;
 7. a user-journey feature map—not the package tree—controls information architecture;
 8. Arabic evaluation remains gated until approved content and semantic review are complete.
+
+E7 confirmed these gates at the engine-contract level. Final interface usability, visual quality,
+responsive behavior, and end-to-end Product Owner acceptance are the next program; they are not
+claims about the temporary verification pages.

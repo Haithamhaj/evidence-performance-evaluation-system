@@ -1,15 +1,14 @@
 # Engine Capability Matrix
 
-**Baseline:** `main` at `1db6bb1372c7e9d91cf09f770728034f6dc3fe57`
+**Baseline:** `main` at `a631eaa81a5b462f329e5917c5be3301281f970a`
 **Detailed source:** `docs/product/ENGINE_FEATURE_REGISTER.md`
 
 ## What the baseline says
 
 | Status            |  Count | Meaning                                                                                  |
 | ----------------- | -----: | ---------------------------------------------------------------------------------------- |
-| COMPLETE          |     21 | Protected behavior and relevant recovery are implemented and tested                      |
-| PARTIAL           |      6 | Useful foundations exist, but the approved user capability is not complete               |
-| PLANNED           |     14 | Required by the approved product, with no complete production capability                 |
+| COMPLETE          |     39 | Protected behavior and relevant recovery are implemented and technically verified        |
+| PARTIAL           |      2 | Engine depth is intentionally gated by approved human/frontend launch work               |
 | EXTERNAL_GATE     |      2 | Engine exists; live use needs an external administrator, credential, consent, or service |
 | DEFERRED_APPROVED |      1 | Future private manager-feedback modes are intentionally outside the pilot                |
 | SUPERSEDED        |      0 | Superseded directions are listed separately, not counted as capabilities                 |
@@ -34,33 +33,33 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Submit self-assessment                                      | CAP-028–029      | Complete           | Technical engine verified; final everyday UX remains later                     |
 | Compare, discuss, acknowledge, or reserve                   | CAP-031          | Complete           | Technical engine verified; final everyday UX remains later                     |
 | Receive coaching and maintain development actions           | CAP-035–036      | Complete           | Technical engine verified; final everyday UI remains                           |
-| Manage leave, handover, and return                          | CAP-037          | Planned            | Continuity domain is missing                                                   |
+| Manage leave, handover, and return                          | CAP-037          | Complete           | Final daily-use frontend remains                                               |
 
 ## Project and Workstream owner capability view
 
-| Owner outcome                                                 | Register IDs     | Baseline        | Missing dependency or constraint                                  |
-| ------------------------------------------------------------- | ---------------- | --------------- | ----------------------------------------------------------------- |
-| Manage Projects, Workstreams, members, and ownership          | CAP-006–007      | Complete        | None at engine level                                              |
-| Maintain main documents and safe private artifacts            | CAP-008–009      | Complete        | Production object storage/ClamAV configuration                    |
-| Review and activate dynamic criteria prospectively            | CAP-010          | Complete        | None at engine level                                              |
-| Define and approve a measurable Progress Contract             | CAP-011          | Complete        | None at engine level                                              |
-| Review honest progress and ambiguous source proposals         | CAP-012, CAP-022 | Complete        | Live GitHub/Google sources can be externally gated                |
-| Confirm Project-level state without duplicating Workstreams   | CAP-018          | Complete        | Full leave exemption workflow is pending                          |
-| Coordinate Research/Experiment decisions and applied learning | CAP-025–027      | Complete        | Real production API+PostgreSQL checkpoint; no final UX acceptance |
-| Prepare delegated ownership and handover                      | CAP-037–038      | Planned/partial | E6                                                                |
+| Owner outcome                                                 | Register IDs     | Baseline | Missing dependency or constraint                                  |
+| ------------------------------------------------------------- | ---------------- | -------- | ----------------------------------------------------------------- |
+| Manage Projects, Workstreams, members, and ownership          | CAP-006–007      | Complete | None at engine level                                              |
+| Maintain main documents and safe private artifacts            | CAP-008–009      | Complete | Production object storage/ClamAV configuration                    |
+| Review and activate dynamic criteria prospectively            | CAP-010          | Complete | None at engine level                                              |
+| Define and approve a measurable Progress Contract             | CAP-011          | Complete | None at engine level                                              |
+| Review honest progress and ambiguous source proposals         | CAP-012, CAP-022 | Complete | Live GitHub/Google sources can be externally gated                |
+| Confirm Project-level state without duplicating Workstreams   | CAP-018          | Complete | Full leave exemption workflow is pending                          |
+| Coordinate Research/Experiment decisions and applied learning | CAP-025–027      | Complete | Real production API+PostgreSQL checkpoint; no final UX acceptance |
+| Prepare delegated ownership and handover                      | CAP-037–038      | Complete | Final owner/manager frontend remains                              |
 
 ## Manager capability view
 
-| Manager outcome                                                | Register IDs     | Baseline        | Missing dependency or constraint                              |
-| -------------------------------------------------------------- | ---------------- | --------------- | ------------------------------------------------------------- |
-| See operational action queues without employee scoring         | CAP-023          | Complete        | Final manager UX not designed                                 |
-| Read source-supported employee facts without readiness leakage | CAP-024, CAP-028 | Complete        | Final manager UX remains later                                |
-| Independently assess an employee                               | CAP-028, CAP-030 | Complete        | Technical engine verified; final manager UX remains later     |
-| Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete        | Technical engine verified; final manager UX remains later     |
-| Read identified upward feedback truthfully                     | CAP-033          | Planned         | E5 and active cycle engine                                    |
-| Support coaching and formal development                        | CAP-035–036      | Complete        | Bounded shared-action support verified; production UI remains |
-| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Planned/partial | E6                                                            |
-| Generate authorized reports without ranking                    | CAP-032          | Complete        | Live storage configuration; Arabic evaluation blocked at T016 |
+| Manager outcome                                                | Register IDs     | Baseline | Missing dependency or constraint                              |
+| -------------------------------------------------------------- | ---------------- | -------- | ------------------------------------------------------------- |
+| See operational action queues without employee scoring         | CAP-023          | Complete | Final manager UX not designed                                 |
+| Read source-supported employee facts without readiness leakage | CAP-024, CAP-028 | Complete | Final manager UX remains later                                |
+| Independently assess an employee                               | CAP-028, CAP-030 | Complete | Technical engine verified; final manager UX remains later     |
+| Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete | Technical engine verified; final manager UX remains later     |
+| Read identified upward feedback truthfully                     | CAP-033          | Complete | Final manager frontend remains                                |
+| Support coaching and formal development                        | CAP-035–036      | Complete | Bounded shared-action support verified; production UI remains |
+| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Final manager frontend remains                                |
+| Generate authorized reports without ranking                    | CAP-032          | Complete | Live storage configuration; Arabic evaluation blocked at T016 |
 
 ## System administrator and operations capability view
 
@@ -70,7 +69,7 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Govern AI routes without exposing provider secrets    | CAP-003          | Complete       | Live provider/service credentials                                                          |
 | Operate durable jobs and correlation                  | CAP-005          | Complete       | Production Redis/worker deployment                                                         |
 | Configure Google and GitHub connectors                | CAP-019, CAP-021 | External gate  | Provider consoles, administrator approvals, and secrets                                    |
-| Configure organizations, templates, routes, retention | CAP-040          | Partial        | Safe owner composition exists; capability-specific owner adapters remain fail-closed       |
+| Configure organizations, templates, routes, retention | CAP-040          | Complete       | Production identity/integration administrators remain externally required                  |
 | Monitor health and investigate safely                 | CAP-041–042      | Complete       | Engine controls/runbooks pass; production telemetry and secrets remain external gates      |
 | Notify users                                          | CAP-039          | Complete       | Live email provider remains an external gate                                               |
 | Back up and restore                                   | CAP-043          | Complete/local | Encrypted isolated drill passes; production target/key custody/human restore gate remain   |
@@ -121,18 +120,19 @@ Continuity, notifications, administration, security, recovery, and launch
 | `/[locale]/manager/operations`                              | role-safe operational queues                | final manager product experience                    |
 | `/[locale]/evaluations/facts`                               | neutral Fact View and privacy contract      | self/manager assessment or final evaluation journey |
 
-## Engine capabilities with no current journey entry point
+## Engine capabilities awaiting final product entry points
 
-- CAP-025–027 now have a real production API+PostgreSQL lifecycle test plus a separate deterministic fixture UI checkpoint; the dedicated everyday lifecycle UI is intentionally deferred to the final frontend program.
-- CAP-028–033: complete evaluation cycle, self/manager assessment, finalization, reports, and upward manager evaluation.
-- CAP-035–039: coaching, development, leave/delegation/handover, and notifications.
-- CAP-040: most administration and configuration.
-- CAP-043–044: backup/restore and pilot launch control.
+The engine contracts are present; these are frontend-design needs, not missing engines:
 
-## Gap-controlled execution order
+- CAP-025–027: dedicated everyday Research/Experiment progression.
+- CAP-028–033: complete employee/manager evaluation and identified upward-feedback journeys.
+- CAP-035–039: coaching, development, leave/delegation/handover, and notification interactions.
+- CAP-040–043: administrator console and protected operations views.
+- CAP-044: Product Owner acceptance and production launch controls.
 
-1. **E3 — Research & Experiments:** technical engine checkpoint complete; continue to E4 without treating its provisional screen as final UX.
-2. **E4 — Employee Evaluation:** complete immutable cycle, self-assessment, independent manager assessment, discussion, and finalization.
-3. **E5 — Manager Evaluation + Coaching:** identified upward feedback, transparent coaching, and accepted development actions.
-4. **E6 — Continuity + Operations:** leave, delegation, handover, notification, exports, administration, security, backup, and launch preparation.
-5. **E7 — Re-audit:** every `COMPLETE` claim, source/API contract, failure state, and protected visibility is checked before final frontend design.
+## E7 handoff conclusion
+
+E3–E6 are technically complete. E7 reconciled all 44 records with no `PLANNED` pilot engine
+capability remaining. The next program is final intelligent-frontend design, followed by Product
+Owner acceptance and external production setup; temporary verification routes are not the design
+baseline.
