@@ -6,6 +6,7 @@ export default [
       name: "unit",
       include: [
         "tests/repository/**/*.test.ts",
+        "tests/performance/**/*.test.ts",
         "apps/**/*.test.{ts,tsx}",
         "packages/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
@@ -19,6 +20,7 @@ export default [
       fileParallelism: false,
       include: [
         "tests/integration/**/*.test.ts",
+        "tests/performance/**/*.integration.test.ts",
         "apps/**/*.integration.test.ts",
         "packages/**/*.integration.test.ts",
         "scripts/**/*.integration.test.ts",

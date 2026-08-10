@@ -213,7 +213,11 @@ describe("VoiceUpdateService", () => {
       dialect: "gulf" as const,
       aiRunId: null,
     }));
-    const service = serviceFor(graph, { transcribe });
+    const auditAppend = vi.fn(async () => ({
+      id: crypto.randomUUID(),
+      createdAt: now.toISOString(),
+    }));
+    const service = serviceFor(graph, { transcribe, auditAppend });
     const idempotencyKey = crypto.randomUUID();
     const command = voiceCommand(graph, upload.id, idempotencyKey);
 
@@ -264,6 +268,10 @@ describe("VoiceUpdateService", () => {
       [1, "ai"],
       [2, "employee"],
     ]);
+    expect(auditAppend).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventType: "voice_update.transcript_confirmed" }),
+    );
     await expect(
       service.start({
         ...command,
@@ -358,6 +366,7 @@ function serviceFor(
     }>;
     cleanup?: (input: unknown) => Promise<void>;
     authorizeIn?: () => Promise<ReturnType<typeof authorizedScope>>;
+    auditAppend?: (transaction: unknown, event: Record<string, unknown>) => Promise<unknown>;
   }>,
 ) {
   return new VoiceUpdateService(
@@ -366,6 +375,11 @@ function serviceFor(
     { transcribe: options.transcribe as never },
     { cleanup: options.cleanup ?? (async () => undefined) },
     () => now,
+    {
+      append:
+        options.auditAppend ??
+        (async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() })),
+    } as never,
   );
 }
 

@@ -29,6 +29,7 @@ describe("operations health probes", () => {
     expect(health.dependencies.find(({ dependency }) => dependency === "OIDC")?.state).toBe(
       "ACTION_REQUIRED",
     );
+    expect(health.alerts.some(({ signalKind }) => signalKind === "REDIS")).toBe(true);
   });
 
   it("calls representative owner adapters instead of treating configuration presence as health", async () => {

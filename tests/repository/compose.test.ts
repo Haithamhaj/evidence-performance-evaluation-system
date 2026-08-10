@@ -20,6 +20,7 @@ describe("local infrastructure", () => {
       "clamav/clamav:1.4_base@sha256:c24cbe1b4b33399be35a7febda674f5f852b6d20173c4c348e570b41de276889",
     );
     expect(compose).toContain("127.0.0.1:3310:3310");
+    expect(compose).toContain('CLAMD_CONF_TCPAddr: "0.0.0.0"');
     expect(compose).not.toMatch(/image:\s+\S+:latest(?:\s|$)/);
   });
 

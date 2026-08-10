@@ -189,6 +189,10 @@ model User {
   exportAccessEvents                         ExportAccessEvent[]                    @relation("ExportAccessActor")
   exportRevocations                          ExportRevocation[]                     @relation("ExportRevocationActor")
   adminMutationReceipts                      AdminMutationReceipt[]                 @relation("AdminMutationActor")
+  createdRetentionPolicyVersions             RetentionPolicyVersion[]               @relation("RetentionPolicyVersionCreatedBy")
+  retentionPolicyTransitions                 RetentionPolicyTransition[]            @relation("RetentionPolicyTransitionActor")
+  placedRetentionHolds                       RetentionHold[]                         @relation("RetentionHoldPlacedBy")
+  releasedRetentionHolds                     RetentionHold[]                         @relation("RetentionHoldReleasedBy")
   createdAt                                  DateTime                               @default(now()) @db.Timestamptz(6)
   updatedAt                                  DateTime                               @updatedAt @db.Timestamptz(6)
 }
@@ -237,6 +241,8 @@ model Organization {
   evaluationTemplates                 EvaluationTemplate[]
   managerEvaluationTemplates          ManagerEvaluationTemplate[]
   managerEvaluationVisibilityPolicies ManagerEvaluationVisibilityPolicy[]
+  retentionPolicyVersions             RetentionPolicyVersion[]
+  retentionHolds                      RetentionHold[]
   createdAt                           DateTime                            @default(now()) @db.Timestamptz(6)
   updatedAt                           DateTime                            @updatedAt @db.Timestamptz(6)
 }
@@ -3873,6 +3879,82 @@ model RetentionPolicyReference {
 
   @@unique([organizationId, dataType, policyVersion], map: "RetentionPolicyReference_org_type_version_key")
   @@index([organizationId, dataType, effectiveAt], map: "RetentionPolicyReference_org_type_effective_idx")
+}
+
+enum RetentionPolicyStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum RetentionHoldStatus {
+  ACTIVE
+  RELEASED
+}
+
+model RetentionPolicyVersion {
+  id                         String                      @id @default(uuid()) @db.Uuid
+  organizationId             String                      @db.Uuid
+  organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  dataType                   String
+  policyVersion              Int
+  status                     RetentionPolicyStatus       @default(DRAFT)
+  archiveAfterDays           Int?
+  hideAfterDays              Int?
+  autoDeleteProtectedHistory Boolean                     @default(false)
+  effectiveAt                DateTime                    @db.Timestamptz(6)
+  retiredAt                  DateTime?                   @db.Timestamptz(6)
+  reason                     String
+  createdById                String                      @db.Uuid
+  createdBy                  User                        @relation("RetentionPolicyVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  transitions                RetentionPolicyTransition[]
+  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
+
+  @@unique([organizationId, dataType, policyVersion])
+  @@index([organizationId, dataType, status, effectiveAt])
+  @@index([createdById, createdAt])
+}
+
+model RetentionPolicyTransition {
+  id               String                 @id @default(uuid()) @db.Uuid
+  policyVersionId  String                 @db.Uuid
+  policyVersion    RetentionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  fromStatus       RetentionPolicyStatus?
+  toStatus         RetentionPolicyStatus
+  actorId          String                 @db.Uuid
+  actor            User                   @relation("RetentionPolicyTransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason           String
+  effectiveAt      DateTime               @db.Timestamptz(6)
+  resultingVersion Int
+  createdAt        DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@unique([policyVersionId, resultingVersion])
+  @@index([actorId, createdAt])
+}
+
+model RetentionHold {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @db.Uuid
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  dataType       String
+  resourceType   String
+  resourceId     String              @db.Uuid
+  status         RetentionHoldStatus @default(ACTIVE)
+  reason         String
+  placedById     String              @db.Uuid
+  placedBy       User                @relation("RetentionHoldPlacedBy", fields: [placedById], references: [id], onDelete: Restrict)
+  placedAt       DateTime            @db.Timestamptz(6)
+  releasedById   String?             @db.Uuid
+  releasedBy     User?               @relation("RetentionHoldReleasedBy", fields: [releasedById], references: [id], onDelete: Restrict)
+  releasedAt     DateTime?           @db.Timestamptz(6)
+  releaseReason  String?
+  createdAt      DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @db.Timestamptz(6)
+
+  @@unique([organizationId, dataType, resourceType, resourceId, status])
+  @@index([organizationId, dataType, status, placedAt])
+  @@index([placedById, placedAt])
+  @@index([releasedById, releasedAt])
 }
 
 enum RubricStatus {

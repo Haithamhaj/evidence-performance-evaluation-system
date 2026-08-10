@@ -1,6 +1,7 @@
 import pino from "pino";
 
 import { currentCorrelation } from "./correlation.js";
+import { redactStructuredValue } from "./redaction.js";
 
 const REDACTED = "[REDACTED]";
 const REDACTED_MESSAGE = "[REDACTED_MESSAGE]";
@@ -110,7 +111,7 @@ function redactInternal(value: unknown, seen: WeakSet<object>): unknown {
 }
 
 export function redact(value: unknown): unknown {
-  return redactInternal(value, new WeakSet());
+  return redactStructuredValue(redactInternal(value, new WeakSet()));
 }
 
 function isLogRecord(value: unknown): value is Record<string, unknown> {

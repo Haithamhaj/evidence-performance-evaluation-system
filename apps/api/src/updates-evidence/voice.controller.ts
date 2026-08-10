@@ -36,6 +36,7 @@ export class VoiceUpdatesController {
   confirm(request: Request, voiceSessionId: string, body: unknown) {
     return this.voice.confirmTranscript({
       actor: actor(request),
+      correlationId: request.correlationId,
       voiceSessionId: z.string().uuid().parse(voiceSessionId),
       input: ConfirmVoiceTranscriptInputSchema.parse(body),
     });

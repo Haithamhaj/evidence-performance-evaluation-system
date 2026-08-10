@@ -19,6 +19,7 @@ import {
   AuthGuard,
 } from "../auth/auth.guard.js";
 import { AppErrorFilter } from "../platform/error.filter.js";
+import { AuthoritativeOperationsEventPublisher } from "../operations/authoritative-event-publisher.js";
 import { ContinuityPolicyGuard } from "./continuity-policy.guard.js";
 import { createDatabaseContinuityRuntime } from "./continuity.module.js";
 import { DelegationController } from "./delegation.controller.js";
@@ -89,6 +90,10 @@ Module({
     { provide: ActingAuthorityReader, useValue: runtime.actingAuthority },
     { provide: ReturnService, useValue: runtime.returns },
     { provide: OffboardingService, useValue: runtime.offboarding },
+    {
+      provide: AuthoritativeOperationsEventPublisher,
+      useValue: { publishReassignments: async () => undefined },
+    },
   ],
 })(TestContinuityModule);
 

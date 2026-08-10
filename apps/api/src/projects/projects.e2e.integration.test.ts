@@ -263,7 +263,7 @@ function expectSafeError(
 }
 
 describe("Phase 1 Bundle A composed API", () => {
-  it("executes governed project, workstream, membership, transfer, history, and terminal flows", async () => {
+  it("executes governed flows and denies other-department or unassigned access", async () => {
     const projectResult = await request("POST", "/api/v1/projects", fixture.managerId, {
       departmentId: fixture.departmentId,
       name: "Evaluation Platform",
