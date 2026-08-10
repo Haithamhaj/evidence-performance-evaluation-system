@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,6 +13,7 @@ import { seedContinuityAcceptance } from "./seed-continuity-acceptance.js";
 import { seedEmployeeEvaluationAcceptance } from "./seed-employee-evaluation-acceptance.js";
 import { seedManagerEvaluationAcceptance } from "./seed-manager-evaluation-acceptance.js";
 import { seedOperationsAcceptance } from "./seed-operations-acceptance.js";
+import { runContainerPostgres } from "./backup/postgres-tools.mjs";
 
 const execFile = promisify(execFileCallback);
 
@@ -86,7 +87,7 @@ async function executeLocalStage(id: StageId, databaseUrl: string) {
     return;
   }
   if (id === "backup-restore") {
-    await runBackupRestoreDrill();
+    await runBackupRestoreDrill(databaseUrl);
     return;
   }
   if (id === "operations") {
@@ -111,8 +112,15 @@ async function executeLocalStage(id: StageId, databaseUrl: string) {
   }
 }
 
-async function runBackupRestoreDrill() {
+async function runBackupRestoreDrill(sourceDatabaseUrl: string) {
   const root = await mkdtemp(path.join(tmpdir(), "ebpes-engine-dry-run-"));
+  const postgresContainer = process.env.POSTGRES_TOOL_CONTAINER ?? "evaluation-system-postgres-1";
+  const adminDatabaseUrl =
+    process.env.POSTGRES_ADMIN_DATABASE_URL ??
+    "postgresql://postgres:local-postgres-password@127.0.0.1:5432/postgres";
+  const targetDatabaseName = `ebpes_restore_${randomBytes(12).toString("hex")}`;
+  const targetDatabaseUrl = new URL(adminDatabaseUrl);
+  targetDatabaseUrl.pathname = `/${targetDatabaseName}`;
   try {
     const database = path.join(root, "database.dump");
     const objects = path.join(root, "objects.json");
@@ -120,22 +128,34 @@ async function runBackupRestoreDrill() {
     const key = path.join(root, "backup.key");
     const backup = path.join(root, "backup");
     const restored = path.join(root, "restored");
+    const sourceDatabaseName = decodeURIComponent(new URL(sourceDatabaseUrl).pathname.slice(1));
+    const databaseDump = await runContainerPostgres(postgresContainer, [
+      "pg_dump",
+      "--format=custom",
+      "--no-owner",
+      "--no-privileges",
+      "--dbname",
+      sourceDatabaseName,
+    ]);
+    const objectContent = Buffer.from("engine dry-run protected object\n");
     await Promise.all([
-      writeFile(database, "synthetic engine recovery record\n"),
-      writeFile(objects, JSON.stringify([{ key: "private/evidence", version: "v1" }])),
+      writeFile(database, databaseDump),
+      writeFile(
+        objects,
+        JSON.stringify([
+          {
+            key: "private/evidence.txt",
+            version: "v1",
+            sha256: createHash("sha256").update(objectContent).digest("hex"),
+            contentBase64: objectContent.toString("base64"),
+          },
+        ]),
+      ),
       writeFile(
         config,
         JSON.stringify({
-          schemaVersion: 37,
-          integrityInventory: {
-            auditChain: 1,
-            foreignKeys: 1,
-            closedEvaluations: 1,
-            upwardResponses: 1,
-            evidenceSources: 1,
-            responsibilityWindows: 1,
-            delegationWindows: 1,
-          },
+          schemaVersion: 38,
+          configurationVersion: "e6c-technical-dry-run",
         }),
       ),
       writeFile(key, randomBytes(32), { mode: 0o600 }),
@@ -155,6 +175,10 @@ async function runBackupRestoreDrill() {
       key,
       "--key-reference",
       "ephemeral-local-dry-run-key",
+      "--source-database-url",
+      sourceDatabaseUrl,
+      "--postgres-container",
+      postgresContainer,
       "--created-at",
       now,
     ]);
@@ -179,7 +203,13 @@ async function runBackupRestoreDrill() {
       "--queue-replay",
       "disabled",
       "--expected-schema-version",
-      "37",
+      "38",
+      "--admin-database-url",
+      adminDatabaseUrl,
+      "--target-database-url",
+      targetDatabaseUrl.toString(),
+      "--postgres-container",
+      postgresContainer,
       "--max-age-hours",
       "24",
     ]);
@@ -187,8 +217,21 @@ async function runBackupRestoreDrill() {
       "scripts/backup/verify-restored-engine.mjs",
       "--target-dir",
       restored,
+      "--target-database-url",
+      targetDatabaseUrl.toString(),
+      "--postgres-container",
+      postgresContainer,
     ]);
   } finally {
+    await runContainerPostgres(postgresContainer, [
+      "psql",
+      "--dbname",
+      decodeURIComponent(new URL(adminDatabaseUrl).pathname.slice(1)),
+      "--set",
+      "ON_ERROR_STOP=1",
+      "--command",
+      `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${targetDatabaseName}' AND pid <> pg_backend_pid(); DROP DATABASE IF EXISTS "${targetDatabaseName}";`,
+    ]).catch(() => undefined);
     await rm(root, { recursive: true, force: true });
   }
 }

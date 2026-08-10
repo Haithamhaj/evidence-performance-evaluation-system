@@ -46,6 +46,8 @@ services:
       retries: 20
   clamav:
     image: clamav/clamav:1.4_base@sha256:c24cbe1b4b33399be35a7febda674f5f852b6d20173c4c348e570b41de276889
+    environment:
+      CLAMD_CONF_TCPAddr: "0.0.0.0"
     ports: ["127.0.0.1:3310:3310"]
     volumes: ["clamav-data:/var/lib/clamav"]
     healthcheck:

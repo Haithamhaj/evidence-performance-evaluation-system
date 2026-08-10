@@ -20,6 +20,7 @@ export default [
       fileParallelism: false,
       include: [
         "tests/integration/**/*.test.ts",
+        "tests/performance/**/*.integration.test.ts",
         "apps/**/*.integration.test.ts",
         "packages/**/*.integration.test.ts",
         "scripts/**/*.integration.test.ts",

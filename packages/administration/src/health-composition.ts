@@ -1,7 +1,33 @@
 import { randomUUID } from "node:crypto";
 
 import { AdminHealthStateSchema } from "@evaluation/contracts";
-import { combineOperationalHealthStates } from "@evaluation/observability";
+import {
+  combineOperationalHealthStates,
+  createEngineSignal,
+  evaluateEngineAlerts,
+} from "@evaluation/observability";
+
+const SIGNAL_KIND_BY_DEPENDENCY: Readonly<
+  Record<string, import("@evaluation/observability").EngineSignalKind>
+> = {
+  API: "API",
+  WORKER: "WORKER",
+  DATABASE: "DATABASE",
+  QUEUE: "REDIS",
+  OBJECT_STORAGE: "OBJECT_STORAGE",
+  OIDC: "OIDC",
+  AI_ROUTE: "AI_ROUTE",
+  CONNECTOR: "CONNECTOR",
+  EMAIL: "NOTIFICATION",
+  BACKUP: "BACKUP",
+};
+
+const DEFAULT_ALERT_POLICY = {
+  schemaVersion: 1 as const,
+  version: 1,
+  maxBackupAgeSeconds: 86_400,
+  maxFailureCount: 1,
+};
 
 export class AdminHealthComposition {
   private readonly probes: readonly import("./ports.js").AdminHealthProbe[];
@@ -43,10 +69,21 @@ export class AdminHealthComposition {
         };
       }),
     );
+    const signals = dependencies.map((dependency) =>
+      createEngineSignal({
+        kind: SIGNAL_KIND_BY_DEPENDENCY[dependency.dependency]!,
+        state: dependency.state,
+        observedAt: dependency.checkedAt,
+        correlationId: dependency.correlationId,
+        failureCount: dependency.state === "ACTION_REQUIRED" ? 1 : 0,
+        labels: { dependency: dependency.dependency },
+      }),
+    );
     return {
       schemaVersion: 1 as const,
       state: combineOperationalHealthStates(dependencies.map(({ state }) => state)),
       dependencies,
+      alerts: evaluateEngineAlerts(signals, DEFAULT_ALERT_POLICY),
       checkedAt: checkedAt.toISOString(),
       nextCursor: cursor + selected.length < this.probes.length ? cursor + selected.length : null,
     };

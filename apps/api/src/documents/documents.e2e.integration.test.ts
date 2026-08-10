@@ -262,7 +262,7 @@ function expectSafeError(
 }
 
 describe("Phase 1 T023 composed document API", () => {
-  it("creates one document, preserves versions, and enforces resource authorization", async () => {
+  it("creates one document, preserves versions, and denies unauthorized resource access", async () => {
     const createInput = {
       kind: "project",
       resourceId: fixture.projectId,

@@ -751,7 +751,7 @@ The detailed authority is
 
 ## T073 — Implement Observability and System Health
 
-**Execution status:** Complete at the bounded engine checkpoint — safe dependency health, correlation, job/provider recovery states, and action-required notifications are verified. Production telemetry destination and backup drill remain E6C/deployment gates.
+**Execution status:** Complete at the bounded engine checkpoint — live dependency probes feed runtime signals/action alerts; safe dependency health, correlation, and job/provider recovery states are verified. Production telemetry destination remains a deployment gate.
 
 **Priority:** P2
 **Dependencies:** T005, T013
@@ -759,7 +759,7 @@ The detailed authority is
 
 ## T074 — Security and Privacy Hardening
 
-**Execution status:** Complete at the E6C technical checkpoint — protected APIs are machine-classified, retention and future-private-mode controls fail closed, logs/health are redacted and bounded, and incident/revocation procedures are verified. Production credentials and telemetry remain external gates.
+**Execution status:** Complete at the E6C technical checkpoint — 46 protected controllers map to 25 rows with allow/deny/audit evidence, retention is organization/resource/time scoped, unknown structured log fields fail closed to redaction, and future-private-mode and incident/revocation controls are verified. Production credentials and telemetry remain external gates.
 
 **Priority:** P0
 **Dependencies:** All protected features
@@ -768,7 +768,7 @@ The detailed authority is
 
 ## T075 — Backup and Restore Drill
 
-**Execution status:** Complete for the protected local-isolated drill — signed encrypted database/object/config bundles verify and restore with schema/hash/protected-integrity comparison. Shared or production restore remains a direct human gate; production destination and key custody remain external gates.
+**Execution status:** Complete for the protected local-isolated drill — signed encrypted PostgreSQL/object/config bundles restore into a new local database/filesystem target and are verified by live protected-row, foreign-key, append-only-control, and hash comparisons. Shared or production restore remains a direct human gate; production destination and key custody remain external gates.
 
 **Priority:** P0
 **Dependencies:** T004, T022

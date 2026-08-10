@@ -12,6 +12,7 @@ describe("protected API matrix", () => {
 
     expect(result.uncoveredProtectedRoutes).toEqual([]);
     expect(result.missingEvidence).toEqual([]);
+    expect(result.invalidEvidence).toEqual([]);
     expect(
       result.matrix
         .filter((row) => row.classification === "PROTECTED")

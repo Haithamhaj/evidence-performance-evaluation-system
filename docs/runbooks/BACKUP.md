@@ -8,14 +8,14 @@ The repository adapter is intentionally limited to an explicit local isolated ta
 
 ## Local verification
 
-Prepare outside-repository files for a database dump, object-version inventory, configuration-version inventory, and a 32-byte backup key handle. Then run:
+Prepare outside-repository files for a PostgreSQL custom-format dump, object inventory containing each versioned object's payload and SHA-256, non-secret configuration-version inventory, and a 32-byte backup key handle. The source database URL must be local for this repository drill; the named PostgreSQL 17 container supplies version-compatible dump/restore tools. Then run:
 
 ```sh
-pnpm backup:create -- --target-dir <isolated-directory> --database-dump <dump> --object-inventory <objects.json> --config-inventory <config.json> --key-file <key-handle> --key-reference <non-secret-key-id>
+pnpm backup:create -- --target-dir <isolated-directory> --database-dump <custom-format.dump> --object-inventory <objects-with-payloads.json> --config-inventory <config.json> --key-file <key-handle> --key-reference <non-secret-key-id> --source-database-url <local-source-url> --postgres-container <postgres-container>
 pnpm backup:verify -- --manifest <isolated-directory>/manifest.json --key-file <key-handle> --max-age-hours 24
 ```
 
-Success requires `VERIFIED`, a valid manifest signature, a decryptable AES-256-GCM bundle, matching database/object/config hashes, and acceptable recovery-point age. Do not print or upload the key file.
+Success requires `VERIFIED`, a valid manifest signature, a decryptable AES-256-GCM bundle, a valid PostgreSQL custom dump, matching database/object/config/protected-integrity hashes, and acceptable recovery-point age. The tool derives protected-history counts and append-only controls from the source database; it does not trust caller-supplied counters. Do not print or upload the key file.
 
 ## Production external gates
 

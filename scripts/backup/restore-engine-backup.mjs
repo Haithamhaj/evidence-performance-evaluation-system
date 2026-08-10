@@ -14,6 +14,11 @@ import {
   sha256,
 } from "./backup-lib.mjs";
 import { verifyEngineBackup } from "./verify-engine-backup.mjs";
+import {
+  createIsolatedDatabase,
+  restoreDatabaseDump,
+  validateCustomDatabaseDump,
+} from "./postgres-tools.mjs";
 
 function requireExactOption(options, name, expected) {
   if (options[name] !== expected) throw new Error(`${name} must be ${expected}`);
@@ -28,6 +33,22 @@ async function prepareTarget(targetDirectory) {
   await mkdir(target, { recursive: true, mode: 0o700 });
   if ((await readdir(target)).length > 0) throw new Error("restore target must be empty");
   return target;
+}
+
+async function restoreObjects(target, inventory) {
+  const objectRoot = resolve(target, "objects");
+  await mkdir(objectRoot, { recursive: true, mode: 0o700 });
+  for (const item of inventory) {
+    const destination = resolve(objectRoot, item.key);
+    if (!destination.startsWith(`${objectRoot}/`))
+      throw new Error("object restore path escaped target");
+    const content = Buffer.from(item.contentBase64, "base64");
+    if (content.toString("base64") !== item.contentBase64 || sha256(content) !== item.sha256) {
+      throw new Error("object restore checksum mismatch");
+    }
+    await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
+    await writeFile(destination, content, { mode: 0o600 });
+  }
 }
 
 export async function restoreEngineBackup(options) {
@@ -66,6 +87,18 @@ export async function restoreEngineBackup(options) {
   const database = Buffer.from(decoded.databaseBase64, "base64");
   const objectBytes = Buffer.from(canonicalJson(decoded.objectInventory));
   const configBytes = Buffer.from(canonicalJson(decoded.configInventory));
+  await validateCustomDatabaseDump(database, options.postgresContainer);
+  const restoredDatabaseName = await createIsolatedDatabase({
+    adminDatabaseUrl: options.adminDatabaseUrl,
+    targetDatabaseUrl: options.targetDatabaseUrl,
+    postgresContainer: options.postgresContainer,
+  });
+  await restoreDatabaseDump({
+    databaseDump: database,
+    targetDatabaseUrl: options.targetDatabaseUrl,
+    postgresContainer: options.postgresContainer,
+  });
+  await restoreObjects(target, decoded.objectInventory);
   await Promise.all([
     writeFile(`${target}/database.dump`, database, { mode: 0o600 }),
     writeFile(`${target}/object-inventory.json`, objectBytes, { mode: 0o600 }),
@@ -82,7 +115,8 @@ export async function restoreEngineBackup(options) {
       databaseSha256: manifest.databaseSha256,
       objectInventorySha256: manifest.objectInventorySha256,
       configInventorySha256: manifest.configInventorySha256,
-      integrityInventory: decoded.configInventory.integrityInventory ?? {},
+      protectedIntegritySha256: manifest.protectedIntegritySha256,
+      integrityInventory: decoded.sourceIntegrity,
     },
     controls: {
       maintenanceMode: "enabled",
@@ -95,6 +129,7 @@ export async function restoreEngineBackup(options) {
       databaseSha256: sha256(database),
       objectInventorySha256: sha256(objectBytes),
       configInventorySha256: sha256(configBytes),
+      restoredDatabaseName,
     },
   };
   await writeFile(`${target}/restore-state.json`, `${JSON.stringify(state, null, 2)}\n`, {
@@ -127,6 +162,9 @@ async function main() {
     connectors: requireArgument(args, "connectors"),
     queueReplay: requireArgument(args, "queue-replay"),
     expectedSchemaVersion,
+    adminDatabaseUrl: requireArgument(args, "admin-database-url"),
+    targetDatabaseUrl: requireArgument(args, "target-database-url"),
+    postgresContainer: requireArgument(args, "postgres-container"),
     maxAgeHours,
     now: args.get("now"),
   });

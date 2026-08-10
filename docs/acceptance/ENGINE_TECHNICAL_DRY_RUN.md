@@ -21,38 +21,26 @@ Non-evaluation Arabic/RTL remains supported. Arabic employee evaluation remains 
 
 ## Verification evidence
 
-The final E6C gate ran on 2026-08-07 against commit lineage
-`b5e679e56d208f8734abcc3f013b62219c227915` →
-`29da3975b2633fdd01093b2abc9b08d169f2e1f7`, the history represented by Pull
-Request 5. The executable dry run used a freshly migrated isolated local test
-database, not a shared or production database, and passed all eight stages.
+The final E6C gate runs on the bounded Pull Request 25 branch. Its recovery proof uses a freshly migrated isolated local test database, not a shared or production database. The 2026-08-10 remediation replaced synthetic recovery counters and in-memory load/queue claims with live PostgreSQL, Redis, object-payload, configuration, and runtime-alert checks.
 
-| Verification | Result |
-| --- | --- |
-| Repository verification | Passed: task graph, formatting, 32 lint/typecheck/build tasks, boundary/copy/secret/performance-input scans, 215 test files and 1,377 tests |
-| Unit coverage | Passed configured policy: 34.01% statements, 26.63% branches, 32.51% functions, 35.61% lines |
-| Integration | 157 files passed, 2 skipped; 872 tests passed, 13 skipped |
-| AI evaluations | 12 files passed; 188 tests passed, 1 intentionally skipped |
-| Migrations | 37 migrations verified from empty, previous release snapshot, drift check, and rebuild equivalence; 77 database tests passed |
-| Browser journeys | 54 passed, 4 intentionally skipped because superseded manual-update journeys moved to the approved later slice |
-| Protected API matrix | 46 controllers classified against 25 policy rows |
-| Backup and isolated restore | 4 tests passed: secret-free signed manifest, production guard, isolated restore, and runbook links |
-| Resilience and pilot load | 3 tests passed: representative p95 below 500 ms, manual path during provider outage, and idempotent replay |
-| Executable engine dry run | 8/8 stages passed, including encrypted backup and protected isolated restore |
+| Verification                | Result                                                                                                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository verification     | Passed: task graph, formatting, 32 lint/typecheck/build tasks, boundary/copy/secret/performance-input scans, 215 test files and 1,377 tests                                                  |
+| Unit coverage               | Passed configured policy: 34.01% statements, 26.63% branches, 32.51% functions, 35.61% lines                                                                                                 |
+| Integration                 | 157 files passed, 2 skipped; 872 tests passed, 13 skipped                                                                                                                                    |
+| AI evaluations              | 12 files passed; 188 tests passed, 1 intentionally skipped                                                                                                                                   |
+| Migrations                  | 38 migrations verified from empty, previous release snapshot, drift check, and rebuild equivalence; 77 database tests passed                                                                 |
+| Browser journeys            | 54 passed, 4 intentionally skipped because superseded manual-update journeys moved to the approved later slice                                                                               |
+| Protected API matrix        | 46 controllers classified against 25 policy rows; every row names and content-validates allow, deny, and audit/receipt evidence                                                              |
+| Backup and isolated restore | PostgreSQL 17 custom dump restored to a new isolated database; object payload and configuration restored; protected rows, foreign keys, hashes, and append-only controls queried and matched |
+| Resilience and pilot load   | Real PostgreSQL concurrent reads and 1,200-row protected-history pagination, real Redis queue pressure, persisted manual fallback during AI outage, and idempotent replay passed             |
+| Runtime alerting            | Administration health now converts live dependency probes into engine signals and actionable alerts                                                                                          |
+| Executable engine dry run   | 8/8 stages passed on 2026-08-10, including encrypted backup and actual protected isolated restore                                                                                            |
 
 The cross-engine browser evidence is
 [`engine-technical-dry-run-ar.png`](../product/screenshots/engine/security-recovery/engine-technical-dry-run-ar.png).
 
-One bounded self-review found and remediated two security/privacy gaps: a new
-`/api/v1/*` controller can no longer inherit only the generic authenticated-root
-classification, and future private modes now fail closed for an unsafe topic
-support threshold or a sensitive identity read without a non-empty audit reason.
-No P0/P1 finding remains. During the final integration gate, three legacy test
-fixtures were also aligned with already-approved production behavior: the
-continuity HTTP fixture now supplies its authoritative event publisher,
-approved-leave fixtures now create real authoritative leave effects, and the
-eligibility fixture allocates repeatable non-colliding version numbers. No
-production rule was weakened.
+The bounded independent review identified five P1 gaps and the single authorized remediation cycle addressed them: structured-log allowlisting prevents unknown private fields from leaking; retention resolution is organization/resource/time scoped; protected API evidence now proves allow/deny/audit semantics; backup/restore uses real database and object state; and operational alert/load/outage proofs use runtime wiring and real dependencies. Only these corrected findings will be re-reviewed; the full review is not restarted. No production rule was weakened.
 
 ## External and human gates
 

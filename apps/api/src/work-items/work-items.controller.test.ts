@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { WorkItemsController } from "./work-items.controller.js";
+import { WorkItemsPolicyGuard } from "./work-items-policy.guard.js";
 
 const actorId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
@@ -11,6 +12,14 @@ const request = {
 } as never;
 
 describe("WorkItemsController", () => {
+  it("denies the protected Work Items route when authentication denies the request", async () => {
+    const canActivate = vi.fn(async () => false);
+    const guard = new WorkItemsPolicyGuard({ canActivate } as never);
+
+    await expect(guard.canActivate({} as never)).resolves.toBe(false);
+    expect(canActivate).toHaveBeenCalledOnce();
+  });
+
   it("derives the actor from the authenticated principal", async () => {
     const service = {
       create: vi.fn(async (command) => command),

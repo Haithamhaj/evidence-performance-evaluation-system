@@ -201,14 +201,17 @@ behind their existing sequence and external gates.
   frontend only. It adds no engine task, integration, dependency, source reuse, or scope change. E7 will
   carry the approved patterns and explicit exclusions into the later frontend design program.
 
-- E6C is technically complete locally: 46 API controllers are classified in the protected matrix;
-  versioned archive-only retention and fail-closed future privacy modes are implemented; structured
-  redaction, bounded dependency signals and action alerts are verified; encrypted signed backups and
-  protected isolated restore pass; shared/production restore remains a direct human gate.
-- The real E6C technical dry run passed all eight stages on a freshly migrated isolated test database:
-  daily work, Research/Experiments, employee evaluation, identified upward feedback, coaching,
-  continuity, operations, and backup/restore. A cross-engine English/Arabic browser journey also passes.
-  This is engine verification, not final UX or production launch acceptance.
+- E6C's single bounded P1 remediation is implemented locally: 46 API controllers map to 25 rows with
+  allow/deny/audit evidence; retention is organization/resource/time scoped; structured logging
+  redacts unknown fields; live dependency probes feed runtime alerts; and real PostgreSQL/Redis load,
+  outage recovery, database/object/config backup, and isolated restore checks pass.
+- Migration `0038_restore_safe_ai_reference` makes the restored PostgreSQL functions safe under the
+  deliberately empty restore search path. All 38 migrations pass empty/previous/drift/rebuild checks
+  with 77 database tests. Shared/production restore remains a direct human gate.
+- The remediated executable dry run passed all 8/8 stages on 2026-08-10: daily work,
+  Research/Experiments, employee evaluation, identified upward feedback, coaching, continuity,
+  operations, and actual backup/restore. The local ClamAV listener is explicitly exposed only through
+  the host loopback port; this is engine verification, not final UX or production launch acceptance.
 
 - E4 Employee Evaluation is technically complete locally: versioned templates and immutable Cycle 1
   snapshots, Fact View-first self assessment, independent manager assessment, source-authorized

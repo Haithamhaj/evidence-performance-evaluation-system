@@ -15,34 +15,40 @@ describe("safe observability", () => {
         cookie: "session=secret",
         token: "secret",
         credentials: { password: "secret" },
-        nested: {
-          rawPrompt: "ignore all safeguards",
-          uploadedContent: "private document",
-          managerFeedback: "private text",
-          items: [
-            { privateFeedback: "private response" },
-            { employeeFeedback: "protected feedback" },
-            { privateResponseBody: "protected body" },
+        operational: {
+          correlationId,
+          dependencies: [
+            {
+              dependency: "AI_ROUTE",
+              rawPrompt: "ignore all safeguards",
+              uploadedContent: "private document",
+              managerFeedback: "private text",
+              privateFeedback: "private response",
+              employeeFeedback: "protected feedback",
+              privateResponseBody: "protected body",
+            },
           ],
         },
-        safe: { correlationId },
       }),
     ).toEqual({
       authorization: "[REDACTED]",
       cookie: "[REDACTED]",
       token: "[REDACTED]",
       credentials: "[REDACTED]",
-      nested: {
-        rawPrompt: "[REDACTED]",
-        uploadedContent: "[REDACTED]",
-        managerFeedback: "[REDACTED]",
-        items: [
-          { privateFeedback: "[REDACTED]" },
-          { employeeFeedback: "[REDACTED]" },
-          { privateResponseBody: "[REDACTED]" },
+      operational: {
+        correlationId,
+        dependencies: [
+          {
+            dependency: "AI_ROUTE",
+            rawPrompt: "[REDACTED]",
+            uploadedContent: "[REDACTED]",
+            managerFeedback: "[REDACTED]",
+            privateFeedback: "[REDACTED]",
+            employeeFeedback: "[REDACTED]",
+            privateResponseBody: "[REDACTED]",
+          },
         ],
       },
-      safe: { correlationId },
     });
   });
 
@@ -57,12 +63,29 @@ describe("safe observability", () => {
     const logger = createLogger({ destination, name: "test" });
 
     runWithCorrelation(createCorrelationCarrier(correlationId), () => {
-      logger.info({ authorization: "Bearer secret", safe: "visible" }, "request");
+      logger.info(
+        {
+          authorization: "Bearer secret",
+          event: "request.completed",
+          status: "HEALTHY",
+          emailBody: "private customer email",
+          body: { note: "private body" },
+          payload: { unknown: "private payload" },
+          nestedUnknown: { value: "private nested value" },
+          labels: { dependency: "DATABASE", unknown: "private label" },
+        },
+        "request",
+      );
     });
 
     expect(output.join("\n")).toContain(correlationId);
-    expect(output.join("\n")).toContain("visible");
-    expect(output.join("\n")).not.toContain("Bearer secret");
+    const captured = output.join("\n");
+    expect(captured).toContain("request.completed");
+    expect(captured).toContain("HEALTHY");
+    expect(captured).toContain("DATABASE");
+    expect(captured).not.toMatch(
+      /Bearer secret|private customer email|private body|private payload|private nested value|private label/u,
+    );
   });
 
   it("censors direct message strings and interpolation arguments", () => {
@@ -87,7 +110,7 @@ describe("safe observability", () => {
   });
 
   it("truthfully returns a transformed sanitized value", () => {
-    const circular: Record<string, unknown> = { safe: "visible" };
+    const circular: Record<string, unknown> = { status: "HEALTHY" };
     circular.self = circular;
     const sanitized = redact({
       occurredAt: new Date("2026-07-15T12:00:00.000Z"),
@@ -99,7 +122,7 @@ describe("safe observability", () => {
     expect(sanitized).toEqual({
       occurredAt: "2026-07-15T12:00:00.000Z",
       failure: { name: "Error", message: "[REDACTED]" },
-      circular: { safe: "visible", self: "[Circular]" },
+      circular: "[REDACTED]",
     });
   });
 });

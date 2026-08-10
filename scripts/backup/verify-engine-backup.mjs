@@ -25,6 +25,7 @@ function validateManifest(manifest) {
     "databaseSha256",
     "objectInventorySha256",
     "configInventorySha256",
+    "protectedIntegritySha256",
     "encryptedBundleSha256",
     "inventories",
     "encryption",
@@ -70,11 +71,14 @@ export async function verifyEngineBackup(options) {
   const database = Buffer.from(decoded.databaseBase64, "base64");
   const objectBytes = Buffer.from(canonicalJson(decoded.objectInventory));
   const configBytes = Buffer.from(canonicalJson(decoded.configInventory));
+  const integrityBytes = Buffer.from(canonicalJson(decoded.sourceIntegrity));
   if (sha256(database) !== manifest.databaseSha256) throw new Error("database dump hash mismatch");
   if (sha256(objectBytes) !== manifest.objectInventorySha256)
     throw new Error("object inventory hash mismatch");
   if (sha256(configBytes) !== manifest.configInventorySha256)
     throw new Error("config inventory hash mismatch");
+  if (sha256(integrityBytes) !== manifest.protectedIntegritySha256)
+    throw new Error("protected integrity hash mismatch");
   if (decoded.objectInventory.length !== manifest.inventories.objectCount)
     throw new Error("object inventory count mismatch");
 

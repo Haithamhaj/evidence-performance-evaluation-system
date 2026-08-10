@@ -15,6 +15,28 @@ import {
   sha256,
   signManifest,
 } from "./backup-lib.mjs";
+import { readProtectedIntegrity, validateCustomDatabaseDump } from "./postgres-tools.mjs";
+
+function validateObjectInventory(inventory) {
+  for (const item of inventory) {
+    if (
+      item === null ||
+      typeof item !== "object" ||
+      typeof item.key !== "string" ||
+      item.key.startsWith("/") ||
+      item.key.split("/").some((part) => part === "" || part === "." || part === "..") ||
+      typeof item.version !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(item.sha256) ||
+      typeof item.contentBase64 !== "string"
+    ) {
+      throw new Error("object inventory must contain safe versioned object payloads");
+    }
+    const content = Buffer.from(item.contentBase64, "base64");
+    if (content.toString("base64") !== item.contentBase64 || sha256(content) !== item.sha256) {
+      throw new Error("object payload checksum mismatch");
+    }
+  }
+}
 
 async function ensureSafeTarget(targetDirectory) {
   const resolved = resolve(targetDirectory);
@@ -43,8 +65,15 @@ export async function createEngineBackup(options) {
   const objectInventory = parseJson(objectInventoryBytes, "object inventory");
   const configInventory = parseJson(configInventoryBytes, "config inventory");
   if (!Array.isArray(objectInventory)) throw new Error("object inventory must be an array");
+  validateObjectInventory(objectInventory);
+  await validateCustomDatabaseDump(database, options.postgresContainer);
+  const sourceIntegrity = await readProtectedIntegrity(
+    options.sourceDatabaseUrl,
+    options.postgresContainer,
+  );
   const canonicalObjectInventory = Buffer.from(canonicalJson(objectInventory));
   const canonicalConfigInventory = Buffer.from(canonicalJson(configInventory));
+  const canonicalSourceIntegrity = Buffer.from(canonicalJson(sourceIntegrity));
 
   const payload = Buffer.from(
     canonicalJson({
@@ -52,6 +81,7 @@ export async function createEngineBackup(options) {
       databaseBase64: database.toString("base64"),
       objectInventory,
       configInventory,
+      sourceIntegrity,
     }),
   );
   const iv = randomBytes(12);
@@ -68,6 +98,7 @@ export async function createEngineBackup(options) {
     databaseSha256: sha256(database),
     objectInventorySha256: sha256(canonicalObjectInventory),
     configInventorySha256: sha256(canonicalConfigInventory),
+    protectedIntegritySha256: sha256(canonicalSourceIntegrity),
     encryptedBundleSha256: sha256(encrypted),
     inventories: {
       objectCount: objectInventory.length,
@@ -98,6 +129,8 @@ async function main() {
     configInventory: requireArgument(args, "config-inventory"),
     keyFile: requireArgument(args, "key-file"),
     keyReference: requireArgument(args, "key-reference"),
+    sourceDatabaseUrl: requireArgument(args, "source-database-url"),
+    postgresContainer: requireArgument(args, "postgres-container"),
     createdAt: args.get("created-at"),
   });
   process.stdout.write(

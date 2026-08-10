@@ -27,6 +27,7 @@ describe("AdminHealthComposition", () => {
     expect(health.state).toBe("DEGRADED");
     expect(JSON.stringify(health)).not.toMatch(/postgres|secret|rawLog|accessToken/u);
     expect(health.dependencies).toHaveLength(2);
+    expect(health.alerts).toEqual([]);
   });
 
   it("bounds pagination and marks probe errors as action required", async () => {
@@ -40,5 +41,15 @@ describe("AdminHealthComposition", () => {
     const health = await new AdminHealthComposition(probes).read({ limit: 10 });
     expect(health.state).toBe("ACTION_REQUIRED");
     expect(health.dependencies).toHaveLength(10);
+    expect(health.alerts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "DEPENDENCY_FAILURE",
+          signalKind: "API",
+          policyVersion: 1,
+        }),
+      ]),
+    );
+    expect(JSON.stringify(health.alerts)).not.toContain("token=secret");
   });
 });
