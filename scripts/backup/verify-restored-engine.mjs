@@ -1,17 +1,24 @@
 #!/usr/bin/env node
 import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import {
   canonicalJson,
+  decryptBundle,
   parseArguments,
   parseJson,
+  readEncryptionKey,
   requireArgument,
   sha256,
 } from "./backup-lib.mjs";
-import { parseLocalDatabaseUrl, readProtectedIntegrity } from "./postgres-tools.mjs";
+import { verifyEngineBackup } from "./verify-engine-backup.mjs";
+import {
+  assertRepositoryPostgresContainer,
+  parseLocalDatabaseUrl,
+  readProtectedIntegrity,
+} from "./postgres-tools.mjs";
 
 const REQUIRED_INTEGRITY_CLASSES = [
   "auditEvents",
@@ -25,6 +32,24 @@ const REQUIRED_INTEGRITY_CLASSES = [
 
 export async function verifyRestoredEngine(options) {
   const target = resolve(options.targetDirectory);
+  await verifyEngineBackup({
+    manifestPath: options.manifestPath,
+    keyFile: options.keyFile,
+    maxAgeHours: options.maxAgeHours,
+    now: options.now,
+  });
+  const manifest = parseJson(await readFile(options.manifestPath), "backup manifest");
+  const encrypted = await readFile(resolve(dirname(options.manifestPath), manifest.bundleFile));
+  const key = await readEncryptionKey(options.keyFile);
+  const sourceBundle = parseJson(
+    decryptBundle(
+      encrypted,
+      key,
+      Buffer.from(manifest.encryption.initializationVector, "base64"),
+      Buffer.from(manifest.encryption.authenticationTag, "base64"),
+    ),
+    "decrypted backup bundle",
+  );
   const [stateBytes, database, objectsBytes, configBytes] = await Promise.all([
     readFile(`${target}/restore-state.json`),
     readFile(`${target}/database.dump`),
@@ -44,9 +69,15 @@ export async function verifyRestoredEngine(options) {
     configInventorySha256: sha256(Buffer.from(canonicalJson(config))),
   };
   for (const [key, value] of Object.entries(observed)) {
-    if (value !== state.expected?.[key]) throw new Error(`${key} integrity mismatch`);
+    if (value !== manifest[key]) throw new Error(`${key} integrity mismatch`);
   }
-  const integrity = state.expected?.integrityInventory;
+  if (
+    canonicalJson(objects) !== canonicalJson(sourceBundle.objectInventory) ||
+    canonicalJson(config) !== canonicalJson(sourceBundle.configInventory)
+  ) {
+    throw new Error("restored inventories differ from the signed backup");
+  }
+  const integrity = sourceBundle.sourceIntegrity;
   if (
     !integrity ||
     REQUIRED_INTEGRITY_CLASSES.some(
@@ -61,13 +92,13 @@ export async function verifyRestoredEngine(options) {
   if (targetDatabase.databaseName !== state.observed?.restoredDatabaseName) {
     throw new Error("restored database identity mismatch");
   }
+  await assertRepositoryPostgresContainer(options.postgresContainer, options.targetDatabaseUrl);
   const restoredIntegrity = await readProtectedIntegrity(
     options.targetDatabaseUrl,
     options.postgresContainer,
   );
   if (
-    sha256(Buffer.from(canonicalJson(restoredIntegrity))) !==
-      state.expected.protectedIntegritySha256 ||
+    sha256(Buffer.from(canonicalJson(restoredIntegrity))) !== manifest.protectedIntegritySha256 ||
     canonicalJson(restoredIntegrity) !== canonicalJson(integrity)
   ) {
     throw new Error("restored protected history differs from the source database");
@@ -100,6 +131,10 @@ async function main() {
     targetDirectory: requireArgument(args, "target-dir"),
     targetDatabaseUrl: requireArgument(args, "target-database-url"),
     postgresContainer: requireArgument(args, "postgres-container"),
+    manifestPath: requireArgument(args, "manifest"),
+    keyFile: requireArgument(args, "key-file"),
+    maxAgeHours: Number(requireArgument(args, "max-age-hours")),
+    now: args.get("now"),
   });
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }

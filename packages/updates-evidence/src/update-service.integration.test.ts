@@ -350,6 +350,7 @@ describe("UpdateService", () => {
     await expect(
       client.acceptedUpdateEvent.count({ where: { projectId: graph.projectId } }),
     ).resolves.toBe(1);
+    expect(auditWriter.append).toHaveBeenCalled();
     await expect(
       client.progressRecalculationRequest.count({
         where: { acceptedEvent: { projectId: graph.projectId } },

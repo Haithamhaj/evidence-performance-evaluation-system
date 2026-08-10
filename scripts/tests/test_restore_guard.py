@@ -184,6 +184,14 @@ class RestoreGuardTest(unittest.TestCase):
                         target_database_url,
                         "--postgres-container",
                         postgres_container,
+                        "--manifest",
+                        str(backup / "manifest.json"),
+                        "--key-file",
+                        str(key),
+                        "--max-age-hours",
+                        "24",
+                        "--now",
+                        "2026-08-07T01:00:00.000Z",
                     ],
                     cwd=ROOT,
                     capture_output=True,
@@ -197,7 +205,69 @@ class RestoreGuardTest(unittest.TestCase):
                     (restored / "objects" / "private" / "a.txt").read_bytes(),
                     object_content,
                 )
+                disable_trigger = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        "-u",
+                        "postgres",
+                        postgres_container,
+                        "psql",
+                        "--dbname",
+                        target_database_name,
+                        "--set",
+                        "ON_ERROR_STOP=1",
+                        "--command",
+                        'ALTER TABLE "AuditEvent" DISABLE TRIGGER "AuditEvent_append_only";',
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(disable_trigger.returncode, 0, disable_trigger.stderr)
+                disabled_verify = subprocess.run(
+                    [
+                        "node",
+                        str(VERIFY_RESTORE),
+                        "--target-dir",
+                        str(restored),
+                        "--target-database-url",
+                        target_database_url,
+                        "--postgres-container",
+                        postgres_container,
+                        "--manifest",
+                        str(backup / "manifest.json"),
+                        "--key-file",
+                        str(key),
+                        "--max-age-hours",
+                        "24",
+                        "--now",
+                        "2026-08-07T01:00:00.000Z",
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(disabled_verify.returncode, 0)
+                self.assertIn("protected history", disabled_verify.stderr)
             finally:
+                subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        "-u",
+                        "postgres",
+                        postgres_container,
+                        "psql",
+                        "--dbname",
+                        target_database_name,
+                        "--command",
+                        'ALTER TABLE "AuditEvent" ENABLE TRIGGER "AuditEvent_append_only";',
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                )
                 subprocess.run(
                     [
                         "docker",

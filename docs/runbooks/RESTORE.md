@@ -36,7 +36,10 @@ node scripts/backup/restore-engine-backup.mjs \
 node scripts/backup/verify-restored-engine.mjs \
   --target-dir <new-empty-target> \
   --target-database-url <local-ebpes_restore_database-url> \
-  --postgres-container <postgres-container>
+  --postgres-container <postgres-container> \
+  --manifest <backup>/manifest.json \
+  --key-file <key-handle> \
+  --max-age-hours 24
 ```
 
 Success means the source manifest was cryptographically verified, migration compatibility matched, PostgreSQL was restored into the new isolated database, each object payload was written and hash-verified, configuration was restored, connector replay remained disabled, and protected row counts, foreign keys, and append-only controls match live queries against the restored database. It is not authorization to promote the restored target.

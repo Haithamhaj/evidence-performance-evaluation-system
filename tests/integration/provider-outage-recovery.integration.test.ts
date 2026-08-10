@@ -1,10 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { databaseAuditWriter } from "../../packages/audit/src/index.js";
 import { createDatabaseClient } from "../../packages/database/src/index.js";
 import { createNotificationDeliveryQueue } from "../../packages/notifications/src/delivery-queue.js";
+import { AiRouterUpdateStructurer } from "../../packages/updates-evidence/src/ai-structurer.js";
+import { UPDATE_STRUCTURE_TRUSTED_PROMPT } from "../../packages/updates-evidence/src/prompts.js";
 import { PrivateInboxService } from "../../packages/work-items/src/inbox-service.js";
 
 const client = createDatabaseClient(
@@ -20,8 +22,38 @@ afterAll(async () => {
 
 describe("provider outage and idempotent recovery", () => {
   it("keeps the manual employee capture path available when AI is unavailable", async () => {
-    const aiRoute = vi.fn().mockRejectedValue(new Error("AI provider unavailable"));
-    await expect(aiRoute()).rejects.toThrow("AI provider unavailable");
+    const run = vi.fn().mockRejectedValue(new Error("AI provider unavailable"));
+    const updateSourceId = randomUUID();
+    const structurer = new AiRouterUpdateStructurer(
+      { run } as never,
+      {
+        analysisPromptArtifact: {
+          findUnique: vi.fn(async () => ({
+            id: randomUUID(),
+            bodyHash: createHash("sha256").update(UPDATE_STRUCTURE_TRUSTED_PROMPT).digest("hex"),
+            trustedBody: UPDATE_STRUCTURE_TRUSTED_PROMPT,
+          })),
+        },
+      } as never,
+      { systemId: randomUUID(), timeoutMs: 1_000 },
+    );
+    await expect(
+      structurer.structure(
+        {
+          projectScopeId: randomUUID(),
+          departmentScopeId: randomUUID(),
+          correlationId: randomUUID(),
+          updateSourceId,
+          rawText: "Continue manually during provider outage.",
+          answers: [],
+          previousAcceptedState: null,
+          activeContract: null,
+          sourceReferences: [`update-source:${updateSourceId}`],
+        },
+        vi.fn(),
+      ),
+    ).rejects.toThrow("AI provider unavailable");
+    expect(run).toHaveBeenCalledOnce();
 
     const createdAt = new Date("2026-08-07T00:00:00.000Z");
     const employeeId = randomUUID();

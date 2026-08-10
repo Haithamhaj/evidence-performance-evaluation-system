@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { parseSync } from "@babel/core";
 
 export const PROTECTED_API_MATRIX = Object.freeze([
   publicRow("health", "bounded liveness/readiness only"),
@@ -18,6 +19,7 @@ export const PROTECTED_API_MATRIX = Object.freeze([
     "api/v1/documents",
     "apps/api/src/documents/documents.e2e.integration.test.ts",
     "documents.*",
+    { auditTest: "packages/documents/src/document-service.integration.test.ts" },
   ),
   protectedRow(
     "api/v1/document-templates",
@@ -27,8 +29,9 @@ export const PROTECTED_API_MATRIX = Object.freeze([
   ),
   protectedRow(
     "api/v1/dynamic-criteria",
-    "apps/api/src/analysis-criteria/analysis-criteria.e2e.integration.test.ts",
+    "apps/api/src/analysis-criteria/criteria.controller.test.ts",
     "criteria.*",
+    { auditTest: "packages/criteria/src/activation-service.integration.test.ts" },
   ),
   protectedRow(
     "api/v1/work-items",
@@ -74,7 +77,7 @@ export const PROTECTED_API_MATRIX = Object.freeze([
   protectedRow(
     "api/v1/voice-updates",
     "apps/api/src/updates-evidence/voice.controller.test.ts",
-    "voice_updates.*",
+    "voice_update.transcript_confirmed",
     { auditTest: "packages/updates-evidence/src/voice-update-service.integration.test.ts" },
   ),
   signedRow(
@@ -98,11 +101,13 @@ export const PROTECTED_API_MATRIX = Object.freeze([
     "api/v1/employee-evaluation",
     "tests/integration/employee-evaluation-api.integration.test.ts",
     "employee_evaluation.*",
+    { auditTest: "packages/employee-evaluation/src/finalization-service.integration.test.ts" },
   ),
   protectedRow(
     "api/v1/manager-evaluation",
     "tests/integration/manager-evaluation-api.integration.test.ts",
     "manager_evaluation.*",
+    { auditTest: "packages/manager-evaluation/src/completion-reader.test.ts" },
   ),
   protectedRow(
     "api/v1/coaching",
@@ -110,18 +115,20 @@ export const PROTECTED_API_MATRIX = Object.freeze([
     "coaching.*",
     {
       denyTest: "tests/integration/coaching-development-api.integration.test.ts",
-      auditTest: "packages/coaching-development/src/action-service.test.ts",
+      auditTest: "tests/integration/coaching-development-journey.integration.test.ts",
     },
   ),
   protectedRow(
     "api/v1/research",
     "apps/api/src/research-experiments/research-experiments.e2e.integration.test.ts",
     "research.*",
+    { auditTest: "packages/research-experiments/src/research-service.integration.test.ts" },
   ),
   protectedRow(
     "api/v1/experiments",
     "apps/api/src/research-experiments/research-experiments.e2e.integration.test.ts",
     "experiments.*",
+    { auditTest: "packages/research-experiments/src/experiment-service.integration.test.ts" },
   ),
   protectedRow(
     "api/v1/continuity",
@@ -133,6 +140,7 @@ export const PROTECTED_API_MATRIX = Object.freeze([
     "api/v1/operations",
     "tests/integration/operations-api.integration.test.ts",
     "operations.*",
+    { auditTest: "tests/integration/operations-admin-owner-composition.integration.test.ts" },
   ),
 ]);
 
@@ -200,6 +208,49 @@ function matchesPrefix(route, prefix) {
   return route === prefix || route.startsWith(`${prefix}/`);
 }
 
+function evidenceTestCases(source) {
+  const sourceFile = parseSync(source, {
+    filename: "protected-api-evidence.ts",
+    sourceType: "module",
+    parserOpts: { plugins: ["typescript", "decorators-legacy"] },
+  });
+  const cases = [];
+  function visit(node) {
+    if (node === null || typeof node !== "object") return;
+    if (
+      node.type === "CallExpression" &&
+      node.callee?.type === "Identifier" &&
+      new Set(["it", "test"]).has(node.callee.name) &&
+      Number.isInteger(node.start) &&
+      Number.isInteger(node.end)
+    ) {
+      cases.push(source.slice(node.start, node.end));
+    }
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach(visit);
+      else visit(value);
+    }
+  }
+  visit(sourceFile);
+  return cases;
+}
+
+export function hasSemanticEvidenceTest(source, mode) {
+  const semanticPattern =
+    mode === "ALLOW"
+      ? /\b(allows?|authoriz\w*|authenticat\w*|binds?|derives?|passes?|returns?|shows?|creates?|completes?|executes?|exposes?|propagates?|accepted)\b/iu
+      : mode === "DENY"
+        ? /\b(denies?|rejects?|unauthenticated|inactive|forbidden|cross-[a-z]+|does not let|does not acknowledge|never accepts)\b/iu
+        : mode === "PERSISTED_EVENT"
+          ? /\b(auditEvent\.(?:find\w*|count)|appendAudit\w*|auditAppend|(?:store\.)?audits?\b|auditWriter\.append|protected audit|audit failure)\b/iu
+          : mode === "SIGNED_RECEIPT"
+            ? /\b(unsigned|signed|signature|durabl\w*)\b/iu
+            : /\b(allows?|authoriz\w*|authenticat\w*|denies?|rejects?|bounded|does not let)\b/iu;
+  return evidenceTestCases(source).some(
+    (testCase) => /\bexpect\s*\(/u.test(testCase) && semanticPattern.test(testCase),
+  );
+}
+
 export async function validateProtectedApiMatrix(root) {
   const routes = await registeredControllerRoutes(root);
   const uncoveredProtectedRoutes = routes.filter(
@@ -230,27 +281,13 @@ export async function validateProtectedApiMatrix(root) {
     const allowSource = await evidenceSource(row.allowTest);
     const denySource = await evidenceSource(row.denyTest);
     const auditSource = await evidenceSource(row.auditTest);
-    if (
-      !/\b(allows?|authoriz\w*|authenticat\w*|binds?|derives?|passes?|returns?|creates?|completes?|executes?|exposes?|propagates?|accepted)\b/iu.test(
-        allowSource,
-      )
-    ) {
+    if (!hasSemanticEvidenceTest(allowSource, "ALLOW")) {
       invalidEvidence.push(`${row.routePrefix}:allow:${row.allowTest}`);
     }
-    if (
-      !/\b(denies?|rejects?|unauthenticated|inactive|forbidden|cross-[a-z]+|unsigned|does not let|does not acknowledge|never accepts)\b/iu.test(
-        denySource,
-      )
-    ) {
+    if (!hasSemanticEvidenceTest(denySource, "DENY")) {
       invalidEvidence.push(`${row.routePrefix}:deny:${row.denyTest}`);
     }
-    const auditPattern =
-      row.auditMode === "PERSISTED_EVENT"
-        ? /\b(audit\w*|append(?:-only|s|ed)?|history|idempoten\w*|rolls? back)\b/iu
-        : row.auditMode === "SIGNED_RECEIPT"
-          ? /\b(unsigned|signed|durabl\w*|idempoten\w*)\b/iu
-          : /\b(authoriz\w*|authenticat\w*|denies?|rejects?|bounded)\b/iu;
-    if (!auditPattern.test(auditSource)) {
+    if (!hasSemanticEvidenceTest(auditSource, row.auditMode)) {
       invalidEvidence.push(`${row.routePrefix}:audit:${row.auditTest}:${row.auditMode}`);
     }
   }

@@ -221,6 +221,12 @@ async function runBackupRestoreDrill(sourceDatabaseUrl: string) {
       targetDatabaseUrl.toString(),
       "--postgres-container",
       postgresContainer,
+      "--manifest",
+      path.join(backup, "manifest.json"),
+      "--key-file",
+      key,
+      "--max-age-hours",
+      "24",
     ]);
   } finally {
     await runContainerPostgres(postgresContainer, [

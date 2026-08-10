@@ -15,6 +15,7 @@ import {
 } from "./backup-lib.mjs";
 import { verifyEngineBackup } from "./verify-engine-backup.mjs";
 import {
+  assertRepositoryPostgresContainer,
   createIsolatedDatabase,
   restoreDatabaseDump,
   validateCustomDatabaseDump,
@@ -87,6 +88,7 @@ export async function restoreEngineBackup(options) {
   const database = Buffer.from(decoded.databaseBase64, "base64");
   const objectBytes = Buffer.from(canonicalJson(decoded.objectInventory));
   const configBytes = Buffer.from(canonicalJson(decoded.configInventory));
+  await assertRepositoryPostgresContainer(options.postgresContainer, options.targetDatabaseUrl);
   await validateCustomDatabaseDump(database, options.postgresContainer);
   const restoredDatabaseName = await createIsolatedDatabase({
     adminDatabaseUrl: options.adminDatabaseUrl,

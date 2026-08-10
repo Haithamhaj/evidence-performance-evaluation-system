@@ -10,6 +10,7 @@ type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
 type UpdateScopeReader = import("./update-service.js").UpdateScopeReader;
 type VoiceTranscriber = import("./voice-transcriber.js").VoiceTranscriber;
+type AuditWriter = import("@evaluation/contracts").AuditWriter<Transaction>;
 
 const ActorSchema = z.object({ userId: z.string().uuid(), active: z.boolean() }).strict();
 const StartCommandSchema = z
@@ -29,6 +30,7 @@ const RevisionCommandSchema = z
 const ConfirmCommandSchema = z
   .object({
     actor: ActorSchema,
+    correlationId: z.string().uuid().optional(),
     voiceSessionId: z.string().uuid(),
     input: ConfirmVoiceTranscriptInputSchema,
   })
@@ -69,18 +71,23 @@ export class VoiceUpdateService {
   private readonly transcriber: VoiceTranscriber;
   private readonly cleaner: VoiceTemporaryArtifactCleaner;
   private readonly clock: () => Date;
+  private readonly auditWriter: AuditWriter;
   constructor(
     client: DatabaseClient,
     scopeReader: UpdateScopeReader,
     transcriber: VoiceTranscriber,
     cleaner: VoiceTemporaryArtifactCleaner = { cleanup: async () => undefined },
     clock: () => Date = () => new Date(),
+    auditWriter: AuditWriter = {
+      append: async () => ({ id: crypto.randomUUID(), createdAt: new Date().toISOString() }),
+    },
   ) {
     this.client = client;
     this.scopeReader = scopeReader;
     this.transcriber = transcriber;
     this.cleaner = cleaner;
     this.clock = clock;
+    this.auditWriter = auditWriter;
   }
 
   async start(command: unknown) {
@@ -430,6 +437,19 @@ export class VoiceUpdateService {
           },
         },
         include: { transcriptRevisions: true, confirmation: true },
+      });
+      await this.auditWriter.append(transaction, {
+        eventType: "voice_update.transcript_confirmed",
+        actor: { kind: "human", id: parsed.actor.userId },
+        effectiveSubjectId: parsed.actor.userId,
+        scopeType: confirmed.workstreamId === null ? "project" : "workstream",
+        scopeId: confirmed.workstreamId ?? confirmed.projectId,
+        targetType: "voice_update_session",
+        targetId: confirmed.id,
+        reason: "Employee confirmed the reviewed voice transcript",
+        safeDiff: { transcriptRevision: latest.revision, state: confirmed.state },
+        correlationId: parsed.correlationId ?? confirmed.id,
+        source: "api",
       });
       return serialize(confirmed);
     });

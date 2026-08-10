@@ -26,7 +26,9 @@ const employeeId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
 const otherProjectId = crypto.randomUUID();
 const correlationId = crypto.randomUUID();
+const experimentId = crypto.randomUUID();
 const create = vi.fn(async (command: unknown) => ({ id: crypto.randomUUID(), command }));
+const readExperiment = vi.fn(async (command: unknown) => ({ id: experimentId, command }));
 
 const authGuard = {
   canActivate(context: import("@nestjs/common").ExecutionContext): boolean {
@@ -65,7 +67,7 @@ Module({
     { provide: ResearchService, useValue: { create } },
     { provide: ResearchQueryService, useValue: query },
     { provide: ExperimentService, useValue: {} },
-    { provide: ExperimentQueryService, useValue: {} },
+    { provide: ExperimentQueryService, useValue: { read: readExperiment } },
     { provide: ResearchDecisionService, useValue: {} },
     { provide: AppliedLearningService, useValue: {} },
     { provide: ResearchEvidenceLinkService, useValue: {} },
@@ -152,6 +154,27 @@ describe("research experiments HTTP boundary", () => {
       messageKey: "errors.research.scopeForbidden",
       correlationId,
     });
+  });
+
+  it("allows the authenticated employee to read the governed Experiment route", async () => {
+    readExperiment.mockClear();
+    const response = await fetch(`${baseUrl}/api/v1/experiments/${experimentId}`, {
+      headers: { authorization: "Bearer valid", "x-correlation-id": correlationId },
+    });
+
+    expect(response.status).toBe(200);
+    expect(readExperiment).toHaveBeenCalledWith({
+      actor: { userId: employeeId, active: true },
+      experimentId,
+    });
+  });
+
+  it("denies an unauthenticated caller before the Experiment route executes", async () => {
+    readExperiment.mockClear();
+    const response = await fetch(`${baseUrl}/api/v1/experiments/${experimentId}`);
+
+    expect(response.status).toBe(401);
+    expect(readExperiment).not.toHaveBeenCalled();
   });
 });
 

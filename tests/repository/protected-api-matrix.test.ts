@@ -4,7 +4,10 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { validateProtectedApiMatrix } from "../../scripts/validate-protected-api-matrix.mjs";
+import {
+  hasSemanticEvidenceTest,
+  validateProtectedApiMatrix,
+} from "../../scripts/validate-protected-api-matrix.mjs";
 
 describe("protected API matrix", () => {
   it("classifies every API controller and records allow, deny, and audit evidence", async () => {
@@ -38,5 +41,23 @@ describe("protected API matrix", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("does not accept unrelated imports or vocabulary outside an asserted test case", () => {
+    const unrelatedImport = `
+      import { databaseAuditWriter } from "@evaluation/audit";
+      it("creates a document", () => {
+        expect({ status: 201 }).toMatchObject({ status: 201 });
+      });
+    `;
+    const persistedAuditAssertion = `
+      it("persists the protected audit event", async () => {
+        const event = await client.auditEvent.findFirstOrThrow({ where: { eventType: "x" } });
+        expect(event.eventType).toBe("x");
+      });
+    `;
+
+    expect(hasSemanticEvidenceTest(unrelatedImport, "PERSISTED_EVENT")).toBe(false);
+    expect(hasSemanticEvidenceTest(persistedAuditAssertion, "PERSISTED_EVENT")).toBe(true);
   });
 });

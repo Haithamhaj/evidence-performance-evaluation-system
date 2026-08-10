@@ -123,6 +123,9 @@ Module({
             systemId: await resolveSystemAiScopeId(client, "update.transcribe"),
             timeoutMs: 60_000,
           }),
+          undefined,
+          undefined,
+          databaseAuditWriter as never,
         );
       },
       inject: [UPDATES_EVIDENCE_DATABASE, VOICE_PRIVATE_MEDIA_RESOLVER],
