@@ -2,9 +2,10 @@
 
 ## Current Goal
 
-Review and accept the E7 engine handoff, then build the final intelligent frontend from verified user
-journeys and protected public contracts. Keep live-provider setup, Arabic evaluation release,
-production launch, and shared restore behind their existing gates.
+Execute AI-Native Frontend Phase 0A: reconcile all 44 engine capabilities into an experience
+definition, prove the Today information hierarchy through a standalone prototype, and prepare the
+evidence for Product Owner Gate `D0`. Keep production frontend foundation and runtime work blocked
+until `D0`, then `G0`.
 
 ## Current Reality
 
@@ -20,6 +21,8 @@ production launch, and shared restore behind their existing gates.
   `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`; it must not recreate business rules in the browser.
 - ClickUp remains a clean-room interaction reference only. No ClickUp code, schema, data, asset, API,
   or dependency is part of the product.
+- The approved Phase 0A master plan and immutable engine source receipt are stored in-repository.
+- The Phase 0A branch starts from clean `main` at `2eee638958294b790c75375d564d5c03188062f2`.
 
 ## Active Decisions
 
@@ -34,6 +37,10 @@ production launch, and shared restore behind their existing gates.
   `IDENTIFIED`.
 - Preserve the modular monolith and public domain ownership; no microservice, generic activity
   platform, second store, or package-per-screen architecture.
+- Phase 0A is documentation and an isolated synthetic prototype only. It cannot select production
+  tokens, primitives, components, dependencies, navigation, or agent runtime contracts.
+- Work Signals, Experience Workflow Events, and Product Telemetry remain three separate systems;
+  product interaction data cannot become project progress, evidence, evaluation input, or authority.
 
 ## Active Risks
 
@@ -45,6 +52,8 @@ production launch, and shared restore behind their existing gates.
   review; normal Arabic/RTL foundations remain required in the final frontend.
 - Final daily usability, mobile behavior, and visual coherence are unproven until the dedicated
   frontend acceptance program.
+- Information architecture and visual direction remain hypotheses until representative-user review
+  and Product Owner Gate `D0`.
 
 ## Protected Areas
 
@@ -57,9 +66,9 @@ production launch, and shared restore behind their existing gates.
 
 ## Next Recommended Action
 
-Product Owner reviews `docs/reviews/ENGINE_COMPLETION_AUDIT.md` and the customer-journey/frontend
-handoff. After acceptance, begin final frontend Slice 1: shell/navigation, universal capture, My Work,
-Tasks, and Project overview. Do not reopen completed engine architecture for visual concerns.
+Complete the source-backed 44-capability experience record, Phase 1–3 assistance handoffs, event
+separation, persona/visibility/autonomy maps, and Experience Blueprint. Then present exactly three
+Today visual directions for Product Owner selection before building the isolated Phase 0A prototype.
 
 ## Critical References
 
@@ -71,6 +80,9 @@ Tasks, and Project overview. Do not reopen completed engine architecture for vis
 - `docs/product/ENGINE_CAPABILITY_MATRIX.md`
 - `docs/product/ENGINE_CUSTOMER_JOURNEY_MAP.md`
 - `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
+- `docs/product/AI_NATIVE_FRONTEND_SOURCE_SNAPSHOT.md`
+- `docs/superpowers/plans/2026-08-11-ai-native-frontend-master-plan.md`
+- `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0a.md`
 - `docs/reviews/ENGINE_BIDIRECTIONAL_TRACE.md`
 - `docs/reviews/ENGINE_FINAL_VERIFICATION.md`
 - `docs/reviews/ENGINE_COMPLETION_AUDIT.md`
