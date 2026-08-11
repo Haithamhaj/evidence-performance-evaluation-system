@@ -1,0 +1,446 @@
+[
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-SESSION-RECOVERY",
+    "capabilityIds": ["CAP-001", "CAP-002"],
+    "phase": "P1",
+    "surface": "stable-shell",
+    "assistanceModes": ["contextual_status_recovery"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "auth",
+      "symbol": "MeController.me",
+      "path": "apps/api/src/auth/me.controller.ts",
+      "apiPath": "GET /api/v1/me"
+    },
+    "commands": [],
+    "states": ["loading", "ready", "stale", "error", "blocked"],
+    "workSignals": [],
+    "experienceEvents": ["experience.retry", "experience.recovery"],
+    "sse": {
+      "disposition": "NONE",
+      "reason": "Session recovery uses an explicit authenticated read."
+    },
+    "outputFields": ["safeReasonCode", "returnPath", "correlationId"],
+    "tests": {
+      "positive": ["tests/integration/auth.integration.test.ts"],
+      "negative": ["apps/api/src/auth/auth.guard.test.ts"]
+    },
+    "rollback": "Keep the existing login/logout and safe return-path flow."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-TODAY-READ",
+    "capabilityIds": ["CAP-013", "CAP-014", "CAP-018", "CAP-020"],
+    "phase": "P1",
+    "surface": "today",
+    "assistanceModes": ["deterministic_assistance", "proactive_agent_assistance"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "daily-work-composition",
+      "symbol": "DailyWorkQueryService.dailyWorkspace",
+      "path": "apps/api/src/daily-work/daily-work-query.service.ts",
+      "apiPath": "GET /api/v1/daily-work/my-work"
+    },
+    "commands": [],
+    "states": ["loading", "ready", "empty", "stale", "error"],
+    "workSignals": ["domain.work_item_changed", "scheduled.today_refresh_due"],
+    "experienceEvents": [],
+    "sse": { "disposition": "PHASE_1", "reason": "Durable refresh is implemented after G0." },
+    "outputFields": ["needsMyAction", "today", "overdue", "reviewQueue", "projectPulse"],
+    "tests": {
+      "positive": ["apps/api/src/daily-work/daily-work.e2e.integration.test.ts"],
+      "negative": ["apps/api/src/daily-work/daily-work.e2e.integration.test.ts"]
+    },
+    "rollback": "Render the existing My Work snapshot without proactive composition."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-PREPARED-DECISION",
+    "capabilityIds": ["CAP-014", "CAP-019", "CAP-020"],
+    "phase": "P1",
+    "surface": "today-needs-decision",
+    "assistanceModes": ["proactive_agent_assistance"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "context-intelligence",
+      "symbol": "ContextIntelligenceWorkflow.reviewQueue",
+      "path": "apps/api/src/context-intelligence/context-analysis.controller.ts",
+      "apiPath": "GET /api/v1/context/review-queue"
+    },
+    "commands": [
+      {
+        "owner": "context-intelligence",
+        "symbol": "ContextIntelligenceWorkflow.confirmProjectSuggestion",
+        "path": "apps/api/src/context-intelligence/context-analysis.controller.ts",
+        "apiPath": "POST /api/v1/context/project-suggestions/:id/confirm",
+        "permission": "ContextIntelligencePolicyGuard",
+        "positiveTests": [
+          "apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts"
+        ],
+        "negativeTests": [
+          "apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts"
+        ]
+      },
+      {
+        "owner": "context-intelligence",
+        "symbol": "ContextIntelligenceWorkflow.correctProjectSuggestion",
+        "path": "apps/api/src/context-intelligence/context-analysis.controller.ts",
+        "apiPath": "POST /api/v1/context/project-suggestions/:id/correct",
+        "permission": "ContextIntelligencePolicyGuard",
+        "positiveTests": [
+          "apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts"
+        ],
+        "negativeTests": [
+          "apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts"
+        ]
+      }
+    ],
+    "states": ["loading", "ready", "pending", "confirmed", "stale", "error"],
+    "workSignals": ["connector.google_context_changed"],
+    "experienceEvents": ["experience.confirm", "experience.correct", "experience.dismiss"],
+    "sse": { "disposition": "PHASE_1", "reason": "Decision receipts stream after G0." },
+    "outputFields": ["sourceReference", "suggestedProject", "why", "freshness", "consequence"],
+    "tests": {
+      "positive": [
+        "apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts"
+      ],
+      "negative": ["apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts"]
+    },
+    "rollback": "Open the owning connected-context review route and keep the candidate unchanged."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-WHAT-CHANGED",
+    "capabilityIds": ["CAP-005", "CAP-014"],
+    "phase": "P1",
+    "surface": "what-changed",
+    "assistanceModes": ["deterministic_assistance", "contextual_status_recovery"],
+    "reader": {
+      "kind": "NONE",
+      "reason": "The engine has durable receipts but no public cross-domain experience projection.",
+      "requiredDelta": "Add a bounded composition reader over public operation receipts after G0."
+    },
+    "commands": [],
+    "states": ["loading", "ready", "empty", "stale", "error"],
+    "workSignals": ["domain.work_item_changed", "domain.project_context_changed"],
+    "experienceEvents": ["experience.retry", "experience.recovery"],
+    "sse": {
+      "disposition": "PHASE_1",
+      "reason": "Durable receipt delivery is implemented after G0."
+    },
+    "outputFields": ["operationId", "safeStatus", "why", "freshness", "recoveryAction"],
+    "tests": {
+      "positive": ["apps/api/src/operations/authoritative-event-publisher.test.ts"],
+      "negative": ["apps/api/src/operations/target-authorizer.test.ts"]
+    },
+    "rollback": "Keep What Changed disabled and preserve each owning route's status and retry UI."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-UNIVERSAL-CAPTURE",
+    "capabilityIds": ["CAP-014", "CAP-015", "CAP-016"],
+    "phase": "P1",
+    "surface": "universal-capture",
+    "assistanceModes": ["manual_only", "on_demand_ai_assistance"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "work-items",
+      "symbol": "PrivateInboxQueryService.list",
+      "path": "packages/work-items/src/inbox-query-service.ts",
+      "apiPath": "GET /api/v1/private-inbox"
+    },
+    "commands": [
+      {
+        "owner": "work-items",
+        "symbol": "PrivateInboxService.capture",
+        "path": "packages/work-items/src/inbox-service.ts",
+        "apiPath": "POST /api/v1/private-inbox",
+        "permission": "WorkItemsPolicyGuard",
+        "positiveTests": ["packages/work-items/src/inbox-service.integration.test.ts"],
+        "negativeTests": ["apps/api/src/work-items/private-inbox.controller.test.ts"]
+      },
+      {
+        "owner": "work-items",
+        "symbol": "PrivateInboxService.promote",
+        "path": "packages/work-items/src/inbox-service.ts",
+        "apiPath": "POST /api/v1/private-inbox/:inboxItemId/promote",
+        "permission": "WorkItemsPolicyGuard",
+        "positiveTests": ["packages/work-items/src/inbox-service.integration.test.ts"],
+        "negativeTests": ["packages/work-items/src/inbox-service.integration.test.ts"]
+      }
+    ],
+    "states": ["ready", "draft", "pending", "confirmed", "error"],
+    "workSignals": ["user.capture_submitted", "user.assistance_requested"],
+    "experienceEvents": ["experience.submit", "experience.confirm", "experience.correct"],
+    "sse": {
+      "disposition": "NONE",
+      "reason": "Capture confirmation returns an immediate protected receipt."
+    },
+    "outputFields": ["captureType", "draftState", "sourceReferences", "manualFallback"],
+    "tests": {
+      "positive": ["packages/work-items/src/inbox-service.integration.test.ts"],
+      "negative": ["apps/api/src/work-items/private-inbox.controller.test.ts"]
+    },
+    "rollback": "Save text to the existing private Inbox without AI or automatic promotion."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-TASK-CREATE",
+    "capabilityIds": ["CAP-013", "CAP-014", "CAP-020"],
+    "phase": "P1",
+    "surface": "task-create",
+    "assistanceModes": ["manual_only", "on_demand_ai_assistance"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "work-items",
+      "symbol": "WorkItemQueryService.getAuthorizedWorkItem",
+      "path": "packages/work-items/src/query-service.ts",
+      "apiPath": "GET /api/v1/work-items/:workItemId"
+    },
+    "commands": [
+      {
+        "owner": "work-items",
+        "symbol": "WorkItemService.create",
+        "path": "packages/work-items/src/service.ts",
+        "apiPath": "POST /api/v1/work-items",
+        "permission": "WorkItemsPolicyGuard",
+        "positiveTests": ["packages/work-items/src/service.integration.test.ts"],
+        "negativeTests": ["packages/work-items/src/service-confirmed-task-authorization.test.ts"]
+      }
+    ],
+    "states": ["ready", "draft", "pending", "confirmed", "stale", "error"],
+    "workSignals": ["user.domain_command_requested"],
+    "experienceEvents": ["experience.submit", "experience.confirm", "experience.correct"],
+    "sse": {
+      "disposition": "NONE",
+      "reason": "Task creation returns the authoritative Work Item."
+    },
+    "outputFields": ["workItemId", "projectId", "workstreamId", "owner", "state"],
+    "tests": {
+      "positive": ["packages/work-items/src/service.integration.test.ts"],
+      "negative": ["packages/work-items/src/service-confirmed-task-authorization.test.ts"]
+    },
+    "rollback": "Use the existing normal Task form and protected create command."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-TASK-TRANSITION",
+    "capabilityIds": ["CAP-013", "CAP-014"],
+    "phase": "P1",
+    "surface": "today-task-action",
+    "assistanceModes": ["deterministic_assistance", "proactive_agent_assistance"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "work-items",
+      "symbol": "WorkItemQueryService.getAuthorizedWorkItem",
+      "path": "packages/work-items/src/query-service.ts",
+      "apiPath": "GET /api/v1/work-items/:workItemId"
+    },
+    "commands": [
+      {
+        "owner": "work-items",
+        "symbol": "WorkItemService.transition",
+        "path": "packages/work-items/src/service.ts",
+        "apiPath": "POST /api/v1/work-items/:workItemId/transitions",
+        "permission": "WorkItemsPolicyGuard",
+        "positiveTests": ["packages/work-items/src/service.integration.test.ts"],
+        "negativeTests": ["apps/api/src/work-items/work-items.controller.test.ts"]
+      }
+    ],
+    "states": ["ready", "pending", "confirmed", "stale", "error"],
+    "workSignals": ["domain.work_item_changed", "user.domain_command_requested"],
+    "experienceEvents": ["experience.confirm", "experience.submit"],
+    "sse": {
+      "disposition": "PHASE_1",
+      "reason": "Dependency and completion receipts stream after G0."
+    },
+    "outputFields": ["workItemId", "state", "dependencyState", "nextAction"],
+    "tests": {
+      "positive": ["packages/work-items/src/service.integration.test.ts"],
+      "negative": ["apps/api/src/work-items/work-items.controller.test.ts"]
+    },
+    "rollback": "Use the existing Task detail transition action and refresh authoritative state."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-CONNECTED-CONTEXT",
+    "capabilityIds": ["CAP-019", "CAP-020"],
+    "phase": "P1",
+    "surface": "connected-context-review",
+    "assistanceModes": ["contextual_status_recovery", "proactive_agent_assistance"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "connected-work-context",
+      "symbol": "ConnectedWorkContextQueryService.review",
+      "path": "packages/connected-work-context/src/query-service.ts",
+      "apiPath": "GET /api/v1/workspace/connected-work/context-items"
+    },
+    "commands": [
+      {
+        "owner": "connected-work-context",
+        "symbol": "ConnectedWorkConnectionService.linkProject",
+        "path": "packages/connected-work-context/src/connection-service.ts",
+        "apiPath": "PUT /api/v1/workspace/connected-work/context-items/:id/project-link",
+        "permission": "ConnectedWorkContextPolicyGuard",
+        "positiveTests": [
+          "packages/connected-work-context/src/connection-service.integration.test.ts"
+        ],
+        "negativeTests": [
+          "apps/api/src/connected-work-context/connected-work-context.e2e.integration.test.ts"
+        ]
+      },
+      {
+        "owner": "connected-work-context",
+        "symbol": "ConnectedWorkConnectionService.unlinkProject",
+        "path": "packages/connected-work-context/src/connection-service.ts",
+        "apiPath": "DELETE /api/v1/workspace/connected-work/context-items/:id/project-link",
+        "permission": "ConnectedWorkContextPolicyGuard",
+        "positiveTests": [
+          "packages/connected-work-context/src/connection-service.integration.test.ts"
+        ],
+        "negativeTests": [
+          "apps/api/src/connected-work-context/connected-work-context.e2e.integration.test.ts"
+        ]
+      }
+    ],
+    "states": ["loading", "ready", "empty", "stale", "blocked", "error"],
+    "workSignals": ["connector.google_context_changed"],
+    "experienceEvents": [
+      "experience.confirm",
+      "experience.correct",
+      "experience.dismiss",
+      "experience.recovery"
+    ],
+    "sse": {
+      "disposition": "PHASE_1",
+      "reason": "Connection and context refresh receipts stream after G0."
+    },
+    "outputFields": ["provider", "sourceReference", "summary", "suggestedProject", "freshness"],
+    "tests": {
+      "positive": ["packages/connected-work-context/src/query-service.integration.test.ts"],
+      "negative": [
+        "apps/api/src/connected-work-context/connected-work-context.e2e.integration.test.ts"
+      ]
+    },
+    "rollback": "Use the existing private context page and manual Project linking."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P1-GITHUB-EVIDENCE",
+    "capabilityIds": ["CAP-021", "CAP-022"],
+    "phase": "P1",
+    "surface": "evidence-suggestion-review",
+    "assistanceModes": ["proactive_agent_assistance", "contextual_status_recovery"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "updates-evidence",
+      "symbol": "ActivityReader.evidenceReview",
+      "path": "packages/updates-evidence/src/activity-reader.ts",
+      "apiPath": "GET /api/v1/evidence/:evidenceId"
+    },
+    "commands": [
+      {
+        "owner": "updates-evidence",
+        "symbol": "EvidenceService.createFromGitHubSuggestion",
+        "path": "packages/updates-evidence/src/evidence-service.ts",
+        "apiPath": "POST /api/v1/evidence/github-suggestions",
+        "permission": "UpdatesEvidencePolicyGuard",
+        "positiveTests": ["packages/updates-evidence/src/evidence-service.integration.test.ts"],
+        "negativeTests": ["apps/api/src/updates-evidence/updates-evidence.e2e.integration.test.ts"]
+      },
+      {
+        "owner": "updates-evidence",
+        "symbol": "EvidenceService.confirm",
+        "path": "packages/updates-evidence/src/evidence-service.ts",
+        "apiPath": "POST /api/v1/evidence/:evidenceId/confirm",
+        "permission": "UpdatesEvidencePolicyGuard",
+        "positiveTests": ["packages/updates-evidence/src/evidence-service.integration.test.ts"],
+        "negativeTests": ["apps/api/src/updates-evidence/updates-evidence.e2e.integration.test.ts"]
+      },
+      {
+        "owner": "updates-evidence",
+        "symbol": "EvidenceService.reject",
+        "path": "packages/updates-evidence/src/evidence-service.ts",
+        "apiPath": "POST /api/v1/evidence/:evidenceId/reject",
+        "permission": "UpdatesEvidencePolicyGuard",
+        "positiveTests": ["packages/updates-evidence/src/evidence-service.integration.test.ts"],
+        "negativeTests": ["apps/api/src/updates-evidence/updates-evidence.e2e.integration.test.ts"]
+      }
+    ],
+    "states": ["loading", "draft", "pending", "confirmed", "stale", "error"],
+    "workSignals": ["connector.github_fact_verified", "domain.evidence_state_changed"],
+    "experienceEvents": [
+      "experience.confirm",
+      "experience.correct",
+      "experience.dismiss",
+      "experience.retry"
+    ],
+    "sse": {
+      "disposition": "PHASE_1",
+      "reason": "Suggestion arrival and decision receipts stream after G0."
+    },
+    "outputFields": [
+      "sourceReference",
+      "supportedClaim",
+      "projectId",
+      "workItemId",
+      "verificationState"
+    ],
+    "tests": {
+      "positive": [
+        "packages/github-integration/src/evidence-suggestion-service.integration.test.ts"
+      ],
+      "negative": ["apps/api/src/updates-evidence/updates-evidence.e2e.integration.test.ts"]
+    },
+    "rollback": "Use manual evidence upload/link and preserve GitHub as an unconfirmed source fact."
+  },
+  {
+    "schemaVersion": 1,
+    "handoffId": "P2-WORK-WORKSPACE",
+    "capabilityIds": ["CAP-013", "CAP-014"],
+    "phase": "P2",
+    "surface": "work-list-board-calendar-detail",
+    "assistanceModes": ["deterministic_assistance", "manual_only"],
+    "reader": {
+      "kind": "EXISTING",
+      "owner": "work-items",
+      "symbol": "WorkItemQueryService.listWorkspace",
+      "path": "packages/work-items/src/query-service.ts",
+      "apiPath": "GET /api/v1/work-items"
+    },
+    "commands": [
+      {
+        "owner": "work-items",
+        "symbol": "WorkItemService.update",
+        "path": "packages/work-items/src/service.ts",
+        "apiPath": "PATCH /api/v1/work-items/:workItemId",
+        "permission": "WorkItemsPolicyGuard",
+        "positiveTests": ["packages/work-items/src/service.integration.test.ts"],
+        "negativeTests": ["apps/api/src/work-items/work-items.controller.test.ts"]
+      },
+      {
+        "owner": "work-items",
+        "symbol": "WorkItemService.assign",
+        "path": "packages/work-items/src/service.ts",
+        "apiPath": "PATCH /api/v1/work-items/:workItemId/assignee",
+        "permission": "WorkItemsPolicyGuard",
+        "positiveTests": ["packages/work-items/src/service.integration.test.ts"],
+        "negativeTests": ["apps/api/src/work-items/work-items.controller.test.ts"]
+      }
+    ],
+    "states": ["loading", "ready", "empty", "pending", "stale", "error"],
+    "workSignals": ["domain.work_item_changed", "user.domain_command_requested"],
+    "experienceEvents": ["experience.submit", "experience.confirm", "experience.correct"],
+    "sse": {
+      "disposition": "PHASE_2",
+      "reason": "Workspace refresh may consume the Phase 1 durable stream."
+    },
+    "outputFields": ["items", "layout", "cursor", "allowedActions", "projectContext"],
+    "tests": {
+      "positive": ["packages/work-items/src/query-service.test.ts"],
+      "negative": ["apps/api/src/work-items/work-items.controller.test.ts"]
+    },
+    "rollback": "Retain the existing Tasks route and its list, board, calendar, and detail surfaces."
+  }
+]

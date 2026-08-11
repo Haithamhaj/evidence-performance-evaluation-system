@@ -22,11 +22,11 @@ only in stories/tests. All new dependency versions are exact pins.
 **Approved sources:**
 
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-master-plan.md`
-- `docs/product/AI_NATIVE_FRONTEND_EXPERIENCE_BLUEPRINT.md`
-- `docs/product/AI_NATIVE_FRONTEND_HANDOFF_SCHEMA.md`
-- `docs/product/AI_NATIVE_FRONTEND_HANDOFF_REGISTER.md`
-- `docs/product/AI_NATIVE_FRONTEND_CAPABILITY_MATRIX.md`
-- `docs/product/AI_NATIVE_FRONTEND_EVENT_TAXONOMY.md`
+- `docs/product/AI_NATIVE_EXPERIENCE_BLUEPRINT.md`
+- `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
+- `docs/product/AI_NATIVE_PHASE_1_3_HANDOFFS.md`
+- `docs/product/ai-native-frontend-capabilities.json`
+- `docs/product/AI_NATIVE_EVENT_TAXONOMY.md`
 - `docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`
 - `docs/reviews/AI_NATIVE_FRONTEND_D0_EVIDENCE.md`
 
