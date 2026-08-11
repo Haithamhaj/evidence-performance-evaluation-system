@@ -44,6 +44,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:coverage
+      - run: pnpm test:storybook
 
   build:
     needs: quality
@@ -60,6 +61,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm build:storybook
 
   integration:
     needs: [quality, build]

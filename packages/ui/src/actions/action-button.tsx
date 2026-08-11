@@ -5,6 +5,13 @@ import { Button } from "react-aria-components/Button";
 
 import styles from "./action-button.module.css";
 
+const variantClassNames = {
+  critical: styles.critical!,
+  primary: styles.primary!,
+  quiet: styles.quiet!,
+  secondary: "",
+} as const;
+
 export type ActionButtonProperties = Readonly<{
   "aria-label"?: string;
   children: ReactNode;
@@ -28,7 +35,7 @@ export function ActionButton({
     {
       ...properties,
       ...(onPress === undefined ? {} : { onPress }),
-      className: `${styles.button!} ${styles[variant]!}`,
+      className: `${styles.button!} ${variantClassNames[variant]}`.trim(),
       isDisabled,
       type,
     },

@@ -5,8 +5,10 @@ import {
   Check,
   ChevronDown,
   CircleHelp,
+  FileText,
   FlaskConical,
   Folder,
+  GitPullRequest,
   Globe,
   Plus,
   Search,
@@ -23,7 +25,9 @@ export type ProductIconName =
   | "check"
   | "chevron-down"
   | "close"
+  | "document"
   | "folder"
+  | "github"
   | "globe"
   | "help"
   | "plus"
@@ -39,7 +43,9 @@ const icons = {
   check: Check,
   "chevron-down": ChevronDown,
   close: X,
+  document: FileText,
   folder: Folder,
+  github: GitPullRequest,
   globe: Globe,
   help: CircleHelp,
   plus: Plus,
