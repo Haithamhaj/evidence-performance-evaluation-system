@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "status": "phase_0a_definition_only",
+  "unknownWorkSignalPolicy": "fail_closed",
+  "telemetryCollectionEnabled": false,
+  "telemetryDestinations": ["approved_product_analytics_sink"],
+  "workSignals": [
+    {
+      "key": "domain.work_item_changed",
+      "class": "domain",
+      "meaning": "An authorized Work Item state or dependency changed.",
+      "dedupeKey": "domain+entity+version",
+      "freshness": "current_entity_version"
+    },
+    {
+      "key": "domain.project_context_changed",
+      "class": "domain",
+      "meaning": "An approved Project, document, criteria, contract, ownership, or snapshot state changed.",
+      "dedupeKey": "domain+entity+version",
+      "freshness": "current_entity_version"
+    },
+    {
+      "key": "domain.update_confirmed",
+      "class": "domain",
+      "meaning": "An employee confirmed an Update through the owning domain.",
+      "dedupeKey": "update+version",
+      "freshness": "append_only"
+    },
+    {
+      "key": "domain.evidence_state_changed",
+      "class": "domain",
+      "meaning": "A governed Evidence candidate or confirmed record changed.",
+      "dedupeKey": "evidence+version",
+      "freshness": "current_candidate_or_record_version"
+    },
+    {
+      "key": "domain.research_lifecycle_changed",
+      "class": "domain",
+      "meaning": "A Research, Experiment, conclusion, decision, or applied-learning state changed.",
+      "dedupeKey": "research_entity+version",
+      "freshness": "current_entity_version"
+    },
+    {
+      "key": "domain.continuity_state_changed",
+      "class": "domain",
+      "meaning": "Leave, handover, delegation, return, deactivation, or reassignment state changed.",
+      "dedupeKey": "continuity_entity+version",
+      "freshness": "current_entity_version"
+    },
+    {
+      "key": "connector.google_context_changed",
+      "class": "connector",
+      "meaning": "An authorized private Gmail/Calendar context item or connection state changed.",
+      "dedupeKey": "connector+source_id+source_version",
+      "freshness": "connector_sync_time"
+    },
+    {
+      "key": "connector.github_fact_verified",
+      "class": "connector",
+      "meaning": "A signed and deduplicated GitHub fact passed source verification.",
+      "dedupeKey": "installation+delivery_or_source_id",
+      "freshness": "binding_and_source_version"
+    },
+    {
+      "key": "scheduled.today_refresh_due",
+      "class": "scheduled_work_check",
+      "meaning": "A bounded Today recomposition is due for an authorized user.",
+      "dedupeKey": "user+schedule_window",
+      "freshness": "schedule_window"
+    },
+    {
+      "key": "scheduled.checkin_or_readiness_due",
+      "class": "scheduled_work_check",
+      "meaning": "A Thursday or monthly source-backed operational check is due.",
+      "dedupeKey": "scope+schedule_window",
+      "freshness": "schedule_window"
+    },
+    {
+      "key": "scheduled.responsibility_expiry_due",
+      "class": "scheduled_work_check",
+      "meaning": "A time-bounded responsibility or delegation requires deterministic review.",
+      "dedupeKey": "responsibility_window+schedule_window",
+      "freshness": "effective_time"
+    },
+    {
+      "key": "user.capture_submitted",
+      "class": "user_domain_action",
+      "meaning": "The user submitted raw input to the private or governed capture lifecycle.",
+      "dedupeKey": "actor+operation_id",
+      "freshness": "operation_version"
+    },
+    {
+      "key": "user.domain_command_requested",
+      "class": "user_domain_action",
+      "meaning": "The user explicitly requested a closed owner-domain command.",
+      "dedupeKey": "actor+command+idempotency_key",
+      "freshness": "expected_version"
+    },
+    {
+      "key": "user.assistance_requested",
+      "class": "user_domain_action",
+      "meaning": "The user explicitly requested bounded AI assistance inside an authorized workflow.",
+      "dedupeKey": "actor+capability+operation_id",
+      "freshness": "source_version"
+    }
+  ],
+  "experienceWorkflowEvents": [
+    {
+      "key": "experience.confirm",
+      "meaning": "Confirm a prepared candidate through its owner-domain command.",
+      "mutationRequirements": ["expected_version", "idempotency_key", "authorized_command"]
+    },
+    {
+      "key": "experience.correct",
+      "meaning": "Correct a candidate or relationship without rewriting protected history.",
+      "mutationRequirements": ["expected_version", "idempotency_key", "authorized_command"]
+    },
+    {
+      "key": "experience.dismiss",
+      "meaning": "Dismiss a review candidate with a durable candidate decision.",
+      "mutationRequirements": ["expected_version", "idempotency_key", "authorized_command"]
+    },
+    {
+      "key": "experience.retry",
+      "meaning": "Retry a recoverable bounded operation without duplicating prior effects.",
+      "mutationRequirements": ["operation_id", "idempotency_key"]
+    },
+    {
+      "key": "experience.submit",
+      "meaning": "Submit a human-authored or confirmed draft to its owning domain.",
+      "mutationRequirements": ["expected_version", "idempotency_key", "authorized_command"]
+    },
+    {
+      "key": "experience.recovery",
+      "meaning": "Select a safe reconnect, reload, manual fallback, or support path.",
+      "mutationRequirements": ["safe_reason_code"]
+    }
+  ],
+  "productTelemetryEligible": [
+    {
+      "key": "telemetry.today_loaded",
+      "purpose": "Measure bounded Today availability and render performance.",
+      "allowedData": ["locale", "viewport_class", "duration_bucket", "result_class"]
+    },
+    {
+      "key": "telemetry.manual_fallback_opened",
+      "purpose": "Test whether a manual path is discoverable when assistance is unavailable.",
+      "allowedData": ["capability_id", "surface", "reason_code"]
+    },
+    {
+      "key": "telemetry.recovery_completed",
+      "purpose": "Measure whether a safe recovery path succeeds.",
+      "allowedData": ["capability_id", "recovery_mode", "result_class"]
+    },
+    {
+      "key": "telemetry.prepared_item_decided",
+      "purpose": "Measure whether the prepared-item interaction is understandable.",
+      "allowedData": ["capability_id", "decision_class", "surface"]
+    },
+    {
+      "key": "telemetry.capture_completed",
+      "purpose": "Measure universal capture completion without content.",
+      "allowedData": ["input_type", "surface", "result_class"]
+    },
+    {
+      "key": "telemetry.preference_changed",
+      "purpose": "Measure explicit product preference changes.",
+      "allowedData": ["preference_key", "new_state"]
+    },
+    {
+      "key": "telemetry.surface_performance",
+      "purpose": "Measure bounded frontend response performance.",
+      "allowedData": ["surface", "duration_bucket", "result_class"]
+    }
+  ],
+  "forbiddenTelemetry": {
+    "interactionKeys": [
+      "hover",
+      "scroll",
+      "dwell",
+      "active_time",
+      "search_focus",
+      "raw_navigation_trail"
+    ],
+    "contentFields": [
+      "content_body",
+      "rating",
+      "readiness_value",
+      "private_source_url",
+      "prompt",
+      "model_output",
+      "employee_performance_inference"
+    ],
+    "destinations": [
+      "experience_orchestrator",
+      "autonomy_policy",
+      "project_progress",
+      "evidence_fact",
+      "evaluation",
+      "manager_decision",
+      "protected_command"
+    ]
+  }
+}
