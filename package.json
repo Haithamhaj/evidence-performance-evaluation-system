@@ -68,6 +68,7 @@
     "test:ai": "vitest run --project ai-evals",
     "validate:task-graph": "python3 scripts/validate_task_graph.py",
     "validate:engine-capabilities": "node scripts/validate-engine-capability-register.mjs",
+    "validate:frontend-capabilities": "node scripts/validate-ai-native-frontend-capabilities.mjs",
     "validate:protected-api": "node scripts/validate-protected-api-matrix.mjs",
     "verify": "pnpm validate:task-graph && pnpm scan:secrets && pnpm scan:performance-inputs && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
   },
