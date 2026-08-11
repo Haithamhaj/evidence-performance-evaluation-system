@@ -1,0 +1,49 @@
+@layer primitives {
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ui-space-2);
+    min-block-size: var(--ui-target-min);
+    min-inline-size: var(--ui-target-min);
+    padding-block: var(--ui-space-2);
+    padding-inline: var(--ui-space-4);
+    color: var(--ui-color-text);
+    background: var(--ui-color-surface);
+    border: var(--ui-border-thin) solid var(--ui-color-border-strong);
+    border-radius: var(--ui-radius-control);
+    font-weight: 700;
+    line-height: var(--ui-line-compact);
+    cursor: pointer;
+  }
+
+  .primary {
+    color: var(--ui-color-text-inverse);
+    background: var(--ui-color-accent);
+    border-color: var(--ui-color-accent);
+  }
+
+  .critical {
+    color: var(--ui-color-text-inverse);
+    background: var(--ui-color-status-critical);
+    border-color: var(--ui-color-status-critical);
+  }
+
+  .quiet {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .button[data-hovered]:not([data-disabled]) {
+    border-color: var(--ui-color-accent);
+  }
+
+  .primary[data-hovered]:not([data-disabled]) {
+    background: var(--ui-color-accent-hover);
+  }
+
+  .button[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+}

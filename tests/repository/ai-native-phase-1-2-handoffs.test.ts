@@ -71,6 +71,15 @@ describe("AI-native Phase 1–2 implementation handoffs", () => {
       },
     },
     {
+      name: "incorrect authoritative API path",
+      expected: /apiPath must be/u,
+      mutateHandoffs: (rows: JsonRecord[]) => {
+        const connectedContext = rows.find((row) => row.handoffId === "P1-CONNECTED-CONTEXT")!;
+        const reader = connectedContext.reader as JsonRecord;
+        reader.apiPath = "GET /api/v1/workspace/connected-work/context-items";
+      },
+    },
+    {
       name: "incorrect authoritative status totals",
       expected: /status counts/u,
       mutateCapabilities: (rows: JsonRecord[]) => {

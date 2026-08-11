@@ -39,6 +39,17 @@ const expectedStatusCounts = {
   EXTERNAL_GATE: 2,
   DEFERRED_APPROVED: 1,
 };
+const authoritativeApiPaths = new Map([
+  ["ConnectedWorkContextQueryService.review", "GET /api/v1/connected-work/items"],
+  [
+    "ConnectedWorkConnectionService.linkProject",
+    "PUT /api/v1/connected-work/items/:id/project-link",
+  ],
+  [
+    "ConnectedWorkConnectionService.unlinkProject",
+    "DELETE /api/v1/connected-work/items/:id/project-link",
+  ],
+]);
 
 function fail(message) {
   throw new Error(`AI-native Phase 1–2 handoff validation failed: ${message}`);
@@ -117,6 +128,10 @@ for (const record of records) {
       }
     }
     await access(record.reader.path);
+    const authoritativePath = authoritativeApiPaths.get(record.reader.symbol);
+    if (authoritativePath !== undefined && record.reader.apiPath !== authoritativePath) {
+      fail(`${record.handoffId}.reader.apiPath must be ${authoritativePath}`);
+    }
   } else if (
     typeof record.reader.reason !== "string" ||
     !record.reader.reason.trim() ||
@@ -145,6 +160,10 @@ for (const record of records) {
     nonEmptyStrings(command.positiveTests, `${label}.positiveTests`);
     nonEmptyStrings(command.negativeTests, `${label}.negativeTests`);
     await access(command.path);
+    const authoritativePath = authoritativeApiPaths.get(command.symbol);
+    if (authoritativePath !== undefined && command.apiPath !== authoritativePath) {
+      fail(`${label}.apiPath must be ${authoritativePath}`);
+    }
     for (const testPath of [...command.positiveTests, ...command.negativeTests])
       await access(testPath);
   }

@@ -274,14 +274,14 @@
       "owner": "connected-work-context",
       "symbol": "ConnectedWorkContextQueryService.review",
       "path": "packages/connected-work-context/src/query-service.ts",
-      "apiPath": "GET /api/v1/workspace/connected-work/context-items"
+      "apiPath": "GET /api/v1/connected-work/items"
     },
     "commands": [
       {
         "owner": "connected-work-context",
         "symbol": "ConnectedWorkConnectionService.linkProject",
         "path": "packages/connected-work-context/src/connection-service.ts",
-        "apiPath": "PUT /api/v1/workspace/connected-work/context-items/:id/project-link",
+        "apiPath": "PUT /api/v1/connected-work/items/:id/project-link",
         "permission": "ConnectedWorkContextPolicyGuard",
         "positiveTests": [
           "packages/connected-work-context/src/connection-service.integration.test.ts"
@@ -294,7 +294,7 @@
         "owner": "connected-work-context",
         "symbol": "ConnectedWorkConnectionService.unlinkProject",
         "path": "packages/connected-work-context/src/connection-service.ts",
-        "apiPath": "DELETE /api/v1/workspace/connected-work/context-items/:id/project-link",
+        "apiPath": "DELETE /api/v1/connected-work/items/:id/project-link",
         "permission": "ConnectedWorkContextPolicyGuard",
         "positiveTests": [
           "packages/connected-work-context/src/connection-service.integration.test.ts"

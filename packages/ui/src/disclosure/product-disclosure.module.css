@@ -1,0 +1,38 @@
+@layer primitives {
+  .disclosure {
+    border-block-end: var(--ui-border-thin) solid var(--ui-color-border);
+  }
+
+  .trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    inline-size: 100%;
+    min-block-size: var(--ui-target-min);
+    padding-block: var(--ui-space-2);
+    padding-inline: 0;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    font-weight: 750;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .indicator {
+    transition: transform var(--ui-motion-duration) var(--ui-motion-ease-standard);
+  }
+
+  .trigger[aria-expanded="true"] .indicator {
+    transform: rotate(180deg);
+  }
+
+  :global([dir="rtl"]) .trigger[aria-expanded="true"] .indicator {
+    transform: rotate(-180deg);
+  }
+
+  .panel {
+    padding-block-end: var(--ui-space-4);
+  }
+}

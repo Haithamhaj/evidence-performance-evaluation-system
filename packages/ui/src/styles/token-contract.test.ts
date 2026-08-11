@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const read = (path: string) => readFileSync(path, "utf8");
+const read = (name: string) => readFileSync(new URL(name, import.meta.url), "utf8");
 
 describe("Command Brief token contract", () => {
   it("defines semantic color, density, focus, typography, and layer tokens", () => {
-    const tokens = read("packages/ui/src/styles/tokens.css");
+    const tokens = read("./tokens.css");
 
     for (const token of [
       "--ui-color-canvas",
@@ -27,11 +27,13 @@ describe("Command Brief token contract", () => {
     ]) {
       expect(tokens).toContain(token);
     }
-    expect(tokens).toContain("@layer reset, tokens, foundation, primitives, product, utilities, legacy");
+    expect(tokens).toContain(
+      "@layer reset, tokens, foundation, primitives, product, utilities, legacy",
+    );
   });
 
   it("keeps foundation layout logical and preserves visible focus and touch targets", () => {
-    const foundation = read("packages/ui/src/styles/foundation.css");
+    const foundation = read("./foundation.css");
 
     expect(foundation).toContain("padding-inline");
     expect(foundation).toContain("border-block-end");
@@ -41,8 +43,8 @@ describe("Command Brief token contract", () => {
   });
 
   it("provides semantic motion with reduced-motion and high-contrast safeguards", () => {
-    const motion = read("packages/ui/src/styles/motion.css");
-    const tokens = read("packages/ui/src/styles/tokens.css");
+    const motion = read("./motion.css");
+    const tokens = read("./tokens.css");
 
     expect(motion).toContain("prefers-reduced-motion: reduce");
     expect(motion).toContain("--ui-motion-duration");
@@ -51,7 +53,7 @@ describe("Command Brief token contract", () => {
   });
 
   it("keeps legacy token aliases while temporary routes remain", () => {
-    const tokens = read("packages/ui/src/styles/tokens.css");
+    const tokens = read("./tokens.css");
 
     expect(tokens).toContain("--color-canvas: var(--ui-color-canvas)");
     expect(tokens).toContain("--color-accent: var(--ui-color-accent)");

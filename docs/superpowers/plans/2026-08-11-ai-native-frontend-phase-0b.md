@@ -283,7 +283,7 @@ Use exact pins verified on 2026-08-11:
 ```text
 react-aria-components 1.20.0
 lucide-react 1.31.0
-motion 13.1.0
+motion 13.0.0
 ```
 
 React Aria is accepted only if the test proves React 19/Next 16 SSR and hydration, Arabic/RTL,
