@@ -53,11 +53,13 @@ all Phase 1 runtime work blocked until G0 is explicitly approved.
 - Positive D0 authorized Phase 0B planning. The bounded T078–T086 implementation plan now covers
   exact handoffs, tokens, primitives, Storybook/testing, boundaries, the Stable Shell, protected
   Inspection Mode, route retirement, the Phase 1 graph, and G0 evidence.
-- T078–T084 are implemented on the Phase 0B branch: exact handoffs, Command Brief tokens, accessible
+- T078–T085 are implemented on the Phase 0B branch: exact handoffs, Command Brief tokens, accessible
   primitives, Storybook/visual QA, frontend/telemetry boundaries, the role-aware Stable Shell, and
-  the protected Inspection Mode plus a 20/20 route-retirement ledger are verified.
-- The executable T087–T094 Phase 1 vertical-slice graph is now defined and machine-checked against
-  approved handoff and capability IDs; T085 verification is the active checkpoint.
+  the protected Inspection Mode plus a 20/20 route-retirement ledger and executable Phase 1 graph
+  are verified.
+- T086 technical evidence is complete: the 44-capability distribution, ten exact handoffs, 20/20
+  retained routes, 94-task graph, 1,427 unit tests, five Storybook tests, four Stable Shell E2E
+  journeys, lint, typecheck, builds, source boundaries, and design QA pass.
 - Phase 1 Today/Agent/runtime work remains blocked until Phase 0B passes G0.
 
 ## Active Risks
@@ -70,8 +72,9 @@ all Phase 1 runtime work blocked until G0 is explicitly approved.
   review; normal Arabic/RTL foundations remain required in the final frontend.
 - The Stable Shell is proven at desktop and 390px in English/Arabic, but final Intelligent Today and
   daily-use behavior remain intentionally unimplemented until Phase 1.
-- Distinct daily-employee and manager/Project-owner sessions have not yet occurred; run them as a
-  bounded pre-G0 validation without reopening the direction absent a confirmed P0/P1 issue.
+- The Product Owner completed the employee/D0 review; the manager/Project-owner journey is technically
+  verified but had no separate independent manager participant. G0 must acknowledge this participant
+  overlap or request a direct manager session.
 
 ## Protected Areas
 
@@ -84,9 +87,9 @@ all Phase 1 runtime work blocked until G0 is explicitly approved.
 
 ## Next Recommended Action
 
-Finish T085 verification, run the single affected G0 matrix and the two bounded human sessions,
-publish G0 evidence, push the Phase 0B branch, and stop for the Product Owner decision without
-starting Phase 1 runtime.
+Review the runnable employee and manager Stable Shell stories plus
+`docs/reviews/AI_NATIVE_FRONTEND_G0_EVIDENCE.md`, then issue the explicit Product Owner G0 decision.
+Do not start Phase 1 runtime, merge, or remove retained routes before that decision.
 
 ## Critical References
 

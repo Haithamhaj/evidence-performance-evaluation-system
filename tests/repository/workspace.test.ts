@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
@@ -36,20 +37,13 @@ const webForbiddenImports = webForbiddenPackages.flatMap((packageName) => [
   `${packageName}/internal`,
 ]);
 
-async function pathExists(filePath: string) {
-  return access(filePath).then(
-    () => true,
-    () => false,
-  );
-}
-
 describe("workspace contract", () => {
   it("never discovers dependency test suites through workspace links", async () => {
     const vitestWorkspace = await readFile("vitest.workspace.ts", "utf8");
 
-    expect(vitestWorkspace).toContain(
-      'exclude: ["**/node_modules/**", "**/*.integration.test.ts"]',
-    );
+    expect(vitestWorkspace).toContain('"**/node_modules/**"');
+    expect(vitestWorkspace).toContain('"**/*.integration.test.ts"');
+    expect(vitestWorkspace).toContain('"**/*.storybook.test.tsx"');
   });
 
   it("declares every Phase 0 workspace with one public entry point", async () => {
@@ -103,45 +97,59 @@ describe("workspace contract", () => {
   }, 60_000);
 
   it("excludes generated output from source-boundary validation", async () => {
-    const nextDirectoryExisted = await pathExists("apps/web/.next");
-    await mkdir("apps/web/.next", { recursive: true });
-    const fixtureDirectory = await mkdtemp(
-      path.join("apps/web/.next", "boundary-generated-fixture-"),
-    );
+    const fixtureRoot = await mkdtemp(path.join(tmpdir(), "evaluation-boundary-generated-"));
+    const fixtureDirectory = path.join(fixtureRoot, "apps/web/.next/generated");
+    const storybookDirectory = path.join(fixtureRoot, "apps/web/storybook-static/assets");
+    await mkdir(fixtureDirectory, { recursive: true });
+    await mkdir(storybookDirectory, { recursive: true });
+    await mkdir(path.join(fixtureRoot, "apps/web/src"), { recursive: true });
     const generatedFixture = path.join(fixtureDirectory, "forbidden.ts");
     await writeFile(
       generatedFixture,
       'import generated from "@evaluation/database/private";\nvoid generated;\n',
     );
+    await writeFile(
+      path.join(storybookDirectory, "forbidden.js"),
+      'import generated from "@evaluation/database/private";\nvoid generated;\n',
+    );
+    await writeFile(
+      path.join(fixtureRoot, "apps/web/src/allowed.ts"),
+      "export const valid = true;\n",
+    );
 
     try {
-      const { stdout } = await execFileAsync(process.execPath, ["scripts/validate-boundaries.mjs"]);
+      const { stdout } = await execFileAsync(process.execPath, [
+        "scripts/validate-boundaries.mjs",
+        "--root",
+        fixtureRoot,
+      ]);
       expect(stdout).toContain("BOUNDARIES VALID");
     } finally {
-      await rm(fixtureDirectory, { force: true, recursive: true });
-      if (!nextDirectoryExisted) {
-        await rm("apps/web/.next", { force: true, recursive: true });
-      }
+      await rm(fixtureRoot, { force: true, recursive: true });
     }
   }, 30_000);
 
   it.each(webForbiddenImports)(
     "rejects Web imports of %s",
     async (specifier) => {
-      const fixtureDirectory = await mkdtemp(
-        path.join("apps/web/src", ".boundary-forbidden-fixture-"),
-      );
+      const fixtureRoot = await mkdtemp(path.join(tmpdir(), "evaluation-boundary-forbidden-"));
+      const fixtureDirectory = path.join(fixtureRoot, "apps/web/src");
+      await mkdir(fixtureDirectory, { recursive: true });
       const forbiddenFixture = path.join(fixtureDirectory, "forbidden.ts");
       await writeFile(forbiddenFixture, `import "${specifier}";\n`);
 
       try {
         await expect(
-          execFileAsync(process.execPath, ["scripts/validate-boundaries.mjs"]),
+          execFileAsync(process.execPath, [
+            "scripts/validate-boundaries.mjs",
+            "--root",
+            fixtureRoot,
+          ]),
         ).rejects.toMatchObject({
           stderr: expect.stringContaining("BOUNDARY_WEB_SERVER_IMPORT"),
         });
       } finally {
-        await rm(fixtureDirectory, { force: true, recursive: true });
+        await rm(fixtureRoot, { force: true, recursive: true });
       }
     },
     30_000,

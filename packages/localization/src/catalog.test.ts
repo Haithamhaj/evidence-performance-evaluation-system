@@ -29,6 +29,7 @@ describe("localization catalogs", () => {
   it("keeps the stable AI-native shell vocabulary in both locales", async () => {
     const requiredKeys = [
       "shell.brand",
+      "shell.brandMark",
       "shell.skipToContent",
       "shell.availableNextSlice",
       "shell.nav.today",

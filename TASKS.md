@@ -854,7 +854,7 @@ The detailed authority is
 
 ## T085 — Publish the Executable Phase 1 Graph
 
-**Status:** In progress — the ordered T087–T094 vertical-slice plan and coverage test are being finalized.
+**Status:** Complete — the ordered T087–T094 vertical-slice plan and machine-checked coverage graph are published.
 **Priority:** P1
 **Dependencies:** T078–T084
 **Purpose:** Make every Phase 1 slice visible, source-backed, reversible, testable, and reviewable.
@@ -862,7 +862,7 @@ The detailed authority is
 
 ## T086 — Prove Gate G0
 
-**Status:** Not started — blocked until T085 is complete.
+**Status:** Technical evidence complete — awaiting the Product Owner's explicit G0 decision; Phase 1 remains blocked.
 **Priority:** P0
 **Dependencies:** T078–T085
 **Purpose:** Run the frontend-foundation acceptance matrix once and stop for the Product Owner decision.

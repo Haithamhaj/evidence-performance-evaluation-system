@@ -116,9 +116,9 @@ describe("local database reset guard", () => {
         "",
       ].join("\n"),
     );
-    expect(vitestWorkspace).toContain(
-      'exclude: ["**/node_modules/**", "**/*.integration.test.ts"]',
-    );
+    expect(vitestWorkspace).toContain('"**/node_modules/**"');
+    expect(vitestWorkspace).toContain('"**/*.integration.test.ts"');
+    expect(vitestWorkspace).toContain('"**/*.storybook.test.tsx"');
     expect(vitestWorkspace).toContain('"packages/**/*.integration.test.ts"');
   });
 

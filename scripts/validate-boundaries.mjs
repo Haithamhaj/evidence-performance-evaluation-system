@@ -9,7 +9,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 let scanRoot = repositoryRoot;
 const sourceRoots = ["apps", "packages"];
 const sourceExtensions = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".fixture"]);
-const ignoredDirectories = new Set([".next", ".turbo", "dist", "node_modules"]);
+const ignoredDirectories = new Set([".next", ".turbo", "dist", "node_modules", "storybook-static"]);
 const webForbiddenPackages = [
   "@evaluation/database",
   "@evaluation/ai-routing",

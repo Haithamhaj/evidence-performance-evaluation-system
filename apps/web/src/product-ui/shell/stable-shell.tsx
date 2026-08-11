@@ -34,7 +34,7 @@ export function StableShell({
       <aside className={styles.sidebar!}>
         <a className={styles.brand!} data-focus-id="brand" href={`/${locale}`}>
           <span aria-hidden="true" className={styles.brandMark!}>
-            CB
+            {catalog["shell.brandMark"]}
           </span>
           <span>{catalog["shell.brand"]}</span>
         </a>
