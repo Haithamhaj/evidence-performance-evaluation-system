@@ -2,14 +2,14 @@
 
 ## Current Goal
 
-Prepare the separate AI-Native Frontend Phase 0B foundation plan after the Product Owner approved
-Gate `D0`. Keep production frontend runtime work blocked until Phase 0B establishes the foundation
-and passes Gate `G0`.
+Review and approve the separate AI-Native Frontend Phase 0B implementation plan after the Product
+Owner approved Gate `D0`. Keep Phase 1 runtime work blocked until Phase 0B establishes the technical
+foundation and passes Gate `G0`.
 
 ## Current Reality
 
-- Phase 0, Phase 1, Phase 2, and engine checkpoints E3–E7 are merged through `main` baseline
-  `a631eaa81a5b462f329e5917c5be3301281f970a`.
+- Phase 0, Phase 1, Phase 2, engine checkpoints E3–E7, and the approved Phase 0A direction are merged
+  through `main` baseline `e211ad4`.
 - E7 state is `READY_FOR_FINAL_FRONTEND_DESIGN`: 44 capabilities reconcile to 39 complete,
   2 approved partial, 2 external gates, and 1 approved deferred; none remains planned.
 - The pilot engine is technically complete and connected across daily work, Projects, Research,
@@ -51,8 +51,10 @@ and passes Gate `G0`.
   product interaction data cannot become project progress, evidence, evaluation input, or authority.
 - Command Brief is the selected D0 visual direction. It remains a non-production prototype and does
   not approve production tokens, components, dependencies, navigation, or runtime contracts.
-- Positive D0 authorizes Phase 0B planning only. Production Today/runtime work remains blocked until
-  the Phase 0B foundation passes G0.
+- Positive D0 authorized Phase 0B planning. The bounded T078–T086 implementation plan now covers
+  exact handoffs, tokens, primitives, Storybook/testing, boundaries, the Stable Shell, protected
+  Inspection Mode, route retirement, the Phase 1 graph, and G0 evidence.
+- Phase 1 Today/Agent/runtime work remains blocked until Phase 0B passes G0.
 
 ## Active Risks
 
@@ -78,9 +80,9 @@ and passes Gate `G0`.
 
 ## Next Recommended Action
 
-Write the separate Phase 0B foundation plan from the approved Command Brief direction. Include the
-two bounded human validation sessions before G0 and do not begin Phase 1 runtime or production Today
-implementation in the Phase 0B plan.
+Product Owner reviews `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0b.md`. After
+approval, execute it in four Fast Controlled Execution bundles, then stop at the G0 decision without
+starting Phase 1 runtime.
 
 ## Critical References
 
@@ -97,6 +99,7 @@ implementation in the Phase 0B plan.
 - `docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-master-plan.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0a.md`
+- `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0b.md`
 - `docs/reviews/ENGINE_BIDIRECTIONAL_TRACE.md`
 - `docs/reviews/ENGINE_FINAL_VERIFICATION.md`
 - `docs/reviews/ENGINE_COMPLETION_AUDIT.md`
