@@ -1,3 +1,5 @@
+/* global console */
+
 import { readFile } from "node:fs/promises";
 
 const registerPath = "docs/product/ENGINE_FEATURE_REGISTER.md";

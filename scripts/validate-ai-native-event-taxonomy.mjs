@@ -1,3 +1,5 @@
+/* global console */
+
 import { readFile } from "node:fs/promises";
 
 const path = "docs/product/ai-native-event-taxonomy.json";
