@@ -5,6 +5,10 @@
 AI-Native Frontend master plan  
 **Scope:** Important Phase 1–3 user moments only; no production runtime contract is created here.
 
+Persona-level positive/negative visibility is defined in `AI_NATIVE_PERSONA_VISIBILITY_MAP.md`.
+Action-level strictest autonomy is defined in `AI_NATIVE_INITIAL_AUTONOMY_MAP.md`; these experience
+classifications never replace server-side permission or owner-domain authority.
+
 ## Reading Rules
 
 - A handoff describes one user moment and smallest useful action, not an entire backend capability.
