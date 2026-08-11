@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Review and accept the E7 engine handoff, then build the final intelligent frontend from verified user
-journeys and protected public contracts. Keep live-provider setup, Arabic evaluation release,
-production launch, and shared restore behind their existing gates.
+Prepare the separate AI-Native Frontend Phase 0B foundation plan after the Product Owner approved
+Gate `D0`. Keep production frontend runtime work blocked until Phase 0B establishes the foundation
+and passes Gate `G0`.
 
 ## Current Reality
 
@@ -20,6 +20,17 @@ production launch, and shared restore behind their existing gates.
   `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`; it must not recreate business rules in the browser.
 - ClickUp remains a clean-room interaction reference only. No ClickUp code, schema, data, asset, API,
   or dependency is part of the product.
+- The approved Phase 0A master plan and immutable engine source receipt are stored in-repository.
+- The Phase 0A branch starts from clean `main` at `2eee638958294b790c75375d564d5c03188062f2`.
+- Product Owner selected visual direction 2, **Command Brief**, from the required three independent
+  Today directions.
+- The standalone synthetic Command Brief prototype now covers English/Arabic, RTL, 390px, role-visible
+  navigation, Today state previews, decision, prepared draft, capture, recovery, focus return, and
+  What Changed disclosure. Its focused Playwright and design-QA gates are green.
+- The Product Owner reviewed the runnable Arabic employee route and approved D0 on 2026-08-11.
+- D0 evidence is transparent: the Product Owner also provided the less-technical/employee-journey
+  perspective, architecture feasibility was technically reviewed, and distinct employee/manager
+  sessions remain a bounded pre-G0 follow-up.
 
 ## Active Decisions
 
@@ -34,6 +45,14 @@ production launch, and shared restore behind their existing gates.
   `IDENTIFIED`.
 - Preserve the modular monolith and public domain ownership; no microservice, generic activity
   platform, second store, or package-per-screen architecture.
+- Phase 0A is documentation and an isolated synthetic prototype only. It cannot select production
+  tokens, primitives, components, dependencies, navigation, or agent runtime contracts.
+- Work Signals, Experience Workflow Events, and Product Telemetry remain three separate systems;
+  product interaction data cannot become project progress, evidence, evaluation input, or authority.
+- Command Brief is the selected D0 visual direction. It remains a non-production prototype and does
+  not approve production tokens, components, dependencies, navigation, or runtime contracts.
+- Positive D0 authorizes Phase 0B planning only. Production Today/runtime work remains blocked until
+  the Phase 0B foundation passes G0.
 
 ## Active Risks
 
@@ -45,6 +64,8 @@ production launch, and shared restore behind their existing gates.
   review; normal Arabic/RTL foundations remain required in the final frontend.
 - Final daily usability, mobile behavior, and visual coherence are unproven until the dedicated
   frontend acceptance program.
+- Distinct daily-employee and manager/Project-owner sessions have not yet occurred; run them as a
+  bounded pre-G0 validation without reopening the direction absent a confirmed P0/P1 issue.
 
 ## Protected Areas
 
@@ -57,9 +78,9 @@ production launch, and shared restore behind their existing gates.
 
 ## Next Recommended Action
 
-Product Owner reviews `docs/reviews/ENGINE_COMPLETION_AUDIT.md` and the customer-journey/frontend
-handoff. After acceptance, begin final frontend Slice 1: shell/navigation, universal capture, My Work,
-Tasks, and Project overview. Do not reopen completed engine architecture for visual concerns.
+Write the separate Phase 0B foundation plan from the approved Command Brief direction. Include the
+two bounded human validation sessions before G0 and do not begin Phase 1 runtime or production Today
+implementation in the Phase 0B plan.
 
 ## Critical References
 
@@ -71,6 +92,11 @@ Tasks, and Project overview. Do not reopen completed engine architecture for vis
 - `docs/product/ENGINE_CAPABILITY_MATRIX.md`
 - `docs/product/ENGINE_CUSTOMER_JOURNEY_MAP.md`
 - `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
+- `docs/product/AI_NATIVE_FRONTEND_SOURCE_SNAPSHOT.md`
+- `docs/reviews/AI_NATIVE_FRONTEND_D0_EVIDENCE.md`
+- `docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`
+- `docs/superpowers/plans/2026-08-11-ai-native-frontend-master-plan.md`
+- `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0a.md`
 - `docs/reviews/ENGINE_BIDIRECTIONAL_TRACE.md`
 - `docs/reviews/ENGINE_FINAL_VERIFICATION.md`
 - `docs/reviews/ENGINE_COMPLETION_AUDIT.md`

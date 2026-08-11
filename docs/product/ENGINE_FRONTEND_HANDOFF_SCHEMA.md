@@ -16,31 +16,43 @@ This document is a handoff schema, not a visual design. No current verification 
 
 Every capability selected for the final frontend must have one record with all fields below before implementation:
 
-| Field                 | Required content                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Capability ID         | Stable `CAP-nnn` from the Engine Feature Register                                                             |
-| User/persona          | Employee, Project owner, Workstream owner, manager, System Administrator, or operations                       |
-| User moment           | The real-world moment that creates the need                                                                   |
-| Primary action        | One dominant action the screen, sheet, or assistant step enables                                              |
-| Success outcome       | Observable user result, not a backend mutation                                                                |
-| Information priority  | Ordered `must see`, `on demand`, and `technical/hidden` information                                           |
-| Related capabilities  | Other `CAP-nnn` records entered before, during, or after this action                                          |
-| Engine read contract  | Public API/query and projection; never an arbitrary cross-module table read                                   |
-| Engine write contract | Protected command/API, expected version/idempotency, and human confirmation                                   |
-| AI role               | Exact assistance allowed in this moment                                                                       |
-| AI boundary           | Exact prohibited conclusion/action; rating and privacy prohibitions must be explicit                          |
-| Human gate            | Who confirms, approves, edits, or makes the final decision                                                    |
-| State model           | Loading, ready, draft, pending, confirmed, failed, stale, empty, blocked, and completed states as applicable  |
-| Empty state           | Useful explanation and next safe action                                                                       |
-| Error/recovery        | What is preserved, how retry works, and when the user must reconnect or contact an administrator              |
-| Notification behavior | Trigger, recipient, channel, deep link, dedupe, and read/resolution state                                     |
-| Responsive behavior   | Desktop/mobile priority, drawer/bottom-sheet behavior, and content that must not move below an unrelated list |
-| Localization/bidi     | Arabic/English copy source, RTL/LTR layout, mixed technical text, locale gating                               |
-| Accessibility         | Keyboard path, focus entry/return, accessible name/status, reduced motion, and touch target                   |
-| Protected visibility  | Server-authorized audience, forbidden fields, and safe projection                                             |
-| Audit/history cue     | What history the user should see and what remains system-only                                                 |
-| Analytics guardrail   | Product-use analytics allowed; activity-volume/performance inference prohibited                               |
-| Acceptance evidence   | Focused tests, browser journey, screenshots, and owner acceptance gate                                        |
+| Field                                    | Required content                                                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Capability ID                            | Stable `CAP-nnn` from the Engine Feature Register                                                             |
+| User/persona                             | Employee, Project owner, Workstream owner, manager, System Administrator, or operations                       |
+| User moment                              | The real-world moment that creates the need                                                                   |
+| Primary action                           | One dominant action the screen, sheet, or assistant step enables                                              |
+| Success outcome                          | Observable user result, not a backend mutation                                                                |
+| Information priority                     | Ordered `must see`, `on demand`, and `technical/hidden` information                                           |
+| Related capabilities                     | Other `CAP-nnn` records entered before, during, or after this action                                          |
+| Engine read contract                     | Public API/query and projection; never an arbitrary cross-module table read                                   |
+| Engine write contract                    | Protected command/API, expected version/idempotency, and human confirmation                                   |
+| Assistance Mode                          | One or more approved modes, selected for this exact moment/action rather than the whole capability            |
+| Assistance Owner                         | Domain/service/Agent that prepares the experience; this never implies domain authority                        |
+| Trigger/Activation                       | Closed Work Signal, explicit user request, deterministic state change, scheduled check, or `none`             |
+| Work Signal classification               | Domain, connector, scheduled-work-check, user-domain-action, or `none`; never UI telemetry                    |
+| Experience Workflow Event classification | Confirm, correct, dismiss, retry, submit, recovery, or `none`; routed to the owning protected command         |
+| Product Telemetry eligibility            | A minimized eligible key or `none`; never an authority, progress, evidence, or evaluation input               |
+| AI role                                  | Exact assistance allowed in this moment                                                                       |
+| AI boundary                              | Exact prohibited conclusion/action; rating and privacy prohibitions must be explicit                          |
+| Human gate                               | Who confirms, approves, edits, or makes the final decision                                                    |
+| Freshness requirement                    | Source time/version, safe freshness state, and whether refresh is required before mutation                    |
+| Inspection projection                    | Safe mode/owner/source/freshness/result trace; no prompt, private body, secret, or chain-of-thought           |
+| State model                              | Loading, ready, draft, pending, confirmed, failed, stale, empty, blocked, and completed states as applicable  |
+| Empty state                              | Useful explanation and next safe action                                                                       |
+| Error/recovery                           | What is preserved, how retry works, and when the user must reconnect or contact an administrator              |
+| Manual fallback                          | Complete non-AI/non-automation path available within the same user goal                                       |
+| Notification behavior                    | Trigger, recipient, channel, deep link, dedupe, and read/resolution state                                     |
+| Responsive behavior                      | Desktop/mobile priority, drawer/bottom-sheet behavior, and content that must not move below an unrelated list |
+| Localization/bidi                        | Arabic/English copy source, RTL/LTR layout, mixed technical text, locale gating                               |
+| Accessibility                            | Keyboard path, focus entry/return, accessible name/status, reduced motion, and touch target                   |
+| Protected visibility                     | Server-authorized audience, forbidden fields, and safe projection                                             |
+| Audit/history cue                        | What history the user should see and what remains system-only                                                 |
+| Analytics guardrail                      | Product-use analytics allowed; activity-volume/performance inference prohibited                               |
+| Acceptance evidence                      | Focused tests, browser journey, screenshots, and owner acceptance gate                                        |
+
+Assistance fields are experience classifications only. The owner-domain read/write contracts remain
+the sole source of permissions, business state, progress, evidence, and evaluation authority.
 
 ## Experience laws
 

@@ -168,7 +168,7 @@ the protected Arabic-rubric approval, and the Product Owner launch decision.
 **Authoritative sources:** protected rules 14, 23; `PROJECT_REFERENCE.md` §14; T036–T037, T043; P2R-S5 | **Owner module:** `@evaluation/updates-evidence` plus daily-work composition | **Inputs/sources:** confirmed events, responsibilities, approved leave input, evidence/criteria gaps | **AI role:** summarize operational gaps only
 **AI prohibitions:** no quotas, readiness score, penalty, ranking, or predicted rating | **Human gate:** owner confirmation | **States/transitions:** not-due/satisfied/required/submitted/missing/exempt | **Public API/events:** daily-work check-in/readiness endpoints; check-in service
 **Authorization/privacy:** manager projection omits employee readiness values | **Audit/history:** check-ins and no-change confirmations append | **Failure/recovery:** missing source creates action, not automatic judgment | **Tests:** check-in integration; Slice 5 E2E/acceptance; Fact View neutrality tests
-**Status:** COMPLETE | **External gate:** full leave engine is pending; current approved-leave eligibility input is bounded | **Frontend implications:** surface only actionable gaps and explain why a check-in is required
+**Status:** COMPLETE | **External gate:** none; CAP-037 provides the completed continuity and approved-leave dependency | **Frontend implications:** surface only actionable gaps and explain why a check-in is required
 
 ### CAP-019 — Google Workspace connection and private context
 
