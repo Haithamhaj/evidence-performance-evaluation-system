@@ -74,6 +74,7 @@
     "validate:frontend-boundaries": "node scripts/validate-frontend-import-boundaries.mjs",
     "validate:frontend-events": "node scripts/validate-ai-native-event-taxonomy.mjs",
     "validate:frontend-handoffs": "node scripts/validate-ai-native-phase-1-2-handoffs.mjs",
+    "validate:frontend-routes": "node scripts/validate-ai-native-route-retirement-ledger.mjs",
     "validate:protected-api": "node scripts/validate-protected-api-matrix.mjs",
     "verify": "pnpm validate:task-graph && pnpm scan:secrets && pnpm scan:performance-inputs && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
   },
