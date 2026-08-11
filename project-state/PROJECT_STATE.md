@@ -2,9 +2,8 @@
 
 ## Current Goal
 
-Review and approve the separate AI-Native Frontend Phase 0B implementation plan after the Product
-Owner approved Gate `D0`. Keep Phase 1 runtime work blocked until Phase 0B establishes the technical
-foundation and passes Gate `G0`.
+Complete AI-Native Frontend Phase 0B, prove Gate `G0`, and stop for the Product Owner decision. Keep
+all Phase 1 runtime work blocked until G0 is explicitly approved.
 
 ## Current Reality
 
@@ -54,6 +53,11 @@ foundation and passes Gate `G0`.
 - Positive D0 authorized Phase 0B planning. The bounded T078–T086 implementation plan now covers
   exact handoffs, tokens, primitives, Storybook/testing, boundaries, the Stable Shell, protected
   Inspection Mode, route retirement, the Phase 1 graph, and G0 evidence.
+- T078–T084 are implemented on the Phase 0B branch: exact handoffs, Command Brief tokens, accessible
+  primitives, Storybook/visual QA, frontend/telemetry boundaries, the role-aware Stable Shell, and
+  the protected Inspection Mode plus a 20/20 route-retirement ledger are verified.
+- The executable T087–T094 Phase 1 vertical-slice graph is now defined and machine-checked against
+  approved handoff and capability IDs; T085 verification is the active checkpoint.
 - Phase 1 Today/Agent/runtime work remains blocked until Phase 0B passes G0.
 
 ## Active Risks
@@ -64,8 +68,8 @@ foundation and passes Gate `G0`.
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
   review; normal Arabic/RTL foundations remain required in the final frontend.
-- Final daily usability, mobile behavior, and visual coherence are unproven until the dedicated
-  frontend acceptance program.
+- The Stable Shell is proven at desktop and 390px in English/Arabic, but final Intelligent Today and
+  daily-use behavior remain intentionally unimplemented until Phase 1.
 - Distinct daily-employee and manager/Project-owner sessions have not yet occurred; run them as a
   bounded pre-G0 validation without reopening the direction absent a confirmed P0/P1 issue.
 
@@ -80,8 +84,8 @@ foundation and passes Gate `G0`.
 
 ## Next Recommended Action
 
-Product Owner reviews `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0b.md`. After
-approval, execute it in four Fast Controlled Execution bundles, then stop at the G0 decision without
+Finish T085 verification, run the single affected G0 matrix and the two bounded human sessions,
+publish G0 evidence, push the Phase 0B branch, and stop for the Product Owner decision without
 starting Phase 1 runtime.
 
 ## Critical References
@@ -100,6 +104,8 @@ starting Phase 1 runtime.
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-master-plan.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0a.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0b.md`
+- `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-1.md`
+- `docs/product/AI_NATIVE_ROUTE_RETIREMENT_LEDGER.md`
 - `docs/reviews/ENGINE_BIDIRECTIONAL_TRACE.md`
 - `docs/reviews/ENGINE_FINAL_VERIFICATION.md`
 - `docs/reviews/ENGINE_COMPLETION_AUDIT.md`

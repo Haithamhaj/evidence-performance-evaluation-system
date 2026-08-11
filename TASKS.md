@@ -1,6 +1,6 @@
 # TASKS.md
 
-## Execution Task File — Revision 1.3
+## Execution Task File — Revision 1.4
 
 **Status:** Ready for implementation
 **Task order:** Dependency-driven and phase-valid
@@ -791,6 +791,150 @@ The detailed authority is
 **Dependencies:** T076
 **Purpose:** Deploy approved pilot.
 **Verification:** production checklist, monitoring, backups, identified-feedback notice, onboarding, and rollback plan. Arabic rubric approval and RTL release validation are required only before Arabic employee use.
+
+---
+
+# Phase 6 — AI-Native Frontend Foundation and Gate G0
+
+## T078 — Freeze Frontend Architecture and Exact Handoffs
+
+**Status:** Complete — ADRs and machine-validated Phase 1–2 handoffs are committed.
+**Priority:** P0
+**Dependencies:** T076
+**Purpose:** Prevent the frontend from recreating engine truth or inventing commands.
+**Verification:** capability, event, and handoff validators pass with exact repository references.
+
+## T079 — Build Command Brief Tokens and Styling Foundation
+
+**Status:** Complete — semantic design, density, motion, contrast, RTL, and legacy-compatibility tokens are available.
+**Priority:** P1
+**Dependencies:** T078
+**Purpose:** Establish the selected visual direction without migrating temporary routes prematurely.
+**Verification:** token contract, UI typecheck, and web build pass.
+
+## T080 — Adopt the Accessible Primitive Suite
+
+**Status:** Complete — owned wrappers and compatibility evidence cover keyboard, focus, dialog, RTL, reduced motion, and server rendering.
+**Priority:** P1
+**Dependencies:** T079
+**Purpose:** Standardize accessible product interactions behind owned interfaces.
+**Verification:** focused primitive tests, lint, typecheck, and build pass.
+
+## T081 — Add Storybook and Visual Review Infrastructure
+
+**Status:** Complete — Command Brief stories, browser accessibility tests, states, and design-QA evidence are available.
+**Priority:** P1
+**Dependencies:** T080
+**Purpose:** Make visible frontend behavior reviewable before broad migration.
+**Verification:** Storybook tests/build, desktop/mobile/RTL capture, and design-QA pass.
+
+## T082 — Enforce Frontend and Telemetry Boundaries
+
+**Status:** Complete — new code cannot import domain persistence, server internals, provider SDKs, or protected telemetry paths.
+**Priority:** P0
+**Dependencies:** T078, T080
+**Purpose:** Keep the browser a presentation/composition client and telemetry non-authoritative.
+**Verification:** rejection fixtures, repository validator, lint, and builds pass.
+
+## T083 — Establish the Role-Aware Stable Shell
+
+**Status:** Complete — employee/manager navigation, locale/auth, loading/error recovery, desktop, and 390px RTL shell journeys are verified.
+**Priority:** P1
+**Dependencies:** T081, T082
+**Purpose:** Wrap existing routes in the approved Command Brief shell without simulating Phase 1 behavior.
+**Verification:** 30 focused unit/localization tests, five Storybook tests, four authenticated E2E journeys, lint, typecheck, build, and visual comparison pass.
+
+## T084 — Protect Inspection Mode and Inventory Route Retirement
+
+**Status:** Complete — a fail-closed operational trace contract and 20/20 temporary-route ledger are verified.
+**Priority:** P0
+**Dependencies:** T078, T082, T083
+**Purpose:** Support safe internal diagnosis without secrets, private content, readiness values, rating influence, or premature route deletion.
+**Verification:** focused contract/ledger tests, administrator authorization references, privacy remediation re-review, boundaries, route ledger, and secret scan pass.
+
+## T085 — Publish the Executable Phase 1 Graph
+
+**Status:** In progress — the ordered T087–T094 vertical-slice plan and coverage test are being finalized.
+**Priority:** P1
+**Dependencies:** T078–T084
+**Purpose:** Make every Phase 1 slice visible, source-backed, reversible, testable, and reviewable.
+**Verification:** task graph, Phase 1 coverage test, exact handoff/capability mapping, demos, screenshots, rollback, and Product Owner gates.
+
+## T086 — Prove Gate G0
+
+**Status:** Not started — blocked until T085 is complete.
+**Priority:** P0
+**Dependencies:** T078–T085
+**Purpose:** Run the frontend-foundation acceptance matrix once and stop for the Product Owner decision.
+**Verification:** G0 evidence, human employee/manager sessions, full affected frontend checks, rollback proof, and explicit statement that Phase 1 runtime has not started.
+
+---
+
+# Phase 7 — AI-Native Frontend Phase 1 Vertical Slices
+
+## T087 — Implement Universal Capture and Manual Recovery
+
+**Status:** Not started — blocked by Gate G0.
+**Priority:** P1
+**Dependencies:** T086
+**Purpose:** Deliver one compact text/link/file capture flow with private-Inbox fallback.
+**Verification:** real capture-to-confirmation demo, allow/deny tests, English/Arabic desktop/mobile evidence, and rollback.
+
+## T088 — Implement Work Signals and Experience Events
+
+**Status:** Not started — blocked by T087.
+**Priority:** P0
+**Dependencies:** T087
+**Purpose:** Refresh authorized experience state while keeping telemetry non-authoritative.
+**Verification:** versioning, idempotency, wrong-user exclusion, replay/recovery, and boundary tests.
+
+## T089 — Implement the Minimal Experience Orchestrator
+
+**Status:** Not started — blocked by T088.
+**Priority:** P0
+**Dependencies:** T088
+**Purpose:** Prepare one source-backed next action above the existing AI Router.
+**Verification:** one-action limit, source/why/freshness/consequence, fallback, privacy, and no-rating tests.
+
+## T090 — Implement Intelligent Today and One Decision Path
+
+**Status:** Not started — blocked by T089.
+**Priority:** P1
+**Dependencies:** T089
+**Purpose:** Deliver Needs Your Action, Today, Overdue, prepared work, and one real confirm/correct/dismiss journey.
+**Verification:** authenticated employee journey, stale recovery, accessibility, RTL, protected command allow/deny, screenshots, and rollback.
+
+## T091 — Implement What Changed and Durable SSE
+
+**Status:** Not started — blocked by T090.
+**Priority:** P1
+**Dependencies:** T090
+**Purpose:** Show concise authorized receipts with reconnect and exactly-once visible behavior.
+**Verification:** ordered replay, idempotent cursor, wrong-user isolation, offline recovery, and session-expiry tests.
+
+## T092 — Migrate Work List and Task Detail with Parity
+
+**Status:** Not started — blocked by T091.
+**Priority:** P1
+**Dependencies:** T091
+**Purpose:** Provide compact daily task management without losing existing Work Item behavior.
+**Verification:** create/transition parity, drawer focus, URL state, mobile/RTL, retained-route rollback, and Product Owner review.
+
+## T093 — Connect the First Real Source-to-Command Journey
+
+**Status:** Not started — blocked by T092.
+**Priority:** P0
+**Dependencies:** T092
+**Purpose:** Join Google, GitHub, and manual context through explicit employee review and evidence confirmation.
+**Verification:** owner-only privacy, uncertainty review, no automatic evidence/contribution, connector fallback, E2E demo, and rollback.
+
+## T094 — Run Phase 1 Acceptance and Route-Retirement Decision
+
+**Status:** Not started — blocked by T087–T093.
+**Priority:** P0
+**Dependencies:** T087–T093
+**Purpose:** Prove the complete daily journey, protected manager shell, rollback, and route parity before controlled retirement.
+**Verification:** end-to-end customer journey, authorization matrix, affected full web suite, screenshots, acceptance report, and explicit Product Owner decision.
 ---
 
 # Approval-Blocked Changes
