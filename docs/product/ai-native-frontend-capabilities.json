@@ -150,7 +150,7 @@
     "targetSurfaces": ["project-overview", "project-progress", "project-timeline", "manager-queue"],
     "deliveryPhases": ["P3"],
     "assistanceModes": ["deterministic_assistance", "proactive_agent_assistance"],
-    "assistanceOwners": ["project_agent", "progress_domain"],
+    "assistanceOwners": ["project_agent", "projects_progress_domain"],
     "triggers": [
       "governed_source_fact",
       "contract_changed",
