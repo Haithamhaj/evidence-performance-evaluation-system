@@ -1,0 +1,77 @@
+import { describe, expect, it } from "vitest";
+
+import { buildShellModel, localeSwitchHref } from "./shell-model.js";
+
+const employee = { active: true, roles: [] as string[] };
+
+describe("stable shell model", () => {
+  it("shows the employee's stable daily destinations and capture entry", () => {
+    const model = buildShellModel({ locale: "en", principal: employee });
+
+    expect(model.navigation.map(({ id }) => id)).toEqual([
+      "today",
+      "work",
+      "projects",
+      "research",
+      "evaluation",
+      "settings",
+      "help",
+    ]);
+    expect(model.globalEntries.find(({ id }) => id === "capture")?.visible).toBe(true);
+  });
+
+  it("adds manager operations without granting employee capture by role alone", () => {
+    const model = buildShellModel({
+      locale: "en",
+      principal: { active: true, roles: ["manager"] },
+    });
+
+    expect(model.navigation.map(({ id }) => id)).toContain("manager-operations");
+    expect(model.globalEntries.find(({ id }) => id === "capture")?.visible).toBe(false);
+  });
+
+  it("shows administration and health without manager decisions for an administrator", () => {
+    const model = buildShellModel({
+      locale: "en",
+      principal: { active: true, roles: ["system_administrator"] },
+    });
+
+    expect(model.navigation.map(({ id }) => id)).toEqual(
+      expect.arrayContaining(["administration", "health"]),
+    );
+    expect(model.navigation.map(({ id }) => id)).not.toContain("manager-operations");
+  });
+
+  it("does not turn Project coordination into manager evaluation authority", () => {
+    const model = buildShellModel({
+      contribution: { canContribute: true, isProjectOwner: true, isWorkstreamOwner: true },
+      locale: "en",
+      principal: employee,
+    });
+
+    expect(model.navigation.map(({ id }) => id)).not.toContain("manager-operations");
+    expect(model.globalEntries.find(({ id }) => id === "capture")?.visible).toBe(true);
+  });
+
+  it("preserves the safe path, query, and fragment when switching locale", () => {
+    expect(
+      localeSwitchHref({
+        currentHref: "/en/projects/123?view=board&item=456#details",
+        locale: "ar",
+      }),
+    ).toBe("/ar/projects/123?view=board&item=456#details");
+  });
+
+  it("keeps mobile navigation compact and exposes remaining destinations in overflow", () => {
+    const model = buildShellModel({ locale: "ar", principal: employee });
+
+    expect(model.mobilePrimary.map(({ id }) => id)).toEqual([
+      "today",
+      "work",
+      "projects",
+      "research",
+      "evaluation",
+    ]);
+    expect(model.mobileOverflow.map(({ id }) => id)).toEqual(["settings", "help"]);
+  });
+});

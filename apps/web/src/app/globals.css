@@ -15,6 +15,22 @@ h1 {
   line-height: 1.25;
 }
 
+.routeState {
+  display: grid;
+  min-block-size: 45vh;
+  max-inline-size: 42rem;
+  align-content: center;
+  gap: 1rem;
+  margin-inline: auto;
+  padding: 2rem 1rem;
+}
+
+.routeStateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .notice {
   border-inline-start: 0.25rem solid var(--color-accent);
 }
