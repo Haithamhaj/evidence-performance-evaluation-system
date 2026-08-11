@@ -2,10 +2,9 @@
 
 ## Current Goal
 
-Execute AI-Native Frontend Phase 0A: reconcile all 44 engine capabilities into an experience
-definition, prove the Today information hierarchy through a standalone prototype, and prepare the
-evidence for Product Owner Gate `D0`. Keep production frontend foundation and runtime work blocked
-until `D0`, then `G0`.
+Complete AI-Native Frontend Phase 0A Gate `D0`: review the Product Owner-selected Command Brief Today
+prototype with representative users, record the bounded evidence and decision, and keep production
+frontend foundation and runtime work blocked until a positive `D0`, then `G0`.
 
 ## Current Reality
 
@@ -23,6 +22,11 @@ until `D0`, then `G0`.
   or dependency is part of the product.
 - The approved Phase 0A master plan and immutable engine source receipt are stored in-repository.
 - The Phase 0A branch starts from clean `main` at `2eee638958294b790c75375d564d5c03188062f2`.
+- Product Owner selected visual direction 2, **Command Brief**, from the required three independent
+  Today directions.
+- The standalone synthetic Command Brief prototype now covers English/Arabic, RTL, 390px, role-visible
+  navigation, Today state previews, decision, prepared draft, capture, recovery, focus return, and
+  What Changed disclosure. Its focused Playwright and design-QA gates are green.
 
 ## Active Decisions
 
@@ -41,6 +45,8 @@ until `D0`, then `G0`.
   tokens, primitives, components, dependencies, navigation, or agent runtime contracts.
 - Work Signals, Experience Workflow Events, and Product Telemetry remain three separate systems;
   product interaction data cannot become project progress, evidence, evaluation input, or authority.
+- Command Brief is the selected D0 visual direction. It remains a non-production prototype and does
+  not approve production tokens, components, dependencies, navigation, or runtime contracts.
 
 ## Active Risks
 
@@ -52,8 +58,8 @@ until `D0`, then `G0`.
   review; normal Arabic/RTL foundations remain required in the final frontend.
 - Final daily usability, mobile behavior, and visual coherence are unproven until the dedicated
   frontend acceptance program.
-- Information architecture and visual direction remain hypotheses until representative-user review
-  and Product Owner Gate `D0`.
+- The selected information architecture and visual direction remain a hypothesis until the required
+  representative-user review and Product Owner Gate `D0` decision are recorded.
 
 ## Protected Areas
 
@@ -66,9 +72,9 @@ until `D0`, then `G0`.
 
 ## Next Recommended Action
 
-Complete the source-backed 44-capability experience record, Phase 1–3 assistance handoffs, event
-separation, persona/visibility/autonomy maps, and Experience Blueprint. Then present exactly three
-Today visual directions for Product Owner selection before building the isolated Phase 0A prototype.
+Run the bounded representative-user D0 review against the Command Brief prototype, apply at most one
+confirmed blocker correction cycle, and obtain the explicit Product Owner `D0` decision. Do not start
+Phase 0B or production frontend work before that decision.
 
 ## Critical References
 

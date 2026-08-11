@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-motion="full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Command Brief — AI-Native Today</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to Today</a>
+    <div id="app"></div>
+    <div id="live-status" class="sr-only" role="status" aria-live="polite"></div>
+
+    <dialog id="draft-dialog" class="sheet-dialog" aria-labelledby="draft-dialog-title">
+      <form method="dialog" class="dialog-layout" data-dialog-form="draft">
+        <header class="dialog-header">
+          <div>
+            <p class="eyebrow" id="draft-dialog-kicker">Prepared for You</p>
+            <h2 id="draft-dialog-title">Weekly project update draft</h2>
+          </div>
+          <button class="quiet-button" value="cancel" aria-label="Close draft">Close</button>
+        </header>
+        <p class="dialog-note" id="draft-dialog-note"></p>
+        <label class="field-label" for="draft-update">Draft update</label>
+        <textarea id="draft-update" rows="7"></textarea>
+        <p class="source-note" id="draft-dialog-source"></p>
+        <footer class="dialog-actions">
+          <button class="quiet-button" value="cancel">Keep editing later</button>
+          <button class="primary-button" value="confirm" data-action="confirm-draft">
+            Confirm update
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="capture-dialog" class="sheet-dialog" aria-labelledby="capture-dialog-title">
+      <form method="dialog" class="dialog-layout" data-dialog-form="capture">
+        <header class="dialog-header">
+          <div>
+            <p class="eyebrow" id="capture-dialog-kicker">Universal capture</p>
+            <h2 id="capture-dialog-title">Capture work</h2>
+          </div>
+          <button class="quiet-button" value="cancel" aria-label="Close capture">Close</button>
+        </header>
+        <div class="capture-types" role="group" aria-label="Capture type">
+          <button type="button" class="capture-type is-selected" aria-pressed="true">Task</button>
+          <button type="button" class="capture-type" aria-pressed="false">Update</button>
+          <button type="button" class="capture-type" aria-pressed="false">Link</button>
+          <button type="button" class="capture-type" aria-pressed="false">Voice</button>
+          <button type="button" class="capture-type" aria-pressed="false">File</button>
+        </div>
+        <label class="field-label" for="capture-input">What do you want to capture?</label>
+        <textarea id="capture-input" rows="5"></textarea>
+        <p class="source-note" id="capture-privacy-note"></p>
+        <footer class="dialog-actions">
+          <button class="quiet-button" value="cancel">Cancel</button>
+          <button class="primary-button" value="confirm" data-action="save-capture">
+            Save private draft
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script type="module" src="/prototype.js"></script>
+  </body>
+</html>
