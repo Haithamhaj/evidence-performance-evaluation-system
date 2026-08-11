@@ -39,6 +39,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm validate:task-graph
       - run: pnpm validate:frontend-handoffs
+      - run: pnpm validate:frontend-boundaries
       - run: pnpm scan:performance-inputs
       - run: pnpm format:check
       - run: pnpm lint

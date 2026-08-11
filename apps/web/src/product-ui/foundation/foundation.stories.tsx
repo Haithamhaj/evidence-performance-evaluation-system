@@ -15,8 +15,10 @@ type FoundationProperties = Readonly<{
 
 const copy = {
   ar: {
+    apiEndpoint: "/v1/voice/sessions",
     changed: "ما الذي تغيّر",
     close: "إغلاق",
+    complete: "إكمال",
     confirm: "تأكيد",
     continue: "المتابعة",
     correct: "تصحيح",
@@ -29,14 +31,20 @@ const copy = {
     error: "تعذر تحديث الموجز",
     errorBody: "بقيت بياناتك السابقة محفوظة. أعد المحاولة لاسترجاع آخر حالة.",
     greeting: "صباح الخير، Codex",
+    mainReceipt: "GitHub commit 9c3a1d2 على main",
+    projectMeta: "GitHub · Atlas Voice Intelligence · قبل 8 دقائق",
     prepared: "مجهز لك",
     retry: "إعادة المحاولة",
     review: "مراجعة المسودة",
+    sourceDetails: "تفاصيل المصادر",
+    sourceDetailsBody: "تبقى المصادر المؤكدة ظاهرة عند المراجعة.",
     today: "اليوم",
   },
   en: {
+    apiEndpoint: "/v1/voice/sessions",
     changed: "What Changed",
     close: "Close",
+    complete: "Complete",
     confirm: "Confirm",
     continue: "Continue",
     correct: "Correct",
@@ -49,9 +57,13 @@ const copy = {
     error: "The brief could not refresh",
     errorBody: "Your previous context is safe. Retry to recover the latest state.",
     greeting: "Good morning, Codex",
+    mainReceipt: "GitHub commit 9c3a1d2 on main",
+    projectMeta: "GitHub · Atlas Voice Intelligence · 8 min ago",
     prepared: "Prepared for You",
     retry: "Try again",
     review: "Review draft",
+    sourceDetails: "Source details",
+    sourceDetailsBody: "Confirmed sources remain visible on review.",
     today: "Today",
   },
 } as const;
@@ -115,13 +127,13 @@ export function Foundation({ locale = "en", state = "ready" }: FoundationPropert
                       ? "ربط PR #184 بمصادقة API؟"
                       : "Link PR #184 to API authentication?"}
                   </h2>
-                  <p className={styles.meta!}>GitHub · Atlas Voice Intelligence · 8 min ago</p>
+                  <p className={styles.meta!}>{text.projectMeta}</p>
                   <p className={styles.reason!}>
                     <strong>{locale === "ar" ? "السبب: " : "Why: "}</strong>
                     {locale === "ar"
                       ? "يعدّل تدفق المصادقة المستخدم في "
                       : "It modifies the authentication flow used by "}
-                    <bdi>/v1/voice/sessions</bdi>.
+                    <bdi>{text.apiEndpoint}</bdi>.
                   </p>
                   <p className={styles.meta!}>
                     {locale === "ar"
@@ -186,6 +198,7 @@ export function Foundation({ locale = "en", state = "ready" }: FoundationPropert
                 {createElement(TaskRow, {
                   detail:
                     locale === "ar" ? "سجلّ الأخطاء والتأخير" : "Fallback log and delay review",
+                  completeLabel: text.complete,
                   due: text.due,
                   project: "Atlas Voice Intelligence",
                   source: "github",
@@ -196,6 +209,7 @@ export function Foundation({ locale = "en", state = "ready" }: FoundationPropert
                     locale === "ar"
                       ? "التشكيل وتبديل اللغات وتوحيد الأرقام"
                       : "Diacritics, code-switching, and number normalization",
+                  completeLabel: text.complete,
                   due: text.due,
                   project: "Atlas Voice Intelligence",
                   source: "document",
@@ -213,6 +227,7 @@ export function Foundation({ locale = "en", state = "ready" }: FoundationPropert
                 {createElement(TaskRow, {
                   detail:
                     locale === "ar" ? "غير محجوب ولا توجد تبعيات" : "Unblocked · No dependencies",
+                  completeLabel: text.complete,
                   project: "Atlas Voice Intelligence",
                   source: "research",
                   title: locale === "ar" ? "قياس ذاكرة المحادثة" : "Conversation memory benchmark",
@@ -232,9 +247,7 @@ export function Foundation({ locale = "en", state = "ready" }: FoundationPropert
                       ? "دُمج PR #182 واكتمل شرط المرحلة"
                       : "PR #182 merged; milestone condition satisfied"}
                   </strong>
-                  <span className={styles.supporting!}>
-                    GitHub commit <bdi>9c3a1d2</bdi> on main
-                  </span>
+                  <span className={styles.supporting!}>{text.mainReceipt}</span>
                 </div>
               </div>
             </section>
@@ -246,12 +259,14 @@ export function Foundation({ locale = "en", state = "ready" }: FoundationPropert
 }
 
 function TaskRow({
+  completeLabel,
   detail,
   due,
   project,
   source,
   title,
 }: Readonly<{
+  completeLabel: string;
   detail: string;
   due?: string;
   project: string;
@@ -260,7 +275,11 @@ function TaskRow({
 }>) {
   return (
     <div className={styles.row!}>
-      <input aria-label={`Complete ${title}`} className={styles.checkbox!} type="checkbox" />
+      <input
+        aria-label={`${completeLabel} ${title}`}
+        className={styles.checkbox!}
+        type="checkbox"
+      />
       <div className={styles.rowCopy!}>
         <strong>{title}</strong>
         <span className={styles.supporting!}>{detail}</span>
@@ -323,9 +342,9 @@ export const DisclosureInteraction = {
   render: () => (
     <div className={styles.canvas!}>
       {createElement(ProductDisclosure, {
-        children: <p className={styles.supporting!}>Confirmed sources remain visible on review.</p>,
+        children: <p className={styles.supporting!}>{copy.en.sourceDetailsBody}</p>,
         defaultExpanded: true,
-        title: "Source details",
+        title: copy.en.sourceDetails,
       })}
     </div>
   ),

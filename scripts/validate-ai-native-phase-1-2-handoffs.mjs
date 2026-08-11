@@ -1,6 +1,7 @@
 /* global console */
 
 import { access, readFile } from "node:fs/promises";
+import process from "node:process";
 
 const handoffPath = process.argv[2] ?? "docs/product/ai-native-phase-1-2-handoffs.json";
 const capabilityPath = process.argv[3] ?? "docs/product/ai-native-frontend-capabilities.json";

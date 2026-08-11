@@ -71,6 +71,7 @@
     "validate:task-graph": "python3 scripts/validate_task_graph.py",
     "validate:engine-capabilities": "node scripts/validate-engine-capability-register.mjs",
     "validate:frontend-capabilities": "node scripts/validate-ai-native-frontend-capabilities.mjs",
+    "validate:frontend-boundaries": "node scripts/validate-frontend-import-boundaries.mjs",
     "validate:frontend-events": "node scripts/validate-ai-native-event-taxonomy.mjs",
     "validate:frontend-handoffs": "node scripts/validate-ai-native-phase-1-2-handoffs.mjs",
     "validate:protected-api": "node scripts/validate-protected-api-matrix.mjs",
