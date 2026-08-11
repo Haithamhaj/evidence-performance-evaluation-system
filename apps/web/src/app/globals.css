@@ -1,5 +1,7 @@
 @import "../../../../packages/ui/src/styles/fonts.css";
 @import "../../../../packages/ui/src/styles/tokens.css";
+@import "../../../../packages/ui/src/styles/motion.css";
+@import "../../../../packages/ui/src/styles/foundation.css";
 
 h1,
 h2,

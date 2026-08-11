@@ -4,7 +4,8 @@
     "jsx": "react-jsx",
     "outDir": "dist",
     "rewriteRelativeImportExtensions": true,
-    "rootDir": "src"
+    "rootDir": "src",
+    "types": ["node", "react", "react-dom"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
