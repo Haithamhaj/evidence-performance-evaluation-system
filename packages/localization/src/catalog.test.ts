@@ -26,6 +26,40 @@ describe("localization catalogs", () => {
     expect(localeMetadata.en.direction).toBe("ltr");
   });
 
+  it("keeps the stable AI-native shell vocabulary in both locales", async () => {
+    const requiredKeys = [
+      "shell.brand",
+      "shell.brandMark",
+      "shell.skipToContent",
+      "shell.availableNextSlice",
+      "shell.nav.today",
+      "shell.nav.work",
+      "shell.nav.projects",
+      "shell.nav.research",
+      "shell.nav.evaluation",
+      "shell.nav.managerOperations",
+      "shell.nav.administration",
+      "shell.nav.health",
+      "shell.nav.settings",
+      "shell.nav.help",
+      "shell.nav.more",
+      "shell.global.capture",
+      "shell.global.search",
+      "shell.global.chat",
+      "shell.global.whatChanged",
+      "shell.loading",
+      "shell.errorTitle",
+      "shell.errorBody",
+    ] as const;
+    const ar = await getCatalog("ar");
+    const en = await getCatalog("en");
+
+    for (const key of requiredKeys) {
+      expect(Object.hasOwn(ar, key)).toBe(true);
+      expect(Object.hasOwn(en, key)).toBe(true);
+    }
+  });
+
   it("keeps the complete project workspace vocabulary in both locales", async () => {
     const requiredKeys = [
       "workspace.projects.title",

@@ -959,6 +959,22 @@ const server = createServer(async (request, response) => {
     return json(response, 200, identifiedManagerEvaluationView());
   }
 
+  if (request.method === "GET" && url.pathname === "/api/v1/me") {
+    const roles =
+      accessToken === managerAccessToken
+        ? ["manager"]
+        : accessToken === systemAdministratorAccessToken
+          ? ["system_administrator"]
+          : [];
+    return json(response, 200, {
+      active: true,
+      email: "synthetic-shell-user@example.invalid",
+      oidcSubject: "synthetic-shell-user",
+      roles,
+      userId: accessToken === managerAccessToken ? evaluationManagerId : ownerId,
+    });
+  }
+
   if (accessToken !== ownerAccessToken) {
     return json(response, 403, { messageKey: "errors.forbidden" });
   }
@@ -1088,9 +1104,6 @@ const server = createServer(async (request, response) => {
         url.pathname.endsWith(unsupportedExperimentId) ? "unsupported" : "supported",
       ),
     );
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/me") {
-    return json(response, 200, { userId: ownerId });
   }
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/my-work") {
     return json(response, 200, dailyWorkspace());

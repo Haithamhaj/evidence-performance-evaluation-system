@@ -25,14 +25,18 @@ export default function ErrorBoundary({ error, reset }: ErrorBoundaryProperties)
   const catalog = getCatalogSync(locale);
 
   return (
-    <main role="alert" data-error-code="INTERNAL_ERROR">
-      <h1 data-message-key="errors.internal">{catalog["errors.internal"]}</h1>
+    <main className="routeState" role="alert" data-error-code="SHELL_CONTEXT_UNAVAILABLE">
+      <h1 data-message-key="shell.errorTitle">{catalog["shell.errorTitle"]}</h1>
+      <p data-message-key="shell.errorBody">{catalog["shell.errorBody"]}</p>
       {correlationId === undefined ? null : (
         <code>{createElement(BidiText, { kind: "hash", children: correlationId })}</code>
       )}
-      <button type="button" data-message-key="actions.retry" onClick={reset}>
-        {catalog["actions.retry"]}
-      </button>
+      <div className="routeStateActions">
+        <button type="button" data-message-key="actions.retry" onClick={reset}>
+          {catalog["actions.retry"]}
+        </button>
+        <a href="/api/auth/login">{catalog["actions.login"]}</a>
+      </div>
     </main>
   );
 }

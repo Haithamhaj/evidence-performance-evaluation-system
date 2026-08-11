@@ -1,84 +1,64 @@
-# Command Brief Design QA
+# Command Brief Foundation and Stable Shell — Design QA
 
-**Source visual truth:**
-`/Users/haitham/.codex/generated_images/019f659b-889b-7873-9927-4ae4802ea123/exec-3fae8387-569b-4681-89f1-a27203d3123b.png`
+## Review target
 
-**Implementation desktop:**
-`docs/product/screenshots/ai-native-phase-0a/en-busy-desktop.png`
+- Source of truth: `/Users/haitham/.codex/generated_images/019f659b-889b-7873-9927-4ae4802ea123/exec-3fae8387-569b-7873-9927-4ae4802ea123.png`
+- Implementation: `apps/web/src/product-ui/foundation/foundation.stories.tsx`
+- Stable shell implementation: `apps/web/src/product-ui/shell/stable-shell.tsx`
+- Styles: `apps/web/src/product-ui/foundation/foundation.module.css`
+- Review viewport: foundation desktop `1050 × 700` at `1x`; stable shell desktop
+  `1536 × 1024` at `1x`; mobile `390 × 844` at `1x`
+- Reviewed states: English ready, Arabic RTL ready, mobile ready, loading, empty, error/recovery, focused dialog
 
-**Implementation mobile:**
-`docs/product/screenshots/ai-native-phase-0a/ar-busy-mobile-viewport.png`
+## Evidence
 
-## Comparison setup
-
-- Source pixels: `1536 × 1024`; the generated presentation labels desktop `1440 × 1024` and mobile
-  `390 × 844` within one board.
-- Implementation desktop: CSS viewport and screenshot `1440 × 1024`, device scale normalized to the
-  browser screenshot.
-- Implementation mobile: CSS viewport and screenshot `390 × 844`, device scale normalized to the
-  browser screenshot.
-- State: employee, Today busy state, decision expanded, prepared draft visible, normal work visible,
-  and What Changed collapsed on mobile as in the selected direction.
-- Full-view comparison evidence:
-  `tmp/phase0a-command-brief-design-qa-comparison.png`.
-- Focused decision/mobile comparison evidence:
-  `tmp/phase0a-command-brief-design-qa-focused.png`.
-- Browser verification: Codex in-app browser; primary decision, prepared draft, capture, recovery,
-  locale, keyboard focus return, and responsive behavior were exercised. Browser console: no errors
-  or warnings.
-
-## Findings
-
-No actionable P0, P1, or P2 differences remain.
-
-### Required fidelity surfaces
-
-- **Fonts and typography:** The implementation uses the system UI stack as the closest dependency-free
-  match to the source's modern sans-serif treatment. Heading scale, weights, compact row copy, mixed
-  Arabic/English text, and wrapping preserve the selected hierarchy at both target viewports.
-- **Spacing and layout rhythm:** Desktop retains the dark narrow rail, top command field, one broad
-  briefing column, compact rows, and the same section order. Mobile keeps the single-column hierarchy,
-  compact decision actions, bottom navigation, and a collapsed What Changed receipt so the complete
-  hierarchy fits `390 × 844` without horizontal or vertical overflow.
-- **Colors and visual tokens:** Navy navigation, cobalt actions, restrained amber decision state,
-  quiet blue prepared state, green receipt state, white canvas, and subtle borders match the source
-  intent with accessible contrast and visible focus.
-- **Image quality and asset fidelity:** The design contains no custom photography or illustration.
-  Navigation uses Tabler Icons v3.45.0 SVG path geometry under the MIT license. Provider branding and
-  logos from the synthetic mock are intentionally not copied.
-- **Copy and content:** The same Project, PR, decision, prepared update, Tasks, Continue item, and
-  source receipt appear. Arabic is a real RTL projection of the same content rather than mirrored
-  English placeholder copy.
-- **Interaction and accessibility:** Native landmarks, buttons, checkboxes, dialogs, logical CSS,
-  reduced motion, status announcements, focus return, keyboard use, and mobile tap targets are
-  implemented. No score, rating, ranking, readiness percentage, internal priority, or surveillance
-  language appears.
+- Full desktop: `docs/product/screenshots/ai-native-phase-0b/foundation-command-brief-desktop.jpg`
+- Focused mobile: `docs/product/screenshots/ai-native-phase-0b/foundation-command-brief-mobile.jpg`
+- Focused Arabic RTL: `docs/product/screenshots/ai-native-phase-0b/foundation-command-brief-arabic.jpg`
+- Side-by-side source comparison: `docs/product/screenshots/ai-native-phase-0b/foundation-command-brief-comparison.jpg`
+- Stable shell desktop: `docs/product/screenshots/ai-native-phase-0b/stable-shell-story-en-desktop.png`
+- Stable shell Arabic manager/mobile: `docs/product/screenshots/ai-native-phase-0b/stable-shell-story-ar-manager-mobile.png`
+- Equal-size stable-shell comparison: `docs/product/screenshots/ai-native-phase-0b/stable-shell-command-brief-comparison.png`
+- Source and stable-shell desktop captures are both `1536 × 1024` pixels, CSS `1536 × 1024`,
+  device scale factor `1`; no density normalization was required.
 
 ## Comparison history
 
-### Iteration 1 — blocked
+1. The first equal-viewport comparison showed excessive card spacing, a collapsed prepared row, duplicated task context, and missing source icons.
+2. The implementation was tightened to compact operational rows, the prepared draft became directly visible, duplicate project text was removed, and Lucide source icons were added.
+3. The final foundation comparison preserved the reference hierarchy: decision first, prepared work
+   second, current tasks third, and change history last.
+4. T083 added the production shell and repeated the comparison at the source's exact desktop size.
+   The dark navigation rail, compact white command header, content canvas, desktop/mobile navigation,
+   and LTR/RTL direction match the selected Command Brief structure. Global Capture, Chat, and What
+   Changed are intentionally visible as honest inert Phase 1 entries, as required by the approved
+   plan.
+5. The shell review content is deliberately condensed and does not claim Phase 1 Today parity. The
+   fuller decision controls, task table, and live assistant behavior remain Phase 1 work rather than
+   being simulated in this foundation checkpoint.
 
-- **[P2] Mobile What Changed receipt extended below the target viewport.** The first implementation
-  measured `390 × 844` with `41px` extra page height. Fixed by preserving the section header as a
-  native disclosure and collapsing its receipt on mobile, matching the source's progressive
-  disclosure.
-- **[P2] Navigation lacked the source's icon rhythm.** Fixed by adding a bounded set of static Tabler
-  outline icons with the full MIT notice and no JavaScript/runtime package.
+## Interaction and accessibility findings
 
-### Iteration 2 — passed
+- Primary decision actions remain visible at `390px` with no horizontal overflow.
+- Arabic content uses a scoped `dir="rtl"` surface and keeps technical paths in their correct direction with `bdi`.
+- The review dialog receives focus, closes with Escape, and returns focus to its trigger.
+- Keyboard focus is visibly distinguishable.
+- Loading, empty, and recoverable-error states are available as separate stories.
+- Reduced-motion, high-contrast, and forced-colors policies are present.
+- No current browser console errors were observed after the final interaction run.
+- Employee and manager authenticated journeys rendered the role-correct shell in English and Arabic;
+  the employee Capture entry is absent for manager-only sessions.
+- The inert Research entry returned the localized next-slice status in the browser.
+- At `390px`, the mobile bottom navigation remained visible with no horizontal overflow and manager
+  operations remained discoverable under More.
 
-- Mobile measures exactly `390 × 844` with `scrollWidth = 390`, all icons loaded, and What Changed
-  collapsed but keyboard/tap expandable.
-- Desktop measures `1440 × 1024` with `scrollWidth = 1440`; all content remains visible and the browser
-  console is clean.
-- Post-fix full and focused comparisons show the selected hierarchy, density, color semantics, and
-  responsive behavior without actionable P0/P1/P2 drift.
+## Remaining intentional differences
 
-## Follow-up polish
+- The reference depicts future Intelligent Today content. T083 validates the shell frame and entry
+  contract only; richer cards and actions are intentionally excluded until their Phase 1 engine
+  handoffs are implemented.
+- The browser used for visual QA requested increased contrast, so borders appear stronger than the normal reference state. Normal and high-contrast modes are both covered by browser tests.
 
-- **[P3]** The generated source uses an unspecified display font. A production font choice belongs to
-  Phase 0B token selection, not this isolated Phase 0A prototype.
-- **[P3]** Provider marks are represented by text and generic source labels to avoid copying third-party
-  branding into the prototype.
+## Final result
 
-**final result: passed**
+passed

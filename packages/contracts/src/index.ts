@@ -13,6 +13,7 @@ export * from "./errors.js";
 export * from "./evaluation-cycle.js";
 export * from "./evaluation-fact-view.js";
 export * from "./employee-evaluation.js";
+export * from "./experience-inspection.js";
 export * from "./github-integration.js";
 export * from "./jobs.js";
 export * from "./manager-evaluation.js";
