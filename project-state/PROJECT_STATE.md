@@ -2,8 +2,8 @@
 
 ## Current Goal
 
-Complete AI-Native Frontend Phase 0B, prove Gate `G0`, and stop for the Product Owner decision. Keep
-all Phase 1 runtime work blocked until G0 is explicitly approved.
+Execute AI-Native Frontend Phase 1 in bounded vertical slices, starting with T087 Universal Capture
+and manual private-Inbox recovery. Preserve every engine authority and retained-route rollback path.
 
 ## Current Reality
 
@@ -60,7 +60,9 @@ all Phase 1 runtime work blocked until G0 is explicitly approved.
 - T086 technical evidence is complete: the 44-capability distribution, ten exact handoffs, 20/20
   retained routes, 94-task graph, 1,427 unit tests, five Storybook tests, four Stable Shell E2E
   journeys, lint, typecheck, builds, source boundaries, and design QA pass.
-- Phase 1 Today/Agent/runtime work remains blocked until Phase 0B passes G0.
+- Gate G0 is approved. The Product Owner accepted the documented participant overlap and instructed
+  execution to continue; Phase 1 is authorized in the approved T087–T094 order.
+- Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
 
@@ -72,9 +74,9 @@ all Phase 1 runtime work blocked until G0 is explicitly approved.
   review; normal Arabic/RTL foundations remain required in the final frontend.
 - The Stable Shell is proven at desktop and 390px in English/Arabic, but final Intelligent Today and
   daily-use behavior remain intentionally unimplemented until Phase 1.
-- The Product Owner completed the employee/D0 review; the manager/Project-owner journey is technically
-  verified but had no separate independent manager participant. G0 must acknowledge this participant
-  overlap or request a direct manager session.
+- A separate independent manager participant did not attend G0. The Product Owner accepted this
+  overlap and deferred the direct manager session until the complete Phase 1 experience can be
+  meaningfully reviewed.
 
 ## Protected Areas
 
@@ -87,9 +89,9 @@ all Phase 1 runtime work blocked until G0 is explicitly approved.
 
 ## Next Recommended Action
 
-Review the runnable employee and manager Stable Shell stories plus
-`docs/reviews/AI_NATIVE_FRONTEND_G0_EVIDENCE.md`, then issue the explicit Product Owner G0 decision.
-Do not start Phase 1 runtime, merge, or remove retained routes before that decision.
+Create an isolated Phase 1 branch from the approved G0 checkpoint and execute T087 manual-first
+Universal Capture with focused authorization, localization, browser, rollback, and visual evidence.
+Do not merge Pull Request #29 or remove retained routes.
 
 ## Critical References
 

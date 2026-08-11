@@ -862,7 +862,7 @@ The detailed authority is
 
 ## T086 — Prove Gate G0
 
-**Status:** Technical evidence complete — awaiting the Product Owner's explicit G0 decision; Phase 1 remains blocked.
+**Status:** Complete — Product Owner approved G0 on 2026-08-11, accepted the recorded participant overlap, and authorized Phase 1 execution.
 **Priority:** P0
 **Dependencies:** T078–T085
 **Purpose:** Run the frontend-foundation acceptance matrix once and stop for the Product Owner decision.
@@ -874,7 +874,7 @@ The detailed authority is
 
 ## T087 — Implement Universal Capture and Manual Recovery
 
-**Status:** Not started — blocked by Gate G0.
+**Status:** In progress — G0 is approved; implementing the bounded manual-first capture slice.
 **Priority:** P1
 **Dependencies:** T086
 **Purpose:** Deliver one compact text/link/file capture flow with private-Inbox fallback.
