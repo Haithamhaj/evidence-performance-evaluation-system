@@ -1,6 +1,6 @@
 # AI-Native Experience Blueprint
 
-**Status:** Phase 0A Product Owner review draft  
+**Status:** D0 approved on 2026-08-11; authoritative direction for Phase 0B planning
 **Scope:** User moments and information hierarchy, not final navigation or production UI  
 **Sources:** Engine Customer Journey Map, Phase 1–3 Handoffs, Persona Visibility Map, and the approved
 AI-Native Frontend master plan.
@@ -29,9 +29,9 @@ does not silently change shared/protected state, and never evaluates the employe
 | Manager    | Resolve operational and evaluation responsibilities | Resolve one queue item or make an independent judgment     | blockers/approvals/continuity or Fact View/anchors in evaluation                        | allowed trends and source history                                            | private connector/coaching, readiness percentage/rank, employee self-rating before manager submit |
 | Admin      | Configure or recover the system safely              | Complete one explicit governed operation                   | health, impact, required action, safe next step                                         | authorized diagnostics/audit/runbook                                         | business/private content, manager decision authority, secrets                                     |
 
-## Candidate Information Architecture
+## Approved D0 Information Architecture
 
-This is a D0 hypothesis, not final navigation:
+This is the approved Phase 0B planning direction, not yet production navigation:
 
 ```text
 Today
@@ -198,12 +198,14 @@ button. Shared/production restore, credentials, paid services, and launch remain
 - Motion explains a state change once; no pulse, streak, confetti, surveillance cue, or rating
   animation.
 
-## D0 Product Owner Review Questions
+## D0 Disposition
 
-1. Does Today’s six-zone hierarchy match how employees should start and finish a workday?
-2. Is Work sufficiently familiar and complete without requiring Chat?
-3. Does Project clearly separate operational progress from employee performance?
-4. Does Research cover link/paper/repository review through applied learning without becoming heavy?
-5. Is Evaluation deliberately stable, facts-first, and human-decided?
-6. Are manager and administrator journeys clearly separated?
-7. Is the IA hypothesis acceptable for representative-user testing before final placement decisions?
+The Product Owner selected **Command Brief** and approved D0 after reviewing the runnable Arabic
+employee Today route. The hierarchy, manual Work path, Project-progress separation, Research
+placement hypothesis, stable Evaluation destination, role separation, and mobile/RTL direction carry
+forward to Phase 0B planning.
+
+The supporting evidence and explicit scope boundary are recorded in
+`docs/reviews/AI_NATIVE_FRONTEND_D0_EVIDENCE.md` and
+`docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`. Distinct employee and manager sessions remain a
+bounded pre-G0 validation follow-up; they do not authorize production UI before G0.

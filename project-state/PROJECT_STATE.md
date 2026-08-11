@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Complete AI-Native Frontend Phase 0A Gate `D0`: review the Product Owner-selected Command Brief Today
-prototype with representative users, record the bounded evidence and decision, and keep production
-frontend foundation and runtime work blocked until a positive `D0`, then `G0`.
+Prepare the separate AI-Native Frontend Phase 0B foundation plan after the Product Owner approved
+Gate `D0`. Keep production frontend runtime work blocked until Phase 0B establishes the foundation
+and passes Gate `G0`.
 
 ## Current Reality
 
@@ -27,6 +27,10 @@ frontend foundation and runtime work blocked until a positive `D0`, then `G0`.
 - The standalone synthetic Command Brief prototype now covers English/Arabic, RTL, 390px, role-visible
   navigation, Today state previews, decision, prepared draft, capture, recovery, focus return, and
   What Changed disclosure. Its focused Playwright and design-QA gates are green.
+- The Product Owner reviewed the runnable Arabic employee route and approved D0 on 2026-08-11.
+- D0 evidence is transparent: the Product Owner also provided the less-technical/employee-journey
+  perspective, architecture feasibility was technically reviewed, and distinct employee/manager
+  sessions remain a bounded pre-G0 follow-up.
 
 ## Active Decisions
 
@@ -47,6 +51,8 @@ frontend foundation and runtime work blocked until a positive `D0`, then `G0`.
   product interaction data cannot become project progress, evidence, evaluation input, or authority.
 - Command Brief is the selected D0 visual direction. It remains a non-production prototype and does
   not approve production tokens, components, dependencies, navigation, or runtime contracts.
+- Positive D0 authorizes Phase 0B planning only. Production Today/runtime work remains blocked until
+  the Phase 0B foundation passes G0.
 
 ## Active Risks
 
@@ -58,8 +64,8 @@ frontend foundation and runtime work blocked until a positive `D0`, then `G0`.
   review; normal Arabic/RTL foundations remain required in the final frontend.
 - Final daily usability, mobile behavior, and visual coherence are unproven until the dedicated
   frontend acceptance program.
-- The selected information architecture and visual direction remain a hypothesis until the required
-  representative-user review and Product Owner Gate `D0` decision are recorded.
+- Distinct daily-employee and manager/Project-owner sessions have not yet occurred; run them as a
+  bounded pre-G0 validation without reopening the direction absent a confirmed P0/P1 issue.
 
 ## Protected Areas
 
@@ -72,9 +78,9 @@ frontend foundation and runtime work blocked until a positive `D0`, then `G0`.
 
 ## Next Recommended Action
 
-Run the bounded representative-user D0 review against the Command Brief prototype, apply at most one
-confirmed blocker correction cycle, and obtain the explicit Product Owner `D0` decision. Do not start
-Phase 0B or production frontend work before that decision.
+Write the separate Phase 0B foundation plan from the approved Command Brief direction. Include the
+two bounded human validation sessions before G0 and do not begin Phase 1 runtime or production Today
+implementation in the Phase 0B plan.
 
 ## Critical References
 
@@ -87,6 +93,8 @@ Phase 0B or production frontend work before that decision.
 - `docs/product/ENGINE_CUSTOMER_JOURNEY_MAP.md`
 - `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
 - `docs/product/AI_NATIVE_FRONTEND_SOURCE_SNAPSHOT.md`
+- `docs/reviews/AI_NATIVE_FRONTEND_D0_EVIDENCE.md`
+- `docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-master-plan.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0a.md`
 - `docs/reviews/ENGINE_BIDIRECTIONAL_TRACE.md`

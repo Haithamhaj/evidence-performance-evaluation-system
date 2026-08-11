@@ -1,6 +1,6 @@
 # AI-Native IA D0 Validation Protocol
 
-**Status:** Phase 0A research protocol  
+**Status:** Completed; D0 approved on 2026-08-11
 **Decision owner:** Product Owner  
 **Purpose:** Validate information hierarchy and recurring destinations before production navigation,
 tokens, primitives, shell, or runtime contracts are selected.
@@ -106,3 +106,18 @@ D0 records one state:
 
 A positive D0 records the selected visual direction and IA disposition. It authorizes Phase 0B
 planning only, not production UI or Phase 1 runtime implementation.
+
+## Recorded Outcome
+
+- State: `APPROVED`.
+- Selected direction: **Command Brief**.
+- Product Owner evidence: direct review of the runnable Arabic employee Today route followed by the
+  explicit instruction “ممتاز اكمل”.
+- Technical evidence: focused browser journeys, RTL/mobile inspection, capability reconciliation,
+  event-boundary validation, and architecture feasibility review passed.
+- Transparency: participant roles overlapped and no separate human manager session occurred. One
+  distinct daily-employee session and one manager/Project-owner session are required before G0.
+- Authority: Phase 0B planning only; no production frontend or Phase 1 runtime implementation.
+
+See `docs/reviews/AI_NATIVE_FRONTEND_D0_EVIDENCE.md` and
+`docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`.
