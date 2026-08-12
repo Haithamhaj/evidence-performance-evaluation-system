@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { ProgressContractService } from "@evaluation/projects";
 
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
@@ -279,4 +280,36 @@ describe("daily work protected API contracts", () => {
       }),
     );
   });
+
+  it.each(["propose", "submit", "approve", "reject"] as const)(
+    "projects a role-bearing principal into the strict %s command actor",
+    async (operation) => {
+      const reachedPersistence = new Error("strict command accepted the controller actor");
+      const service = new ProgressContractService(
+        {
+          $transaction: vi.fn(async () => {
+            throw reachedPersistence;
+          }),
+        } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        () => new Date("2026-07-19T08:00:00.000Z"),
+        {} as never,
+      );
+      const controller = new ProgressContractsController(service);
+      const contractId = crypto.randomUUID();
+
+      await expect(
+        Promise.resolve().then(() =>
+          operation === "propose"
+            ? controller.propose(request, projectId, validProposal())
+            : controller[operation](request, projectId, contractId, {
+                expectedVersion: 1,
+                reason: "Continue the protected Progress Contract workflow.",
+              }),
+        ),
+      ).rejects.toBe(reachedPersistence);
+    },
+  );
 });

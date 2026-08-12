@@ -99,3 +99,15 @@ deferred foreign-key observation:
 
 The checks emitted the repository's existing Node-engine warning because verification ran on Node
 22.23.1 while the repository declares Node 24.18.0; no test or typecheck failed.
+
+## Progress Contract regression remediation — 2026-08-12
+
+The Daily Work controller now uses separate actor projections: the private Inbox workspace receives
+the authenticated role set, while strict Progress Contract propose/submit/approve/reject commands
+receive only `{ userId, active }` as their domain schema requires.
+
+- RED: 4 focused controller-to-real-service cases failed with `ZodError` because the proposed,
+  submitted, approved, and rejected commands contained the unrecognized `actor.roles` key.
+- GREEN: the same 4 cases reached the real Progress Contract service persistence boundary; the full
+  focused file passed (18/18 tests).
+- Affected API typecheck: passing.

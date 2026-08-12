@@ -48,7 +48,7 @@ export class DailyWorkController {
   }
 
   myWork(request: Request): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot> {
-    return this.query.dailyWorkspace(actor(request));
+    return this.query.dailyWorkspace(dailyWorkspaceActor(request));
   }
 
   updateContext(request: Request): Promise<import("@evaluation/contracts").UpdateComposerContext> {
@@ -101,7 +101,7 @@ export class ProgressContractsController {
     if (parsed.draft.projectId !== id)
       throw new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
     return this.service.propose({
-      actor: actor(request),
+      actor: progressContractActor(request),
       correlationId: request.correlationId,
       reason: parsed.reason,
       draft: parsed.draft,
@@ -129,7 +129,7 @@ export class ProgressContractsController {
   ) {
     const id = z.string().uuid().parse(projectId);
     const command = {
-      actor: actor(request),
+      actor: progressContractActor(request),
       correlationId: request.correlationId,
       projectId: id,
       contractId: z.string().uuid().parse(contractId),
@@ -143,7 +143,14 @@ export class ProgressContractsController {
   }
 }
 
-function actor(request: Request) {
+function progressContractActor(request: Request) {
+  return {
+    userId: request.principal.userId,
+    active: request.principal.active,
+  };
+}
+
+function dailyWorkspaceActor(request: Request) {
   return {
     userId: request.principal.userId,
     active: request.principal.active,
