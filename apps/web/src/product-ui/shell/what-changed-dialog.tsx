@@ -93,6 +93,10 @@ export function WhatChangedDialog({
 
   const openStream = useCallback(() => {
     if (!streamEnabled) return;
+    if (reconnectTimerRef.current !== null) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     connectionRef.current?.close();
     setStreamState("connecting");
     connectionRef.current = connectStream({
@@ -129,6 +133,10 @@ export function WhatChangedDialog({
     void refresh(null).then(openStream, () => setFailed(true));
   };
   const manualRefresh = () => {
+    if (reconnectTimerRef.current !== null) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     setFailed(false);
     void refresh(cursorRef.current).then(openStream, () => setFailed(true));
   };

@@ -245,6 +245,42 @@ describe("WhatChangedDialog", () => {
     expect(await screen.findByText("Saved to your private Inbox")).toBeInTheDocument();
     expect(connectStream).toHaveBeenCalledOnce();
   });
+
+  it("cancels a scheduled replay retry when manual refresh already reopened the stream", async () => {
+    const fetchProjection = vi
+      .fn()
+      .mockResolvedValueOnce({ items: [receipt("1")], nextCursor: "1" })
+      .mockRejectedValueOnce(new Error("transient replay failure"))
+      .mockResolvedValue({ items: [receipt("2")], nextCursor: "2" });
+    const handlers: import("./what-changed-dialog.js").ExperienceStreamHandlers[] = [];
+    const connectStream = vi.fn((input) => {
+      handlers.push(input.handlers);
+      input.handlers.onReady();
+      return { close: vi.fn() };
+    });
+    const user = userEvent.setup();
+    render(
+      createElement(whatChanged.WhatChangedDialog, {
+        catalog: getCatalogSync("en"),
+        connectStream,
+        fetchProjection,
+        probeSession: async () => "active" as const,
+        streamEnabled: true,
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "What Changed" }));
+    await waitFor(() => expect(handlers).toHaveLength(1));
+    vi.useFakeTimers();
+    await act(async () => handlers[0]!.onChange("2"));
+    await act(async () => screen.getByRole("button", { name: "Refresh changes" }).click());
+    await act(async () => Promise.resolve());
+    expect(connectStream).toHaveBeenCalledTimes(2);
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_500));
+
+    expect(connectStream).toHaveBeenCalledTimes(2);
+  });
 });
 
 function receipt(cursor: string) {
