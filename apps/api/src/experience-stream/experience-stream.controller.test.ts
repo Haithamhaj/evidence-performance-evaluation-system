@@ -1,9 +1,11 @@
 import { firstValueFrom } from "rxjs";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ExperienceStreamController } from "./experience-stream.controller.js";
 
 const actorId = "10000000-0000-4000-8000-000000000001";
+
+afterEach(() => vi.useRealTimers());
 
 describe("ExperienceStreamController", () => {
   it("emits a content-free wake-up for the authenticated recipient cursor", async () => {
@@ -40,6 +42,42 @@ describe("ExperienceStreamController", () => {
     expect(() =>
       controller.stream({ principal: { ...activeRequest().principal, active: false } }, {}),
     ).toThrowError(expect.objectContaining({ code: "AUTH_INACTIVE_USER", status: 403 }));
+  });
+
+  it("ends a live connection so the next request revalidates token and active-user state", async () => {
+    vi.useFakeTimers();
+    const controller = new ExperienceStreamController({
+      listWhatChanged: vi.fn(async () => ({ items: [], nextCursor: null })),
+    } as never);
+    const completed = vi.fn();
+
+    controller.stream(activeRequest(), {}).subscribe({ complete: completed });
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(completed).toHaveBeenCalledOnce();
+  });
+
+  it("drops polling ticks while the durable reader is still in flight", async () => {
+    vi.useFakeTimers();
+    let resolveRead!: (value: { items: never[]; nextCursor: null }) => void;
+    const listWhatChanged = vi
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (resolveRead = resolve as typeof resolveRead)),
+      )
+      .mockResolvedValue({ items: [], nextCursor: null });
+    const controller = new ExperienceStreamController({ listWhatChanged } as never);
+    const subscription = controller.stream(activeRequest(), {}).subscribe();
+
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(listWhatChanged).toHaveBeenCalledOnce();
+
+    resolveRead({ items: [], nextCursor: null });
+    await Promise.resolve();
+    expect(listWhatChanged).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(1_500);
+    expect(listWhatChanged).toHaveBeenCalledTimes(2);
+    subscription.unsubscribe();
   });
 });
 

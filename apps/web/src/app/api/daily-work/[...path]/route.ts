@@ -69,7 +69,7 @@ import {
 type Context = { readonly params: Promise<{ readonly path: string[] }> };
 
 const UuidSchema = z.string().uuid();
-const CurrentSessionSchema = z.object({ userId: UuidSchema }).passthrough();
+const CurrentSessionSchema = z.object({ active: z.boolean(), userId: UuidSchema }).passthrough();
 const ContextPrepareItemSchema = z.object({ sourceItemId: UuidSchema }).strict();
 const StrictQueueItemSchema = z
   .object({

@@ -43,6 +43,8 @@ export function WhatChangedDialog({
   const cursorRef = useRef<string | null>(null);
   const connectionRef = useRef<StreamConnection | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryCountRef = useRef(0);
+  const recoverRef = useRef<() => Promise<void>>(async () => undefined);
   const openStreamRef = useRef<() => void>(() => undefined);
 
   const applyProjection = useCallback((incoming: WhatChangedProjection) => {
@@ -58,6 +60,13 @@ export function WhatChangedDialog({
     [applyProjection, fetchProjection],
   );
 
+  const scheduleRecovery = useCallback(() => {
+    if (retryCountRef.current >= 3) return;
+    retryCountRef.current += 1;
+    if (reconnectTimerRef.current !== null) clearTimeout(reconnectTimerRef.current);
+    reconnectTimerRef.current = setTimeout(() => void recoverRef.current(), 1_500);
+  }, []);
+
   const recover = useCallback(async () => {
     connectionRef.current?.close();
     connectionRef.current = null;
@@ -68,8 +77,7 @@ export function WhatChangedDialog({
     }
     if (session === "unavailable") {
       setStreamState("reconnecting");
-      if (reconnectTimerRef.current !== null) clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = setTimeout(() => void recover(), 1_500);
+      scheduleRecovery();
       return;
     }
     setStreamState("replaying");
@@ -78,8 +86,10 @@ export function WhatChangedDialog({
       openStreamRef.current();
     } catch {
       setStreamState("reconnecting");
+      scheduleRecovery();
     }
-  }, [probeSession, refresh]);
+  }, [probeSession, refresh, scheduleRecovery]);
+  recoverRef.current = recover;
 
   const openStream = useCallback(() => {
     if (!streamEnabled) return;
@@ -88,7 +98,10 @@ export function WhatChangedDialog({
     connectionRef.current = connectStream({
       afterCursor: cursorRef.current,
       handlers: {
-        onReady: () => setStreamState("ready"),
+        onReady: () => {
+          retryCountRef.current = 0;
+          setStreamState("ready");
+        },
         onChange: async (eventCursor) => {
           if (cursorRef.current !== null && BigInt(eventCursor) <= BigInt(cursorRef.current)) {
             return;
@@ -99,6 +112,7 @@ export function WhatChangedDialog({
             setStreamState("ready");
           } catch {
             setStreamState("reconnecting");
+            scheduleRecovery();
           }
         },
         onError: async () => {
@@ -107,12 +121,16 @@ export function WhatChangedDialog({
         },
       },
     });
-  }, [connectStream, recover, refresh, streamEnabled]);
+  }, [connectStream, recover, refresh, scheduleRecovery, streamEnabled]);
   openStreamRef.current = openStream;
 
   const load = () => {
     setFailed(false);
     void refresh(null).then(openStream, () => setFailed(true));
+  };
+  const manualRefresh = () => {
+    setFailed(false);
+    void refresh(cursorRef.current).then(openStream, () => setFailed(true));
   };
 
   useEffect(() => {
@@ -170,7 +188,7 @@ export function WhatChangedDialog({
           </article>
         ))}
         {projection !== null || failed ? (
-          <button onClick={() => void refresh(cursorRef.current)} type="button">
+          <button onClick={manualRefresh} type="button">
             {catalog["whatChanged.refresh"]}
           </button>
         ) : null}
@@ -235,8 +253,11 @@ async function fetchWhatChanged(afterCursor: string | null = null): Promise<What
 
 async function probeExperienceSession(): Promise<SessionState> {
   const response = await fetch("/api/daily-work/experience/session", { cache: "no-store" });
-  if (response.ok) return "active";
   if (response.status === 401 || response.status === 403) return "unauthorized";
+  if (response.ok) {
+    const session = (await response.json()) as { active?: unknown };
+    return session.active === true ? "active" : "unauthorized";
+  }
   return "unavailable";
 }
 

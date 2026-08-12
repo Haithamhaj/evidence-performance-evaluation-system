@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { AppError } from "@evaluation/contracts";
 import { Controller, Headers, Inject, Query, Req, Sse, UseGuards } from "@nestjs/common";
-import { concatMap, from, mergeMap, timer, type Observable } from "rxjs";
+import { exhaustMap, from, mergeMap, takeUntil, timer, type Observable } from "rxjs";
 import { z } from "zod";
 
 import { ExperienceEventRuntime } from "../operations/experience-event-runtime.js";
@@ -40,7 +40,7 @@ export class ExperienceStreamController {
     );
 
     return timer(0, 1_500).pipe(
-      concatMap(() => from(session.read())),
+      exhaustMap(() => from(session.read())),
       mergeMap((notifications) =>
         from(
           notifications.map((notification) => ({
@@ -50,6 +50,9 @@ export class ExperienceStreamController {
           })),
         ),
       ),
+      // Force a fresh authenticated request so token expiry and deactivation
+      // cannot leave an already-open connection authorized indefinitely.
+      takeUntil(timer(30_000)),
     );
   }
 }

@@ -91,7 +91,7 @@ describe("daily-work same-origin gateway", () => {
   });
 
   it("probes only the protected current session for stream recovery", async () => {
-    mocks.fetchProtectedUpstream.mockResolvedValue({ userId: projectId });
+    mocks.fetchProtectedUpstream.mockResolvedValue({ active: true, userId: projectId });
 
     const response = await GET(
       new Request("http://localhost:3000/api/daily-work/experience/session"),
