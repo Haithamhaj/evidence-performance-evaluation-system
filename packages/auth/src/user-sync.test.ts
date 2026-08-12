@@ -18,8 +18,12 @@ function auditWriter() {
   };
 }
 
-function clientForUser(user: { id: string; email: string; displayName: string; active: boolean }) {
+function clientForUser(
+  user: { id: string; email: string; displayName: string; active: boolean },
+  roles: readonly string[] = [],
+) {
   const update = vi.fn().mockResolvedValue(user);
+  const findRoles = vi.fn().mockResolvedValue(roles.map((role) => ({ role })));
   const transaction = {
     auditEvent: { create: vi.fn() },
     authorizationScope: { findUnique: vi.fn().mockResolvedValue({ id: systemScopeId }) },
@@ -27,6 +31,7 @@ function clientForUser(user: { id: string; email: string; displayName: string; a
       findUnique: vi.fn().mockResolvedValue({ user }),
       create: vi.fn(),
     },
+    roleAssignment: { findMany: findRoles },
     user: { create: vi.fn(), findUnique: vi.fn(), update },
   };
 
@@ -36,26 +41,34 @@ function clientForUser(user: { id: string; email: string; displayName: string; a
 
   return {
     client,
+    findRoles,
     update,
   };
 }
 
 describe("OIDC user synchronization", () => {
   it("returns the exact authenticated principal for an active internal user", async () => {
-    const { client, update } = clientForUser({
-      id: "9a11bb8f-79f5-4a72-a98f-2e763e97699b",
-      email: oidcPrincipal.email,
-      displayName: "Pilot Employee",
-      active: true,
-    });
+    const { client, findRoles, update } = clientForUser(
+      {
+        id: "9a11bb8f-79f5-4a72-a98f-2e763e97699b",
+        email: oidcPrincipal.email,
+        displayName: "Pilot Employee",
+        active: true,
+      },
+      ["employee", "contributor", "employee"],
+    );
 
     const writer = auditWriter();
     await expect(syncOidcUser(client, oidcPrincipal, writer, "Pilot Employee")).resolves.toEqual({
       userId: "9a11bb8f-79f5-4a72-a98f-2e763e97699b",
       oidcSubject: "oidc-user-1",
       email: "employee@pilot.local",
-      roles: [],
+      roles: ["employee", "contributor"],
       active: true,
+    });
+    expect(findRoles).toHaveBeenCalledWith({
+      where: { userId: "9a11bb8f-79f5-4a72-a98f-2e763e97699b" },
+      select: { role: true },
     });
     expect(update).toHaveBeenCalledWith({
       where: { id: "9a11bb8f-79f5-4a72-a98f-2e763e97699b" },
@@ -112,6 +125,7 @@ describe("OIDC user synchronization", () => {
         ),
         create: vi.fn(),
       },
+      roleAssignment: { findMany: vi.fn().mockResolvedValue([]) },
       user: {
         findUnique: vi.fn(async () => persistedUser),
         update: vi.fn(async () => persistedUser ?? user),

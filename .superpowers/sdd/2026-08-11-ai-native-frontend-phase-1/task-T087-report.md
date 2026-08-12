@@ -138,3 +138,18 @@ shared dialog primitive and its existing desktop/mobile placement behavior are u
   in both locales; the focused file passed (5/5 tests).
 - Web lint passed. Web typecheck and Next compile passed.
 - Existing Node 22/24 engine and Vite native-config warnings remain informational only.
+
+## Authenticated role hydration remediation — 2026-08-12
+
+OIDC synchronization now reads the active internal user's current `RoleAssignment` rows inside the
+same transaction and returns their unique role names on `AuthenticatedPrincipal`. It does not accept
+or merge OIDC-provided roles, so the database remains authoritative. The schema has no role
+effective-window or status fields; every persisted assignment is current, while inactive users still
+fail before a role-bearing principal is returned.
+
+- RED: synchronization of an employee/contributor returned `roles: []` instead of the unique
+  database assignments, preventing real authenticated employees from passing private-capture policy.
+- GREEN: synchronization returned `["employee", "contributor"]` from repeated authoritative rows.
+- Focused auth, AuthGuard, private-capture policy, and capture API verification: 5 files / 28 tests
+  passed.
+- Auth and API typechecks passed; focused Auth files were formatted.

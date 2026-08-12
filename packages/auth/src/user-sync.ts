@@ -18,6 +18,9 @@ interface UserSyncTransaction {
     findUnique(args: unknown): Promise<{ user: InternalUser } | null>;
     create(args: unknown): Promise<unknown>;
   };
+  readonly roleAssignment: {
+    findMany(args: unknown): Promise<readonly { role: string }[]>;
+  };
   readonly user: {
     findUnique(args: unknown): Promise<InternalUser | null>;
     update(args: unknown): Promise<InternalUser>;
@@ -171,6 +174,11 @@ async function synchronizeOnce(
     }
 
     if (!user.active) inactiveUser();
+    const roleAssignments = await transaction.roleAssignment.findMany({
+      where: { userId: user.id },
+      select: { role: true },
+    });
+    const roles = [...new Set(roleAssignments.map(({ role }) => role))];
 
     const systemScope = await transaction.authorizationScope.findUnique({
       where: { key: "system" },
@@ -193,7 +201,7 @@ async function synchronizeOnce(
       userId: user.id,
       oidcSubject: principal.oidcSubject,
       email: user.email,
-      roles: [],
+      roles,
       active: true,
     };
   });
