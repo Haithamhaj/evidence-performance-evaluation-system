@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 "use client";
 
-import { localeMetadata, type Catalog, type Locale } from "@evaluation/localization";
+import type { Catalog, Locale } from "@evaluation/localization";
 import { ProductIcon } from "@evaluation/ui";
 import { useEffect, useMemo, useState } from "react";
 
@@ -73,7 +73,7 @@ export function IntelligentToday({
 
   const decision = queue?.items.find((item) => item.kind === "project_match") ?? null;
   const preparedItem = prepared?.items[0] ?? null;
-  const direction = localeMetadata[locale].direction;
+  const direction = locale === "ar" ? "rtl" : "ltr";
 
   return (
     <section
