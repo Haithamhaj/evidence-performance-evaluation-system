@@ -3,6 +3,8 @@
 import { ActionButton, FocusedDialog } from "@evaluation/ui";
 import { createElement, useState } from "react";
 
+import styles from "./capture-dialog.module.css";
+
 type SourceType = "text" | "link" | "code" | "file" | "image";
 
 export function CaptureDialog({
@@ -48,35 +50,44 @@ export function CaptureDialog({
     }),
     children: (
       <form
+        className={styles.form!}
         dir={locale === "ar" ? "rtl" : "ltr"}
         onSubmit={(event) => {
           event.preventDefault();
           reviewing ? void savePrivate() : setReviewing(true);
         }}
       >
-        <p>{catalog["capture.privateHint"]}</p>
-        <label htmlFor="capture-source">{catalog["capture.source"]}</label>
-        <select
-          id="capture-source"
-          onChange={(event) => {
-            setSourceType(event.target.value as SourceType);
-            setError(false);
-          }}
-          value={sourceType}
-        >
-          <option value="text">{catalog["capture.source.text"]}</option>
-          <option value="link">{catalog["capture.source.link"]}</option>
-          <option value="code">{catalog["capture.source.code"]}</option>
-          <option value="file">{catalog["capture.source.file"]}</option>
-          <option value="image">{catalog["capture.source.image"]}</option>
-        </select>
+        <p className={styles.privateHint!}>{catalog["capture.privateHint"]}</p>
+        <div className={styles.field!}>
+          <label className={styles.label!} htmlFor="capture-source">
+            {catalog["capture.source"]}
+          </label>
+          <select
+            className={styles.control!}
+            id="capture-source"
+            onChange={(event) => {
+              setSourceType(event.target.value as SourceType);
+              setError(false);
+            }}
+            value={sourceType}
+          >
+            <option value="text">{catalog["capture.source.text"]}</option>
+            <option value="link">{catalog["capture.source.link"]}</option>
+            <option value="code">{catalog["capture.source.code"]}</option>
+            <option value="file">{catalog["capture.source.file"]}</option>
+            <option value="image">{catalog["capture.source.image"]}</option>
+          </select>
+        </div>
         {sourceType === "file" || sourceType === "image" ? (
-          <>
-            <label htmlFor="capture-file">{catalog["capture.file"]}</label>
+          <div className={styles.field!}>
+            <label className={styles.label!} htmlFor="capture-file">
+              {catalog["capture.file"]}
+            </label>
             <input
               accept={
                 sourceType === "image" ? "image/png,image/jpeg,image/webp" : ".md,.txt,.docx,.pdf"
               }
+              className={`${styles.control!} ${styles.fileControl!}`}
               id="capture-file"
               onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null);
@@ -85,10 +96,10 @@ export function CaptureDialog({
               required
               type="file"
             />
-          </>
+          </div>
         ) : (
-          <>
-            <label htmlFor="capture-text">
+          <div className={styles.field!}>
+            <label className={styles.label!} htmlFor="capture-text">
               {
                 catalog[
                   sourceType === "link"
@@ -100,6 +111,7 @@ export function CaptureDialog({
               }
             </label>
             <textarea
+              className={`${styles.control!} ${styles.textarea!}`}
               id="capture-text"
               onChange={(event) => {
                 setText(event.target.value);
@@ -108,16 +120,16 @@ export function CaptureDialog({
               required
               value={text}
             />
-          </>
+          </div>
         )}
-        {reviewing ? <p>{catalog["capture.reviewHint"]}</p> : null}
+        {reviewing ? <p className={styles.reviewHint!}>{catalog["capture.reviewHint"]}</p> : null}
         {error ? (
-          <p className="formError" role="alert">
+          <p className={styles.recovery!} role="alert">
             {catalog["capture.recovery"]}
           </p>
         ) : null}
         <button
-          className="primaryAction"
+          className={styles.action!}
           disabled={
             sourceType === "file" || sourceType === "image" ? file === null : text.trim() === ""
           }

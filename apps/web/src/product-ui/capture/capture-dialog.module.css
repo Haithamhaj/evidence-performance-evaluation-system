@@ -1,0 +1,116 @@
+@layer product {
+  .form {
+    display: grid;
+    gap: var(--ui-space-4);
+  }
+
+  .privateHint,
+  .reviewHint,
+  .recovery {
+    margin: 0;
+    padding-block: var(--ui-space-3);
+    padding-inline: var(--ui-space-4);
+    border-radius: var(--ui-radius-control);
+    font-size: var(--ui-font-size-sm);
+    line-height: var(--ui-line-body);
+  }
+
+  .privateHint {
+    color: var(--ui-color-text-muted);
+    background: var(--ui-color-surface-muted);
+    border-inline-start: 0.1875rem solid var(--ui-color-accent);
+  }
+
+  .field {
+    display: grid;
+    gap: var(--ui-space-2);
+  }
+
+  .label {
+    color: var(--ui-color-text);
+    font-size: var(--ui-font-size-sm);
+    font-weight: 750;
+  }
+
+  .control {
+    inline-size: 100%;
+    min-block-size: var(--ui-density-control-block);
+    padding-block: var(--ui-space-2);
+    padding-inline: var(--ui-space-3);
+    color: var(--ui-color-text);
+    background: var(--ui-color-surface);
+    border: var(--ui-border-thin) solid var(--ui-color-border-strong);
+    border-radius: var(--ui-radius-control);
+  }
+
+  .control:hover {
+    border-color: var(--ui-color-accent);
+  }
+
+  .textarea {
+    min-block-size: 8rem;
+    resize: vertical;
+    line-height: var(--ui-line-body);
+    unicode-bidi: plaintext;
+  }
+
+  .fileControl {
+    padding-block: var(--ui-space-2);
+  }
+
+  .reviewHint {
+    color: var(--ui-color-text);
+    background: var(--ui-color-status-prepared-surface);
+    border: var(--ui-border-thin) solid
+      color-mix(in srgb, var(--ui-color-status-prepared) 35%, var(--ui-color-border));
+  }
+
+  .recovery {
+    color: var(--ui-color-status-critical);
+    background: var(--ui-color-status-critical-surface);
+    border: var(--ui-border-thin) solid var(--ui-color-status-critical);
+  }
+
+  .action {
+    justify-self: end;
+    min-block-size: var(--ui-target-min);
+    min-inline-size: 12rem;
+    padding-block: var(--ui-space-2);
+    padding-inline: var(--ui-space-4);
+    color: var(--ui-color-text-inverse);
+    background: var(--ui-color-accent);
+    border: var(--ui-border-thin) solid var(--ui-color-accent);
+    border-radius: var(--ui-radius-control);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .action:hover:not(:disabled) {
+    background: var(--ui-color-accent-hover);
+  }
+
+  .action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  @media (max-width: 47.999rem) {
+    .form {
+      gap: var(--ui-space-3);
+    }
+
+    .action {
+      inline-size: 100%;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .privateHint,
+    .reviewHint,
+    .recovery,
+    .control,
+    .action {
+      border-color: CanvasText;
+    }
+  }
+}

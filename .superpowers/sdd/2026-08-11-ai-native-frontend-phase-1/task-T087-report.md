@@ -124,3 +124,17 @@ The visible Capture trigger now uses the existing React Aria-compatible `ActionB
 - Focused UI verification: 2 files / 7 tests passed (Capture journey plus UI primitive browser
   compatibility).
 - Affected web typecheck/compile and focused lint: passing.
+
+## Stable Shell Capture presentation remediation — 2026-08-12
+
+The employee EN/AR Stable Shell stories now provide every Capture catalog entry plus the close label.
+`CaptureDialog` owns a compact CSS module with Command Brief spacing, muted privacy guidance,
+full-width labelled controls, a restrained review/recovery surface, and a clear primary action. The
+shared dialog primitive and its existing desktop/mobile placement behavior are unchanged.
+
+- RED: the real Stable Shell employee stories opened an unnamed dialog with blank controls; 2 EN/AR
+  localization and accessible-label cases failed.
+- GREEN: the story journey exercises note/link/code/file choices, review, recovery, and saved states
+  in both locales; the focused file passed (5/5 tests).
+- Web lint passed. Web typecheck and Next compile passed.
+- Existing Node 22/24 engine and Vite native-config warnings remain informational only.

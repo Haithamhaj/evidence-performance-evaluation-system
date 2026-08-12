@@ -12,8 +12,29 @@ const employee = { active: true, roles: [] as string[] };
 const manager = { active: true, roles: ["manager"] };
 const shellCatalogs = {
   ar: {
+    "actions.close": "إغلاق",
     "actions.login": "تسجيل الدخول",
     "actions.logout": "تسجيل الخروج",
+    "capture.code": "شفرة ملصقة",
+    "capture.file": "ملف أو صورة خاصة",
+    "capture.link": "رابط HTTP أو HTTPS",
+    "capture.note": "ملاحظة الإضافة",
+    "capture.privateHint":
+      "احفظ ملاحظة أو رابطًا أو شفرة أو ملفًا أو صورة خامًا في صندوقك الخاص. لا ينشئ ذلك مهمة أو تحديثًا أو سجل أدلة أو تقدم مشروع أو مدخلًا للتقييم.",
+    "capture.recovery":
+      "ما زالت مسودتك الخاصة هنا. حاول مرة أخرى أو احفظ يدويًا عندما تكون جاهزًا.",
+    "capture.reviewHint":
+      "راجع هذه المسودة الخاصة الخام قبل الحفظ. تبقى الترقية إلى عمل رسمي إجراءً منفصلًا.",
+    "capture.reviewSave": "مراجعة وحفظ خاص",
+    "capture.saved": "تم الحفظ في صندوقك الخاص.",
+    "capture.savePrivate": "حفظ خاص",
+    "capture.source": "نوع المصدر",
+    "capture.source.code": "شفرة ملصقة",
+    "capture.source.file": "ملف",
+    "capture.source.image": "صورة",
+    "capture.source.link": "رابط",
+    "capture.source.text": "ملاحظة",
+    "capture.title": "إضافة خاصة",
     "locale.switchToArabic": "العربية",
     "locale.switchToEnglish": "English",
     "shell.availableNextSlice": "متاح في الشريحة التالية",
@@ -37,8 +58,29 @@ const shellCatalogs = {
     "shell.skipToContent": "الانتقال إلى المحتوى الرئيسي",
   },
   en: {
+    "actions.close": "Close",
     "actions.login": "Log in",
     "actions.logout": "Log out",
+    "capture.code": "Pasted code",
+    "capture.file": "Private file or image",
+    "capture.link": "HTTP or HTTPS link",
+    "capture.note": "Capture note",
+    "capture.privateHint":
+      "Save a raw note, link, code, file, or image to your private Inbox. This does not create a Task, Update, Evidence record, Project progress, or evaluation input.",
+    "capture.recovery":
+      "Your private draft is still here. Try again or save manually when you are ready.",
+    "capture.reviewHint":
+      "Review this raw private draft before saving. Promotion to official work remains a separate action.",
+    "capture.reviewSave": "Review and save privately",
+    "capture.saved": "Saved to your private Inbox.",
+    "capture.savePrivate": "Save privately",
+    "capture.source": "Source type",
+    "capture.source.code": "Pasted code",
+    "capture.source.file": "File",
+    "capture.source.image": "Image",
+    "capture.source.link": "Link",
+    "capture.source.text": "Note",
+    "capture.title": "Capture privately",
     "locale.switchToArabic": "العربية",
     "locale.switchToEnglish": "English",
     "shell.availableNextSlice": "Available in the next slice",
