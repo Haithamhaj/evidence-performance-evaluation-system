@@ -68,3 +68,34 @@ deferred to the selected in-app browser reviewer:
 
 `TASKS.md` and `project-state/PROJECT_STATE.md` remain unchanged until that final visual evidence is
 recorded.
+
+## P1 remediation — 2026-08-12
+
+The bounded independent-review remediation fixes both confirmed P1 findings without addressing the
+deferred foreign-key observation:
+
+- Private capture now has one server-side employee/contributor authorization policy. Private Inbox
+  capture, list, promote, and dismiss plus private-upload stage, ownership validation, and signed read
+  deny inactive, manager-only, and system-administrator-only principals. A manager who is also an
+  employee remains authorized.
+- Work Items no longer reads the Documents-owned `PrivateCaptureUpload` persistence model. It depends
+  on a narrow ownership-validation port, and the API module composes that port with Documents'
+  public `PrivateCaptureUploadService.assertOwned` operation before an Inbox file/image is persisted.
+
+### Remediation RED/GREEN evidence
+
+- RED: the new policy test could not import `private-capture`, controller role-denial tests reached
+  their mocked services for manager-only and administrator-only principals, and Documents accepted
+  those roles because role context was absent. GREEN: direct policy, API, and Documents service tests
+  deny those principals while employee, contributor, and manager-plus-employee cases pass.
+- RED: the Work Items ownership-boundary test could not construct the service with an ownership
+  validator and the implementation still referenced `transaction.privateCaptureUpload`. GREEN:
+  file/image capture invokes the injected Documents ownership operation before its transaction; both
+  wrong-owner and missing-upload results deny without creating an Inbox record.
+- Focused remediation verification: 6 files / 40 tests passed.
+- Affected typechecks: Permissions, Work Items, Documents, and API passed.
+- Boundary validation: `FRONTEND BOUNDARIES VALID (1101 files)`.
+- `git diff --check`: passed.
+
+The checks emitted the repository's existing Node-engine warning because verification ran on Node
+22.23.1 while the repository declares Node 24.18.0; no test or typecheck failed.

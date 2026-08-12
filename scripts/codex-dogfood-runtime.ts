@@ -16,6 +16,7 @@ import {
   parseDocumentRuntimeConfig,
   ProgressContractDraftSourceReader,
   ProgressDocumentReader,
+  PrivateCaptureUploadService,
   S3PrivateStorage,
   TemplateService,
   UploadService,
@@ -206,6 +207,7 @@ async function localServices(databaseUrl: string) {
   const s3 = s3Client(config);
   const reader = new DocumentResourceReader(client);
   const storage = new S3PrivateStorage(s3, config.storage.bucket);
+  const scanner = new ClamAvScanner(config.scanner);
   const projects = createProjectService(client, databaseAuditWriter as never);
   const workstreams = createWorkstreamService(client, databaseAuditWriter as never);
   const workItems = new WorkItemService(
@@ -214,13 +216,24 @@ async function localServices(databaseUrl: string) {
     () => new Date(),
     projects,
   );
-  const privateInbox = new PrivateInboxService(client, databaseAuditWriter as never);
+  const privateCaptureUploads = new PrivateCaptureUploadService(
+    client,
+    storage,
+    scanner,
+    config.policy,
+    databaseAuditWriter as never,
+  );
+  const privateInbox = new PrivateInboxService(
+    client,
+    databaseAuditWriter as never,
+    privateCaptureUploads,
+  );
   const templates = new TemplateService(client, databaseAuditWriter as never);
   const uploads = new UploadService(
     client,
     reader,
     storage,
-    new ClamAvScanner(config.scanner),
+    scanner,
     config.policy,
     databaseAuditWriter as never,
   );
@@ -551,7 +564,7 @@ async function localServices(databaseUrl: string) {
       )
         return;
       await privateInbox.capture({
-        actor: { userId: input.employeeId, active: true },
+        actor: { userId: input.employeeId, active: true, roles: ["employee"] },
         correlationId: randomUUID(),
         input: {
           projectId: input.projectId,

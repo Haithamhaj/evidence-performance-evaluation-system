@@ -5,6 +5,7 @@ import {
   PromotePrivateInboxInputSchema,
   WorkItemDetailSchema,
 } from "@evaluation/contracts";
+import { canUsePrivateCapture } from "@evaluation/permissions";
 import { z } from "zod";
 
 import { serializeInboxItem, forbiddenError } from "./inbox-query-service.js";
@@ -15,7 +16,9 @@ type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
 type AuditWriter = import("@evaluation/contracts").AuditWriter<Transaction>;
 
-const ActorSchema = z.object({ userId: z.string().uuid(), active: z.boolean() }).strict();
+const ActorSchema = z
+  .object({ userId: z.string().uuid(), active: z.boolean(), roles: z.array(z.string()) })
+  .strict();
 const CommandBaseSchema = z
   .object({ actor: ActorSchema, correlationId: z.string().uuid() })
   .strict();
@@ -35,31 +38,33 @@ export class PrivateInboxService {
   private readonly client: DatabaseClient;
   private readonly auditWriter: AuditWriter;
   private readonly clock: () => Date;
+  private readonly privateUploads: PrivateCaptureUploadOwnershipValidator;
 
   constructor(
     client: DatabaseClient,
     auditWriter: AuditWriter,
+    privateUploads: PrivateCaptureUploadOwnershipValidator,
     clock: () => Date = () => new Date(),
   ) {
     this.client = client;
     this.auditWriter = auditWriter;
+    this.privateUploads = privateUploads;
     this.clock = clock;
   }
 
   async capture(command: unknown): Promise<import("@evaluation/contracts").PrivateInboxItem> {
     const parsed = CaptureCommandSchema.parse(command);
     const current = validClock(this.clock());
-    if (!parsed.actor.active) throw forbiddenError();
+    assertCaptureAuthorized(parsed.actor);
+    if (parsed.input.sourceUploadId !== null) {
+      await this.privateUploads.assertOwned({
+        actor: parsed.actor,
+        privateCaptureUploadId: parsed.input.sourceUploadId,
+      });
+    }
     return serializable(this.client, async (transaction) => {
       if (parsed.input.projectId !== null) {
         await authorizeProject(transaction, parsed.actor, parsed.input.projectId, current);
-      }
-      if (parsed.input.sourceUploadId !== null) {
-        const upload = await transaction.privateCaptureUpload.findUnique({
-          where: { id: parsed.input.sourceUploadId },
-          select: { ownerId: true },
-        });
-        if (upload === null || upload.ownerId !== parsed.actor.userId) throw forbiddenError();
       }
       const item = await transaction.privateInboxItem.create({
         data: {
@@ -94,7 +99,7 @@ export class PrivateInboxService {
 
   async dismiss(command: unknown): Promise<import("@evaluation/contracts").PrivateInboxItem> {
     const parsed = DismissCommandSchema.parse(command);
-    if (!parsed.actor.active) throw forbiddenError();
+    assertCaptureAuthorized(parsed.actor);
     return serializable(this.client, async (transaction) => {
       await lockInboxItem(transaction, parsed.inboxItemId);
       const item = await loadOwnedInboxItem(transaction, parsed.actor.userId, parsed.inboxItemId);
@@ -123,7 +128,7 @@ export class PrivateInboxService {
   async promote(command: unknown): Promise<import("@evaluation/contracts").WorkItemDetail> {
     const parsed = PromoteCommandSchema.parse(command);
     const current = validClock(this.clock());
-    if (!parsed.actor.active) throw forbiddenError();
+    assertCaptureAuthorized(parsed.actor);
     return serializable(this.client, async (transaction) => {
       await lockInboxItem(transaction, parsed.inboxItemId);
       const inbox = await loadOwnedInboxItem(transaction, parsed.actor.userId, parsed.inboxItemId);
@@ -213,6 +218,17 @@ export class PrivateInboxService {
       return serializeWorkItem(workItem);
     });
   }
+}
+
+export interface PrivateCaptureUploadOwnershipValidator {
+  assertOwned(command: Readonly<{
+    actor: Readonly<{ userId: string; active: boolean; roles: readonly string[] }>;
+    privateCaptureUploadId: string;
+  }>): Promise<void>;
+}
+
+function assertCaptureAuthorized(actor: { active: boolean; roles: readonly string[] }) {
+  if (!canUsePrivateCapture(actor)) throw forbiddenError();
 }
 
 async function loadOwnedInboxItem(

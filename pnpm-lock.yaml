@@ -903,6 +903,9 @@ importers:
       '@evaluation/database':
         specifier: workspace:*
         version: link:../database
+      '@evaluation/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       zod:
         specifier: 4.4.3
         version: 4.4.3

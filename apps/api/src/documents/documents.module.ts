@@ -222,5 +222,5 @@ Module({
     DocumentsAuthenticationGuard,
     DocumentTemplatePolicyGuard,
   ],
-  exports: [DocumentProjectSemanticContextReader],
+  exports: [DocumentProjectSemanticContextReader, PrivateCaptureUploadService],
 })(DocumentsModule);

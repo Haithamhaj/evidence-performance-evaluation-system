@@ -66,10 +66,15 @@ describe("provider outage and idempotent recovery", () => {
         displayName: "Provider outage employee",
       },
     });
-    const service = new PrivateInboxService(client, databaseAuditWriter as never, () => createdAt);
+    const service = new PrivateInboxService(
+      client,
+      databaseAuditWriter as never,
+      { assertOwned: async () => undefined },
+      () => createdAt,
+    );
 
     const captured = await service.capture({
-      actor: { userId: employeeId, active: true },
+      actor: { userId: employeeId, active: true, roles: ["employee"] },
       correlationId,
       input: { text: captureText, projectId: null },
     });

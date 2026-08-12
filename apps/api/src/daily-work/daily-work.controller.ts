@@ -144,7 +144,11 @@ export class ProgressContractsController {
 }
 
 function actor(request: Request) {
-  return { userId: request.principal.userId, active: request.principal.active };
+  return {
+    userId: request.principal.userId,
+    active: request.principal.active,
+    roles: request.principal.roles,
+  };
 }
 
 Controller("api/v1/daily-work")(DailyWorkController);

@@ -1,5 +1,6 @@
 import { AppError, PrivateCaptureUploadMetadataSchema } from "@evaluation/contracts";
 import { PrivateCaptureUploadService } from "@evaluation/documents";
+import { canUsePrivateCapture } from "@evaluation/permissions";
 import { Controller, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 
@@ -21,6 +22,7 @@ export class PrivateCaptureUploadsController {
   constructor(private readonly uploads: PrivateCaptureUploadService) {}
 
   upload(request: UploadRequest) {
+    assertPrivateCaptureAuthorized(request.principal);
     rejectUnexpectedHeaders(request);
     return this.uploads.stage(
       {
@@ -36,6 +38,7 @@ export class PrivateCaptureUploadsController {
   }
 
   signRead(request: AuthenticatedRequest, privateCaptureUploadId: string) {
+    assertPrivateCaptureAuthorized(request.principal);
     return this.uploads.signRead({
       actor: actor(request),
       correlationId: request.correlationId,
@@ -45,7 +48,17 @@ export class PrivateCaptureUploadsController {
 }
 
 function actor(request: AuthenticatedRequest) {
-  return { userId: request.principal.userId, active: request.principal.active } as const;
+  return {
+    userId: request.principal.userId,
+    active: request.principal.active,
+    roles: request.principal.roles,
+  } as const;
+}
+
+function assertPrivateCaptureAuthorized(principal: import("@evaluation/auth").AuthenticatedPrincipal) {
+  if (!canUsePrivateCapture(principal)) {
+    throw new AppError("PRIVATE_CAPTURE_FORBIDDEN", "errors.privateCapture.forbidden", 403);
+  }
 }
 
 function header(request: UploadRequest, name: string): string | undefined {

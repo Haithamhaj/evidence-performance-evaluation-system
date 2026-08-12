@@ -3,11 +3,14 @@ import {
   ListPrivateInboxInputSchema,
   PrivateInboxItemSchema,
 } from "@evaluation/contracts";
+import { canUsePrivateCapture } from "@evaluation/permissions";
 import { z } from "zod";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 
-const ActorSchema = z.object({ userId: z.string().uuid(), active: z.boolean() }).strict();
+const ActorSchema = z
+  .object({ userId: z.string().uuid(), active: z.boolean(), roles: z.array(z.string()) })
+  .strict();
 const ListCommandSchema = z
   .object({
     actor: ActorSchema,
@@ -27,7 +30,7 @@ export class PrivateInboxQueryService {
     nextCursor: string | null;
   }> {
     const parsed = ListCommandSchema.parse(command);
-    if (!parsed.actor.active) throw forbiddenError();
+    if (!canUsePrivateCapture(parsed.actor)) throw forbiddenError();
     const rows = await this.client.privateInboxItem.findMany({
       where: {
         employeeId: parsed.actor.userId,

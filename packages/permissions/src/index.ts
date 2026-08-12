@@ -1,4 +1,5 @@
 export { decide } from "./decide.js";
+export { canUsePrivateCapture } from "./private-capture.js";
 export type {
   ActingAuthority,
   Decision,

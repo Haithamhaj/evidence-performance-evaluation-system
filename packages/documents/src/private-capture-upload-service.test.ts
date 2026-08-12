@@ -8,7 +8,13 @@ import { PrivateCaptureUploadService } from "./private-capture-upload-service.js
 const ownerId = "00000000-0000-4000-8000-000000000001";
 const uploadId = "00000000-0000-4000-8000-000000000002";
 
-function database() {
+function database(
+  upload: Readonly<{ id: string; ownerId: string; objectKey: string }> | null = {
+    id: uploadId,
+    ownerId,
+    objectKey: "private/capture",
+  },
+) {
   return {
     $transaction: async (callback: (transaction: unknown) => Promise<unknown>) =>
       callback({
@@ -26,7 +32,7 @@ function database() {
         },
       }),
     privateCaptureUpload: {
-      findUnique: vi.fn(async () => ({ id: uploadId, ownerId, objectKey: "private/capture" })),
+      findUnique: vi.fn(async () => upload),
     },
   };
 }
@@ -47,7 +53,7 @@ describe("PrivateCaptureUploadService", () => {
     await expect(
       service.stage(
         {
-          actor: { userId: ownerId, active: true },
+          actor: { userId: ownerId, active: true, roles: ["employee"] },
           correlationId: "00000000-0000-4000-8000-000000000003",
           metadata: { filename: "notes.pdf", declaredMime: "application/pdf" },
         },
@@ -76,13 +82,73 @@ describe("PrivateCaptureUploadService", () => {
 
     await expect(
       service.signRead({
-        actor: { userId: "00000000-0000-4000-8000-000000000004", active: true },
+        actor: { userId: "00000000-0000-4000-8000-000000000004", active: true, roles: ["employee"] },
         correlationId: "00000000-0000-4000-8000-000000000005",
         privateCaptureUploadId: uploadId,
       }),
     ).rejects.toMatchObject({ code: "PRIVATE_CAPTURE_FORBIDDEN" });
     expect(storage.signGet).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [
+      "wrong owner",
+      {
+        id: uploadId,
+        ownerId: "00000000-0000-4000-8000-000000000004",
+        objectKey: "private/capture",
+      },
+    ],
+    ["missing upload", null],
+  ] as const)("denies ownership validation for a %s", async (_label, upload) => {
+    const service = new PrivateCaptureUploadService(
+      database(upload) as never,
+      { put: vi.fn(), delete: vi.fn(), signGet: vi.fn() } as never,
+      { scan: vi.fn() } as never,
+      policy(),
+      audit(),
+    );
+
+    await expect(
+      service.assertOwned({
+        actor: { userId: ownerId, active: true, roles: ["employee"] },
+        privateCaptureUploadId: uploadId,
+      }),
+    ).rejects.toMatchObject({ code: "PRIVATE_CAPTURE_FORBIDDEN" });
+  });
+
+  it.each([["manager"], ["system_administrator"]])(
+    "denies %s-only principals before staging or signing",
+    async (role) => {
+      const storage = { put: vi.fn(), delete: vi.fn(), signGet: vi.fn() };
+      const service = new PrivateCaptureUploadService(
+        database() as never,
+        storage as never,
+        { scan: vi.fn() } as never,
+        policy(),
+        audit(),
+      );
+      await expect(
+        service.stage(
+          {
+            actor: { userId: ownerId, active: true, roles: [role] },
+            correlationId: "00000000-0000-4000-8000-000000000003",
+            metadata: { filename: "notes.pdf", declaredMime: "application/pdf" },
+          },
+          Readable.from([Buffer.from("%PDF-1.7\nprivate")]),
+        ),
+      ).rejects.toMatchObject({ code: "PRIVATE_CAPTURE_FORBIDDEN" });
+      await expect(
+        service.signRead({
+          actor: { userId: ownerId, active: true, roles: [role] },
+          correlationId: "00000000-0000-4000-8000-000000000003",
+          privateCaptureUploadId: uploadId,
+        }),
+      ).rejects.toMatchObject({ code: "PRIVATE_CAPTURE_FORBIDDEN" });
+      expect(storage.put).not.toHaveBeenCalled();
+      expect(storage.signGet).not.toHaveBeenCalled();
+    },
+  );
 });
 
 function policy() {

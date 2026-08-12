@@ -13,6 +13,7 @@ const auditWriter: import("@evaluation/contracts").AuditWriter<
 > = {
   append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }),
 };
+const privateUploads = { assertOwned: async () => undefined };
 
 async function seedInboxGraph() {
   const suffix = crypto.randomUUID();
@@ -89,35 +90,35 @@ afterAll(async () => client.$disconnect());
 describe("Private Inbox ownership and promotion", () => {
   it("keeps an unlinked capture private to its employee", async () => {
     const graph = await seedInboxGraph();
-    const service = new PrivateInboxService(client, auditWriter, () => now);
+    const service = new PrivateInboxService(client, auditWriter, privateUploads, () => now);
     const query = new PrivateInboxQueryService(client);
     const captured = await service.capture({
-      actor: { userId: graph.employeeAId, active: true },
+      actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
       correlationId: crypto.randomUUID(),
       input: { text: "Follow up on the client decision", projectId: null },
     });
 
     await expect(
       query.list({
-        actor: { userId: graph.employeeAId, active: true },
+        actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
         input: { status: "open", limit: 50, cursor: null },
       }),
     ).resolves.toMatchObject({ items: [{ id: captured.id, projectId: null }] });
     await expect(
       query.list({
-        actor: { userId: graph.employeeBId, active: true },
+        actor: { userId: graph.employeeBId, active: true, roles: ["employee"] },
         input: { status: "open", limit: 50, cursor: null },
       }),
     ).resolves.toEqual({ items: [], nextCursor: null });
     await expect(
       query.list({
-        actor: { userId: graph.managerId, active: true },
+        actor: { userId: graph.managerId, active: true, roles: ["manager"] },
         input: { status: "open", limit: 50, cursor: null },
       }),
-    ).resolves.toEqual({ items: [], nextCursor: null });
+    ).rejects.toMatchObject({ code: "PRIVATE_INBOX_FORBIDDEN" });
     await expect(
       service.dismiss({
-        actor: { userId: graph.employeeBId, active: true },
+        actor: { userId: graph.employeeBId, active: true, roles: ["employee"] },
         correlationId: crypto.randomUUID(),
         inboxItemId: captured.id,
         input: { expectedVersion: 1, reason: "Not mine" },
@@ -125,7 +126,7 @@ describe("Private Inbox ownership and promotion", () => {
     ).rejects.toMatchObject({ code: "PRIVATE_INBOX_FORBIDDEN" });
     await expect(
       service.promote({
-        actor: { userId: graph.employeeBId, active: true },
+        actor: { userId: graph.employeeBId, active: true, roles: ["employee"] },
         correlationId: crypto.randomUUID(),
         inboxItemId: captured.id,
         input: {
@@ -149,9 +150,9 @@ describe("Private Inbox ownership and promotion", () => {
 
   it("promotes once and rolls back both records if the transaction fails", async () => {
     const graph = await seedInboxGraph();
-    const service = new PrivateInboxService(client, auditWriter, () => now);
+    const service = new PrivateInboxService(client, auditWriter, privateUploads, () => now);
     const captured = await service.capture({
-      actor: { userId: graph.employeeAId, active: true },
+      actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
       correlationId: crypto.randomUUID(),
       input: { text: "Prepare the launch checklist", projectId: graph.projectId },
     });
@@ -160,9 +161,14 @@ describe("Private Inbox ownership and promotion", () => {
         throw new Error("simulated audit failure");
       }),
     };
-    const failingService = new PrivateInboxService(client, failingAudit as never, () => now);
+    const failingService = new PrivateInboxService(
+      client,
+      failingAudit as never,
+      privateUploads,
+      () => now,
+    );
     const promoteCommand = {
-      actor: { userId: graph.employeeAId, active: true },
+      actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
       correlationId: crypto.randomUUID(),
       inboxItemId: captured.id,
       input: {

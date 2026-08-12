@@ -8,7 +8,7 @@ const projectId = crypto.randomUUID();
 const documentId = crypto.randomUUID();
 const documentVersionId = crypto.randomUUID();
 const request = {
-  principal: { userId: actorId, active: true },
+  principal: { userId: actorId, active: true, roles: ["employee"] },
   correlationId: crypto.randomUUID(),
 } as never;
 
@@ -58,7 +58,11 @@ describe("daily work protected API contracts", () => {
     }));
     const controller = new DailyWorkController({ dailyWorkspace } as never);
     await controller.myWork(request);
-    expect(dailyWorkspace).toHaveBeenCalledWith({ userId: actorId, active: true });
+    expect(dailyWorkspace).toHaveBeenCalledWith({
+      userId: actorId,
+      active: true,
+      roles: ["employee"],
+    });
   });
 
   it("orders primary daily groups and keeps private Inbox access employee-scoped", async () => {
@@ -114,14 +118,16 @@ describe("daily work protected API contracts", () => {
       inbox as never,
     );
 
-    await expect(query.dailyWorkspace({ userId: actorId, active: true })).resolves.toMatchObject({
+    await expect(
+      query.dailyWorkspace({ userId: actorId, active: true, roles: ["employee"] }),
+    ).resolves.toMatchObject({
       needsMyAction: [{ id: needsAction.id }],
       today: [{ id: today.id }],
       overdue: [{ id: overdue.id }],
       upcoming: [{ id: upcoming.id }],
     });
     expect(inbox.list).toHaveBeenCalledWith({
-      actor: { userId: actorId, active: true },
+      actor: { userId: actorId, active: true, roles: ["employee"] },
       input: { status: "open", limit: 20, cursor: null },
     });
   });

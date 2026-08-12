@@ -4,6 +4,8 @@ import {
   ListPrivateInboxInputSchema,
   PromotePrivateInboxInputSchema,
 } from "@evaluation/contracts";
+import { AppError } from "@evaluation/contracts";
+import { canUsePrivateCapture } from "@evaluation/permissions";
 import { PrivateInboxQueryService, PrivateInboxService } from "@evaluation/work-items";
 import { Body, Controller, Get, Inject, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
@@ -25,6 +27,7 @@ export class PrivateInboxController {
   }
 
   capture(request: Request, body: unknown) {
+    assertPrivateInboxAuthorized(request.principal);
     return this.service.capture({
       actor: actor(request),
       correlationId: request.correlationId,
@@ -33,6 +36,7 @@ export class PrivateInboxController {
   }
 
   list(request: Request, query: unknown) {
+    assertPrivateInboxAuthorized(request.principal);
     return this.query.list({
       actor: actor(request),
       input: ListPrivateInboxInputSchema.parse(query),
@@ -40,6 +44,7 @@ export class PrivateInboxController {
   }
 
   promote(request: Request, inboxItemId: string, body: unknown) {
+    assertPrivateInboxAuthorized(request.principal);
     return this.service.promote({
       actor: actor(request),
       correlationId: request.correlationId,
@@ -49,6 +54,7 @@ export class PrivateInboxController {
   }
 
   dismiss(request: Request, inboxItemId: string, body: unknown) {
+    assertPrivateInboxAuthorized(request.principal);
     return this.service.dismiss({
       actor: actor(request),
       correlationId: request.correlationId,
@@ -59,7 +65,17 @@ export class PrivateInboxController {
 }
 
 function actor(request: Request) {
-  return { userId: request.principal.userId, active: request.principal.active };
+  return {
+    userId: request.principal.userId,
+    active: request.principal.active,
+    roles: request.principal.roles,
+  };
+}
+
+function assertPrivateInboxAuthorized(principal: import("@evaluation/auth").AuthenticatedPrincipal) {
+  if (!canUsePrivateCapture(principal)) {
+    throw new AppError("PRIVATE_INBOX_FORBIDDEN", "errors.privateInbox.forbidden", 403);
+  }
 }
 
 Controller("api/v1/private-inbox")(PrivateInboxController);

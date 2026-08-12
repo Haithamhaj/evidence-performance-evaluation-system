@@ -8,6 +8,7 @@ import {
   PrivateCaptureUploadMetadataSchema,
   PrivateCaptureUploadSchema,
 } from "@evaluation/contracts";
+import { canUsePrivateCapture } from "@evaluation/permissions";
 import { z } from "zod";
 
 import { inspectFile } from "./file-inspection.js";
@@ -19,7 +20,9 @@ type Scanner = import("./model.js").MalwareScanner;
 type Policy = import("./model.js").UploadPolicy;
 type Audit = import("./model.js").DocumentAuditWriter;
 
-const ActorSchema = z.object({ userId: z.string().uuid(), active: z.boolean() }).strict();
+const ActorSchema = z
+  .object({ userId: z.string().uuid(), active: z.boolean(), roles: z.array(z.string()) })
+  .strict();
 const StageCommandSchema = z
   .object({
     actor: ActorSchema,
@@ -31,6 +34,12 @@ const ReadCommandSchema = z
   .object({
     actor: ActorSchema,
     correlationId: z.string().uuid(),
+    privateCaptureUploadId: z.string().uuid(),
+  })
+  .strict();
+const OwnershipCommandSchema = z
+  .object({
+    actor: ActorSchema,
     privateCaptureUploadId: z.string().uuid(),
   })
   .strict();
@@ -51,7 +60,7 @@ export class PrivateCaptureUploadService {
 
   async stage(command: unknown, stream: NodeJS.ReadableStream) {
     const parsed = StageCommandSchema.parse(command);
-    assertActive(parsed.actor);
+    assertAuthorized(parsed.actor);
     const directory = await mkdtemp(
       path.join(this.options.temporaryRoot ?? tmpdir(), "private-capture-"),
     );
@@ -133,8 +142,8 @@ export class PrivateCaptureUploadService {
   }
 
   async assertOwned(command: unknown): Promise<void> {
-    const parsed = ReadCommandSchema.parse(command);
-    assertActive(parsed.actor);
+    const parsed = OwnershipCommandSchema.parse(command);
+    assertAuthorized(parsed.actor);
     const upload = await this.database.privateCaptureUpload.findUnique({
       where: { id: parsed.privateCaptureUploadId },
       select: { ownerId: true },
@@ -144,7 +153,7 @@ export class PrivateCaptureUploadService {
 
   async signRead(command: unknown): Promise<Readonly<{ url: string; expiresAt: string }>> {
     const parsed = ReadCommandSchema.parse(command);
-    assertActive(parsed.actor);
+    assertAuthorized(parsed.actor);
     const upload = await this.database.privateCaptureUpload.findUnique({
       where: { id: parsed.privateCaptureUploadId },
       select: { id: true, ownerId: true, objectKey: true },
@@ -215,8 +224,8 @@ function mediaClassFor(filename: string): "text" | "office" | "image" {
   throw new AppError("UPLOAD_TYPE_REJECTED", "errors.documents.uploadTypeRejected", 400);
 }
 
-function assertActive(actor: { active: boolean }) {
-  if (!actor.active) throw forbidden();
+function assertAuthorized(actor: { active: boolean; roles: readonly string[] }) {
+  if (!canUsePrivateCapture(actor)) throw forbidden();
 }
 
 function forbidden() {

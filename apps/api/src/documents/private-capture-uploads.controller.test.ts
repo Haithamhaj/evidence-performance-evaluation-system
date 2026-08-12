@@ -7,9 +7,9 @@ import { PrivateCaptureUploadsController } from "./private-capture-uploads.contr
 const ownerId = "00000000-0000-4000-8000-000000000001";
 const uploadId = "00000000-0000-4000-8000-000000000002";
 
-function request(headers: Record<string, string> = {}) {
+function request(headers: Record<string, string> = {}, roles: readonly string[] = ["employee"]) {
   return Object.assign(Readable.from([Buffer.from("%PDF-1.7\nprivate")]), {
-    principal: { userId: ownerId, active: true },
+    principal: { userId: ownerId, active: true, roles },
     correlationId: "00000000-0000-4000-8000-000000000003",
     headers: { "content-type": "application/pdf", "x-capture-filename": "private.pdf", ...headers },
   });
@@ -25,7 +25,7 @@ describe("PrivateCaptureUploadsController", () => {
 
     expect(uploads.stage).toHaveBeenCalledWith(
       {
-        actor: { userId: ownerId, active: true },
+        actor: { userId: ownerId, active: true, roles: ["employee"] },
         correlationId: "00000000-0000-4000-8000-000000000003",
         metadata: { filename: "private.pdf", declaredMime: "application/pdf" },
       },
@@ -46,9 +46,32 @@ describe("PrivateCaptureUploadsController", () => {
     await controller.signRead(request() as never, uploadId);
 
     expect(uploads.signRead).toHaveBeenCalledWith({
-      actor: { userId: ownerId, active: true },
+      actor: { userId: ownerId, active: true, roles: ["employee"] },
       correlationId: "00000000-0000-4000-8000-000000000003",
       privateCaptureUploadId: uploadId,
     });
+  });
+
+  it.each([["manager"], ["system_administrator"]])(
+    "denies %s-only principals for private stage and signed read",
+    (role) => {
+      const uploads = { stage: vi.fn(), signRead: vi.fn() };
+      const controller = new PrivateCaptureUploadsController(uploads as never);
+      expect(() => controller.upload(request({}, [role]) as never)).toThrowError(
+        "PRIVATE_CAPTURE_FORBIDDEN",
+      );
+      expect(() =>
+        controller.signRead(request({}, [role]) as never, uploadId),
+      ).toThrowError("PRIVATE_CAPTURE_FORBIDDEN");
+      expect(uploads.stage).not.toHaveBeenCalled();
+      expect(uploads.signRead).not.toHaveBeenCalled();
+    },
+  );
+
+  it("allows a manager who is also an employee", async () => {
+    const uploads = { stage: vi.fn(async () => ({ id: uploadId })), signRead: vi.fn() };
+    const controller = new PrivateCaptureUploadsController(uploads as never);
+    await controller.upload(request({}, ["manager", "employee"]) as never);
+    expect(uploads.stage).toHaveBeenCalledOnce();
   });
 });
