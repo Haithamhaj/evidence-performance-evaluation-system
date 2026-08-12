@@ -314,18 +314,18 @@ export function assertExperiencePreparedOutputSemantics(
 const PROHIBITED_OUTPUT_PATTERNS = [
   /\b(?:performance\s+)?ratings?\b/iu,
   /\bemployee\b.{0,32}\brank(?:s|ed|ing)?\b|\brank(?:s|ed|ing)?\b.{0,32}\bemployee\b/iu,
-  /\bproductivity\b/iu,
+  /\b(?:employee|worker|staff|individual|personal|performance)\b.{0,32}\bproductivity\b|\bproductivity\b.{0,32}\b(?:employee|worker|staff|performance|score|rating|measure|metric|high|low|better|worse)\b/iu,
   /\b(?:documentation|evaluation)\s+readiness\b|\breadiness\s+(?:score|percent(?:age)?|\d)/iu,
   /\b(?:project\s+)?progress\b.{0,48}(?:\d|%|percent(?:age)?|score|calculated|complete|based\s+on|from\s+(?:commits?|tasks?|updates?|activities))/iu,
   /(?:\d|%|percent(?:age)?|score).{0,24}\b(?:project\s+)?progress\b/iu,
-  /\b(?:commit|task|update|activity|project|pull\s+request)\s+(?:count|volume|frequency)\b/iu,
-  /\b(?:count|volume|frequency)\s+of\s+(?:commits?|tasks?|updates?|activities|projects?|pull\s+requests?)\b/iu,
+  /\b(?:commits?|tasks?|updates?|activities|projects?|pull\s+requests?)\s+(?:count|volume|frequency)\b.{0,64}\b(?:performance|rating|rank|productivity|progress|score|evaluation|assessment|judgment)\b/iu,
+  /\b(?:performance|rating|rank|productivity|progress|score|evaluation|assessment|judgment)\b.{0,64}\b(?:count|volume|frequency)\s+of\s+(?:commits?|tasks?|updates?|activities|projects?|pull\s+requests?)\b/iu,
   /(?:تقييم\s+(?:الاداء|الموظف|الموظفة)|درجة\s+الاداء|التصنيف\s+الادايي)/iu,
   /(?:ترتيب|رتبة).{0,24}(?:الموظف|الموظفة|الموظفين)|(?:الموظف|الموظفة).{0,24}(?:ترتيب|رتبة)/iu,
-  /(?:انتاجية|الانتاجية)/iu,
+  /(?:الموظف|الموظفة|الموظفين|الاداء|تقييم|درجة).{0,24}(?:انتاجية|الانتاجية)|(?:انتاجية|الانتاجية).{0,24}(?:الموظف|الموظفة|الموظفين|الاداء|تقييم|درجة|مرتفعة|منخفضة|افضل|اسوا)/iu,
   /(?:جاهزية|اكتمال).{0,20}(?:التوثيق|الوثائق|التقييم)|نسبة\s+الجاهزية/iu,
   /(?:تقدم\s+المشروع).{0,32}(?:[0-9٠-٩]+|٪|%|نسبة|محسوب|مكتمل|بناء\s+علي|بسبب\s+عدد)|نسبة\s+التقدم/iu,
-  /(?:عدد|كثرة|حجم|تكرار).{0,24}(?:التحديثات|الالتزامات|المشاريع|المهام|الانشطة)|(?:التحديثات|الالتزامات|المشاريع|المهام|الانشطة).{0,24}(?:عدد|كثرة|حجم|تكرار)/iu,
+  /(?:عدد|كثرة|حجم|تكرار).{0,24}(?:التحديثات|الالتزامات|المشاريع|المهام|الانشطة).{0,64}(?:الاداء|تقييم|ترتيب|انتاجية|تقدم|نسبة)|(?:الاداء|تقييم|ترتيب|انتاجية|تقدم|نسبة).{0,64}(?:عدد|كثرة|حجم|تكرار).{0,24}(?:التحديثات|الالتزامات|المشاريع|المهام|الانشطة)/iu,
 ] as const;
 
 function normalizePolicyText(value: string): string {

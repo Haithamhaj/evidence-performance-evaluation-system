@@ -86,10 +86,12 @@ describe("minimal experience orchestration AI boundary", () => {
         "EXPERIENCE_ORCHESTRATION_PROHIBITED_OUTPUT",
       );
     }
-    expect(() =>
-      assertExperiencePreparedOutputSemantics(
-        output("A recent project progress update is available in the authorized source."),
-      ),
-    ).not.toThrow();
+    for (const neutral of [
+      "A recent project progress update is available in the authorized source.",
+      "Improve developer productivity tooling",
+      "Fix commit count logging",
+    ]) {
+      expect(() => assertExperiencePreparedOutputSemantics(output(neutral))).not.toThrow();
+    }
   });
 });

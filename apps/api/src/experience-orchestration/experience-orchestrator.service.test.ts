@@ -172,16 +172,16 @@ describe("ExperienceOrchestratorService", () => {
   it.each([
     ["why", "Performance rating: 5."],
     ["consequence", "Rank the employee first."],
-    ["title", "Productivity summary"],
+    ["title", "Employee productivity score"],
     ["body", "Documentation readiness is 90 percent."],
     ["why", "Project progress is 100%."],
-    ["consequence", "Use the commit count."],
+    ["consequence", "Use the commit count to score employee performance."],
     ["why", "تقييم الأداء: ٥."],
     ["consequence", "ترتيب الموظف الأول."],
     ["title", "ملخص إنتاجية الموظف"],
     ["body", "جاهزية التوثيق مكتملة."],
     ["why", "تقدم المشروع مكتمل."],
-    ["consequence", "استخدم عدد المهام."],
+    ["consequence", "استخدم عدد المهام لتقييم أداء الموظف."],
   ] as const)("rejects prohibited %s semantics before persistence: %s", async (field, text) => {
     const aiOutput = {
       kind: "next_action",
@@ -226,6 +226,29 @@ describe("ExperienceOrchestratorService", () => {
     ).resolves.toMatchObject({ state: "prepared" });
     expect(persistence.persistAiOutput).toHaveBeenCalledOnce();
   });
+
+  it.each(["Improve developer productivity tooling", "Fix commit count logging"])(
+    "allows a neutral work phrase without treating it as employee scoring: %s",
+    async (title) => {
+      const { service, persistence } = harness({
+        aiEnabled: true,
+        aiOutput: {
+          kind: "next_action",
+          why: "This authorized task needs review.",
+          consequence: "Review the source before deciding the next action.",
+          editableDraft: { title, body: "Open the source-backed item." },
+        },
+      });
+
+      await expect(
+        service.compose({
+          actor: { userId: employeeId, active: true, roles: ["employee"] },
+          correlationId,
+        }),
+      ).resolves.toMatchObject({ state: "prepared" });
+      expect(persistence.persistAiOutput).toHaveBeenCalledOnce();
+    },
+  );
 
   it("falls back truthfully when the model is unavailable", async () => {
     const { service } = harness({ aiEnabled: true, routerFails: true });

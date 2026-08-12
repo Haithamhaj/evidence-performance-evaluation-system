@@ -24,8 +24,9 @@ an owning-domain command.
 - Added focused AI evaluation fixtures for Arabic/mixed input, prompt isolation, prohibited outputs,
   trusted provenance, and human review.
 - Added a bilingual production semantic quarantine before every AI-assisted or deterministic append.
-  It rejects rating/rank/productivity/readiness, calculated-progress, and activity-volume language
-  while allowing neutral source-backed progress-update wording.
+  It rejects rating/rank/readiness and calculated-progress language. Productivity and activity-volume
+  wording is rejected only when connected to scoring, judgment, or employee performance, allowing
+  neutral work such as developer-productivity tooling and commit-count logging.
 - Cached results now recompute staleness at read time and return a stale projection without updating
   the append-only stored row.
 
