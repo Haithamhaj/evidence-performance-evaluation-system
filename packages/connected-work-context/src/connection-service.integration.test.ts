@@ -353,6 +353,67 @@ type DerivedLinkCommands = {
 afterAll(async () => client.$disconnect());
 
 describe("connected work connection commands", () => {
+  it("supports an explicit unlink then relink correction without rewriting link history", async () => {
+    const graph = await seedConnectionGraph();
+    const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });
+    const service = new ConnectedWorkConnectionService({
+      database: client,
+      credentialVault: vault,
+      auditWriter: databaseAuditWriter,
+      projectAuthorization: projectAuthorization(),
+      clock: () => now,
+    });
+    const actor = { userId: graph.employeeId, active: true };
+    const credentialRef = (
+      await vault.put({
+        credential: { accessToken: "project-correction", refreshToken: null, expiresAt: null },
+      })
+    ).credentialRef;
+    const account = await client.connectedWorkAccount.create({
+      data: { employeeId: graph.employeeId, credentialRef, connectedAt: now },
+    });
+    const source = await client.connectedSourceItem.create({
+      data: {
+        connectedWorkAccountId: account.id,
+        employeeId: graph.employeeId,
+        provider: "GOOGLE_GMAIL",
+        providerSourceId: `project-correction-${crypto.randomUUID()}`,
+        occurredAt: now,
+        titleCiphertext: "protected",
+        titleKeyVersion: "test-only",
+      },
+    });
+    const original = await service.linkProject({
+      actor,
+      correlationId: crypto.randomUUID(),
+      sourceItemId: source.id,
+      projectId: graph.projectId,
+      reason: "Employee selected the original Project",
+    });
+
+    await service.unlinkProject({
+      actor,
+      correlationId: crypto.randomUUID(),
+      sourceItemId: source.id,
+      reason: "Employee corrected the source Project before evidence review",
+    });
+    const replacement = await service.linkProject({
+      actor,
+      correlationId: crypto.randomUUID(),
+      sourceItemId: source.id,
+      projectId: graph.otherProjectId,
+      reason: "Employee confirmed source Project during evidence review",
+    });
+
+    await expect(
+      client.sourceProjectLink.findUniqueOrThrow({ where: { id: original.id } }),
+    ).resolves.toMatchObject({ projectId: graph.projectId, unlinkedAt: now });
+    expect(replacement).toMatchObject({ projectId: graph.otherProjectId, unlinkedAt: null });
+    await expect(
+      client.sourceProjectLink.count({ where: { sourceItemId: source.id, unlinkedAt: null } }),
+    ).resolves.toBe(1);
+  });
+
   it("rotates an active account to the newest credential and revokes the replaced reference", async () => {
     const graph = await seedConnectionGraph();
     const vault = new DevelopmentOnlyMemoryCredentialVault({ runtimeMode: "development" });

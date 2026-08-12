@@ -148,6 +148,10 @@ export function SourceReview({
               setSelected(null);
               setConfirmed(true);
             },
+            onDismissed: (sourceId: string) => {
+              setConnected((current) => current.filter((item) => item.id !== sourceId));
+              setSelected(null);
+            },
             projects,
             source: selected,
           })}
@@ -160,6 +164,7 @@ function SourceDecisionSheet({
   gateway,
   onClose,
   onConfirmed,
+  onDismissed,
   projects,
   source,
 }: Readonly<{
@@ -167,6 +172,7 @@ function SourceDecisionSheet({
   gateway: SourceReviewGateway;
   onClose: () => void;
   onConfirmed: () => void;
+  onDismissed: (sourceId: string) => void;
   projects: readonly SourceReviewProject[];
   source: ReviewSource;
 }>) {
@@ -175,6 +181,7 @@ function SourceDecisionSheet({
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [relinkRecovery, setRelinkRecovery] = useState(false);
   const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -190,17 +197,25 @@ function SourceDecisionSheet({
     if (projectId === "") return;
     setBusy(true);
     setError(false);
+    setRelinkRecovery(false);
     try {
       if (source.kind === "google") {
-        await gateway.linkGoogleProject({
+        await gateway.correctGoogleProject({
           sourceId: source.id,
+          previousProjectId: source.projectId,
           projectId,
           reason: "Employee confirmed source Project during evidence review",
         });
       }
       setProjectConfirmed(true);
-    } catch {
+    } catch (caught) {
       setError(true);
+      setRelinkRecovery(
+        typeof caught === "object" &&
+          caught !== null &&
+          "previousLinkRemoved" in caught &&
+          caught.previousLinkRemoved === true,
+      );
     } finally {
       setBusy(false);
     }
@@ -256,13 +271,15 @@ function SourceDecisionSheet({
         </p>
         {error ? (
           <p className="formError" role="alert">
-            {catalog["sourceReview.projectError"]}
+            {relinkRecovery
+              ? catalog["sourceReview.relinkRecovery"]
+              : catalog["sourceReview.projectError"]}
           </p>
         ) : null}
         <label className="sourceReviewProjectPicker">
           <span>{catalog["evidence.project"]}</span>
           <select
-            disabled={busy}
+            disabled={busy || source.kind === "github"}
             onChange={(event) => {
               setProjectId(event.target.value);
               setProjectConfirmed(false);
@@ -277,6 +294,11 @@ function SourceDecisionSheet({
             ))}
           </select>
         </label>
+        {source.kind === "github" ? (
+          <p className="formHint">
+            {catalog["sourceReview.verifiedProject"]}: {source.projectName}
+          </p>
+        ) : null}
         <div className="formActions">
           <button
             className="secondaryAction"
@@ -303,7 +325,7 @@ function SourceDecisionSheet({
                   setBusy(true);
                   try {
                     await gateway.excludeGoogleSource(source.id);
-                    onClose();
+                    onDismissed(source.id);
                   } catch {
                     setError(true);
                     setBusy(false);

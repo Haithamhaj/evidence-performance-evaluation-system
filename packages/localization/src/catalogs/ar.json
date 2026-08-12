@@ -119,6 +119,8 @@
   "sourceReview.reviewEvidence": "مراجعته كدليل",
   "sourceReview.dismiss": "تجاهل المصدر",
   "sourceReview.projectError": "تعذر حفظ ربط المشروع. لم تتم مشاركة أي شيء؛ حاول مرة أخرى.",
+  "sourceReview.relinkRecovery": "تمت إزالة ربط المشروع السابق، لكن لم يُحفظ الربط الجديد. اختر المشروع وحاول مرة أخرى؛ لم يتم إنشاء أي دليل.",
+  "sourceReview.verifiedProject": "المشروع الموثق من المصدر",
   "contextReview.title": "المراجعة الذكية",
   "contextReview.intro": "تبقى الروابط ومسودات المهام المعدّة خاصة حتى تراجعها وتؤكد سجلًا رسميًا منفصلًا.",
   "contextReview.empty": "لا يوجد ما يحتاج إلى مراجعتك الآن.",

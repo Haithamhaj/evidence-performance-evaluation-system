@@ -3,6 +3,7 @@ import {
   linkContextProject,
   listConnectedWorkContext,
   setContextExclusion,
+  unlinkContextProject,
 } from "./connected-work-context-api";
 
 export type SourceReviewProject = Readonly<{ id: string; name: string }>;
@@ -30,8 +31,9 @@ export type SourceReviewSource = GoogleReviewSource | GitHubReviewSource;
 
 export type SourceReviewGateway = Readonly<{
   load(projects: readonly SourceReviewProject[]): Promise<readonly SourceReviewSource[]>;
-  linkGoogleProject(input: {
+  correctGoogleProject(input: {
     readonly sourceId: string;
+    readonly previousProjectId: string | null;
     readonly projectId: string;
     readonly reason: string;
   }): Promise<void>;
@@ -47,17 +49,19 @@ export const sourceReviewGateway: SourceReviewGateway = {
     const sources: SourceReviewSource[] = [];
     if (connected?.status === "fulfilled") {
       sources.push(
-        ...connected.value.items.map((item) => ({
-          kind: "google" as const,
-          id: item.id,
-          provider: item.provider,
-          title: item.title,
-          summary: item.summary,
-          sourceUrl: item.sourceUrl,
-          occurredAt: item.occurredAt,
-          projectId: item.projectId,
-          excluded: item.excluded,
-        })),
+        ...connected.value.items
+          .filter((item) => !item.excluded)
+          .map((item) => ({
+            kind: "google" as const,
+            id: item.id,
+            provider: item.provider,
+            title: item.title,
+            summary: item.summary,
+            sourceUrl: item.sourceUrl,
+            occurredAt: item.occurredAt,
+            projectId: item.projectId,
+            excluded: item.excluded,
+          })),
       );
     }
     for (const timeline of timelines) {
@@ -73,17 +77,40 @@ export const sourceReviewGateway: SourceReviewGateway = {
       right.occurredAt.localeCompare(left.occurredAt),
     );
   },
-  async linkGoogleProject(input) {
-    await linkContextProject({
-      id: input.sourceId,
-      projectId: input.projectId,
-      reason: input.reason,
-    });
+  async correctGoogleProject(input) {
+    const replacing =
+      input.previousProjectId !== null && input.previousProjectId !== input.projectId;
+    if (replacing) {
+      await unlinkContextProject({
+        id: input.sourceId,
+        reason: "Employee corrected the source Project before evidence review",
+      });
+    }
+    try {
+      await linkContextProject({
+        id: input.sourceId,
+        projectId: input.projectId,
+        reason: input.reason,
+      });
+    } catch (error) {
+      if (replacing) throw new SourceReviewLinkError(error);
+      throw error;
+    }
   },
   async excludeGoogleSource(sourceId) {
     await setContextExclusion(sourceId, true);
   },
 };
+
+export class SourceReviewLinkError extends Error {
+  readonly code = "SOURCE_REVIEW_RELINK_FAILED";
+  readonly previousLinkRemoved = true;
+
+  constructor(cause: unknown) {
+    super("The previous Project link was removed before the replacement failed", { cause });
+    this.name = "SourceReviewLinkError";
+  }
+}
 
 async function listProjectTimeline(project: SourceReviewProject): Promise<GitHubReviewSource[]> {
   const query = new URLSearchParams({ projectId: project.id, limit: "10" });

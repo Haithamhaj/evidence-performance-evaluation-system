@@ -56,8 +56,9 @@ describe("SourceReview", () => {
     await user.selectOptions(screen.getByLabelText("Project"), novaId);
     await user.click(screen.getByRole("button", { name: "Confirm Project link" }));
 
-    expect(gateway.linkGoogleProject).toHaveBeenCalledWith({
+    expect(gateway.correctGoogleProject).toHaveBeenCalledWith({
       sourceId: googleId,
+      previousProjectId: atlasId,
       projectId: novaId,
       reason: "Employee confirmed source Project during evidence review",
     });
@@ -70,6 +71,54 @@ describe("SourceReview", () => {
     expect(
       screen.getByText(/review the claim and contribution context before confirmation/iu),
     ).toBeInTheDocument();
+  });
+
+  it("keeps GitHub on its verified source Project and does not offer a correction", async () => {
+    const user = userEvent.setup();
+    renderSource();
+
+    await user.click(await screen.findByRole("button", { name: /PR #184/u }));
+
+    expect(screen.getByLabelText("Project")).toBeDisabled();
+    expect(screen.getByLabelText("Project")).toHaveValue(atlasId);
+    expect(screen.getByText("Verified source Project: Atlas Delivery")).toBeInTheDocument();
+  });
+
+  it("shows a recoverable unlinked state when Google correction cannot relink", async () => {
+    const gateway = service({
+      correctGoogleProject: vi.fn().mockRejectedValue(
+        Object.assign(new Error("relink failed"), {
+          code: "SOURCE_REVIEW_RELINK_FAILED",
+          previousLinkRemoved: true,
+        }),
+      ),
+    });
+    const user = userEvent.setup();
+    renderSource(gateway);
+
+    await user.click(await screen.findByRole("button", { name: /Customer decision email/u }));
+    await user.selectOptions(screen.getByLabelText("Project"), novaId);
+    await user.click(screen.getByRole("button", { name: "Confirm Project link" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The previous Project link was removed, but the new link was not saved",
+    );
+    expect(screen.getByRole("dialog", { name: /Customer decision email/u })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review as evidence" })).toBeDisabled();
+  });
+
+  it("removes a dismissed Google source from the private queue immediately", async () => {
+    const gateway = service();
+    const user = userEvent.setup();
+    renderSource(gateway);
+
+    await user.click(await screen.findByRole("button", { name: /Customer decision email/u }));
+    await user.click(screen.getByRole("button", { name: "Dismiss source" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Customer decision email")).not.toBeInTheDocument(),
+    );
+    expect(gateway.excludeGoogleSource).toHaveBeenCalledWith(googleId);
   });
 
   it("creates only a draft first and confirms GitHub evidence only after employee review", async () => {
@@ -180,12 +229,12 @@ function service(overrides: Partial<SourceReviewGateway> = {}) {
   ];
   return {
     load: vi.fn().mockResolvedValue(sources),
-    linkGoogleProject: vi.fn().mockResolvedValue(undefined),
+    correctGoogleProject: vi.fn().mockResolvedValue(undefined),
     excludeGoogleSource: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as SourceReviewGateway & {
     load: ReturnType<typeof vi.fn>;
-    linkGoogleProject: ReturnType<typeof vi.fn>;
+    correctGoogleProject: ReturnType<typeof vi.fn>;
     excludeGoogleSource: ReturnType<typeof vi.fn>;
   };
 }

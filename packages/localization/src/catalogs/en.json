@@ -119,6 +119,8 @@
   "sourceReview.reviewEvidence": "Review as evidence",
   "sourceReview.dismiss": "Dismiss source",
   "sourceReview.projectError": "The Project link could not be saved. Nothing was shared; try again.",
+  "sourceReview.relinkRecovery": "The previous Project link was removed, but the new link was not saved. Choose the Project and try again; no evidence was created.",
+  "sourceReview.verifiedProject": "Verified source Project",
   "contextReview.title": "Smart review",
   "contextReview.intro": "Prepared links and Task drafts stay private until you review and confirm a separate official record.",
   "contextReview.empty": "Nothing needs your review right now.",

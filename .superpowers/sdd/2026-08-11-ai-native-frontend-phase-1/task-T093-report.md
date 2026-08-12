@@ -14,11 +14,12 @@ explicitly confirm a separate evidence record.
   browser.
 - Added a compact English/Arabic source queue with private/suggested labels, Project context, an
   accessible focused drawer, mobile stacking, RTL, visible focus, and reduced-motion behavior.
-- Reused the owning protected commands for Google Project linking/exclusion and GitHub/manual
+- Reused the owning protected commands for Google Project unlink/link/exclusion and GitHub/manual
   evidence draft, revision, confirmation, and rejection.
-- Required a separate Project confirmation before evidence review. Google corrections persist via
-  `ConnectedWorkConnectionService.linkProject`; GitHub remains bound to its verified Project and is
-  never reclassified by the browser.
+- Required a separate Project confirmation before evidence review. Google corrections close the
+  previous link before creating the replacement, preserve link history, and show an explicit
+  unlinked recovery state if replacement fails. GitHub remains bound to its verified source Project
+  and cannot be changed in the browser.
 - Kept evidence creation and confirmation separate. The initial draft cannot be confirmed until an
   employee edit is saved; confirmation produces a visible neutral receipt stating that Project
   progress and employee evaluation did not change.
@@ -26,6 +27,10 @@ explicitly confirm a separate evidence record.
   Context, Private Inbox, Timeline, and evidence-review routes for rollback.
 - Added `AI_NATIVE_SOURCE_REVIEW_ENABLED=false` to restore the previous source surfaces without
   deleting confirmed evidence or history.
+- Enforced `employee_edit` in the Evidence domain before any GitHub-linked evidence can be
+  confirmed, including truthful manual-execution drafts submitted directly to the API.
+- Filtered excluded Google context before composition and remove a dismissed source from the local
+  queue immediately after the protected exclusion command succeeds.
 
 ## Files changed
 
@@ -41,14 +46,14 @@ None. T093 uses existing Connected Work, Private Inbox, Timeline, and Evidence r
 
 ## Verification
 
-- Focused source, gateway, evidence, same-origin route, and rollback tests: 7 files, 60 tests passed.
-- Connected Work and Evidence HTTP authorization/privacy integration: 2 files, 38 tests passed.
+- Focused source, gateway, evidence, same-origin route, and rollback tests: 7 files, 65 tests passed.
+- Connected Work/Evidence domain and HTTP authorization/privacy integration: 4 files, 51 tests
+  passed against the local test database.
 - `@evaluation/web` typecheck and Next production compile: passed.
-- `@evaluation/web` production build, including static generation: passed.
+- `@evaluation/updates-evidence` and `@evaluation/connected-work-context` typechecks: passed.
+- The original T093 `@evaluation/web` production build, including static generation, passed before
+  this bounded correction cycle; the correction cycle re-proved the affected compile/type boundary.
 - Affected ESLint, Prettier, and `git diff --check`: passed.
-- The DB-backed Connected Work/Evidence domain suites were not rerun locally because this worktree
-  has no `TEST_DATABASE_URL`; T093 changes no domain or persistence code, and the protected HTTP
-  integration proofs above passed.
 
 ## Security / privacy / AI impact
 

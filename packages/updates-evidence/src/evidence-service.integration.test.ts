@@ -299,14 +299,26 @@ describe("EvidenceService", () => {
         contributionContext: "I implemented the acceptance-path change and reviewed its merge.",
         relatedKpiComponentId: null,
         relatedCriterionId: null,
-        executionMode: "mixed",
+        executionMode: "manual",
       },
     });
     expect(draft).toMatchObject({
       state: "draft",
       githubSourceEventId: sourceEventId,
+      revisionKind: "manual_draft",
       sourceKind: "url",
     });
+    await expect(
+      service.confirm({
+        actor: { userId: graph.employeeId, active: true },
+        correlationId: crypto.randomUUID(),
+        evidenceId: draft.id,
+        input: {
+          expectedRevision: 1,
+          reason: "Attempted direct confirmation without employee edit.",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "EVIDENCE_EMPLOYEE_EDIT_REQUIRED" });
     const edited = await service.revise({
       actor: { userId: graph.employeeId, active: true },
       correlationId: crypto.randomUUID(),
