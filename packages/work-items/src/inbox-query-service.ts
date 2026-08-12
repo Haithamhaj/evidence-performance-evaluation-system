@@ -51,6 +51,8 @@ export function serializeInboxItem(item: {
   employeeId: string;
   text: string;
   projectId: string | null;
+  sourceType: import("@evaluation/contracts").PrivateCaptureSourceType;
+  sourceUploadId: string | null;
   status: import("@evaluation/contracts").PrivateInboxStatus;
   promotedWorkItemId: string | null;
   version: number;

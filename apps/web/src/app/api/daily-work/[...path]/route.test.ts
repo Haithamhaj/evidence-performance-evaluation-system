@@ -461,7 +461,12 @@ describe("daily-work same-origin gateway", () => {
       expect.objectContaining({
         path: "/api/v1/private-inbox",
         method: "POST",
-        body: { text: "Follow up with the client", projectId: null },
+        body: {
+          text: "Follow up with the client",
+          projectId: null,
+          sourceType: "text",
+          sourceUploadId: null,
+        },
       }),
     );
 

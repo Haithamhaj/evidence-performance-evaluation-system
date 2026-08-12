@@ -301,6 +301,46 @@ export async function uploadProtectedSource<T>(input: {
   }
 }
 
+export async function uploadPrivateCaptureSource<T>(input: {
+  readonly filename: string;
+  readonly declaredMime: string;
+  readonly bytes: ArrayBuffer;
+  readonly schema: { parse(value: unknown): T };
+}): Promise<T> {
+  const correlationId = randomUUID();
+  const baseUrl = internalApiBaseUrl(correlationId);
+  const settings = oidcSettings();
+  const cookieStore = await cookies();
+  let accessToken: string;
+  try {
+    accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
+  } catch {
+    throw failure(401, "errors.unauthorized", correlationId);
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/api/v1/private-captures/uploads`, {
+      cache: "no-store",
+      body: new Blob([input.bytes], { type: input.declaredMime }),
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": input.declaredMime,
+        "x-capture-filename": input.filename,
+        "x-correlation-id": correlationId,
+      },
+      method: "POST",
+    });
+  } catch {
+    throw failure(503, "errors.internal", correlationId);
+  }
+  if (!response.ok) throw responseFailure(response.status, correlationId);
+  try {
+    return input.schema.parse(await response.json());
+  } catch {
+    throw failure(503, "errors.internal", correlationId);
+  }
+}
+
 export function safeWorkspaceError(error: unknown): SafeWorkspaceError {
   if (error instanceof WorkspaceApiError) {
     return {

@@ -19,6 +19,7 @@ export const WorkItemStatusSchema = z.enum(WORK_ITEM_STATUSES);
 export const WorkItemPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
 export const WorkItemAllowedActionSchema = z.enum(["edit", "transition", "assign", "add_update"]);
 export const PrivateInboxStatusSchema = z.enum(["open", "promoted", "dismissed"]);
+export const PrivateCaptureSourceTypeSchema = z.enum(["text", "link", "code", "file", "image"]);
 export const WorkItemWorkspaceViewSchema = z.enum(["my", "team"]);
 export const WorkItemWorkspaceLayoutSchema = z.enum(["list", "board", "calendar"]);
 export const ListWorkItemsInputSchema = z
@@ -99,8 +100,32 @@ export const CapturePrivateInboxInputSchema = z
   .object({
     text: z.string().trim().min(1).max(4_000),
     projectId: UuidSchema.nullable().default(null),
+    sourceType: PrivateCaptureSourceTypeSchema.default("text"),
+    sourceUploadId: UuidSchema.nullable().default(null),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.sourceType === "link") {
+      try {
+        const url = new URL(value.text);
+        if (!["http:", "https:"].includes(url.protocol)) throw new Error("unsupported protocol");
+      } catch {
+        context.addIssue({
+          code: "custom",
+          path: ["text"],
+          message: "link captures require one HTTP or HTTPS URL",
+        });
+      }
+    }
+    const requiresUpload = value.sourceType === "file" || value.sourceType === "image";
+    if (requiresUpload !== (value.sourceUploadId !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceUploadId"],
+        message: "file and image captures require a private staged upload only",
+      });
+    }
+  });
 
 export const ListPrivateInboxInputSchema = z
   .object({
@@ -128,6 +153,8 @@ export const PrivateInboxItemSchema = z
     employeeId: UuidSchema,
     text: z.string().trim().min(1).max(4_000),
     projectId: UuidSchema.nullable(),
+    sourceType: PrivateCaptureSourceTypeSchema,
+    sourceUploadId: UuidSchema.nullable(),
     status: PrivateInboxStatusSchema,
     promotedWorkItemId: UuidSchema.nullable(),
     version: PositiveVersionSchema,
@@ -209,6 +236,7 @@ export type UpdateWorkItemInput = z.infer<typeof UpdateWorkItemInputSchema>;
 export type TransitionWorkItemInput = z.infer<typeof TransitionWorkItemInputSchema>;
 export type AssignWorkItemInput = z.infer<typeof AssignWorkItemInputSchema>;
 export type PrivateInboxStatus = z.infer<typeof PrivateInboxStatusSchema>;
+export type PrivateCaptureSourceType = z.infer<typeof PrivateCaptureSourceTypeSchema>;
 export type CapturePrivateInboxInput = z.infer<typeof CapturePrivateInboxInputSchema>;
 export type ListPrivateInboxInput = z.infer<typeof ListPrivateInboxInputSchema>;
 export type DismissPrivateInboxInput = z.infer<typeof DismissPrivateInboxInputSchema>;

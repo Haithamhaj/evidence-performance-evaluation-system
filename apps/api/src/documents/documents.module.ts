@@ -9,6 +9,7 @@ import {
   parseDocumentRuntimeConfig,
   ProgressContractDraftSourceLocator,
   ProgressContractDraftSourceReader,
+  PrivateCaptureUploadService,
   S3PrivateStorage,
   TemplateService,
   UploadService,
@@ -25,6 +26,7 @@ import { DocumentTemplatesController } from "./document-templates.controller.js"
 import { DocumentsAuthenticationGuard } from "./documents-authentication.guard.js";
 import { DocumentsController } from "./documents.controller.js";
 import { UploadsController } from "./uploads.controller.js";
+import { PrivateCaptureUploadsController } from "./private-capture-uploads.controller.js";
 
 const DOCUMENTS_DATABASE = Symbol("DOCUMENTS_DATABASE");
 const DOCUMENTS_DATABASE_LIFECYCLE = Symbol("DOCUMENTS_DATABASE_LIFECYCLE");
@@ -42,7 +44,12 @@ export class DocumentsModule {}
 
 Module({
   imports: [AuthModule],
-  controllers: [DocumentTemplatesController, DocumentsController, UploadsController],
+  controllers: [
+    DocumentTemplatesController,
+    DocumentsController,
+    UploadsController,
+    PrivateCaptureUploadsController,
+  ],
   providers: [
     { provide: DOCUMENTS_DATABASE, useFactory: () => createDatabaseClient(databaseUrl()) },
     {
@@ -186,6 +193,23 @@ Module({
         ClamAvScanner,
         DOCUMENTS_RUNTIME_CONFIG,
       ],
+    },
+    {
+      provide: PrivateCaptureUploadService,
+      useFactory: (
+        database: ReturnType<typeof createDatabaseClient>,
+        storage: S3PrivateStorage,
+        scanner: ClamAvScanner,
+        config: ReturnType<typeof parseDocumentRuntimeConfig>,
+      ) =>
+        new PrivateCaptureUploadService(
+          database,
+          storage,
+          scanner,
+          config.policy,
+          databaseAuditWriter as never,
+        ),
+      inject: [DOCUMENTS_DATABASE, S3PrivateStorage, ClamAvScanner, DOCUMENTS_RUNTIME_CONFIG],
     },
     {
       provide: DocumentService,

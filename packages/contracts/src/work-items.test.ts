@@ -138,6 +138,8 @@ describe("private inbox contracts", () => {
     ).toEqual({
       text: "راجع ملاحظات اجتماع العميل",
       projectId: null,
+      sourceType: "text",
+      sourceUploadId: null,
     });
 
     expect(
@@ -146,6 +148,8 @@ describe("private inbox contracts", () => {
         employeeId,
         text: "راجع ملاحظات اجتماع العميل",
         projectId: null,
+        sourceType: "text",
+        sourceUploadId: null,
         status: "open",
         promotedWorkItemId: null,
         version: 1,
@@ -158,6 +162,36 @@ describe("private inbox contracts", () => {
       promotedWorkItemId: null,
       status: "open",
     });
+  });
+
+  it("accepts only bounded owner-private capture sources", () => {
+    expect(
+      CapturePrivateInboxInputSchema.parse({
+        sourceType: "link",
+        text: "https://example.com/meeting-notes",
+      }),
+    ).toMatchObject({ sourceType: "link", projectId: null });
+    expect(
+      CapturePrivateInboxInputSchema.parse({
+        sourceType: "code",
+        text: "const review = true;",
+      }),
+    ).toMatchObject({ sourceType: "code", projectId: null });
+    expect(() =>
+      CapturePrivateInboxInputSchema.parse({ sourceType: "link", text: "not a link" }),
+    ).toThrow();
+    expect(() =>
+      CapturePrivateInboxInputSchema.parse({
+        sourceType: "voice",
+        text: "This must not start transcription",
+      }),
+    ).toThrow();
+    expect(() =>
+      CapturePrivateInboxInputSchema.parse({
+        sourceType: "file",
+        text: "report.pdf",
+      }),
+    ).toThrow();
   });
 
   it("validates list, dismiss, and Project-linked promotion commands", () => {

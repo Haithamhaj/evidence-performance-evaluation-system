@@ -44,6 +44,7 @@ model User {
   createdDocumentTemplates                   DocumentTemplate[]                     @relation("DocumentTemplateCreatedBy")
   createdTemplateVersions                    DocumentTemplateVersion[]              @relation("DocumentTemplateVersionCreatedBy")
   createdUploadedSources                     UploadedSource[]                       @relation("UploadedSourceCreatedBy")
+  privateCaptureUploads                      PrivateCaptureUpload[]                 @relation("PrivateCaptureUploadOwner")
   voiceUpdateSessions                        VoiceUpdateSession[]                   @relation("VoiceUpdateSessionEmployee")
   voiceTranscriptConfirmations               VoiceTranscriptConfirmation[]          @relation("VoiceTranscriptConfirmationEmployee")
   createdDocumentRecords                     DocumentRecord[]                       @relation("DocumentRecordCreatedBy")
@@ -794,6 +795,14 @@ enum PrivateInboxStatus {
   dismissed
 }
 
+enum PrivateCaptureSourceType {
+  text
+  link
+  code
+  file
+  image
+}
+
 enum ConnectedSourceProvider {
   GOOGLE_GMAIL
   GOOGLE_CALENDAR
@@ -906,6 +915,8 @@ model PrivateInboxItem {
   text               String
   projectId          String?            @db.Uuid
   project            Project?           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  sourceType         PrivateCaptureSourceType @default(text)
+  sourceUploadId     String?            @db.Uuid
   status             PrivateInboxStatus @default(open)
   promotedWorkItemId String?            @unique @db.Uuid
   promotedWorkItem   WorkItem?          @relation("PrivateInboxPromotion", fields: [promotedWorkItemId], references: [id], onDelete: Restrict)
@@ -2183,6 +2194,21 @@ model UploadedSource {
   @@index([departmentId, createdAt])
   @@index([createdById, createdAt])
   @@index([sha256])
+}
+
+model PrivateCaptureUpload {
+  id               String   @id @default(uuid()) @db.Uuid
+  ownerId          String   @db.Uuid
+  owner            User     @relation("PrivateCaptureUploadOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  originalFilename String
+  objectKey        String   @unique
+  detectedType     String
+  detectedMime     String
+  byteSize         Int
+  sha256           String
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([ownerId, createdAt(sort: Desc), id])
 }
 
 model DocumentRecord {

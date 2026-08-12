@@ -51,6 +51,8 @@ export const WebPrivateInboxItemSchema = z
     employeeId: WebUuidSchema,
     text: z.string().trim().min(1).max(4_000),
     projectId: WebUuidSchema.nullable(),
+    sourceType: z.enum(["text", "link", "code", "file", "image"]),
+    sourceUploadId: WebUuidSchema.nullable(),
     status: z.enum(["open", "promoted", "dismissed"]),
     promotedWorkItemId: WebUuidSchema.nullable(),
     version: z.number().int().positive(),
@@ -72,8 +74,19 @@ export const CapturePrivateInboxBodySchema = z
   .object({
     text: z.string().trim().min(1).max(4_000),
     projectId: WebUuidSchema.nullable().default(null),
+    sourceType: z.enum(["text", "link", "code", "file", "image"]).default("text"),
+    sourceUploadId: WebUuidSchema.nullable().default(null),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (["file", "image"].includes(value.sourceType) !== (value.sourceUploadId !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceUploadId"],
+        message: "private file capture requires a staged upload",
+      });
+    }
+  });
 
 export const DismissPrivateInboxBodySchema = z
   .object({

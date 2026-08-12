@@ -54,11 +54,20 @@ export class PrivateInboxService {
       if (parsed.input.projectId !== null) {
         await authorizeProject(transaction, parsed.actor, parsed.input.projectId, current);
       }
+      if (parsed.input.sourceUploadId !== null) {
+        const upload = await transaction.privateCaptureUpload.findUnique({
+          where: { id: parsed.input.sourceUploadId },
+          select: { ownerId: true },
+        });
+        if (upload === null || upload.ownerId !== parsed.actor.userId) throw forbiddenError();
+      }
       const item = await transaction.privateInboxItem.create({
         data: {
           employeeId: parsed.actor.userId,
           text: parsed.input.text,
           projectId: parsed.input.projectId,
+          sourceType: parsed.input.sourceType,
+          sourceUploadId: parsed.input.sourceUploadId,
         },
       });
       await this.auditWriter.append(transaction, {
@@ -70,7 +79,12 @@ export class PrivateInboxService {
         targetType: "private_inbox_item",
         targetId: item.id,
         reason: "Employee captured a private Inbox item",
-        safeDiff: { linkedToProject: parsed.input.projectId !== null, version: 1 },
+        safeDiff: {
+          linkedToProject: parsed.input.projectId !== null,
+          sourceType: parsed.input.sourceType,
+          hasPrivateUpload: parsed.input.sourceUploadId !== null,
+          version: 1,
+        },
         correlationId: parsed.correlationId,
         source: "api",
       });

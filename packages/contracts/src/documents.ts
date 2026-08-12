@@ -179,6 +179,40 @@ export const StageUploadMetadataSchema = z
     }
   });
 
+export const PrivateCaptureUploadMetadataSchema = z
+  .object({
+    filename: z.string().trim().min(1).max(255),
+    declaredMime: z.string().trim().min(1).max(200),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const extension = value.filename.toLowerCase().match(/\.([a-z0-9]+)$/u)?.[1];
+    const allowed = new Set(["md", "txt", "docx", "pdf", "png", "jpg", "jpeg", "webp"]);
+    if (
+      extension === undefined ||
+      !allowed.has(extension) ||
+      !approvedUploadPairs.get(extension)?.has(value.declaredMime)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["filename"],
+        message: "private captures accept approved file and image formats only",
+      });
+    }
+  });
+
+export const PrivateCaptureUploadSchema = z
+  .object({
+    id: UuidSchema,
+    filename: z.string().trim().min(1).max(255),
+    detectedMime: z.string().trim().min(1).max(200),
+    detectedType: z.string().trim().min(1).max(100),
+    byteSize: z.number().int().positive(),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    createdAt: UtcInstantSchema,
+  })
+  .strict();
+
 export const DocumentTemplateVersionSchema = z
   .object({
     id: UuidSchema,
@@ -274,6 +308,8 @@ export type ActivateDocumentTemplateVersionInput = z.infer<
   typeof ActivateDocumentTemplateVersionSchema
 >;
 export type StageUploadMetadata = z.infer<typeof StageUploadMetadataSchema>;
+export type PrivateCaptureUploadMetadata = z.infer<typeof PrivateCaptureUploadMetadataSchema>;
+export type PrivateCaptureUpload = z.infer<typeof PrivateCaptureUploadSchema>;
 export type DocumentSourceInput = z.infer<typeof DocumentSourceInputSchema>;
 export type CreateDocumentInput = z.infer<typeof CreateDocumentSchema>;
 export type AppendDocumentVersionInput = z.infer<typeof AppendDocumentVersionSchema>;
