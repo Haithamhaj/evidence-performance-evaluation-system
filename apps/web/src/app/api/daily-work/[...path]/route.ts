@@ -276,19 +276,21 @@ export async function POST(request: Request, context: Context): Promise<NextResp
     body = await request.json();
     if (path.length === 3 && path.join("/") === "context/items/prepare") {
       const input = ContextPrepareItemSchema.parse(body);
-      await fetchProtectedUpstream({
-        method: "POST",
-        path: `/api/v1/context/items/${input.sourceItemId}/analyze`,
-        body: {},
-        schema: UpstreamAcknowledgementSchema,
+      return protectedContextCall(async () => {
+        await fetchProtectedUpstream({
+          method: "POST",
+          path: `/api/v1/context/items/${input.sourceItemId}/analyze`,
+          body: {},
+          schema: UpstreamAcknowledgementSchema,
+        });
+        await fetchProtectedUpstream({
+          method: "POST",
+          path: "/api/v1/context/task-drafts",
+          body: { sourceItemId: input.sourceItemId },
+          schema: UpstreamAcknowledgementSchema,
+        });
+        return json({});
       });
-      await fetchProtectedUpstream({
-        method: "POST",
-        path: "/api/v1/context/task-drafts",
-        body: { sourceItemId: input.sourceItemId },
-        schema: UpstreamAcknowledgementSchema,
-      });
-      return json({});
     }
     if (
       path.length === 3 &&
@@ -308,18 +310,20 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         path[2] === "correct" && projectHandle !== null
           ? openContextReviewHandle(projectHandle, "project")
           : null;
-      await post(
-        `/api/v1/context/project-suggestions/${suggestion.id}/${path[2]}`,
-        path[2] === "confirm"
-          ? { expectedRevision: suggestion.revision, reason: input.reason }
-          : {
-              expectedRevision: suggestion.revision,
-              projectId: project?.projectId ?? null,
-              reason: input.reason,
-            },
-        UpstreamAcknowledgementSchema,
-      );
-      return json({});
+      return protectedContextCall(async () => {
+        await post(
+          `/api/v1/context/project-suggestions/${suggestion.id}/${path[2]}`,
+          path[2] === "confirm"
+            ? { expectedRevision: suggestion.revision, reason: input.reason }
+            : {
+                expectedRevision: suggestion.revision,
+                projectId: project?.projectId ?? null,
+                reason: input.reason,
+              },
+          UpstreamAcknowledgementSchema,
+        );
+        return json({});
+      });
     }
     if (
       path.length === 3 &&
@@ -330,27 +334,29 @@ export async function POST(request: Request, context: Context): Promise<NextResp
       const input = ContextConfirmTaskInputSchema.parse(body);
       const draft = openContextReviewHandle(input.handle, "task_draft");
       const project = openContextReviewHandle(input.draft.projectHandle, "project");
-      const upstream = await fetchProtectedUpstream({
-        method: "POST",
-        path: `/api/v1/context/task-drafts/${draft.id}/confirm`,
-        body: {
-          expectedRevision: draft.revision,
-          reason: input.reason,
-          draft: {
-            title: input.draft.title,
-            description: input.draft.description,
-            projectId: project.projectId,
-            workstreamId: draft.workstreamId ?? null,
-            assigneeId: draft.employeeId,
-            dueAt: draft.dueAt ?? null,
-            acceptanceConditions: draft.acceptanceConditions ?? [],
+      return protectedContextCall(async () => {
+        const upstream = await fetchProtectedUpstream({
+          method: "POST",
+          path: `/api/v1/context/task-drafts/${draft.id}/confirm`,
+          body: {
+            expectedRevision: draft.revision,
+            reason: input.reason,
+            draft: {
+              title: input.draft.title,
+              description: input.draft.description,
+              projectId: project.projectId,
+              workstreamId: draft.workstreamId ?? null,
+              assigneeId: draft.employeeId,
+              dueAt: draft.dueAt ?? null,
+              acceptanceConditions: draft.acceptanceConditions ?? [],
+            },
           },
-        },
-        schema: UpstreamConfirmedTaskSchema,
+          schema: UpstreamConfirmedTaskSchema,
+        });
+        return json(
+          ContextConfirmTaskResultSchema.parse({ task: { title: upstream.workItem.title } }),
+        );
       });
-      return json(
-        ContextConfirmTaskResultSchema.parse({ task: { title: upstream.workItem.title } }),
-      );
     }
   } catch {
     return invalid();
@@ -863,6 +869,14 @@ function safeError(error: unknown): NextResponse {
     { messageKey: safe.messageKey, correlationId: safe.correlationId },
     { status: safe.status },
   );
+}
+
+async function protectedContextCall(action: () => Promise<NextResponse>): Promise<NextResponse> {
+  try {
+    return await action();
+  } catch (error) {
+    return safeError(error);
+  }
 }
 
 export const PUT = () => notFound();

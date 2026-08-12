@@ -44,6 +44,35 @@ describe("daily-work same-origin gateway", () => {
     });
   });
 
+  it("preserves an upstream Project-decision conflict for stale recovery", async () => {
+    mocks.open.mockReturnValue({
+      id: "44444444-4444-4444-8444-444444444444",
+      revision: 1,
+    });
+    mocks.fetchProtectedUpstream.mockRejectedValue({
+      status: 409,
+      messageKey: "errors.validation",
+      correlationId: "55555555-5555-4555-8555-555555555555",
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/context/project-suggestions/confirm", {
+        method: "POST",
+        body: JSON.stringify({
+          handle: `opaque-project_suggestion-${"x".repeat(40)}`,
+          reason: "Employee reviewed the current Project link.",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["context", "project-suggestions", "confirm"] }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      messageKey: "errors.validation",
+      correlationId: "55555555-5555-4555-8555-555555555555",
+    });
+  });
+
   it("proxies only the authenticated owner-filtered What Changed projection", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue({ items: [], nextCursor: null });
 

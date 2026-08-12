@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 "use client";
 
-import { getCatalogSync } from "@evaluation/localization";
+import type { Catalog } from "@evaluation/localization";
 import { createElement } from "react";
 
 import { IntelligentToday, type IntelligentTodayGateway } from "./intelligent-today";
@@ -11,6 +11,105 @@ const projectId = "11111111-1111-4111-8111-111111111111";
 const taskId = "22222222-2222-4222-8222-222222222222";
 const suggestionHandle = `opaque-project_suggestion-${"x".repeat(40)}`;
 const projectHandle = `opaque-project-${"y".repeat(40)}`;
+const todayCatalogs = {
+  ar: {
+    "actions.retry": "إعادة المحاولة",
+    "contextReview.confirmLinkReason": "أكد الموظف رابط المشروع المعدّ",
+    "contextReview.correctLinkReason": "اختار الموظف رابط مشروع مختلفًا",
+    "contextReview.rejectLinkReason": "رفض الموظف رابط المشروع المعدّ",
+    "myWork.group.needs_my_action": "يحتاج تدخلي",
+    "myWork.group.overdue": "متأخر",
+    "myWork.group.today": "اليوم",
+    "myWork.status.ready": "جاهز للبدء",
+    "tasks.selectProject": "اختر مشروعًا",
+    "today.intelligent.chooseProject": "اختر مشروعًا آخر",
+    "today.intelligent.clearBody": "لا شيء يحتاج تدخلك. يمكنك إضافة ملاحظة أو فتح العمل كالمعتاد.",
+    "today.intelligent.clearTitle": "أمورك واضحة الآن",
+    "today.intelligent.confirm": "تأكيد",
+    "today.intelligent.consequence": "ما الذي سيحدث",
+    "today.intelligent.correct": "تصحيح",
+    "today.intelligent.decisionError": "لم يُحفظ القرار. ما زال الاقتراح موجودًا؛ حاول مجددًا.",
+    "today.intelligent.decisionSaved": "تم حفظ القرار.",
+    "today.intelligent.dismiss": "تجاهل",
+    "today.intelligent.dismissed": "تم تجاهل الاقتراح وبقي المصدر دون تغيير.",
+    "today.intelligent.draftBody": "تفاصيل المسودة المجهزة",
+    "today.intelligent.draftTitle": "عنوان المسودة المجهزة",
+    "today.intelligent.eyebrow": "اليوم",
+    "today.intelligent.freshness": "حداثة المصدر",
+    "today.intelligent.freshnessUnknown": "عنصر مراجعة حالي؛ وقت المصدر غير متاح",
+    "today.intelligent.linkConsequence":
+      "ستربط مراجعة هذا الاقتراح سياق المصدر الخاص بالمشروع المحدد فقط بعد تأكيدك.",
+    "today.intelligent.loadError": "أحد المصادر الذكية غير متاح. ما زال عملك الحالي متاحًا أدناه.",
+    "today.intelligent.loading": "نجهز موجزك اليومي المخوّل…",
+    "today.intelligent.needsDecision": "يحتاج قرارك",
+    "today.intelligent.prepared": "مجهز لك",
+    "today.intelligent.preparedStale":
+      "هذه المسودة مبنية على مصدر قديم. راجع المصدر قبل الاعتماد عليها.",
+    "today.intelligent.provider.GOOGLE_CALENDAR": "Google Calendar",
+    "today.intelligent.provider.GOOGLE_GMAIL": "Gmail",
+    "today.intelligent.provider.private": "مصدر خاص",
+    "today.intelligent.reload": "تحميل العنصر الحالي",
+    "today.intelligent.source": "المصدر",
+    "today.intelligent.source.authorized": "سياق عمل مخوّل",
+    "today.intelligent.source.projectSuggestion": "اقتراح مشروع",
+    "today.intelligent.source.workItem": "عنصر عمل",
+    "today.intelligent.stale": "هذا القرار قديم. حمّل العنصر الحالي قبل المحاولة مجددًا.",
+    "today.intelligent.subtitle": "ابدأ بقرار واحد، ثم تابع العمل المهم لهذا اليوم.",
+    "today.intelligent.title": "موجز يومك",
+    "today.intelligent.why": "لماذا",
+  },
+  en: {
+    "actions.retry": "Try again",
+    "contextReview.confirmLinkReason": "Employee confirmed the prepared Project link",
+    "contextReview.correctLinkReason": "Employee selected a different Project link",
+    "contextReview.rejectLinkReason": "Employee rejected the prepared Project link",
+    "myWork.group.needs_my_action": "Needs my action",
+    "myWork.group.overdue": "Overdue",
+    "myWork.group.today": "Today",
+    "myWork.status.ready": "Ready",
+    "tasks.selectProject": "Select a project",
+    "today.intelligent.chooseProject": "Choose another Project",
+    "today.intelligent.clearBody":
+      "Nothing needs your action. You can capture a note or open Work normally.",
+    "today.intelligent.clearTitle": "You’re clear right now",
+    "today.intelligent.confirm": "Confirm",
+    "today.intelligent.consequence": "Consequence",
+    "today.intelligent.correct": "Correct",
+    "today.intelligent.decisionError":
+      "The decision was not saved. The suggestion is still here; try again.",
+    "today.intelligent.decisionSaved": "Decision saved.",
+    "today.intelligent.dismiss": "Dismiss",
+    "today.intelligent.dismissed": "Suggestion dismissed. The source remains unchanged.",
+    "today.intelligent.draftBody": "Prepared draft details",
+    "today.intelligent.draftTitle": "Prepared draft title",
+    "today.intelligent.eyebrow": "Today",
+    "today.intelligent.freshness": "Freshness",
+    "today.intelligent.freshnessUnknown": "Current review item; source time unavailable",
+    "today.intelligent.linkConsequence":
+      "Reviewing this link will connect the private source context to the selected Project only after your confirmation.",
+    "today.intelligent.loadError":
+      "One smart source is unavailable. Your current work is still available below.",
+    "today.intelligent.loading": "Preparing your authorized daily brief…",
+    "today.intelligent.needsDecision": "Needs Your Decision",
+    "today.intelligent.prepared": "Prepared for You",
+    "today.intelligent.preparedStale":
+      "This prepared draft is based on a stale source. Review the source before relying on it.",
+    "today.intelligent.provider.GOOGLE_CALENDAR": "Google Calendar",
+    "today.intelligent.provider.GOOGLE_GMAIL": "Gmail",
+    "today.intelligent.provider.private": "Private source",
+    "today.intelligent.reload": "Reload current item",
+    "today.intelligent.source": "Source",
+    "today.intelligent.source.authorized": "Authorized work context",
+    "today.intelligent.source.projectSuggestion": "Project suggestion",
+    "today.intelligent.source.workItem": "Work item",
+    "today.intelligent.stale":
+      "This decision is out of date. Reload the current item before trying again.",
+    "today.intelligent.subtitle":
+      "Start with one decision, then continue the work that matters today.",
+    "today.intelligent.title": "Your daily brief",
+    "today.intelligent.why": "Why",
+  },
+} as const;
 
 const snapshot: import("@evaluation/contracts").DailyWorkspaceSnapshot = {
   needsMyAction: [],
@@ -110,7 +209,7 @@ const gateway: IntelligentTodayGateway = {
 
 export function TodayStory({ locale }: Readonly<{ locale: "ar" | "en" }>) {
   return createElement(IntelligentToday, {
-    catalog: getCatalogSync(locale),
+    catalog: todayCatalogs[locale] as unknown as Catalog,
     gateway,
     locale,
     onTaskSelect: () => undefined,
