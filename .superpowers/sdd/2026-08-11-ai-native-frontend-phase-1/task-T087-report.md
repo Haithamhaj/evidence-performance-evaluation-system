@@ -153,3 +153,21 @@ fail before a role-bearing principal is returned.
 - Focused auth, AuthGuard, private-capture policy, and capture API verification: 5 files / 28 tests
   passed.
 - Auth and API typechecks passed; focused Auth files were formatted.
+
+## Authenticated product acceptance — 2026-08-12
+
+The full local stack ran from this Phase 1 worktree with the real local OIDC, API, PostgreSQL, Redis,
+object storage, and web application. Using the documented synthetic employee account, the Arabic
+employee journey opened Global Capture, entered a text note, reviewed the private draft, explicitly
+confirmed save, and received `تم الحفظ في صندوقك الخاص.` The database independently confirmed one
+owner-bound Inbox row with source type `text`; no Task, Update, Evidence, Project progress, or
+evaluation record was created.
+
+Visual evidence:
+
+- `docs/product/screenshots/ai-native-phase-1/t087-capture-en-desktop.png` — English desktop review.
+- `docs/product/screenshots/ai-native-phase-1/t087-capture-ar-mobile.png` — Arabic RTL at 390 × 844.
+- `docs/product/screenshots/ai-native-phase-1/t087-capture-recovery.png` — recoverable save failure
+  with the employee draft preserved.
+
+Final acceptance result: **passed**. The bounded T087 outcome is complete and T088 is unblocked.

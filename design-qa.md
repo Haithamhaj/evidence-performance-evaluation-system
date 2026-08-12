@@ -62,3 +62,17 @@
 ## Final result
 
 passed
+
+## T087 Universal Capture addendum — 2026-08-12
+
+- The production Stable Shell Global Capture entry opens a labelled, focused dialog in both English
+  and Arabic; Escape closes it and returns focus to the trigger.
+- The compact form supports the approved text, link, code, safe file, and image choices without
+  implying that a private draft is official work.
+- Arabic RTL was inspected at `390 × 844`; the bottom-sheet layout, labels, technical mixed text, and
+  primary action remain readable with no horizontal overflow.
+- Recovery keeps the employee's raw draft visible and presents a clear retryable error.
+- The authenticated Arabic employee journey completed a real private save against the local API and
+  PostgreSQL. Visual evidence is stored under `docs/product/screenshots/ai-native-phase-1/`.
+
+T087 design result: **passed**.

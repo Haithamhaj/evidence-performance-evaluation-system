@@ -874,7 +874,7 @@ The detailed authority is
 
 ## T087 — Implement Universal Capture and Manual Recovery
 
-**Status:** In progress — G0 is approved; implementing the bounded manual-first capture slice.
+**Status:** Complete — bounded manual-first private capture is verified in the authenticated product.
 **Priority:** P1
 **Dependencies:** T086
 **Purpose:** Deliver one compact text/link/file capture flow with private-Inbox fallback.
@@ -882,7 +882,7 @@ The detailed authority is
 
 ## T088 — Implement Work Signals and Experience Events
 
-**Status:** Not started — blocked by T087.
+**Status:** Not started — T087 is complete; this is the next approved slice.
 **Priority:** P0
 **Dependencies:** T087
 **Purpose:** Refresh authorized experience state while keeping telemetry non-authoritative.

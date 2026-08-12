@@ -2,8 +2,8 @@
 
 ## Current Goal
 
-Execute AI-Native Frontend Phase 1 in bounded vertical slices, starting with T087 Universal Capture
-and manual private-Inbox recovery. Preserve every engine authority and retained-route rollback path.
+Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture is complete;
+T088 Work Signals and Experience Events is next. Preserve every engine authority and rollback path.
 
 ## Current Reality
 
@@ -62,6 +62,10 @@ and manual private-Inbox recovery. Preserve every engine authority and retained-
   journeys, lint, typecheck, builds, source boundaries, and design QA pass.
 - Gate G0 is approved. The Product Owner accepted the documented participant overlap and instructed
   execution to continue; Phase 1 is authorized in the approved T087–T094 order.
+- T087 is complete: authenticated employees can privately capture text, links, code, safe files, or
+  images, review the raw draft, and save it to their owner-bound Inbox without creating official work,
+  project progress, evidence, or evaluation input. English/Arabic desktop/mobile and recovery states
+  are visually verified; the real Arabic employee journey persisted one synthetic note successfully.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -89,8 +93,8 @@ and manual private-Inbox recovery. Preserve every engine authority and retained-
 
 ## Next Recommended Action
 
-Create an isolated Phase 1 branch from the approved G0 checkpoint and execute T087 manual-first
-Universal Capture with focused authorization, localization, browser, rollback, and visual evidence.
+Execute T088 Work Signals and Experience Events on the existing isolated Phase 1 branch with strict
+versioning, idempotency, wrong-user exclusion, replay/recovery, and telemetry non-authority boundaries.
 Do not merge Pull Request #29 or remove retained routes.
 
 ## Critical References
