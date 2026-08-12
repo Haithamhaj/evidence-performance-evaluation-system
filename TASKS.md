@@ -890,7 +890,7 @@ The detailed authority is
 
 ## T089 — Implement the Minimal Experience Orchestrator
 
-**Status:** Not started — T088 is complete; this is the next approved slice.
+**Status:** Complete — one authorized source-backed proposal is prepared through the governed AI Router or a truthful deterministic fallback, with semantic quarantine and no command authority.
 **Priority:** P0
 **Dependencies:** T088
 **Purpose:** Prepare one source-backed next action above the existing AI Router.
@@ -898,7 +898,7 @@ The detailed authority is
 
 ## T090 — Implement Intelligent Today and One Decision Path
 
-**Status:** Not started — blocked by T089.
+**Status:** Not started — T089 is complete; this is the next approved slice.
 **Priority:** P1
 **Dependencies:** T089
 **Purpose:** Deliver Needs Your Action, Today, Overdue, prepared work, and one real confirm/correct/dismiss journey.

@@ -88,3 +88,19 @@ T087 design result: **passed**.
   `t088-recovery-state.png`.
 
 T088 design result: **passed**.
+
+## T089 Minimal Experience Orchestrator addendum — 2026-08-12
+
+- The real authenticated employee fixture received exactly one source-backed next action from a
+  realistic Project Work Item. The response showed source, why, freshness, consequence, editable
+  draft, and a truthful deterministic assistance label.
+- A live governed provider call was attempted through the AI Router. Its output was quarantined
+  without persistence or content exposure because the protected semantic guard rejected it; the
+  deterministic path remained available and truthful.
+- The production Today presentation is intentionally not claimed in T089. The screenshot
+  `docs/product/screenshots/ai-native-phase-1/t089-prepared-action.png` is the approved synthetic
+  Command Brief target used to inspect hierarchy and RTL only. The real Today card and recovery
+  screenshot belong to T090.
+- The bounded corrected-findings review passed with no remaining P0/P1.
+
+T089 engine/design-handoff result: **passed**; final production presentation remains T090 scope.

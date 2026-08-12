@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture and T088 Work
-Signals/Experience Events are complete; T089 Minimal Experience Orchestrator is next. Preserve every
-engine authority and rollback path.
+Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture, T088 Work
+Signals/Experience Events, and T089 Minimal Experience Orchestrator are complete; T090 Intelligent
+Today and its first protected decision path are next. Preserve every engine authority and rollback path.
 
 ## Current Reality
 
@@ -72,12 +72,21 @@ engine authority and rollback path.
   An unrelated user receives nothing; queue/API failure presents truthful recovery without losing the
   last delivered item. Experience events and disabled product telemetry remain separate non-authority
   zones.
+- T089 is complete: the orchestrator reads only authorized Context Intelligence and Daily Work
+  sources, prepares at most one editable action/question, persists a versioned append-only projection,
+  and never executes a domain command. A dedicated worker is wired without a duplicate consumer.
+  Bilingual semantic quarantine blocks rating, ranking, readiness, calculated-progress, and
+  activity-volume performance inferences while allowing neutral daily-work language. The real local
+  Project Task returned one truthful deterministic proposal; one live provider response was safely
+  quarantined and requires later prompt tuning rather than weaker product protection.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
 
 - Real-provider quality, latency, and recovery require production credentials and deployment-time
   monitoring; deterministic tests verify contracts, not provider quality.
+- The first live T089 provider probe was safely quarantined by the protected semantic guard. Prompt
+  tuning is a non-blocking follow-up; deterministic fallback remains truthful and functional.
 - Production Google/GitHub/OIDC/email/storage/telemetry/backup require administrator configuration,
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
@@ -99,9 +108,9 @@ engine authority and rollback path.
 
 ## Next Recommended Action
 
-Execute T089 Minimal Experience Orchestrator on the existing isolated Phase 1 branch: prepare at most
-one source-backed next action/question through the existing AI Router, with deterministic fallback,
-strict privacy, and no rating/progress authority. Do not merge Pull Request #29 or remove retained routes.
+Execute T090 Intelligent Today on the existing isolated Phase 1 branch: compose Needs Your Action,
+Today, Overdue, and the single prepared item, then connect one real confirm/correct/dismiss path using
+the owning protected command. Do not merge Pull Request #29 or remove retained routes.
 
 ## Critical References
 

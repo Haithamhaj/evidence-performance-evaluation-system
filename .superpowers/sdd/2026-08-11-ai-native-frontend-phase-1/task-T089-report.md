@@ -59,7 +59,16 @@ output reference, and correlation. No rating, readiness, progress, or command st
 
 ## Remaining bounded work
 
-The controller owns authenticated browser acceptance, screenshots, and final Task/project-state
-updates. One live AI probe was quarantined without exposing content; additional prompt tuning is a
-non-blocking follow-up because the deterministic fallback remains truthful. T090 owns
-confirm/correct/dismiss and Intelligent Today composition.
+Authenticated local acceptance used the real `phase1.employee` Project fixture and a realistic Work
+Item. With AI disabled, `GET /api/v1/experience-orchestration/prepared` returned HTTP 200 with exactly
+one fresh `next_action`, the opaque Work Item source, why, consequence, editable Arabic draft, and a
+truthful deterministic label with no route trace. With AI enabled, one governed provider response was
+safely quarantined as `AI_OUTPUT_QUARANTINED`; no rejected content was persisted or exposed.
+
+The approved synthetic Command Brief target is recorded at
+`docs/product/screenshots/ai-native-phase-1/t089-prepared-action.png`. It is not claimed as the
+production T089 UI. T090 owns the authenticated Today card, the visible deterministic-recovery state,
+confirm/correct/dismiss, and their production screenshots. Additional live prompt tuning is a
+non-blocking follow-up because the deterministic fallback remains truthful.
+
+The single bounded review and corrected-findings re-review finished with no remaining P0/P1.
