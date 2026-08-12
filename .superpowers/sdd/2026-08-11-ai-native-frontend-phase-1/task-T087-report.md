@@ -171,3 +171,4 @@ Visual evidence:
   with the employee draft preserved.
 
 Final acceptance result: **passed**. The bounded T087 outcome is complete and T088 is unblocked.
+The non-blocking database foreign-key reinforcement was recorded for later as GitHub issue #31.
