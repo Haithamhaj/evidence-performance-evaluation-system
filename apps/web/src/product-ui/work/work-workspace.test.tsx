@@ -4,7 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 
 import { getCatalogSync } from "@evaluation/localization";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -99,6 +99,40 @@ describe("WorkWorkspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("no longer have access");
   });
 
+  it("keeps the newest URL-selected task when an older detail request resolves late", async () => {
+    const stale = deferred<ReturnType<typeof workItem>>();
+    const second = {
+      ...item,
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Confirm customer handoff",
+    };
+    const gateway = service({
+      load: vi
+        .fn()
+        .mockImplementation((id: string) =>
+          id === item.id ? stale.promise : Promise.resolve(second),
+        ),
+    });
+    const user = userEvent.setup();
+    renderWork(gateway, item.id, "en", [item, second]);
+    await waitFor(() => expect(gateway.load).toHaveBeenCalledWith(item.id));
+
+    window.history.pushState(null, "", `/en/tasks?view=my&layout=list&item=${second.id}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(await screen.findByRole("heading", { name: second.title })).toBeInTheDocument();
+
+    await act(async () => stale.resolve(item));
+    expect(screen.getByRole("heading", { name: second.title })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: item.title })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("New status"), "in_progress");
+    await user.click(screen.getByRole("button", { name: "Change status" }));
+    expect(gateway.transition).toHaveBeenCalledWith(
+      second.id,
+      expect.objectContaining({ status: "in_progress" }),
+    );
+  });
+
   it("renders the Arabic mobile-ready boundary in RTL without changing Task identity", async () => {
     renderWork(service(), null, "ar");
     const region = screen.getByRole("region", { name: "العمل" });
@@ -113,19 +147,28 @@ function renderWork(
   gateway: WorkWorkspaceGateway,
   selectedId: string | null = null,
   locale: "ar" | "en" = "en",
+  items = [item],
 ) {
   return render(
     <WorkWorkspace
       catalog={getCatalogSync(locale)}
       currentUserId={employeeId}
       gateway={gateway}
-      initialItems={[item]}
+      initialItems={items}
       initialSelectedId={selectedId}
       initialView="my"
       locale={locale}
       projects={[{ id: projectId, name: "Atlas Delivery" }]}
     />,
   );
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 function service(overrides: Partial<WorkWorkspaceGateway> = {}) {

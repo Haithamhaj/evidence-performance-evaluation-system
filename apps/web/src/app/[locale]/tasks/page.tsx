@@ -11,6 +11,7 @@ import {
 import { WorkspaceShell } from "../workspace-shell";
 import { WorkWorkspace } from "../../../product-ui/work/work-workspace";
 import { workWorkspaceEnabled } from "../../../server/work/work-workspace-flag";
+import { buildTasksPageState } from "../../../server/work/tasks-page-state";
 import { TasksClient } from "./tasks-client";
 
 type Properties = Readonly<{
@@ -22,11 +23,7 @@ export default async function TasksPage({ params, searchParams }: Properties) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const query = await searchParams;
-  const layout = ["list", "board", "calendar"].includes(query.layout ?? "")
-    ? (query.layout as "list" | "board" | "calendar")
-    : "list";
-  const view = query.view === "team" ? "team" : "my";
-  const reauthenticateTo = `/${locale}/tasks?view=${view}&layout=${layout}`;
+  const { href: reauthenticateTo, layout, selectedId, view } = buildTasksPageState(locale, query);
   const [catalog, response, context, currentUser] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
@@ -46,21 +43,21 @@ export default async function TasksPage({ params, searchParams }: Properties) {
     }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
-  const selectedQuery = query.item === undefined ? "" : `&item=${encodeURIComponent(query.item)}`;
+  const alternateHref = buildTasksPageState(alternateLocale, query).href;
   const useWorkWorkspace = workWorkspaceEnabled() && layout === "list";
   return createElement(
     WorkspaceShell,
     {
       catalog,
       locale,
-      localeSwitchHref: `/${alternateLocale}/tasks?view=${view}&layout=${layout}${selectedQuery}`,
+      localeSwitchHref: alternateHref,
     },
     useWorkWorkspace
       ? createElement(WorkWorkspace, {
           catalog,
           currentUserId: currentUser.userId,
           initialItems: response.items,
-          initialSelectedId: query.item ?? null,
+          initialSelectedId: selectedId,
           initialView: view,
           locale,
           projects: context.projects.map(({ id, name }) => ({ id, name })),
@@ -70,7 +67,7 @@ export default async function TasksPage({ params, searchParams }: Properties) {
           draftOwnerId: currentUser.userId,
           initialItems: response.items,
           initialLayout: layout,
-          initialSelectedId: query.item ?? null,
+          initialSelectedId: selectedId,
           initialView: view,
           locale,
           projects: context.projects.map(({ id, name }) => ({ id, name })),

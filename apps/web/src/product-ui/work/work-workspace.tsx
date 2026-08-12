@@ -3,7 +3,7 @@
 
 import type { Catalog, Locale } from "@evaluation/localization";
 import { ProductIcon } from "@evaluation/ui";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { buildWorkListModel } from "../../features/work-list/work-list-model";
 import { TaskDetailDrawer } from "../../features/task-detail/task-detail-drawer";
@@ -62,20 +62,23 @@ export function WorkWorkspace({
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
+  const detailRequestGeneration = useRef(0);
   const model = useMemo(
     () =>
       buildWorkListModel({ items, projects, unknownProjectLabel: catalog["work.unknownProject"] }),
     [catalog, items, projects],
   );
 
-  async function load(id: string) {
+  async function load(id: string, generation = ++detailRequestGeneration.current) {
     setDetailState("loading");
     setNotice(null);
     try {
       const loaded = await gateway.load(id);
+      if (detailRequestGeneration.current !== generation) return;
       setDetail(loaded);
       setDetailState("ready");
     } catch (error) {
+      if (detailRequestGeneration.current !== generation) return;
       setDetail(null);
       setDetailState(
         error instanceof WorkItemGatewayError && error.status === 403 ? "forbidden" : "error",
@@ -85,14 +88,17 @@ export function WorkWorkspace({
 
   useEffect(() => {
     if (selectedId === null) {
+      detailRequestGeneration.current += 1;
       setDetail(null);
       return;
     }
-    void load(selectedId);
+    const generation = ++detailRequestGeneration.current;
+    void load(selectedId, generation);
   }, [selectedId]);
 
   useEffect(() => {
     function followUrl() {
+      detailRequestGeneration.current += 1;
       setSelectedId(new URL(window.location.href).searchParams.get("item"));
     }
     window.addEventListener("popstate", followUrl);
@@ -101,6 +107,7 @@ export function WorkWorkspace({
 
   function select(id: string | null) {
     const previousId = selectedId;
+    detailRequestGeneration.current += 1;
     setSelectedId(id);
     const url = new URL(window.location.href);
     if (id === null) url.searchParams.delete("item");
@@ -136,18 +143,22 @@ export function WorkWorkspace({
 
   async function transition(status: WorkItemStatus) {
     if (detail === null) return;
+    const generation = ++detailRequestGeneration.current;
+    const transitioningItem = detail;
     setDetailState("transitioning");
     setNotice(null);
     try {
-      const updated = await gateway.transition(detail.id, {
+      const updated = await gateway.transition(transitioningItem.id, {
         status,
-        expectedVersion: detail.version,
+        expectedVersion: transitioningItem.version,
         reason: catalog["work.transitionReason"],
       });
+      if (detailRequestGeneration.current !== generation) return;
       setDetail(updated);
       setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setDetailState("ready");
     } catch (error) {
+      if (detailRequestGeneration.current !== generation) return;
       if (error instanceof WorkItemGatewayError && error.status === 403) {
         setDetail(null);
         setDetailState("forbidden");
@@ -155,12 +166,14 @@ export function WorkWorkspace({
       }
       if (error instanceof WorkItemGatewayError && error.status === 409) {
         try {
-          const current = await gateway.load(detail.id);
+          const current = await gateway.load(transitioningItem.id);
+          if (detailRequestGeneration.current !== generation) return;
           setDetail(current);
           setItems((items) => items.map((item) => (item.id === current.id ? current : item)));
           setNotice("stale");
           setDetailState("ready");
         } catch {
+          if (detailRequestGeneration.current !== generation) return;
           setDetail(null);
           setDetailState("error");
         }

@@ -17,6 +17,7 @@ vi.mock("../auth/oidc", () => ({
 }));
 
 import { fetchDailyWorkUpstream, WebDailyWorkspaceSnapshotSchema } from "./daily-work-api.js";
+import { buildTasksPageState } from "../server/work/tasks-page-state.js";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -107,6 +108,14 @@ describe("fetchDailyWorkUpstream", () => {
 
   it("redirects an expired browser session to login instead of rendering a server error", async () => {
     const request = vi.spyOn(globalThis, "fetch");
+    const selectedId = "33333333-3333-4333-8333-333333333333";
+    const directTask = buildTasksPageState("en", {
+      item: selectedId,
+      layout: "list",
+      view: "my",
+    });
+    expect(directTask.selectedId).toBe(selectedId);
+    expect(buildTasksPageState("en", { item: "not-a-uuid" }).selectedId).toBeNull();
     mocks.sessionAccessToken.mockImplementation(() => {
       throw new Error("AUTH_INVALID_SESSION");
     });
@@ -114,13 +123,13 @@ describe("fetchDailyWorkUpstream", () => {
     await expect(
       fetchDailyWorkUpstream({
         route: { kind: "my_work" },
-        reauthenticateTo: "/en/tasks?view=team&layout=board",
+        reauthenticateTo: directTask.href,
         schema: { parse: (value: unknown) => value },
       }),
     ).rejects.toThrow("NEXT_REDIRECT");
 
     expect(mocks.redirect).toHaveBeenCalledWith(
-      "/api/auth/login?returnTo=%2Fen%2Ftasks%3Fview%3Dteam%26layout%3Dboard",
+      "/api/auth/login?returnTo=%2Fen%2Ftasks%3Fview%3Dmy%26layout%3Dlist%26item%3D33333333-3333-4333-8333-333333333333",
     );
     expect(request).not.toHaveBeenCalled();
   });
