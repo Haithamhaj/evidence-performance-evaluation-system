@@ -906,7 +906,7 @@ The detailed authority is
 
 ## T091 — Implement What Changed and Durable SSE
 
-**Status:** Implementation complete — authorized durable SSE replay and bounded recovery are verified; Product Owner visual acceptance remains.
+**Status:** Complete — authorized durable SSE replay, bounded recovery, and the Arabic product journey are verified.
 **Priority:** P1
 **Dependencies:** T090
 **Purpose:** Show concise authorized receipts with reconnect and exactly-once visible behavior.
@@ -914,7 +914,7 @@ The detailed authority is
 
 ## T092 — Migrate Work List and Task Detail with Parity
 
-**Status:** Not started — blocked by T091.
+**Status:** In progress — T091 is complete; bounded Work list and task-detail parity implementation is next.
 **Priority:** P1
 **Dependencies:** T091
 **Purpose:** Provide compact daily task management without losing existing Work Item behavior.

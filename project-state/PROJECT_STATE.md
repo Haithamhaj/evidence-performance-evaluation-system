@@ -4,8 +4,8 @@
 
 Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture, T088 Work
 Signals/Experience Events, T089 Minimal Experience Orchestrator, and T090 Intelligent Today are
-complete. T091 durable SSE implementation is verified and awaits Product Owner visual acceptance.
-Preserve every engine authority and rollback path.
+complete. T091 durable SSE and its Arabic product journey are accepted; T092 Work list and task
+detail parity are next. Preserve every engine authority and rollback path.
 
 ## Current Reality
 
@@ -85,9 +85,9 @@ Preserve every engine authority and rollback path.
   remain protected Context Intelligence commands; stale correction stays editable and dismissal
   creates no evidence or progress. English desktop, Arabic RTL mobile, recovery, rollback, build,
   accessibility, and the independent P0/P1 review are verified.
-- T091 implementation is complete: What Changed uses recipient-filtered durable receipt cursors,
-  content-free SSE wake-ups, ordered de-duplicated replay, offline/session recovery, and a server
-  rollback flag that retains explicit refresh. Product Owner visual acceptance remains.
+- T091 is complete: What Changed uses recipient-filtered durable receipt cursors, content-free SSE
+  wake-ups, ordered de-duplicated replay, offline/session recovery, and a server rollback flag that
+  retains explicit refresh. The authenticated Arabic receipt and reconnect states are captured.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -100,8 +100,8 @@ Preserve every engine authority and rollback path.
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
   review; normal Arabic/RTL foundations remain required in the final frontend.
-- What Changed durable replay is technically verified; its live reconnect and receipt clarity still
-  require Product Owner visual acceptance before T092 begins.
+- T092 must preserve existing Work Item create/transition authorization, append-only history, and
+  retained-route rollback while simplifying the daily task experience.
 - A separate independent manager participant did not attend G0. The Product Owner accepted this
   overlap and deferred the direct manager session until the complete Phase 1 experience can be
   meaningfully reviewed.
@@ -117,8 +117,8 @@ Preserve every engine authority and rollback path.
 
 ## Next Recommended Action
 
-Run T091 Product Owner visual acceptance on the existing isolated Phase 1 branch. Confirm receipt
-clarity and reconnect behavior before T092. Do not merge Pull Request #29 or remove retained routes.
+Execute T092 Work list and focused task-detail parity on the existing isolated Phase 1 branch. Keep
+the retained Tasks/My Work routes available for rollback. Do not merge Pull Request #29.
 
 ## Critical References
 

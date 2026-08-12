@@ -56,8 +56,12 @@ None. T091 reads the existing append-only delivery receipts and cursor.
   rating, ranking, productivity score, or AI inference.
 - No provider SDK or AI route was added.
 
-## Remaining bounded acceptance
+## Product acceptance
 
-Product Owner review still needs to confirm receipt clarity and the reconnect state in a runnable
-authenticated browser journey. T092 must not begin before that stop gate. The retained explicit
-refresh is the immediate rollback if live streaming is disabled.
+The authenticated Arabic product journey was run in the in-app browser. It showed exactly one
+owner-private Capture receipt, then a truthful reconnecting state while retaining the receipt and
+explicit refresh. The required screenshots are stored as `t091-what-changed.png` and
+`t091-reconnecting.png`. The independent corrected-findings review passed with no remaining P0/P1.
+
+T091 is complete. The retained explicit refresh remains the immediate rollback if live streaming is
+disabled; T092 may proceed without removing retained routes.
