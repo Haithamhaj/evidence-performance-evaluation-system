@@ -1,6 +1,6 @@
 "use client";
 
-import { FocusedDialog } from "@evaluation/ui";
+import { ActionButton, FocusedDialog } from "@evaluation/ui";
 import { createElement, useState } from "react";
 
 type SourceType = "text" | "link" | "code" | "file" | "image";
@@ -42,11 +42,10 @@ export function CaptureDialog({
   return createElement(FocusedDialog, {
     closeLabel: catalog["actions.close"],
     title: catalog["capture.title"],
-    trigger: (
-      <button className="primaryAction" type="button">
-        {catalog["shell.global.capture"]}
-      </button>
-    ),
+    trigger: createElement(ActionButton, {
+      children: catalog["shell.global.capture"],
+      variant: "primary",
+    }),
     children: (
       <form
         dir={locale === "ar" ? "rtl" : "ltr"}

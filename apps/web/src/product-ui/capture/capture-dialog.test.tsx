@@ -1,9 +1,15 @@
+// @vitest-environment jsdom
+
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 import { getCatalog } from "@evaluation/localization";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CaptureDialog } from "./capture-dialog.js";
+
+afterEach(() => cleanup());
 
 describe("CaptureDialog", () => {
   it("labels the private review flow without creating official work", async () => {
@@ -27,5 +33,26 @@ describe("CaptureDialog", () => {
       }),
     );
     expect(markup).toBe("");
+  });
+
+  it("opens the capture form and returns focus after Escape", async () => {
+    const catalog = await getCatalog("en");
+    const user = userEvent.setup();
+    render(
+      createElement(CaptureDialog, {
+        catalog,
+        locale: "en",
+        onSaved: vi.fn(),
+        save: vi.fn(),
+      }),
+    );
+    const trigger = screen.getByRole("button", { name: "Capture" });
+
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Capture privately" });
+    expect(dialog.contains(screen.getByRole("textbox", { name: "Capture note" }))).toBe(true);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 });

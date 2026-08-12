@@ -111,3 +111,16 @@ receive only `{ userId, active }` as their domain schema requires.
 - GREEN: the same 4 cases reached the real Progress Contract service persistence boundary; the full
   focused file passed (18/18 tests).
 - Affected API typecheck: passing.
+
+## Stable Shell Capture trigger remediation — 2026-08-12
+
+The visible Capture trigger now uses the existing React Aria-compatible `ActionButton` expected by
+`FocusedDialog`. The foundation story's existing `ActionButton` dialog trigger remains unchanged.
+
+- RED: a real jsdom interaction clicked the employee `Capture` button, emitted React Aria's
+  `PressResponder` warning, and could not find the `Capture privately` dialog.
+- GREEN: the same interaction opens the dialog and capture-note form, then Escape closes it and
+  returns focus to the Capture trigger.
+- Focused UI verification: 2 files / 7 tests passed (Capture journey plus UI primitive browser
+  compatibility).
+- Affected web typecheck/compile and focused lint: passing.
