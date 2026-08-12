@@ -45,18 +45,36 @@ const OwnershipCommandSchema = z
   .strict();
 
 export class PrivateCaptureUploadService {
+  private readonly database: Database;
+  private readonly storage: Storage;
+  private readonly scanner: Scanner;
+  private readonly policy: Policy;
+  private readonly audit: Audit;
+  private readonly options: Readonly<{
+    temporaryRoot?: string;
+    randomId?: () => string;
+    now?: () => Date;
+  }>;
+
   constructor(
-    private readonly database: Database,
-    private readonly storage: Storage,
-    private readonly scanner: Scanner,
-    private readonly policy: Policy,
-    private readonly audit: Audit,
-    private readonly options: Readonly<{
+    database: Database,
+    storage: Storage,
+    scanner: Scanner,
+    policy: Policy,
+    audit: Audit,
+    options: Readonly<{
       temporaryRoot?: string;
       randomId?: () => string;
       now?: () => Date;
     }> = {},
-  ) {}
+  ) {
+    this.database = database;
+    this.storage = storage;
+    this.scanner = scanner;
+    this.policy = policy;
+    this.audit = audit;
+    this.options = options;
+  }
 
   async stage(command: unknown, stream: NodeJS.ReadableStream) {
     const parsed = StageCommandSchema.parse(command);

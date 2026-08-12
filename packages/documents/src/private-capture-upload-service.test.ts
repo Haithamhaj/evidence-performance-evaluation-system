@@ -1,6 +1,5 @@
 import { Readable } from "node:stream";
 
-import { AppError } from "@evaluation/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import { PrivateCaptureUploadService } from "./private-capture-upload-service.js";
