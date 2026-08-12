@@ -18,9 +18,9 @@ readiness percentage, or progress calculation was added.
 - A queued or failed receipt is safely re-enqueued on an identical retry.
 - Concurrent inserts recover by reading the winning receipt and comparing the payload hash.
 - The worker transitions queued/error receipts once and treats delivered/acknowledged replay as a no-op.
-- Existing domain command success is not coupled to this new transport. T088's deterministic demo uses
-  the internal Operations runtime with an already-authorized private Inbox receipt; production domain
-  publication remains disabled until an atomic domain outbox/public receipt boundary is available.
+- Private Inbox capture writes its owner-scoped signal receipt atomically inside the owning Work Items
+  transaction. The post-commit queue wake-up cannot turn a successful capture into an HTTP failure;
+  queued/error receipts are recovered when the owner opens What Changed.
 
 ## Database changes
 
@@ -69,13 +69,10 @@ The parent controller owns the in-app browser screenshots required by the plan.
 
 ## Remaining bounded risk
 
-Production domain publication is intentionally not wired in T088. Wiring a post-commit callback would
-make an existing successful command appear failed and invite duplicate business mutation. The later
-integration must use an atomic owning-domain outbox/public receipt boundary. This is an explicit safe
-boundary, not an incomplete hidden hook.
-
-No project-state update was made: the current goal and architecture direction are unchanged, and the
-parent controller will record task completion after review and browser evidence.
+T088 connects only the approved private-capture signal. Other domain signal types remain fail-closed
+until their owning modules expose equivalent atomic public receipt boundaries. Product telemetry
+collection remains disabled. The parent controller recorded task completion after review and browser
+evidence.
 
 ## Bounded remediation cycle
 
@@ -103,3 +100,22 @@ Remediation verification:
 - Seven CI-reported files: **Prettier check passed**.
 - Web typecheck retains the unchanged repository Vitest browser/jest-dom matcher declaration
   collision; no new application-source type error was identified in the bounded checks.
+
+## Authenticated product acceptance — 2026-08-12
+
+The production Phase 1 shell was exercised in Arabic using the documented synthetic employee account
+and the real local OIDC, API, PostgreSQL, Redis, worker, and web application. The employee captured and
+confirmed a new private note. The same transaction created one owner-scoped Work Signal receipt; the
+dedicated experience worker moved it to `delivered`; What Changed then displayed exactly one localized
+operational item. The item contains no captured body, rating, progress, readiness value, or telemetry.
+
+For recovery evidence, the API was temporarily stopped while the web shell remained available. What
+Changed preserved the last delivered item and displayed a localized retryable warning. After the API
+returned, reopening the dialog cleared the warning and showed the same single item without duplication.
+
+Screenshots:
+
+- `docs/product/screenshots/ai-native-phase-1/t088-authorized-refresh.png`
+- `docs/product/screenshots/ai-native-phase-1/t088-recovery-state.png`
+
+Final authenticated acceptance: **passed**.

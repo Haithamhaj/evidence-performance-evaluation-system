@@ -882,7 +882,7 @@ The detailed authority is
 
 ## T088 — Implement Work Signals and Experience Events
 
-**Status:** Not started — T087 is complete; this is the next approved slice.
+**Status:** Complete — authorized Work Signals now drive an owner-filtered What Changed experience with durable recovery and telemetry isolation.
 **Priority:** P0
 **Dependencies:** T087
 **Purpose:** Refresh authorized experience state while keeping telemetry non-authoritative.
@@ -890,7 +890,7 @@ The detailed authority is
 
 ## T089 — Implement the Minimal Experience Orchestrator
 
-**Status:** Not started — blocked by T088.
+**Status:** Not started — T088 is complete; this is the next approved slice.
 **Priority:** P0
 **Dependencies:** T088
 **Purpose:** Prepare one source-backed next action above the existing AI Router.

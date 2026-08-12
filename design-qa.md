@@ -76,3 +76,15 @@ passed
   PostgreSQL. Visual evidence is stored under `docs/product/screenshots/ai-native-phase-1/`.
 
 T087 design result: **passed**.
+
+## T088 What Changed addendum — 2026-08-12
+
+- The Arabic authenticated shell opens an owner-filtered What Changed dialog from the global action.
+- A delivered private-capture receipt is described as an operational change only; raw private content,
+  employee scoring, readiness, progress, and technical identifiers remain hidden.
+- When the API is unavailable, the dialog preserves the last delivered item and displays a concise,
+  retryable Arabic warning. Reopening after recovery removes the warning without duplicating the item.
+- Evidence is stored in `docs/product/screenshots/ai-native-phase-1/t088-authorized-refresh.png` and
+  `t088-recovery-state.png`.
+
+T088 design result: **passed**.

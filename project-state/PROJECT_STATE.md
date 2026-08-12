@@ -2,8 +2,9 @@
 
 ## Current Goal
 
-Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture is complete;
-T088 Work Signals and Experience Events is next. Preserve every engine authority and rollback path.
+Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture and T088 Work
+Signals/Experience Events are complete; T089 Minimal Experience Orchestrator is next. Preserve every
+engine authority and rollback path.
 
 ## Current Reality
 
@@ -66,6 +67,11 @@ T088 Work Signals and Experience Events is next. Preserve every engine authority
   images, review the raw draft, and save it to their owner-bound Inbox without creating official work,
   project progress, evidence, or evaluation input. English/Arabic desktop/mobile and recovery states
   are visually verified; the real Arabic employee journey persisted one synthetic note successfully.
+- T088 is complete: confirmed private capture atomically records an owner-scoped Work Signal, the
+  dedicated worker delivers it idempotently, and the authenticated shell shows it in What Changed.
+  An unrelated user receives nothing; queue/API failure presents truthful recovery without losing the
+  last delivered item. Experience events and disabled product telemetry remain separate non-authority
+  zones.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -93,9 +99,9 @@ T088 Work Signals and Experience Events is next. Preserve every engine authority
 
 ## Next Recommended Action
 
-Execute T088 Work Signals and Experience Events on the existing isolated Phase 1 branch with strict
-versioning, idempotency, wrong-user exclusion, replay/recovery, and telemetry non-authority boundaries.
-Do not merge Pull Request #29 or remove retained routes.
+Execute T089 Minimal Experience Orchestrator on the existing isolated Phase 1 branch: prepare at most
+one source-backed next action/question through the existing AI Router, with deterministic fallback,
+strict privacy, and no rating/progress authority. Do not merge Pull Request #29 or remove retained routes.
 
 ## Critical References
 
