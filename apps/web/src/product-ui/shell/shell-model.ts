@@ -39,6 +39,13 @@ type ShellPrincipal = Readonly<{
   roles: readonly string[];
 }>;
 
+export function homeHrefForPrincipal(locale: "ar" | "en", principal: ShellPrincipal): string {
+  const roles = new Set(principal.active ? principal.roles : []);
+  if (roles.has("system_administrator")) return `/${locale}/admin/operations`;
+  if (roles.has("manager")) return `/${locale}/manager/operations`;
+  return `/${locale}/my-work`;
+}
+
 type ContributionContext = Readonly<{
   canContribute: boolean;
   isProjectOwner: boolean;

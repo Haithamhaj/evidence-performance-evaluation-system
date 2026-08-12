@@ -1,5 +1,5 @@
 import { getCatalog, isLocale } from "@evaluation/localization";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createElement } from "react";
 
 import {
@@ -8,9 +8,10 @@ import {
   WebDailyWorkspaceSnapshotSchema,
   WebUpdateComposerContextSchema,
 } from "../../../platform/daily-work-api";
+import { homeHrefForPrincipal } from "../../../product-ui/shell/shell-model";
 import { WorkspaceShell } from "../workspace-shell";
 import { MyWorkClient } from "./my-work-client";
-import { intelligentTodayEnabled } from "../../../server/today/intelligent-today-flag";
+import { intelligentTodayEnabledForRoles } from "../../../server/today/intelligent-today-flag";
 import { sourceReviewEnabledForRoles } from "../../../server/source-review/source-review-flag";
 import { loadShellContext } from "../../../server/shell/load-shell-context";
 
@@ -22,9 +23,14 @@ type Properties = Readonly<{
 export default async function MyWorkPage({ params, searchParams }: Properties) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const [{ item }, catalog, response, updateContext, checkIns, shellContext] = await Promise.all([
+  const [{ item }, catalog, shellContext] = await Promise.all([
     searchParams,
     getCatalog(locale),
+    loadShellContext(),
+  ]);
+  const authorizedHome = homeHrefForPrincipal(locale, shellContext.principal);
+  if (authorizedHome !== `/${locale}/my-work`) redirect(authorizedHome);
+  const [response, updateContext, checkIns] = await Promise.all([
     fetchDailyWorkUpstream({
       route: { kind: "my_work" },
       schema: WebDailyWorkspaceSnapshotSchema,
@@ -37,7 +43,6 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
       route: { kind: "check_ins" },
       schema: WebCheckInObligationsSchema,
     }),
-    loadShellContext(),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
   return createElement(
@@ -51,7 +56,7 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
     createElement(MyWorkClient, {
       catalog,
       checkIns,
-      intelligentToday: intelligentTodayEnabled(),
+      intelligentToday: intelligentTodayEnabledForRoles(shellContext.principal.roles),
       initialSelectedId: item ?? null,
       locale,
       response,

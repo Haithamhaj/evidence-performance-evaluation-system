@@ -6,8 +6,9 @@ Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Ca
 Signals/Experience Events, T089 Minimal Experience Orchestrator, and T090 Intelligent Today are
 complete. T091 durable SSE and its Arabic product journey are accepted. T092 Work list and task
 detail parity are accepted after a real Arabic create-and-transition journey. T093 owner-private
-source review and explicit evidence confirmation are accepted. T094 final acceptance and the
-Product Owner route-retirement decision are next. Preserve every engine authority and rollback path.
+source review and explicit evidence confirmation are accepted. T094 technical acceptance is complete
+and stopped at the Product Owner route-retirement decision. Preserve every engine authority and
+rollback path.
 
 ## Current Reality
 
@@ -104,6 +105,10 @@ Product Owner route-retirement decision are next. Preserve every engine authorit
   edit, Google correction preserves history, and manager/administrator-only workspaces do not render
   the employee-private source queue or capture action. Three Arabic acceptance screenshots record the
   review, neutral confirmation receipt, and manager-safe absence.
+- T094 technical acceptance is complete: the employee Capture → What Changed → Work → source review
+  → evidence journey, role-correct manager operational home, and explicit retained-route rollback all
+  pass in Chromium. The recommendation is to adopt Phase 1 as the daily baseline while retaining all
+  route files and rollback flags until later phase parity. No route or pull request is merged.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -133,9 +138,9 @@ Product Owner route-retirement decision are next. Preserve every engine authorit
 
 ## Next Recommended Action
 
-Execute T094 on the existing isolated Phase 1 branch: run the complete employee and manager-safe
-journeys, verify rollback and route parity, publish the acceptance and retirement evidence, and stop
-for the Product Owner decision. Do not merge Pull Request #29 or retire routes before that decision.
+Review the running Phase 1 journey and decide the two protected T094 statements: accept Command Brief
+Phase 1 as the daily baseline, and retain all existing route files/rollback flags during the next
+frontend phase. Do not merge Pull Request #29/#30 or retire routes before that decision.
 
 ## Critical References
 

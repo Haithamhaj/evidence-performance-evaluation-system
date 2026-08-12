@@ -930,7 +930,7 @@ The detailed authority is
 
 ## T094 — Run Phase 1 Acceptance and Route-Retirement Decision
 
-**Status:** In progress — T087–T093 are complete; final journey, rollback, parity, and route-retirement evidence are being assembled.
+**Status:** Awaiting Product Owner — the complete employee journey, manager-safe home, rollback, and parity evidence pass; no route is retired and no Phase 1 pull request is merged pending the protected decision.
 **Priority:** P0
 **Dependencies:** T087–T093
 **Purpose:** Prove the complete daily journey, protected manager shell, rollback, and route parity before controlled retirement.

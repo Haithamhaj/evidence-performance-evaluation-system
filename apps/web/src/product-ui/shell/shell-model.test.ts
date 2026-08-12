@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildShellModel, localeSwitchHref } from "./shell-model.js";
+import { buildShellModel, homeHrefForPrincipal, localeSwitchHref } from "./shell-model.js";
 
 const employee = { active: true, roles: [] as string[] };
 
@@ -43,6 +43,9 @@ describe("stable shell model", () => {
 
     expect(model.navigation.map(({ id }) => id)).toContain("manager-operations");
     expect(model.globalEntries.find(({ id }) => id === "capture")?.visible).toBe(false);
+    expect(homeHrefForPrincipal("en", { active: true, roles: ["manager"] })).toBe(
+      "/en/manager/operations",
+    );
   });
 
   it("shows administration and health without manager decisions for an administrator", () => {
@@ -55,6 +58,13 @@ describe("stable shell model", () => {
       expect.arrayContaining(["administration", "health"]),
     );
     expect(model.navigation.map(({ id }) => id)).not.toContain("manager-operations");
+    expect(homeHrefForPrincipal("en", { active: true, roles: ["system_administrator"] })).toBe(
+      "/en/admin/operations",
+    );
+  });
+
+  it("keeps the employee Today route as the daily home", () => {
+    expect(homeHrefForPrincipal("ar", employee)).toBe("/ar/my-work");
   });
 
   it("does not turn Project coordination into manager evaluation authority", () => {

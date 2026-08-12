@@ -375,7 +375,17 @@ function workItem(index, status, dueAt, nextAction, blocker = null) {
     checklist: [],
     collaboratorIds: [],
     allowedActions: ["edit", "transition", "assign", "add_update"],
+    allowedTransitions: workItemTransitions(status),
   };
+}
+
+function workItemTransitions(status) {
+  if (status === "planned") return ["ready", "cancelled"];
+  if (status === "ready") return ["in_progress", "blocked", "cancelled"];
+  if (status === "in_progress") return ["blocked", "in_review", "cancelled"];
+  if (status === "blocked") return ["in_progress", "cancelled"];
+  if (status === "in_review") return ["in_progress", "done", "cancelled"];
+  return [];
 }
 
 const workItems = Array.from({ length: 20 }, (_, offset) => {
@@ -426,6 +436,8 @@ const privateInboxItems = [
     employeeId: ownerId,
     text: "Review the customer-journey notes",
     projectId: null,
+    sourceType: "text",
+    sourceUploadId: null,
     status: "open",
     promotedWorkItemId: null,
     version: 1,
@@ -433,6 +445,7 @@ const privateInboxItems = [
     updatedAt: "2026-07-20T07:30:00.000Z",
   },
 ];
+const experienceReceipts = [];
 
 const baseWorkItems = [...workItems];
 const basePrivateInboxItems = structuredClone(privateInboxItems);
@@ -459,6 +472,44 @@ function dailyWorkspace() {
     ],
     upcoming: myWork.groups[4].items,
   };
+}
+
+function experiencePrepared() {
+  return {
+    state: "prepared",
+    items: [
+      {
+        id: "ac111111-1111-4111-8111-111111111111",
+        schemaVersion: "experience-prepared-output.v1",
+        state: "prepared",
+        kind: "next_action",
+        sourceReferences: [`work-item:${workItems[0].id}`],
+        why: "This authorized Task needs your attention today.",
+        freshness: {
+          status: "fresh",
+          sourceObservedAt: "2026-08-12T08:00:00.000Z",
+          preparedAt: "2026-08-12T08:05:00.000Z",
+        },
+        consequence: "Reviewing it keeps the current work visible; nothing changes until you act.",
+        editableDraft: {
+          title: "Review today’s acceptance Task",
+          body: "Check the authorized Task and decide the next manual action.",
+        },
+        assistance: {
+          mode: "deterministic",
+          label: "Selected from your authorized Today data without an AI result.",
+          routeTrace: null,
+        },
+        correlationId: "ac222222-2222-4222-8222-222222222222",
+      },
+    ],
+  };
+}
+
+function whatChanged(afterCursor) {
+  const after = afterCursor === null ? 0n : BigInt(afterCursor);
+  const items = experienceReceipts.filter(({ cursor }) => BigInt(cursor) > after);
+  return { items, nextCursor: items.at(-1)?.cursor ?? afterCursor };
 }
 
 const projectProgress = {
@@ -975,6 +1026,38 @@ const server = createServer(async (request, response) => {
     });
   }
 
+  if (request.method === "GET" && url.pathname === "/api/v1/experience-orchestration/prepared") {
+    if (accessToken !== ownerAccessToken)
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    return json(response, 200, experiencePrepared());
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/experience/what-changed") {
+    if (accessToken !== ownerAccessToken)
+      return json(response, 200, { items: [], nextCursor: null });
+    return json(response, 200, whatChanged(url.searchParams.get("afterCursor")));
+  }
+
+  if (accessToken === managerAccessToken) {
+    if (request.method === "GET" && url.pathname === "/api/v1/daily-work/my-work") {
+      return json(response, 200, {
+        needsMyAction: [],
+        today: [],
+        overdue: [],
+        reviewQueue: [],
+        inbox: [],
+        projectPulse: [],
+        upcoming: [],
+      });
+    }
+    if (request.method === "GET" && url.pathname === "/api/v1/daily-work/update-context") {
+      return json(response, 200, { projects: [] });
+    }
+    if (request.method === "GET" && url.pathname === "/api/v1/daily-work/check-ins") {
+      return json(response, 200, []);
+    }
+  }
+
   if (accessToken !== ownerAccessToken) {
     return json(response, 403, { messageKey: "errors.forbidden" });
   }
@@ -1116,6 +1199,13 @@ const server = createServer(async (request, response) => {
       nextCursor: null,
     });
   }
+  if (request.method === "GET" && /^\/api\/v1\/work-items\/[0-9a-f-]+$/u.test(url.pathname)) {
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
+    return item === undefined
+      ? json(response, 404, { messageKey: "errors.notFound" })
+      : json(response, 200, item);
+  }
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/projects") {
     return json(response, 200, [
       {
@@ -1152,6 +1242,8 @@ const server = createServer(async (request, response) => {
       employeeId: ownerId,
       text: body.text,
       projectId: body.projectId ?? null,
+      sourceType: body.sourceType ?? "text",
+      sourceUploadId: body.sourceUploadId ?? null,
       status: "open",
       promotedWorkItemId: null,
       version: 1,
@@ -1159,6 +1251,16 @@ const server = createServer(async (request, response) => {
       updatedAt: new Date().toISOString(),
     };
     privateInboxItems.unshift(item);
+    experienceReceipts.push({
+      receiptId: randomUUID(),
+      cursor: String(experienceReceipts.length + 1),
+      type: "user.capture_submitted",
+      source: "work",
+      entityRefs: { privateInboxItemId: item.id },
+      occurredAt: item.createdAt,
+      freshness: { status: "fresh", occurredAt: item.createdAt },
+      state: "delivered",
+    });
     return json(response, 200, item);
   }
   if (request.method === "POST" && url.pathname === "/api/v1/work-items") {
@@ -1200,6 +1302,28 @@ const server = createServer(async (request, response) => {
       return json(response, 400, { messageKey: "errors.validation" });
     }
     item.title = body.title;
+    item.version += 1;
+    item.updatedAt = new Date().toISOString();
+    return json(response, 200, item);
+  }
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/work-items\/[0-9a-f-]+\/transitions$/u.test(url.pathname)
+  ) {
+    const body = await readJson(request);
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
+    if (
+      body === null ||
+      item === undefined ||
+      body.expectedVersion !== item.version ||
+      typeof body.reason !== "string" ||
+      !["ready", "in_progress", "blocked", "in_review", "done", "cancelled"].includes(body.status)
+    ) {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    item.status = body.status;
+    item.allowedTransitions = workItemTransitions(item.status);
     item.version += 1;
     item.updatedAt = new Date().toISOString();
     return json(response, 200, item);
@@ -2169,6 +2293,7 @@ function resetContextAcceptanceState() {
   connectedWorkConnected = true;
   workItems.splice(0, workItems.length, ...baseWorkItems);
   privateInboxItems.splice(0, privateInboxItems.length, ...structuredClone(basePrivateInboxItems));
+  experienceReceipts.splice(0, experienceReceipts.length);
   connectedWorkItems.splice(
     0,
     connectedWorkItems.length,
