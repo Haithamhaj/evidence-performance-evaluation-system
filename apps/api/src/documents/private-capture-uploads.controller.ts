@@ -19,7 +19,11 @@ type AuthenticatedRequest = Readonly<{
 }>;
 
 export class PrivateCaptureUploadsController {
-  constructor(private readonly uploads: PrivateCaptureUploadService) {}
+  private readonly uploads: PrivateCaptureUploadService;
+
+  constructor(uploads: PrivateCaptureUploadService) {
+    this.uploads = uploads;
+  }
 
   upload(request: UploadRequest) {
     assertPrivateCaptureAuthorized(request.principal);
@@ -55,7 +59,9 @@ function actor(request: AuthenticatedRequest) {
   } as const;
 }
 
-function assertPrivateCaptureAuthorized(principal: import("@evaluation/auth").AuthenticatedPrincipal) {
+function assertPrivateCaptureAuthorized(
+  principal: import("@evaluation/auth").AuthenticatedPrincipal,
+) {
   if (!canUsePrivateCapture(principal)) {
     throw new AppError("PRIVATE_CAPTURE_FORBIDDEN", "errors.privateCapture.forbidden", 403);
   }

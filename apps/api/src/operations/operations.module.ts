@@ -24,6 +24,13 @@ import { AuthModule } from "../auth/auth.module.js";
 import { AdministrationController } from "./administration.controller.js";
 import { AuthoritativeOperationsEventPublisher } from "./authoritative-event-publisher.js";
 import { ExportsController } from "./exports.controller.js";
+import {
+  ExperienceDeliveryQueueProducer,
+  createExperienceDeliveryQueueProducer,
+} from "./experience-delivery-queue.js";
+import { ExperienceEventRuntime } from "./experience-event-runtime.js";
+import { ExperienceEventsController } from "./experience-events.controller.js";
+import { AuthoritativeExperienceRecipientAuthorizer } from "./experience-recipient-authorizer.js";
 import { createExportQueueProducer, ExportQueueProducer } from "./export-queue-producer.js";
 import { NotificationsController } from "./notifications.controller.js";
 import { OPERATIONS_POLICY_DATABASE, OperationsPolicyGuard } from "./operations-policy.guard.js";
@@ -36,13 +43,19 @@ export const REPORT_STORAGE = Symbol("REPORT_STORAGE");
 const OPERATIONS_NOTIFICATION_QUEUE = Symbol("OPERATIONS_NOTIFICATION_QUEUE");
 const OPERATIONS_LIFECYCLE = Symbol("OPERATIONS_LIFECYCLE");
 const EXPORT_QUEUE_LIFECYCLE = Symbol("EXPORT_QUEUE_LIFECYCLE");
+const EXPERIENCE_QUEUE_LIFECYCLE = Symbol("EXPERIENCE_QUEUE_LIFECYCLE");
 type Database = ReturnType<typeof createDatabaseClient>;
 
 export class OperationsModule {}
 
 Module({
   imports: [AuthModule, AiRoutingModule],
-  controllers: [NotificationsController, ExportsController, AdministrationController],
+  controllers: [
+    NotificationsController,
+    ExportsController,
+    AdministrationController,
+    ExperienceEventsController,
+  ],
   providers: [
     { provide: OPERATIONS_DATABASE, useFactory: () => createDatabaseClient(databaseUrl()) },
     { provide: OPERATIONS_POLICY_DATABASE, useExisting: OPERATIONS_DATABASE },
@@ -67,6 +80,43 @@ Module({
       provide: EXPORT_QUEUE_LIFECYCLE,
       inject: [ExportQueueProducer],
       useFactory: (queue: ExportQueueProducer) => ({ onModuleDestroy: () => queue.close() }),
+    },
+    {
+      provide: ExperienceDeliveryQueueProducer,
+      useFactory: () => {
+        const redisUrl = process.env.REDIS_URL?.trim();
+        return redisUrl
+          ? createExperienceDeliveryQueueProducer(redisUrl)
+          : new ExperienceDeliveryQueueProducer({
+              add: async (_name, data) => ({ id: data.receiptId }),
+              close: async () => undefined,
+            });
+      },
+    },
+    {
+      provide: EXPERIENCE_QUEUE_LIFECYCLE,
+      inject: [ExperienceDeliveryQueueProducer],
+      useFactory: (queue: ExperienceDeliveryQueueProducer) => ({
+        onModuleDestroy: () => queue.close(),
+      }),
+    },
+    {
+      provide: AuthoritativeExperienceRecipientAuthorizer,
+      inject: [OPERATIONS_DATABASE],
+      useFactory: (database: Database) => new AuthoritativeExperienceRecipientAuthorizer(database),
+    },
+    {
+      provide: ExperienceEventRuntime,
+      inject: [
+        OPERATIONS_DATABASE,
+        AuthoritativeExperienceRecipientAuthorizer,
+        ExperienceDeliveryQueueProducer,
+      ],
+      useFactory: (
+        database: Database,
+        authorizer: AuthoritativeExperienceRecipientAuthorizer,
+        queue: ExperienceDeliveryQueueProducer,
+      ) => new ExperienceEventRuntime(database, authorizer, queue),
     },
     {
       provide: NotificationIntentService,
@@ -184,7 +234,7 @@ Module({
     },
     OperationsPolicyGuard,
   ],
-  exports: [AuthoritativeOperationsEventPublisher],
+  exports: [AuthoritativeOperationsEventPublisher, ExperienceEventRuntime],
 })(OperationsModule);
 
 function unavailableReportStorage(): ReportObjectStorage {

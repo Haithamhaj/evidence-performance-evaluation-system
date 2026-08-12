@@ -109,6 +109,17 @@ function isTelemetryTarget(target) {
   );
 }
 
+function isTelemetryContractSource(source) {
+  return source.startsWith("packages/contracts/src/product-telemetry/");
+}
+
+function isProtectedExperienceContractTarget(target) {
+  return (
+    target.includes("packages/contracts/src/work-signals/") ||
+    target.includes("packages/contracts/src/experience-events/")
+  );
+}
+
 function isProtectedAuthoritySource(source) {
   return /(?:^|\/)(?:autonomy|employee-evaluation|evaluation-preparation|evaluations?|experience-orchestrator|manager|manager-evaluation|orchestration|progress|updates-evidence|evidence)(?:\/|-|$)/u.test(
     source,
@@ -170,6 +181,9 @@ function violationsFor(source, sourceText, specifier) {
     source.startsWith("apps/web/src/platform/telemetry/") &&
     isProtectedTelemetryTarget(specifier, target)
   ) {
+    violations.push("FRONTEND_TELEMETRY_PROTECTED_IMPORT");
+  }
+  if (isTelemetryContractSource(source) && isProtectedExperienceContractTarget(target)) {
     violations.push("FRONTEND_TELEMETRY_PROTECTED_IMPORT");
   }
   if (!source.startsWith("packages/ai-routing/") && isProviderPackage(specifier)) {

@@ -12,12 +12,14 @@ import {
 import { QueueModule } from "./queue/queue.module.js";
 import { NotificationsWorkerModule } from "./notifications/notifications.module.js";
 import { ReportingWorkerModule } from "./reporting/reporting.module.js";
+import { ExperienceEventsWorkerModule } from "./experience-events/experience-events.module.js";
 
 export class AppModule {}
 
 Module({
   imports: [
     AnalysisCriteriaWorkerModule,
+    ExperienceEventsWorkerModule,
     NotificationsWorkerModule,
     QueueModule,
     ReportingWorkerModule,

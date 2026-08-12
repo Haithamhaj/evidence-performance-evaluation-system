@@ -32,6 +32,8 @@ describe("frontend import boundaries", () => {
     }
     expect(result.stderr).toContain("client-dynamic.tsx");
     expect(result.stderr).toContain("evaluations/page.tsx");
+    expect(result.stderr).toContain("illegal-experience-event.ts");
+    expect(result.stderr).toContain("illegal-work-signal.ts");
     expect(result.stderr).toContain("protected-document.ts");
   });
 

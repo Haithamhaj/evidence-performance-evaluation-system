@@ -45,6 +45,9 @@ model User {
   createdTemplateVersions                    DocumentTemplateVersion[]              @relation("DocumentTemplateVersionCreatedBy")
   createdUploadedSources                     UploadedSource[]                       @relation("UploadedSourceCreatedBy")
   privateCaptureUploads                      PrivateCaptureUpload[]                 @relation("PrivateCaptureUploadOwner")
+  workSignalReceipts                        WorkSignalReceipt[]                     @relation("WorkSignalRecipient")
+  workflowEventsAsActor                     ExperienceWorkflowEventReceipt[]        @relation("ExperienceWorkflowEventActor")
+  workflowEventsAsRecipient                 ExperienceWorkflowEventReceipt[]        @relation("ExperienceWorkflowEventRecipient")
   voiceUpdateSessions                        VoiceUpdateSession[]                   @relation("VoiceUpdateSessionEmployee")
   voiceTranscriptConfirmations               VoiceTranscriptConfirmation[]          @relation("VoiceTranscriptConfirmationEmployee")
   createdDocumentRecords                     DocumentRecord[]                       @relation("DocumentRecordCreatedBy")
@@ -255,6 +258,13 @@ enum OperationStatus {
   failed
 }
 
+enum ExperienceDeliveryState {
+  queued
+  delivered
+  acknowledged
+  error
+}
+
 model Operation {
   id                           String                        @id @db.Uuid
   organizationId               String                        @db.Uuid
@@ -293,6 +303,60 @@ model OperationEffectReceipt {
 
   @@unique([operationId, effectName])
   @@index([operationId, createdAt])
+}
+
+model WorkSignalReceipt {
+  id                   String                  @id @db.Uuid
+  schemaVersion        Int
+  signalType           String
+  sourceClass          String
+  originatingDomain    String
+  entityRefs           Json
+  actorKind            String
+  actorId              String
+  occurredAt           DateTime                @db.Timestamptz(6)
+  receivedAt           DateTime                @db.Timestamptz(6)
+  idempotencyKey       String                  @unique
+  payloadHash          String
+  recipientId          String                  @db.Uuid
+  recipient            User                    @relation("WorkSignalRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  correlationId        String                  @db.Uuid
+  freshness            Json
+  deliveryCursor       BigInt                  @unique @default(autoincrement())
+  deliveryState        ExperienceDeliveryState @default(queued)
+  deliveryAttemptCount Int                     @default(0)
+  replayCount          Int                     @default(0)
+  deliveredAt          DateTime?               @db.Timestamptz(6)
+  acknowledgedAt       DateTime?               @db.Timestamptz(6)
+  lastErrorCode        String?
+  createdAt            DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                @updatedAt @db.Timestamptz(6)
+
+  @@index([recipientId, deliveryState, deliveryCursor])
+  @@index([deliveryState, createdAt])
+  @@index([correlationId])
+}
+
+model ExperienceWorkflowEventReceipt {
+  id               String   @id @db.Uuid
+  schemaVersion    Int
+  eventType        String
+  actorId          String   @db.Uuid
+  actor            User     @relation("ExperienceWorkflowEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+  recipientId      String   @db.Uuid
+  recipient        User     @relation("ExperienceWorkflowEventRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  entityRef        Json
+  operationId      String?  @db.Uuid
+  idempotencyKey   String   @unique
+  payloadHash      String
+  expectedVersion Int?
+  safeReasonCode   String
+  correlationId    String   @db.Uuid
+  occurredAt       DateTime @db.Timestamptz(6)
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([recipientId, occurredAt, id])
+  @@index([correlationId])
 }
 
 model Department {
