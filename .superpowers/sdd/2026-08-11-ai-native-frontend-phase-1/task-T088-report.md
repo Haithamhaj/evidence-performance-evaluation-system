@@ -76,3 +76,30 @@ boundary, not an incomplete hidden hook.
 
 No project-state update was made: the current goal and architecture direction are unchanged, and the
 parent controller will record task completion after review and browser evidence.
+
+## Bounded remediation cycle
+
+Confirmed P1 findings were corrected in one bounded cycle:
+
+- Private capture now appends its Work Signal receipt inside the owning Work Items serializable
+  transaction. Queue wake-up runs after commit and cannot turn a successful capture into an HTTP
+  failure. Opening What Changed retries only the requesting owner's queued/error receipts.
+- Operations now consumes the narrow Work Items-owned recipient authorizer public port; it no longer
+  reads Private Inbox, Work Item, or participant tables directly.
+- Worker delivery failures persist only the safe `delivery_failed` code, retry through BullMQ, and
+  revive failed/completed stable-ID jobs without duplicate delivery effects.
+- Acknowledgement now accepts delivered receipts only and is idempotent once acknowledged.
+- The product shell now opens the real owner-filtered What Changed projection through the same-origin
+  gateway, with localized loading, empty, recovery, and private-capture states.
+- The event-taxonomy status is `phase_1_runtime_active`; telemetry collection remains disabled.
+- The seven formatting failures reported by GitHub Actions run `31582477225` were corrected exactly.
+
+Remediation verification:
+
+- Focused unit/API/worker/web/repository: **11 files, 66 tests passed**.
+- Focused PostgreSQL capture and owner-projection integration: **2 files, 4 tests passed**.
+- Work Items, API, and worker typechecks: **passed**.
+- Work Items, API, worker, and web lint: **passed**.
+- Seven CI-reported files: **Prettier check passed**.
+- Web typecheck retains the unchanged repository Vitest browser/jest-dom matcher declaration
+  collision; no new application-source type error was identified in the bounded checks.

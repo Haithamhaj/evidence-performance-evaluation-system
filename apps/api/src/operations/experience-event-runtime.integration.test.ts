@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createDatabaseClient } from "@evaluation/database";
+import { WorkItemsExperienceRecipientAuthorizer } from "@evaluation/work-items";
 
 import { ExperienceEventRuntime } from "./experience-event-runtime.js";
-import { AuthoritativeExperienceRecipientAuthorizer } from "./experience-recipient-authorizer.js";
 
 const database = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 const ownerId = crypto.randomUUID();
@@ -49,7 +49,7 @@ describe("T088 deterministic authorized refresh demo", () => {
     const queued: Array<{ receiptId: string; correlationId: string }> = [];
     const runtime = new ExperienceEventRuntime(
       database,
-      new AuthoritativeExperienceRecipientAuthorizer(database),
+      new WorkItemsExperienceRecipientAuthorizer(database),
       { enqueue: async (job) => void queued.push(job) },
     );
     const now = "2026-08-12T11:00:00.000Z";

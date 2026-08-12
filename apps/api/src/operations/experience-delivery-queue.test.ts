@@ -17,4 +17,26 @@ describe("ExperienceDeliveryQueueProducer", () => {
       expect.objectContaining({ jobId: receiptId, attempts: 3 }),
     );
   });
+
+  it("revives the stable completed or failed job before a queued receipt retry", async () => {
+    const retry = vi.fn(async () => undefined);
+    const remove = vi.fn(async () => undefined);
+    const getJob = vi
+      .fn()
+      .mockResolvedValueOnce({ getState: async () => "failed", retry })
+      .mockResolvedValueOnce({ getState: async () => "completed", remove });
+    const add = vi.fn(async () => ({ id: "job" }));
+    const producer = new ExperienceDeliveryQueueProducer({ add, close: vi.fn(), getJob } as never);
+    const input = {
+      receiptId: "70000000-0000-4000-8000-000000000001",
+      correlationId: "70000000-0000-4000-8000-000000000002",
+    };
+
+    await producer.enqueue(input);
+    await producer.enqueue(input);
+
+    expect(retry).toHaveBeenCalledOnce();
+    expect(remove).toHaveBeenCalledOnce();
+    expect(add).toHaveBeenCalledOnce();
+  });
 });

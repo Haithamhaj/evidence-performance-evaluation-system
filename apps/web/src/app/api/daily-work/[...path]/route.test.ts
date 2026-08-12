@@ -27,6 +27,23 @@ const draftRequestId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
+  it("proxies only the authenticated owner-filtered What Changed projection", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({ items: [], nextCursor: null });
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/experience/what-changed"),
+      { params: Promise.resolve({ path: ["experience", "what-changed"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ items: [], nextCursor: null });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/experience/what-changed",
+      schema: expect.anything(),
+    });
+  });
+
   it("prepares Context review through the bounded analysis and draft APIs", async () => {
     const sourceItemId = "33333333-3333-4333-8333-333333333333";
     mocks.fetchProtectedUpstream.mockResolvedValue({ ignoredPrivateResult: true });

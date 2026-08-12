@@ -54,4 +54,19 @@ export class ExperienceDeliveryProcessor {
     }
     return { state: "delivered", replay: recovered };
   }
+
+  async markError(input: unknown, safeErrorCode: string): Promise<void> {
+    const job = ExperienceDeliveryJobSchema.parse(input);
+    await this.database.workSignalReceipt.updateMany({
+      where: {
+        id: job.receiptId,
+        correlationId: job.correlationId,
+        deliveryState: { in: ["queued", "error"] },
+      },
+      data: {
+        deliveryState: "error",
+        lastErrorCode: safeErrorCode,
+      },
+    });
+  }
 }

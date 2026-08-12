@@ -8,6 +8,14 @@ type QueueAdapter = Readonly<{
     data: import("@evaluation/contracts").ExperienceDeliveryJob,
     options: Readonly<Record<string, unknown>>,
   ): Promise<Readonly<{ id?: string }>>;
+  getJob?(id: string): Promise<
+    | Readonly<{
+        getState(): Promise<string>;
+        remove?(): Promise<void>;
+        retry?(): Promise<void>;
+      }>
+    | undefined
+  >;
   close(): Promise<unknown>;
 }>;
 
@@ -24,6 +32,13 @@ export class ExperienceDeliveryQueueProducer {
       jobType: "experience.deliver",
       ...input,
     });
+    const existing = await this.queue.getJob?.(job.receiptId);
+    const state = await existing?.getState();
+    if (state === "failed" && existing?.retry) {
+      await existing.retry();
+      return;
+    }
+    if (state === "completed" && existing?.remove) await existing.remove();
     await this.queue.add(job.jobType, job, {
       jobId: job.receiptId,
       attempts: 3,

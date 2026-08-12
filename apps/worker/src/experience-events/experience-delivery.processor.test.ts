@@ -14,7 +14,11 @@ function harness(initialState: "queued" | "delivered" | "acknowledged" | "error"
     replayCount: 0,
   };
   const update = vi.fn(async ({ where, data }) => {
-    if (row.deliveryState !== where.deliveryState) return { count: 0 };
+    const allowedState =
+      typeof where.deliveryState === "string"
+        ? row.deliveryState === where.deliveryState
+        : where.deliveryState.in.includes(row.deliveryState);
+    if (!allowedState) return { count: 0 };
     Object.assign(row, {
       ...data,
       deliveryAttemptCount:
@@ -86,5 +90,14 @@ describe("ExperienceDeliveryProcessor", () => {
       processor.process({ ...job, correlationId: "40000000-0000-4000-8000-000000000099" }),
     ).rejects.toThrow("EXPERIENCE_DELIVERY_CORRELATION_MISMATCH");
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it("persists only a safe delivery error code for a retryable receipt", async () => {
+    const { processor, row } = harness("queued");
+
+    await processor.markError(job, "delivery_failed");
+
+    expect(row).toMatchObject({ deliveryState: "error", lastErrorCode: "delivery_failed" });
+    expect(JSON.stringify(row)).not.toContain("provider");
   });
 });

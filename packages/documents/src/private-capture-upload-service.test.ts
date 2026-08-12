@@ -82,7 +82,11 @@ describe("PrivateCaptureUploadService", () => {
 
     await expect(
       service.signRead({
-        actor: { userId: "00000000-0000-4000-8000-000000000004", active: true, roles: ["employee"] },
+        actor: {
+          userId: "00000000-0000-4000-8000-000000000004",
+          active: true,
+          roles: ["employee"],
+        },
         correlationId: "00000000-0000-4000-8000-000000000005",
         privateCaptureUploadId: uploadId,
       }),

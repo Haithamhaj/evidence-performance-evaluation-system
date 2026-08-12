@@ -5,6 +5,7 @@ import { createElement, useState } from "react";
 import { DesktopNavigation } from "./desktop-navigation";
 import { GlobalActions } from "./global-actions";
 import { MobileNavigation } from "./mobile-navigation";
+import * as whatChanged from "./what-changed-dialog";
 import { CaptureDialog } from "../capture/capture-dialog";
 import styles from "./stable-shell.module.css";
 
@@ -49,9 +50,12 @@ export function StableShell({
       <header className={styles.header!}>
         {createElement(GlobalActions, {
           catalog,
-          entries: model.globalEntries.filter((entry) => entry.id !== "capture"),
+          entries: model.globalEntries.filter(
+            (entry) => entry.id !== "capture" && entry.id !== "what-changed",
+          ),
           onUnavailable: unavailable,
         })}
+        {createElement(whatChanged.WhatChangedDialog, { catalog })}
         {canCapture
           ? createElement(CaptureDialog, {
               catalog,

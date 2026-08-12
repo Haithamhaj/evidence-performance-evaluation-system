@@ -1,6 +1,6 @@
 type Database = import("@evaluation/database").DatabaseClient;
 
-export class AuthoritativeExperienceRecipientAuthorizer {
+export class WorkItemsExperienceRecipientAuthorizer {
   private readonly database: Database;
   private readonly now: () => Date;
 
@@ -10,27 +10,34 @@ export class AuthoritativeExperienceRecipientAuthorizer {
   }
 
   async authorize(
-    input: Parameters<
-      import("./experience-event-runtime.js").ExperienceRecipientAuthorizer["authorize"]
-    >[0],
+    input: Readonly<{
+      recipientId: string;
+      entityRefs: readonly import("@evaluation/contracts").ExperienceEntityRefV1[];
+      originatingDomain: import("@evaluation/contracts").WorkSignalV1["originatingDomain"];
+    }>,
   ) {
-    if (input.entityRefs.length !== 1) return false;
+    if (input.originatingDomain !== "work_items" || input.entityRefs.length !== 1) return false;
     const [entity] = input.entityRefs;
     if (!entity) return false;
-    if (input.originatingDomain === "work_items" && entity.entityType === "private_inbox_item") {
+    const recipient = await this.database.user.findUnique({
+      where: { id: input.recipientId },
+      select: { active: true },
+    });
+    if (recipient?.active !== true) return false;
+    if (entity.entityType === "private_inbox_item") {
       return Boolean(
         await this.database.privateInboxItem.findFirst({
           where: {
             id: entity.entityId,
             employeeId: input.recipientId,
             version: entity.version,
-            employee: { active: true },
           },
           select: { id: true },
         }),
       );
     }
-    if (input.originatingDomain === "work_items" && entity.entityType === "work_item") {
+    if (entity.entityType === "work_item") {
+      const current = this.now();
       return Boolean(
         await this.database.workItem.findFirst({
           where: {
@@ -43,8 +50,8 @@ export class AuthoritativeExperienceRecipientAuthorizer {
                 participants: {
                   some: {
                     employeeId: input.recipientId,
-                    startsAt: { lte: this.now() },
-                    OR: [{ endsAt: null }, { endsAt: { gt: this.now() } }],
+                    startsAt: { lte: current },
+                    OR: [{ endsAt: null }, { endsAt: { gt: current } }],
                   },
                 },
               },

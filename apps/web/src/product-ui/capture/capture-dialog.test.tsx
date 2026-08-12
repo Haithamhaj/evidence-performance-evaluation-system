@@ -100,8 +100,7 @@ describe("CaptureDialog", () => {
         options: ["ملاحظة", "رابط", "شفرة ملصقة", "ملف", "صورة"],
         privateHint:
           "احفظ ملاحظة أو رابطًا أو شفرة أو ملفًا أو صورة خامًا في صندوقك الخاص. لا ينشئ ذلك مهمة أو تحديثًا أو سجل أدلة أو تقدم مشروع أو مدخلًا للتقييم.",
-        recovery:
-          "ما زالت مسودتك الخاصة هنا. حاول مرة أخرى أو احفظ يدويًا عندما تكون جاهزًا.",
+        recovery: "ما زالت مسودتك الخاصة هنا. حاول مرة أخرى أو احفظ يدويًا عندما تكون جاهزًا.",
         review: "مراجعة وحفظ خاص",
         reviewHint:
           "راجع هذه المسودة الخاصة الخام قبل الحفظ. تبقى الترقية إلى عمل رسمي إجراءً منفصلًا.",
@@ -115,9 +114,7 @@ describe("CaptureDialog", () => {
   ] as const)(
     "keeps every %s employee story capture state localized and labelled",
     async (_, args, labels) => {
-      const fetchMock = vi
-        .spyOn(globalThis, "fetch")
-        .mockResolvedValue({ ok: false } as Response);
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false } as Response);
       const user = userEvent.setup();
       render(
         createElement(

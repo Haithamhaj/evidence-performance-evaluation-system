@@ -166,6 +166,21 @@ export class ExperienceEventRuntime {
     nextCursor: string | null;
   }> {
     const cursor = parseCursor(input.afterCursor);
+    const recoverable = await this.database.workSignalReceipt.findMany({
+      where: {
+        recipientId: input.actorId,
+        deliveryState: { in: ["queued", "error"] },
+      },
+      orderBy: { deliveryCursor: "asc" },
+      take: 20,
+    });
+    await Promise.all(
+      recoverable.map((row) =>
+        this.queue
+          .enqueue({ receiptId: row.id, correlationId: row.correlationId })
+          .catch(() => undefined),
+      ),
+    );
     const rows = await this.database.workSignalReceipt.findMany({
       where: {
         recipientId: input.actorId,
@@ -189,8 +204,24 @@ export class ExperienceEventRuntime {
   }
 
   async acknowledge(input: Readonly<{ actorId: string; receiptId: string }>) {
+    const existing = await this.database.workSignalReceipt.findUnique({
+      where: { id: input.receiptId },
+    });
+    if (existing?.recipientId !== input.actorId) {
+      throw new AppError("EXPERIENCE_RECEIPT_FORBIDDEN", "errors.experience.receiptForbidden", 403);
+    }
+    if (existing.deliveryState === "acknowledged") {
+      return { receiptId: input.receiptId, state: "acknowledged" as const };
+    }
+    if (existing.deliveryState !== "delivered") {
+      throw new AppError(
+        "EXPERIENCE_RECEIPT_NOT_DELIVERED",
+        "errors.experience.receiptNotDelivered",
+        409,
+      );
+    }
     const result = await this.database.workSignalReceipt.updateMany({
-      where: { id: input.receiptId, recipientId: input.actorId },
+      where: { id: input.receiptId, recipientId: input.actorId, deliveryState: "delivered" },
       data: {
         deliveryState: "acknowledged",
         acknowledgedAt: this.now(),

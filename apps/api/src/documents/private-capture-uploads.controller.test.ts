@@ -60,9 +60,9 @@ describe("PrivateCaptureUploadsController", () => {
       expect(() => controller.upload(request({}, [role]) as never)).toThrowError(
         "PRIVATE_CAPTURE_FORBIDDEN",
       );
-      expect(() =>
-        controller.signRead(request({}, [role]) as never, uploadId),
-      ).toThrowError("PRIVATE_CAPTURE_FORBIDDEN");
+      expect(() => controller.signRead(request({}, [role]) as never, uploadId)).toThrowError(
+        "PRIVATE_CAPTURE_FORBIDDEN",
+      );
       expect(uploads.stage).not.toHaveBeenCalled();
       expect(uploads.signRead).not.toHaveBeenCalled();
     },

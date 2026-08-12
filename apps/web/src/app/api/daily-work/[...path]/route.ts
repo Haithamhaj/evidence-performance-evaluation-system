@@ -57,6 +57,8 @@ import {
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { WhatChangedProjectionSchema } from "../../../../platform/experience-events-contracts";
+
 import {
   fetchProtectedUpstream,
   safeWorkspaceError,
@@ -158,6 +160,16 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
   const path = (await context.params).path;
   if (!safeRequestPath(request, path)) return notFound();
   try {
+    if (path.length === 2 && path[0] === "experience" && path[1] === "what-changed") {
+      const afterCursor = new URL(request.url).searchParams.get("afterCursor");
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: `/api/v1/experience/what-changed${afterCursor === null ? "" : `?afterCursor=${encodeURIComponent(afterCursor)}`}`,
+          schema: WhatChangedProjectionSchema,
+        }),
+      );
+    }
     if (path.length === 1 && path[0] === "timeline") {
       const entries = [...new URL(request.url).searchParams.entries()];
       if (new Set(entries.map(([key]) => key)).size !== entries.length) return notFound();

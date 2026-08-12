@@ -210,6 +210,36 @@ describe("ExperienceEventRuntime", () => {
     ).rejects.toMatchObject({ code: "EXPERIENCE_RECEIPT_FORBIDDEN" });
   });
 
+  it("acknowledges only delivered receipts and treats an owner replay as idempotent", async () => {
+    const { runtime, rows } = harness();
+    await runtime.receiveWorkSignal(signal);
+
+    await expect(
+      runtime.acknowledge({ actorId: recipientId, receiptId: signal.signalId }),
+    ).rejects.toMatchObject({ code: "EXPERIENCE_RECEIPT_NOT_DELIVERED", status: 409 });
+    Object.assign(rows[0]!, { deliveryState: "delivered", deliveredAt: new Date() });
+    await expect(
+      runtime.acknowledge({ actorId: recipientId, receiptId: signal.signalId }),
+    ).resolves.toEqual({ receiptId: signal.signalId, state: "acknowledged" });
+    await expect(
+      runtime.acknowledge({ actorId: recipientId, receiptId: signal.signalId }),
+    ).resolves.toEqual({ receiptId: signal.signalId, state: "acknowledged" });
+  });
+
+  it("revives only the requesting owner's queued receipt during reconnect", async () => {
+    const { runtime, enqueue } = harness();
+    await runtime.receiveWorkSignal(signal);
+    enqueue.mockClear();
+
+    await runtime.listWhatChanged({ actorId: unrelatedId, afterCursor: null });
+    expect(enqueue).not.toHaveBeenCalled();
+    await runtime.listWhatChanged({ actorId: recipientId, afterCursor: null });
+    expect(enqueue).toHaveBeenCalledWith({
+      receiptId: signal.signalId,
+      correlationId: signal.correlationId,
+    });
+  });
+
   it("rejects changed payload under the same idempotency key", async () => {
     const { runtime } = harness();
     await runtime.receiveWorkSignal(signal);

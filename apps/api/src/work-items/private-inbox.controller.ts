@@ -72,7 +72,9 @@ function actor(request: Request) {
   };
 }
 
-function assertPrivateInboxAuthorized(principal: import("@evaluation/auth").AuthenticatedPrincipal) {
+function assertPrivateInboxAuthorized(
+  principal: import("@evaluation/auth").AuthenticatedPrincipal,
+) {
   if (!canUsePrivateCapture(principal)) {
     throw new AppError("PRIVATE_INBOX_FORBIDDEN", "errors.privateInbox.forbidden", 403);
   }

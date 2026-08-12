@@ -9,7 +9,7 @@ type QueueJob = Readonly<{ name: string; data: unknown; discard(): void }>;
 export async function processExperienceQueueJob(
   processor: Pick<
     import("./experience-delivery.processor.js").ExperienceDeliveryProcessor,
-    "process"
+    "process" | "markError"
   >,
   job: QueueJob,
 ) {
@@ -22,7 +22,12 @@ export async function processExperienceQueueJob(
     job.discard();
     throw new Error("EXPERIENCE_JOB_INVALID");
   }
-  return processor.process(parsed.data);
+  try {
+    return await processor.process(parsed.data);
+  } catch (error) {
+    await processor.markError(parsed.data, "delivery_failed");
+    throw error;
+  }
 }
 
 export function createExperienceQueueRuntime(
@@ -30,7 +35,7 @@ export function createExperienceQueueRuntime(
     redisUrl: string;
     processor: Pick<
       import("./experience-delivery.processor.js").ExperienceDeliveryProcessor,
-      "process"
+      "process" | "markError"
     >;
   }>,
 ) {

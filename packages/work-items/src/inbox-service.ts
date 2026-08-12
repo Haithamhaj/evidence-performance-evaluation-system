@@ -39,17 +39,21 @@ export class PrivateInboxService {
   private readonly auditWriter: AuditWriter;
   private readonly clock: () => Date;
   private readonly privateUploads: PrivateCaptureUploadOwnershipValidator;
+  private readonly experience:
+    import("./private-inbox-experience.js").PrivateInboxExperiencePublisher | undefined;
 
   constructor(
     client: DatabaseClient,
     auditWriter: AuditWriter,
     privateUploads: PrivateCaptureUploadOwnershipValidator,
     clock: () => Date = () => new Date(),
+    experience?: import("./private-inbox-experience.js").PrivateInboxExperiencePublisher,
   ) {
     this.client = client;
     this.auditWriter = auditWriter;
     this.privateUploads = privateUploads;
     this.clock = clock;
+    this.experience = experience;
   }
 
   async capture(command: unknown): Promise<import("@evaluation/contracts").PrivateInboxItem> {
@@ -62,7 +66,7 @@ export class PrivateInboxService {
         privateCaptureUploadId: parsed.input.sourceUploadId,
       });
     }
-    return serializable(this.client, async (transaction) => {
+    const captured = await serializable(this.client, async (transaction) => {
       if (parsed.input.projectId !== null) {
         await authorizeProject(transaction, parsed.actor, parsed.input.projectId, current);
       }
@@ -93,8 +97,19 @@ export class PrivateInboxService {
         correlationId: parsed.correlationId,
         source: "api",
       });
-      return serializeInboxItem(item);
+      const wakeUp = await this.experience?.appendCaptured(transaction, {
+        actorId: parsed.actor.userId,
+        correlationId: parsed.correlationId,
+        inboxItemId: item.id,
+        occurredAt: item.createdAt,
+        version: item.version,
+      });
+      return { item: serializeInboxItem(item), wakeUp };
     });
+    if (captured.wakeUp !== undefined) {
+      await this.experience?.wake(captured.wakeUp).catch(() => undefined);
+    }
+    return captured.item;
   }
 
   async dismiss(command: unknown): Promise<import("@evaluation/contracts").PrivateInboxItem> {
@@ -221,11 +236,15 @@ export class PrivateInboxService {
 }
 
 export interface PrivateCaptureUploadOwnershipValidator {
-  assertOwned(command: Readonly<{
-    actor: Readonly<{ userId: string; active: boolean; roles: readonly string[] }>;
-    privateCaptureUploadId: string;
-  }>): Promise<void>;
+  assertOwned(
+    command: Readonly<{
+      actor: Readonly<{ userId: string; active: boolean; roles: readonly string[] }>;
+      privateCaptureUploadId: string;
+    }>,
+  ): Promise<void>;
 }
+
+export type { PrivateInboxExperiencePublisher } from "./private-inbox-experience.js";
 
 function assertCaptureAuthorized(actor: { active: boolean; roles: readonly string[] }) {
   if (!canUsePrivateCapture(actor)) throw forbiddenError();

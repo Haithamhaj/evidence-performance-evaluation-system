@@ -17,11 +17,7 @@ describe("Private Inbox Documents ownership boundary", () => {
       const client = { $transaction: vi.fn() };
       const validator = {
         assertOwned: vi.fn(async () => {
-          throw new AppError(
-            "PRIVATE_CAPTURE_FORBIDDEN",
-            "errors.privateCapture.forbidden",
-            403,
-          );
+          throw new AppError("PRIVATE_CAPTURE_FORBIDDEN", "errors.privateCapture.forbidden", 403);
         }),
       };
       const service = new PrivateInboxService(
