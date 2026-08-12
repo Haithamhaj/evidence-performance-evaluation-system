@@ -255,9 +255,12 @@ export function createQueueRuntimeConfiguration(
   if (databaseUrl === undefined || redisUrl === undefined) return undefined;
   const jobType = environment.WORKER_JOB_TYPE ?? "system.test";
   if (
-    new Set(["analysis-criteria.process", "reporting.generate", "notifications.deliver"]).has(
-      jobType,
-    )
+    new Set([
+      "analysis-criteria.process",
+      "reporting.generate",
+      "notifications.deliver",
+      "experience.prepare-next",
+    ]).has(jobType)
   ) {
     return undefined;
   }

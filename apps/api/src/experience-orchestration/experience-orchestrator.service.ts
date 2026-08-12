@@ -125,9 +125,13 @@ export class ExperienceOrchestratorService {
     const key = stableUuid(`experience-prepare-key:${itemId}`);
     const existing = await this.dependencies.persistence.find(key);
     if (existing !== null) {
+      const cachedStale =
+        now.getTime() - new Date(existing.freshness.sourceObservedAt).getTime() >
+        (input.staleAfterMs ?? 24 * 60 * 60 * 1_000);
+      const projection = cachedStale ? staleProjection(existing) : existing;
       return PreparedExperienceCompositionSchema.parse({
-        state: existing.state,
-        items: [existing],
+        state: projection.state,
+        items: [projection],
       });
     }
 
@@ -177,8 +181,9 @@ export class ExperienceOrchestratorService {
             requiresHumanApproval: true,
             correlationId: input.correlationId,
           },
-          (transaction, output) =>
-            this.dependencies.persistence.persistAiOutput(transaction, {
+          (transaction, output) => {
+            assertExperiencePreparedOutputSemantics(output);
+            return this.dependencies.persistence.persistAiOutput(transaction, {
               key,
               employeeId: input.actor.userId,
               itemId,
@@ -187,8 +192,10 @@ export class ExperienceOrchestratorService {
               preparedAt,
               correlationId: input.correlationId,
               output: { ...output, sourceReferences },
-            }),
+            });
+          },
         );
+        assertExperiencePreparedOutputSemantics(result.output);
         const item = PreparedExperienceItemSchema.parse({
           id: itemId,
           schemaVersion: EXPERIENCE_PREPARE_OUTPUT_SCHEMA_VERSION,
@@ -253,6 +260,12 @@ export class ExperienceOrchestratorService {
       state: "prepared",
       label,
     });
+    assertExperiencePreparedOutputSemantics({
+      kind: item.kind,
+      why: item.why,
+      consequence: item.consequence,
+      editableDraft: item.editableDraft,
+    });
     return PreparedExperienceCompositionSchema.parse({
       state: "prepared",
       items: [await this.dependencies.persistence.appendDeterministic(key, employeeId, item)],
@@ -279,6 +292,65 @@ export class ExperienceOrchestratorService {
     }
     return prompt;
   }
+}
+
+export function assertExperiencePreparedOutputSemantics(
+  output: z.infer<typeof ExperiencePreparedAiOutputSchema>,
+): void {
+  const text = normalizePolicyText(
+    [output.why, output.consequence, output.editableDraft.title, output.editableDraft.body].join(
+      "\n",
+    ),
+  );
+  if (PROHIBITED_OUTPUT_PATTERNS.some((pattern) => pattern.test(text))) {
+    throw new AppError(
+      "EXPERIENCE_ORCHESTRATION_PROHIBITED_OUTPUT",
+      "errors.ai.outputQuarantined",
+      502,
+    );
+  }
+}
+
+const PROHIBITED_OUTPUT_PATTERNS = [
+  /\b(?:performance\s+)?ratings?\b/iu,
+  /\bemployee\b.{0,32}\brank(?:s|ed|ing)?\b|\brank(?:s|ed|ing)?\b.{0,32}\bemployee\b/iu,
+  /\bproductivity\b/iu,
+  /\b(?:documentation|evaluation)\s+readiness\b|\breadiness\s+(?:score|percent(?:age)?|\d)/iu,
+  /\b(?:project\s+)?progress\b.{0,48}(?:\d|%|percent(?:age)?|score|calculated|complete|based\s+on|from\s+(?:commits?|tasks?|updates?|activities))/iu,
+  /(?:\d|%|percent(?:age)?|score).{0,24}\b(?:project\s+)?progress\b/iu,
+  /\b(?:commit|task|update|activity|project|pull\s+request)\s+(?:count|volume|frequency)\b/iu,
+  /\b(?:count|volume|frequency)\s+of\s+(?:commits?|tasks?|updates?|activities|projects?|pull\s+requests?)\b/iu,
+  /(?:تقييم\s+(?:الاداء|الموظف|الموظفة)|درجة\s+الاداء|التصنيف\s+الادايي)/iu,
+  /(?:ترتيب|رتبة).{0,24}(?:الموظف|الموظفة|الموظفين)|(?:الموظف|الموظفة).{0,24}(?:ترتيب|رتبة)/iu,
+  /(?:انتاجية|الانتاجية)/iu,
+  /(?:جاهزية|اكتمال).{0,20}(?:التوثيق|الوثائق|التقييم)|نسبة\s+الجاهزية/iu,
+  /(?:تقدم\s+المشروع).{0,32}(?:[0-9٠-٩]+|٪|%|نسبة|محسوب|مكتمل|بناء\s+علي|بسبب\s+عدد)|نسبة\s+التقدم/iu,
+  /(?:عدد|كثرة|حجم|تكرار).{0,24}(?:التحديثات|الالتزامات|المشاريع|المهام|الانشطة)|(?:التحديثات|الالتزامات|المشاريع|المهام|الانشطة).{0,24}(?:عدد|كثرة|حجم|تكرار)/iu,
+] as const;
+
+function normalizePolicyText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u0640\u064B-\u065F\u0670]/gu, "")
+    .replace(/[إأآٱ]/gu, "ا")
+    .replace(/ى/gu, "ي")
+    .replace(/ؤ/gu, "و")
+    .replace(/ئ/gu, "ي");
+}
+
+function staleProjection(item: PreparedItem): PreparedItem {
+  return PreparedExperienceItemSchema.parse({
+    ...item,
+    state: "stale",
+    freshness: { ...item.freshness, status: "stale" },
+    assistance: {
+      ...item.assistance,
+      label:
+        item.assistance.mode === "ai_assisted"
+          ? "Previously prepared with governed AI assistance; the authorized source is now stale."
+          : "Previously selected deterministically; the authorized source is now stale.",
+    },
+  });
 }
 
 function isAiUnavailable(error: unknown): boolean {

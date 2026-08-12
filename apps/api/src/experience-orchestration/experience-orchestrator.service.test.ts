@@ -37,7 +37,12 @@ const task = {
 };
 
 function harness(
-  options: { aiEnabled?: boolean; routerFails?: boolean; wrongUser?: boolean } = {},
+  options: {
+    aiEnabled?: boolean;
+    routerFails?: boolean;
+    wrongUser?: boolean;
+    aiOutput?: Record<string, unknown>;
+  } = {},
 ) {
   const reviewQueue = vi.fn(async ({ actor }: { actor: { userId: string } }) => ({
     items: options.wrongUser || actor.userId !== employeeId ? [] : [],
@@ -73,7 +78,7 @@ function harness(
       if (options.routerFails) {
         throw new AppError("AI_PROVIDER_FAILED", "errors.ai.providerFailed", 502);
       }
-      const output = {
+      const output = options.aiOutput ?? {
         kind: "next_action",
         why: "This task is already authorized and needs attention today.",
         consequence: "Review it before making any owning-domain change.",
@@ -164,6 +169,64 @@ describe("ExperienceOrchestratorService", () => {
     );
   });
 
+  it.each([
+    ["why", "Performance rating: 5."],
+    ["consequence", "Rank the employee first."],
+    ["title", "Productivity summary"],
+    ["body", "Documentation readiness is 90 percent."],
+    ["why", "Project progress is 100%."],
+    ["consequence", "Use the commit count."],
+    ["why", "تقييم الأداء: ٥."],
+    ["consequence", "ترتيب الموظف الأول."],
+    ["title", "ملخص إنتاجية الموظف"],
+    ["body", "جاهزية التوثيق مكتملة."],
+    ["why", "تقدم المشروع مكتمل."],
+    ["consequence", "استخدم عدد المهام."],
+  ] as const)("rejects prohibited %s semantics before persistence: %s", async (field, text) => {
+    const aiOutput = {
+      kind: "next_action",
+      why: "Review the authorized source.",
+      consequence: "No owning-domain change occurs before review.",
+      editableDraft: { title: "Review", body: "Open the authorized item." },
+    };
+    if (field === "why" || field === "consequence") aiOutput[field] = text;
+    else aiOutput.editableDraft[field] = text;
+    const { service, persistence } = harness({
+      aiEnabled: true,
+      aiOutput,
+    });
+    await expect(
+      service.compose({
+        actor: { userId: employeeId, active: true, roles: ["employee"] },
+        correlationId,
+      }),
+    ).rejects.toThrow("EXPERIENCE_ORCHESTRATION_PROHIBITED_OUTPUT");
+    expect(persistence.persistAiOutput).not.toHaveBeenCalled();
+  });
+
+  it("allows a neutral source-backed progress-update phrase without treating it as a score", async () => {
+    const { service, persistence } = harness({
+      aiEnabled: true,
+      aiOutput: {
+        kind: "next_action",
+        why: "A recent project progress update is available in the authorized source.",
+        consequence: "Review the source before deciding the next action.",
+        editableDraft: {
+          title: "Review the project update",
+          body: "Compare the source notes with the current task context.",
+        },
+      },
+    });
+
+    await expect(
+      service.compose({
+        actor: { userId: employeeId, active: true, roles: ["employee"] },
+        correlationId,
+      }),
+    ).resolves.toMatchObject({ state: "prepared" });
+    expect(persistence.persistAiOutput).toHaveBeenCalledOnce();
+  });
+
   it("falls back truthfully when the model is unavailable", async () => {
     const { service } = harness({ aiEnabled: true, routerFails: true });
     const result = await service.compose({
@@ -216,5 +279,44 @@ describe("ExperienceOrchestratorService", () => {
       state: "stale",
       items: [{ state: "stale", freshness: { status: "stale" } }],
     });
+  });
+
+  it("recomputes staleness for a cached item without mutating append-only persistence", async () => {
+    const { service, persistence } = harness();
+    const first = await service.compose({
+      actor: { userId: employeeId, active: true, roles: ["employee"] },
+      correlationId,
+      staleAfterMs: 60 * 60 * 1_000,
+    });
+    const later = new ExperienceOrchestratorService({
+      contextReview: { reviewQueue: async () => ({ items: [] }) },
+      dailyWork: {
+        dailyWorkspace: async () => ({
+          needsMyAction: [task],
+          today: [],
+          overdue: [],
+          reviewQueue: [],
+          inbox: [],
+          projectPulse: [],
+          upcoming: [],
+        }),
+      } as never,
+      persistence: persistence as never,
+      router: { run: vi.fn() } as never,
+      systemId: "92000000-0000-4000-8000-000000000010",
+      aiEnabled: false,
+      now: () => new Date("2026-08-12T09:00:00.000Z"),
+    });
+    const cached = await later.compose({
+      actor: { userId: employeeId, active: true, roles: ["employee"] },
+      correlationId,
+      staleAfterMs: 60 * 60 * 1_000,
+    });
+    expect(first.state).toBe("prepared");
+    expect(cached).toMatchObject({
+      state: "stale",
+      items: [{ state: "stale", freshness: { status: "stale" } }],
+    });
+    expect(persistence.appendDeterministic).toHaveBeenCalledOnce();
   });
 });

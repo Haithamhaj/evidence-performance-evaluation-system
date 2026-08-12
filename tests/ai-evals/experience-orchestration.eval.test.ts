@@ -5,6 +5,7 @@ import {
   EXPERIENCE_PREPARE_ROUTE,
   EXPERIENCE_PREPARE_TRUSTED_PROMPT,
   ExperiencePreparedAiOutputSchema,
+  assertExperiencePreparedOutputSemantics,
   buildExperiencePrepareRequest,
 } from "../../apps/api/src/experience-orchestration/experience-orchestrator.service.js";
 import { scanProhibitedOutput } from "./prohibited-output.js";
@@ -65,5 +66,30 @@ describe("minimal experience orchestration AI boundary", () => {
     }
     expect(EXPERIENCE_PREPARE_TRUSTED_PROMPT).toContain("Human review remains mandatory");
     expect(EXPERIENCE_PREPARE_TRUSTED_PROMPT).toContain("project progress");
+  });
+
+  it("quarantines bilingual protected semantics while allowing a neutral source update", () => {
+    const output = (why: string) => ({
+      kind: "next_action" as const,
+      why,
+      consequence: "Review the authorized source before deciding the next action.",
+      editableDraft: { title: "Review", body: "Open the source-backed item." },
+    });
+
+    for (const forbidden of [
+      "Performance rating: 5.",
+      "Project progress is 90% based on task count.",
+      "تقييم الأداء: ٥.",
+      "نسبة التقدم ٩٠٪ بناء على عدد المهام.",
+    ]) {
+      expect(() => assertExperiencePreparedOutputSemantics(output(forbidden))).toThrow(
+        "EXPERIENCE_ORCHESTRATION_PROHIBITED_OUTPUT",
+      );
+    }
+    expect(() =>
+      assertExperiencePreparedOutputSemantics(
+        output("A recent project progress update is available in the authorized source."),
+      ),
+    ).not.toThrow();
   });
 });

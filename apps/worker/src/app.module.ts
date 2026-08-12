@@ -13,6 +13,7 @@ import { QueueModule } from "./queue/queue.module.js";
 import { NotificationsWorkerModule } from "./notifications/notifications.module.js";
 import { ReportingWorkerModule } from "./reporting/reporting.module.js";
 import { ExperienceEventsWorkerModule } from "./experience-events/experience-events.module.js";
+import { ExperienceOrchestrationWorkerModule } from "./experience-orchestration/experience-orchestration.module.js";
 
 export class AppModule {}
 
@@ -20,6 +21,7 @@ Module({
   imports: [
     AnalysisCriteriaWorkerModule,
     ExperienceEventsWorkerModule,
+    ExperienceOrchestrationWorkerModule,
     NotificationsWorkerModule,
     QueueModule,
     ReportingWorkerModule,

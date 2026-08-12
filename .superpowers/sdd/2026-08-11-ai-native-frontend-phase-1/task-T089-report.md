@@ -17,15 +17,24 @@ an owning-domain command.
 - Added truthful deterministic selection when AI is disabled or specifically unavailable. It never
   claims an AI result or route trace.
 - Added append-only/idempotent prepared-item persistence in migration `0041_experience_orchestration`.
-- Added a closed worker job processor/registration boundary for `experience.prepare-next`; no
-  scheduler or owning-domain command was added.
+- Added a dedicated worker lifecycle and closed BullMQ runtime for `experience.prepare-next` and
+  excluded it from the generic test processor, preventing two consumers from binding the job. Replay
+  uses the employee plus idempotency key against this domain's deterministic projection; no scheduler
+  or owning-domain command was added.
 - Added focused AI evaluation fixtures for Arabic/mixed input, prompt isolation, prohibited outputs,
   trusted provenance, and human review.
+- Added a bilingual production semantic quarantine before every AI-assisted or deterministic append.
+  It rejects rating/rank/productivity/readiness, calculated-progress, and activity-volume language
+  while allowing neutral source-backed progress-update wording.
+- Cached results now recompute staleness at read time and return a stale projection without updating
+  the append-only stored row.
 
 ## Verification
 
-- Focused RED/GREEN: 5 files, 16 tests passed.
-- AI evaluation: 3 tests passed.
+- Initial focused RED/GREEN: 5 files, 16 tests passed.
+- Bounded remediation RED/GREEN: 31 focused contract/API/worker/registration assertions passed for
+  semantic quarantine, cached staleness, and the dedicated worker runtime.
+- AI evaluation: 4 bilingual protected-output and neutral-language fixtures passed.
 - Migration verification: 41 migrations; empty database, previous snapshot, drift, and rebuild
   equivalence passed; 77 database integration tests passed.
 - `@evaluation/contracts`, `@evaluation/api`, `@evaluation/worker`: lint and typecheck passed.
@@ -43,10 +52,13 @@ output reference, and correlation. No rating, readiness, progress, or command st
 - Inactive or non-employee/non-contributor actors are rejected.
 - Wrong-user sources are excluded by the owning authorized readers and verified by a negative test.
 - Provider calls use the AI Router only; no provider SDK or direct provider import was added.
-- Model-authored provenance, raw private-body fields, ratings, readiness, and progress fields are
-  rejected by strict schemas.
+- Model-authored provenance and raw private-body fields are rejected by strict schemas. Bilingual
+  prohibited semantics are quarantined before persistence, and the worker reads only its own
+  deterministic projection rather than another module's tables.
 
 ## Remaining bounded work
 
 The controller owns authenticated browser acceptance, screenshots, and final Task/project-state
-updates. T090 owns confirm/correct/dismiss and Intelligent Today composition.
+updates. One live AI probe was quarantined without exposing content; additional prompt tuning is a
+non-blocking follow-up because the deterministic fallback remains truthful. T090 owns
+confirm/correct/dismiss and Intelligent Today composition.
