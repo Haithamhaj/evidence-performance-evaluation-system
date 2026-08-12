@@ -5,8 +5,9 @@
 Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture, T088 Work
 Signals/Experience Events, T089 Minimal Experience Orchestrator, and T090 Intelligent Today are
 complete. T091 durable SSE and its Arabic product journey are accepted. T092 Work list and task
-detail parity are technically verified and await Product Owner visual acceptance. Preserve every
-engine authority and rollback path.
+detail parity are accepted after a real Arabic create-and-transition journey. T093 owner-private
+source review and explicit evidence confirmation are next. Preserve every engine authority and
+rollback path.
 
 ## Current Reality
 
@@ -93,6 +94,10 @@ engine authority and rollback path.
   transition commands, owns selection in the URL, returns focus after the detail drawer closes, and
   retains Board, Calendar, My Work, and the legacy list behind a server rollback flag. No browser
   domain rule, task authority, database record, or history behavior was added.
+- T092 Product Owner acceptance is complete: the Arabic employee created a Project-linked task,
+  moved it through the authoritative `planned -> ready -> in_progress` path, and verified the compact
+  list, focused drawer, RTL mobile layout, and retained Board/Calendar routes. The browser now shows
+  only transitions allowed by the Work Items domain; invalid choices are not relabelled as stale.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -105,8 +110,8 @@ engine authority and rollback path.
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
   review; normal Arabic/RTL foundations remain required in the final frontend.
-- T092 visual acceptance must compare the authenticated English list/detail and Arabic mobile sheet
-  with the retained route before any retirement decision.
+- Retained Board, Calendar, and legacy Work routes remain rollback surfaces until the complete Phase 1
+  route-retirement decision in T094.
 - A separate independent manager participant did not attend G0. The Product Owner accepted this
   overlap and deferred the direct manager session until the complete Phase 1 experience can be
   meaningfully reviewed.
@@ -122,9 +127,10 @@ engine authority and rollback path.
 
 ## Next Recommended Action
 
-Run T092 authenticated Product Owner visual acceptance and retained-route comparison on the existing
-isolated Phase 1 branch. Keep Tasks/My Work, Board, and Calendar available for rollback. Do not start
-T093, merge Pull Request #29, or change route-retirement disposition before the stop gate.
+Execute T093 on the existing isolated Phase 1 branch: let the employee privately review bounded
+Google, GitHub, and manual context, correct or confirm its Project link, and explicitly confirm one
+evidence item. Keep connector suggestions, manual capture, and existing source routes available for
+rollback. Do not merge Pull Request #29 or retire routes before T094 acceptance.
 
 ## Critical References
 

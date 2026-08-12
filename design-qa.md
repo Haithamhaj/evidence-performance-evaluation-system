@@ -104,3 +104,20 @@ T088 design result: **passed**.
 - The bounded corrected-findings review passed with no remaining P0/P1.
 
 T089 engine/design-handoff result: **passed**; final production presentation remains T090 scope.
+
+## T092 Work list and task detail addendum — 2026-08-12
+
+- The authenticated Arabic employee Work surface follows the compact Command Brief hierarchy: one
+  creation row, scope/view controls, a compact task list, and a focused detail drawer.
+- A real Project-linked task was created, then transitioned through the authoritative
+  `planned -> ready -> in_progress` path. The refreshed list and open drawer showed the confirmed
+  state without presenting an impossible action or a misleading stale warning.
+- The Work Items domain owns and serializes allowed transitions; the browser only presents that
+  result. Rapid URL selection and reauthentication return preserve the currently selected task.
+- At `390 × 844`, the Arabic layout remained RTL, the creation controls stacked without horizontal
+  overflow, and the mobile bottom navigation stayed visible.
+- Evidence is stored in `docs/product/screenshots/ai-native-phase-1/t092-work-list.png`,
+  `t092-task-detail.png`, and `t092-ar-mobile.png`.
+- Board, Calendar, My Work, and the legacy list remain retained rollback paths pending T094.
+
+T092 design result: **passed**.

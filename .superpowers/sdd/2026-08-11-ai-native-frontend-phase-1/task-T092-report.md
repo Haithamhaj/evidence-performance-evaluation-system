@@ -35,10 +35,17 @@ None. T092 uses existing Work Item records, version checks, and append-only hist
 
 ## Verification
 
-- Focused Work UI, model, rollback, shell, and same-origin gateway proof: 5 files, 35 tests passed.
-- Existing Work Items protected controller allow/deny proof: 5 tests passed.
+- Initial focused Work UI, model, rollback, shell, gateway, and protected controller proof: 7 files,
+  61 tests passed.
+- Selection-race and reauthentication-return regressions: 2 files, 12 tests passed.
+- Authoritative allowed-transition serialization and UI proof: 4 files, 48 tests passed.
 - `@evaluation/web` typecheck, including Next production compile: passed.
+- `@evaluation/contracts` and `@evaluation/work-items` typechecks: passed.
 - Affected ESLint, Prettier, and `git diff --check`: passed.
+- Independent corrected-findings review: passed with no remaining P0/P1.
+- Authenticated Arabic browser journey: created one Project-linked task, moved it from `planned` to
+  `ready` and then `in_progress`, and verified the URL-owned drawer, list refresh, RTL, and 390px
+  bottom navigation without a false stale-state error.
 
 ## Security / privacy / AI impact
 
@@ -50,8 +57,13 @@ None. T092 uses existing Work Item records, version checks, and append-only hist
 - No AI/provider call, evidence inference, Project progress, readiness value, rating, ranking, or
   productivity score was added.
 
-## Remaining bounded acceptance
+## Product acceptance
 
-The controller must capture the authenticated English Work list, open task detail, and Arabic mobile
-states, then the Product Owner compares the new list with the retained route before any retirement
-decision. Board/Calendar and the legacy list remain available for immediate rollback.
+Accepted on 2026-08-12. Evidence is stored in:
+
+- `docs/product/screenshots/ai-native-phase-1/t092-work-list.png`
+- `docs/product/screenshots/ai-native-phase-1/t092-task-detail.png`
+- `docs/product/screenshots/ai-native-phase-1/t092-ar-mobile.png`
+
+Board, Calendar, My Work, and the legacy list remain available for immediate rollback. Their final
+retirement disposition remains a T094 Product Owner decision.

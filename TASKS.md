@@ -914,7 +914,7 @@ The detailed authority is
 
 ## T092 — Migrate Work List and Task Detail with Parity
 
-**Status:** Implemented and technically verified — authenticated visual acceptance and retained-route comparison remain.
+**Status:** Complete — authenticated Arabic desktop/mobile list, task-detail, create, and valid transition journeys are accepted; retained Board, Calendar, and legacy routes remain available for rollback.
 **Priority:** P1
 **Dependencies:** T091
 **Purpose:** Provide compact daily task management without losing existing Work Item behavior.
@@ -922,7 +922,7 @@ The detailed authority is
 
 ## T093 — Connect the First Real Source-to-Command Journey
 
-**Status:** Not started — blocked by T092.
+**Status:** In progress — T092 is complete and the first owner-private source-to-command slice is authorized.
 **Priority:** P0
 **Dependencies:** T092
 **Purpose:** Join Google, GitHub, and manual context through explicit employee review and evidence confirmation.
