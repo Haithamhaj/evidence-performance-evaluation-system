@@ -5,6 +5,7 @@ import type { Catalog } from "@evaluation/localization";
 import { createElement } from "react";
 
 import { IntelligentToday, type IntelligentTodayGateway } from "./intelligent-today";
+import { ContextDecisionError } from "../../platform/context-intelligence-api";
 import type { WebPreparedExperienceComposition } from "../../platform/experience-orchestration-contracts";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
@@ -207,10 +208,23 @@ const gateway: IntelligentTodayGateway = {
   loadPrepared: async () => prepared,
 };
 
-export function TodayStory({ locale }: Readonly<{ locale: "ar" | "en" }>) {
+const staleGateway: IntelligentTodayGateway = {
+  ...gateway,
+  correct: async () => {
+    throw new ContextDecisionError(409);
+  },
+};
+
+export function TodayStory({
+  gatewayOverride = gateway,
+  locale,
+}: Readonly<{
+  gatewayOverride?: IntelligentTodayGateway;
+  locale: "ar" | "en";
+}>) {
   return createElement(IntelligentToday, {
     catalog: todayCatalogs[locale] as unknown as Catalog,
-    gateway,
+    gateway: gatewayOverride,
     locale,
     onTaskSelect: () => undefined,
     snapshot,
@@ -225,6 +239,7 @@ export default {
 
 export const EmployeeEnglish = { args: { locale: "en" } };
 export const EmployeeArabic = { args: { locale: "ar" } };
+export const StaleRecovery = { args: { gatewayOverride: staleGateway, locale: "en" } };
 export const EmployeeArabicMobile = {
   args: { locale: "ar" },
   parameters: {

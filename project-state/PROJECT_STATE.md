@@ -3,8 +3,9 @@
 ## Current Goal
 
 Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture, T088 Work
-Signals/Experience Events, and T089 Minimal Experience Orchestrator are complete; T090 Intelligent
-Today and its first protected decision path are next. Preserve every engine authority and rollback path.
+Signals/Experience Events, T089 Minimal Experience Orchestrator, and T090 Intelligent Today are
+complete; T091 What Changed and durable SSE recovery are next. Preserve every engine authority and
+rollback path.
 
 ## Current Reality
 
@@ -79,6 +80,11 @@ Today and its first protected decision path are next. Preserve every engine auth
   activity-volume performance inferences while allowing neutral daily-work language. The real local
   Project Task returned one truthful deterministic proposal; one live provider response was safely
   quarantined and requires later prompt tuning rather than weaker product protection.
+- T090 is complete: the authenticated employee Today surface composes the real Daily Work snapshot,
+  at most one prepared item, and one source-backed Project decision. Confirm, correct, and dismiss
+  remain protected Context Intelligence commands; stale correction stays editable and dismissal
+  creates no evidence or progress. English desktop, Arabic RTL mobile, recovery, rollback, build,
+  accessibility, and the independent P0/P1 review are verified.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -91,8 +97,8 @@ Today and its first protected decision path are next. Preserve every engine auth
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
   review; normal Arabic/RTL foundations remain required in the final frontend.
-- The Stable Shell is proven at desktop and 390px in English/Arabic, but final Intelligent Today and
-  daily-use behavior remain intentionally unimplemented until Phase 1.
+- Intelligent Today is now proven at desktop and 390px in English/Arabic. T091 still needs to replace
+  explicit What Changed refresh with durable SSE reconnect and exactly-once visible replay.
 - A separate independent manager participant did not attend G0. The Product Owner accepted this
   overlap and deferred the direct manager session until the complete Phase 1 experience can be
   meaningfully reviewed.
@@ -108,9 +114,9 @@ Today and its first protected decision path are next. Preserve every engine auth
 
 ## Next Recommended Action
 
-Execute T090 Intelligent Today on the existing isolated Phase 1 branch: compose Needs Your Action,
-Today, Overdue, and the single prepared item, then connect one real confirm/correct/dismiss path using
-the owning protected command. Do not merge Pull Request #29 or remove retained routes.
+Execute T091 What Changed and durable SSE on the existing isolated Phase 1 branch: stream only
+authorized receipts, reconnect from the durable cursor without duplicate actions, and preserve the
+existing explicit-refresh rollback. Do not merge Pull Request #29 or remove retained routes.
 
 ## Critical References
 

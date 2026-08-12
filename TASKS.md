@@ -898,7 +898,7 @@ The detailed authority is
 
 ## T090 — Implement Intelligent Today and One Decision Path
 
-**Status:** Not started — T089 is complete; this is the next approved slice.
+**Status:** Complete — Intelligent Today now composes the real authorized daily snapshot, one prepared item, and one protected confirm/correct/dismiss path with stale recovery and rollback.
 **Priority:** P1
 **Dependencies:** T089
 **Purpose:** Deliver Needs Your Action, Today, Overdue, prepared work, and one real confirm/correct/dismiss journey.
@@ -906,7 +906,7 @@ The detailed authority is
 
 ## T091 — Implement What Changed and Durable SSE
 
-**Status:** Not started — blocked by T090.
+**Status:** Not started — T090 is complete; this is the next approved slice.
 **Priority:** P1
 **Dependencies:** T090
 **Purpose:** Show concise authorized receipts with reconnect and exactly-once visible behavior.
