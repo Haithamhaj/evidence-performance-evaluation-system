@@ -135,4 +135,5 @@ Module({
     },
     WorkItemsPolicyGuard,
   ],
+  exports: [DailyWorkQueryService],
 })(DailyWorkModule);

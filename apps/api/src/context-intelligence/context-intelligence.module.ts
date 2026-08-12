@@ -1478,6 +1478,7 @@ Module({
     },
     ContextIntelligencePolicyGuard,
   ],
+  exports: [CONTEXT_INTELLIGENCE_WORKFLOW],
 })(ContextIntelligenceModule);
 
 // Avoid accidental route renames in this central composition file.

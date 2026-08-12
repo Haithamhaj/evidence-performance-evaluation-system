@@ -11,6 +11,7 @@ import { ResearchExperimentsModule } from "./research-experiments/research-exper
 import { EmployeeEvaluationModule } from "./employee-evaluation/employee-evaluation.module.js";
 import { EvaluationEligibilityModule } from "./evaluation-eligibility/evaluation-eligibility.module.js";
 import { EvaluationPreparationModule } from "./evaluation-preparation/evaluation-preparation.module.js";
+import { ExperienceOrchestrationModule } from "./experience-orchestration/experience-orchestration.module.js";
 import { CorrelationMiddleware } from "./platform/correlation.middleware.js";
 import { DocumentsModule } from "./documents/documents.module.js";
 import { DailyWorkModule } from "./daily-work/daily-work.module.js";
@@ -47,6 +48,7 @@ Module({
     EmployeeEvaluationModule,
     EvaluationEligibilityModule,
     EvaluationPreparationModule,
+    ExperienceOrchestrationModule,
     GitHubIntegrationModule,
     ManagerEvaluationModule,
     OperationsModule,

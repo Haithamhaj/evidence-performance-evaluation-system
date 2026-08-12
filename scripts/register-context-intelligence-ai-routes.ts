@@ -13,6 +13,14 @@ import {
   registerAuthorizedAiOutputSchema,
 } from "../apps/api/src/ai-routing/ai-routing.module.js";
 import { CONTEXT_INTELLIGENCE_AI_ROUTES } from "../packages/context-intelligence/src/index.js";
+import {
+  EXPERIENCE_PREPARE_INPUT_SCHEMA_VERSION,
+  EXPERIENCE_PREPARE_OUTPUT_SCHEMA_VERSION,
+  EXPERIENCE_PREPARE_PROMPT_VERSION,
+  EXPERIENCE_PREPARE_ROUTE,
+  EXPERIENCE_PREPARE_TRUSTED_PROMPT,
+  ExperiencePreparedAiOutputSchema,
+} from "../apps/api/src/experience-orchestration/experience-orchestrator.service.js";
 
 const ArgumentsSchema = z
   .object({
@@ -24,7 +32,19 @@ const ArgumentsSchema = z
   })
   .strict();
 
-const routeMetadata = CONTEXT_INTELLIGENCE_AI_ROUTES.map((route) => ({
+const governedRoutes = [
+  ...CONTEXT_INTELLIGENCE_AI_ROUTES,
+  {
+    routeKey: EXPERIENCE_PREPARE_ROUTE,
+    inputSchemaVersion: EXPERIENCE_PREPARE_INPUT_SCHEMA_VERSION,
+    outputSchemaVersion: EXPERIENCE_PREPARE_OUTPUT_SCHEMA_VERSION,
+    promptTemplateVersion: EXPERIENCE_PREPARE_PROMPT_VERSION,
+    trustedPrompt: EXPERIENCE_PREPARE_TRUSTED_PROMPT,
+    outputSchema: ExperiencePreparedAiOutputSchema,
+  },
+] as const;
+
+const routeMetadata = governedRoutes.map((route) => ({
   ...route,
   promptHash: createHash("sha256").update(route.trustedPrompt).digest("hex"),
   schema: outputSchemaDescriptor(route.routeKey, route.outputSchemaVersion, route.outputSchema),
@@ -222,6 +242,9 @@ async function registerPrompt(
 }
 
 function expectedOutputBehavior(routeKey: string): string {
+  if (routeKey === EXPERIENCE_PREPARE_ROUTE) {
+    return "Returns one editable source-backed action or clarification draft with no command, rating, readiness, or progress authority.";
+  }
   if (routeKey === "context.summarize.v1") {
     return "Returns a source-cited AI draft interpretation of supplied private work context, with explicit uncertainties and no performance judgment.";
   }
@@ -232,6 +255,9 @@ function expectedOutputBehavior(routeKey: string): string {
 }
 
 function expectedPromptBehavior(routeKey: string): string {
+  if (routeKey === EXPERIENCE_PREPARE_ROUTE) {
+    return "One bounded employee-reviewable draft selected from already-authorized sources; human action remains mandatory.";
+  }
   if (routeKey === "context.summarize.v1") {
     return "A source-labelled AI draft interpretation with supported claims, uncertainty, and opaque provenance for human review.";
   }

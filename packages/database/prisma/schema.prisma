@@ -48,6 +48,7 @@ model User {
   workSignalReceipts                        WorkSignalReceipt[]                     @relation("WorkSignalRecipient")
   workflowEventsAsActor                     ExperienceWorkflowEventReceipt[]        @relation("ExperienceWorkflowEventActor")
   workflowEventsAsRecipient                 ExperienceWorkflowEventReceipt[]        @relation("ExperienceWorkflowEventRecipient")
+  preparedExperienceItems                   ExperiencePreparedItem[]                 @relation("ExperiencePreparedItemEmployee")
   voiceUpdateSessions                        VoiceUpdateSession[]                   @relation("VoiceUpdateSessionEmployee")
   voiceTranscriptConfirmations               VoiceTranscriptConfirmation[]          @relation("VoiceTranscriptConfirmationEmployee")
   createdDocumentRecords                     DocumentRecord[]                       @relation("DocumentRecordCreatedBy")
@@ -356,6 +357,29 @@ model ExperienceWorkflowEventReceipt {
   createdAt        DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([recipientId, occurredAt, id])
+  @@index([correlationId])
+}
+
+model ExperiencePreparedItem {
+  id               String   @id @db.Uuid
+  employeeId       String   @db.Uuid
+  employee         User     @relation("ExperiencePreparedItemEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  idempotencyKey   String   @unique @db.Uuid
+  schemaVersion    String
+  state            String
+  kind             String
+  sourceReferences Json
+  why              String
+  freshness        Json
+  consequence      String
+  editableDraft    Json
+  assistanceMode   String
+  assistanceLabel  String
+  outputReference  String   @unique
+  correlationId    String   @db.Uuid
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([employeeId, createdAt, id])
   @@index([correlationId])
 }
 
