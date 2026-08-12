@@ -58,6 +58,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { WhatChangedProjectionSchema } from "../../../../platform/experience-events-contracts";
+import { WebPreparedExperienceCompositionSchema } from "../../../../platform/experience-orchestration-contracts";
 
 import {
   fetchProtectedUpstream,
@@ -111,6 +112,8 @@ const RawQueueSchema = z.preprocess(projectQueueResponse, StrictQueueSchema);
 const StrictSourceSchema = z
   .object({
     id: UuidSchema,
+    provider: z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"]).nullable(),
+    occurredAt: z.iso.datetime({ offset: true }).nullable(),
     title: z.string(),
     summary: z.string().nullable(),
     sourceUrl: z.url().nullable(),
@@ -167,6 +170,15 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
           method: "GET",
           path: `/api/v1/experience/what-changed${afterCursor === null ? "" : `?afterCursor=${encodeURIComponent(afterCursor)}`}`,
           schema: WhatChangedProjectionSchema,
+        }),
+      );
+    }
+    if (path.length === 2 && path[0] === "experience" && path[1] === "prepared") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/experience-orchestration/prepared",
+          schema: WebPreparedExperienceCompositionSchema,
         }),
       );
     }
@@ -693,6 +705,8 @@ function projectSource(value: unknown): unknown {
   if (source === null) return value;
   return {
     id: source.id,
+    provider: source.provider ?? null,
+    occurredAt: source.occurredAt ?? null,
     title: source.title,
     summary: source.summary,
     sourceUrl: source.sourceUrl,
@@ -737,8 +751,20 @@ function projectReviewQueue(
   const safeSource = (sourceItemId: string) => {
     const source = sourceById.get(sourceItemId);
     return source === undefined
-      ? { title: "Private source context", summary: null, sourceUrl: null }
-      : { title: source.title, summary: source.summary, sourceUrl: source.sourceUrl };
+      ? {
+          provider: null,
+          observedAt: null,
+          title: "Private source context",
+          summary: null,
+          sourceUrl: null,
+        }
+      : {
+          provider: source.provider,
+          observedAt: source.occurredAt,
+          title: source.title,
+          summary: source.summary,
+          sourceUrl: source.sourceUrl,
+        };
   };
   const projectHandle = (projectId: string | null) =>
     projectId === null

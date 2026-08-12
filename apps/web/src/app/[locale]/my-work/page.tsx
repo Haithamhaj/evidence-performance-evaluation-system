@@ -10,6 +10,7 @@ import {
 } from "../../../platform/daily-work-api";
 import { WorkspaceShell } from "../workspace-shell";
 import { MyWorkClient } from "./my-work-client";
+import { intelligentTodayEnabled } from "../../../server/today/intelligent-today-flag";
 
 type Properties = Readonly<{
   params: Promise<{ locale: string }>;
@@ -46,6 +47,7 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
     createElement(MyWorkClient, {
       catalog,
       checkIns,
+      intelligentToday: intelligentTodayEnabled(),
       initialSelectedId: item ?? null,
       locale,
       response,

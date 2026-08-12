@@ -27,6 +27,23 @@ const draftRequestId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
+  it("proxies the owner-authorized prepared experience without exposing browser credentials", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({ state: "idle", items: [] });
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/experience/prepared"),
+      { params: Promise.resolve({ path: ["experience", "prepared"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ state: "idle", items: [] });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/experience-orchestration/prepared",
+      schema: expect.anything(),
+    });
+  });
+
   it("proxies only the authenticated owner-filtered What Changed projection", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue({ items: [], nextCursor: null });
 
@@ -281,7 +298,16 @@ describe("daily-work same-origin gateway", () => {
         ],
       }),
     ).toEqual({
-      items: [{ id: sourceItemId, title: "Customer rollout note", summary: null, sourceUrl: null }],
+      items: [
+        {
+          id: sourceItemId,
+          provider: null,
+          occurredAt: null,
+          title: "Customer rollout note",
+          summary: null,
+          sourceUrl: null,
+        },
+      ],
     });
     expect(
       schemaFor("/api/v1/projects").parse([
