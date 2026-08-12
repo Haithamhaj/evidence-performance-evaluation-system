@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { assertWorkItemScope, assertWorkItemTransition } from "./invariants.js";
+import {
+  assertWorkItemScope,
+  assertWorkItemTransition,
+  getAllowedWorkItemTransitions,
+} from "./invariants.js";
 
 describe("work item invariants", () => {
+  it("publishes the same authoritative next states used by transition validation", () => {
+    expect(getAllowedWorkItemTransitions("planned")).toEqual(["ready", "cancelled"]);
+    expect(getAllowedWorkItemTransitions("done")).toEqual([]);
+  });
+
   it("requires a Project and a Workstream from the same Project", () => {
     expect(() =>
       assertWorkItemScope({

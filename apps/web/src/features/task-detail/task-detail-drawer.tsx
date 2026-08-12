@@ -8,16 +8,6 @@ import { useEffect, useState } from "react";
 import type { WebWorkItem, WorkItemStatus } from "../../platform/work-items-api";
 import styles from "../../product-ui/work/work-workspace.module.css";
 
-const statuses: readonly WorkItemStatus[] = [
-  "planned",
-  "ready",
-  "in_progress",
-  "blocked",
-  "in_review",
-  "done",
-  "cancelled",
-];
-
 export function TaskDetailDrawer({
   catalog,
   item,
@@ -38,8 +28,8 @@ export function TaskDetailDrawer({
   const [status, setStatus] = useState<WorkItemStatus>("ready");
 
   useEffect(() => {
-    if (item !== null) setStatus(statuses.find((value) => value !== item.status) ?? item.status);
-  }, [item?.id, item?.status]);
+    if (item !== null) setStatus(item.allowedTransitions[0] ?? item.status);
+  }, [item?.allowedTransitions, item?.id, item?.status]);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -128,7 +118,7 @@ export function TaskDetailDrawer({
                 {catalog["work.transitionError"]}
               </p>
             ) : null}
-            {item.allowedActions.includes("transition") ? (
+            {item.allowedActions.includes("transition") && item.allowedTransitions.length > 0 ? (
               <form
                 className={styles.transition!}
                 onSubmit={(event) => {
@@ -142,13 +132,11 @@ export function TaskDetailDrawer({
                     onChange={(event) => setStatus(event.target.value as WorkItemStatus)}
                     value={status}
                   >
-                    {statuses
-                      .filter((value) => value !== item.status)
-                      .map((value) => (
-                        <option key={value} value={value}>
-                          {catalog[`myWork.status.${value}`]}
-                        </option>
-                      ))}
+                    {item.allowedTransitions.map((value) => (
+                      <option key={value} value={value}>
+                        {catalog[`myWork.status.${value}`]}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <button

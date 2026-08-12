@@ -4,7 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 
 import { getCatalogSync } from "@evaluation/localization";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -86,6 +86,46 @@ describe("WorkWorkspace", () => {
     expect((await screen.findAllByText("In progress")).length).toBeGreaterThan(0);
   });
 
+  it("offers only authoritative planned transitions and applies a valid transition", async () => {
+    const planned = {
+      ...item,
+      status: "planned" as const,
+      allowedTransitions: ["ready", "cancelled"] as ("ready" | "cancelled")[],
+    };
+    const transitioned = {
+      ...planned,
+      status: "ready" as const,
+      version: 2,
+      allowedTransitions: ["in_progress", "blocked", "cancelled"] as (
+        "in_progress" | "blocked" | "cancelled"
+      )[],
+    };
+    const gateway = service({
+      load: vi.fn().mockResolvedValue(planned),
+      transition: vi.fn().mockResolvedValue(transitioned),
+    });
+    const user = userEvent.setup();
+    renderWork(gateway, planned.id, "en", [planned]);
+
+    await screen.findByRole("dialog", { name: "Task details" });
+    expect(
+      within(screen.getByLabelText("New status"))
+        .getAllByRole("option")
+        .map(({ textContent }) => textContent),
+    ).toEqual(["Ready", "Cancelled"]);
+    expect(screen.queryByRole("option", { name: "In progress" })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("New status"), "ready");
+    await user.click(screen.getByRole("button", { name: "Change status" }));
+
+    expect(gateway.transition).toHaveBeenCalledWith(
+      planned.id,
+      expect.objectContaining({ expectedVersion: 1, status: "ready" }),
+    );
+    expect((await screen.findAllByText("Ready")).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("New status")).toHaveValue("in_progress");
+  });
+
   it("shows the server authorization denial instead of widening transition authority", async () => {
     const user = userEvent.setup();
     const gateway = service({
@@ -147,7 +187,7 @@ function renderWork(
   gateway: WorkWorkspaceGateway,
   selectedId: string | null = null,
   locale: "ar" | "en" = "en",
-  items = [item],
+  items: import("../../platform/work-items-api").WebWorkItem[] = [item],
 ) {
   return render(
     <WorkWorkspace
@@ -210,6 +250,9 @@ function workItem() {
     collaboratorIds: [],
     allowedActions: ["edit", "transition", "assign", "add_update"] as (
       "edit" | "transition" | "assign" | "add_update"
+    )[],
+    allowedTransitions: ["in_progress", "blocked", "cancelled"] as (
+      "in_progress" | "blocked" | "cancelled"
     )[],
   };
 }

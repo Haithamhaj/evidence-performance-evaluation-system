@@ -184,6 +184,7 @@ export const WorkItemDetailSchema = WorkItemContentSchema.extend({
   checklist: z.array(WorkItemChecklistItemSchema).default([]),
   collaboratorIds: z.array(UuidSchema).default([]),
   allowedActions: z.array(WorkItemAllowedActionSchema).default([]),
+  allowedTransitions: z.array(WorkItemStatusSchema).optional(),
 }).strict();
 
 export const MyWorkGroupKeySchema = z.enum([

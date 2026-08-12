@@ -3,6 +3,20 @@ import { AppError } from "@evaluation/contracts";
 type WorkItemStatus =
   "planned" | "ready" | "in_progress" | "blocked" | "in_review" | "done" | "cancelled";
 
+const allowedTransitions = {
+  planned: ["ready", "cancelled"],
+  ready: ["in_progress", "blocked", "cancelled"],
+  in_progress: ["blocked", "in_review", "done", "cancelled"],
+  blocked: ["ready", "in_progress", "cancelled"],
+  in_review: ["in_progress", "blocked", "done", "cancelled"],
+  done: [],
+  cancelled: [],
+} as const satisfies Readonly<Record<WorkItemStatus, readonly WorkItemStatus[]>>;
+
+export function getAllowedWorkItemTransitions(status: WorkItemStatus): readonly WorkItemStatus[] {
+  return allowedTransitions[status];
+}
+
 export function assertWorkItemScope(input: {
   projectId: string;
   workstream: Readonly<{ id: string; projectId: string }> | null;
@@ -14,31 +28,7 @@ export function assertWorkItemScope(input: {
 }
 
 export function assertWorkItemTransition(from: WorkItemStatus, to: WorkItemStatus): void {
-  let isAllowed = false;
-
-  switch (from) {
-    case "planned":
-      isAllowed = to === "ready" || to === "cancelled";
-      break;
-    case "ready":
-      isAllowed = to === "in_progress" || to === "blocked" || to === "cancelled";
-      break;
-    case "in_progress":
-      isAllowed = to === "blocked" || to === "in_review" || to === "done" || to === "cancelled";
-      break;
-    case "blocked":
-      isAllowed = to === "ready" || to === "in_progress" || to === "cancelled";
-      break;
-    case "in_review":
-      isAllowed = to === "in_progress" || to === "blocked" || to === "done" || to === "cancelled";
-      break;
-    case "done":
-    case "cancelled":
-      isAllowed = false;
-      break;
-  }
-
-  if (!isAllowed) {
+  if (!getAllowedWorkItemTransitions(from).some((status) => status === to)) {
     throw new AppError("WORK_ITEM_STATE_INVALID", "errors.workItems.stateInvalid", 409);
   }
 }

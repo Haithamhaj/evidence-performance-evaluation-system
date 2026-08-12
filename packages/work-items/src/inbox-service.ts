@@ -9,7 +9,7 @@ import { canUsePrivateCapture } from "@evaluation/permissions";
 import { z } from "zod";
 
 import { serializeInboxItem, forbiddenError } from "./inbox-query-service.js";
-import { assertWorkItemScope } from "./invariants.js";
+import { assertWorkItemScope, getAllowedWorkItemTransitions } from "./invariants.js";
 import { assertEligibleAssignee, authorizeProject } from "./service-authorization.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
@@ -318,6 +318,7 @@ function serializeWorkItem(item: {
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
     allowedActions: ["edit", "transition", "assign", "add_update"],
+    allowedTransitions: getAllowedWorkItemTransitions(item.status),
   });
 }
 

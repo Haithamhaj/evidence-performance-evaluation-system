@@ -1,5 +1,7 @@
 import { AppError, MyWorkResponseSchema, WorkItemDetailSchema } from "@evaluation/contracts";
 
+import { getAllowedWorkItemTransitions } from "./invariants.js";
+
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 
 export class WorkItemQueryService {
@@ -255,6 +257,7 @@ function serialize(item: {
       item.status === "done" || item.status === "cancelled"
         ? ["add_update"]
         : ["edit", "transition", "assign", "add_update"],
+    allowedTransitions: getAllowedWorkItemTransitions(item.status),
   });
 }
 

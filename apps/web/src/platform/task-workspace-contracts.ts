@@ -42,6 +42,11 @@ export const WebWorkItemSchema = z
       .default([]),
     collaboratorIds: z.array(WebUuidSchema).default([]),
     allowedActions: z.array(z.enum(["edit", "transition", "assign", "add_update"])),
+    allowedTransitions: z
+      .array(
+        z.enum(["planned", "ready", "in_progress", "blocked", "in_review", "done", "cancelled"]),
+      )
+      .default([]),
   })
   .strict();
 

@@ -8,7 +8,11 @@ import {
 } from "@evaluation/contracts";
 import { z } from "zod";
 
-import { assertWorkItemScope, assertWorkItemTransition } from "./invariants.js";
+import {
+  assertWorkItemScope,
+  assertWorkItemTransition,
+  getAllowedWorkItemTransitions,
+} from "./invariants.js";
 import {
   assertEligibleAssignee,
   authorizeProject,
@@ -515,6 +519,7 @@ function serialize(item: {
       item.status === "done" || item.status === "cancelled"
         ? ["add_update"]
         : ["edit", "transition", "assign", "add_update"],
+    allowedTransitions: getAllowedWorkItemTransitions(item.status),
   });
 }
 
