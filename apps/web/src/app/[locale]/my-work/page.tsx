@@ -11,6 +11,7 @@ import {
 import { WorkspaceShell } from "../workspace-shell";
 import { MyWorkClient } from "./my-work-client";
 import { intelligentTodayEnabled } from "../../../server/today/intelligent-today-flag";
+import { sourceReviewEnabled } from "../../../server/source-review/source-review-flag";
 
 type Properties = Readonly<{
   params: Promise<{ locale: string }>;
@@ -51,6 +52,7 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
       initialSelectedId: item ?? null,
       locale,
       response,
+      sourceReview: sourceReviewEnabled(),
       updateContext,
     }),
   );

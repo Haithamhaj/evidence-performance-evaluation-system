@@ -5,6 +5,7 @@ import type { Catalog, Locale } from "@evaluation/localization";
 import { createElement, useState } from "react";
 
 import type { UpdateComposerContext } from "../../../platform/updates-evidence-contracts";
+import { SourceReview } from "../../../features/source-review/source-review";
 import { DailyBrief } from "./daily-brief";
 import { ConnectedContext } from "./connected-context";
 import { CheckInCard, type CheckInDraft, type CheckInObligationView } from "./check-in-card";
@@ -23,6 +24,7 @@ type Properties = Readonly<{
   initialSelectedId: string | null;
   locale: Locale;
   response: DailyWorkspaceSnapshot;
+  sourceReview?: boolean;
   updateContext?: UpdateComposerContext;
 }>;
 
@@ -33,6 +35,7 @@ export function MyWorkClient({
   initialSelectedId,
   locale,
   response,
+  sourceReview = false,
   updateContext,
 }: Properties) {
   const [selectedId, setSelectedId] = useState(initialSelectedId);
@@ -83,12 +86,22 @@ export function MyWorkClient({
   return (
     <section className="dailyWorkPage">
       {intelligentToday ? (
-        createElement(IntelligentToday, {
-          catalog,
-          locale,
-          onTaskSelect: select,
-          snapshot: response,
-        })
+        <>
+          {createElement(IntelligentToday, {
+            catalog,
+            locale,
+            onTaskSelect: select,
+            snapshot: response,
+          })}
+          {sourceReview
+            ? createElement(SourceReview, {
+                catalog,
+                locale,
+                manualSources: response.inbox,
+                projects,
+              })
+            : null}
+        </>
       ) : (
         <>
           <header className="compactPageHeading">
@@ -138,17 +151,27 @@ export function MyWorkClient({
             onStart: openCheckIn,
           })}
 
-          {createElement(ConnectedContext, {
-            catalog,
-            projects,
-            onReviewPrepared: () => setContextReviewRevision((revision) => revision + 1),
-          })}
-
-          {createElement(PrivateInbox, {
-            catalog,
-            initialItems: response.inbox,
-            projects,
-          })}
+          {sourceReview ? (
+            createElement(SourceReview, {
+              catalog,
+              locale,
+              manualSources: response.inbox,
+              projects,
+            })
+          ) : (
+            <>
+              {createElement(ConnectedContext, {
+                catalog,
+                projects,
+                onReviewPrepared: () => setContextReviewRevision((revision) => revision + 1),
+              })}
+              {createElement(PrivateInbox, {
+                catalog,
+                initialItems: response.inbox,
+                projects,
+              })}
+            </>
+          )}
 
           {response.upcoming.length === 0 ? null : (
             <details className="workGroup panel">
