@@ -55,10 +55,12 @@ export function buildShellModel({
   contribution = noContribution,
   locale,
   principal,
+  workHref,
 }: Readonly<{
   contribution?: ContributionContext;
   locale: "ar" | "en";
   principal: ShellPrincipal;
+  workHref?: string;
 }>): ShellModel {
   const roles = new Set(principal.active ? principal.roles : []);
   const isManager = roles.has("manager");
@@ -66,7 +68,7 @@ export function buildShellModel({
   const isEmployeeOnly = !isManager && !isAdministrator;
   const navigation: ShellNavigationItem[] = [
     current("today", "shell.nav.today", `/${locale}`),
-    current("work", "shell.nav.work", `/${locale}/my-work`),
+    current("work", "shell.nav.work", workHref ?? `/${locale}/my-work`),
     current("projects", "shell.nav.projects", `/${locale}/projects`),
     next("research", "shell.nav.research"),
     current("evaluation", "shell.nav.evaluation", `/${locale}/evaluations/facts`),

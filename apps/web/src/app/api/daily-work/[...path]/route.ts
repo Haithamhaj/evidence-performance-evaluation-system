@@ -39,6 +39,7 @@ import {
   CreateTaskBodySchema,
   DismissPrivateInboxBodySchema,
   PromotePrivateInboxBodySchema,
+  TransitionTaskBodySchema,
   UpdateTaskBodySchema,
   WebPrivateInboxItemSchema,
   WebWorkItemSchema,
@@ -268,6 +269,15 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
         }),
       );
     }
+    if (path.length === 2 && path[0] === "work-items" && isUuid(path[1])) {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: `/api/v1/work-items/${path[1]}`,
+          schema: WebWorkItemSchema,
+        }),
+      );
+    }
     return notFound();
   } catch (error) {
     if (error instanceof z.ZodError) return notFound();
@@ -381,6 +391,18 @@ export async function POST(request: Request, context: Context): Promise<NextResp
     }
     if (path.length === 1 && path[0] === "work-items") {
       return await post("/api/v1/work-items", CreateTaskBodySchema.parse(body), WebWorkItemSchema);
+    }
+    if (
+      path.length === 3 &&
+      path[0] === "work-items" &&
+      isUuid(path[1]) &&
+      path[2] === "transitions"
+    ) {
+      return await post(
+        `/api/v1/work-items/${path[1]}/transitions`,
+        TransitionTaskBodySchema.parse(body),
+        WebWorkItemSchema,
+      );
     }
     if (
       path.length === 3 &&

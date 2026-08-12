@@ -144,3 +144,19 @@ export const UpdateTaskBodySchema = z
     reason: z.string().trim().min(1).max(1_000),
   })
   .strict();
+
+export const TransitionTaskBodySchema = z
+  .object({
+    status: z.enum([
+      "planned",
+      "ready",
+      "in_progress",
+      "blocked",
+      "in_review",
+      "done",
+      "cancelled",
+    ]),
+    expectedVersion: z.number().int().positive(),
+    reason: z.string().trim().min(1).max(1_000),
+  })
+  .strict();

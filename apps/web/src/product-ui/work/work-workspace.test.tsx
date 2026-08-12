@@ -1,0 +1,172 @@
+/* eslint-disable no-unused-vars */
+// @vitest-environment jsdom
+
+import "@testing-library/jest-dom/vitest";
+
+import { getCatalogSync } from "@evaluation/localization";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { WorkItemGatewayError } from "../../platform/work-items-api.js";
+import { WorkWorkspace, type WorkWorkspaceGateway } from "./work-workspace.js";
+
+const employeeId = "11111111-1111-4111-8111-111111111111";
+const projectId = "22222222-2222-4222-8222-222222222222";
+const itemId = "33333333-3333-4333-8333-333333333333";
+const item = workItem();
+
+beforeEach(() => {
+  window.history.replaceState(null, "", "/en/tasks?view=my&layout=list");
+  window.requestAnimationFrame = (callback) => {
+    callback(0);
+    return 1;
+  };
+});
+afterEach(() => cleanup());
+
+describe("WorkWorkspace", () => {
+  it("keeps compact List, Board, and Calendar destinations and opens detail from URL", async () => {
+    const user = userEvent.setup();
+    const gateway = service();
+    renderWork(gateway);
+
+    expect(screen.getByRole("link", { name: "Board" })).toHaveAttribute(
+      "href",
+      "/en/tasks?view=my&layout=board",
+    );
+    expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute(
+      "href",
+      "/en/tasks?view=my&layout=calendar",
+    );
+
+    const row = screen.getByRole("button", { name: /Prepare the launch/u });
+    await user.click(row);
+    expect(window.location.search).toContain(`item=${itemId}`);
+    expect(await screen.findByRole("dialog", { name: "Task details" })).toBeInTheDocument();
+    expect(gateway.load).toHaveBeenCalledWith(itemId);
+
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(window.location.search).not.toContain("item=");
+    expect(row).toHaveFocus();
+  });
+
+  it("creates through the existing protected command and opens the authoritative item", async () => {
+    const user = userEvent.setup();
+    const created = { ...item, id: crypto.randomUUID(), title: "Ship the release" };
+    const gateway = service({ create: vi.fn().mockResolvedValue(created) });
+    renderWork(gateway);
+
+    await user.type(screen.getByLabelText("Task title"), created.title);
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+
+    await waitFor(() => expect(gateway.create).toHaveBeenCalledOnce());
+    expect(await screen.findByText(created.title)).toBeInTheDocument();
+    expect(window.location.search).toContain(`item=${created.id}`);
+  });
+
+  it("transitions through the existing protected command and recovers stale detail", async () => {
+    const user = userEvent.setup();
+    const transitioned = { ...item, status: "in_progress" as const, version: 2 };
+    const gateway = service({
+      transition: vi
+        .fn()
+        .mockRejectedValueOnce(new WorkItemGatewayError(409))
+        .mockResolvedValueOnce(transitioned),
+    });
+    renderWork(gateway, itemId);
+
+    await screen.findByRole("dialog", { name: "Task details" });
+    await user.selectOptions(screen.getByLabelText("New status"), "in_progress");
+    await user.click(screen.getByRole("button", { name: "Change status" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("changed elsewhere");
+    expect(gateway.load).toHaveBeenCalledTimes(2);
+
+    await user.click(screen.getByRole("button", { name: "Change status" }));
+    expect((await screen.findAllByText("In progress")).length).toBeGreaterThan(0);
+  });
+
+  it("shows the server authorization denial instead of widening transition authority", async () => {
+    const user = userEvent.setup();
+    const gateway = service({
+      transition: vi.fn().mockRejectedValue(new WorkItemGatewayError(403)),
+    });
+    renderWork(gateway, itemId);
+
+    await screen.findByRole("dialog", { name: "Task details" });
+    await user.click(screen.getByRole("button", { name: "Change status" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("no longer have access");
+  });
+
+  it("renders the Arabic mobile-ready boundary in RTL without changing Task identity", async () => {
+    renderWork(service(), null, "ar");
+    const region = screen.getByRole("region", { name: "العمل" });
+
+    expect(region).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText("Prepare the launch")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "لوحة" })).toBeInTheDocument();
+  });
+});
+
+function renderWork(
+  gateway: WorkWorkspaceGateway,
+  selectedId: string | null = null,
+  locale: "ar" | "en" = "en",
+) {
+  return render(
+    <WorkWorkspace
+      catalog={getCatalogSync(locale)}
+      currentUserId={employeeId}
+      gateway={gateway}
+      initialItems={[item]}
+      initialSelectedId={selectedId}
+      initialView="my"
+      locale={locale}
+      projects={[{ id: projectId, name: "Atlas Delivery" }]}
+    />,
+  );
+}
+
+function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
+  return {
+    create: vi.fn().mockImplementation(async ({ title }) => ({ ...item, title })),
+    load: vi.fn().mockResolvedValue(item),
+    transition: vi.fn().mockImplementation(async (_id, input) => ({
+      ...item,
+      status: input.status,
+      version: 2,
+    })),
+    ...overrides,
+  } as WorkWorkspaceGateway & {
+    create: ReturnType<typeof vi.fn>;
+    load: ReturnType<typeof vi.fn>;
+    transition: ReturnType<typeof vi.fn>;
+  };
+}
+
+function workItem() {
+  return {
+    id: itemId,
+    projectId,
+    workstreamId: null,
+    title: "Prepare the launch",
+    description: "Confirm the rollout checklist.",
+    status: "ready" as const,
+    priority: "high" as const,
+    assigneeId: employeeId,
+    dueAt: "2026-08-13T12:00:00.000Z",
+    requirements: ["Deployment checklist"],
+    acceptanceConditions: ["Checks are green"],
+    blocker: null,
+    nextAction: "Run the final check",
+    version: 1,
+    createdAt: "2026-08-12T08:00:00.000Z",
+    updatedAt: "2026-08-12T08:00:00.000Z",
+    checklist: [],
+    collaboratorIds: [],
+    allowedActions: ["edit", "transition", "assign", "add_update"] as (
+      "edit" | "transition" | "assign" | "add_update"
+    )[],
+  };
+}

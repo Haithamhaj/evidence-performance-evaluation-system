@@ -4,8 +4,9 @@
 
 Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture, T088 Work
 Signals/Experience Events, T089 Minimal Experience Orchestrator, and T090 Intelligent Today are
-complete. T091 durable SSE and its Arabic product journey are accepted; T092 Work list and task
-detail parity are next. Preserve every engine authority and rollback path.
+complete. T091 durable SSE and its Arabic product journey are accepted. T092 Work list and task
+detail parity are technically verified and await Product Owner visual acceptance. Preserve every
+engine authority and rollback path.
 
 ## Current Reality
 
@@ -88,6 +89,10 @@ detail parity are next. Preserve every engine authority and rollback path.
 - T091 is complete: What Changed uses recipient-filtered durable receipt cursors, content-free SSE
   wake-ups, ordered de-duplicated replay, offline/session recovery, and a server rollback flag that
   retains explicit refresh. The authenticated Arabic receipt and reconnect states are captured.
+- T092 is implemented: the compact Work list uses the existing authorized readers and create/
+  transition commands, owns selection in the URL, returns focus after the detail drawer closes, and
+  retains Board, Calendar, My Work, and the legacy list behind a server rollback flag. No browser
+  domain rule, task authority, database record, or history behavior was added.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -100,8 +105,8 @@ detail parity are next. Preserve every engine authority and rollback path.
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
   review; normal Arabic/RTL foundations remain required in the final frontend.
-- T092 must preserve existing Work Item create/transition authorization, append-only history, and
-  retained-route rollback while simplifying the daily task experience.
+- T092 visual acceptance must compare the authenticated English list/detail and Arabic mobile sheet
+  with the retained route before any retirement decision.
 - A separate independent manager participant did not attend G0. The Product Owner accepted this
   overlap and deferred the direct manager session until the complete Phase 1 experience can be
   meaningfully reviewed.
@@ -117,8 +122,9 @@ detail parity are next. Preserve every engine authority and rollback path.
 
 ## Next Recommended Action
 
-Execute T092 Work list and focused task-detail parity on the existing isolated Phase 1 branch. Keep
-the retained Tasks/My Work routes available for rollback. Do not merge Pull Request #29.
+Run T092 authenticated Product Owner visual acceptance and retained-route comparison on the existing
+isolated Phase 1 branch. Keep Tasks/My Work, Board, and Calendar available for rollback. Do not start
+T093, merge Pull Request #29, or change route-retirement disposition before the stop gate.
 
 ## Critical References
 

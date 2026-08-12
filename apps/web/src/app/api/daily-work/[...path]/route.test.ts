@@ -27,6 +27,71 @@ const draftRequestId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
+  it("reads one authorized Work Item without accepting browser ownership", async () => {
+    const workItemId = "99999999-9999-4999-8999-999999999999";
+    mocks.fetchProtectedUpstream.mockResolvedValue(workItem(workItemId));
+
+    const response = await GET(
+      new Request(`http://localhost:3000/api/daily-work/work-items/${workItemId}`),
+      { params: Promise.resolve({ path: ["work-items", workItemId] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: `/api/v1/work-items/${workItemId}`,
+      schema: expect.anything(),
+    });
+  });
+
+  it("forwards only the bounded authorized Work Item transition", async () => {
+    const workItemId = "99999999-9999-4999-8999-999999999999";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      ...workItem(workItemId),
+      status: "in_progress",
+      version: 2,
+    });
+
+    const response = await POST(
+      new Request(`http://localhost:3000/api/daily-work/work-items/${workItemId}/transitions`, {
+        method: "POST",
+        body: JSON.stringify({
+          status: "in_progress",
+          expectedVersion: 1,
+          reason: "Employee changed the Task status from Work.",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["work-items", workItemId, "transitions"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: `/api/v1/work-items/${workItemId}/transitions`,
+      body: {
+        status: "in_progress",
+        expectedVersion: 1,
+        reason: "Employee changed the Task status from Work.",
+      },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request(`http://localhost:3000/api/daily-work/work-items/${workItemId}/transitions`, {
+        method: "POST",
+        body: JSON.stringify({
+          status: "done",
+          expectedVersion: 1,
+          reason: "Caller attempted to select an actor.",
+          actorId: sessionId,
+        }),
+      }),
+      { params: Promise.resolve({ path: ["work-items", workItemId, "transitions"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
   it("proxies the owner-authorized prepared experience without exposing browser credentials", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue({ state: "idle", items: [] });
 
@@ -945,3 +1010,27 @@ describe("daily-work same-origin gateway", () => {
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
   });
 });
+
+function workItem(id: string) {
+  return {
+    id,
+    projectId,
+    workstreamId: null,
+    title: "Prepare launch",
+    description: "",
+    status: "ready",
+    priority: "normal",
+    assigneeId: sessionId,
+    dueAt: null,
+    requirements: [],
+    acceptanceConditions: [],
+    blocker: null,
+    nextAction: null,
+    version: 1,
+    createdAt: "2026-08-12T08:00:00.000Z",
+    updatedAt: "2026-08-12T08:00:00.000Z",
+    checklist: [],
+    collaboratorIds: [],
+    allowedActions: ["edit", "transition", "assign", "add_update"],
+  };
+}

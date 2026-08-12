@@ -9,6 +9,8 @@ import {
   WebUpdateComposerContextSchema,
 } from "../../../platform/daily-work-api";
 import { WorkspaceShell } from "../workspace-shell";
+import { WorkWorkspace } from "../../../product-ui/work/work-workspace";
+import { workWorkspaceEnabled } from "../../../server/work/work-workspace-flag";
 import { TasksClient } from "./tasks-client";
 
 type Properties = Readonly<{
@@ -44,22 +46,34 @@ export default async function TasksPage({ params, searchParams }: Properties) {
     }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
+  const selectedQuery = query.item === undefined ? "" : `&item=${encodeURIComponent(query.item)}`;
+  const useWorkWorkspace = workWorkspaceEnabled() && layout === "list";
   return createElement(
     WorkspaceShell,
     {
       catalog,
       locale,
-      localeSwitchHref: `/${alternateLocale}/tasks?view=${view}&layout=${layout}`,
+      localeSwitchHref: `/${alternateLocale}/tasks?view=${view}&layout=${layout}${selectedQuery}`,
     },
-    createElement(TasksClient, {
-      catalog,
-      draftOwnerId: currentUser.userId,
-      initialItems: response.items,
-      initialLayout: layout,
-      initialSelectedId: query.item ?? null,
-      initialView: view,
-      locale,
-      projects: context.projects.map(({ id, name }) => ({ id, name })),
-    }),
+    useWorkWorkspace
+      ? createElement(WorkWorkspace, {
+          catalog,
+          currentUserId: currentUser.userId,
+          initialItems: response.items,
+          initialSelectedId: query.item ?? null,
+          initialView: view,
+          locale,
+          projects: context.projects.map(({ id, name }) => ({ id, name })),
+        })
+      : createElement(TasksClient, {
+          catalog,
+          draftOwnerId: currentUser.userId,
+          initialItems: response.items,
+          initialLayout: layout,
+          initialSelectedId: query.item ?? null,
+          initialView: view,
+          locale,
+          projects: context.projects.map(({ id, name }) => ({ id, name })),
+        }),
   );
 }

@@ -20,6 +20,21 @@ describe("stable shell model", () => {
     expect(model.globalEntries.find(({ id }) => id === "capture")?.visible).toBe(true);
   });
 
+  it("can move Work to the parity workspace while retaining the legacy default", () => {
+    expect(
+      buildShellModel({ locale: "en", principal: employee }).navigation.find(
+        ({ id }) => id === "work",
+      )?.href,
+    ).toBe("/en/my-work");
+    expect(
+      buildShellModel({
+        locale: "en",
+        principal: employee,
+        workHref: "/en/tasks",
+      }).navigation.find(({ id }) => id === "work")?.href,
+    ).toBe("/en/tasks");
+  });
+
   it("adds manager operations without granting employee capture by role alone", () => {
     const model = buildShellModel({
       locale: "en",

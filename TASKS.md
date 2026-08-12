@@ -914,7 +914,7 @@ The detailed authority is
 
 ## T092 — Migrate Work List and Task Detail with Parity
 
-**Status:** In progress — T091 is complete; bounded Work list and task-detail parity implementation is next.
+**Status:** Implemented and technically verified — authenticated visual acceptance and retained-route comparison remain.
 **Priority:** P1
 **Dependencies:** T091
 **Purpose:** Provide compact daily task management without losing existing Work Item behavior.
