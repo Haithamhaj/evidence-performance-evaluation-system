@@ -16,6 +16,7 @@ export function StableShell({
   locale,
   localeSwitchHref,
   model,
+  experienceStream = false,
 }: Readonly<{
   authAction: "login" | "logout";
   catalog: import("@evaluation/localization").Catalog;
@@ -23,6 +24,7 @@ export function StableShell({
   locale: import("@evaluation/localization").Locale;
   localeSwitchHref: string;
   model: import("./shell-model").ShellModel;
+  experienceStream?: boolean;
 }>) {
   const [notice, setNotice] = useState("");
   const alternateLocale = locale === "ar" ? "en" : "ar";
@@ -55,7 +57,10 @@ export function StableShell({
           ),
           onUnavailable: unavailable,
         })}
-        {createElement(whatChanged.WhatChangedDialog, { catalog })}
+        {createElement(whatChanged.WhatChangedDialog, {
+          catalog,
+          streamEnabled: experienceStream,
+        })}
         {canCapture
           ? createElement(CaptureDialog, {
               catalog,

@@ -69,6 +69,7 @@ import {
 type Context = { readonly params: Promise<{ readonly path: string[] }> };
 
 const UuidSchema = z.string().uuid();
+const CurrentSessionSchema = z.object({ userId: UuidSchema }).passthrough();
 const ContextPrepareItemSchema = z.object({ sourceItemId: UuidSchema }).strict();
 const StrictQueueItemSchema = z
   .object({
@@ -163,6 +164,15 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
   const path = (await context.params).path;
   if (!safeRequestPath(request, path)) return notFound();
   try {
+    if (path.length === 2 && path[0] === "experience" && path[1] === "session") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/me",
+          schema: CurrentSessionSchema,
+        }),
+      );
+    }
     if (path.length === 2 && path[0] === "experience" && path[1] === "what-changed") {
       const afterCursor = new URL(request.url).searchParams.get("afterCursor");
       return json(

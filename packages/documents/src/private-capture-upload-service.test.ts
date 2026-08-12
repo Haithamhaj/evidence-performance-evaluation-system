@@ -40,12 +40,13 @@ describe("PrivateCaptureUploadService", () => {
   it("stages an owner-private file through inspection, malware scan, and private storage", async () => {
     const storage = { put: vi.fn(), delete: vi.fn(), signGet: vi.fn() };
     const scanner = { scan: vi.fn(async () => "clean" as const) };
+    const auditWriter = audit();
     const service = new PrivateCaptureUploadService(
       database() as never,
       storage as never,
       scanner as never,
       { ...policy(), signedUrlTtlSeconds: 60 },
-      audit(),
+      auditWriter,
       { temporaryRoot: "/tmp", randomId: () => uploadId },
     );
 
@@ -66,6 +67,10 @@ describe("PrivateCaptureUploadService", () => {
         contentType: "application/pdf",
         key: expect.stringContaining(ownerId),
       }),
+    );
+    expect(auditWriter.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ actor: { id: ownerId, kind: "human" } }),
     );
   });
 

@@ -21,6 +21,7 @@ import {
 
 import { AiRouteManagementService, AiRoutingModule } from "../ai-routing/ai-routing.module.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { ExperienceStreamController } from "../experience-stream/experience-stream.controller.js";
 import { WorkItemsExperienceAuthorizationModule } from "../work-items/experience-authorization.module.js";
 import { AdministrationController } from "./administration.controller.js";
 import { AuthoritativeOperationsEventPublisher } from "./authoritative-event-publisher.js";
@@ -58,6 +59,7 @@ Module({
     ExportsController,
     AdministrationController,
     ExperienceEventsController,
+    ExperienceStreamController,
   ],
   providers: [
     { provide: OPERATIONS_DATABASE, useFactory: () => createDatabaseClient(databaseUrl()) },

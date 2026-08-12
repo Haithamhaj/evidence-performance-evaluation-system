@@ -906,7 +906,7 @@ The detailed authority is
 
 ## T091 — Implement What Changed and Durable SSE
 
-**Status:** Not started — T090 is complete; this is the next approved slice.
+**Status:** Implementation complete — authorized durable SSE replay and bounded recovery are verified; Product Owner visual acceptance remains.
 **Priority:** P1
 **Dependencies:** T090
 **Purpose:** Show concise authorized receipts with reconnect and exactly-once visible behavior.

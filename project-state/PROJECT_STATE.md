@@ -4,8 +4,8 @@
 
 Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture, T088 Work
 Signals/Experience Events, T089 Minimal Experience Orchestrator, and T090 Intelligent Today are
-complete; T091 What Changed and durable SSE recovery are next. Preserve every engine authority and
-rollback path.
+complete. T091 durable SSE implementation is verified and awaits Product Owner visual acceptance.
+Preserve every engine authority and rollback path.
 
 ## Current Reality
 
@@ -85,6 +85,9 @@ rollback path.
   remain protected Context Intelligence commands; stale correction stays editable and dismissal
   creates no evidence or progress. English desktop, Arabic RTL mobile, recovery, rollback, build,
   accessibility, and the independent P0/P1 review are verified.
+- T091 implementation is complete: What Changed uses recipient-filtered durable receipt cursors,
+  content-free SSE wake-ups, ordered de-duplicated replay, offline/session recovery, and a server
+  rollback flag that retains explicit refresh. Product Owner visual acceptance remains.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -97,8 +100,8 @@ rollback path.
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
   review; normal Arabic/RTL foundations remain required in the final frontend.
-- Intelligent Today is now proven at desktop and 390px in English/Arabic. T091 still needs to replace
-  explicit What Changed refresh with durable SSE reconnect and exactly-once visible replay.
+- What Changed durable replay is technically verified; its live reconnect and receipt clarity still
+  require Product Owner visual acceptance before T092 begins.
 - A separate independent manager participant did not attend G0. The Product Owner accepted this
   overlap and deferred the direct manager session until the complete Phase 1 experience can be
   meaningfully reviewed.
@@ -114,9 +117,8 @@ rollback path.
 
 ## Next Recommended Action
 
-Execute T091 What Changed and durable SSE on the existing isolated Phase 1 branch: stream only
-authorized receipts, reconnect from the durable cursor without duplicate actions, and preserve the
-existing explicit-refresh rollback. Do not merge Pull Request #29 or remove retained routes.
+Run T091 Product Owner visual acceptance on the existing isolated Phase 1 branch. Confirm receipt
+clarity and reconnect behavior before T092. Do not merge Pull Request #29 or remove retained routes.
 
 ## Critical References
 

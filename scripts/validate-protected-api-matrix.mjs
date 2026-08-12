@@ -46,6 +46,12 @@ export const PROTECTED_API_MATRIX = Object.freeze([
     { auditTest: "packages/work-items/src/inbox-service.integration.test.ts" },
   ),
   protectedRow(
+    "api/v1/private-captures/uploads",
+    "apps/api/src/documents/private-capture-uploads.controller.test.ts",
+    "private_capture.*",
+    { auditTest: "packages/documents/src/private-capture-upload-service.test.ts" },
+  ),
+  protectedRow(
     "api/v1/connected-work",
     "apps/api/src/connected-work-context/connected-work-context.e2e.integration.test.ts",
     "connected_work.*",
@@ -55,6 +61,24 @@ export const PROTECTED_API_MATRIX = Object.freeze([
     "api/v1/context",
     "apps/api/src/context-intelligence/context-intelligence.e2e.integration.test.ts",
     "context_intelligence.*",
+  ),
+  protectedRow(
+    "api/v1/experience-orchestration",
+    "apps/api/src/experience-orchestration/experience-orchestrator.service.test.ts",
+    "authorized read composition only",
+    { auditMode: "POLICY_DECISION" },
+  ),
+  protectedRow(
+    "api/v1/experience/what-changed",
+    "apps/api/src/operations/experience-events.controller.test.ts",
+    "recipient-filtered read only",
+    { auditMode: "POLICY_DECISION" },
+  ),
+  protectedRow(
+    "api/v1/experience-stream",
+    "apps/api/src/experience-stream/experience-stream.controller.test.ts",
+    "recipient-filtered read wake-up only",
+    { auditMode: "POLICY_DECISION" },
   ),
   protectedRow(
     "api/v1/updates",

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { buildShellModel } from "../../product-ui/shell/shell-model";
 import { StableShell } from "../../product-ui/shell/stable-shell";
 import { loadShellContext } from "../../server/shell/load-shell-context";
+import { experienceStreamEnabled } from "../../server/experience-stream/experience-stream-flag";
 
 type WorkspaceShellProperties = {
   readonly authAction?: "login" | "logout";
@@ -30,6 +31,7 @@ export async function WorkspaceShell({
       locale,
       localeSwitchHref,
       model: buildShellModel({ locale, principal }),
+      experienceStream: experienceStreamEnabled(),
     },
     children,
   );
