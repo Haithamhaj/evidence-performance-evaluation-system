@@ -32,11 +32,7 @@ export async function createExperienceOrchestrationWorkerComposition(
   const database = createDatabaseClient(configuration.databaseUrl);
   const processor = new ExperienceOrchestrationProcessor({
     compose: (input) =>
-      readDeterministicPreparedComposition(
-        database,
-        input.employeeId,
-        input.idempotencyKey,
-      ),
+      readDeterministicPreparedComposition(database, input.employeeId, input.idempotencyKey),
   });
   const runtime = createExperienceOrchestrationQueueRuntime({
     redisUrl: configuration.redisUrl,
