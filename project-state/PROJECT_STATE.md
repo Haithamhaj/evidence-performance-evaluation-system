@@ -6,8 +6,8 @@ Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Ca
 Signals/Experience Events, T089 Minimal Experience Orchestrator, and T090 Intelligent Today are
 complete. T091 durable SSE and its Arabic product journey are accepted. T092 Work list and task
 detail parity are accepted after a real Arabic create-and-transition journey. T093 owner-private
-source review and explicit evidence confirmation are next. Preserve every engine authority and
-rollback path.
+source review and explicit evidence confirmation are accepted. T094 final acceptance and the
+Product Owner route-retirement decision are next. Preserve every engine authority and rollback path.
 
 ## Current Reality
 
@@ -98,6 +98,12 @@ rollback path.
   moved it through the authoritative `planned -> ready -> in_progress` path, and verified the compact
   list, focused drawer, RTL mobile layout, and retained Board/Calendar routes. The browser now shows
   only transitions allowed by the Work Items domain; invalid choices are not relabelled as stale.
+- T093 is complete: the authenticated employee reviewed real private Google context, linked a source
+  to a Project, created and edited a manual evidence draft, and explicitly confirmed it. The gateway
+  now projects only the public evidence contract, GitHub-linked evidence always requires an employee
+  edit, Google correction preserves history, and manager/administrator-only workspaces do not render
+  the employee-private source queue or capture action. Three Arabic acceptance screenshots record the
+  review, neutral confirmation receipt, and manager-safe absence.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 
 ## Active Risks
@@ -127,10 +133,9 @@ rollback path.
 
 ## Next Recommended Action
 
-Execute T093 on the existing isolated Phase 1 branch: let the employee privately review bounded
-Google, GitHub, and manual context, correct or confirm its Project link, and explicitly confirm one
-evidence item. Keep connector suggestions, manual capture, and existing source routes available for
-rollback. Do not merge Pull Request #29 or retire routes before T094 acceptance.
+Execute T094 on the existing isolated Phase 1 branch: run the complete employee and manager-safe
+journeys, verify rollback and route parity, publish the acceptance and retirement evidence, and stop
+for the Product Owner decision. Do not merge Pull Request #29 or retire routes before that decision.
 
 ## Critical References
 

@@ -144,6 +144,10 @@ const UpstreamConfirmedTaskSchema = z.preprocess(
   projectConfirmedTaskResponse,
   StrictConfirmedTaskSchema,
 );
+const UpstreamEvidenceDetailSchema = z.preprocess(
+  projectEvidenceDetailResponse,
+  EvidenceDetailSchema,
+);
 const TimelineQuerySchema = z
   .object({
     projectId: UuidSchema,
@@ -559,14 +563,14 @@ export async function POST(request: Request, context: Context): Promise<NextResp
       return await post(
         "/api/v1/evidence",
         CreateManualEvidenceInputSchema.parse(body),
-        EvidenceDetailSchema,
+        UpstreamEvidenceDetailSchema,
       );
     }
     if (path.length === 2 && path[0] === "evidence" && path[1] === "github-suggestions") {
       return await post(
         "/api/v1/evidence/github-suggestions",
         CreateGitHubEvidenceInputSchema.parse(body),
-        EvidenceDetailSchema,
+        UpstreamEvidenceDetailSchema,
       );
     }
     if (path.length === 3 && path[0] === "evidence" && isUuid(path[1])) {
@@ -574,7 +578,7 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         return await post(
           `/api/v1/evidence/${path[1]}/revisions`,
           ReviseEvidenceInputSchema.parse(body),
-          EvidenceDetailSchema,
+          UpstreamEvidenceDetailSchema,
         );
       }
       if (path[2] === "confirm") {
@@ -588,7 +592,7 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         return await post(
           `/api/v1/evidence/${path[1]}/reject`,
           RejectEvidenceInputSchema.parse(body),
-          EvidenceDetailSchema,
+          UpstreamEvidenceDetailSchema,
         );
       }
     }
@@ -771,6 +775,25 @@ function projectConfirmedTaskResponse(value: unknown): unknown {
   if (response === null) return value;
   const workItem = objectValue(response.workItem);
   return { workItem: workItem === null ? response.workItem : { title: workItem.title } };
+}
+
+function projectEvidenceDetailResponse(value: unknown): unknown {
+  const response = objectValue(value);
+  if (response === null) return value;
+  return {
+    id: response.id,
+    revisionId: response.revisionId,
+    projectId: response.projectId,
+    workstreamId: response.workstreamId,
+    workItemId: response.workItemId,
+    state: response.state,
+    revision: response.revision,
+    revisionKind: response.revisionKind,
+    sourceKind: response.sourceKind,
+    supportedClaim: response.supportedClaim,
+    contributionContext: response.contributionContext,
+    executionMode: response.executionMode,
+  };
 }
 
 function objectValue(value: unknown): Record<string, unknown> | null {

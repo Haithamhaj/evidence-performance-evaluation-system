@@ -922,7 +922,7 @@ The detailed authority is
 
 ## T093 — Connect the First Real Source-to-Command Journey
 
-**Status:** In progress — T092 is complete and the first owner-private source-to-command slice is authorized.
+**Status:** Complete — real Google/manual review, explicit evidence confirmation, GitHub confirmation gates, owner privacy, manager exclusion, recovery, and rollback are verified.
 **Priority:** P0
 **Dependencies:** T092
 **Purpose:** Join Google, GitHub, and manual context through explicit employee review and evidence confirmation.
@@ -930,7 +930,7 @@ The detailed authority is
 
 ## T094 — Run Phase 1 Acceptance and Route-Retirement Decision
 
-**Status:** Not started — blocked by T087–T093.
+**Status:** In progress — T087–T093 are complete; final journey, rollback, parity, and route-retirement evidence are being assembled.
 **Priority:** P0
 **Dependencies:** T087–T093
 **Purpose:** Prove the complete daily journey, protected manager shell, rollback, and route parity before controlled retirement.

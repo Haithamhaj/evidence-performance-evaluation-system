@@ -11,7 +11,8 @@ import {
 import { WorkspaceShell } from "../workspace-shell";
 import { MyWorkClient } from "./my-work-client";
 import { intelligentTodayEnabled } from "../../../server/today/intelligent-today-flag";
-import { sourceReviewEnabled } from "../../../server/source-review/source-review-flag";
+import { sourceReviewEnabledForRoles } from "../../../server/source-review/source-review-flag";
+import { loadShellContext } from "../../../server/shell/load-shell-context";
 
 type Properties = Readonly<{
   params: Promise<{ locale: string }>;
@@ -21,7 +22,7 @@ type Properties = Readonly<{
 export default async function MyWorkPage({ params, searchParams }: Properties) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const [{ item }, catalog, response, updateContext, checkIns] = await Promise.all([
+  const [{ item }, catalog, response, updateContext, checkIns, shellContext] = await Promise.all([
     searchParams,
     getCatalog(locale),
     fetchDailyWorkUpstream({
@@ -36,6 +37,7 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
       route: { kind: "check_ins" },
       schema: WebCheckInObligationsSchema,
     }),
+    loadShellContext(),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
   return createElement(
@@ -44,6 +46,7 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
       catalog,
       locale,
       localeSwitchHref: `/${alternateLocale}/my-work${item ? `?item=${item}` : ""}`,
+      principal: shellContext.principal,
     },
     createElement(MyWorkClient, {
       catalog,
@@ -52,7 +55,7 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
       initialSelectedId: item ?? null,
       locale,
       response,
-      sourceReview: sourceReviewEnabled(),
+      sourceReview: sourceReviewEnabledForRoles(shellContext.principal.roles),
       updateContext,
     }),
   );

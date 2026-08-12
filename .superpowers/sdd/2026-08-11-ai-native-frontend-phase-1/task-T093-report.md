@@ -69,10 +69,23 @@ None. T093 uses existing Connected Work, Private Inbox, Timeline, and Evidence r
 
 ## Remaining bounded acceptance
 
-The controller still owns the authenticated browser journey and screenshots:
+The controller completed the authenticated browser journey on 2026-08-12:
 
-- `docs/product/screenshots/ai-native-phase-1/t093-source-review.png`
-- `docs/product/screenshots/ai-native-phase-1/t093-evidence-confirmation.png`
-- `docs/product/screenshots/ai-native-phase-1/t093-private-context-denied.png`
+- The employee reviewed real Gmail/Calendar metadata in the owner-private queue and linked a source
+  to the selected Project.
+- A manual source created an evidence draft, required an employee revision, and then confirmed with
+  the neutral receipt “confirmed by you”; the receipt states that neither Project progress nor
+  employee evaluation changed.
+- A manager-only session showed the authorized manager shell but no source-review section, private
+  Google titles, or manual-evidence action.
+- The accepted screenshots are `docs/product/screenshots/ai-native-phase-1/t093-source-review.png`,
+  `t093-evidence-confirmation.png`, and `t093-private-context-denied.png`.
 
-T093 implementation is ready for that Product Owner stop gate. T094 was not started.
+The live journey also exposed and fixed two bounded presentation-boundary defects before closure:
+
+- Evidence responses can contain an internal `githubSourceEventId`; the same-origin gateway now
+  removes internal-only fields before strict browser validation.
+- Manager/administrator-only workspaces no longer render the employee-private source review or its
+  manual capture action.
+
+T093 is complete. T094 final acceptance is now in progress; no route was retired or merged.

@@ -823,6 +823,7 @@ describe("daily-work same-origin gateway", () => {
       projectId,
       workstreamId: null,
       workItemId: null,
+      githubSourceEventId: sourceEventId,
       state: "draft",
       revision: 1,
       revisionKind: "ai_draft",
@@ -841,6 +842,13 @@ describe("daily-work same-origin gateway", () => {
     );
 
     expect(response.status).toBe(200);
+    const gatewaySchema = mocks.fetchProtectedUpstream.mock.calls[0]?.[0].schema;
+    expect(
+      gatewaySchema.parse({
+        ...(await response.json()),
+        githubSourceEventId: sourceEventId,
+      }),
+    ).not.toHaveProperty("githubSourceEventId");
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
       path: "/api/v1/evidence/github-suggestions",
       schema: expect.anything(),

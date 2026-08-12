@@ -14,6 +14,7 @@ type WorkspaceShellProperties = {
   readonly children?: ReactNode;
   readonly locale: Locale;
   readonly localeSwitchHref: string;
+  readonly principal?: Readonly<{ active: boolean; roles: readonly string[]; userId: string }>;
 };
 
 export async function WorkspaceShell({
@@ -22,8 +23,9 @@ export async function WorkspaceShell({
   children,
   locale,
   localeSwitchHref,
+  principal: providedPrincipal,
 }: WorkspaceShellProperties) {
-  const { principal } = await loadShellContext();
+  const principal = providedPrincipal ?? (await loadShellContext()).principal;
   return createElement(
     StableShell,
     {
