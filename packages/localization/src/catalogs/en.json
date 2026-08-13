@@ -313,6 +313,8 @@
   "tasks.selectProject": "Select a project",
   "tasks.projectMissing": "Create or join a Project before creating an official task.",
   "tasks.create": "Create task",
+  "tasks.draftSaved": "Private draft saved on this device until the Task is created.",
+  "tasks.quickTaskBoundary": "Creates one assigned Task only—no evidence or Project progress.",
   "tasks.checklist": "Checklist",
   "tasks.scopes": "Task scope",
   "tasks.scope.my": "My tasks",

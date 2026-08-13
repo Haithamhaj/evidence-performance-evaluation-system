@@ -147,6 +147,10 @@ every engine authority and protected product rule, and all retained rollback rou
   linked to that Task. Codex can see the real Project update and GitHub suggestion beside the Task;
   GitHub remains unconfirmed evidence, the context is not a performance score, and it cannot change
   official Project progress. The focused drawer keeps the Project overview path and focus return.
+- P2-04 is complete: Quick Task remains title-first with one required Project, assigns the official
+  Task to the authenticated employee, saves a versioned employee-owned draft on that device, clears
+  it only after successful creation, and immediately opens the authoritative Task detail. Creating
+  the Task does not create Evidence, an Update, or Project progress.
 
 ## Active Risks
 
@@ -175,8 +179,8 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Execute the next bounded Phase 2 Work bundle: finish Quick Task capture and then add checklist and
-collaborator parity through the existing Work Items commands. Continue dogfooding with Codex and the
+Execute P2-05 dependency parity through the existing Work Items domain, then continue toward Board
+and Calendar interaction parity. Continue dogfooding with Codex and the
 real Project, keep Pull Requests #29 and #30 unmerged, and retain Board, Calendar, and legacy rollback
 routes.
 

@@ -313,6 +313,8 @@
   "tasks.selectProject": "اختر مشروعًا",
   "tasks.projectMissing": "أنشئ مشروعًا أو انضم إليه قبل إنشاء مهمة رسمية.",
   "tasks.create": "إنشاء مهمة",
+  "tasks.draftSaved": "حُفظت المسودة بشكل خاص على هذا الجهاز حتى إنشاء المهمة.",
+  "tasks.quickTaskBoundary": "ينشئ مهمة مسندة فقط—دون دليل أو تغيير في تقدم المشروع.",
   "tasks.checklist": "قائمة التحقق",
   "tasks.scopes": "نطاق المهام",
   "tasks.scope.my": "مهامي",

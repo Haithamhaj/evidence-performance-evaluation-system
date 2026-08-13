@@ -17,6 +17,7 @@ const itemId = "33333333-3333-4333-8333-333333333333";
 const item = workItem();
 
 beforeEach(() => {
+  window.localStorage.clear();
   window.history.replaceState(null, "", "/en/tasks?view=my&layout=list");
   window.requestAnimationFrame = (callback) => {
     callback(0);
@@ -117,11 +118,27 @@ describe("WorkWorkspace", () => {
     renderWork(gateway);
 
     await user.type(screen.getByLabelText("Task title"), created.title);
+    expect(await screen.findByText(/Private draft saved on this device/u)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Create task" }));
 
     await waitFor(() => expect(gateway.create).toHaveBeenCalledOnce());
     expect(await screen.findByText(created.title)).toBeInTheDocument();
     expect(window.location.search).toContain(`item=${created.id}`);
+    expect(window.localStorage.getItem(`command-brief.quick-task.v1:${employeeId}`)).toBeNull();
+  });
+
+  it("restores the employee-owned Quick Task draft without creating activity or progress", async () => {
+    window.localStorage.setItem(
+      `command-brief.quick-task.v1:${employeeId}`,
+      JSON.stringify({ projectId, title: "Continue the Codex Work bundle", version: 1 }),
+    );
+    const gateway = service();
+    renderWork(gateway);
+
+    expect(await screen.findByDisplayValue("Continue the Codex Work bundle")).toBeVisible();
+    expect(screen.getByLabelText("Project is required")).toHaveValue(projectId);
+    expect(gateway.create).not.toHaveBeenCalled();
+    expect(screen.queryByText(/evidence created|progress changed/iu)).not.toBeInTheDocument();
   });
 
   it("transitions through the existing protected command and recovers stale detail", async () => {

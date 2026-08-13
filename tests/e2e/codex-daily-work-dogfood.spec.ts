@@ -50,4 +50,14 @@ test("Codex works on the real evaluation-system Project without fabricated progr
   await editor.getByLabel("Priority").selectOption("urgent");
   await editor.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Implement safe inline Task edits — Codex")).toBeVisible();
+
+  await page.getByRole("button", { name: "Add task" }).click();
+  await page.getByLabel("Task title").fill("Record Codex dogfood feedback");
+  await page.getByLabel("Project is required").selectOption(dogfoodProjectId);
+  await expect(
+    page.getByText("Private draft saved on this device until the Task is created."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Create task" }).click();
+  await expect(page.getByRole("heading", { name: "Record Codex dogfood feedback" })).toBeVisible();
+  await expect(page).toHaveURL(/item=/u);
 });

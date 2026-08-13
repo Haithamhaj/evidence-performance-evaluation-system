@@ -91,9 +91,11 @@ export function WorkWorkspace({
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
+  const [quickDraftReady, setQuickDraftReady] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
+  const quickDraftKey = `command-brief.quick-task.v1:${currentUserId}`;
   const model = useMemo(
     () =>
       buildWorkListModel({ items, projects, unknownProjectLabel: catalog["work.unknownProject"] }),
@@ -122,6 +124,39 @@ export function WorkWorkspace({
       ),
     ) as Record<WorkItemStatus | "all", number>;
   }, [initialCounts, items]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(quickDraftKey);
+      if (stored !== null) {
+        const parsed = JSON.parse(stored) as {
+          projectId?: unknown;
+          title?: unknown;
+          version?: unknown;
+        };
+        if (parsed.version === 1 && typeof parsed.title === "string") setTitle(parsed.title);
+        if (
+          parsed.version === 1 &&
+          typeof parsed.projectId === "string" &&
+          projects.some((project) => project.id === parsed.projectId)
+        ) {
+          setProjectId(parsed.projectId);
+        }
+      }
+    } catch {
+      window.localStorage.removeItem(quickDraftKey);
+    }
+    setQuickDraftReady(true);
+  }, [projects, quickDraftKey]);
+
+  useEffect(() => {
+    if (!quickDraftReady) return;
+    if (title.trim() === "") {
+      window.localStorage.removeItem(quickDraftKey);
+      return;
+    }
+    window.localStorage.setItem(quickDraftKey, JSON.stringify({ projectId, title, version: 1 }));
+  }, [projectId, quickDraftKey, quickDraftReady, title]);
 
   function updateFilterUrl(next: typeof filters) {
     setFilters(next);
@@ -213,6 +248,7 @@ export function WorkWorkspace({
       });
       setItems((current) => [created, ...current.filter(({ id }) => id !== created.id)]);
       setTitle("");
+      window.localStorage.removeItem(quickDraftKey);
       select(created.id);
     } catch {
       setCreateError(true);
@@ -364,6 +400,9 @@ export function WorkWorkspace({
             {catalog["tasks.error"]}
           </p>
         ) : null}
+        <p className={styles.createNote!}>
+          {title.trim() === "" ? catalog["tasks.quickTaskBoundary"] : catalog["tasks.draftSaved"]}
+        </p>
       </form>
 
       <nav aria-label={catalog["tasks.scopes"]} className={styles.toolbar!}>
