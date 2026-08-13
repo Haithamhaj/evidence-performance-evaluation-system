@@ -180,6 +180,11 @@ every engine authority and protected product rule, and all retained rollback rou
   freshness, and consequence. The action opens the real Project Task for Codex; it does not execute
   a command, create Evidence, infer performance, or alter Project progress. The real dogfood journey
   now proves this handoff against the Evidence Performance Evaluation System Project.
+- The first bounded P2-12 contextual-help slice is complete inside Task detail. Codex can ask what to
+  do next, why the Task is blocked, or for a summary of linked activity. Answers are derived only
+  from the authorized Task, dependencies, Updates, and Evidence, explicitly preserve GitHub's
+  suggested-evidence state, and execute no command. Free-form AI conversation and confirmed command
+  preparation remain subsequent bounded work; this deterministic help is not mislabelled as live AI.
 
 ## Active Risks
 
@@ -208,9 +213,11 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue the Work Agent bundle with the remaining approved source-backed triggers and contextual
-Task help, then complete the bounded Work reporting view. Keep dogfooding with Codex and the real
-Project, keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
+Continue Work with authoritative live refresh, safe draft/offline recovery, and representative
+performance fixtures before closing the capability matrix. Then extend contextual Task help through
+the AI Router only where a protected command and explicit confirmation are available. Keep
+dogfooding with Codex and the real Project, keep Pull Requests #29 and #30 unmerged, and retain
+Calendar and legacy rollback routes.
 
 ## Critical References
 

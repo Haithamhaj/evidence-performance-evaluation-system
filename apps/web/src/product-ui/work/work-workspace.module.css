@@ -759,6 +759,69 @@
     cursor: pointer;
   }
 
+  .taskAssistant {
+    display: grid;
+    gap: 0.75rem;
+    border: 1px solid #b9cced;
+    border-radius: 0.65rem;
+    background: linear-gradient(145deg, #f7faff 0%, #fff 72%);
+    padding: 0.9rem;
+  }
+
+  .taskAssistant header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+
+  .taskAssistant header p,
+  .taskAssistant header h4,
+  .taskAssistantEmpty,
+  .taskAssistantAnswer p {
+    margin: 0;
+  }
+
+  .taskAssistant header p {
+    color: #1259c3;
+    font-size: 0.67rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .taskAssistant header small,
+  .taskAssistantEmpty,
+  .taskAssistantAnswer small {
+    color: var(--ui-color-text-muted, #536174);
+    font-size: 0.72rem;
+  }
+
+  .taskAssistantPrompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .taskAssistantPrompts button {
+    border: 1px solid #9fc0f1;
+    border-radius: 999px;
+    background: #fff;
+    padding: 0.42rem 0.65rem;
+    color: #1259c3;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .taskAssistantAnswer {
+    display: grid;
+    gap: 0.3rem;
+    border-inline-start: 0.18rem solid #1467e8;
+    background: #eef5ff;
+    padding: 0.65rem 0.75rem;
+  }
+
   .rowSelection {
     display: grid;
     place-items: center;

@@ -49,6 +49,10 @@ test("Codex works on the real evaluation-system Project without fabricated progr
     page.getByText("GitHub suggested evidence · employee confirmation required"),
   ).toBeVisible();
   await expect(page.getByText(/does not score Codex or change Project progress/u)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ask about this Task" })).toBeVisible();
+  await page.getByRole("button", { name: "Summarize linked activity" }).click();
+  await expect(page.getByText(/1 linked update and 1 evidence item/u)).toBeVisible();
+  await expect(page.getByText(/GitHub evidence is still only suggested/u)).toBeVisible();
   await page.getByRole("button", { name: "Close" }).click();
 
   await page.getByRole("button", { name: /Connect Task detail to updates and evidence/u }).click();

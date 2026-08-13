@@ -12,6 +12,7 @@ import type {
   WorkItemStatus,
 } from "../../platform/work-items-api";
 import styles from "../../product-ui/work/work-workspace.module.css";
+import { TaskContextAssistant } from "./task-context-assistant";
 
 export function TaskDetailDrawer({
   catalog,
@@ -250,6 +251,12 @@ export function TaskDetailDrawer({
                 </div>
               )}
             </section>
+            <TaskContextAssistant
+              catalog={catalog}
+              context={context}
+              dependencies={dependencies}
+              item={item}
+            />
             {notice === "stale" ? (
               <p className={styles.alert!} role="alert">
                 {catalog["work.stale"]}
