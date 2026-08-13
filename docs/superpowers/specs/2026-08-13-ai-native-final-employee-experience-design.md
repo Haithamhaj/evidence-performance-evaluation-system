@@ -1,8 +1,11 @@
 # AI-Native Employee Experience — Final Visual Design
 
-**Date:** 2026-08-13  
-**Status:** Product Owner visual checkpoint  
-**Surface:** Employee daily experience  
+**Date:** 2026-08-13
+
+**Status:** Product Owner visual checkpoint
+
+**Surface:** Employee daily experience
+
 **Implementation status:** Design only; no production UI implementation is authorized by this document
 
 ## 1. Outcome
