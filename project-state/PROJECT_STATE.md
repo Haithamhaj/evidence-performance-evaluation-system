@@ -157,6 +157,11 @@ every engine authority and protected product rule, and all retained rollback rou
   cross-Project dependencies are rejected. The Codex dogfood journey now shows the connected-detail
   Task waiting for the reviewed Work-query bundle, without converting Task state into Project
   progress or employee evaluation.
+- P2-06 is complete without speculative drag-and-drop: Board renders the same authoritative Tasks as
+  List in compact status columns, preserves Project/search/status/sort URL context when switching
+  views, opens the same focused detail, and moves work through the existing protected transition
+  command. Keyboard/mobile users have an explicit menu-and-button path; stale or dependency-blocked
+  moves reload current options rather than inventing a browser-side state.
 
 ## Active Risks
 
@@ -185,9 +190,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue with Board interaction parity as the next bounded Work bundle, followed by Calendar parity.
-Keep dogfooding with Codex and the real Project, keep Pull Requests #29 and #30 unmerged, and retain
-Board, Calendar, and legacy rollback routes.
+Continue with Calendar interaction parity as the next bounded Work bundle, then personal views where
+they reduce repeated setup. Keep dogfooding with Codex and the real Project, keep Pull Requests #29
+and #30 unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

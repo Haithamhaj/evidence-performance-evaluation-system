@@ -412,6 +412,7 @@ describe("WorkWorkspace", () => {
           status: null,
         }}
         initialItems={[filtered]}
+        initialLayout="list"
         initialView="my"
         locale="en"
         projects={[{ id: projectId, name: "Atlas Delivery" }]}
@@ -421,6 +422,53 @@ describe("WorkWorkspace", () => {
     expect(screen.getByText("Delivery task 12")).toBeInTheDocument();
     expect(screen.queryByText("Prepare the launch")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Work list 1" })).toBeInTheDocument();
+  });
+
+  it("shows the same authoritative Tasks on Board and moves through the protected command", async () => {
+    const planned = {
+      ...item,
+      status: "planned" as const,
+      allowedTransitions: ["ready", "cancelled"] as ("ready" | "cancelled")[],
+    };
+    const ready = {
+      ...item,
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Verify the source",
+    };
+    const gateway = service({
+      transition: vi.fn().mockResolvedValue({
+        ...planned,
+        status: "ready",
+        version: 2,
+        allowedTransitions: ["in_progress", "blocked", "cancelled"],
+      }),
+    });
+    const user = userEvent.setup();
+    render(
+      <WorkWorkspace
+        catalog={getCatalogSync("en")}
+        currentUserId={employeeId}
+        gateway={gateway}
+        initialItems={[planned, ready]}
+        initialLayout="board"
+        initialView="my"
+        locale="en"
+        projects={[{ id: projectId, name: "Atlas Delivery" }]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Planned 1" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Ready 1" })).toBeVisible();
+    expect(screen.getAllByText(planned.title)).toHaveLength(1);
+    await user.selectOptions(screen.getByLabelText(`Move ${planned.title} to`), "ready");
+    await user.click(screen.getByRole("button", { name: `Move ${planned.title}` }));
+
+    expect(gateway.transition).toHaveBeenCalledWith(
+      planned.id,
+      expect.objectContaining({ expectedVersion: 1, status: "ready" }),
+    );
+    expect(await screen.findByRole("heading", { name: "Planned 0" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Ready 2" })).toBeVisible();
   });
 });
 
@@ -437,6 +485,7 @@ function renderWork(
       currentUserId={employeeId}
       gateway={gateway}
       initialItems={items}
+      initialLayout="list"
       initialSelectedId={selectedId}
       {...(initialSnapshot === undefined ? {} : { initialSnapshot })}
       initialView="my"

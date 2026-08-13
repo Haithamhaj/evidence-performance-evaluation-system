@@ -50,6 +50,16 @@ test("Codex works on the real evaluation-system Project without fabricated progr
   await expect(dependentTask.getByRole("option", { name: "Ready" })).toHaveCount(0);
   await page.getByRole("button", { name: "Close" }).click();
 
+  await page.getByRole("link", { name: "Board" }).click();
+  await expect(page).toHaveURL(/layout=board/u);
+  await expect(page.getByRole("heading", { name: "Planned 2" })).toBeVisible();
+  await page.screenshot({ path: "tmp/playwright/codex-work-board.png", fullPage: true });
+  const benchmark = "Benchmark the Work flow against the ClickUp reference";
+  await page.getByLabel(`Move ${benchmark} to`).selectOption("ready");
+  await page.getByRole("button", { name: `Move ${benchmark}` }).click();
+  await expect(page.getByRole("heading", { name: "Ready 2" })).toBeVisible();
+  await page.getByRole("link", { name: "List" }).click();
+
   const task = page.getByRole("listitem").filter({ hasText: "Implement safe inline Task edits" });
   await task.getByRole("button", { name: "Edit task" }).click();
   const editor = task.getByRole("form", { name: "Edit task" });

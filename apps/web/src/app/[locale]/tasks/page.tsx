@@ -67,7 +67,7 @@ export default async function TasksPage({ params, searchParams }: Properties) {
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
   const alternateHref = buildTasksPageState(alternateLocale, query).href;
-  const useWorkWorkspace = workWorkspaceEnabled() && layout === "list";
+  const useWorkWorkspace = workWorkspaceEnabled() && (layout === "list" || layout === "board");
   const hasActiveFilters = projectId !== null || search !== null || status !== null;
   return createElement(
     WorkspaceShell,
@@ -81,6 +81,7 @@ export default async function TasksPage({ params, searchParams }: Properties) {
           catalog,
           currentUserId: currentUser.userId,
           initialItems: response.items,
+          initialLayout: layout,
           initialCounts: response.counts,
           initialFilters: { projectId, search, sort, status },
           initialSelectedId: selectedId,

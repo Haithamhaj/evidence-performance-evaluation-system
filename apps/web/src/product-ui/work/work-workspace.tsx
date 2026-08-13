@@ -65,6 +65,7 @@ export function WorkWorkspace({
   initialCounts,
   initialFilters = { projectId: null, search: null, sort: "due_asc", status: null },
   initialItems,
+  initialLayout,
   initialSelectedId = null,
   initialSnapshot,
   initialView,
@@ -82,6 +83,7 @@ export function WorkWorkspace({
     status: WorkItemStatus | null;
   }>;
   initialItems: readonly WebWorkItem[];
+  initialLayout: "board" | "list";
   initialSnapshot?: import("@evaluation/contracts").DailyWorkspaceSnapshot;
   initialSelectedId?: string | null;
   initialView: "my" | "team";
@@ -107,6 +109,7 @@ export function WorkWorkspace({
   const [createError, setCreateError] = useState(false);
   const [quickDraftReady, setQuickDraftReady] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [boardNotice, setBoardNotice] = useState<"stale" | "error" | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
   const quickDraftKey = `command-brief.quick-task.v1:${currentUserId}`;
@@ -181,6 +184,15 @@ export function WorkWorkspace({
     if (next.status !== null) url.searchParams.set("status", next.status);
     if (next.sort !== "due_asc") url.searchParams.set("sort", next.sort);
     window.history.replaceState(null, "", url);
+  }
+
+  function workspaceHref(view: "my" | "team", layout: "board" | "calendar" | "list") {
+    const search = new URLSearchParams({ view, layout });
+    if (filters.search !== null && filters.search.trim() !== "") search.set("q", filters.search);
+    if (filters.projectId !== null) search.set("project", filters.projectId);
+    if (filters.status !== null) search.set("status", filters.status);
+    if (filters.sort !== "due_asc") search.set("sort", filters.sort);
+    return `/${locale}/tasks?${search.toString()}`;
   }
 
   async function load(id: string, generation = ++detailRequestGeneration.current) {
@@ -320,6 +332,40 @@ export function WorkWorkspace({
       }
       setNotice("transition_error");
       setDetailState("ready");
+    }
+  }
+
+  async function moveFromBoard(item: WebWorkItem, status: WorkItemStatus) {
+    setBoardNotice(null);
+    try {
+      const updated = await gateway.transition(item.id, {
+        status,
+        expectedVersion: item.version,
+        reason: catalog["work.transitionReason"],
+      });
+      setItems((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+    } catch (error) {
+      if (error instanceof WorkItemGatewayError && error.status === 409) {
+        try {
+          const [current, currentDependencies] = await Promise.all([
+            gateway.load(item.id),
+            gateway.loadDependencies(item.id),
+          ]);
+          setItems((entries) =>
+            entries.map((entry) =>
+              entry.id === current.id
+                ? { ...current, allowedTransitions: currentDependencies.allowedTransitions }
+                : entry,
+            ),
+          );
+          setBoardNotice("stale");
+          return;
+        } catch {
+          setBoardNotice("error");
+          return;
+        }
+      }
+      setBoardNotice("error");
     }
   }
 
@@ -466,27 +512,31 @@ export function WorkWorkspace({
         {(["my", "team"] as const).map((view) => (
           <a
             aria-current={initialView === view ? "page" : undefined}
-            href={`/${locale}/tasks?view=${view}&layout=list`}
+            href={workspaceHref(view, initialLayout)}
             key={view}
           >
             {catalog[`tasks.scope.${view}`]}
           </a>
         ))}
         <span aria-hidden="true" />
-        <a aria-current="page" href={`/${locale}/tasks?view=${initialView}&layout=list`}>
+        <a
+          aria-current={initialLayout === "list" ? "page" : undefined}
+          href={workspaceHref(initialView, "list")}
+        >
           {catalog["tasks.view.list"]}
         </a>
-        <a href={`/${locale}/tasks?view=${initialView}&layout=board`}>
+        <a
+          aria-current={initialLayout === "board" ? "page" : undefined}
+          href={workspaceHref(initialView, "board")}
+        >
           {catalog["tasks.view.board"]}
         </a>
-        <a href={`/${locale}/tasks?view=${initialView}&layout=calendar`}>
-          {catalog["tasks.view.calendar"]}
-        </a>
+        <a href={workspaceHref(initialView, "calendar")}>{catalog["tasks.view.calendar"]}</a>
       </nav>
 
       <form action={`/${locale}/tasks`} className={styles.filters!} method="get" role="search">
         <input name="view" type="hidden" value={initialView} />
-        <input name="layout" type="hidden" value="list" />
+        <input name="layout" type="hidden" value={initialLayout} />
         <label className={styles.searchField!}>
           <span>{catalog["work.search"]}</span>
           <input
@@ -569,13 +619,27 @@ export function WorkWorkspace({
         </button>
         <a
           className={styles.clearFilters!}
-          href={`/${locale}/tasks?view=${initialView}&layout=list`}
+          href={`/${locale}/tasks?view=${initialView}&layout=${initialLayout}`}
         >
           {catalog["work.clearFilters"]}
         </a>
       </form>
 
-      {groups !== null ? (
+      {boardNotice === null ? null : (
+        <p className={styles.alert!} role="alert">
+          {catalog[boardNotice === "stale" ? "work.board.stale" : "work.board.error"]}
+        </p>
+      )}
+
+      {initialLayout === "board" ? (
+        <WorkBoard
+          catalog={catalog}
+          items={items}
+          onMove={moveFromBoard}
+          onSelect={select}
+          projects={projects}
+        />
+      ) : groups !== null ? (
         groups.map((group) => (
           <section
             aria-labelledby={`work-${group.key}`}
@@ -657,6 +721,117 @@ export function WorkWorkspace({
         />
       )}
     </section>
+  );
+}
+
+const boardStatuses = [
+  "planned",
+  "ready",
+  "in_progress",
+  "blocked",
+  "in_review",
+  "done",
+  "cancelled",
+] as const;
+
+function WorkBoard({
+  catalog,
+  items,
+  onMove,
+  onSelect,
+  projects,
+}: Readonly<{
+  catalog: Catalog;
+  items: readonly WebWorkItem[];
+  onMove(item: WebWorkItem, status: WorkItemStatus): Promise<void>;
+  onSelect(id: string): void;
+  projects: readonly { id: string; name: string }[];
+}>) {
+  return (
+    <section aria-label={catalog["work.board.title"]} className={styles.board!}>
+      {boardStatuses.map((status) => {
+        const statusItems = items.filter((item) => item.status === status);
+        return (
+          <section className={styles.boardColumn!} key={status}>
+            <h2>
+              {catalog[`myWork.status.${status}`]} <span>{statusItems.length}</span>
+            </h2>
+            {statusItems.length === 0 ? (
+              <p className={styles.boardEmpty!}>{catalog["work.board.empty"]}</p>
+            ) : (
+              <ol>
+                {statusItems.map((item) => (
+                  <li className={styles.boardCard!} key={item.id}>
+                    <button
+                      className={styles.boardCardOpen!}
+                      data-work-item-id={item.id}
+                      onClick={() => onSelect(item.id)}
+                      type="button"
+                    >
+                      <strong>{item.title}</strong>
+                      <span>
+                        {projects.find(({ id }) => id === item.projectId)?.name ??
+                          catalog["work.unknownProject"]}
+                      </span>
+                      {item.nextAction === null ? null : <small>{item.nextAction}</small>}
+                    </button>
+                    {item.allowedTransitions.length === 0 ? null : (
+                      <BoardMove catalog={catalog} item={item} onMove={onMove} />
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        );
+      })}
+    </section>
+  );
+}
+
+function BoardMove({
+  catalog,
+  item,
+  onMove,
+}: Readonly<{
+  catalog: Catalog;
+  item: WebWorkItem;
+  onMove(item: WebWorkItem, status: WorkItemStatus): Promise<void>;
+}>) {
+  const [status, setStatus] = useState(item.allowedTransitions[0] ?? item.status);
+  const [moving, setMoving] = useState(false);
+  useEffect(() => setStatus(item.allowedTransitions[0] ?? item.status), [item]);
+  return (
+    <form
+      className={styles.boardMove!}
+      onSubmit={(event) => {
+        event.preventDefault();
+        setMoving(true);
+        void onMove(item, status).finally(() => setMoving(false));
+      }}
+    >
+      <label>
+        <span>{catalog["work.board.moveTo"]}</span>
+        <select
+          aria-label={`${catalog["work.board.move"]} ${item.title} ${catalog["work.board.to"]}`}
+          onChange={(event) => setStatus(event.target.value as WorkItemStatus)}
+          value={status}
+        >
+          {item.allowedTransitions.map((next) => (
+            <option key={next} value={next}>
+              {catalog[`myWork.status.${next}`]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        aria-label={`${catalog["work.board.move"]} ${item.title}`}
+        disabled={moving}
+        type="submit"
+      >
+        {catalog["work.board.move"]}
+      </button>
+    </form>
   );
 }
 
