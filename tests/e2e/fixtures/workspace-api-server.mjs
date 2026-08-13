@@ -1600,11 +1600,46 @@ const server = createServer(async (request, response) => {
     return json(response, 200, employeeProjectExperience());
   }
   if (request.method === "GET" && url.pathname === "/api/v1/work-items") {
+    const search = url.searchParams.get("search")?.trim().toLowerCase() ?? "";
+    const projectFilter = url.searchParams.get("projectId");
+    const statusFilter = url.searchParams.get("status");
+    const baseItems = workItems.filter(
+      (item) =>
+        (projectFilter === null || item.projectId === projectFilter) &&
+        (search === "" || `${item.title} ${item.description}`.toLowerCase().includes(search)),
+    );
+    const visibleItems = baseItems.filter(
+      (item) => statusFilter === null || item.status === statusFilter,
+    );
+    const sort = url.searchParams.get("sort") ?? "due_asc";
+    const priorityRank = { urgent: 4, high: 3, normal: 2, low: 1 };
+    visibleItems.sort((left, right) => {
+      if (sort === "updated_desc") return right.updatedAt.localeCompare(left.updatedAt);
+      if (sort === "priority_desc")
+        return priorityRank[right.priority] - priorityRank[left.priority];
+      return (left.dueAt ?? "9999").localeCompare(right.dueAt ?? "9999");
+    });
+    const statuses = [
+      "planned",
+      "ready",
+      "in_progress",
+      "blocked",
+      "in_review",
+      "done",
+      "cancelled",
+    ];
     return json(response, 200, {
       view: url.searchParams.get("view") ?? "my",
       layout: url.searchParams.get("layout") ?? "list",
-      items: workItems,
+      items: visibleItems,
       nextCursor: null,
+      counts: Object.fromEntries([
+        ["all", baseItems.length],
+        ...statuses.map((status) => [
+          status,
+          baseItems.filter((item) => item.status === status).length,
+        ]),
+      ]),
     });
   }
   if (request.method === "GET" && /^\/api\/v1\/work-items\/[0-9a-f-]+$/u.test(url.pathname)) {
