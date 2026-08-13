@@ -22,6 +22,7 @@ describe("frontend import boundaries", () => {
       "FRONTEND_FEATURE_INTERNAL",
       "FRONTEND_GENERIC_UI_PRODUCT",
       "FRONTEND_PRODUCT_UI_SERVER",
+      "FRONTEND_FINAL_EXPERIENCE_PROTECTED",
       "FRONTEND_CLIENT_SERVER",
       "FRONTEND_ROUTE_PERSISTENCE",
       "FRONTEND_TELEMETRY_AUTHORITY",
@@ -35,6 +36,7 @@ describe("frontend import boundaries", () => {
     expect(result.stderr).toContain("illegal-experience-event.ts");
     expect(result.stderr).toContain("illegal-work-signal.ts");
     expect(result.stderr).toContain("protected-document.ts");
+    expect(result.stderr).toContain("final-experience-persistence.tsx");
   });
 
   it("allows public contracts, localization, UI primitives, and safe composition", () => {

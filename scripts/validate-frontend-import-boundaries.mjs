@@ -143,6 +143,23 @@ function isProviderPackage(specifier) {
   );
 }
 
+function isFinalExperienceProductSource(source) {
+  return /^apps\/web\/src\/(?:features|product-ui)\/(?:home|project|review|universal-capture)\//u.test(
+    source,
+  );
+}
+
+function isFinalExperienceProtectedTarget(specifier, target) {
+  const evaluationPackage = specifier.match(/^@evaluation\/([^/]+)/u)?.[1];
+  const safePackages = new Set(["contracts", "localization", "ui"]);
+  return (
+    /(?:^|\/)(?:auth|credentials?|database|employee-evaluation|evaluation-preparation|manager-evaluation|permissions?|persistence|prisma|repositories?|secrets?|tokens?)(?:\/|-|$)/u.test(
+      target,
+    ) ||
+    (evaluationPackage !== undefined && !safePackages.has(evaluationPackage))
+  );
+}
+
 function violationsFor(source, sourceText, specifier) {
   const target = resolveTarget(path.join(scanRoot, source), specifier);
   const violations = [];
@@ -188,6 +205,12 @@ function violationsFor(source, sourceText, specifier) {
   }
   if (!source.startsWith("packages/ai-routing/") && isProviderPackage(specifier)) {
     violations.push("BOUNDARY_DIRECT_AI_PROVIDER");
+  }
+  if (
+    isFinalExperienceProductSource(source) &&
+    isFinalExperienceProtectedTarget(specifier, target)
+  ) {
+    violations.push("FRONTEND_FINAL_EXPERIENCE_PROTECTED");
   }
   return violations;
 }

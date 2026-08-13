@@ -942,7 +942,7 @@ The detailed authority is
 
 ## T095 — Freeze Final Screen Contracts and Rollback
 
-**Status:** In progress — all five visual targets are Product Owner approved.
+**Status:** Complete — closed screen contracts, independent rollback flags, and final-UI source boundaries are verified.
 **Priority:** P1
 **Dependencies:** T094
 **Purpose:** Define one typed presentation/composition model for Home, Project, Work, Capture, and Review without moving domain authority into the browser.

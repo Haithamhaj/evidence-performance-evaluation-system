@@ -13,6 +13,7 @@ export * from "./errors.js";
 export * from "./evaluation-cycle.js";
 export * from "./evaluation-fact-view.js";
 export * from "./employee-evaluation.js";
+export * from "./employee-experience.js";
 export * from "./experience-inspection.js";
 export * from "./experience-events/experience-events.js";
 export * from "./experience-orchestration/experience-orchestration.js";
