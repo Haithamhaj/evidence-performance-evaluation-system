@@ -162,6 +162,12 @@ every engine authority and protected product rule, and all retained rollback rou
   views, opens the same focused detail, and moves work through the existing protected transition
   command. Keyboard/mobile users have an explicit menu-and-button path; stale or dependency-blocked
   moves reload current options rather than inventing a browser-side state.
+- P2-07 is complete: Calendar renders the same authoritative Codex Tasks grouped by due date and
+  changes dates only through the existing protected Work Item update command. Owner-private Google
+  Calendar context appears beside the plan to help link meetings to Projects; it remains review
+  context and cannot become Evidence, official Project progress, or employee performance without the
+  existing human confirmation gates. The real dogfood journey rescheduled the Phase 2 review Task,
+  verified the same Task in List/Board/Calendar, and captured the connected Calendar state.
 
 ## Active Risks
 

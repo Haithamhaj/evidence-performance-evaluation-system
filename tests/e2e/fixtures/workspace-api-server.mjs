@@ -461,6 +461,18 @@ const codexWorkItems = [
   },
 ];
 workItems.push(...codexWorkItems);
+connectedWorkItems.unshift({
+  id: "d5555555-5555-4555-8555-555555555555",
+  provider: "GOOGLE_CALENDAR",
+  occurredAt: "2026-08-13T14:30:00.000Z",
+  title: "Review Command Brief Work journey",
+  summary: "Codex checks the real List, Board, and Calendar flow before the next frontend bundle.",
+  sourceUrl: "https://calendar.google.com/calendar/event?eid=codex-work-review",
+  privacy: "PRIVATE",
+  excluded: false,
+  projectId: dogfoodProjectId,
+  sourceExclusion: null,
+});
 const workItemDependencies = new Map([[codexWorkItems[2].id, [codexWorkItems[0].id]]]);
 timelineItems.push(...initialSliceFourTimeline());
 

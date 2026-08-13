@@ -60,6 +60,21 @@ test("Codex works on the real evaluation-system Project without fabricated progr
   await expect(page.getByRole("heading", { name: "Ready 2" })).toBeVisible();
   await page.getByRole("link", { name: "List" }).click();
 
+  await page.getByRole("link", { name: "Calendar" }).click();
+  await expect(page).toHaveURL(/layout=calendar/u);
+  await expect(page.getByText("Private Google Calendar context")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Review Command Brief Work journey" }),
+  ).toBeVisible();
+  const reviewTask = page.getByRole("form", {
+    name: "Reschedule Review Phase 2 Work query bundle",
+  });
+  await reviewTask.getByLabel("Due date and time").fill("2026-08-18T12:30");
+  await reviewTask.getByRole("button", { name: "Save date" }).click();
+  await expect(page.getByRole("heading", { name: /Aug 18/u })).toBeVisible();
+  await page.screenshot({ path: "tmp/playwright/codex-work-calendar.png", fullPage: true });
+  await page.getByRole("link", { name: "List" }).click();
+
   const task = page.getByRole("listitem").filter({ hasText: "Implement safe inline Task edits" });
   await task.getByRole("button", { name: "Edit task" }).click();
   const editor = task.getByRole("form", { name: "Edit task" });

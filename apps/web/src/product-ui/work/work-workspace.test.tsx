@@ -470,6 +470,73 @@ describe("WorkWorkspace", () => {
     expect(await screen.findByRole("heading", { name: "Planned 0" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Ready 2" })).toBeVisible();
   });
+
+  it("plans the same authoritative Tasks on Calendar and saves protected due-date changes", async () => {
+    const user = userEvent.setup();
+    const scheduled = {
+      ...item,
+      dueAt: "2026-08-13T12:00:00.000Z",
+    };
+    const updated = {
+      ...scheduled,
+      dueAt: "2026-08-15T09:30:00.000Z",
+      version: 2,
+    };
+    const gateway = service({
+      loadConnectedContext: vi.fn().mockResolvedValue({
+        connection: { lastSuccessfulSyncAt: "2026-08-13T08:00:00.000Z", status: "connected" },
+        items: [
+          {
+            excluded: false,
+            id: "55555555-5555-4555-8555-555555555555",
+            occurredAt: "2026-08-13T14:00:00.000Z",
+            privacy: "PRIVATE",
+            projectId,
+            provider: "GOOGLE_CALENDAR",
+            sourceExclusion: null,
+            sourceUrl: "https://calendar.google.com/event?eid=demo",
+            summary: "Confirm the frontend acceptance flow.",
+            title: "Codex project review",
+          },
+        ],
+        mode: "synthetic",
+        synthetic: true,
+      }),
+      update: vi.fn().mockResolvedValue(updated),
+    });
+    render(
+      <WorkWorkspace
+        catalog={getCatalogSync("en")}
+        currentUserId={employeeId}
+        gateway={gateway}
+        initialItems={[scheduled]}
+        initialLayout="calendar"
+        initialView="my"
+        locale="en"
+        projects={[{ id: projectId, name: "Atlas Delivery" }]}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Codex project review" })).toBeVisible();
+    expect(screen.getByText("Private Google Calendar context")).toBeVisible();
+    const form = screen.getByRole("form", { name: `Reschedule ${scheduled.title}` });
+    const dueDate = within(form).getByLabelText("Due date and time");
+    await user.clear(dueDate);
+    await user.type(dueDate, "2026-08-15T12:30");
+    await user.click(within(form).getByRole("button", { name: "Save date" }));
+
+    await waitFor(() =>
+      expect(gateway.update).toHaveBeenCalledWith(
+        scheduled.id,
+        expect.objectContaining({
+          dueAt: "2026-08-15T09:30:00.000Z",
+          expectedVersion: 1,
+          title: scheduled.title,
+        }),
+      ),
+    );
+    expect(screen.getByText("Aug 15")).toBeVisible();
+  });
 });
 
 function renderWork(
@@ -520,6 +587,12 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
     create: vi.fn().mockImplementation(async ({ title }) => ({ ...item, title })),
     load: vi.fn().mockResolvedValue(item),
     loadContext: vi.fn().mockResolvedValue({ evidence: [], updates: [] }),
+    loadConnectedContext: vi.fn().mockResolvedValue({
+      connection: { lastSuccessfulSyncAt: null, status: "disconnected" },
+      items: [],
+      mode: "synthetic",
+      synthetic: true,
+    }),
     loadDependencies: vi.fn().mockResolvedValue({
       workItemId: item.id,
       version: item.version,

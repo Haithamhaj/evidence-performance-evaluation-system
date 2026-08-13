@@ -8,6 +8,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildWorkGroupModel, buildWorkListModel } from "../../features/work-list/work-list-model";
 import { TaskDetailDrawer } from "../../features/task-detail/task-detail-drawer";
 import {
+  listConnectedWorkContext,
+  type ConnectedWorkContext,
+} from "../../platform/connected-work-context-api";
+import {
   createWorkItem,
   loadWorkItem,
   loadWorkItemContext,
@@ -27,6 +31,7 @@ export type WorkWorkspaceGateway = Readonly<{
   create(input: { employeeId: string; projectId: string; title: string }): Promise<WebWorkItem>;
   load(id: string): Promise<WebWorkItem>;
   loadContext(input: { itemId: string; projectId: string }): Promise<WorkItemContext>;
+  loadConnectedContext(): Promise<ConnectedWorkContext>;
   loadDependencies(id: string): Promise<WorkItemDependencies>;
   replaceDependencies(
     id: string,
@@ -52,6 +57,7 @@ const defaultGateway: WorkWorkspaceGateway = {
   create: createWorkItem,
   load: loadWorkItem,
   loadContext: loadWorkItemContext,
+  loadConnectedContext: listConnectedWorkContext,
   loadDependencies: loadWorkItemDependencies,
   replaceDependencies: replaceWorkItemDependencies,
   transition: transitionWorkItem,
@@ -83,7 +89,7 @@ export function WorkWorkspace({
     status: WorkItemStatus | null;
   }>;
   initialItems: readonly WebWorkItem[];
-  initialLayout: "board" | "list";
+  initialLayout: "board" | "calendar" | "list";
   initialSnapshot?: import("@evaluation/contracts").DailyWorkspaceSnapshot;
   initialSelectedId?: string | null;
   initialView: "my" | "team";
@@ -110,6 +116,10 @@ export function WorkWorkspace({
   const [quickDraftReady, setQuickDraftReady] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [boardNotice, setBoardNotice] = useState<"stale" | "error" | null>(null);
+  const [calendarContext, setCalendarContext] = useState<ConnectedWorkContext | null>(null);
+  const [calendarContextState, setCalendarContextState] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
   const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
   const quickDraftKey = `command-brief.quick-task.v1:${currentUserId}`;
@@ -174,6 +184,25 @@ export function WorkWorkspace({
     }
     window.localStorage.setItem(quickDraftKey, JSON.stringify({ projectId, title, version: 1 }));
   }, [projectId, quickDraftKey, quickDraftReady, title]);
+
+  useEffect(() => {
+    if (initialLayout !== "calendar") return;
+    let active = true;
+    setCalendarContextState("loading");
+    void gateway
+      .loadConnectedContext()
+      .then((result) => {
+        if (!active) return;
+        setCalendarContext(result);
+        setCalendarContextState("idle");
+      })
+      .catch(() => {
+        if (active) setCalendarContextState("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [gateway, initialLayout]);
 
   function updateFilterUrl(next: typeof filters) {
     setFilters(next);
@@ -531,7 +560,12 @@ export function WorkWorkspace({
         >
           {catalog["tasks.view.board"]}
         </a>
-        <a href={workspaceHref(initialView, "calendar")}>{catalog["tasks.view.calendar"]}</a>
+        <a
+          aria-current={initialLayout === "calendar" ? "page" : undefined}
+          href={workspaceHref(initialView, "calendar")}
+        >
+          {catalog["tasks.view.calendar"]}
+        </a>
       </nav>
 
       <form action={`/${locale}/tasks`} className={styles.filters!} method="get" role="search">
@@ -639,6 +673,17 @@ export function WorkWorkspace({
           onSelect={select}
           projects={projects}
         />
+      ) : initialLayout === "calendar" ? (
+        <WorkCalendar
+          catalog={catalog}
+          connectedContext={calendarContext}
+          connectedContextState={calendarContextState}
+          items={items}
+          locale={locale}
+          onReschedule={update}
+          onSelect={select}
+          projects={projects}
+        />
       ) : groups !== null ? (
         groups.map((group) => (
           <section
@@ -721,6 +766,172 @@ export function WorkWorkspace({
         />
       )}
     </section>
+  );
+}
+
+function WorkCalendar({
+  catalog,
+  connectedContext,
+  connectedContextState,
+  items,
+  locale,
+  onReschedule,
+  onSelect,
+  projects,
+}: Readonly<{
+  catalog: Catalog;
+  connectedContext: ConnectedWorkContext | null;
+  connectedContextState: "idle" | "loading" | "error";
+  items: readonly WebWorkItem[];
+  locale: Locale;
+  onReschedule(
+    item: Pick<WebWorkItem, "dueAt" | "id" | "priority" | "title" | "version">,
+    input: Pick<WebWorkItem, "dueAt" | "priority" | "title">,
+  ): Promise<"saved" | "stale" | "forbidden" | "error">;
+  onSelect(id: string): void;
+  projects: readonly { id: string; name: string }[];
+}>) {
+  const grouped = new Map<string, WebWorkItem[]>();
+  for (const item of items) {
+    const key = item.dueAt?.slice(0, 10) ?? "unscheduled";
+    grouped.set(key, [...(grouped.get(key) ?? []), item]);
+  }
+  const dates = [...grouped.entries()].sort(([left], [right]) => {
+    if (left === "unscheduled") return 1;
+    if (right === "unscheduled") return -1;
+    return left.localeCompare(right);
+  });
+  const calendarItems = (connectedContext?.items ?? []).filter(
+    (item) => item.provider === "GOOGLE_CALENDAR" && !item.excluded,
+  );
+  return (
+    <div className={styles.calendarWorkspace!}>
+      <section aria-label={catalog["work.calendar.title"]} className={styles.calendarDates!}>
+        {dates.length === 0 ? <p className={styles.empty!}>{catalog["tasks.empty"]}</p> : null}
+        {dates.map(([date, dateItems]) => (
+          <section className={styles.calendarDay!} key={date}>
+            <h2>
+              {date === "unscheduled"
+                ? catalog["tasks.noDueDate"]
+                : new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(
+                    new Date(`${date}T12:00:00`),
+                  )}
+              <span>{dateItems.length}</span>
+            </h2>
+            <ol>
+              {dateItems.map((item) => (
+                <li className={styles.calendarTask!} key={item.id}>
+                  <button onClick={() => onSelect(item.id)} type="button">
+                    <strong>{item.title}</strong>
+                    <span>
+                      {projects.find((project) => project.id === item.projectId)?.name ??
+                        catalog["work.unknownProject"]}
+                    </span>
+                  </button>
+                  {item.allowedActions.includes("edit") ? (
+                    <CalendarReschedule catalog={catalog} item={item} onSave={onReschedule} />
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ))}
+      </section>
+      <aside className={styles.calendarContext!}>
+        <p>{catalog["work.calendar.privateContext"]}</p>
+        <h2>{catalog["work.calendar.connectedTitle"]}</h2>
+        <span>{catalog["work.calendar.contextNote"]}</span>
+        {connectedContextState === "loading" ? (
+          <p>{catalog["work.calendar.loading"]}</p>
+        ) : connectedContextState === "error" ? (
+          <p role="alert">{catalog["work.calendar.error"]}</p>
+        ) : calendarItems.length === 0 ? (
+          <p>{catalog["work.calendar.emptyContext"]}</p>
+        ) : (
+          <ol>
+            {calendarItems.map((item) => (
+              <li key={item.id}>
+                <time dateTime={item.occurredAt}>
+                  {new Intl.DateTimeFormat(locale, {
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    month: "short",
+                  }).format(new Date(item.occurredAt))}
+                </time>
+                <h3>{item.title}</h3>
+                {item.summary === null ? null : <p>{item.summary}</p>}
+                <small>
+                  {item.projectId === null
+                    ? catalog["work.calendar.needsProject"]
+                    : (projects.find((project) => project.id === item.projectId)?.name ??
+                      catalog["work.unknownProject"])}
+                </small>
+              </li>
+            ))}
+          </ol>
+        )}
+      </aside>
+    </div>
+  );
+}
+
+function CalendarReschedule({
+  catalog,
+  item,
+  onSave,
+}: Readonly<{
+  catalog: Catalog;
+  item: WebWorkItem;
+  onSave(
+    item: Pick<WebWorkItem, "dueAt" | "id" | "priority" | "title" | "version">,
+    input: Pick<WebWorkItem, "dueAt" | "priority" | "title">,
+  ): Promise<"saved" | "stale" | "forbidden" | "error">;
+}>) {
+  const [dueAt, setDueAt] = useState(toLocalDateTime(item.dueAt));
+  const [state, setState] = useState<
+    "ready" | "saving" | "saved" | "stale" | "forbidden" | "error"
+  >("ready");
+  useEffect(() => setDueAt(toLocalDateTime(item.dueAt)), [item.dueAt]);
+  return (
+    <form
+      aria-label={`${catalog["work.calendar.reschedule"]} ${item.title}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        setState("saving");
+        void onSave(item, {
+          dueAt: dueAt === "" ? null : new Date(dueAt).toISOString(),
+          priority: item.priority,
+          title: item.title,
+        }).then(setState);
+      }}
+    >
+      <label>
+        <span>{catalog["tasks.dueDateTime"]}</span>
+        <input
+          aria-label={catalog["tasks.dueDateTime"]}
+          onChange={(event) => setDueAt(event.target.value)}
+          type="datetime-local"
+          value={dueAt}
+        />
+      </label>
+      <button disabled={state === "saving"} type="submit">
+        {catalog["work.calendar.saveDate"]}
+      </button>
+      {state === "ready" || state === "saved" ? null : (
+        <p role="alert">
+          {
+            catalog[
+              state === "stale"
+                ? "work.stale"
+                : state === "forbidden"
+                  ? "work.forbidden"
+                  : "tasks.editError"
+            ]
+          }
+        </p>
+      )}
+    </form>
   );
 }
 
