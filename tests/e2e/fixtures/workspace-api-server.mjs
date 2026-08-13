@@ -1193,10 +1193,13 @@ const server = createServer(async (request, response) => {
     contextAiAvailable = body.available;
     return empty(response, 204);
   }
-  const accessToken = request.headers.authorization?.replace(/^Bearer /u, "") ?? "";
-  if (!connectedWorkAccessTokens.has(accessToken)) {
+  const presentedAccessToken = request.headers.authorization?.replace(/^Bearer /u, "") ?? "";
+  const localPreviewOwner =
+    process.env.LOCAL_PREVIEW_AUTHENTICATED === "true" && presentedAccessToken !== "";
+  if (!connectedWorkAccessTokens.has(presentedAccessToken) && !localPreviewOwner) {
     return json(response, 401, { messageKey: "errors.unauthorized" });
   }
+  const accessToken = localPreviewOwner ? ownerAccessToken : presentedAccessToken;
 
   if (request.method === "GET" && url.pathname === "/api/v1/connected-work/items") {
     if (accessToken !== ownerAccessToken || !connectedWorkConnected) {
