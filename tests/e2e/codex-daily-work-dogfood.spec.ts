@@ -33,4 +33,12 @@ test("Codex works on the real evaluation-system Project without fabricated progr
   await expect(page.locator("select").nth(1)).toHaveValue(dogfoodProjectId);
   await expect(page.getByText("Review Phase 2 Work query bundle")).toBeVisible();
   await expect(page.getByText("Implement safe inline Task edits")).toBeVisible();
+
+  const task = page.getByRole("listitem").filter({ hasText: "Implement safe inline Task edits" });
+  await task.getByRole("button", { name: "Edit task" }).click();
+  const editor = task.getByRole("form", { name: "Edit task" });
+  await editor.getByLabel("Task title").fill("Implement safe inline Task edits — Codex");
+  await editor.getByLabel("Priority").selectOption("urgent");
+  await editor.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Implement safe inline Task edits — Codex")).toBeVisible();
 });

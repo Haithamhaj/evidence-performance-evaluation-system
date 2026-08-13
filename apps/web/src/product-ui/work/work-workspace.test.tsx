@@ -225,6 +225,59 @@ describe("WorkWorkspace", () => {
     expect(window.location.search).toContain(`item=${second.id}`);
   });
 
+  it("edits safe Task fields inline through the authoritative update command", async () => {
+    const user = userEvent.setup();
+    const updated = {
+      ...item,
+      title: "Prepare the production launch",
+      priority: "urgent" as const,
+      dueAt: "2026-08-14T10:30:00.000Z",
+      version: 2,
+    };
+    const gateway = service({ update: vi.fn().mockResolvedValue(updated) });
+    renderWork(gateway);
+
+    await user.click(screen.getByRole("button", { name: "Edit task" }));
+    const editor = screen.getByRole("form", { name: "Edit task" });
+    await user.clear(within(editor).getByLabelText("Task title"));
+    await user.type(within(editor).getByLabelText("Task title"), updated.title);
+    await user.selectOptions(within(editor).getByLabelText("Priority"), "urgent");
+    await user.clear(within(editor).getByLabelText("Due date and time"));
+    await user.type(within(editor).getByLabelText("Due date and time"), "2026-08-14T13:30");
+    await user.click(within(editor).getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(gateway.update).toHaveBeenCalledWith(
+        item.id,
+        expect.objectContaining({
+          dueAt: "2026-08-14T10:30:00.000Z",
+          expectedVersion: 1,
+          priority: "urgent",
+          title: updated.title,
+        }),
+      ),
+    );
+    expect(await screen.findByText(updated.title)).toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "Edit task" })).not.toBeInTheDocument();
+  });
+
+  it("keeps inline edits visible when the authoritative version is stale", async () => {
+    const user = userEvent.setup();
+    const gateway = service({ update: vi.fn().mockRejectedValue(new WorkItemGatewayError(409)) });
+    renderWork(gateway);
+
+    await user.click(screen.getByRole("button", { name: "Edit task" }));
+    const editor = screen.getByRole("form", { name: "Edit task" });
+    const title = within(editor).getByLabelText("Task title");
+    await user.clear(title);
+    await user.type(title, "My unsaved title");
+    await user.click(within(editor).getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("changed elsewhere");
+    expect(title).toHaveValue("My unsaved title");
+    expect(gateway.load).toHaveBeenCalledWith(item.id);
+  });
+
   it("shows only the authoritative filtered result instead of stale daily groups", () => {
     const filtered = { ...item, title: "Delivery task 12", status: "blocked" as const };
     render(
@@ -307,6 +360,11 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
   return {
     create: vi.fn().mockImplementation(async ({ title }) => ({ ...item, title })),
     load: vi.fn().mockResolvedValue(item),
+    update: vi.fn().mockImplementation(async (_id, input) => ({
+      ...item,
+      ...input,
+      version: 2,
+    })),
     transition: vi.fn().mockImplementation(async (_id, input) => ({
       ...item,
       status: input.status,
@@ -316,6 +374,7 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
   } as WorkWorkspaceGateway & {
     create: ReturnType<typeof vi.fn>;
     load: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
     transition: ReturnType<typeof vi.fn>;
   };
 }

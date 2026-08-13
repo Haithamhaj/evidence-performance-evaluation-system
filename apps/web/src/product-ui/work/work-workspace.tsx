@@ -11,6 +11,7 @@ import {
   createWorkItem,
   loadWorkItem,
   transitionWorkItem,
+  updateWorkItem,
   type WebWorkItem,
   WorkItemGatewayError,
   type WorkItemStatus,
@@ -20,6 +21,16 @@ import styles from "./work-workspace.module.css";
 export type WorkWorkspaceGateway = Readonly<{
   create(input: { employeeId: string; projectId: string; title: string }): Promise<WebWorkItem>;
   load(id: string): Promise<WebWorkItem>;
+  update(
+    id: string,
+    input: {
+      title: string;
+      priority: WebWorkItem["priority"];
+      dueAt: string | null;
+      expectedVersion: number;
+      reason: string;
+    },
+  ): Promise<WebWorkItem>;
   transition(
     id: string,
     input: { status: WorkItemStatus; expectedVersion: number; reason: string },
@@ -30,6 +41,7 @@ const defaultGateway: WorkWorkspaceGateway = {
   create: createWorkItem,
   load: loadWorkItem,
   transition: transitionWorkItem,
+  update: updateWorkItem,
 };
 
 export function WorkWorkspace({
@@ -73,6 +85,7 @@ export function WorkWorkspace({
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
   const model = useMemo(
@@ -227,6 +240,36 @@ export function WorkWorkspace({
       }
       setNotice("transition_error");
       setDetailState("ready");
+    }
+  }
+
+  async function update(
+    editingItem: Pick<WebWorkItem, "dueAt" | "id" | "priority" | "title" | "version">,
+    input: Pick<WebWorkItem, "dueAt" | "priority" | "title">,
+  ): Promise<"saved" | "stale" | "forbidden" | "error"> {
+    try {
+      const updated = await gateway.update(editingItem.id, {
+        ...input,
+        expectedVersion: editingItem.version,
+        reason: catalog["tasks.editReason"],
+      });
+      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      if (detail?.id === updated.id) setDetail(updated);
+      setEditingId(null);
+      return "saved";
+    } catch (error) {
+      if (error instanceof WorkItemGatewayError && error.status === 403) return "forbidden";
+      if (error instanceof WorkItemGatewayError && error.status === 409) {
+        try {
+          const current = await gateway.load(editingItem.id);
+          setItems((items) => items.map((item) => (item.id === current.id ? current : item)));
+          if (detail?.id === current.id) setDetail(current);
+          return "stale";
+        } catch {
+          return "error";
+        }
+      }
+      return "error";
     }
   }
 
@@ -431,10 +474,26 @@ export function WorkWorkspace({
             ) : group.collapsed ? (
               <details className={styles.collapsedGroup!}>
                 <summary>{catalog["work.showGroup"]}</summary>
-                <WorkRows catalog={catalog} items={group.items} onSelect={select} />
+                <WorkRows
+                  catalog={catalog}
+                  editingId={editingId}
+                  items={group.items}
+                  onCancelEdit={() => setEditingId(null)}
+                  onEdit={setEditingId}
+                  onSave={update}
+                  onSelect={select}
+                />
               </details>
             ) : (
-              <WorkRows catalog={catalog} items={group.items} onSelect={select} />
+              <WorkRows
+                catalog={catalog}
+                editingId={editingId}
+                items={group.items}
+                onCancelEdit={() => setEditingId(null)}
+                onEdit={setEditingId}
+                onSave={update}
+                onSelect={select}
+              />
             )}
           </section>
         ))
@@ -447,7 +506,15 @@ export function WorkWorkspace({
           {model.length === 0 ? (
             <p className={styles.empty!}>{catalog["tasks.empty"]}</p>
           ) : (
-            <WorkRows catalog={catalog} items={model} onSelect={select} />
+            <WorkRows
+              catalog={catalog}
+              editingId={editingId}
+              items={model}
+              onCancelEdit={() => setEditingId(null)}
+              onEdit={setEditingId}
+              onSave={update}
+              onSelect={select}
+            />
           )}
         </section>
       )}
@@ -469,21 +536,36 @@ export function WorkWorkspace({
 
 function WorkRows({
   catalog,
+  editingId,
   items,
+  onCancelEdit,
+  onEdit,
+  onSave,
   onSelect,
 }: Readonly<{
   catalog: Catalog;
+  editingId: string | null;
   items: readonly {
-    item: Readonly<{
-      description: string;
-      id: string;
-      nextAction: string | null;
-      projectId: string;
-      status: WebWorkItem["status"];
-      title: string;
-    }>;
+    item: Pick<
+      WebWorkItem,
+      | "description"
+      | "dueAt"
+      | "id"
+      | "nextAction"
+      | "priority"
+      | "projectId"
+      | "status"
+      | "title"
+      | "version"
+    > & { allowedActions?: readonly string[] };
     projectName: string;
   }[];
+  onCancelEdit(): void;
+  onEdit(id: string): void;
+  onSave(
+    item: Pick<WebWorkItem, "dueAt" | "id" | "priority" | "title" | "version">,
+    input: Pick<WebWorkItem, "dueAt" | "priority" | "title">,
+  ): Promise<"saved" | "stale" | "forbidden" | "error">;
   onSelect(id: string): void;
 }>) {
   function handleKeyDown(event: import("react").KeyboardEvent<HTMLButtonElement>) {
@@ -510,23 +592,147 @@ function WorkRows({
     <ul className={styles.list!}>
       {items.map(({ item, projectName }) => (
         <li key={item.id}>
-          <button
-            data-work-item-id={item.id}
-            onClick={() => onSelect(item.id)}
-            onKeyDown={handleKeyDown}
-            type="button"
-          >
-            <ProductIcon name="briefcase" size="small" />
-            <span className={styles.taskCopy!}>
-              <strong>{item.title}</strong>
-              <span>{item.nextAction ?? item.description}</span>
-            </span>
-            <span className={styles.project!}>{projectName}</span>
-            <span className={styles.status!}>{catalog[`myWork.status.${item.status}`]}</span>
-            <ProductIcon name="chevron-down" size="small" />
-          </button>
+          <div className={styles.row!}>
+            <button
+              className={styles.rowOpen!}
+              data-work-item-id={item.id}
+              onClick={() => onSelect(item.id)}
+              onKeyDown={handleKeyDown}
+              type="button"
+            >
+              <ProductIcon name="briefcase" size="small" />
+              <span className={styles.taskCopy!}>
+                <strong>{item.title}</strong>
+                <span>{item.nextAction ?? item.description}</span>
+              </span>
+              <span className={styles.project!}>{projectName}</span>
+              <span className={styles.status!}>{catalog[`myWork.status.${item.status}`]}</span>
+              <ProductIcon name="chevron-down" size="small" />
+            </button>
+            {item.allowedActions?.includes("edit") === true ? (
+              <button
+                aria-label={catalog["tasks.editTitle"]}
+                className={styles.rowEdit!}
+                onClick={() => onEdit(item.id)}
+                type="button"
+              >
+                {catalog["tasks.editTitle"]}
+              </button>
+            ) : null}
+          </div>
+          {editingId === item.id ? (
+            <InlineTaskEditor
+              catalog={catalog}
+              item={item}
+              onCancel={onCancelEdit}
+              onSave={onSave}
+            />
+          ) : null}
         </li>
       ))}
     </ul>
   );
+}
+
+function InlineTaskEditor({
+  catalog,
+  item,
+  onCancel,
+  onSave,
+}: Readonly<{
+  catalog: Catalog;
+  item: Pick<WebWorkItem, "dueAt" | "id" | "priority" | "title" | "version">;
+  onCancel(): void;
+  onSave(
+    item: Pick<WebWorkItem, "dueAt" | "id" | "priority" | "title" | "version">,
+    input: Pick<WebWorkItem, "dueAt" | "priority" | "title">,
+  ): Promise<"saved" | "stale" | "forbidden" | "error">;
+}>) {
+  const [title, setTitle] = useState(item.title);
+  const [priority, setPriority] = useState(item.priority);
+  const [dueAt, setDueAt] = useState(toLocalDateTime(item.dueAt));
+  const [state, setState] = useState<"ready" | "saving" | "stale" | "forbidden" | "error">("ready");
+
+  return (
+    <form
+      aria-label={catalog["tasks.editTitle"]}
+      className={styles.inlineEditor!}
+      onSubmit={(event) => {
+        event.preventDefault();
+        setState("saving");
+        void onSave(item, {
+          title: title.trim(),
+          priority,
+          dueAt: dueAt === "" ? null : new Date(dueAt).toISOString(),
+        }).then((result) => {
+          if (result !== "saved") setState(result);
+        });
+      }}
+    >
+      <label>
+        <span>{catalog["tasks.title"]}</span>
+        <input
+          autoFocus
+          maxLength={200}
+          onChange={(event) => setTitle(event.target.value)}
+          value={title}
+        />
+      </label>
+      <label>
+        <span>{catalog["tasks.priority"]}</span>
+        <select
+          onChange={(event) => setPriority(event.target.value as WebWorkItem["priority"])}
+          value={priority}
+        >
+          {(["low", "normal", "high", "urgent"] as const).map((value) => (
+            <option key={value} value={value}>
+              {catalog[`tasks.priority.${value}`]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>{catalog["tasks.dueDateTime"]}</span>
+        <input
+          onChange={(event) => setDueAt(event.target.value)}
+          type="datetime-local"
+          value={dueAt}
+        />
+      </label>
+      <div className={styles.inlineActions!}>
+        <button
+          className={styles.primaryAction!}
+          disabled={state === "saving" || title.trim() === ""}
+          type="submit"
+        >
+          {catalog["tasks.saveChanges"]}
+        </button>
+        <button className={styles.secondaryAction!} onClick={onCancel} type="button">
+          {catalog["tasks.cancelEdit"]}
+        </button>
+      </div>
+      {state === "stale" ? (
+        <p className={styles.alert!} role="alert">
+          {catalog["work.stale"]}
+        </p>
+      ) : null}
+      {state === "forbidden" ? (
+        <p className={styles.alert!} role="alert">
+          {catalog["work.forbidden"]}
+        </p>
+      ) : null}
+      {state === "error" ? (
+        <p className={styles.alert!} role="alert">
+          {catalog["tasks.editError"]}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+function toLocalDateTime(value: string | null) {
+  if (value === null) return "";
+  const date = new Date(value);
+  const part = (number: number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${part(date.getMonth() + 1)}-${part(date.getDate())}T${part(date.getHours())}:${part(date.getMinutes())}`;
 }

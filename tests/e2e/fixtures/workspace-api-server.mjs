@@ -1991,15 +1991,17 @@ const server = createServer(async (request, response) => {
     const body = await readJson(request);
     const workItemId = url.pathname.split("/")[4];
     const item = workItems.find(({ id }) => id === workItemId);
-    if (
-      body === null ||
-      item === undefined ||
-      typeof body.title !== "string" ||
-      body.expectedVersion !== item.version
-    ) {
+    if (body === null || item === undefined || typeof body.title !== "string") {
       return json(response, 400, { messageKey: "errors.validation" });
     }
+    if (body.expectedVersion !== item.version) {
+      return json(response, 409, { messageKey: "errors.workItems.versionConflict" });
+    }
     item.title = body.title;
+    if (["low", "normal", "high", "urgent"].includes(body.priority)) {
+      item.priority = body.priority;
+    }
+    if (body.dueAt === null || typeof body.dueAt === "string") item.dueAt = body.dueAt;
     item.version += 1;
     item.updatedAt = new Date().toISOString();
     return json(response, 200, item);

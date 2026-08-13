@@ -139,6 +139,10 @@ every engine authority and protected product rule, and all retained rollback rou
   dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
   actual Phase 2 Tasks and recent GitHub changes are visible; GitHub remains suggested evidence, and
   no official percentage is shown because the Progress Contract proposal still awaits human review.
+- The bounded inline-edit follow-up is complete: an authorized employee can change a Task title,
+  priority, and due date without leaving the list. The existing protected update command remains
+  authoritative; stale versions reload the current Task while preserving the employee's unsaved
+  fields, and Project/assignee changes remain outside this shortcut.
 
 ## Active Risks
 
@@ -167,10 +171,10 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Execute the next bounded Phase 2 Work bundle: safe inline edits for common Task fields, followed by
-the URL-addressable Task detail context for Updates and Evidence. Continue dogfooding with Codex and
-the real Project, keep Pull Requests #29 and #30 unmerged, and retain Board, Calendar, and legacy
-rollback routes.
+Execute P2-03: extend the URL-addressable Task detail with source, Update, and Evidence context while
+retaining focus return and owning-domain authority. Continue dogfooding with Codex and the real
+Project, keep Pull Requests #29 and #30 unmerged, and retain Board, Calendar, and legacy rollback
+routes.
 
 ## Critical References
 

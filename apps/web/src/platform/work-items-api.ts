@@ -54,6 +54,23 @@ export async function transitionWorkItem(
   });
 }
 
+export async function updateWorkItem(
+  id: string,
+  input: {
+    readonly title: string;
+    readonly priority: WebWorkItem["priority"];
+    readonly dueAt: string | null;
+    readonly expectedVersion: number;
+    readonly reason: string;
+  },
+): Promise<WebWorkItem> {
+  return request(`/api/daily-work/work-items/${WebUuidSchema.parse(id)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 async function request(path: string, init?: RequestInit): Promise<WebWorkItem> {
   const response = await fetch(path, init);
   if (!response.ok) throw new WorkItemGatewayError(response.status);
