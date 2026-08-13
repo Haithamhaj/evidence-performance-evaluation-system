@@ -224,6 +224,41 @@ describe("WorkWorkspace", () => {
     await user.keyboard("{Enter}");
     expect(window.location.search).toContain(`item=${second.id}`);
   });
+
+  it("shows only the authoritative filtered result instead of stale daily groups", () => {
+    const filtered = { ...item, title: "Delivery task 12", status: "blocked" as const };
+    render(
+      <WorkWorkspace
+        catalog={getCatalogSync("en")}
+        currentUserId={employeeId}
+        gateway={service()}
+        initialCounts={{
+          all: 1,
+          planned: 0,
+          ready: 0,
+          in_progress: 0,
+          blocked: 1,
+          in_review: 0,
+          done: 0,
+          cancelled: 0,
+        }}
+        initialFilters={{
+          projectId: null,
+          search: "Delivery task 12",
+          sort: "due_asc",
+          status: null,
+        }}
+        initialItems={[filtered]}
+        initialView="my"
+        locale="en"
+        projects={[{ id: projectId, name: "Atlas Delivery" }]}
+      />,
+    );
+
+    expect(screen.getByText("Delivery task 12")).toBeInTheDocument();
+    expect(screen.queryByText("Prepare the launch")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Work list 1" })).toBeInTheDocument();
+  });
 });
 
 function renderWork(
