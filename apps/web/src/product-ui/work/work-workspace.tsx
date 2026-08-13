@@ -5,7 +5,7 @@ import type { Catalog, Locale } from "@evaluation/localization";
 import { ProductIcon } from "@evaluation/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { buildWorkListModel } from "../../features/work-list/work-list-model";
+import { buildWorkGroupModel, buildWorkListModel } from "../../features/work-list/work-list-model";
 import { TaskDetailDrawer } from "../../features/task-detail/task-detail-drawer";
 import {
   createWorkItem,
@@ -38,6 +38,7 @@ export function WorkWorkspace({
   gateway = defaultGateway,
   initialItems,
   initialSelectedId = null,
+  initialSnapshot,
   initialView,
   locale,
   projects,
@@ -46,6 +47,7 @@ export function WorkWorkspace({
   currentUserId: string;
   gateway?: WorkWorkspaceGateway;
   initialItems: readonly WebWorkItem[];
+  initialSnapshot?: import("@evaluation/contracts").DailyWorkspaceSnapshot;
   initialSelectedId?: string | null;
   initialView: "my" | "team";
   locale: Locale;
@@ -67,6 +69,18 @@ export function WorkWorkspace({
     () =>
       buildWorkListModel({ items, projects, unknownProjectLabel: catalog["work.unknownProject"] }),
     [catalog, items, projects],
+  );
+  const groups = useMemo(
+    () =>
+      initialSnapshot === undefined
+        ? null
+        : buildWorkGroupModel({
+            items,
+            projects,
+            snapshot: initialSnapshot,
+            unknownProjectLabel: catalog["work.unknownProject"],
+          }),
+    [catalog, initialSnapshot, items, projects],
   );
 
   async function load(id: string, generation = ++detailRequestGeneration.current) {
@@ -197,10 +211,34 @@ export function WorkWorkspace({
         <span>{catalog["work.subtitle"]}</span>
       </header>
 
+      <div className={styles.quickActions!}>
+        <button
+          className={styles.primaryAction!}
+          onClick={() => document.getElementById("work-create-title")?.focus()}
+          type="button"
+        >
+          <ProductIcon name="plus" size="small" /> {catalog["work.addTask"]}
+        </button>
+        <button
+          className={styles.secondaryAction!}
+          onClick={() =>
+            document
+              .querySelector<HTMLButtonElement>(
+                `[aria-label="${catalog["shell.global.capture"].replaceAll('"', '\\"')}"]`,
+              )
+              ?.click()
+          }
+          type="button"
+        >
+          <ProductIcon name="sparkles" size="small" /> {catalog["work.shareAnything"]}
+        </button>
+      </div>
+
       <form className={styles.createBar!} onSubmit={create}>
         <label>
           <span>{catalog["tasks.title"]}</span>
           <input
+            id="work-create-title"
             maxLength={200}
             onChange={(event) => setTitle(event.target.value)}
             placeholder={catalog["tasks.titlePlaceholder"]}
@@ -254,32 +292,42 @@ export function WorkWorkspace({
         </a>
       </nav>
 
-      <section aria-labelledby="work-list-heading" className={styles.listSection!}>
-        <h2 id="work-list-heading">
-          {catalog["work.list"]}
-          <span>{items.length}</span>
-        </h2>
-        {model.length === 0 ? (
-          <p className={styles.empty!}>{catalog["tasks.empty"]}</p>
-        ) : (
-          <ul className={styles.list!}>
-            {model.map(({ item, projectName }) => (
-              <li key={item.id}>
-                <button data-work-item-id={item.id} onClick={() => select(item.id)} type="button">
-                  <ProductIcon name="briefcase" size="small" />
-                  <span className={styles.taskCopy!}>
-                    <strong>{item.title}</strong>
-                    <span>{item.nextAction ?? item.description}</span>
-                  </span>
-                  <span className={styles.project!}>{projectName}</span>
-                  <span className={styles.status!}>{catalog[`myWork.status.${item.status}`]}</span>
-                  <ProductIcon name="chevron-down" size="small" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {groups !== null ? (
+        groups.map((group) => (
+          <section
+            aria-labelledby={`work-${group.key}`}
+            className={styles.listSection!}
+            key={group.key}
+          >
+            <h2 id={`work-${group.key}`}>
+              {catalog[`work.group.${group.key}`]}
+              <span>{group.items.length}</span>
+            </h2>
+            {group.items.length === 0 ? (
+              <p className={styles.empty!}>{catalog["tasks.empty"]}</p>
+            ) : group.collapsed ? (
+              <details className={styles.collapsedGroup!}>
+                <summary>{catalog["work.showGroup"]}</summary>
+                <WorkRows catalog={catalog} items={group.items} onSelect={select} />
+              </details>
+            ) : (
+              <WorkRows catalog={catalog} items={group.items} onSelect={select} />
+            )}
+          </section>
+        ))
+      ) : (
+        <section aria-labelledby="work-list-heading" className={styles.listSection!}>
+          <h2 id="work-list-heading">
+            {catalog["work.list"]}
+            <span>{model.length}</span>
+          </h2>
+          {model.length === 0 ? (
+            <p className={styles.empty!}>{catalog["tasks.empty"]}</p>
+          ) : (
+            <WorkRows catalog={catalog} items={model} onSelect={select} />
+          )}
+        </section>
+      )}
 
       {selectedId === null ? null : (
         <TaskDetailDrawer
@@ -293,5 +341,44 @@ export function WorkWorkspace({
         />
       )}
     </section>
+  );
+}
+
+function WorkRows({
+  catalog,
+  items,
+  onSelect,
+}: Readonly<{
+  catalog: Catalog;
+  items: readonly {
+    item: Readonly<{
+      description: string;
+      id: string;
+      nextAction: string | null;
+      projectId: string;
+      status: WebWorkItem["status"];
+      title: string;
+    }>;
+    projectName: string;
+  }[];
+  onSelect(id: string): void;
+}>) {
+  return (
+    <ul className={styles.list!}>
+      {items.map(({ item, projectName }) => (
+        <li key={item.id}>
+          <button data-work-item-id={item.id} onClick={() => onSelect(item.id)} type="button">
+            <ProductIcon name="briefcase" size="small" />
+            <span className={styles.taskCopy!}>
+              <strong>{item.title}</strong>
+              <span>{item.nextAction ?? item.description}</span>
+            </span>
+            <span className={styles.project!}>{projectName}</span>
+            <span className={styles.status!}>{catalog[`myWork.status.${item.status}`]}</span>
+            <ProductIcon name="chevron-down" size="small" />
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }

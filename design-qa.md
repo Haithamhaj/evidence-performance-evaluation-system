@@ -1,49 +1,49 @@
-# Design QA — Final Employee Project Workspace
+# Design QA — Final Employee Work Workspace
 
-- source visual truth path: `docs/product/screenshots/ai-native-final-design/project-workspace-approved.png`
-- implementation screenshot path: `docs/product/screenshots/ai-native-final-implementation/t097-project-desktop.png`
-- combined comparison evidence: `docs/product/screenshots/ai-native-final-implementation/t097-project-comparison.png`
-- mobile evidence: `docs/product/screenshots/ai-native-final-implementation/t097-project-mobile.png`
+- source visual truth path: `docs/product/screenshots/ai-native-final-design/work-approved.png`
+- implementation screenshot path: `docs/product/screenshots/ai-native-final-implementation/t098-work-desktop.png`
+- combined comparison evidence: `docs/product/screenshots/ai-native-final-implementation/t098-work-comparison.png`
+- mobile evidence: `docs/product/screenshots/ai-native-final-implementation/t098-work-mobile.png`
 - viewport: 1487 × 1058 CSS px desktop; 390 × 844 CSS px mobile
 - source pixels: 1487 × 1058
 - implementation pixels: 1487 × 1058 at device scale 1
 - normalization: identical desktop viewport and state; no scaling or density conversion
-- state: authenticated employee `Codex`, English, Atlas Delivery, fresh confirmed progress
+- state: authenticated employee `Codex`, English, My tasks, first authoritative Task drawer open
 
 ## Full-view comparison evidence
 
-The comparison preserves the approved persistent shell, Project purpose and document provenance, circular confirmed progress, completed/current/next milestone path, one measurable KPI, attention queue, compact Work/Updates/Evidence/Documents collections, append-only Timeline, and assistant rail. The implementation uses the existing ProductIcon family and no substitute raster or custom SVG assets.
+The comparison preserves the approved persistent shell, compact Work hierarchy, explicit create and capture actions, My/Team scope, retained List/Board/Calendar routes, authoritative Task drawer, and progressively disclosed secondary groups. The implementation uses the existing ProductIcon family and no substitute raster or custom SVG assets.
 
 ## Focused region evidence
 
-- Progress journey: 62% comes from the approved Project contract; milestone and KPI cells remain separate from employee performance.
-- Assistant rail: Smart Brief, suggested action, source, primary action, and calculation disclosure remain contained in the rail without colliding with Project content.
-- Mobile: 390 px evidence has no horizontal overflow; Project sections stack, the assistant rail is progressively disclosed away, and the existing bottom navigation remains visible.
+- Daily hierarchy: Needs My Action, Today, and Overdue render first; Waiting/Blocked and Upcoming remain collapsed until requested.
+- Task drawer: selection is URL-owned, loads the authoritative Task, exposes only valid transitions, and returns focus to the originating row.
+- Mobile: 390 px evidence keeps the two primary actions, Task groups, and existing bottom navigation visible without horizontal overflow.
 
 ## Findings and comparison history
 
-1. P1 — the Project route previously rendered the temporary Workspace client rather than the approved composition.
-   - Fix: route now consumes one protected `EmployeeProjectExperienceV1` composition behind its independent rollback flag.
-   - Post-fix evidence: the visible route exposes the approved Project hierarchy and no internal identifiers.
-2. P2 — the first desktop pass crowded the milestone and KPI region.
-   - Fix: bounded the progress grid, widened the assistant rail, and added safe text wrapping.
-   - Post-fix evidence: `t097-project-comparison.png` keeps the three regions visually independent.
-3. P2 — action links and long Project text could crowd narrow screens.
-   - Fix: mobile rows now stack actions beneath the record and preserve compact milestone labels.
-   - Post-fix evidence: the 390 px full-page capture preserves all Project sections without horizontal overflow.
+1. P1 — the first Work pass rendered as a narrow centered column and did not communicate a daily workspace.
+   - Fix: the bounded Work grid now consumes the available content width while retaining a readable maximum.
+   - Post-fix evidence: the 1487 px capture uses the full work canvas without horizontal overflow.
+2. P1 — Work originally exposed one undifferentiated list.
+   - Fix: source-backed daily signals now produce the exact approved hierarchy with deterministic de-duplication.
+   - Post-fix evidence: every Task appears in one group only, with the first three groups immediately readable.
+3. P2 — the create form competed with the daily list.
+   - Fix: Add task reveals the existing form on demand; Share anything opens the existing private Capture dialog.
+   - Post-fix evidence: both shortcuts were exercised in the authenticated preview.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: existing Geist-based product typography retained; hierarchy, weight, and wrapping are close to the approved target and readable at both viewports.
-- Spacing and layout rhythm: compact attention and evidence rows, dividers, Timeline rhythm, and assistant separation match the target intent; no actionable collision or clipping remains.
-- Colors and visual tokens: dark navy navigation, blue primary action, Project accent colors, status greens, and muted dividers preserve the approved palette and contrast.
-- Image quality and asset fidelity: the target contains no photographic assets; all icons use the existing product icon library. The progress ring is a semantic quantitative indicator, not a replacement illustration.
-- Copy and content: Project copy is coherent, source-backed, localized, and explicitly describes Project progress rather than employee performance.
-- Accessibility and behavior: semantic headings/regions, focus-visible styling, local links, reduced-motion behavior, 390 px no-overflow, and retained mobile navigation are present.
+- Fonts and typography: existing Geist product typography retained with compact, glanceable row hierarchy at both viewports.
+- Spacing and layout rhythm: grouped rows, dividers, action alignment, and disclosure spacing match the selected target intent without clipping.
+- Colors and visual tokens: dark navy navigation, blue primary actions, status colors, and muted dividers preserve the approved palette and contrast.
+- Image quality and asset fidelity: the target contains no photographic assets; all icons use the existing product icon library.
+- Copy and content: Task copy is coherent, localized, and keeps Project context next to the next action.
+- Accessibility and behavior: semantic regions, keyboard-operable disclosures, focus return, reduced motion, 390 px no-overflow, and retained mobile navigation are present.
 
 ## Remaining P3 polish
 
-- Add richer owner/contributor avatar treatment once the public people composition is finalized.
-- The approved mock contains a more detailed KPI baseline/verification table; the implementation intentionally shows only currently sourced fields.
+- Add the richer assistant detail rail when its source-backed Task suggestion contract is finalized.
+- Add dense table column labels once Workstream and due-date fields are consistently populated by the public composition.
 
 final result: passed

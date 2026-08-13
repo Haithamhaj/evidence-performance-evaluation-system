@@ -5,6 +5,7 @@ import { createElement } from "react";
 import {
   fetchDailyWorkUpstream,
   WebCurrentUserSchema,
+  WebDailyWorkspaceSnapshotSchema,
   WebTaskWorkspaceResponseSchema,
   WebUpdateComposerContextSchema,
 } from "../../../platform/daily-work-api";
@@ -24,7 +25,7 @@ export default async function TasksPage({ params, searchParams }: Properties) {
   if (!isLocale(locale)) notFound();
   const query = await searchParams;
   const { href: reauthenticateTo, layout, selectedId, view } = buildTasksPageState(locale, query);
-  const [catalog, response, context, currentUser] = await Promise.all([
+  const [catalog, response, context, currentUser, snapshot] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
       reauthenticateTo,
@@ -40,6 +41,11 @@ export default async function TasksPage({ params, searchParams }: Properties) {
       reauthenticateTo,
       route: { kind: "me" },
       schema: WebCurrentUserSchema,
+    }),
+    fetchDailyWorkUpstream({
+      reauthenticateTo,
+      route: { kind: "my_work" },
+      schema: WebDailyWorkspaceSnapshotSchema,
     }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
@@ -58,6 +64,7 @@ export default async function TasksPage({ params, searchParams }: Properties) {
           currentUserId: currentUser.userId,
           initialItems: response.items,
           initialSelectedId: selectedId,
+          initialSnapshot: snapshot,
           initialView: view,
           locale,
           projects: context.projects.map(({ id, name }) => ({ id, name })),

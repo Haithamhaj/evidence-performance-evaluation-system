@@ -966,7 +966,7 @@ The detailed authority is
 
 ## T098 — Align Work with the Approved Daily Hierarchy
 
-**Status:** Not started
+**Status:** Complete — the approved daily hierarchy, compact authoritative Task drawer, create/transition parity, capture shortcut, collapsed secondary groups, and desktop/mobile proof are verified.
 **Priority:** P1
 **Dependencies:** T095, T096
 **Purpose:** Present Needs My Action, Today, Overdue, waiting, and upcoming Tasks with the existing authoritative Task drawer and transitions.

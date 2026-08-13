@@ -26,6 +26,25 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("WorkWorkspace", () => {
+  it("shows Needs my action, Today, and Overdue before collapsed secondary groups", () => {
+    renderWork(service(), null, "en", [item], {
+      ...snapshot(),
+      needsMyAction: [item],
+    });
+    const headings = screen
+      .getAllByRole("heading", { level: 2 })
+      .map(({ textContent }) => textContent);
+    expect(headings).toEqual([
+      expect.stringContaining("Needs my action"),
+      expect.stringContaining("Today"),
+      expect.stringContaining("Overdue"),
+      expect.stringContaining("Waiting or blocked"),
+      expect.stringContaining("Upcoming"),
+    ]);
+    expect(screen.getAllByText(item.title)).toHaveLength(1);
+    expect(screen.queryAllByText("Show tasks")).toHaveLength(0);
+  });
+
   it("keeps compact List, Board, and Calendar destinations and opens detail from URL", async () => {
     const user = userEvent.setup();
     const gateway = service();
@@ -188,6 +207,7 @@ function renderWork(
   selectedId: string | null = null,
   locale: "ar" | "en" = "en",
   items: import("../../platform/work-items-api").WebWorkItem[] = [item],
+  initialSnapshot?: import("@evaluation/contracts").DailyWorkspaceSnapshot,
 ) {
   return render(
     <WorkWorkspace
@@ -196,11 +216,24 @@ function renderWork(
       gateway={gateway}
       initialItems={items}
       initialSelectedId={selectedId}
+      {...(initialSnapshot === undefined ? {} : { initialSnapshot })}
       initialView="my"
       locale={locale}
       projects={[{ id: projectId, name: "Atlas Delivery" }]}
     />,
   );
+}
+
+function snapshot(): import("@evaluation/contracts").DailyWorkspaceSnapshot {
+  return {
+    needsMyAction: [],
+    today: [],
+    overdue: [],
+    reviewQueue: [],
+    inbox: [],
+    projectPulse: [],
+    upcoming: [],
+  };
 }
 
 function deferred<T>() {

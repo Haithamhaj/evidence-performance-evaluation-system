@@ -45,6 +45,7 @@ export function CaptureDialog({
     closeLabel: catalog["actions.close"],
     title: catalog["capture.title"],
     trigger: createElement(ActionButton, {
+      "aria-label": catalog["shell.global.capture"],
       children: catalog["shell.global.capture"],
       variant: "primary",
     }),
