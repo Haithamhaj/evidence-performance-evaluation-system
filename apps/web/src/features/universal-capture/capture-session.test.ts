@@ -15,6 +15,7 @@ describe("universal Capture session", () => {
       likelyProject: null,
       likelyMeaning: "project_update" as const,
       relatedWorkItemId: null,
+      relatedWorkItemTitle: null,
       relatedComponentId: null,
       sourceRefs: [],
       clarification: { question: "Which Project is this for?", missingField: "project" },

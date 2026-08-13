@@ -93,6 +93,7 @@ describe("CaptureUnderstandingService", () => {
       likelyProject: { id: projectId, name: "Atlas Delivery", confidence: "high" },
       likelyMeaning: "project_update",
       relatedWorkItemId: workItemId,
+      relatedWorkItemTitle: "Validate streaming fallback",
       clarification: { missingField: "measured_result" },
       createsOfficialRecord: false,
     });

@@ -4,6 +4,7 @@ import { ActionButton, FocusedDialog, ProductIcon } from "@evaluation/ui";
 import { createElement, useRef, useState } from "react";
 
 import { understandCapture } from "../../platform/capture-understanding-api";
+import { answerCaptureUpdate, prepareCaptureUpdate } from "../../platform/capture-update-api";
 import type {
   CaptureUnderstandingInput,
   WebCaptureUnderstanding,
@@ -23,6 +24,8 @@ export function CaptureDialog({
   disabled = false,
   locale,
   onSaved,
+  prepareUpdate = prepareCaptureUpdate,
+  answerUpdate = answerCaptureUpdate,
   save,
   understand = understandCapture,
 }: Readonly<{
@@ -30,6 +33,13 @@ export function CaptureDialog({
   disabled?: boolean;
   locale: "ar" | "en";
   onSaved: () => void;
+  answerUpdate?: typeof answerCaptureUpdate;
+  prepareUpdate?: (input: {
+    idempotencyKey: string;
+    projectId: string;
+    workItemId: string | null;
+    rawText: string;
+  }) => Promise<import("../../platform/capture-update-api").CapturePreparedUpdate>;
   save: (
     input: Readonly<{ sourceType: SourceType; text: string; sourceUploadId: string | null }>,
   ) => Promise<void>;
@@ -42,6 +52,10 @@ export function CaptureDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [review, setReview] = useState<ReturnType<typeof reviewDraft> | null>(null);
+  const [preparedUpdate, setPreparedUpdate] = useState<
+    import("../../platform/capture-update-api").CapturePreparedUpdate | null
+  >(null);
+  const [updateIdempotencyKey] = useState(() => crypto.randomUUID());
   const fileInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const voiceInput = useRef<HTMLInputElement>(null);
@@ -93,6 +107,53 @@ export function CaptureDialog({
       setUnderstanding(null);
       setAnswer("");
       onSaved();
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const continueToReview = async () => {
+    if (understanding?.likelyProject === null || understanding === null) {
+      setError(true);
+      return;
+    }
+    setBusy(true);
+    setError(false);
+    try {
+      const prepared = await prepareUpdate({
+        idempotencyKey: updateIdempotencyKey,
+        projectId: understanding.likelyProject.id,
+        workItemId: understanding.relatedWorkItemId,
+        rawText: text.trim(),
+      });
+      setPreparedUpdate(prepared);
+      if (prepared.state === "draft_with_question") {
+        return;
+      }
+      setReview(reviewDraft(understanding, prepared));
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const answerUpdateQuestion = async () => {
+    if (preparedUpdate?.state !== "draft_with_question" || answer.trim() === "") return;
+    setBusy(true);
+    setError(false);
+    try {
+      const prepared = await answerUpdate({
+        answer: answer.trim(),
+        sessionId: preparedUpdate.sessionId,
+        sessionVersion: preparedUpdate.sessionVersion,
+        turnId: preparedUpdate.turnId,
+      });
+      setPreparedUpdate(prepared);
+      setAnswer("");
+      if (prepared.state === "ready_for_review" && understanding !== null) {
+        setReview(reviewDraft(understanding, prepared));
+      }
     } catch {
       setError(true);
     } finally {
@@ -235,7 +296,9 @@ export function CaptureDialog({
           {understanding === null ? null : (
             <UnderstandingPanel catalog={catalog} understanding={understanding} />
           )}
-          {understanding?.clarification === null || understanding === null ? null : (
+          {understanding?.clarification === null ||
+          understanding === null ||
+          preparedUpdate !== null ? null : (
             <section className={styles.clarification!}>
               <h3>
                 {createElement(ProductIcon, { name: "sparkles", size: "small" })}
@@ -261,6 +324,22 @@ export function CaptureDialog({
               </button>
             </section>
           )}
+          {preparedUpdate?.state !== "draft_with_question" ? null : (
+            <section className={styles.clarification!}>
+              <h3>{catalog["capture.clarification"]}</h3>
+              <p>{preparedUpdate.question}</p>
+              <label className={styles.srOnly!} htmlFor="capture-update-answer">
+                {catalog["capture.answer"]}
+              </label>
+              <textarea
+                id="capture-update-answer"
+                maxLength={20_000}
+                onChange={(event) => setAnswer(event.target.value)}
+                placeholder={catalog["capture.answer"]}
+                value={answer}
+              />
+            </section>
+          )}
           <p className={styles.privateNotice!}>
             {createElement(ProductIcon, { name: "shield", size: "small" })}
             {catalog["capture.noRecord"]}
@@ -273,7 +352,11 @@ export function CaptureDialog({
           <footer className={styles.footer!}>
             <button
               className={styles.secondaryAction!}
-              disabled={busy || (text.trim() === "" && sources.length === 0)}
+              disabled={
+                busy ||
+                (text.trim() === "" && sources.length === 0) ||
+                (preparedUpdate?.state === "draft_with_question" && answer.trim() === "")
+              }
               onClick={() => void savePrivate()}
               type="button"
             >
@@ -284,7 +367,9 @@ export function CaptureDialog({
               disabled={busy || (text.trim() === "" && sources.length === 0)}
               onClick={() => {
                 if (understanding === null) void runUnderstanding();
-                else setReview(reviewDraft(text, understanding));
+                else if (preparedUpdate?.state === "draft_with_question") {
+                  void answerUpdateQuestion();
+                } else void continueToReview();
               }}
               type="button"
             >
@@ -300,23 +385,19 @@ export function CaptureDialog({
   });
 }
 
-function reviewDraft(rawText: string, understanding: WebCaptureUnderstanding) {
-  const sourceRefs =
-    understanding.sourceRefs.length > 0
-      ? understanding.sourceRefs
-      : [
-          {
-            kind: "manual_capture" as const,
-            label: "Employee capture",
-            observedAt: new Date().toISOString(),
-            freshness: "fresh" as const,
-          },
-        ];
-  const summary =
-    rawText
-      .split("\n")
-      .find((line) => line.trim() !== "")
-      ?.slice(0, 120) ?? "Project update";
+function reviewDraft(
+  understanding: WebCaptureUnderstanding,
+  prepared: Extract<
+    import("../../platform/capture-update-api").CapturePreparedUpdate,
+    { state: "ready_for_review" }
+  >,
+) {
+  const sourceRefs = prepared.draft.sourceReferences.map((label) => ({
+    kind: "manual_capture" as const,
+    label,
+    observedAt: null,
+    freshness: "fresh" as const,
+  }));
   return {
     schemaVersion: "review-confirmation-draft.v1" as const,
     captureId: crypto.randomUUID(),
@@ -324,29 +405,21 @@ function reviewDraft(rawText: string, understanding: WebCaptureUnderstanding) {
     workItem:
       understanding.relatedWorkItemId === null
         ? null
-        : { id: understanding.relatedWorkItemId, title: "Validate streaming fallback" },
+        : {
+            id: understanding.relatedWorkItemId,
+            title: understanding.relatedWorkItemTitle ?? "Related Work Item",
+          },
     update: {
-      sessionId: "e5555555-5555-4555-8555-555555555555",
-      expectedVersion: 3,
+      sessionId: prepared.sessionId,
+      expectedVersion: prepared.draft.revision,
       editable: true as const,
       selected: true,
-      summary,
-      result: rawText.slice(0, 1_000),
-      nextAction: "Verify the remaining measurement source.",
+      summary: prepared.draft.summary,
+      result: prepared.draft.result,
+      nextAction: prepared.draft.nextAction,
       sourceRefs,
     },
-    evidence: [
-      {
-        draftId: "ea111111-1111-4111-8111-111111111111",
-        expectedRevision: 1,
-        selected: false,
-        employeeEditRequired: understanding.likelyMeaning === "suggested_evidence",
-        employeeEdited: false,
-        supportedClaim: "Authentication fallback works in staging.",
-        contributionContext: "Review and describe your contribution.",
-        sourceRefs,
-      },
-    ],
+    evidence: [],
     progressProposal:
       understanding.relatedComponentId === null
         ? null
@@ -359,8 +432,7 @@ function reviewDraft(rawText: string, understanding: WebCaptureUnderstanding) {
             requiresOwnerConfirmation: true,
             sourceRefs,
           },
-    uncertainty:
-      understanding.clarification?.question ?? "No additional uncertainty was identified.",
+    uncertainty: "No additional uncertainty was identified.",
     afterConfirmation: [
       "Append the selected Update to the Timeline.",
       "Create Evidence only when selected and employee-edited.",

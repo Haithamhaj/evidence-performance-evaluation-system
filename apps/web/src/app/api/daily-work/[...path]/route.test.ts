@@ -1130,6 +1130,7 @@ function captureUnderstanding() {
     likelyProject: { id: projectId, name: "Atlas Delivery", confidence: "high" },
     likelyMeaning: "suggested_evidence",
     relatedWorkItemId: null,
+    relatedWorkItemTitle: null,
     relatedComponentId: null,
     sourceRefs: [],
     clarification: {

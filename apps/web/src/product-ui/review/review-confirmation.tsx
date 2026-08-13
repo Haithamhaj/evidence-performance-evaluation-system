@@ -96,6 +96,11 @@ export function ReviewConfirmation({
         ))}
       </div>
 
+      <p>
+        <strong>{draft.project.name}</strong>
+        {draft.workItem === null ? null : ` · ${draft.workItem.title}`}
+      </p>
+
       {update === null ? null : (
         <section className={styles.section!}>
           <div className={styles.sectionTitle!}>

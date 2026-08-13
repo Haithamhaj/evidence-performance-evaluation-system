@@ -130,6 +130,7 @@ describe("final employee experience contracts", () => {
       likelyProject: { id: projectId, name: "Atlas Delivery", confidence: "high" as const },
       likelyMeaning: "project_update" as const,
       relatedWorkItemId: workItemId,
+      relatedWorkItemTitle: "Validate streaming fallback",
       relatedComponentId: componentId,
       sourceRefs: [source],
       clarification: {

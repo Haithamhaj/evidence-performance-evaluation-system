@@ -205,6 +205,7 @@ export const CaptureUnderstandingV1Schema = guarded(
         .nullable(),
       likelyMeaning: z.enum(["private_note", "task", "project_update", "suggested_evidence"]),
       relatedWorkItemId: UuidSchema.nullable(),
+      relatedWorkItemTitle: z.string().trim().min(1).max(500).nullable(),
       relatedComponentId: UuidSchema.nullable(),
       sourceRefs: z.array(EmployeeExperienceSourceRefV1Schema).max(20),
       clarification: z

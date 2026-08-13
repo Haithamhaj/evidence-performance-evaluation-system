@@ -240,6 +240,12 @@ every engine authority and protected product rule, and all retained rollback rou
   reviewed the proposed `ready -> in_progress` transition, and explicitly confirmed it through the
   existing Work Items command. The successful run remained pending human approval until that action;
   it created no rating, evidence, or Project-progress mutation.
+- The same Codex employee journey now reaches a real accepted Project Update. Universal Capture
+  identifies the Project and Work Item, the configured OpenAI route prepares the Update, Codex edits
+  its title and summary, and explicit confirmation appends it to the Task timeline. The Task remains
+  `in_progress`; no employee score or automatic Project-progress change is created. The journey also
+  fixed an invalid attachment reference and replaced Capture's prototype Update identifiers with a
+  real idempotent Update session.
 
 ## Active Risks
 
@@ -267,10 +273,10 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue the real Codex employee dogfood journey from the active acceptance Task: record the
-source-backed Update/Evidence produced by the work, validate the Project overview without inferring
-progress from Task activity, and proceed to the next approved engine capability bundle. Keep Pull
-Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
+Continue the real Codex employee dogfood journey from the accepted Update: add employee-confirmed
+source-backed Evidence where appropriate, validate the Project overview without inferring progress
+from Task activity, and proceed to the next approved engine capability bundle. Keep Pull Requests #29
+and #30 unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

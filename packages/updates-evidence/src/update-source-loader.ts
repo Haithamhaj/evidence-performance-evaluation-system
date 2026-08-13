@@ -56,7 +56,7 @@ export class PrismaUpdateSourceLoader {
     let remaining = 50_000;
     const chunks: string[] = [];
     for (const attachment of attachments) {
-      const reference = `update-source-attachment:${attachment.id}:${attachment.sourceVersion}`;
+      const reference = attachmentReference(attachment.id, attachment.sourceVersion);
       let content: string;
       if (attachment.uploadedSourceId !== null) {
         const upload = attachment.uploadedSource;
@@ -95,11 +95,15 @@ export class PrismaUpdateSourceLoader {
     if (untrustedText.trim().length === 0) throw invalidSource();
     return {
       untrustedText,
-      sourceReferences: attachments.map(
-        (attachment) => `update-source-attachment:${attachment.id}:${attachment.sourceVersion}`,
+      sourceReferences: attachments.map((attachment) =>
+        attachmentReference(attachment.id, attachment.sourceVersion),
       ),
     };
   }
+}
+
+function attachmentReference(id: string, sourceVersion: number): string {
+  return `update-source-attachment-v${sourceVersion}:${id}`;
 }
 
 function invalidSource(): AppError {
