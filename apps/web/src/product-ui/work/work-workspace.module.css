@@ -600,6 +600,56 @@
     gap: 1rem;
   }
 
+  .personalViews {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    border-block: 1px solid var(--ui-color-border, #d7dee8);
+    padding-block: 0.65rem;
+  }
+
+  .personalViews > div,
+  .personalViews > form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .personalViews a,
+  .personalViews button {
+    min-block-size: 2.15rem;
+    border: 1px solid var(--ui-color-border-strong, #aeb9c8);
+    border-radius: 0.4rem;
+    background: #fff;
+    padding: 0.45rem 0.65rem;
+    color: #1259c3;
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 750;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .personalViews label {
+    display: grid;
+    gap: 0.2rem;
+    color: var(--ui-color-text-muted, #536174);
+    font-size: 0.7rem;
+    font-weight: 750;
+  }
+
+  .personalViews input {
+    min-block-size: 2.15rem;
+    border: 1px solid var(--ui-color-border-strong, #aeb9c8);
+    border-radius: 0.4rem;
+    padding-inline: 0.6rem;
+    color: inherit;
+    font: inherit;
+  }
+
   .calendarDates {
     display: grid;
     gap: 0.75rem;

@@ -168,6 +168,9 @@ every engine authority and protected product rule, and all retained rollback rou
   context and cannot become Evidence, official Project progress, or employee performance without the
   existing human confirmation gates. The real dogfood journey rescheduled the Phase 2 review Task,
   verified the same Task in List/Board/Calendar, and captured the connected Calendar state.
+- P2-08 is complete: Codex can save up to eight employee-owned personal Work views from the
+  allowlisted URL state (layout, Project, status, search, and sort). Views stay on that employee's
+  device and deliberately contain no manager, evaluation, rating, readiness, or performance data.
 
 ## Active Risks
 

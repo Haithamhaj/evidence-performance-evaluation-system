@@ -120,9 +120,13 @@ export function WorkWorkspace({
   const [calendarContextState, setCalendarContextState] = useState<"idle" | "loading" | "error">(
     "idle",
   );
+  const [savedViews, setSavedViews] = useState<PersonalWorkView[]>([]);
+  const [savingView, setSavingView] = useState(false);
+  const [viewName, setViewName] = useState("");
   const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
   const quickDraftKey = `command-brief.quick-task.v1:${currentUserId}`;
+  const personalViewsKey = `command-brief.work-views.v1:${currentUserId}`;
   const model = useMemo(
     () =>
       buildWorkListModel({ items, projects, unknownProjectLabel: catalog["work.unknownProject"] }),
@@ -177,6 +181,18 @@ export function WorkWorkspace({
   }, [projects, quickDraftKey]);
 
   useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(personalViewsKey);
+      if (stored === null) return;
+      const parsed = JSON.parse(stored) as unknown;
+      if (!Array.isArray(parsed)) return;
+      setSavedViews(parsed.flatMap(parsePersonalWorkView).slice(0, 8));
+    } catch {
+      window.localStorage.removeItem(personalViewsKey);
+    }
+  }, [personalViewsKey]);
+
+  useEffect(() => {
     if (!quickDraftReady) return;
     if (title.trim() === "") {
       window.localStorage.removeItem(quickDraftKey);
@@ -221,6 +237,34 @@ export function WorkWorkspace({
     if (filters.projectId !== null) search.set("project", filters.projectId);
     if (filters.status !== null) search.set("status", filters.status);
     if (filters.sort !== "due_asc") search.set("sort", filters.sort);
+    return `/${locale}/tasks?${search.toString()}`;
+  }
+
+  function savePersonalView() {
+    const name = viewName.trim().slice(0, 60);
+    if (name === "") return;
+    const saved: PersonalWorkView = {
+      id: crypto.randomUUID(),
+      layout: initialLayout,
+      name,
+      projectId: filters.projectId,
+      search: filters.search,
+      sort: filters.sort,
+      status: filters.status,
+    };
+    const next = [saved, ...savedViews].slice(0, 8);
+    setSavedViews(next);
+    window.localStorage.setItem(personalViewsKey, JSON.stringify(next));
+    setSavingView(false);
+    setViewName("");
+  }
+
+  function savedViewHref(saved: PersonalWorkView) {
+    const search = new URLSearchParams({ view: "my", layout: saved.layout });
+    if (saved.projectId !== null) search.set("project", saved.projectId);
+    if (saved.search !== null && saved.search !== "") search.set("q", saved.search);
+    if (saved.sort !== "due_asc") search.set("sort", saved.sort);
+    if (saved.status !== null) search.set("status", saved.status);
     return `/${locale}/tasks?${search.toString()}`;
   }
 
@@ -659,6 +703,46 @@ export function WorkWorkspace({
         </a>
       </form>
 
+      <section aria-label={catalog["work.personalViews"]} className={styles.personalViews!}>
+        <div>
+          <strong>{catalog["work.personalViews"]}</strong>
+          {savedViews.map((saved) => (
+            <a href={savedViewHref(saved)} key={saved.id}>
+              {saved.name}
+            </a>
+          ))}
+        </div>
+        {savingView ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              savePersonalView();
+            }}
+          >
+            <label>
+              <span>{catalog["work.viewName"]}</span>
+              <input
+                aria-label={catalog["work.viewName"]}
+                autoFocus
+                maxLength={60}
+                onChange={(event) => setViewName(event.target.value)}
+                value={viewName}
+              />
+            </label>
+            <button disabled={viewName.trim() === ""} type="submit">
+              {catalog["work.savePersonalView"]}
+            </button>
+            <button onClick={() => setSavingView(false)} type="button">
+              {catalog["tasks.cancelEdit"]}
+            </button>
+          </form>
+        ) : (
+          <button onClick={() => setSavingView(true)} type="button">
+            {catalog["work.saveCurrentView"]}
+          </button>
+        )}
+      </section>
+
       {boardNotice === null ? null : (
         <p className={styles.alert!} role="alert">
           {catalog[boardNotice === "stale" ? "work.board.stale" : "work.board.error"]}
@@ -767,6 +851,46 @@ export function WorkWorkspace({
       )}
     </section>
   );
+}
+
+type PersonalWorkView = Readonly<{
+  id: string;
+  layout: "board" | "calendar" | "list";
+  name: string;
+  projectId: string | null;
+  search: string | null;
+  sort: "due_asc" | "updated_desc" | "priority_desc";
+  status: WorkItemStatus | null;
+}>;
+
+function parsePersonalWorkView(value: unknown): PersonalWorkView[] {
+  if (typeof value !== "object" || value === null) return [];
+  const input = value as Record<string, unknown>;
+  if (
+    typeof input.id !== "string" ||
+    typeof input.name !== "string" ||
+    input.name.trim() === "" ||
+    !["board", "calendar", "list"].includes(String(input.layout)) ||
+    !["due_asc", "updated_desc", "priority_desc"].includes(String(input.sort)) ||
+    !(input.projectId === null || typeof input.projectId === "string") ||
+    !(input.search === null || typeof input.search === "string") ||
+    !(
+      input.status === null ||
+      boardStatuses.includes(input.status as (typeof boardStatuses)[number])
+    )
+  )
+    return [];
+  return [
+    {
+      id: input.id,
+      layout: input.layout as PersonalWorkView["layout"],
+      name: input.name.slice(0, 60),
+      projectId: input.projectId as string | null,
+      search: input.search === null ? null : input.search.slice(0, 200),
+      sort: input.sort as PersonalWorkView["sort"],
+      status: input.status as WorkItemStatus | null,
+    },
+  ];
 }
 
 function WorkCalendar({

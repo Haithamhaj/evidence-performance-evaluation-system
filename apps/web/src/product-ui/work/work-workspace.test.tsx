@@ -537,6 +537,22 @@ describe("WorkWorkspace", () => {
     );
     expect(screen.getByText("Aug 15")).toBeVisible();
   });
+
+  it("saves an allowlisted personal Work view without manager or evaluation data", async () => {
+    const user = userEvent.setup();
+    renderWork(service());
+
+    await user.selectOptions(screen.getByLabelText("Status", { selector: "select" }), "ready");
+    await user.click(screen.getByRole("button", { name: "Save current view" }));
+    await user.type(screen.getByLabelText("View name"), "My launch work");
+    await user.click(screen.getByRole("button", { name: "Save personal view" }));
+
+    const saved = screen.getByRole("link", { name: "My launch work" });
+    expect(saved).toHaveAttribute("href", "/en/tasks?view=my&layout=list&status=ready");
+    const stored = window.localStorage.getItem(`command-brief.work-views.v1:${employeeId}`) ?? "";
+    expect(stored).toContain("My launch work");
+    expect(stored).not.toMatch(/manager|evaluation|rating|readiness/iu);
+  });
 });
 
 function renderWork(
