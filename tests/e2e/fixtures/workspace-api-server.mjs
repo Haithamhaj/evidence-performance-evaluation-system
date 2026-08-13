@@ -1696,6 +1696,35 @@ const server = createServer(async (request, response) => {
     });
   }
 
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/experience-orchestration/task-assistant/ask"
+  ) {
+    if (accessToken !== ownerAccessToken)
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    const body = await readJson(request);
+    const item = codexWorkItems.find(({ id }) => id === body?.workItemId);
+    if (item === undefined || typeof body?.question !== "string")
+      return json(response, 400, { messageKey: "errors.validation" });
+    return json(response, 200, {
+      schemaVersion: "task-assistant-output.v1",
+      answer:
+        "The remaining step is to verify the free-form assistant, then review the prepared status change before any command runs.",
+      sourceReferences: [
+        `work-item:${item.id}`,
+        "timeline:d7777777-7777-4777-8777-777777777777",
+        "timeline:d8888888-8888-4888-8888-888888888888",
+      ],
+      assistance: "ai_assisted",
+      suggestedAction: {
+        kind: "status_change",
+        status: "in_review",
+        rationale: "Move to review only after the focused verification passes.",
+      },
+      createsCommand: false,
+    });
+  }
+
   if (request.method === "GET" && url.pathname === "/api/v1/experience/what-changed") {
     if (accessToken !== ownerAccessToken)
       return json(response, 200, { items: [], nextCursor: null });

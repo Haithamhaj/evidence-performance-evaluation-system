@@ -64,7 +64,7 @@ export const PROTECTED_API_MATRIX = Object.freeze([
   ),
   protectedRow(
     "api/v1/experience-orchestration",
-    "apps/api/src/experience-orchestration/experience-orchestrator.service.test.ts",
+    "apps/api/src/experience-orchestration/task-assistant.service.test.ts",
     "authorized read composition only",
     { auditMode: "POLICY_DECISION" },
   ),

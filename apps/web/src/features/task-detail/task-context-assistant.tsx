@@ -9,6 +9,7 @@ import type {
   WorkItemContext,
   WorkItemDependencies,
   WorkItemStatus,
+  WebTaskAssistantAnswer,
 } from "../../platform/work-items-api";
 import styles from "../../product-ui/work/work-workspace.module.css";
 
@@ -19,15 +20,20 @@ export function TaskContextAssistant({
   context,
   dependencies,
   item,
+  onAskTask,
   onConfirmTransition,
 }: Readonly<{
   catalog: Catalog;
   context: WorkItemContext | null;
   dependencies: WorkItemDependencies | null;
   item: WebWorkItem;
+  onAskTask?(question: string): Promise<WebTaskAssistantAnswer>;
   onConfirmTransition?(status: WorkItemStatus): Promise<void>;
 }>) {
   const [answer, setAnswer] = useState<Prompt | null>(null);
+  const [question, setQuestion] = useState("");
+  const [liveAnswer, setLiveAnswer] = useState<WebTaskAssistantAnswer | null>(null);
+  const [asking, setAsking] = useState(false);
   const [preparedStatus, setPreparedStatus] = useState<WorkItemStatus | null>(null);
   const [confirming, setConfirming] = useState(false);
 
@@ -59,6 +65,35 @@ export function TaskContextAssistant({
           </button>
         )}
       </div>
+      {onAskTask === undefined ? null : (
+        <form
+          className={styles.taskAssistantAsk!}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (question.trim().length < 2) return;
+            setAsking(true);
+            void onAskTask(question.trim())
+              .then((result) => {
+                setLiveAnswer(result);
+                setAnswer(null);
+              })
+              .finally(() => setAsking(false));
+          }}
+        >
+          <label>
+            <span>{catalog["work.assistant.questionLabel"]}</span>
+            <textarea
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder={catalog["work.assistant.questionPlaceholder"]}
+              rows={2}
+              value={question}
+            />
+          </label>
+          <button disabled={asking || question.trim().length < 2} type="submit">
+            {asking ? catalog["work.assistant.asking"] : catalog["work.assistant.ask"]}
+          </button>
+        </form>
+      )}
       {answer === null ? (
         <p className={styles.taskAssistantEmpty!}>{catalog["work.assistant.empty"]}</p>
       ) : (
@@ -66,6 +101,33 @@ export function TaskContextAssistant({
           <strong>{catalog["work.assistant.answer"]}</strong>
           <p>{answerFor(answer, catalog, context, dependencies, item)}</p>
           <small>{catalog["work.assistant.guardrail"]}</small>
+        </div>
+      )}
+      {liveAnswer === null ? null : (
+        <div aria-live="polite" className={styles.taskAssistantAnswer!} role="status">
+          <strong>{catalog["work.assistant.answer"]}</strong>
+          <p>{liveAnswer.answer}</p>
+          <small>
+            {catalog["work.assistant.sourceCount"].replace(
+              "{count}",
+              String(liveAnswer.sourceReferences.length),
+            )}
+            {" · "}
+            {liveAnswer.assistance === "ai_assisted"
+              ? catalog["work.assistant.aiMode"]
+              : catalog["work.assistant.fallbackMode"]}
+          </small>
+          {liveAnswer.suggestedAction === null ? null : (
+            <button
+              onClick={() => setPreparedStatus(liveAnswer.suggestedAction?.status ?? null)}
+              type="button"
+            >
+              {catalog["work.assistant.prepareNamedStatus"].replace(
+                "{status}",
+                catalog[`myWork.status.${liveAnswer.suggestedAction.status}`],
+              )}
+            </button>
+          )}
         </div>
       )}
       {preparedStatus === null ? null : (

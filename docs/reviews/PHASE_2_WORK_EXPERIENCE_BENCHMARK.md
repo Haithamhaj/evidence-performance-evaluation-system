@@ -54,10 +54,11 @@ follow-up triggers; Work refresh recomposes the next prepared action from the au
 and Task detail can prepare a server-allowed status change without executing it. Codex must review
 the exact before/after state and confirm before the existing protected command runs.
 
-P2-15 and P2-16 are complete. P2-17 remains open only for the approved free-form AI Router slice:
-the employee must be able to ask in natural language about the Task, receive a source-grounded
-answer, and prepare the same bounded protected action without giving the model authority to execute
-it. The deterministic contextual buttons remain the truthful fallback.
+P2-15, P2-16, and P2-17 are complete for the selected Work/Task capability matrix. The employee can
+ask a natural-language question about the authorized Task, dependencies, Updates, and Evidence; the
+answer reports its authorized source count and can prepare only a status from the current server
+transition set. It creates no command. Explicit employee confirmation remains required through the
+existing Work Items command, and the deterministic contextual buttons remain the truthful fallback.
 
 The next bundle should close those three gaps using the existing AI Router and domain commands. It
 must not add a second task store, infer Project progress from Task volume, or turn chat into the only

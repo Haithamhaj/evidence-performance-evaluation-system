@@ -7,6 +7,11 @@ import {
   WebWorkItemSchema,
 } from "./task-workspace-contracts";
 import { TimelineResponseSchema } from "./updates-evidence-contracts";
+import {
+  AskTaskAssistantInputSchema,
+  WebTaskAssistantAnswerSchema,
+} from "./task-assistant-contracts";
+export type { WebTaskAssistantAnswer } from "./task-assistant-contracts";
 
 export type WebWorkItem = z.infer<typeof WebWorkItemSchema>;
 export type WorkItemStatus = WebWorkItem["status"];
@@ -178,6 +183,21 @@ export async function updateWorkItem(
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+export async function askWorkItem(input: {
+  readonly workItemId: string;
+  readonly locale: "ar" | "en";
+  readonly question: string;
+}) {
+  const body = AskTaskAssistantInputSchema.parse(input);
+  const response = await fetch("/api/daily-work/experience/task-assistant", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new WorkItemGatewayError(response.status);
+  return WebTaskAssistantAnswerSchema.parse(await response.json());
 }
 
 async function request(path: string, init?: RequestInit): Promise<WebWorkItem> {

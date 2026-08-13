@@ -835,6 +835,43 @@
     padding: 0.65rem 0.75rem;
   }
 
+  .taskAssistantAsk {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .taskAssistantAsk label {
+    display: grid;
+    gap: 0.3rem;
+    color: var(--ui-color-text-muted, #536174);
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .taskAssistantAsk textarea {
+    min-block-size: 3.5rem;
+    resize: vertical;
+    border: 1px solid #9fc0f1;
+    border-radius: 0.55rem;
+    background: #fff;
+    padding: 0.6rem;
+    color: inherit;
+    font: inherit;
+  }
+
+  .taskAssistantAsk button,
+  .taskAssistantAnswer button {
+    justify-self: start;
+    border: 1px solid #1467e8;
+    border-radius: 0.45rem;
+    background: #fff;
+    padding: 0.45rem 0.7rem;
+    color: #1259c3;
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
   .rowSelection {
     display: grid;
     place-items: center;

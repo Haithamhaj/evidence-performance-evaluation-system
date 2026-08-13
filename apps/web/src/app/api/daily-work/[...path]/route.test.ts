@@ -152,6 +152,44 @@ describe("daily-work same-origin gateway", () => {
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
   });
 
+  it("forwards one bounded Task question without accepting browser authority", async () => {
+    const workItemId = "99999999-9999-4999-8999-999999999999";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      schemaVersion: "task-assistant-output.v1",
+      answer: "Review the focused verification.",
+      sourceReferences: [`work-item:${workItemId}`],
+      assistance: "ai_assisted",
+      suggestedAction: null,
+      createsCommand: false,
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/task-assistant", {
+        method: "POST",
+        body: JSON.stringify({ workItemId, locale: "en", question: "What remains?" }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "task-assistant"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/v1/experience-orchestration/task-assistant/ask",
+      body: { workItemId, locale: "en", question: "What remains?" },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/task-assistant", {
+        method: "POST",
+        body: JSON.stringify({ workItemId, locale: "en", question: "Do it", actorId: projectId }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "task-assistant"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
   it("preserves an upstream Project-decision conflict for stale recovery", async () => {
     mocks.open.mockReturnValue({
       id: "44444444-4444-4444-8444-444444444444",

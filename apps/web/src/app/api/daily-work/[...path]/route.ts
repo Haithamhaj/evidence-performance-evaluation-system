@@ -67,6 +67,10 @@ import {
   CaptureUnderstandingInputSchema,
   WebCaptureUnderstandingSchema,
 } from "../../../../platform/capture-understanding-contracts";
+import {
+  AskTaskAssistantInputSchema,
+  WebTaskAssistantAnswerSchema,
+} from "../../../../platform/task-assistant-contracts";
 
 import {
   fetchProtectedUpstream,
@@ -447,6 +451,14 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         "/api/v1/experience-orchestration/capture/understand",
         input,
         WebCaptureUnderstandingSchema,
+      );
+    }
+    if (path.length === 2 && path[0] === "experience" && path[1] === "task-assistant") {
+      const input = AskTaskAssistantInputSchema.parse(body);
+      return await post(
+        "/api/v1/experience-orchestration/task-assistant/ask",
+        input,
+        WebTaskAssistantAnswerSchema,
       );
     }
     if (path.length === 1 && path[0] === "private-inbox") {

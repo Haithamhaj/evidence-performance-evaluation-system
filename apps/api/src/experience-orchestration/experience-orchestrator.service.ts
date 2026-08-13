@@ -336,7 +336,7 @@ const PROHIBITED_OUTPUT_PATTERNS = [
   /(?:\d|%|percent(?:age)?|score).{0,24}\b(?:project\s+)?progress\b/iu,
   /\b(?:commits?|tasks?|updates?|activities|projects?|pull\s+requests?)\s+(?:count|volume|frequency)\b.{0,64}\b(?:performance|rating|rank|productivity|progress|score|evaluation|assessment|judgment)\b/iu,
   /\b(?:performance|rating|rank|productivity|progress|score|evaluation|assessment|judgment)\b.{0,64}\b(?:count|volume|frequency)\s+of\s+(?:commits?|tasks?|updates?|activities|projects?|pull\s+requests?)\b/iu,
-  /(?:تقييم\s+(?:الاداء|الموظف|الموظفة)|درجة\s+الاداء|التصنيف\s+الادايي)/iu,
+  /(?:تقييم\s+(?:اداء|الاداء|الموظف|الموظفة)|درجة\s+الاداء|التصنيف\s+الادايي)/iu,
   /(?:ترتيب|رتبة).{0,24}(?:الموظف|الموظفة|الموظفين)|(?:الموظف|الموظفة).{0,24}(?:ترتيب|رتبة)/iu,
   /(?:الموظف|الموظفة|الموظفين|الاداء|تقييم|درجة).{0,24}(?:انتاجية|الانتاجية)|(?:انتاجية|الانتاجية).{0,24}(?:الموظف|الموظفة|الموظفين|الاداء|تقييم|درجة|مرتفعة|منخفضة|افضل|اسوا)/iu,
   /(?:جاهزية|اكتمال).{0,20}(?:التوثيق|الوثائق|التقييم)|نسبة\s+الجاهزية/iu,

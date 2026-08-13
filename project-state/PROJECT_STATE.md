@@ -202,9 +202,10 @@ every engine authority and protected product rule, and all retained rollback rou
 - P2-16 is complete: the clean-room ClickUp interaction benchmark records action count, keyboard
   paths, density, filters, URL-owned detail context, and retry behavior. No ClickUp code, asset,
   schema, API, or branding entered the repository.
-- P2-17 remains open by design. Core Work/Task management is complete, but the Work Agent still needs
-  the remaining authoritative triggers, prepared Update/follow-up actions, and confirmation-bound
-  command preparation before the capability matrix can be closed honestly.
+- P2-17 is complete for the selected Work/Task capability matrix. The Work Agent now covers the
+  authoritative daily triggers, prepared Update/check-in follow-up, source-grounded free-form Task
+  questions through the AI Router, and a confirmation-bound status preparation. The deterministic
+  Task buttons remain the truthful fallback; no assistant path executes a command by itself.
 - The current Codex dogfood state now follows the real project: representative Work performance and
   paging are complete, Work Agent capability closure is active, Project-progress approval is a
   separate Product Owner Task, and recent commits remain suggested evidence. The full browser journey
@@ -227,7 +228,12 @@ every engine authority and protected product rule, and all retained rollback rou
   current and proposed states are shown first, nothing is written while the proposal is displayed,
   and only Codex's explicit confirmation calls the existing version- and dependency-protected Work
   Items command. This closes protected update preparation without giving the assistant command
-  authority; free-form AI Router conversation remains the final P2-12/P2-17 gap.
+  authority.
+- Task detail now also accepts one natural-language question. The server re-authorizes the Task,
+  dependencies, and scoped Timeline before invoking the AI Router; the answer names its source count,
+  preserves GitHub as suggested Evidence, and may prepare only a status contained in the current
+  authoritative transition set. Provider failure falls back to the existing deterministic next
+  action. This closes P2-12/P2-17 without a chat store or a second command path.
 
 ## Active Risks
 
@@ -256,11 +262,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Close the remaining free-form P2-12 Work Agent conversation through the existing AI Router while
-preserving the deterministic fallback and explicit human confirmation, then reconcile P2-17 against
-the capability matrix. Keep
-dogfooding with Codex and the real Project, keep Pull Requests #29 and #30 unmerged, and retain
-Calendar and legacy rollback routes.
+Run the complete Codex employee dogfood journey with the closed Work Agent capability matrix, record
+any concrete usability gaps, and proceed to the next approved engine capability bundle. Keep Pull
+Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

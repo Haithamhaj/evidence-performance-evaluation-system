@@ -29,6 +29,14 @@ import {
   CAPTURE_UNDERSTANDING_TRUSTED_PROMPT,
   CaptureUnderstandingAiOutputSchema,
 } from "../apps/api/src/experience-orchestration/capture-understanding.service.js";
+import {
+  TASK_ASSISTANT_INPUT_SCHEMA_VERSION,
+  TASK_ASSISTANT_OUTPUT_SCHEMA_VERSION,
+  TASK_ASSISTANT_PROMPT_VERSION,
+  TASK_ASSISTANT_ROUTE,
+  TASK_ASSISTANT_TRUSTED_PROMPT,
+  TaskAssistantAiOutputSchema,
+} from "../apps/api/src/experience-orchestration/task-assistant.service.js";
 
 const ArgumentsSchema = z
   .object({
@@ -57,6 +65,14 @@ const governedRoutes = [
     promptTemplateVersion: CAPTURE_UNDERSTANDING_PROMPT_VERSION,
     trustedPrompt: CAPTURE_UNDERSTANDING_TRUSTED_PROMPT,
     outputSchema: CaptureUnderstandingAiOutputSchema,
+  },
+  {
+    routeKey: TASK_ASSISTANT_ROUTE,
+    inputSchemaVersion: TASK_ASSISTANT_INPUT_SCHEMA_VERSION,
+    outputSchemaVersion: TASK_ASSISTANT_OUTPUT_SCHEMA_VERSION,
+    promptTemplateVersion: TASK_ASSISTANT_PROMPT_VERSION,
+    trustedPrompt: TASK_ASSISTANT_TRUSTED_PROMPT,
+    outputSchema: TaskAssistantAiOutputSchema,
   },
 ] as const;
 
@@ -258,6 +274,9 @@ async function registerPrompt(
 }
 
 function expectedOutputBehavior(routeKey: string): string {
+  if (routeKey === TASK_ASSISTANT_ROUTE) {
+    return "Returns one source-grounded Task answer and at most one allowed status-change preparation; no command, rating, readiness, or progress authority.";
+  }
   if (routeKey === CAPTURE_UNDERSTANDING_ROUTE) {
     return "Returns one private, source-backed Capture interpretation with at most one clarification and no command, rating, readiness, or progress authority.";
   }
@@ -274,6 +293,9 @@ function expectedOutputBehavior(routeKey: string): string {
 }
 
 function expectedPromptBehavior(routeKey: string): string {
+  if (routeKey === TASK_ASSISTANT_ROUTE) {
+    return "One bounded answer from an authorized Task, dependencies, Updates, and Evidence; human confirmation remains mandatory for any suggested action.";
+  }
   if (routeKey === CAPTURE_UNDERSTANDING_ROUTE) {
     return "One bounded private Capture interpretation from authorized candidates; employee review and confirmation remain mandatory.";
   }

@@ -126,7 +126,7 @@ the protected Arabic-rubric approval, and the Product Owner launch decision.
 
 **ID:** CAP-013 | **Capability:** required-Project Tasks with optional Workstream, assignee, due date, checklist, status, and immutable assignment history | **User roles:** employees, owners, authorized managers | **User goal:** plan and complete ordinary work like a modern task tool
 **Authoritative sources:** AI-first Daily Workspace design; P2R-S1; T030–T042 trace | **Owner module:** `@evaluation/work-items` | **Inputs/sources:** human-created or confirmed AI-drafted task | **AI role:** may prepare a draft; never silently assign or create confirmed work
-**AI prohibitions:** task count/completion cannot score progress or performance | **Human gate:** user confirms AI draft and protected assignment | **States/transitions:** open/in-progress/blocked/done/cancelled plus history | **Public API/events:** `work-items.controller.ts`
+**AI prohibitions:** task count/completion cannot score progress or performance | **Human gate:** user confirms AI draft, protected assignment, and every AI-prepared status change | **States/transitions:** open/in-progress/blocked/done/cancelled plus history | **Public API/events:** `work-items.controller.ts`; source-grounded Task assistant through `experience.task-assistant.v1`
 **Authorization/privacy:** assignee/contributor/manager scopes | **Audit/history:** task status and assignment history retained | **Failure/recovery:** invalid transitions and stale actions reject | **Tests:** work-items package tests; Slice 1 E2E/acceptance; migrations `0012`, `0017`
 **Status:** COMPLETE | **External gate:** none | **Frontend implications:** familiar compact Task interaction; AI appears as optional help, not extra workflow
 

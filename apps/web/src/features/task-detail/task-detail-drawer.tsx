@@ -11,6 +11,7 @@ import type {
   WorkItemDependencies,
   WorkItemStatus,
 } from "../../platform/work-items-api";
+import { askWorkItem } from "../../platform/work-items-api";
 import styles from "../../product-ui/work/work-workspace.module.css";
 import { TaskContextAssistant } from "./task-context-assistant";
 
@@ -256,6 +257,7 @@ export function TaskDetailDrawer({
               context={context}
               dependencies={dependencies}
               item={item}
+              onAskTask={(question) => askWorkItem({ workItemId: item.id, locale, question })}
               onConfirmTransition={onTransition}
             />
             {notice === "stale" ? (

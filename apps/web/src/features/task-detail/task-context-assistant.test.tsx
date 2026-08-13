@@ -133,4 +133,67 @@ describe("TaskContextAssistant", () => {
     await user.click(screen.getByRole("button", { name: "Confirm status change" }));
     expect(confirmTransition).toHaveBeenCalledWith("in_progress");
   });
+
+  it("asks a natural-language question and keeps an AI-prepared command behind confirmation", async () => {
+    const user = userEvent.setup();
+    const askTask = vi.fn(async () => ({
+      schemaVersion: "task-assistant-output.v1" as const,
+      answer: "The focused verification is the remaining step.",
+      sourceReferences: ["work-item:82000000-0000-4000-8000-000000000001"],
+      assistance: "ai_assisted" as const,
+      suggestedAction: {
+        kind: "status_change" as const,
+        status: "in_review" as const,
+        rationale: "Move to review only after the focused verification passes.",
+      },
+      createsCommand: false as const,
+    }));
+    const confirmTransition = vi.fn(async () => undefined);
+    render(
+      <TaskContextAssistant
+        catalog={getCatalogSync("en")}
+        context={null}
+        dependencies={null}
+        item={{
+          acceptanceConditions: [],
+          allowedActions: ["transition"],
+          allowedTransitions: ["in_review"],
+          assigneeId: crypto.randomUUID(),
+          blocker: null,
+          checklist: [],
+          collaboratorIds: [],
+          createdAt: "2026-08-12T08:00:00.000Z",
+          description: "Close the agent gap.",
+          dueAt: null,
+          id: "82000000-0000-4000-8000-000000000001",
+          nextAction: "Run the focused verification.",
+          priority: "high",
+          projectId: crypto.randomUUID(),
+          requirements: [],
+          status: "in_progress",
+          title: "Close Work Agent capability gaps",
+          updatedAt: "2026-08-13T08:00:00.000Z",
+          version: 3,
+          workstreamId: null,
+        }}
+        onAskTask={askTask}
+        onConfirmTransition={confirmTransition}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Ask a question about this Task"), "What remains?");
+    await user.click(screen.getByRole("button", { name: "Ask assistant" }));
+    expect(askTask).toHaveBeenCalledWith("What remains?");
+    expect(
+      await screen.findByText("The focused verification is the remaining step."),
+    ).toBeVisible();
+    expect(screen.getByText(/Authorized sources: 1/u)).toBeVisible();
+    expect(confirmTransition).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Prepare In review" }));
+    expect(screen.getByRole("heading", { name: "Prepared status change" })).toBeVisible();
+    expect(confirmTransition).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Confirm status change" }));
+    expect(confirmTransition).toHaveBeenCalledWith("in_review");
+  });
 });
