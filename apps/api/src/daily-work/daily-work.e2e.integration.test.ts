@@ -9,7 +9,7 @@ const projectId = crypto.randomUUID();
 const documentId = crypto.randomUUID();
 const documentVersionId = crypto.randomUUID();
 const request = {
-  principal: { userId: actorId, active: true, roles: ["employee"] },
+  principal: { userId: actorId, email: "Codex@pilot.local", active: true, roles: ["employee"] },
   correlationId: crypto.randomUUID(),
 } as never;
 
@@ -61,6 +61,27 @@ describe("daily work protected API contracts", () => {
     await controller.myWork(request);
     expect(dailyWorkspace).toHaveBeenCalledWith({
       userId: actorId,
+      active: true,
+      roles: ["employee"],
+    });
+  });
+
+  it("composes Home with the authenticated employee identity", async () => {
+    const load = vi.fn(async () => ({ schemaVersion: "employee-home.v1" }));
+    const controller = new DailyWorkController(
+      {} as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { load } as never,
+    );
+
+    await controller.home(request);
+
+    expect(load).toHaveBeenCalledWith({
+      userId: actorId,
+      email: "Codex@pilot.local",
       active: true,
       roles: ["employee"],
     });

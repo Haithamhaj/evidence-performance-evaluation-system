@@ -1,123 +1,49 @@
-# Command Brief Foundation and Stable Shell — Design QA
+# Design QA — Final Employee Home Overview
 
-## Review target
+- source visual truth path: `docs/product/screenshots/ai-native-final-design/home-overview-approved.png`
+- implementation screenshot path: `docs/product/screenshots/ai-native-final-design/home-overview-visible.jpg`
+- combined comparison evidence: `docs/product/screenshots/ai-native-final-design/home-overview-comparison.png`
+- mobile evidence: `docs/product/screenshots/ai-native-final-design/home-overview-mobile.jpg`
+- viewport: 1487 × 1058 CSS px desktop; 390 × 844 CSS px mobile
+- source pixels: 1487 × 1058
+- implementation pixels: 1487 × 1058 at device scale 1
+- normalization: identical desktop viewport and state; no scaling or density conversion
+- state: authenticated employee `Codex`, English, three active Projects, fresh confirmed progress
 
-- Source of truth: `/Users/haitham/.codex/generated_images/019f659b-889b-7873-9927-4ae4802ea123/exec-3fae8387-569b-7873-9927-4ae4802ea123.png`
-- Implementation: `apps/web/src/product-ui/foundation/foundation.stories.tsx`
-- Stable shell implementation: `apps/web/src/product-ui/shell/stable-shell.tsx`
-- Styles: `apps/web/src/product-ui/foundation/foundation.module.css`
-- Review viewport: foundation desktop `1050 × 700` at `1x`; stable shell desktop
-  `1536 × 1024` at `1x`; mobile `390 × 844` at `1x`
-- Reviewed states: English ready, Arabic RTL ready, mobile ready, loading, empty, error/recovery, focused dialog
+## Full-view comparison evidence
 
-## Evidence
+The final comparison preserves the approved persistent shell, concise greeting, three Project rows, circular confirmed progress, completed/current/next milestone path, one meaningful KPI, one next action, four-item Now timeline, and assistant rail. The implementation uses the existing ProductIcon family and no substitute raster or custom SVG assets.
 
-- Full desktop: `docs/product/screenshots/ai-native-phase-0b/foundation-command-brief-desktop.jpg`
-- Focused mobile: `docs/product/screenshots/ai-native-phase-0b/foundation-command-brief-mobile.jpg`
-- Focused Arabic RTL: `docs/product/screenshots/ai-native-phase-0b/foundation-command-brief-arabic.jpg`
-- Side-by-side source comparison: `docs/product/screenshots/ai-native-phase-0b/foundation-command-brief-comparison.jpg`
-- Stable shell desktop: `docs/product/screenshots/ai-native-phase-0b/stable-shell-story-en-desktop.png`
-- Stable shell Arabic manager/mobile: `docs/product/screenshots/ai-native-phase-0b/stable-shell-story-ar-manager-mobile.png`
-- Equal-size stable-shell comparison: `docs/product/screenshots/ai-native-phase-0b/stable-shell-command-brief-comparison.png`
-- Source and stable-shell desktop captures are both `1536 × 1024` pixels, CSS `1536 × 1024`,
-  device scale factor `1`; no density normalization was required.
+## Focused region evidence
 
-## Comparison history
+- Project rows: labels remain readable without overlap; circular progress, milestone line, KPI, and action retain the approved visual hierarchy.
+- Assistant rail: Smart Brief, suggested action, source, primary action, and calculation disclosure remain contained in the rail without colliding with Project content.
+- Mobile: 390 px evidence has no horizontal overflow; Projects stack, the assistant rail is progressively disclosed away, and the existing bottom navigation remains visible.
 
-1. The first equal-viewport comparison showed excessive card spacing, a collapsed prepared row, duplicated task context, and missing source icons.
-2. The implementation was tightened to compact operational rows, the prepared draft became directly visible, duplicate project text was removed, and Lucide source icons were added.
-3. The final foundation comparison preserved the reference hierarchy: decision first, prepared work
-   second, current tasks third, and change history last.
-4. T083 added the production shell and repeated the comparison at the source's exact desktop size.
-   The dark navigation rail, compact white command header, content canvas, desktop/mobile navigation,
-   and LTR/RTL direction match the selected Command Brief structure. Global Capture, Chat, and What
-   Changed are intentionally visible as honest inert Phase 1 entries, as required by the approved
-   plan.
-5. The shell review content is deliberately condensed and does not claim Phase 1 Today parity. The
-   fuller decision controls, task table, and live assistant behavior remain Phase 1 work rather than
-   being simulated in this foundation checkpoint.
+## Findings and comparison history
 
-## Interaction and accessibility findings
+1. Earlier P1 — the legacy shell rail was too wide and the assistant rail overlapped Project actions.
+   - Fix: aligned the shell rail to the approved compact navigation, removed the legacy global content-width ceiling, and reserved a stable assistant column.
+   - Post-fix evidence: `home-overview-comparison.png` shows isolated Project and assistant regions with no overlap.
+2. Earlier P2 — count KPIs rendered as joined strings such as `4flows`.
+   - Fix: count-based KPI values now render as ratios (`4/7`, `6/10`); percent units remain compact (`1.8%`).
+   - Post-fix evidence: all three KPI cells are immediately scannable.
+3. Earlier P2 — the rendered hero copy and Now list did not fully match the approved information density.
+   - Fix: reused the source-backed Smart Brief sentence in the hero and included the due-today Task in the deterministic preview fixture.
+   - Post-fix evidence: the same decision/project status and four-item day sequence are visible.
 
-- Primary decision actions remain visible at `390px` with no horizontal overflow.
-- Arabic content uses a scoped `dir="rtl"` surface and keeps technical paths in their correct direction with `bdi`.
-- The review dialog receives focus, closes with Escape, and returns focus to its trigger.
-- Keyboard focus is visibly distinguishable.
-- Loading, empty, and recoverable-error states are available as separate stories.
-- Reduced-motion, high-contrast, and forced-colors policies are present.
-- No current browser console errors were observed after the final interaction run.
-- Employee and manager authenticated journeys rendered the role-correct shell in English and Arabic;
-  the employee Capture entry is absent for manager-only sessions.
-- The inert Research entry returned the localized next-slice status in the browser.
-- At `390px`, the mobile bottom navigation remained visible with no horizontal overflow and manager
-  operations remained discoverable under More.
+## Required fidelity surfaces
 
-## Remaining intentional differences
+- Fonts and typography: existing Geist-based product typography retained; hierarchy, weight, and wrapping are close to the approved target and readable at both viewports.
+- Spacing and layout rhythm: compact rows, dividers, timeline rhythm, and assistant separation match the target intent; no actionable collision or clipping remains.
+- Colors and visual tokens: dark navy navigation, blue primary action, Project accent colors, status greens, and muted dividers preserve the approved palette and contrast.
+- Image quality and asset fidelity: the target contains no photographic assets; all icons use the existing product icon library. The progress ring is a semantic quantitative indicator, not a replacement illustration.
+- Copy and content: all app-specific Home copy is coherent, source-backed, English, and explicitly describes Project progress rather than employee performance.
+- Accessibility and behavior: semantic headings/regions, focus-visible styling, local links, reduced-motion behavior, 390 px no-overflow, and retained mobile navigation are present.
 
-- The reference depicts future Intelligent Today content. T083 validates the shell frame and entry
-  contract only; richer cards and actions are intentionally excluded until their Phase 1 engine
-  handoffs are implemented.
-- The browser used for visual QA requested increased contrast, so borders appear stronger than the normal reference state. Normal and high-contrast modes are both covered by browser tests.
+## Remaining P3 polish
 
-## Final result
+- Add the secondary `Show evidence` assistant action when its final destination is introduced in the Project workspace slice.
+- The approved mock includes a richer bottom capture affordance in the desktop assistant rail; the global Capture action remains functional and visible meanwhile.
 
-passed
-
-## T087 Universal Capture addendum — 2026-08-12
-
-- The production Stable Shell Global Capture entry opens a labelled, focused dialog in both English
-  and Arabic; Escape closes it and returns focus to the trigger.
-- The compact form supports the approved text, link, code, safe file, and image choices without
-  implying that a private draft is official work.
-- Arabic RTL was inspected at `390 × 844`; the bottom-sheet layout, labels, technical mixed text, and
-  primary action remain readable with no horizontal overflow.
-- Recovery keeps the employee's raw draft visible and presents a clear retryable error.
-- The authenticated Arabic employee journey completed a real private save against the local API and
-  PostgreSQL. Visual evidence is stored under `docs/product/screenshots/ai-native-phase-1/`.
-
-T087 design result: **passed**.
-
-## T088 What Changed addendum — 2026-08-12
-
-- The Arabic authenticated shell opens an owner-filtered What Changed dialog from the global action.
-- A delivered private-capture receipt is described as an operational change only; raw private content,
-  employee scoring, readiness, progress, and technical identifiers remain hidden.
-- When the API is unavailable, the dialog preserves the last delivered item and displays a concise,
-  retryable Arabic warning. Reopening after recovery removes the warning without duplicating the item.
-- Evidence is stored in `docs/product/screenshots/ai-native-phase-1/t088-authorized-refresh.png` and
-  `t088-recovery-state.png`.
-
-T088 design result: **passed**.
-
-## T089 Minimal Experience Orchestrator addendum — 2026-08-12
-
-- The real authenticated employee fixture received exactly one source-backed next action from a
-  realistic Project Work Item. The response showed source, why, freshness, consequence, editable
-  draft, and a truthful deterministic assistance label.
-- A live governed provider call was attempted through the AI Router. Its output was quarantined
-  without persistence or content exposure because the protected semantic guard rejected it; the
-  deterministic path remained available and truthful.
-- The production Today presentation is intentionally not claimed in T089. The screenshot
-  `docs/product/screenshots/ai-native-phase-1/t089-prepared-action.png` is the approved synthetic
-  Command Brief target used to inspect hierarchy and RTL only. The real Today card and recovery
-  screenshot belong to T090.
-- The bounded corrected-findings review passed with no remaining P0/P1.
-
-T089 engine/design-handoff result: **passed**; final production presentation remains T090 scope.
-
-## T092 Work list and task detail addendum — 2026-08-12
-
-- The authenticated Arabic employee Work surface follows the compact Command Brief hierarchy: one
-  creation row, scope/view controls, a compact task list, and a focused detail drawer.
-- A real Project-linked task was created, then transitioned through the authoritative
-  `planned -> ready -> in_progress` path. The refreshed list and open drawer showed the confirmed
-  state without presenting an impossible action or a misleading stale warning.
-- The Work Items domain owns and serializes allowed transitions; the browser only presents that
-  result. Rapid URL selection and reauthentication return preserve the currently selected task.
-- At `390 × 844`, the Arabic layout remained RTL, the creation controls stacked without horizontal
-  overflow, and the mobile bottom navigation stayed visible.
-- Evidence is stored in `docs/product/screenshots/ai-native-phase-1/t092-work-list.png`,
-  `t092-task-detail.png`, and `t092-ar-mobile.png`.
-- Board, Calendar, My Work, and the legacy list remain retained rollback paths pending T094.
-
-T092 design result: **passed**.
+final result: passed

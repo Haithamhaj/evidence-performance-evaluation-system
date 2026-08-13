@@ -63,8 +63,13 @@ describe("stable shell model", () => {
     );
   });
 
-  it("keeps the employee Today route as the daily home", () => {
+  it("keeps the employee Home route as the daily overview", () => {
     expect(homeHrefForPrincipal("ar", employee)).toBe("/ar/my-work");
+    expect(
+      buildShellModel({ locale: "en", principal: employee }).navigation.find(
+        ({ id }) => id === "today",
+      )?.href,
+    ).toBe("/en/my-work");
   });
 
   it("does not turn Project coordination into manager evaluation authority", () => {

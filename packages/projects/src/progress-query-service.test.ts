@@ -84,7 +84,16 @@ describe("ProgressQueryService Project pulse", () => {
           percent: 55,
           reason: "The approved measured value decreased after verified rework.",
           componentState: [{ componentId, percent: 55 }],
-          sources: [{ componentId, sourceKind: "kpi_measurement", sourceId, sourceVersion: 2 }],
+          sources: [
+            {
+              componentId,
+              sourceKind: "kpi_measurement",
+              sourceId,
+              sourceVersion: 2,
+              measuredValue: 1.8,
+              observedAt: new Date("2026-08-02T09:55:00.000Z"),
+            },
+          ],
           createdAt: new Date("2026-08-02T10:00:00.000Z"),
         },
       ],
@@ -111,7 +120,13 @@ describe("ProgressQueryService Project pulse", () => {
       ],
     });
     expect(result.pulse.milestoneStates).toEqual([
-      expect.objectContaining({ componentId, percent: 55, state: "in_progress" }),
+      expect.objectContaining({
+        componentId,
+        percent: 55,
+        state: "in_progress",
+        measuredValue: 1.8,
+        observedAt: "2026-08-02T09:55:00.000Z",
+      }),
     ]);
   });
 });

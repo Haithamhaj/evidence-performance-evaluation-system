@@ -6,12 +6,15 @@ import {
   fetchDailyWorkUpstream,
   WebCheckInObligationsSchema,
   WebDailyWorkspaceSnapshotSchema,
+  WebEmployeeHomeSchema,
   WebUpdateComposerContextSchema,
 } from "../../../platform/daily-work-api";
 import { homeHrefForPrincipal } from "../../../product-ui/shell/shell-model";
 import { WorkspaceShell } from "../workspace-shell";
 import { MyWorkClient } from "./my-work-client";
+import { HomeOverview } from "../../../product-ui/home/home-overview";
 import { intelligentTodayEnabledForRoles } from "../../../server/today/intelligent-today-flag";
+import { finalHomeEnabled } from "../../../server/final-experience/final-experience-flags";
 import { sourceReviewEnabledForRoles } from "../../../server/source-review/source-review-flag";
 import { loadShellContext } from "../../../server/shell/load-shell-context";
 
@@ -30,6 +33,23 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
   ]);
   const authorizedHome = homeHrefForPrincipal(locale, shellContext.principal);
   if (authorizedHome !== `/${locale}/my-work`) redirect(authorizedHome);
+  const alternateLocale = locale === "ar" ? "en" : "ar";
+  if (finalHomeEnabled()) {
+    const home = await fetchDailyWorkUpstream({
+      route: { kind: "home" },
+      schema: WebEmployeeHomeSchema,
+    });
+    return createElement(
+      WorkspaceShell,
+      {
+        catalog,
+        locale,
+        localeSwitchHref: `/${alternateLocale}/my-work`,
+        principal: shellContext.principal,
+      },
+      createElement(HomeOverview, { catalog, home, locale }),
+    );
+  }
   const [response, updateContext, checkIns] = await Promise.all([
     fetchDailyWorkUpstream({
       route: { kind: "my_work" },
@@ -44,7 +64,6 @@ export default async function MyWorkPage({ params, searchParams }: Properties) {
       schema: WebCheckInObligationsSchema,
     }),
   ]);
-  const alternateLocale = locale === "ar" ? "en" : "ar";
   return createElement(
     WorkspaceShell,
     {

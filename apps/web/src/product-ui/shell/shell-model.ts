@@ -74,7 +74,7 @@ export function buildShellModel({
   const isAdministrator = roles.has("system_administrator");
   const isEmployeeOnly = !isManager && !isAdministrator;
   const navigation: ShellNavigationItem[] = [
-    current("today", "shell.nav.today", `/${locale}`),
+    current("today", "shell.nav.today", `/${locale}/my-work`),
     current("work", "shell.nav.work", workHref ?? `/${locale}/my-work`),
     current("projects", "shell.nav.projects", `/${locale}/projects`),
     next("research", "shell.nav.research"),

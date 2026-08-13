@@ -98,6 +98,8 @@ export class ProgressQueryService {
                 sourceKind: true,
                 sourceId: true,
                 sourceVersion: true,
+                measuredValue: true,
+                observedAt: true,
               },
             },
           },
@@ -245,13 +247,29 @@ function projectPulse(contract: any, snapshot: any) {
   const sourcedComponents = new Set(
     snapshot.sources.map((source: { componentId: string }) => source.componentId),
   );
+  const measuredSources = new Map(
+    snapshot.sources
+      .filter(
+        (source: { componentId: string; sourceKind: string; measuredValue?: unknown }) =>
+          source.sourceKind === "kpi_measurement" && source.measuredValue !== null,
+      )
+      .map((source: { componentId: string; measuredValue: unknown; observedAt?: Date | null }) => [
+        source.componentId,
+        {
+          measuredValue: Number(source.measuredValue),
+          observedAt: source.observedAt?.toISOString() ?? snapshot.createdAt.toISOString(),
+        },
+      ]),
+  );
   const milestoneStates = contract.components.map((component: any) => {
     const percent = componentPercent.get(component.id) ?? null;
+    const measured = measuredSources.get(component.id);
     return {
       componentId: component.id,
       name: component.name,
       kind: component.kind,
       percent,
+      ...(measured === undefined ? {} : measured),
       state:
         !sourcedComponents.has(component.id) && sourceCoverage === "INSUFFICIENT"
           ? ("awaiting_evidence" as const)

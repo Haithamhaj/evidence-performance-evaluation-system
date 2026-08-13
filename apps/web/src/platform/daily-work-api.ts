@@ -18,6 +18,7 @@ import {
 export type DailyWorkRoute =
   | { readonly kind: "me" }
   | { readonly kind: "my_work" }
+  | { readonly kind: "home" }
   | {
       readonly kind: "tasks";
       readonly layout: "list" | "board" | "calendar";
@@ -203,6 +204,8 @@ export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
   })
   .strict();
 
+export { EmployeeHomeV1Schema as WebEmployeeHomeSchema } from "@evaluation/contracts/employee-experience";
+
 export async function fetchDailyWorkUpstream<T>(input: {
   readonly reauthenticateTo?: string;
   readonly route: DailyWorkRoute;
@@ -239,6 +242,7 @@ export async function fetchDailyWorkUpstream<T>(input: {
 function routePath(route: DailyWorkRoute): string {
   if (route.kind === "me") return "/api/v1/me";
   if (route.kind === "my_work") return "/api/v1/daily-work/my-work";
+  if (route.kind === "home") return "/api/v1/daily-work/home";
   if (route.kind === "tasks") {
     const query = new URLSearchParams({ view: route.view, layout: route.layout });
     return `/api/v1/work-items?${query.toString()}`;

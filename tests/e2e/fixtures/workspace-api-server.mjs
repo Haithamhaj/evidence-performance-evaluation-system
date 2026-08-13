@@ -474,6 +474,205 @@ function dailyWorkspace() {
   };
 }
 
+function employeeHome() {
+  const source = {
+    kind: "progress_contract",
+    label: "Approved Project contract",
+    observedAt: "2026-08-13T07:00:00.000Z",
+    freshness: "fresh",
+  };
+  const projects = [
+    {
+      id: projectId,
+      name: "Atlas Delivery",
+      description: "Deliver secure API access and pilot integration for Atlas.",
+      status: "active",
+      progress: { state: "accepted", percent: 62, source, explanation: "Approved contract rule" },
+      milestones: [
+        {
+          componentId: crypto.randomUUID(),
+          name: "Discovery",
+          kind: "milestone",
+          state: "complete",
+          percent: 100,
+        },
+        {
+          componentId: crypto.randomUUID(),
+          name: "API authentication",
+          kind: "milestone",
+          state: "current",
+          percent: 62,
+        },
+        {
+          componentId: crypto.randomUUID(),
+          name: "Pilot readiness",
+          kind: "milestone",
+          state: "next",
+          percent: null,
+        },
+      ],
+      kpi: {
+        componentId: crypto.randomUUID(),
+        name: "API error rate",
+        baseline: 4.1,
+        current: 1.8,
+        target: 1,
+        unit: "%",
+        direction: "decrease",
+        source,
+      },
+      nextAction: {
+        label: "Review API authentication decision",
+        href: `/en/projects/${projectId}`,
+      },
+    },
+    {
+      id: dogfoodProjectId,
+      name: "Evaluation System",
+      description: "Complete the AI-native employee journey and frontend acceptance.",
+      status: "active",
+      progress: { state: "accepted", percent: 41, source, explanation: "Approved contract rule" },
+      milestones: [
+        {
+          componentId: crypto.randomUUID(),
+          name: "Requirements approved",
+          kind: "milestone",
+          state: "complete",
+          percent: 100,
+        },
+        {
+          componentId: crypto.randomUUID(),
+          name: "Employee journey",
+          kind: "milestone",
+          state: "current",
+          percent: 41,
+        },
+        {
+          componentId: crypto.randomUUID(),
+          name: "Frontend acceptance",
+          kind: "milestone",
+          state: "next",
+          percent: null,
+        },
+      ],
+      kpi: {
+        componentId: crypto.randomUUID(),
+        name: "Critical flow completion",
+        baseline: 0,
+        current: 4,
+        target: 7,
+        unit: " flows",
+        direction: "increase",
+        source,
+      },
+      nextAction: { label: "Review frontend acceptance", href: `/en/projects/${dogfoodProjectId}` },
+    },
+    {
+      id: contextProjectId,
+      name: "Research Assistant",
+      description: "Validate research sources and prepare governed experiments.",
+      status: "active",
+      progress: { state: "accepted", percent: 28, source, explanation: "Approved contract rule" },
+      milestones: [
+        {
+          componentId: crypto.randomUUID(),
+          name: "Research scope",
+          kind: "milestone",
+          state: "complete",
+          percent: 100,
+        },
+        {
+          componentId: crypto.randomUUID(),
+          name: "Source validation",
+          kind: "milestone",
+          state: "current",
+          percent: 28,
+        },
+        {
+          componentId: crypto.randomUUID(),
+          name: "Prototype experiment",
+          kind: "milestone",
+          state: "next",
+          percent: null,
+        },
+      ],
+      kpi: {
+        componentId: crypto.randomUUID(),
+        name: "Validated sources",
+        baseline: 0,
+        current: 6,
+        target: 10,
+        unit: " sources",
+        direction: "increase",
+        source,
+      },
+      nextAction: { label: "Start prototype experiment", href: `/en/projects/${contextProjectId}` },
+    },
+  ];
+  return {
+    schemaVersion: "employee-home.v1",
+    generatedAt: "2026-08-13T07:05:00.000Z",
+    greetingName: "Codex",
+    signals: { decisions: 1, dueToday: 3, verifiedChanges: 2 },
+    projects,
+    smartBrief: {
+      title: "Why Atlas Delivery needs attention",
+      body: "One decision can unblock Atlas Delivery; Evaluation System is approaching frontend acceptance.",
+      source,
+      why: "Review the API authentication decision to proceed toward the target.",
+      consequence:
+        "The protected decision opens for your review; nothing is confirmed automatically.",
+      action: { label: "Review decision", href: `/en/projects/${projectId}` },
+    },
+    now: [
+      {
+        id: "event:decision",
+        kind: "decision",
+        occurredAt: "2026-08-13T05:45:00.000Z",
+        title: "Link PR #184 to API authentication?",
+        projectId,
+        projectName: "Atlas Delivery",
+        statusLabel: "Needs your decision",
+        href: `/en/projects/${projectId}`,
+        source,
+      },
+      {
+        id: "event:meeting",
+        kind: "meeting",
+        occurredAt: "2026-08-13T07:00:00.000Z",
+        title: "AI-native employee journey design review",
+        projectId: dogfoodProjectId,
+        projectName: "Evaluation System",
+        statusLabel: "In 1h 15m",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source,
+      },
+      {
+        id: "event:task",
+        kind: "task",
+        occurredAt: "2026-08-13T11:30:00.000Z",
+        title: "Validate streaming fallback",
+        projectId,
+        projectName: "Atlas Delivery",
+        statusLabel: "Due today",
+        href: `/en/tasks?item=${workItems[0].id}`,
+        source,
+      },
+      {
+        id: "event:verified",
+        kind: "verified_change",
+        occurredAt: "2026-08-13T13:15:00.000Z",
+        title: "PR #182 merged: contract milestone condition satisfied",
+        projectId: contextProjectId,
+        projectName: "Research Assistant",
+        statusLabel: "Verified",
+        href: `/en/projects/${contextProjectId}`,
+        source,
+      },
+    ],
+  };
+}
+
 function experiencePrepared() {
   return {
     state: "prepared",
@@ -1190,6 +1389,9 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/my-work") {
     return json(response, 200, dailyWorkspace());
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/daily-work/home") {
+    return json(response, 200, employeeHome());
   }
   if (request.method === "GET" && url.pathname === "/api/v1/work-items") {
     return json(response, 200, {

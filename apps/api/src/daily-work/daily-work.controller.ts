@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
+import { EmployeeHomeQueryService } from "./employee-home-query.service.js";
 import { ManagerOperationsQueryService } from "./manager-operations-query.service.js";
 import { ReadinessQueryService } from "./readiness-query.service.js";
 import { AuthoritativeOperationsEventPublisher } from "../operations/authoritative-event-publisher.js";
@@ -32,6 +33,7 @@ export class DailyWorkController {
   private readonly readiness: Pick<ReadinessQueryService, "employeeProjectMonth"> | undefined;
   private readonly managerOperations: Pick<ManagerOperationsQueryService, "load"> | undefined;
   private readonly operationsEvents: AuthoritativeOperationsEventPublisher | undefined;
+  private readonly employeeHome: EmployeeHomeQueryService | undefined;
 
   constructor(
     query: DailyWorkQueryService,
@@ -39,16 +41,23 @@ export class DailyWorkController {
     readiness?: Pick<ReadinessQueryService, "employeeProjectMonth">,
     managerOperations?: Pick<ManagerOperationsQueryService, "load">,
     operationsEvents?: AuthoritativeOperationsEventPublisher,
+    employeeHome?: EmployeeHomeQueryService,
   ) {
     this.query = query;
     this.checkIns = checkIns;
     this.readiness = readiness;
     this.managerOperations = managerOperations;
     this.operationsEvents = operationsEvents;
+    this.employeeHome = employeeHome;
   }
 
   myWork(request: Request): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot> {
     return this.query.dailyWorkspace(dailyWorkspaceActor(request));
+  }
+
+  home(request: Request): Promise<import("@evaluation/contracts").EmployeeHomeV1> {
+    if (this.employeeHome === undefined) throw new Error("Employee Home service is not configured");
+    return this.employeeHome.load(employeeHomeActor(request));
   }
 
   updateContext(request: Request): Promise<import("@evaluation/contracts").UpdateComposerContext> {
@@ -158,6 +167,13 @@ function dailyWorkspaceActor(request: Request) {
   };
 }
 
+function employeeHomeActor(request: Request) {
+  return {
+    ...dailyWorkspaceActor(request),
+    email: request.principal.email,
+  };
+}
+
 Controller("api/v1/daily-work")(DailyWorkController);
 UseGuards(WorkItemsPolicyGuard)(DailyWorkController);
 Inject(DailyWorkQueryService)(DailyWorkController, undefined, 0);
@@ -165,10 +181,15 @@ Inject(CheckInService)(DailyWorkController, undefined, 1);
 Inject(ReadinessQueryService)(DailyWorkController, undefined, 2);
 Inject(ManagerOperationsQueryService)(DailyWorkController, undefined, 3);
 Inject(AuthoritativeOperationsEventPublisher)(DailyWorkController, undefined, 4);
+Inject(EmployeeHomeQueryService)(DailyWorkController, undefined, 5);
 
 const myWork = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "myWork")!;
 Req()(DailyWorkController.prototype, "myWork", 0);
 Get("my-work")(DailyWorkController.prototype, "myWork", myWork);
+
+const home = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "home")!;
+Req()(DailyWorkController.prototype, "home", 0);
+Get("home")(DailyWorkController.prototype, "home", home);
 
 const updateContext = Object.getOwnPropertyDescriptor(
   DailyWorkController.prototype,

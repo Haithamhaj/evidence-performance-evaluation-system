@@ -950,7 +950,7 @@ The detailed authority is
 
 ## T096 — Build the Final Home Overview
 
-**Status:** Not started
+**Status:** Complete
 **Priority:** P1
 **Dependencies:** T095
 **Purpose:** Replace the temporary employee Today composition with the approved multi-Project overview, circular confirmed progress, milestone/KPI context, Smart Brief, and Now timeline.

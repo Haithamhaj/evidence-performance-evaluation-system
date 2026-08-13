@@ -17,8 +17,10 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module.js";
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { OperationsModule } from "../operations/operations.module.js";
+import { ExperienceEventRuntime } from "../operations/experience-event-runtime.js";
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
+import { EmployeeHomeQueryService } from "./employee-home-query.service.js";
 import { ProjectDashboardQueryService } from "./project-dashboard-query.service.js";
 import {
   createDatabaseManagerOperationsQueryService,
@@ -132,6 +134,12 @@ Module({
         onModuleDestroy: () => client.$disconnect(),
       }),
       inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: EmployeeHomeQueryService,
+      useFactory: (dailyWork: DailyWorkQueryService, experience: ExperienceEventRuntime) =>
+        new EmployeeHomeQueryService(dailyWork, experience),
+      inject: [DailyWorkQueryService, ExperienceEventRuntime],
     },
     WorkItemsPolicyGuard,
   ],
