@@ -159,9 +159,9 @@ contract-verification surfaces with the final daily journey.
 
 ## Next Recommended Action
 
-Run T101 as one authenticated Home → Project → Work → Capture → Clarify → Review → Confirm journey.
-Keep Pull Request #29 unmerged and retain all legacy routes until that running end-to-end journey
-passes Product Owner acceptance.
+Review the running English T101 Share Anything → Clarify → Review → Confirm journey at
+`http://127.0.0.1:3000/en/tasks`. Technical acceptance is complete, but keep Pull Requests #29 and
+#30 unmerged and retain all legacy routes until Product Owner visual acceptance.
 
 ## Critical References
 

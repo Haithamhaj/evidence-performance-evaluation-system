@@ -71,11 +71,17 @@ async function execute(action: SelectedReviewAction): Promise<ReviewOutcome> {
   const response = await fetch(
     `/api/daily-work/${action.kind === "update" ? "updates" : "evidence"}/${action.id}/confirm`,
     {
-      body: JSON.stringify({
-        expectedDraftRevision: revision,
-        expectedRevision: revision,
-        reason: "Employee confirmed the selected review action.",
-      }),
+      body: JSON.stringify(
+        action.kind === "update"
+          ? {
+              expectedDraftRevision: revision,
+              reason: "Employee confirmed the selected review action.",
+            }
+          : {
+              expectedRevision: revision,
+              reason: "Employee confirmed the selected review action.",
+            },
+      ),
       headers: { "content-type": "application/json" },
       method: "POST",
     },

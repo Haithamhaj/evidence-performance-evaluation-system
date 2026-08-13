@@ -47,6 +47,37 @@ describe("review confirmation commands", () => {
       ["update", "confirmed"],
       ["evidence", "retryable_error"],
     ]);
+    const calls = vi.mocked(globalThis.fetch).mock.calls;
+    expect(JSON.parse(String(calls[1]?.[1]?.body))).toEqual({
+      expectedDraftRevision: 2,
+      reason: "Employee confirmed the selected review action.",
+    });
+  });
+
+  it("sends the Evidence confirmation contract without Update-only fields", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(response(200, { revision: 2 }))
+      .mockResolvedValueOnce(
+        response(200, {
+          id: "10000000-0000-4000-8000-000000000011",
+        }),
+      );
+
+    await executeSelectedActions([
+      {
+        kind: "evidence",
+        id: "10000000-0000-4000-8000-000000000006",
+        expectedVersion: 1,
+        supportedClaim: "Claim",
+        contributionContext: "Contribution",
+      },
+    ]);
+
+    const calls = vi.mocked(globalThis.fetch).mock.calls;
+    expect(JSON.parse(String(calls[1]?.[1]?.body))).toEqual({
+      expectedRevision: 2,
+      reason: "Employee confirmed the selected review action.",
+    });
   });
 
   it("maps stale commands without discarding independent edits", async () => {

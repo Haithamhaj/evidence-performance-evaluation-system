@@ -36,3 +36,11 @@ each capability ID to exist in the engine register, and rejects `REMOVE` as prem
 
 Every record specifies parity evidence, removal approval, and a release-artifact rollback path in
 the JSON ledger. No current route is deleted, removed, or rewritten by this contract.
+
+## T101 acceptance recommendation
+
+The final employee journey passed locally on 13 August 2026, but this does **not** authorize route
+removal. Home, Project overview, Work list/detail, Capture, Clarification, and Review & Confirmation
+are ready for Product Owner review. Retain Board, Calendar, detailed Project daily work, readiness,
+settings, Research, Evaluation, manager, and administration routes until each receives its own parity
+evidence and explicit retirement approval.
