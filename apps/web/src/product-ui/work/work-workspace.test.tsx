@@ -27,6 +27,40 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("WorkWorkspace", () => {
+  it("refreshes List, Board, and Calendar data from the authoritative source on return", async () => {
+    const gateway = service({
+      list: vi.fn().mockResolvedValue({
+        counts: {
+          all: 1,
+          blocked: 0,
+          cancelled: 0,
+          done: 0,
+          in_progress: 1,
+          in_review: 0,
+          planned: 0,
+          ready: 0,
+        },
+        items: [{ ...item, status: "in_progress", title: "Authoritative title" }],
+        layout: "list",
+        nextCursor: null,
+        view: "my",
+      }),
+    });
+    renderWork(gateway);
+
+    window.dispatchEvent(new Event("focus"));
+
+    expect(await screen.findByText("Authoritative title")).toBeVisible();
+    expect(gateway.list).toHaveBeenCalledWith({
+      layout: "list",
+      projectId: null,
+      search: null,
+      sort: "due_asc",
+      status: null,
+      view: "my",
+    });
+  });
+
   it("shows Needs my action, Today, and Overdue before collapsed secondary groups", () => {
     renderWork(service(), null, "en", [item], {
       ...snapshot(),
@@ -680,6 +714,22 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
       blocks: [],
     }),
     loadPrepared: vi.fn().mockResolvedValue({ state: "idle", items: [] }),
+    list: vi.fn().mockResolvedValue({
+      counts: {
+        all: 1,
+        blocked: 0,
+        cancelled: 0,
+        done: 0,
+        in_progress: 0,
+        in_review: 0,
+        planned: 0,
+        ready: 1,
+      },
+      items: [item],
+      layout: "list",
+      nextCursor: null,
+      view: "my",
+    }),
     replaceDependencies: vi.fn(),
     update: vi.fn().mockImplementation(async (_id, input) => ({
       ...item,

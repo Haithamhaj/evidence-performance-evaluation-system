@@ -185,6 +185,11 @@ every engine authority and protected product rule, and all retained rollback rou
   from the authorized Task, dependencies, Updates, and Evidence, explicitly preserve GitHub's
   suggested-evidence state, and execute no command. Free-form AI conversation and confirmed command
   preparation remain subsequent bounded work; this deterministic help is not mislabelled as live AI.
+- The first bounded P2-13 refresh slice is complete: List, Board, and Calendar re-read the same
+  protected authoritative Work Items query when the employee returns to the tab and every 30 seconds
+  while it remains open. Project/status/search/sort scope is preserved, the server derives the actor
+  from the authenticated session, and refresh failure leaves the last trustworthy screen available.
+  This is authoritative polling, not a false claim of instantaneous event delivery.
 
 ## Active Risks
 
@@ -213,8 +218,8 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue Work with authoritative live refresh, safe draft/offline recovery, and representative
-performance fixtures before closing the capability matrix. Then extend contextual Task help through
+Continue Work with safe draft/offline recovery and representative performance fixtures before
+closing the capability matrix. Then extend contextual Task help through
 the AI Router only where a protected command and explicit confirmation are available. Keep
 dogfooding with Codex and the real Project, keep Pull Requests #29 and #30 unmerged, and retain
 Calendar and legacy rollback routes.

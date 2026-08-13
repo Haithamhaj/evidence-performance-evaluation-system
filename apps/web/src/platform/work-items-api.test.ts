@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  listWorkItems,
   loadWorkItemContext,
   loadWorkItemDependencies,
   replaceWorkItemDependencies,
@@ -79,6 +80,45 @@ describe("Work Item dependency gateway", () => {
       2,
       `/api/daily-work/work-items/${itemId}/dependencies`,
       expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(JSON.stringify(fetcher.mock.calls)).not.toMatch(/actor|employeeId|userId/u);
+  });
+});
+
+describe("listWorkItems", () => {
+  it("refreshes through the protected same-origin list without sending an actor id", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      Response.json({
+        counts: {
+          all: 0,
+          blocked: 0,
+          cancelled: 0,
+          done: 0,
+          in_progress: 0,
+          in_review: 0,
+          planned: 0,
+          ready: 0,
+        },
+        items: [],
+        layout: "board",
+        nextCursor: null,
+        view: "my",
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await listWorkItems({
+      layout: "board",
+      projectId,
+      search: "contract",
+      sort: "updated_desc",
+      status: "ready",
+      view: "my",
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      `/api/daily-work/work-items?layout=board&sort=updated_desc&view=my&projectId=${projectId}&status=ready&search=contract`,
+      { cache: "no-store" },
     );
     expect(JSON.stringify(fetcher.mock.calls)).not.toMatch(/actor|employeeId|userId/u);
   });

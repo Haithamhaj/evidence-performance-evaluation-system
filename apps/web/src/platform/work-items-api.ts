@@ -2,6 +2,7 @@ import type { z } from "zod";
 
 import {
   WebUuidSchema,
+  WebTaskWorkspaceResponseSchema,
   WebWorkItemDependenciesSchema,
   WebWorkItemSchema,
 } from "./task-workspace-contracts";
@@ -23,11 +24,31 @@ export type WorkItemContext = Readonly<{
   evidence: readonly WorkItemContextEntry[];
 }>;
 export type WorkItemDependencies = z.infer<typeof WebWorkItemDependenciesSchema>;
+export type WebTaskWorkspaceResponse = z.infer<typeof WebTaskWorkspaceResponseSchema>;
 
 export class WorkItemGatewayError extends Error {
   constructor(readonly status: number) {
     super(`Work Item request failed (${status})`);
   }
+}
+
+export async function listWorkItems(input: {
+  readonly layout: "board" | "calendar" | "list";
+  readonly view: "my" | "team";
+  readonly projectId: string | null;
+  readonly status: WorkItemStatus | null;
+  readonly search: string | null;
+  readonly sort: "due_asc" | "updated_desc" | "priority_desc";
+}): Promise<WebTaskWorkspaceResponse> {
+  const query = new URLSearchParams({ layout: input.layout, sort: input.sort, view: input.view });
+  if (input.projectId !== null) query.set("projectId", WebUuidSchema.parse(input.projectId));
+  if (input.status !== null) query.set("status", input.status);
+  if (input.search !== null) query.set("search", input.search);
+  const response = await fetch(`/api/daily-work/work-items?${query.toString()}`, {
+    cache: "no-store",
+  });
+  if (!response.ok) throw new WorkItemGatewayError(response.status);
+  return WebTaskWorkspaceResponseSchema.parse(await response.json());
 }
 
 export async function loadWorkItem(id: string): Promise<WebWorkItem> {

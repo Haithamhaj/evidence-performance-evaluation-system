@@ -43,6 +43,7 @@ import {
   TransitionTaskBodySchema,
   UpdateTaskBodySchema,
   WebPrivateInboxItemSchema,
+  WebTaskWorkspaceResponseSchema,
   WebWorkItemDependenciesSchema,
   WebWorkItemSchema,
 } from "../../../../platform/task-workspace-contracts";
@@ -162,6 +163,18 @@ const TimelineQuerySchema = z
     cursor: z.string().min(1).max(1_000).optional(),
   })
   .strict();
+const WorkItemsQuerySchema = z
+  .object({
+    layout: z.enum(["list", "board", "calendar"]),
+    view: z.enum(["my", "team"]),
+    projectId: UuidSchema.optional(),
+    status: z
+      .enum(["planned", "ready", "in_progress", "blocked", "in_review", "done", "cancelled"])
+      .optional(),
+    search: z.string().trim().min(1).max(200).optional(),
+    sort: z.enum(["due_asc", "updated_desc", "priority_desc"]),
+  })
+  .strict();
 const UploadMetadataSchema = z
   .object({
     projectId: UuidSchema,
@@ -200,6 +213,26 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
           method: "GET",
           path: "/api/v1/experience-orchestration/prepared",
           schema: WebPreparedExperienceCompositionSchema,
+        }),
+      );
+    }
+    if (path.length === 1 && path[0] === "work-items") {
+      const entries = [...new URL(request.url).searchParams.entries()];
+      if (new Set(entries.map(([key]) => key)).size !== entries.length) return notFound();
+      const query = WorkItemsQuerySchema.parse(Object.fromEntries(entries));
+      const params = new URLSearchParams({
+        layout: query.layout,
+        sort: query.sort,
+        view: query.view,
+      });
+      if (query.projectId !== undefined) params.set("projectId", query.projectId);
+      if (query.status !== undefined) params.set("status", query.status);
+      if (query.search !== undefined) params.set("search", query.search);
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: `/api/v1/work-items?${params.toString()}`,
+          schema: WebTaskWorkspaceResponseSchema,
         }),
       );
     }

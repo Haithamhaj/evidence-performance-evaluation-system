@@ -15,6 +15,7 @@ import { loadPreparedExperience } from "../../platform/experience-orchestration-
 import type { WebPreparedExperienceComposition } from "../../platform/experience-orchestration-contracts";
 import {
   createWorkItem,
+  listWorkItems,
   loadWorkItem,
   loadWorkItemContext,
   loadWorkItemDependencies,
@@ -24,6 +25,7 @@ import {
   type WorkItemContext,
   type WorkItemDependencies,
   type WebWorkItem,
+  type WebTaskWorkspaceResponse,
   WorkItemGatewayError,
   type WorkItemStatus,
 } from "../../platform/work-items-api";
@@ -32,6 +34,14 @@ import styles from "./work-workspace.module.css";
 export type WorkWorkspaceGateway = Readonly<{
   create(input: { employeeId: string; projectId: string; title: string }): Promise<WebWorkItem>;
   load(id: string): Promise<WebWorkItem>;
+  list(input: {
+    layout: "board" | "calendar" | "list";
+    view: "my" | "team";
+    projectId: string | null;
+    status: WorkItemStatus | null;
+    search: string | null;
+    sort: "due_asc" | "updated_desc" | "priority_desc";
+  }): Promise<WebTaskWorkspaceResponse>;
   loadContext(input: { itemId: string; projectId: string }): Promise<WorkItemContext>;
   loadConnectedContext(): Promise<ConnectedWorkContext>;
   loadPrepared(): Promise<WebPreparedExperienceComposition>;
@@ -59,6 +69,7 @@ export type WorkWorkspaceGateway = Readonly<{
 const defaultGateway: WorkWorkspaceGateway = {
   create: createWorkItem,
   load: loadWorkItem,
+  list: listWorkItems,
   loadContext: loadWorkItemContext,
   loadConnectedContext: listConnectedWorkContext,
   loadPrepared: loadPreparedExperience,
@@ -133,6 +144,9 @@ export function WorkWorkspace({
     { state: "idle" | "saving" } | { state: "done"; updated: number; unchanged: number }
   >({ state: "idle" });
   const [prepared, setPrepared] = useState<WebPreparedExperienceComposition | null>(null);
+  const [liveCounts, setLiveCounts] = useState<Readonly<
+    Record<WorkItemStatus | "all", number>
+  > | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
   const quickDraftKey = `command-brief.quick-task.v1:${currentUserId}`;
@@ -155,6 +169,7 @@ export function WorkWorkspace({
     [catalog, initialSnapshot, items, projects],
   );
   const counts = useMemo(() => {
+    if (liveCounts !== null) return liveCounts;
     if (initialCounts !== undefined) return initialCounts;
     return Object.fromEntries(
       ["all", "planned", "ready", "in_progress", "blocked", "in_review", "done", "cancelled"].map(
@@ -164,7 +179,40 @@ export function WorkWorkspace({
         ],
       ),
     ) as Record<WorkItemStatus | "all", number>;
-  }, [initialCounts, items]);
+  }, [initialCounts, items, liveCounts]);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      void gateway
+        .list({
+          layout: initialLayout,
+          projectId: filters.projectId,
+          search: filters.search,
+          sort: filters.sort,
+          status: filters.status,
+          view: initialView,
+        })
+        .then((result) => {
+          if (!active) return;
+          setItems([...result.items]);
+          setLiveCounts(result.counts);
+        })
+        .catch(() => undefined);
+    };
+    const visible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", visible);
+    const timer = window.setInterval(refresh, 30_000);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", visible);
+      window.clearInterval(timer);
+    };
+  }, [filters, gateway, initialLayout, initialView]);
 
   useEffect(() => {
     try {
