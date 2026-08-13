@@ -935,6 +935,66 @@ The detailed authority is
 **Dependencies:** T087–T093
 **Purpose:** Prove the complete daily journey, protected manager shell, rollback, and route parity before controlled retirement.
 **Verification:** end-to-end customer journey, authorization matrix, affected full web suite, screenshots, acceptance report, and explicit Product Owner decision.
+
+---
+
+# Phase 8 — Final AI-Native Employee Experience
+
+## T095 — Freeze Final Screen Contracts and Rollback
+
+**Status:** In progress — all five visual targets are Product Owner approved.
+**Priority:** P1
+**Dependencies:** T094
+**Purpose:** Define one typed presentation/composition model for Home, Project, Work, Capture, and Review without moving domain authority into the browser.
+**Verification:** screen-contract tests, capability mapping, feature flags, localization parity, and focused boundary validation.
+
+## T096 — Build the Final Home Overview
+
+**Status:** Not started
+**Priority:** P1
+**Dependencies:** T095
+**Purpose:** Replace the temporary employee Today composition with the approved multi-Project overview, circular confirmed progress, milestone/KPI context, Smart Brief, and Now timeline.
+**Verification:** source-backed progress states, no employee scoring, desktop/mobile/RTL rendering, accessibility, and rollback.
+
+## T097 — Build the Final Project Workspace
+
+**Status:** Not started
+**Priority:** P1
+**Dependencies:** T095, T096
+**Purpose:** Connect purpose, approved progress, milestones, KPI, Work, Updates, Evidence, Documents, and Timeline around one Project.
+**Verification:** authorized readers only, truthful missing/stale states, compact desktop/mobile layout, and no automatic progress mutation.
+
+## T098 — Align Work with the Approved Daily Hierarchy
+
+**Status:** Not started
+**Priority:** P1
+**Dependencies:** T095, T096
+**Purpose:** Present Needs My Action, Today, Overdue, waiting, and upcoming Tasks with the existing authoritative Task drawer and transitions.
+**Verification:** create/transition parity, current selection, source context, assistant next step, mobile/RTL, and retained Board/Calendar routes.
+
+## T099 — Build the Intelligent Universal Capture Journey
+
+**Status:** Not started
+**Priority:** P0
+**Dependencies:** T095–T098
+**Purpose:** Let the employee share text, voice, URL, image, code, or file; prepare one source-backed interpretation; ask one missing question at a time; and preserve a private fallback.
+**Verification:** AI Router-only assistance, untrusted-input controls, no official write before confirmation, manual/provider recovery, localization, and accessibility.
+
+## T100 — Build Review & Confirmation
+
+**Status:** Not started
+**Priority:** P0
+**Dependencies:** T099
+**Purpose:** Separate editable Update, selectable Evidence, contribution context, and progress proposal so the employee confirms only the intended actions and official progress still follows its owning rule.
+**Verification:** employee edit/confirmation gates, independent owner confirmation, stale recovery, append-only Timeline result, and no rating/progress shortcut.
+
+## T101 — Run the Final Employee Journey Acceptance
+
+**Status:** Not started
+**Priority:** P0
+**Dependencies:** T096–T100
+**Purpose:** Prove Home → Project → Work → Capture → Clarify → Review & Confirmation as one realistic customer journey before route retirement or merge.
+**Verification:** authenticated desktop/mobile English plus Arabic/RTL foundation, keyboard/a11y, connector and AI fallback, protected-boundary tests, screenshots, rollback, Product Owner acceptance, commit, push, and PR update.
 ---
 
 # Approval-Blocked Changes

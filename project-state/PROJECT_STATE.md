@@ -2,10 +2,10 @@
 
 ## Current Goal
 
-Finalize the connected AI-native employee visual specification before implementation planning.
-Home Overview, Work, and Universal Capture are Product Owner approved. Project Workspace and Review
-& Confirmation have prepared visual directions awaiting confirmation. Preserve every engine
-authority, protected product rule, retained route, and rollback path.
+Implement the Product Owner-approved connected AI-native employee experience: Home Overview,
+Project Workspace, Work, Universal Capture, and Review & Confirmation. Preserve every engine
+authority, protected product rule, retained route, and rollback path while replacing the temporary
+contract-verification surfaces with the final daily journey.
 
 ## Current Reality
 
@@ -116,8 +116,8 @@ authority, protected product rule, retained route, and rollback path.
   route files and rollback flags until later phase parity. No route or pull request is merged.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
 - Final visual exploration is grounded in the running product, the approved Command Brief direction,
-  and clean-room real-world interaction-pattern references. Home Overview, Work, and Universal
-  Capture are approved; Project Workspace and Review & Confirmation remain pending.
+  and clean-room real-world interaction-pattern references. All five employee surfaces are approved
+  as one connected journey.
 - The governing visual specification and targets are stored in
   `docs/superpowers/specs/2026-08-13-ai-native-final-employee-experience-design.md` and
   `docs/product/screenshots/ai-native-final-design/`.
@@ -149,10 +149,9 @@ authority, protected product rule, retained route, and rollback path.
 
 ## Next Recommended Action
 
-Review the written final employee-experience specification and confirm or revise Project Workspace
-and Review & Confirmation. After both visual gates pass, write the bounded implementation plan that
-maps every visible element to an existing engine handoff or an explicit small delta. Do not merge
-Pull Request #29/#30 or retire routes before the later merge/retirement decision.
+Execute the bounded final employee-experience plan in visible, reversible bundles, beginning with
+the shared composition model and Home Overview. Keep Pull Request #29 unmerged and retain all legacy
+routes until the running end-to-end journey passes Product Owner acceptance.
 
 ## Critical References
 
@@ -171,6 +170,8 @@ Pull Request #29/#30 or retire routes before the later merge/retirement decision
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0a.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0b.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-1.md`
+- `docs/superpowers/specs/2026-08-13-ai-native-final-employee-experience-design.md`
+- `docs/superpowers/plans/2026-08-13-ai-native-final-employee-experience.md`
 - `docs/product/AI_NATIVE_ROUTE_RETIREMENT_LEDGER.md`
 - `docs/reviews/ENGINE_BIDIRECTIONAL_TRACE.md`
 - `docs/reviews/ENGINE_FINAL_VERIFICATION.md`

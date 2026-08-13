@@ -2,11 +2,11 @@
 
 **Date:** 2026-08-13
 
-**Status:** Product Owner visual checkpoint
+**Status:** Product Owner approved
 
 **Surface:** Employee daily experience
 
-**Implementation status:** Design only; no production UI implementation is authorized by this document
+**Implementation status:** Approved for bounded implementation through the existing engine handoffs
 
 ## 1. Outcome
 
@@ -23,13 +23,13 @@ The connected journey is:
 
 ## 2. Visual Decision Status
 
-| Surface               | Decision                                                   | Visual source                                                                     |
-| --------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Home Overview         | **Approved**                                               | `docs/product/screenshots/ai-native-final-design/home-overview-approved.png`      |
-| Work                  | **Approved**                                               | `docs/product/screenshots/ai-native-final-design/work-approved.png`               |
-| Universal Capture     | **Approved**                                               | `docs/product/screenshots/ai-native-final-design/universal-capture-approved.png`  |
-| Project Workspace     | Direction prepared; **Product Owner confirmation pending** | `docs/product/screenshots/ai-native-final-design/project-workspace-pending.png`   |
-| Review & Confirmation | Direction prepared; **Product Owner confirmation pending** | `docs/product/screenshots/ai-native-final-design/review-confirmation-pending.png` |
+| Surface               | Decision     | Visual source                                                                      |
+| --------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| Home Overview         | **Approved** | `docs/product/screenshots/ai-native-final-design/home-overview-approved.png`       |
+| Work                  | **Approved** | `docs/product/screenshots/ai-native-final-design/work-approved.png`                |
+| Universal Capture     | **Approved** | `docs/product/screenshots/ai-native-final-design/universal-capture-approved.png`   |
+| Project Workspace     | **Approved** | `docs/product/screenshots/ai-native-final-design/project-workspace-approved.png`   |
+| Review & Confirmation | **Approved** | `docs/product/screenshots/ai-native-final-design/review-confirmation-approved.png` |
 
 The screenshots are visual targets, not literal data or permission specifications. Approved engine
 contracts, authorization, privacy, history, and human gates remain authoritative.
@@ -125,7 +125,7 @@ Capture requirements:
 - no Task, Update, Evidence, progress change, or evaluation input during capture/clarification;
 - safe treatment of untrusted documents, code, links, and comments.
 
-## 7. Project Workspace Direction — Pending Confirmation
+## 7. Approved Project Workspace
 
 The prepared Project Workspace direction contains Project purpose, ownership, Workstreams, current
 document, circular progress, milestone journey, KPI baseline/current/target, deliverables, attention
@@ -133,7 +133,7 @@ queue, unified Work/Updates/Evidence/Documents rows, append-only Timeline, and a
 It explicitly preserves the rule that suggested Evidence cannot change progress until the approved
 rule or authorized human confirmation is recorded.
 
-## 8. Review & Confirmation Direction — Pending Confirmation
+## 8. Approved Review & Confirmation
 
 The prepared final review separates:
 
@@ -187,10 +187,14 @@ automatic manager judgment, or a claim that Project progress equals employee per
 - Upload failure identifies the source without discarding other input.
 - Recovery messages state what was saved, what was not performed, and the safe next action.
 
-## 14. Gate Before Implementation Planning
+## 14. Implementation Gate Decision
 
-1. Product Owner confirms Project Workspace.
-2. Product Owner confirms Review & Confirmation.
-3. The complete desktop journey is reviewed as one system.
-4. Mobile and Arabic/RTL adaptations derive from the accepted hierarchy.
-5. Planning maps every visible element to an existing engine capability or explicit bounded delta.
+The Product Owner approved Home Overview, Work, Universal Capture, Project Workspace, and Review &
+Confirmation as one connected employee journey on 2026-08-13.
+
+Implementation must now:
+
+1. preserve the approved desktop hierarchy while deriving mobile and Arabic/RTL adaptations from it;
+2. map every visible element to an existing engine capability or an explicit bounded delta;
+3. keep retained routes and rollback flags until the final running journey is accepted;
+4. use focused verification per screen and one integrated customer-journey checkpoint before merge.
