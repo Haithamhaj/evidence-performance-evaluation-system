@@ -2,13 +2,10 @@
 
 ## Current Goal
 
-Execute AI-Native Frontend Phase 1 in bounded vertical slices. T087 Universal Capture, T088 Work
-Signals/Experience Events, T089 Minimal Experience Orchestrator, and T090 Intelligent Today are
-complete. T091 durable SSE and its Arabic product journey are accepted. T092 Work list and task
-detail parity are accepted after a real Arabic create-and-transition journey. T093 owner-private
-source review and explicit evidence confirmation are accepted. T094 technical acceptance is complete
-and stopped at the Product Owner route-retirement decision. Preserve every engine authority and
-rollback path.
+Finalize the connected AI-native employee visual specification before implementation planning.
+Home Overview, Work, and Universal Capture are Product Owner approved. Project Workspace and Review
+& Confirmation have prepared visual directions awaiting confirmation. Preserve every engine
+authority, protected product rule, retained route, and rollback path.
 
 ## Current Reality
 
@@ -55,6 +52,14 @@ rollback path.
   product interaction data cannot become project progress, evidence, evaluation input, or authority.
 - Command Brief is the selected D0 visual direction. It remains a non-production prototype and does
   not approve production tokens, components, dependencies, navigation, or runtime contracts.
+- The final Home is a multi-Project operational overview. Circular indicators show confirmed Project
+  progress; milestone paths show completed/current/next stages; Smart Brief explains one
+  source-backed suggested action. These indicators are Project state only, never employee scoring.
+- Universal Capture is the product-wide intelligent entry for text, voice, URL, image, code, and
+  file. The employee does not classify input first; the assistant proposes relationships, asks one
+  focused clarification at a time, and preserves a private-draft path until explicit confirmation.
+- Work is action-first: Needs My Action, Today, and Overdue precede progressively disclosed groups;
+  Task details open in a focused drawer and Task completion alone never changes Project progress.
 - Positive D0 authorized Phase 0B planning. The bounded T078–T086 implementation plan now covers
   exact handoffs, tokens, primitives, Storybook/testing, boundaries, the Stable Shell, protected
   Inspection Mode, route retirement, the Phase 1 graph, and G0 evidence.
@@ -110,6 +115,12 @@ rollback path.
   pass in Chromium. The recommendation is to adopt Phase 1 as the daily baseline while retaining all
   route files and rollback flags until later phase parity. No route or pull request is merged.
 - Pull Request #29 remains open and unmerged; retained routes remain unchanged.
+- Final visual exploration is grounded in the running product, the approved Command Brief direction,
+  and clean-room real-world interaction-pattern references. Home Overview, Work, and Universal
+  Capture are approved; Project Workspace and Review & Confirmation remain pending.
+- The governing visual specification and targets are stored in
+  `docs/superpowers/specs/2026-08-13-ai-native-final-employee-experience-design.md` and
+  `docs/product/screenshots/ai-native-final-design/`.
 
 ## Active Risks
 
@@ -138,9 +149,10 @@ rollback path.
 
 ## Next Recommended Action
 
-Review the running Phase 1 journey and decide the two protected T094 statements: accept Command Brief
-Phase 1 as the daily baseline, and retain all existing route files/rollback flags during the next
-frontend phase. Do not merge Pull Request #29/#30 or retire routes before that decision.
+Review the written final employee-experience specification and confirm or revise Project Workspace
+and Review & Confirmation. After both visual gates pass, write the bounded implementation plan that
+maps every visible element to an existing engine handoff or an explicit small delta. Do not merge
+Pull Request #29/#30 or retire routes before the later merge/retirement decision.
 
 ## Critical References
 
