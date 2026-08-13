@@ -205,6 +205,11 @@ every engine authority and protected product rule, and all retained rollback rou
 - P2-17 remains open by design. Core Work/Task management is complete, but the Work Agent still needs
   the remaining authoritative triggers, prepared Update/follow-up actions, and confirmation-bound
   command preparation before the capability matrix can be closed honestly.
+- The current Codex dogfood state now follows the real project: representative Work performance and
+  paging are complete, Work Agent capability closure is active, Project-progress approval is a
+  separate Product Owner Task, and recent commits remain suggested evidence. The full browser journey
+  exposed and fixed one authority mismatch: List and Board now use dependency-aware transitions, so a
+  Task waiting on unfinished work cannot advertise `Ready` even before its detail is opened.
 
 ## Active Risks
 

@@ -1,9 +1,6 @@
 import { AppError, MyWorkResponseSchema, WorkItemDetailSchema } from "@evaluation/contracts";
 
-import {
-  getAllowedWorkItemTransitions,
-  getDependencyAwareWorkItemTransitions,
-} from "./invariants.js";
+import { getDependencyAwareWorkItemTransitions } from "./invariants.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type WorkItemWhere = NonNullable<
@@ -272,6 +269,9 @@ export class WorkItemQueryService {
       orderBy: [...orderBy],
       ...(input.cursor === null ? {} : { cursor: { id: input.cursor }, skip: 1 }),
       take: limit + 1,
+      include: {
+        dependencies: { select: { dependsOnWorkItem: { select: { status: true } } } },
+      },
     });
     const statuses = [
       "planned",
@@ -330,7 +330,14 @@ function serialize(item: {
   version: number;
   createdAt: Date;
   updatedAt: Date;
+  dependencies?: readonly Readonly<{
+    dependsOnWorkItem: Readonly<{ status: import("@evaluation/contracts").WorkItemStatus }>;
+  }>[];
 }) {
+  const hasUnfinishedDependency =
+    item.dependencies?.some(
+      ({ dependsOnWorkItem }) => !["done", "cancelled"].includes(dependsOnWorkItem.status),
+    ) ?? false;
   return WorkItemDetailSchema.parse({
     id: item.id,
     projectId: item.projectId,
@@ -352,7 +359,7 @@ function serialize(item: {
       item.status === "done" || item.status === "cancelled"
         ? ["add_update"]
         : ["edit", "transition", "assign", "add_update"],
-    allowedTransitions: getAllowedWorkItemTransitions(item.status),
+    allowedTransitions: getDependencyAwareWorkItemTransitions(item.status, hasUnfinishedDependency),
   });
 }
 

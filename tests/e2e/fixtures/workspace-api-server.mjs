@@ -420,44 +420,62 @@ const workItems = Array.from({ length: 20 }, (_, offset) => {
 
 const codexWorkItems = [
   {
-    ...workItem(101, "in_review", "2026-08-13T14:00:00.000Z", "Review the real Work journey"),
+    ...workItem(101, "done", "2026-08-13T20:00:00.000Z", null),
     projectId: dogfoodProjectId,
     workstreamId: null,
-    title: "Review Phase 2 Work query bundle",
-    description: "Verify the real filtered Work list and keyboard journey before acceptance.",
-    requirements: ["Use the real Project", "Keep progress separate from GitHub activity"],
-    acceptanceConditions: ["Product Owner can review the runnable employee journey"],
-    updatedAt: "2026-08-13T09:15:00.000Z",
+    title: "Complete Work performance and pagination benchmark",
+    description: "Verify representative 50, 200, and 1,000 Task loads and bounded cursor paging.",
+    requirements: ["Use representative loads", "Keep the daily screen bounded"],
+    acceptanceConditions: ["Focused performance evidence and interaction benchmark are recorded"],
+    updatedAt: "2026-08-13T20:08:00.000Z",
   },
   {
-    ...workItem(102, "ready", "2026-08-13T16:00:00.000Z", "Implement safe inline editing"),
+    ...workItem(
+      102,
+      "in_progress",
+      "2026-08-14T16:00:00.000Z",
+      "Close authoritative triggers and prepared-action confirmation",
+    ),
     projectId: dogfoodProjectId,
     workstreamId: null,
-    title: "Implement safe inline Task edits",
-    description: "Make common Task changes fast while preserving authorized server commands.",
-    requirements: ["Edit title, due date, priority, and assignee safely"],
-    acceptanceConditions: ["Employee sees the saved authoritative state"],
-    updatedAt: "2026-08-13T09:10:00.000Z",
+    title: "Close Work Agent capability gaps",
+    description:
+      "Use real Work signals to prepare one useful action while retaining explicit employee confirmation.",
+    requirements: [
+      "AI Router only",
+      "No automatic command",
+      "No progress or performance inference",
+    ],
+    acceptanceConditions: ["Codex receives one relevant, source-backed preparation"],
+    updatedAt: "2026-08-13T20:12:00.000Z",
   },
   {
-    ...workItem(103, "planned", "2026-08-15T12:00:00.000Z", "Connect detail to activity"),
+    ...workItem(
+      103,
+      "ready",
+      "2026-08-14T12:00:00.000Z",
+      "Review the proposal with the Product Owner",
+    ),
     projectId: dogfoodProjectId,
     workstreamId: null,
-    title: "Connect Task detail to updates and evidence",
-    description: "Show the Task, confirmed updates, and suggested evidence in one focused view.",
-    requirements: ["Keep GitHub evidence suggested until employee confirmation"],
-    acceptanceConditions: ["No activity count becomes Project progress"],
-    updatedAt: "2026-08-13T08:55:00.000Z",
+    title: "Approve the Project Progress Contract",
+    description:
+      "Review the document-derived milestones, KPIs, evidence rules, and calculation before any official percentage appears.",
+    requirements: ["Product Owner decision", "No Task or GitHub volume calculation"],
+    acceptanceConditions: ["Approved measurable contract or an explicit correction request"],
+    updatedAt: "2026-08-13T20:10:00.000Z",
   },
   {
-    ...workItem(104, "planned", "2026-08-16T12:00:00.000Z", "Compare the daily flow"),
+    ...workItem(104, "planned", "2026-08-15T12:00:00.000Z", "Run the employee acceptance journey"),
     projectId: dogfoodProjectId,
     workstreamId: null,
-    title: "Benchmark the Work flow against the ClickUp reference",
-    description: "Compare interaction speed and clarity without copying branding or architecture.",
-    requirements: ["Keep Command Brief simpler than a generic project-management tool"],
-    acceptanceConditions: ["Record only actionable product differences"],
-    updatedAt: "2026-08-13T08:45:00.000Z",
+    title: "Complete Codex employee journey acceptance",
+    description:
+      "Review Home, Project, Work, evidence, and progress-contract boundaries as one flow.",
+    requirements: ["Use the running product", "Record missing behavior honestly"],
+    acceptanceConditions: ["Product Owner can judge the complete employee journey"],
+    allowedTransitions: ["cancelled"],
+    updatedAt: "2026-08-13T20:05:00.000Z",
   },
 ];
 workItems.push(...codexWorkItems);
@@ -473,7 +491,7 @@ connectedWorkItems.unshift({
   projectId: dogfoodProjectId,
   sourceExclusion: null,
 });
-const workItemDependencies = new Map([[codexWorkItems[2].id, [codexWorkItems[0].id]]]);
+const workItemDependencies = new Map([[codexWorkItems[3].id, [codexWorkItems[1].id]]]);
 timelineItems.push(...initialSliceFourTimeline());
 
 const myWork = {
@@ -510,7 +528,7 @@ const baseConnectedWorkItems = structuredClone(connectedWorkItems);
 
 function dailyWorkspace() {
   return {
-    needsMyAction: [codexWorkItems[0], ...myWork.groups[0].items],
+    needsMyAction: [codexWorkItems[2], ...myWork.groups[0].items],
     today: [codexWorkItems[1], ...myWork.groups[1].items],
     overdue: myWork.groups[2].items,
     reviewQueue: [],
@@ -566,14 +584,14 @@ function employeeHome() {
       milestones: [
         {
           componentId: "d3333333-3333-4333-8333-333333333333",
-          name: "Requirements and engine foundation",
+          name: "Engine and core Work experience",
           kind: "milestone",
           state: "complete",
           percent: null,
         },
         {
           componentId: "d4444444-4444-4444-8444-444444444444",
-          name: "Work experience expansion",
+          name: "Work Agent capability closure",
           kind: "milestone",
           state: "current",
           percent: null,
@@ -588,7 +606,7 @@ function employeeHome() {
       ],
       kpi: null,
       nextAction: {
-        label: "Implement safe inline Task edits",
+        label: "Close Work Agent capability gaps",
         href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}`,
       },
     },
@@ -695,10 +713,10 @@ function employeeHome() {
     signals: { decisions: 0, dueToday: 2, verifiedChanges: 2 },
     projects,
     smartBrief: {
-      title: "Continue the Work experience",
-      body: "The first Work query bundle is complete; safe inline Task editing is the next bounded step.",
+      title: "Close the Work Agent capability gaps",
+      body: "Core Work management and representative performance are complete; authoritative proactive triggers are the current bounded step.",
       source: workPlanSource,
-      why: "It removes daily friction while keeping the authoritative command and audit boundaries.",
+      why: "It assists Codex from real work state while keeping authoritative command boundaries.",
       consequence:
         "This advances the product plan only; official Project progress remains unavailable until its contract is approved.",
       action: {
@@ -710,11 +728,11 @@ function employeeHome() {
       {
         id: "event:work-review",
         kind: "task",
-        occurredAt: "2026-08-13T09:15:00.000Z",
-        title: "Review Phase 2 Work query bundle",
+        occurredAt: "2026-08-13T20:08:00.000Z",
+        title: "Complete Work performance and pagination benchmark",
         projectId: dogfoodProjectId,
         projectName: "Evidence Performance Evaluation System",
-        statusLabel: "In review",
+        statusLabel: "Done",
         href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[0].id}`,
         source: workPlanSource,
       },
@@ -732,19 +750,19 @@ function employeeHome() {
       {
         id: "event:task",
         kind: "task",
-        occurredAt: "2026-08-13T11:30:00.000Z",
-        title: "Implement safe inline Task edits",
+        occurredAt: "2026-08-13T20:12:00.000Z",
+        title: "Close Work Agent capability gaps",
         projectId: dogfoodProjectId,
         projectName: "Evidence Performance Evaluation System",
-        statusLabel: "Due today",
+        statusLabel: "In progress",
         href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[1].id}`,
         source: workPlanSource,
       },
       {
         id: "event:verified",
         kind: "verified_change",
-        occurredAt: "2026-08-13T13:15:00.000Z",
-        title: "Work filters and keyboard list implemented",
+        occurredAt: "2026-08-13T20:08:00.000Z",
+        title: "Representative Task paging and benchmark committed",
         projectId: dogfoodProjectId,
         projectName: "Evidence Performance Evaluation System",
         statusLabel: "Suggested evidence · confirm before contribution",
@@ -958,14 +976,14 @@ function codexProjectExperience() {
     milestones: [
       {
         componentId: "d3333333-3333-4333-8333-333333333333",
-        name: "Requirements and engine foundation",
+        name: "Engine and core Work experience",
         kind: "milestone",
         state: "complete",
         percent: null,
       },
       {
         componentId: "d4444444-4444-4444-8444-444444444444",
-        name: "Work experience expansion",
+        name: "Work Agent capability closure",
         kind: "milestone",
         state: "current",
         percent: null,
@@ -989,8 +1007,8 @@ function codexProjectExperience() {
       },
       {
         id: "attention:next-task",
-        title: "Implement safe inline Task edits",
-        subtitle: "Next bounded Work experience task",
+        title: "Close Work Agent capability gaps",
+        subtitle: "Current Codex implementation task",
         href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[1].id}`,
         source: workPlanSource,
       },
@@ -1006,24 +1024,24 @@ function codexProjectExperience() {
       updates: [
         {
           id: "update:work-bundle",
-          title: "Work query and keyboard bundle implemented",
-          subtitle: "Codex update · awaiting Product Owner acceptance",
+          title: "Performance paging and the Work benchmark are complete",
+          subtitle: "Codex update · capability closure continues",
           href: `/en/projects/${dogfoodProjectId}`,
           source: { ...workPlanSource, kind: "update", label: "Codex work update" },
         },
       ],
       evidence: [
         {
-          id: "evidence:e4fefae",
-          title: "Filtered Work results now follow the authoritative server response",
-          subtitle: "Commit e4fefae · employee confirmation required",
+          id: "evidence:06cfefa",
+          title: "Representative Task paging and interaction benchmark implemented",
+          subtitle: "Commit 06cfefa · employee confirmation required",
           href: `/en/projects/${dogfoodProjectId}`,
           source: githubSource,
         },
         {
-          id: "evidence:d8a3079",
-          title: "Work filters, sort, counts, and keyboard list implemented",
-          subtitle: "Commit d8a3079 · employee confirmation required",
+          id: "evidence:4aa2110",
+          title: "Quick Task retries made idempotent",
+          subtitle: "Commit 4aa2110 · employee confirmation required",
           href: `/en/projects/${dogfoodProjectId}`,
           source: githubSource,
         },
@@ -1040,10 +1058,10 @@ function codexProjectExperience() {
     },
     timeline: [
       {
-        id: "timeline:e4fefae",
+        id: "timeline:06cfefa",
         kind: "evidence",
-        occurredAt: "2026-08-13T09:15:00.000Z",
-        title: "Filtered Work results fixed at the authoritative boundary",
+        occurredAt: "2026-08-13T20:08:00.000Z",
+        title: "Representative Task paging and benchmark committed",
         projectId: dogfoodProjectId,
         projectName: "Evidence Performance Evaluation System",
         statusLabel: "Suggested evidence · employee confirmation required",
@@ -1051,10 +1069,10 @@ function codexProjectExperience() {
         source: githubSource,
       },
       {
-        id: "timeline:d8a3079",
+        id: "timeline:4aa2110",
         kind: "evidence",
-        occurredAt: "2026-08-13T08:40:00.000Z",
-        title: "Work filters and keyboard list implemented",
+        occurredAt: "2026-08-13T19:42:00.000Z",
+        title: "Quick Task idempotent retry committed",
         projectId: dogfoodProjectId,
         projectName: "Evidence Performance Evaluation System",
         statusLabel: "Suggested evidence · employee confirmation required",
@@ -1064,10 +1082,10 @@ function codexProjectExperience() {
     ],
     nextCursor: null,
     smartBrief: {
-      title: "Continue the Work experience",
-      body: "The filtered Work list is implemented; safe inline Task editing is the next bounded step.",
+      title: "Close the Work Agent capability gaps",
+      body: "Core Work management and representative performance are complete; authoritative proactive triggers are the current bounded step.",
       source: workPlanSource,
-      why: "It removes daily employee friction without bypassing authoritative commands.",
+      why: "It makes the system assist Codex from real work state without bypassing protected commands.",
       consequence:
         "GitHub changes remain suggested evidence and official Project progress remains unavailable until its contract is approved.",
       action: {
@@ -1087,18 +1105,18 @@ function experiencePrepared() {
         schemaVersion: "experience-prepared-output.v1",
         state: "prepared",
         kind: "next_action",
-        sourceReferences: [`work-item:${codexWorkItems[0].id}`],
-        why: "Codex should review the next authorized Work bundle for this Project.",
+        sourceReferences: [`work-item:${codexWorkItems[1].id}`],
+        why: "Codex has an active Work Agent closure Task in the authorized Project plan.",
         freshness: {
           status: "fresh",
           sourceObservedAt: "2026-08-13T19:30:00.000Z",
           preparedAt: "2026-08-13T19:35:00.000Z",
         },
         consequence:
-          "Reviewing it keeps the frontend-engine work moving; nothing changes until Codex acts.",
+          "Reviewing it focuses the next implementation step; nothing changes until Codex acts.",
         editableDraft: {
-          title: "Review the next frontend-engine Task",
-          body: "Open the authorized Project Task and decide the next manual action.",
+          title: "Continue Work Agent capability closure",
+          body: "Open the active Project Task and close one authoritative trigger at a time.",
         },
         assistance: {
           mode: "deterministic",
@@ -3500,7 +3518,7 @@ function initialSliceFourTimeline(includeExamples = false) {
 }
 
 function dogfoodTaskTimeline() {
-  const item = codexWorkItems[0];
+  const item = codexWorkItems[1];
   return [
     {
       id: "dc111111-1111-4111-8111-111111111111",
@@ -3509,9 +3527,9 @@ function dogfoodTaskTimeline() {
       workstreamId: null,
       workItemId: item.id,
       employeeId: ownerId,
-      occurredAt: "2026-08-13T09:15:00.000Z",
-      title: "Work query and keyboard bundle implemented",
-      detail: "Codex completed the bounded Work query bundle and moved it to review.",
+      occurredAt: "2026-08-13T20:12:00.000Z",
+      title: "Performance paging and the Work benchmark are complete",
+      detail: "Codex completed P2-15 and P2-16 and started the remaining Work Agent closure.",
       sourceReferences: ["work-item-update:dc211111-1111-4111-8111-111111111111"],
       sourceProvenance: "employee_code",
       reviewState: "employee_confirmed",
@@ -3530,8 +3548,8 @@ function dogfoodTaskTimeline() {
       workstreamId: null,
       workItemId: item.id,
       employeeId: ownerId,
-      occurredAt: "2026-08-13T09:20:00.000Z",
-      title: "Commit e4fefae uses the authoritative Work response",
+      occurredAt: "2026-08-13T20:08:00.000Z",
+      title: "Commit 06cfefa adds representative paging and benchmark evidence",
       detail:
         "GitHub detected the implementation change; Codex must confirm it before contribution use.",
       sourceReferences: ["github-source-event:dc411111-1111-4111-8111-111111111111"],

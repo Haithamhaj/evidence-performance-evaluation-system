@@ -205,4 +205,32 @@ describe("WorkItemQueryService", () => {
     expect(result.counts).toMatchObject({ all: 7, blocked: 2 });
     expect(result.nextCursor).toBeNull();
   });
+
+  it("does not advertise a ready transition when the listed Task has an unfinished dependency", async () => {
+    const visible = {
+      ...item({ id: crypto.randomUUID(), dueAt: new Date("2026-07-20T10:00:00Z") }),
+      status: "planned" as const,
+      dependencies: [{ dependsOnWorkItem: { status: "in_progress" as const } }],
+    };
+    const service = new WorkItemQueryService({
+      workItem: {
+        count: vi.fn(async () => 1),
+        findMany: vi.fn(async () => [visible]),
+      },
+    } as never);
+
+    const result = await service.listWorkspace({
+      actor: { userId: crypto.randomUUID(), active: true },
+      view: "my",
+      layout: "board",
+      limit: 25,
+      cursor: null,
+      projectId: visible.projectId,
+      status: null,
+      search: null,
+      sort: "due_asc",
+    });
+
+    expect(result.items[0]?.allowedTransitions).toEqual(["cancelled"]);
+  });
 });
