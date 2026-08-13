@@ -84,7 +84,7 @@ export default async function TasksPage({ params, searchParams }: Properties) {
           initialCounts: response.counts,
           initialFilters: { projectId, search, sort, status },
           initialSelectedId: selectedId,
-          initialSnapshot: hasActiveFilters ? undefined : snapshot,
+          ...(hasActiveFilters ? {} : { initialSnapshot: snapshot }),
           initialView: view,
           locale,
           projects: context.projects.map(({ id, name }) => ({ id, name })),

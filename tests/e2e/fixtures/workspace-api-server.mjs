@@ -220,8 +220,8 @@ const project = {
 const dogfoodProject = {
   id: dogfoodProjectId,
   departmentId,
-  name: "Evidence Performance System — Phase 2",
-  description: "Real Codex employee acceptance Project.",
+  name: "Evidence Performance Evaluation System",
+  description: "The real product Codex is building and using as an employee.",
   status: "active",
   version: 1,
   primaryOwnerId: ownerId,
@@ -417,6 +417,50 @@ const workItems = Array.from({ length: 20 }, (_, offset) => {
     );
   return workItem(index, "planned", "2026-07-24T12:00:00.000Z", "Prepare implementation");
 });
+
+const codexWorkItems = [
+  {
+    ...workItem(101, "in_review", "2026-08-13T14:00:00.000Z", "Review the real Work journey"),
+    projectId: dogfoodProjectId,
+    workstreamId: null,
+    title: "Review Phase 2 Work query bundle",
+    description: "Verify the real filtered Work list and keyboard journey before acceptance.",
+    requirements: ["Use the real Project", "Keep progress separate from GitHub activity"],
+    acceptanceConditions: ["Product Owner can review the runnable employee journey"],
+    updatedAt: "2026-08-13T09:15:00.000Z",
+  },
+  {
+    ...workItem(102, "ready", "2026-08-13T16:00:00.000Z", "Implement safe inline editing"),
+    projectId: dogfoodProjectId,
+    workstreamId: null,
+    title: "Implement safe inline Task edits",
+    description: "Make common Task changes fast while preserving authorized server commands.",
+    requirements: ["Edit title, due date, priority, and assignee safely"],
+    acceptanceConditions: ["Employee sees the saved authoritative state"],
+    updatedAt: "2026-08-13T09:10:00.000Z",
+  },
+  {
+    ...workItem(103, "planned", "2026-08-15T12:00:00.000Z", "Connect detail to activity"),
+    projectId: dogfoodProjectId,
+    workstreamId: null,
+    title: "Connect Task detail to updates and evidence",
+    description: "Show the Task, confirmed updates, and suggested evidence in one focused view.",
+    requirements: ["Keep GitHub evidence suggested until employee confirmation"],
+    acceptanceConditions: ["No activity count becomes Project progress"],
+    updatedAt: "2026-08-13T08:55:00.000Z",
+  },
+  {
+    ...workItem(104, "planned", "2026-08-16T12:00:00.000Z", "Compare the daily flow"),
+    projectId: dogfoodProjectId,
+    workstreamId: null,
+    title: "Benchmark the Work flow against the ClickUp reference",
+    description: "Compare interaction speed and clarity without copying branding or architecture.",
+    requirements: ["Keep Command Brief simpler than a generic project-management tool"],
+    acceptanceConditions: ["Record only actionable product differences"],
+    updatedAt: "2026-08-13T08:45:00.000Z",
+  },
+];
+workItems.push(...codexWorkItems);
 timelineItems.push(...initialSliceFourTimeline());
 
 const myWork = {
@@ -453,12 +497,18 @@ const baseConnectedWorkItems = structuredClone(connectedWorkItems);
 
 function dailyWorkspace() {
   return {
-    needsMyAction: myWork.groups[0].items,
-    today: myWork.groups[1].items,
+    needsMyAction: [codexWorkItems[0], ...myWork.groups[0].items],
+    today: [codexWorkItems[1], ...myWork.groups[1].items],
     overdue: myWork.groups[2].items,
     reviewQueue: [],
     inbox: privateInboxItems.filter(({ status }) => status === "open"),
     projectPulse: [
+      {
+        id: dogfoodProjectId,
+        name: dogfoodProject.name,
+        status: "active",
+        progress: { state: "awaiting_contract" },
+      },
       {
         id: projectId,
         name: "Atlas Delivery",
@@ -475,19 +525,71 @@ function dailyWorkspace() {
 }
 
 function employeeHome() {
-  const source = {
+  const progressSource = {
     kind: "progress_contract",
     label: "Approved Project contract",
     observedAt: "2026-08-13T07:00:00.000Z",
     freshness: "fresh",
   };
+  const workPlanSource = {
+    kind: "work_item",
+    label: "Approved Phase 2 Work plan",
+    observedAt: "2026-08-13T09:15:00.000Z",
+    freshness: "fresh",
+  };
+  const githubSource = {
+    kind: "github",
+    label: "GitHub suggested evidence",
+    observedAt: "2026-08-13T09:15:00.000Z",
+    freshness: "fresh",
+  };
   const projects = [
+    {
+      id: dogfoodProjectId,
+      name: "Evidence Performance Evaluation System",
+      description: "The real AI-native product Codex is building and using as an employee.",
+      status: "active",
+      progress: { state: "awaiting_contract" },
+      milestones: [
+        {
+          componentId: "d3333333-3333-4333-8333-333333333333",
+          name: "Requirements and engine foundation",
+          kind: "milestone",
+          state: "complete",
+          percent: null,
+        },
+        {
+          componentId: "d4444444-4444-4444-8444-444444444444",
+          name: "Work experience expansion",
+          kind: "milestone",
+          state: "current",
+          percent: null,
+        },
+        {
+          componentId: "d5555555-5555-4555-8555-555555555555",
+          name: "Intelligent frontend acceptance",
+          kind: "milestone",
+          state: "next",
+          percent: null,
+        },
+      ],
+      kpi: null,
+      nextAction: {
+        label: "Implement safe inline Task edits",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}`,
+      },
+    },
     {
       id: projectId,
       name: "Atlas Delivery",
       description: "Deliver secure API access and pilot integration for Atlas.",
       status: "active",
-      progress: { state: "accepted", percent: 62, source, explanation: "Approved contract rule" },
+      progress: {
+        state: "accepted",
+        percent: 62,
+        source: progressSource,
+        explanation: "Approved contract rule",
+      },
       milestones: [
         {
           componentId: crypto.randomUUID(),
@@ -519,7 +621,7 @@ function employeeHome() {
         target: 1,
         unit: "%",
         direction: "decrease",
-        source,
+        source: progressSource,
       },
       nextAction: {
         label: "Review API authentication decision",
@@ -527,52 +629,16 @@ function employeeHome() {
       },
     },
     {
-      id: dogfoodProjectId,
-      name: "Evaluation System",
-      description: "Complete the AI-native employee journey and frontend acceptance.",
-      status: "active",
-      progress: { state: "accepted", percent: 41, source, explanation: "Approved contract rule" },
-      milestones: [
-        {
-          componentId: crypto.randomUUID(),
-          name: "Requirements approved",
-          kind: "milestone",
-          state: "complete",
-          percent: 100,
-        },
-        {
-          componentId: crypto.randomUUID(),
-          name: "Employee journey",
-          kind: "milestone",
-          state: "current",
-          percent: 41,
-        },
-        {
-          componentId: crypto.randomUUID(),
-          name: "Frontend acceptance",
-          kind: "milestone",
-          state: "next",
-          percent: null,
-        },
-      ],
-      kpi: {
-        componentId: crypto.randomUUID(),
-        name: "Critical flow completion",
-        baseline: 0,
-        current: 4,
-        target: 7,
-        unit: " flows",
-        direction: "increase",
-        source,
-      },
-      nextAction: { label: "Review frontend acceptance", href: `/en/projects/${dogfoodProjectId}` },
-    },
-    {
       id: contextProjectId,
       name: "Research Assistant",
       description: "Validate research sources and prepare governed experiments.",
       status: "active",
-      progress: { state: "accepted", percent: 28, source, explanation: "Approved contract rule" },
+      progress: {
+        state: "accepted",
+        percent: 28,
+        source: progressSource,
+        explanation: "Approved contract rule",
+      },
       milestones: [
         {
           componentId: crypto.randomUUID(),
@@ -604,7 +670,7 @@ function employeeHome() {
         target: 10,
         unit: " sources",
         direction: "increase",
-        source,
+        source: progressSource,
       },
       nextAction: { label: "Start prototype experiment", href: `/en/projects/${contextProjectId}` },
     },
@@ -613,28 +679,31 @@ function employeeHome() {
     schemaVersion: "employee-home.v1",
     generatedAt: "2026-08-13T07:05:00.000Z",
     greetingName: "Codex",
-    signals: { decisions: 1, dueToday: 3, verifiedChanges: 2 },
+    signals: { decisions: 0, dueToday: 2, verifiedChanges: 2 },
     projects,
     smartBrief: {
-      title: "Why Atlas Delivery needs attention",
-      body: "One decision can unblock Atlas Delivery; Evaluation System is approaching frontend acceptance.",
-      source,
-      why: "Review the API authentication decision to proceed toward the target.",
+      title: "Continue the Work experience",
+      body: "The first Work query bundle is complete; safe inline Task editing is the next bounded step.",
+      source: workPlanSource,
+      why: "It removes daily friction while keeping the authoritative command and audit boundaries.",
       consequence:
-        "The protected decision opens for your review; nothing is confirmed automatically.",
-      action: { label: "Review decision", href: `/en/projects/${projectId}` },
+        "This advances the product plan only; official Project progress remains unavailable until its contract is approved.",
+      action: {
+        label: "Open the next Task",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}`,
+      },
     },
     now: [
       {
-        id: "event:decision",
-        kind: "decision",
-        occurredAt: "2026-08-13T05:45:00.000Z",
-        title: "Link PR #184 to API authentication?",
-        projectId,
-        projectName: "Atlas Delivery",
-        statusLabel: "Needs your decision",
-        href: `/en/projects/${projectId}`,
-        source,
+        id: "event:work-review",
+        kind: "task",
+        occurredAt: "2026-08-13T09:15:00.000Z",
+        title: "Review Phase 2 Work query bundle",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "In review",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[0].id}`,
+        source: workPlanSource,
       },
       {
         id: "event:meeting",
@@ -642,32 +711,32 @@ function employeeHome() {
         occurredAt: "2026-08-13T07:00:00.000Z",
         title: "AI-native employee journey design review",
         projectId: dogfoodProjectId,
-        projectName: "Evaluation System",
-        statusLabel: "In 1h 15m",
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Product direction confirmed",
         href: `/en/projects/${dogfoodProjectId}`,
-        source,
+        source: workPlanSource,
       },
       {
         id: "event:task",
         kind: "task",
         occurredAt: "2026-08-13T11:30:00.000Z",
-        title: "Validate streaming fallback",
-        projectId,
-        projectName: "Atlas Delivery",
+        title: "Implement safe inline Task edits",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
         statusLabel: "Due today",
-        href: `/en/tasks?item=${workItems[0].id}`,
-        source,
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[1].id}`,
+        source: workPlanSource,
       },
       {
         id: "event:verified",
         kind: "verified_change",
         occurredAt: "2026-08-13T13:15:00.000Z",
-        title: "PR #182 merged: contract milestone condition satisfied",
-        projectId: contextProjectId,
-        projectName: "Research Assistant",
-        statusLabel: "Verified",
-        href: `/en/projects/${contextProjectId}`,
-        source,
+        title: "Work filters and keyboard list implemented",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Suggested evidence · confirm before contribution",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: githubSource,
       },
     ],
   };
@@ -835,6 +904,167 @@ function employeeProjectExperience() {
   };
 }
 
+function codexProjectExperience() {
+  const workPlanSource = {
+    kind: "work_item",
+    label: "Approved Phase 2 Work plan",
+    observedAt: "2026-08-13T09:15:00.000Z",
+    freshness: "fresh",
+  };
+  const githubSource = {
+    kind: "github",
+    label: "GitHub suggested evidence",
+    observedAt: "2026-08-13T09:15:00.000Z",
+    freshness: "fresh",
+  };
+  const documentSource = {
+    kind: "project_document",
+    label: "Approved Project Document",
+    observedAt: "2026-07-19T12:00:00.000Z",
+    freshness: "possibly_stale",
+  };
+  return {
+    schemaVersion: "employee-project-experience.v1",
+    generatedAt: "2026-08-13T09:15:00.000Z",
+    project: {
+      id: dogfoodProjectId,
+      name: "Evidence Performance Evaluation System",
+      description: "The real AI-native product Codex is building and using as an employee.",
+      status: "active",
+      ownerName: "Codex",
+      workstreams: [],
+    },
+    document: {
+      id: dogfoodDocumentVersionId,
+      title: "Approved Project source",
+      version: 3,
+      source: documentSource,
+      href: `/en/projects/${dogfoodProjectId}`,
+    },
+    progress: { state: "awaiting_contract" },
+    milestones: [
+      {
+        componentId: "d3333333-3333-4333-8333-333333333333",
+        name: "Requirements and engine foundation",
+        kind: "milestone",
+        state: "complete",
+        percent: null,
+      },
+      {
+        componentId: "d4444444-4444-4444-8444-444444444444",
+        name: "Work experience expansion",
+        kind: "milestone",
+        state: "current",
+        percent: null,
+      },
+      {
+        componentId: "d5555555-5555-4555-8555-555555555555",
+        name: "Intelligent frontend acceptance",
+        kind: "milestone",
+        state: "next",
+        percent: null,
+      },
+    ],
+    kpi: null,
+    attention: [
+      {
+        id: "attention:contract",
+        title: "Review the Project Progress Contract proposal",
+        subtitle: "Human approval is required before any official percentage can appear",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: documentSource,
+      },
+      {
+        id: "attention:next-task",
+        title: "Implement safe inline Task edits",
+        subtitle: "Next bounded Work experience task",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[1].id}`,
+        source: workPlanSource,
+      },
+    ],
+    collections: {
+      work: codexWorkItems.map((item) => ({
+        id: `work:${item.id}`,
+        title: item.title,
+        subtitle: `${item.status.replaceAll("_", " ")} · ${item.nextAction ?? "Review"}`,
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${item.id}`,
+        source: workPlanSource,
+      })),
+      updates: [
+        {
+          id: "update:work-bundle",
+          title: "Work query and keyboard bundle implemented",
+          subtitle: "Codex update · awaiting Product Owner acceptance",
+          href: `/en/projects/${dogfoodProjectId}`,
+          source: { ...workPlanSource, kind: "update", label: "Codex work update" },
+        },
+      ],
+      evidence: [
+        {
+          id: "evidence:e4fefae",
+          title: "Filtered Work results now follow the authoritative server response",
+          subtitle: "Commit e4fefae · employee confirmation required",
+          href: `/en/projects/${dogfoodProjectId}`,
+          source: githubSource,
+        },
+        {
+          id: "evidence:d8a3079",
+          title: "Work filters, sort, counts, and keyboard list implemented",
+          subtitle: "Commit d8a3079 · employee confirmation required",
+          href: `/en/projects/${dogfoodProjectId}`,
+          source: githubSource,
+        },
+      ],
+      documents: [
+        {
+          id: "document:approved-source-v3",
+          title: "Approved Project source v3",
+          subtitle: "Governed source for the pending Progress Contract proposal",
+          href: `/en/projects/${dogfoodProjectId}`,
+          source: documentSource,
+        },
+      ],
+    },
+    timeline: [
+      {
+        id: "timeline:e4fefae",
+        kind: "evidence",
+        occurredAt: "2026-08-13T09:15:00.000Z",
+        title: "Filtered Work results fixed at the authoritative boundary",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Suggested evidence · employee confirmation required",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: githubSource,
+      },
+      {
+        id: "timeline:d8a3079",
+        kind: "evidence",
+        occurredAt: "2026-08-13T08:40:00.000Z",
+        title: "Work filters and keyboard list implemented",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Suggested evidence · employee confirmation required",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: githubSource,
+      },
+    ],
+    nextCursor: null,
+    smartBrief: {
+      title: "Continue the Work experience",
+      body: "The filtered Work list is implemented; safe inline Task editing is the next bounded step.",
+      source: workPlanSource,
+      why: "It removes daily employee friction without bypassing authoritative commands.",
+      consequence:
+        "GitHub changes remain suggested evidence and official Project progress remains unavailable until its contract is approved.",
+      action: {
+        label: "Open the next Task",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[1].id}`,
+      },
+    },
+  };
+}
+
 function experiencePrepared() {
   return {
     state: "prepared",
@@ -964,8 +1194,8 @@ const projectProgress = {
 const dogfoodProgress = {
   project: {
     id: dogfoodProjectId,
-    name: "Evidence Performance System — Phase 2",
-    description: "Real Codex employee acceptance Project.",
+    name: "Evidence Performance Evaluation System",
+    description: "The real AI-native product Codex is building and using as an employee.",
     status: "active",
   },
   contract: null,
@@ -1602,6 +1832,12 @@ const server = createServer(async (request, response) => {
   ) {
     return json(response, 200, employeeProjectExperience());
   }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/daily-work/projects/${dogfoodProjectId}/experience`
+  ) {
+    return json(response, 200, codexProjectExperience());
+  }
   if (request.method === "GET" && url.pathname === "/api/v1/work-items") {
     const search = url.searchParams.get("search")?.trim().toLowerCase() ?? "";
     const projectFilter = url.searchParams.get("projectId");
@@ -1655,6 +1891,12 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/projects") {
     return json(response, 200, [
       {
+        id: dogfoodProjectId,
+        name: dogfoodProject.name,
+        status: "active",
+        progress: { state: "awaiting_contract" },
+      },
+      {
         id: projectId,
         name: project.name,
         status: "active",
@@ -1665,6 +1907,16 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/update-context") {
     return json(response, 200, {
       projects: [
+        {
+          id: dogfoodProjectId,
+          name: dogfoodProject.name,
+          workstreams: [],
+          workItems: codexWorkItems.map((item) => ({
+            id: item.id,
+            title: item.title,
+            workstreamId: item.workstreamId,
+          })),
+        },
         {
           id: projectId,
           name: "Atlas Delivery",

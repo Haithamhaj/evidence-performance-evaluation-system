@@ -134,6 +134,11 @@ every engine authority and protected product rule, and all retained rollback rou
   independent Update/Evidence receipts, unchanged official progress, mobile review evidence, and
   retained rollback routes. This acceptance does not authorize route retirement or Pull Request
   merge.
+- The first Phase 2 Work bundle is complete: the authorized query now supports Project/status/search
+  filters, sort, accurate counts, and a compact keyboard list. The local employee preview is now
+  dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
+  actual Phase 2 Tasks and recent GitHub changes are visible; GitHub remains suggested evidence, and
+  no official percentage is shown because the Progress Contract proposal still awaits human review.
 
 ## Active Risks
 
@@ -162,10 +167,10 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Execute the first bounded Phase 2 Work bundle: authoritative query/search/filter/sort/count behavior
-and a compact keyboard-friendly list, reusing the accepted Work screen and existing Work Items
-authority. Keep Pull Requests #29 and #30 unmerged and retain Board, Calendar, and legacy rollback
-routes.
+Execute the next bounded Phase 2 Work bundle: safe inline edits for common Task fields, followed by
+the URL-addressable Task detail context for Updates and Evidence. Continue dogfooding with Codex and
+the real Project, keep Pull Requests #29 and #30 unmerged, and retain Board, Calendar, and legacy
+rollback routes.
 
 ## Critical References
 
