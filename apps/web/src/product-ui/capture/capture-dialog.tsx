@@ -103,7 +103,7 @@ export function CaptureDialog({
   return createElement(FocusedDialog, {
     closeLabel: catalog["actions.close"],
     layout: "workspace",
-    title: catalog["capture.title"],
+    title: catalog[review === null ? "capture.title" : "review.title"],
     trigger: createElement(ActionButton, {
       "aria-label": catalog["shell.global.capture"],
       children: catalog["shell.global.capture"],
