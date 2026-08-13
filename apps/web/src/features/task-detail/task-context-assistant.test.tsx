@@ -6,7 +6,7 @@ import "@testing-library/jest-dom/vitest";
 import { getCatalogSync } from "@evaluation/localization";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TaskContextAssistant } from "./task-context-assistant.js";
 
@@ -89,5 +89,48 @@ describe("TaskContextAssistant", () => {
     expect(screen.getByText(/1 linked update and 1 evidence item/u)).toBeVisible();
     expect(screen.getByText(/GitHub evidence is still only suggested/u)).toBeVisible();
     expect(screen.queryByText(/rating|productivity score|employee rank/iu)).not.toBeInTheDocument();
+  });
+
+  it("prepares a status change but executes it only after explicit confirmation", async () => {
+    const user = userEvent.setup();
+    const confirmTransition = vi.fn(async () => undefined);
+    render(
+      <TaskContextAssistant
+        catalog={getCatalogSync("en")}
+        context={null}
+        dependencies={null}
+        item={{
+          acceptanceConditions: [],
+          allowedActions: ["transition"],
+          allowedTransitions: ["in_progress", "cancelled"],
+          assigneeId: crypto.randomUUID(),
+          blocker: null,
+          checklist: [],
+          collaboratorIds: [],
+          createdAt: "2026-08-12T08:00:00.000Z",
+          description: "Start the bounded implementation.",
+          dueAt: "2026-08-14T08:00:00.000Z",
+          id: crypto.randomUUID(),
+          nextAction: "Implement the focused change.",
+          priority: "high",
+          projectId: crypto.randomUUID(),
+          requirements: [],
+          status: "ready",
+          title: "Close the Work Agent gap",
+          updatedAt: "2026-08-13T08:00:00.000Z",
+          version: 2,
+          workstreamId: null,
+        }}
+        onConfirmTransition={confirmTransition}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Prepare a status change" }));
+    expect(confirmTransition).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Prepared status change" })).toBeVisible();
+    expect(screen.getByText(/Ready → In progress/u)).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Confirm status change" }));
+    expect(confirmTransition).toHaveBeenCalledWith("in_progress");
   });
 });

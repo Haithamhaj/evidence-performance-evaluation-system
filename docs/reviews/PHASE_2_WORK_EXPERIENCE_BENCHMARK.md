@@ -48,14 +48,16 @@ progress or employee performance.
 
 ## Capability closure decision
 
-P2-15 and P2-16 are complete. P2-17 is intentionally not marked complete yet because the approved
-Work Agent scope is only partially delivered:
+P2-10, P2-11, and the bounded protected-command portion of P2-12 now use the real Codex dogfood
+state. The Work Agent distinguishes overdue, due-today, ready-for-action, and required-check-in
+follow-up triggers; Work refresh recomposes the next prepared action from the authoritative readers;
+and Task detail can prepare a server-allowed status change without executing it. Codex must review
+the exact before/after state and confirm before the existing protected command runs.
 
-- completion/dependency-unlocked/overdue/follow-up/missing-update triggers need one authoritative
-  trigger policy;
-- prepared Update and follow-up drafts need the same explicit review/confirmation gate;
-- free-form contextual assistance may prepare a protected command, but must never execute it without
-  confirmation.
+P2-15 and P2-16 are complete. P2-17 remains open only for the approved free-form AI Router slice:
+the employee must be able to ask in natural language about the Task, receive a source-grounded
+answer, and prepare the same bounded protected action without giving the model authority to execute
+it. The deterministic contextual buttons remain the truthful fallback.
 
 The next bundle should close those three gaps using the existing AI Router and domain commands. It
 must not add a second task store, infer Project progress from Task volume, or turn chat into the only

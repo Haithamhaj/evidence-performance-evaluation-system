@@ -256,6 +256,7 @@ export function TaskDetailDrawer({
               context={context}
               dependencies={dependencies}
               item={item}
+              onConfirmTransition={onTransition}
             />
             {notice === "stale" ? (
               <p className={styles.alert!} role="alert">

@@ -8,6 +8,7 @@ import type {
   WebWorkItem,
   WorkItemContext,
   WorkItemDependencies,
+  WorkItemStatus,
 } from "../../platform/work-items-api";
 import styles from "../../product-ui/work/work-workspace.module.css";
 
@@ -18,13 +19,17 @@ export function TaskContextAssistant({
   context,
   dependencies,
   item,
+  onConfirmTransition,
 }: Readonly<{
   catalog: Catalog;
   context: WorkItemContext | null;
   dependencies: WorkItemDependencies | null;
   item: WebWorkItem;
+  onConfirmTransition?(status: WorkItemStatus): Promise<void>;
 }>) {
   const [answer, setAnswer] = useState<Prompt | null>(null);
+  const [preparedStatus, setPreparedStatus] = useState<WorkItemStatus | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <section aria-label={catalog["work.assistant.title"]} className={styles.taskAssistant!}>
@@ -45,6 +50,14 @@ export function TaskContextAssistant({
         <button onClick={() => setAnswer("activity")} type="button">
           {catalog["work.assistant.askActivity"]}
         </button>
+        {onConfirmTransition === undefined || item.allowedTransitions.length === 0 ? null : (
+          <button
+            onClick={() => setPreparedStatus(item.allowedTransitions[0] ?? null)}
+            type="button"
+          >
+            {catalog["work.assistant.prepareStatus"]}
+          </button>
+        )}
       </div>
       {answer === null ? (
         <p className={styles.taskAssistantEmpty!}>{catalog["work.assistant.empty"]}</p>
@@ -54,6 +67,28 @@ export function TaskContextAssistant({
           <p>{answerFor(answer, catalog, context, dependencies, item)}</p>
           <small>{catalog["work.assistant.guardrail"]}</small>
         </div>
+      )}
+      {preparedStatus === null ? null : (
+        <section className={styles.taskAssistantAnswer!}>
+          <h5>{catalog["work.assistant.preparedStatus"]}</h5>
+          <p>
+            {catalog[`myWork.status.${item.status}`]} → {catalog[`myWork.status.${preparedStatus}`]}
+          </p>
+          <small>{catalog["work.assistant.statusBoundary"]}</small>
+          <button
+            disabled={confirming}
+            onClick={() => {
+              if (onConfirmTransition === undefined) return;
+              setConfirming(true);
+              void onConfirmTransition(preparedStatus)
+                .then(() => setPreparedStatus(null))
+                .finally(() => setConfirming(false));
+            }}
+            type="button"
+          >
+            {catalog["work.assistant.confirmStatus"]}
+          </button>
+        </section>
       )}
     </section>
   );

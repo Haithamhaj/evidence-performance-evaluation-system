@@ -223,6 +223,11 @@ every engine authority and protected product rule, and all retained rollback rou
   on focus, visible return, and the existing bounded interval. This gives completion, overdue, and
   newly actionable state changes a truthful refresh path without creating a second event store or
   claiming instantaneous delivery.
+- Task detail now lets the Work Agent prepare one server-allowed status change for Codex. The exact
+  current and proposed states are shown first, nothing is written while the proposal is displayed,
+  and only Codex's explicit confirmation calls the existing version- and dependency-protected Work
+  Items command. This closes protected update preparation without giving the assistant command
+  authority; free-form AI Router conversation remains the final P2-12/P2-17 gap.
 
 ## Active Risks
 
@@ -251,8 +256,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Close the remaining P2-10–P2-12 Work Agent gaps through existing authoritative signals, AI Router
-routes, and explicit human confirmation, then reconcile P2-17 against the capability matrix. Keep
+Close the remaining free-form P2-12 Work Agent conversation through the existing AI Router while
+preserving the deterministic fallback and explicit human confirmation, then reconcile P2-17 against
+the capability matrix. Keep
 dogfooding with Codex and the real Project, keep Pull Requests #29 and #30 unmerged, and retain
 Calendar and legacy rollback routes.
 
