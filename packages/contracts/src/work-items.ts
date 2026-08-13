@@ -22,10 +22,19 @@ export const PrivateInboxStatusSchema = z.enum(["open", "promoted", "dismissed"]
 export const PrivateCaptureSourceTypeSchema = z.enum(["text", "link", "code", "file", "image"]);
 export const WorkItemWorkspaceViewSchema = z.enum(["my", "team"]);
 export const WorkItemWorkspaceLayoutSchema = z.enum(["list", "board", "calendar"]);
+export const WorkItemWorkspaceSortSchema = z.enum(["due_asc", "updated_desc", "priority_desc"]);
+const OptionalSearchSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+  z.string().trim().min(1).max(200).nullable(),
+);
 export const ListWorkItemsInputSchema = z
   .object({
     view: WorkItemWorkspaceViewSchema.default("my"),
     layout: WorkItemWorkspaceLayoutSchema.default("list"),
+    projectId: UuidSchema.nullable().default(null),
+    status: WorkItemStatusSchema.nullable().default(null),
+    search: OptionalSearchSchema.default(null),
+    sort: WorkItemWorkspaceSortSchema.default("due_asc"),
     limit: z.coerce.number().int().min(1).max(200).default(100),
     cursor: UuidSchema.nullable().default(null),
   })
@@ -229,6 +238,7 @@ export type WorkItemStatus = z.infer<typeof WorkItemStatusSchema>;
 export type WorkItemPriority = z.infer<typeof WorkItemPrioritySchema>;
 export type WorkItemWorkspaceView = z.infer<typeof WorkItemWorkspaceViewSchema>;
 export type WorkItemWorkspaceLayout = z.infer<typeof WorkItemWorkspaceLayoutSchema>;
+export type WorkItemWorkspaceSort = z.infer<typeof WorkItemWorkspaceSortSchema>;
 export type ListWorkItemsInput = z.infer<typeof ListWorkItemsInputSchema>;
 export type WorkItemChecklistInput = z.infer<typeof WorkItemChecklistInputSchema>;
 export type WorkItemChecklistItem = z.infer<typeof WorkItemChecklistItemSchema>;

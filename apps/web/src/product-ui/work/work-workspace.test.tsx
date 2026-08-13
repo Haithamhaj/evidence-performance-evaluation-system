@@ -200,6 +200,30 @@ describe("WorkWorkspace", () => {
     expect(screen.getByText("Prepare the launch")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "لوحة" })).toBeInTheDocument();
   });
+
+  it("provides keyboard row navigation and server-backed filter controls", async () => {
+    const user = userEvent.setup();
+    const second = {
+      ...item,
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Confirm customer handoff",
+    };
+    renderWork(service(), null, "en", [item, second]);
+
+    const search = screen.getByRole("searchbox", { name: "Search work" });
+    await user.type(search, "handoff");
+    expect(window.location.search).toContain("q=handoff");
+    await user.selectOptions(screen.getByLabelText("Status", { selector: "select" }), "blocked");
+    expect(window.location.search).toContain("status=blocked");
+
+    const first = screen.getByRole("button", { name: /Prepare the launch/u });
+    const next = screen.getByRole("button", { name: /Confirm customer handoff/u });
+    first.focus();
+    await user.keyboard("{ArrowDown}");
+    expect(next).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(window.location.search).toContain(`item=${second.id}`);
+  });
 });
 
 function renderWork(

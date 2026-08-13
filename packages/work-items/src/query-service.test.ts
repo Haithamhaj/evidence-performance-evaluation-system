@@ -71,7 +71,7 @@ describe("WorkItemQueryService", () => {
 
   it("uses server-side manager scope for Team Tasks and rejects inactive principals", async () => {
     const findMany = vi.fn(async () => []);
-    const database = { workItem: { findMany } };
+    const database = { workItem: { count: vi.fn(async () => 0), findMany } };
     const service = new WorkItemQueryService(database as never);
     const actorId = crypto.randomUUID();
 
@@ -80,6 +80,10 @@ describe("WorkItemQueryService", () => {
         actor: { userId: actorId, active: false },
         view: "my",
         layout: "list",
+        projectId: null,
+        status: null,
+        search: null,
+        sort: "due_asc",
         limit: 100,
         cursor: null,
       }),
@@ -89,23 +93,31 @@ describe("WorkItemQueryService", () => {
       actor: { userId: actorId, active: true },
       view: "team",
       layout: "board",
+      projectId: null,
+      status: null,
+      search: null,
+      sort: "due_asc",
       limit: 50,
       cursor: null,
     });
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          project: {
-            department: {
-              authorizationScopes: {
-                some: {
-                  roleAssignments: {
-                    some: { userId: actorId, role: "manager" },
+          AND: expect.arrayContaining([
+            {
+              project: {
+                department: {
+                  authorizationScopes: {
+                    some: {
+                      roleAssignments: {
+                        some: { userId: actorId, role: "manager" },
+                      },
+                    },
                   },
                 },
               },
             },
-          },
+          ]),
         },
       }),
     );
@@ -113,23 +125,84 @@ describe("WorkItemQueryService", () => {
 
   it("keeps a newly created unassigned Task visible to its employee creator", async () => {
     const findMany = vi.fn(async () => []);
-    const service = new WorkItemQueryService({ workItem: { findMany } } as never);
+    const service = new WorkItemQueryService({
+      workItem: { count: vi.fn(async () => 0), findMany },
+    } as never);
     const actorId = crypto.randomUUID();
 
     await service.listWorkspace({
       actor: { userId: actorId, active: true },
       view: "my",
       layout: "list",
+      projectId: null,
+      status: null,
+      search: null,
+      sort: "due_asc",
       limit: 100,
       cursor: null,
     });
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          OR: expect.arrayContaining([{ createdById: actorId }]),
-        }),
+        where: {
+          AND: expect.arrayContaining([
+            expect.objectContaining({
+              OR: expect.arrayContaining([{ createdById: actorId }]),
+            }),
+          ]),
+        },
       }),
     );
+  });
+
+  it("applies authoritative filters, stable cursor pagination, sorting, and status counts", async () => {
+    const visible = item({ id: crypto.randomUUID(), dueAt: new Date("2026-07-20T10:00:00Z") });
+    const findMany = vi.fn(async () => [visible]);
+    const count = vi.fn(async ({ where }: { where: unknown }) => {
+      const serialized = JSON.stringify(where);
+      if (serialized.includes('"status":"blocked"')) return 2;
+      return serialized.includes('"status"') ? 1 : 7;
+    });
+    const service = new WorkItemQueryService({ workItem: { count, findMany } } as never);
+    const actorId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+
+    const result = await service.listWorkspace({
+      actor: { userId: actorId, active: true },
+      view: "my",
+      layout: "list",
+      limit: 25,
+      cursor: visible.id,
+      projectId,
+      status: "blocked",
+      search: "API fallback",
+      sort: "updated_desc",
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            { status: "blocked" },
+            expect.objectContaining({
+              AND: expect.arrayContaining([
+                { projectId },
+                expect.objectContaining({
+                  OR: expect.arrayContaining([
+                    { title: { contains: "API fallback", mode: "insensitive" } },
+                  ]),
+                }),
+              ]),
+            }),
+          ]),
+        }),
+        cursor: { id: visible.id },
+        skip: 1,
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        take: 26,
+      }),
+    );
+    expect(result.counts).toMatchObject({ all: 7, blocked: 2 });
+    expect(result.nextCursor).toBeNull();
   });
 });

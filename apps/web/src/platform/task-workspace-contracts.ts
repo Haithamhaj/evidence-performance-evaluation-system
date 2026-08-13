@@ -72,6 +72,18 @@ export const WebTaskWorkspaceResponseSchema = z
     layout: z.enum(["list", "board", "calendar"]),
     items: z.array(WebWorkItemSchema),
     nextCursor: WebUuidSchema.nullable(),
+    counts: z
+      .object({
+        all: z.number().int().nonnegative(),
+        planned: z.number().int().nonnegative(),
+        ready: z.number().int().nonnegative(),
+        in_progress: z.number().int().nonnegative(),
+        blocked: z.number().int().nonnegative(),
+        in_review: z.number().int().nonnegative(),
+        done: z.number().int().nonnegative(),
+        cancelled: z.number().int().nonnegative(),
+      })
+      .strict(),
   })
   .strict();
 

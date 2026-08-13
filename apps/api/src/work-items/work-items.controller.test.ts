@@ -86,6 +86,8 @@ describe("WorkItemsController", () => {
       view: "my",
       layout: "board",
       limit: "25",
+      search: "launch",
+      sort: "priority_desc",
     });
 
     expect(update).toHaveBeenCalledWith(
@@ -100,6 +102,10 @@ describe("WorkItemsController", () => {
       layout: "board",
       limit: 25,
       cursor: null,
+      projectId: null,
+      status: null,
+      search: "launch",
+      sort: "priority_desc",
     });
   });
 });

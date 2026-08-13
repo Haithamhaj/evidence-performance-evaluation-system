@@ -17,19 +17,36 @@ import { TasksClient } from "./tasks-client";
 
 type Properties = Readonly<{
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ layout?: string; item?: string; view?: string }>;
+  searchParams: Promise<{
+    layout?: string;
+    item?: string;
+    project?: string;
+    q?: string;
+    sort?: string;
+    status?: string;
+    view?: string;
+  }>;
 }>;
 
 export default async function TasksPage({ params, searchParams }: Properties) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const query = await searchParams;
-  const { href: reauthenticateTo, layout, selectedId, view } = buildTasksPageState(locale, query);
+  const {
+    href: reauthenticateTo,
+    layout,
+    projectId,
+    search,
+    selectedId,
+    sort,
+    status,
+    view,
+  } = buildTasksPageState(locale, query);
   const [catalog, response, context, currentUser, snapshot] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
       reauthenticateTo,
-      route: { kind: "tasks", view, layout },
+      route: { kind: "tasks", view, layout, projectId, status, search, sort },
       schema: WebTaskWorkspaceResponseSchema,
     }),
     fetchDailyWorkUpstream({
@@ -63,6 +80,8 @@ export default async function TasksPage({ params, searchParams }: Properties) {
           catalog,
           currentUserId: currentUser.userId,
           initialItems: response.items,
+          initialCounts: response.counts,
+          initialFilters: { projectId, search, sort, status },
           initialSelectedId: selectedId,
           initialSnapshot: snapshot,
           initialView: view,

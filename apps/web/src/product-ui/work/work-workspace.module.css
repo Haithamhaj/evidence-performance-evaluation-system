@@ -132,6 +132,59 @@
     font-weight: 750;
   }
 
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1.5fr) repeat(3, minmax(9rem, 0.75fr)) auto auto;
+    align-items: end;
+    gap: 0.55rem;
+    border-block: 1px solid var(--ui-color-border, #d7dee8);
+    padding-block: 0.75rem;
+  }
+
+  .filters label {
+    display: grid;
+    gap: 0.28rem;
+    color: var(--ui-color-text-muted, #536174);
+    font-size: 0.75rem;
+    font-weight: 750;
+  }
+
+  .filters input,
+  .filters select {
+    min-block-size: 2.55rem;
+    inline-size: 100%;
+    border: 1px solid var(--ui-color-border-strong, #aeb9c8);
+    border-radius: 0.42rem;
+    background: #fff;
+    padding-inline: 0.7rem;
+    color: var(--ui-color-text, #18202b);
+    font: inherit;
+  }
+
+  .filterAction,
+  .clearFilters {
+    min-block-size: 2.55rem;
+    border: 1px solid #1467e8;
+    border-radius: 0.42rem;
+    padding: 0.6rem 0.8rem;
+    font: inherit;
+    font-weight: 750;
+  }
+
+  .filterAction {
+    background: #1467e8;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .clearFilters {
+    display: inline-flex;
+    align-items: center;
+    background: #fff;
+    color: #1259c3;
+    text-decoration: none;
+  }
+
   .listSection {
     display: grid;
     gap: 0.55rem;
@@ -216,6 +269,11 @@
 
   .list li > button:hover {
     background: #f8fbff;
+  }
+
+  .list li > button:focus-visible {
+    outline: 3px solid rgb(20 103 232 / 35%);
+    outline-offset: -3px;
   }
 
   .taskCopy {
@@ -356,6 +414,14 @@
       grid-template-columns: 1fr;
     }
 
+    .filters {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .searchField {
+      grid-column: 1 / -1;
+    }
+
     .quickActions > button {
       flex: 1 1 8rem;
     }
@@ -388,6 +454,16 @@
       border-block-start: 1px solid var(--ui-color-border, #d7dee8);
       border-inline: 0;
       border-radius: 0.8rem 0.8rem 0 0;
+    }
+  }
+
+  @media (max-width: 31.999rem) {
+    .filters {
+      grid-template-columns: 1fr;
+    }
+
+    .searchField {
+      grid-column: auto;
     }
   }
 

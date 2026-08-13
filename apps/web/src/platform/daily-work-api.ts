@@ -23,6 +23,10 @@ export type DailyWorkRoute =
       readonly kind: "tasks";
       readonly layout: "list" | "board" | "calendar";
       readonly view: "my" | "team";
+      readonly projectId: string | null;
+      readonly status: import("./work-items-api").WorkItemStatus | null;
+      readonly search: string | null;
+      readonly sort: "due_asc" | "updated_desc" | "priority_desc";
     }
   | { readonly kind: "projects" }
   | { readonly kind: "update_context" }
@@ -246,7 +250,10 @@ function routePath(route: DailyWorkRoute): string {
   if (route.kind === "my_work") return "/api/v1/daily-work/my-work";
   if (route.kind === "home") return "/api/v1/daily-work/home";
   if (route.kind === "tasks") {
-    const query = new URLSearchParams({ view: route.view, layout: route.layout });
+    const query = new URLSearchParams({ view: route.view, layout: route.layout, sort: route.sort });
+    if (route.projectId !== null) query.set("projectId", route.projectId);
+    if (route.status !== null) query.set("status", route.status);
+    if (route.search !== null) query.set("search", route.search);
     return `/api/v1/work-items?${query.toString()}`;
   }
   if (route.kind === "projects") return "/api/v1/daily-work/projects";

@@ -3,6 +3,9 @@ import { AppError, MyWorkResponseSchema, WorkItemDetailSchema } from "@evaluatio
 import { getAllowedWorkItemTransitions } from "./invariants.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
+type WorkItemWhere = NonNullable<
+  NonNullable<Parameters<DatabaseClient["workItem"]["findMany"]>[0]>["where"]
+>;
 
 export class WorkItemQueryService {
   private readonly client: DatabaseClient;
@@ -155,6 +158,10 @@ export class WorkItemQueryService {
     actor: { userId: string; active: boolean };
     view: import("@evaluation/contracts").WorkItemWorkspaceView;
     layout: import("@evaluation/contracts").WorkItemWorkspaceLayout;
+    projectId: string | null;
+    status: import("@evaluation/contracts").WorkItemStatus | null;
+    search: string | null;
+    sort: import("@evaluation/contracts").WorkItemWorkspaceSort;
     limit: number;
     cursor: string | null;
   }): Promise<{
@@ -162,47 +169,95 @@ export class WorkItemQueryService {
     layout: import("@evaluation/contracts").WorkItemWorkspaceLayout;
     items: import("@evaluation/contracts").WorkItemDetail[];
     nextCursor: string | null;
+    counts: Record<import("@evaluation/contracts").WorkItemStatus | "all", number>;
   }> {
     if (!input.actor.active) throw scopeError();
-    const rows = await this.client.workItem.findMany({
-      where:
-        input.view === "my"
-          ? {
-              OR: [
-                { assigneeId: input.actor.userId },
-                { createdById: input.actor.userId },
-                {
-                  participants: {
-                    some: {
-                      employeeId: input.actor.userId,
-                      startsAt: { lte: this.clock() },
-                      OR: [{ endsAt: null }, { endsAt: { gt: this.clock() } }],
-                    },
+    const scopeWhere: WorkItemWhere =
+      input.view === "my"
+        ? {
+            OR: [
+              { assigneeId: input.actor.userId },
+              { createdById: input.actor.userId },
+              {
+                participants: {
+                  some: {
+                    employeeId: input.actor.userId,
+                    startsAt: { lte: this.clock() },
+                    OR: [{ endsAt: null }, { endsAt: { gt: this.clock() } }],
                   },
                 },
-              ],
-            }
-          : {
-              project: {
-                department: {
-                  authorizationScopes: {
-                    some: {
-                      roleAssignments: {
-                        some: { userId: input.actor.userId, role: "manager" },
-                      },
+              },
+            ],
+          }
+        : {
+            project: {
+              department: {
+                authorizationScopes: {
+                  some: {
+                    roleAssignments: {
+                      some: { userId: input.actor.userId, role: "manager" },
                     },
                   },
                 },
               },
             },
-      orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
-      take: Math.min(Math.max(input.limit, 1), 200),
+          };
+    const baseWhere: WorkItemWhere = {
+      AND: [
+        scopeWhere,
+        ...(input.projectId === null ? [] : [{ projectId: input.projectId }]),
+        ...(input.search === null
+          ? []
+          : [
+              {
+                OR: [
+                  { title: { contains: input.search, mode: "insensitive" as const } },
+                  { description: { contains: input.search, mode: "insensitive" as const } },
+                ],
+              },
+            ]),
+      ],
+    };
+    const where: WorkItemWhere =
+      input.status === null ? baseWhere : { AND: [baseWhere, { status: input.status }] };
+    const limit = Math.min(Math.max(input.limit, 1), 200);
+    const orderBy =
+      input.sort === "updated_desc"
+        ? ([{ updatedAt: "desc" }, { id: "desc" }] as const)
+        : input.sort === "priority_desc"
+          ? ([{ priority: "desc" }, { dueAt: "asc" }, { id: "asc" }] as const)
+          : ([{ dueAt: "asc" }, { updatedAt: "desc" }, { id: "asc" }] as const);
+    const rows = await this.client.workItem.findMany({
+      where,
+      orderBy: [...orderBy],
+      ...(input.cursor === null ? {} : { cursor: { id: input.cursor }, skip: 1 }),
+      take: limit + 1,
     });
+    const statuses = [
+      "planned",
+      "ready",
+      "in_progress",
+      "blocked",
+      "in_review",
+      "done",
+      "cancelled",
+    ] as const;
+    const [all, ...statusCounts] = await Promise.all([
+      this.client.workItem.count({ where: baseWhere }),
+      ...statuses.map((status) =>
+        this.client.workItem.count({ where: { AND: [baseWhere, { status }] } }),
+      ),
+    ]);
+    const visibleRows = rows.slice(0, limit);
     return {
       view: input.view,
       layout: input.layout,
-      items: rows.map(serialize),
-      nextCursor: null,
+      items: visibleRows.map(serialize),
+      nextCursor: rows.length > limit ? (visibleRows.at(-1)?.id ?? null) : null,
+      counts: Object.fromEntries([
+        ["all", all],
+        ...statuses.map((status, index) => [status, statusCounts[index] ?? 0]),
+      ]) as Record<import("@evaluation/contracts").WorkItemStatus | "all", number>,
     };
   }
 }

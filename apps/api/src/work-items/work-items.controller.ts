@@ -57,6 +57,10 @@ export class WorkItemsController {
       actor: actor(request),
       view: parsed.view,
       layout: parsed.layout,
+      projectId: parsed.projectId,
+      status: parsed.status,
+      search: parsed.search,
+      sort: parsed.sort,
       limit: parsed.limit,
       cursor: parsed.cursor,
     });

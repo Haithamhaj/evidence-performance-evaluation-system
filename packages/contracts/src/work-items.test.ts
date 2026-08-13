@@ -63,14 +63,30 @@ describe("work item contracts", () => {
       layout: "list",
       limit: 100,
       cursor: null,
+      projectId: null,
+      status: null,
+      search: null,
+      sort: "due_asc",
     });
     expect(
       ListWorkItemsInputSchema.parse({
         view: "team",
         layout: "calendar",
         limit: "25",
+        projectId,
+        status: "blocked",
+        search: "  API fallback  ",
+        sort: "updated_desc",
       }),
-    ).toMatchObject({ view: "team", layout: "calendar", limit: 25 });
+    ).toMatchObject({
+      view: "team",
+      layout: "calendar",
+      limit: 25,
+      projectId,
+      status: "blocked",
+      search: "API fallback",
+      sort: "updated_desc",
+    });
   });
 
   it("keeps transitions and assignments optimistic and reasoned", () => {

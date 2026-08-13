@@ -36,6 +36,8 @@ export function WorkWorkspace({
   catalog,
   currentUserId,
   gateway = defaultGateway,
+  initialCounts,
+  initialFilters = { projectId: null, search: null, sort: "due_asc", status: null },
   initialItems,
   initialSelectedId = null,
   initialSnapshot,
@@ -46,6 +48,13 @@ export function WorkWorkspace({
   catalog: Catalog;
   currentUserId: string;
   gateway?: WorkWorkspaceGateway;
+  initialCounts?: Readonly<Record<WorkItemStatus | "all", number>>;
+  initialFilters?: Readonly<{
+    projectId: string | null;
+    search: string | null;
+    sort: "due_asc" | "updated_desc" | "priority_desc";
+    status: WorkItemStatus | null;
+  }>;
   initialItems: readonly WebWorkItem[];
   initialSnapshot?: import("@evaluation/contracts").DailyWorkspaceSnapshot;
   initialSelectedId?: string | null;
@@ -64,6 +73,7 @@ export function WorkWorkspace({
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
+  const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
   const model = useMemo(
     () =>
@@ -82,6 +92,28 @@ export function WorkWorkspace({
           }),
     [catalog, initialSnapshot, items, projects],
   );
+  const counts = useMemo(() => {
+    if (initialCounts !== undefined) return initialCounts;
+    return Object.fromEntries(
+      ["all", "planned", "ready", "in_progress", "blocked", "in_review", "done", "cancelled"].map(
+        (status) => [
+          status,
+          status === "all" ? items.length : items.filter((item) => item.status === status).length,
+        ],
+      ),
+    ) as Record<WorkItemStatus | "all", number>;
+  }, [initialCounts, items]);
+
+  function updateFilterUrl(next: typeof filters) {
+    setFilters(next);
+    const url = new URL(window.location.href);
+    for (const key of ["q", "project", "status", "sort", "cursor"]) url.searchParams.delete(key);
+    if (next.search !== null && next.search.trim() !== "") url.searchParams.set("q", next.search);
+    if (next.projectId !== null) url.searchParams.set("project", next.projectId);
+    if (next.status !== null) url.searchParams.set("status", next.status);
+    if (next.sort !== "due_asc") url.searchParams.set("sort", next.sort);
+    window.history.replaceState(null, "", url);
+  }
 
   async function load(id: string, generation = ++detailRequestGeneration.current) {
     setDetailState("loading");
@@ -292,6 +324,97 @@ export function WorkWorkspace({
         </a>
       </nav>
 
+      <form action={`/${locale}/tasks`} className={styles.filters!} method="get" role="search">
+        <input name="view" type="hidden" value={initialView} />
+        <input name="layout" type="hidden" value="list" />
+        <label className={styles.searchField!}>
+          <span>{catalog["work.search"]}</span>
+          <input
+            aria-label={catalog["work.search"]}
+            maxLength={200}
+            name="q"
+            onChange={(event) =>
+              updateFilterUrl({ ...filters, search: event.target.value || null })
+            }
+            placeholder={catalog["work.searchPlaceholder"]}
+            type="search"
+            value={filters.search ?? ""}
+          />
+        </label>
+        <label>
+          <span>{catalog["work.filterProject"]}</span>
+          <select
+            name="project"
+            onChange={(event) =>
+              updateFilterUrl({ ...filters, projectId: event.target.value || null })
+            }
+            value={filters.projectId ?? ""}
+          >
+            <option value="">{catalog["work.filterAllProjects"]}</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{catalog["work.filterStatus"]}</span>
+          <select
+            name="status"
+            onChange={(event) =>
+              updateFilterUrl({
+                ...filters,
+                status: (event.target.value || null) as WorkItemStatus | null,
+              })
+            }
+            value={filters.status ?? ""}
+          >
+            <option value="">
+              {catalog["work.filterAllStatuses"]} ({counts.all})
+            </option>
+            {(
+              [
+                "planned",
+                "ready",
+                "in_progress",
+                "blocked",
+                "in_review",
+                "done",
+                "cancelled",
+              ] as const
+            ).map((status) => (
+              <option key={status} value={status}>
+                {catalog[`myWork.status.${status}`]} ({counts[status]})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{catalog["work.sort"]}</span>
+          <select
+            name="sort"
+            onChange={(event) =>
+              updateFilterUrl({ ...filters, sort: event.target.value as typeof filters.sort })
+            }
+            value={filters.sort}
+          >
+            <option value="due_asc">{catalog["work.sort.due_asc"]}</option>
+            <option value="updated_desc">{catalog["work.sort.updated_desc"]}</option>
+            <option value="priority_desc">{catalog["work.sort.priority_desc"]}</option>
+          </select>
+        </label>
+        <button className={styles.filterAction!} type="submit">
+          {catalog["work.applyFilters"]}
+        </button>
+        <a
+          className={styles.clearFilters!}
+          href={`/${locale}/tasks?view=${initialView}&layout=list`}
+        >
+          {catalog["work.clearFilters"]}
+        </a>
+      </form>
+
       {groups !== null ? (
         groups.map((group) => (
           <section
@@ -363,11 +486,36 @@ function WorkRows({
   }[];
   onSelect(id: string): void;
 }>) {
+  function handleKeyDown(event: import("react").KeyboardEvent<HTMLButtonElement>) {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const buttons = Array.from(
+      event.currentTarget
+        .closest("ul")
+        ?.querySelectorAll<HTMLButtonElement>("[data-work-item-id]") ?? [],
+    );
+    const index = buttons.indexOf(event.currentTarget);
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? buttons.length - 1
+          : event.key === "ArrowDown"
+            ? Math.min(index + 1, buttons.length - 1)
+            : Math.max(index - 1, 0);
+    event.preventDefault();
+    buttons[nextIndex]?.focus();
+  }
+
   return (
     <ul className={styles.list!}>
       {items.map(({ item, projectName }) => (
         <li key={item.id}>
-          <button data-work-item-id={item.id} onClick={() => onSelect(item.id)} type="button">
+          <button
+            data-work-item-id={item.id}
+            onClick={() => onSelect(item.id)}
+            onKeyDown={handleKeyDown}
+            type="button"
+          >
             <ProductIcon name="briefcase" size="small" />
             <span className={styles.taskCopy!}>
               <strong>{item.title}</strong>
