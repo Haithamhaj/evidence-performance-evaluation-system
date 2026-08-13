@@ -392,6 +392,42 @@ describe("WorkItemService", () => {
     ).resolves.toBe(0);
   });
 
+  it("replays one employee create request without creating a duplicate Task", async () => {
+    const graph = await seedGraph();
+    const service = new WorkItemService(
+      client,
+      auditWriter,
+      () => now,
+      confirmedTaskProjectAuthorization,
+    );
+    const clientRequestId = crypto.randomUUID();
+    const command = {
+      actor: { userId: graph.actorId, active: true },
+      input: {
+        acceptanceConditions: [],
+        assigneeId: graph.actorId,
+        blocker: null,
+        clientRequestId,
+        description: "",
+        dueAt: null,
+        nextAction: null,
+        priority: "normal",
+        projectId: graph.projectId,
+        requirements: [],
+        title: "Retry-safe Quick Task",
+        workstreamId: null,
+      },
+    } as const;
+
+    const first = await service.create({ ...command, correlationId: crypto.randomUUID() });
+    const replay = await service.create({ ...command, correlationId: crypto.randomUUID() });
+
+    expect(replay.id).toBe(first.id);
+    await expect(
+      client.workItem.count({ where: { createdById: graph.actorId, clientRequestId } }),
+    ).resolves.toBe(1);
+  });
+
   it("blocks dependent work until its prerequisite is done and rejects dependency cycles", async () => {
     const graph = await seedGraph();
     const service = new WorkItemService(

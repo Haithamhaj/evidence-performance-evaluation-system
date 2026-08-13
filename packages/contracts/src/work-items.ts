@@ -66,6 +66,7 @@ const WorkItemContentSchema = z.object({
 
 const OfficialWorkItemContentSchema = WorkItemContentSchema.extend({
   assigneeId: UuidSchema,
+  clientRequestId: UuidSchema.optional(),
 });
 
 export const CreateWorkItemInputSchema = OfficialWorkItemContentSchema.strict();

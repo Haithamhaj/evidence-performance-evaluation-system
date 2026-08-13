@@ -32,7 +32,12 @@ import {
 import styles from "./work-workspace.module.css";
 
 export type WorkWorkspaceGateway = Readonly<{
-  create(input: { employeeId: string; projectId: string; title: string }): Promise<WebWorkItem>;
+  create(input: {
+    clientRequestId: string;
+    employeeId: string;
+    projectId: string;
+    title: string;
+  }): Promise<WebWorkItem>;
   load(id: string): Promise<WebWorkItem>;
   list(input: {
     layout: "board" | "calendar" | "list";
@@ -126,6 +131,7 @@ export function WorkWorkspace({
   const [notice, setNotice] = useState<"stale" | "transition_error" | null>(null);
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const [clientRequestId, setClientRequestId] = useState(() => crypto.randomUUID());
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
   const [quickDraftReady, setQuickDraftReady] = useState(false);
@@ -219,13 +225,19 @@ export function WorkWorkspace({
       const stored = window.localStorage.getItem(quickDraftKey);
       if (stored !== null) {
         const parsed = JSON.parse(stored) as {
+          clientRequestId?: unknown;
           projectId?: unknown;
           title?: unknown;
           version?: unknown;
         };
-        if (parsed.version === 1 && typeof parsed.title === "string") setTitle(parsed.title);
+        if ([1, 2].includes(Number(parsed.version)) && typeof parsed.title === "string") {
+          setTitle(parsed.title);
+        }
+        if (parsed.version === 2 && typeof parsed.clientRequestId === "string") {
+          setClientRequestId(parsed.clientRequestId);
+        }
         if (
-          parsed.version === 1 &&
+          [1, 2].includes(Number(parsed.version)) &&
           typeof parsed.projectId === "string" &&
           projects.some((project) => project.id === parsed.projectId)
         ) {
@@ -256,8 +268,11 @@ export function WorkWorkspace({
       window.localStorage.removeItem(quickDraftKey);
       return;
     }
-    window.localStorage.setItem(quickDraftKey, JSON.stringify({ projectId, title, version: 1 }));
-  }, [projectId, quickDraftKey, quickDraftReady, title]);
+    window.localStorage.setItem(
+      quickDraftKey,
+      JSON.stringify({ clientRequestId, projectId, title, version: 2 }),
+    );
+  }, [clientRequestId, projectId, quickDraftKey, quickDraftReady, title]);
 
   useEffect(() => {
     if (initialLayout !== "calendar") return;
@@ -449,12 +464,14 @@ export function WorkWorkspace({
     setCreateError(false);
     try {
       const created = await gateway.create({
+        clientRequestId,
         employeeId: currentUserId,
         projectId,
         title: title.trim(),
       });
       setItems((current) => [created, ...current.filter(({ id }) => id !== created.id)]);
       setTitle("");
+      setClientRequestId(crypto.randomUUID());
       window.localStorage.removeItem(quickDraftKey);
       select(created.id);
     } catch {

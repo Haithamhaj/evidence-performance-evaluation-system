@@ -84,68 +84,100 @@ export class WorkItemService {
   async create(command: unknown): Promise<import("@evaluation/contracts").WorkItemDetail> {
     const parsed = CreateCommandSchema.parse(command);
     const current = validClock(this.clock());
-    return serializable(this.client, async (transaction) => {
-      const project = await authorizeProject(
-        transaction,
-        parsed.actor,
-        parsed.input.projectId,
-        current,
-      );
-      const workstream =
-        parsed.input.workstreamId === null
-          ? null
-          : await transaction.workstream.findUnique({
-              where: { id: parsed.input.workstreamId },
-              select: { id: true, projectId: true, status: true },
-            });
-      assertWorkItemScope({ projectId: project.id, workstream });
-      if (workstream !== null && !["active", "paused"].includes(workstream.status)) {
-        throw stateError();
-      }
-      await assertEligibleAssignee(
-        transaction,
-        parsed.input.assigneeId,
-        project.id,
-        workstream?.id ?? null,
-        current,
-      );
-      const item = await transaction.workItem.create({
-        data: {
-          ...parsed.input,
-          dueAt: parsed.input.dueAt === null ? null : new Date(parsed.input.dueAt),
+    try {
+      return await serializable(this.client, async (transaction) => {
+        if (parsed.input.clientRequestId !== undefined) {
+          const existing = await transaction.workItem.findFirst({
+            where: {
+              clientRequestId: parsed.input.clientRequestId,
+              createdById: parsed.actor.userId,
+            },
+          });
+          if (existing !== null) {
+            if (!sameConfirmedTask(existing, parsed.actor.userId, parsed.input)) {
+              throw idempotencyError();
+            }
+            return serialize(existing);
+          }
+        }
+        const project = await authorizeProject(
+          transaction,
+          parsed.actor,
+          parsed.input.projectId,
+          current,
+        );
+        const workstream =
+          parsed.input.workstreamId === null
+            ? null
+            : await transaction.workstream.findUnique({
+                where: { id: parsed.input.workstreamId },
+                select: { id: true, projectId: true, status: true },
+              });
+        assertWorkItemScope({ projectId: project.id, workstream });
+        if (workstream !== null && !["active", "paused"].includes(workstream.status)) {
+          throw stateError();
+        }
+        await assertEligibleAssignee(
+          transaction,
+          parsed.input.assigneeId,
+          project.id,
+          workstream?.id ?? null,
+          current,
+        );
+        const item = await transaction.workItem.create({
+          data: {
+            ...parsed.input,
+            clientRequestId: parsed.input.clientRequestId ?? null,
+            dueAt: parsed.input.dueAt === null ? null : new Date(parsed.input.dueAt),
+            createdById: parsed.actor.userId,
+          },
+        });
+        await transaction.workItemAssignmentHistory.create({
+          data: {
+            workItemId: item.id,
+            fromAssigneeId: null,
+            toAssigneeId: parsed.input.assigneeId,
+            actorId: parsed.actor.userId,
+            reason: "Initial assignment",
+            resultingVersion: 1,
+          },
+        });
+        await this.auditWriter.append(transaction, {
+          eventType: "work_item.created",
+          actor: { kind: "human", id: parsed.actor.userId },
+          effectiveSubjectId: parsed.input.assigneeId,
+          scopeType: "project",
+          scopeId: project.id,
+          targetType: "work_item",
+          targetId: item.id,
+          reason: "Work Item created",
+          safeDiff: {
+            projectId: project.id,
+            workstreamId: workstream?.id ?? null,
+            status: "planned",
+            version: 1,
+          },
+          correlationId: parsed.correlationId,
+          source: "api",
+        });
+        return serialize(item);
+      });
+    } catch (error) {
+      if (parsed.input.clientRequestId === undefined || !hasCode(error, "P2002")) throw error;
+      const concurrent = await this.client.workItem.findFirst({
+        where: {
+          clientRequestId: parsed.input.clientRequestId,
           createdById: parsed.actor.userId,
         },
       });
-      await transaction.workItemAssignmentHistory.create({
-        data: {
-          workItemId: item.id,
-          fromAssigneeId: null,
-          toAssigneeId: parsed.input.assigneeId,
-          actorId: parsed.actor.userId,
-          reason: "Initial assignment",
-          resultingVersion: 1,
-        },
-      });
-      await this.auditWriter.append(transaction, {
-        eventType: "work_item.created",
-        actor: { kind: "human", id: parsed.actor.userId },
-        effectiveSubjectId: parsed.input.assigneeId,
-        scopeType: "project",
-        scopeId: project.id,
-        targetType: "work_item",
-        targetId: item.id,
-        reason: "Work Item created",
-        safeDiff: {
-          projectId: project.id,
-          workstreamId: workstream?.id ?? null,
-          status: "planned",
-          version: 1,
-        },
-        correlationId: parsed.correlationId,
-        source: "api",
-      });
-      return serialize(item);
-    });
+      if (
+        concurrent === null ||
+        !sameConfirmedTask(concurrent, parsed.actor.userId, parsed.input)
+      ) {
+        throw idempotencyError();
+      }
+      return serialize(concurrent);
+    }
   }
 
   async createConfirmedTask(
@@ -192,6 +224,7 @@ export class WorkItemService {
       data: {
         id: parsed.workItemId,
         ...parsed.input,
+        clientRequestId: parsed.input.clientRequestId ?? null,
         dueAt: parsed.input.dueAt === null ? null : new Date(parsed.input.dueAt),
         createdById: parsed.actor.userId,
       },
@@ -723,4 +756,8 @@ function sameConfirmedTask(
     item.blocker === input.blocker &&
     item.nextAction === input.nextAction
   );
+}
+
+function hasCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

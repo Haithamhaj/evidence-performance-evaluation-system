@@ -23,6 +23,7 @@ describe("work item contracts", () => {
   it("requires a Project and accepts an optional Workstream", () => {
     expect(
       CreateWorkItemInputSchema.parse({
+        clientRequestId: "00000000-0000-4000-8000-000000000199",
         title: "مراجعة عقد التقدم",
         description: "تحقق من خط الأساس والهدف.",
         projectId,
@@ -33,7 +34,12 @@ describe("work item contracts", () => {
         requirements: ["اعتماد المصدر"],
         acceptanceConditions: ["تأكيد المالك"],
       }),
-    ).toMatchObject({ projectId, workstreamId, assigneeId: employeeId });
+    ).toMatchObject({
+      clientRequestId: "00000000-0000-4000-8000-000000000199",
+      projectId,
+      workstreamId,
+      assigneeId: employeeId,
+    });
 
     expect(() =>
       CreateWorkItemInputSchema.parse({

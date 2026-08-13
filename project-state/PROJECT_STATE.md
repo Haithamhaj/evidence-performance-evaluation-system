@@ -190,6 +190,11 @@ every engine authority and protected product rule, and all retained rollback rou
   while it remains open. Project/status/search/sort scope is preserved, the server derives the actor
   from the authenticated session, and refresh failure leaves the last trustworthy screen available.
   This is authoritative polling, not a false claim of instantaneous event delivery.
+- P2-14 now protects Quick Task retry end to end. The employee-owned local draft carries one opaque
+  request ID; retrying the same submission after an uncertain network result returns the same
+  authoritative Task. Migration 0042 adds only the creator-scoped nullable uniqueness key, and the
+  domain rejects reuse of the ID with different Task content. Drafts remain device-local and contain
+  no Evidence, Project progress, evaluation, or manager data.
 
 ## Active Risks
 
@@ -218,8 +223,8 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue Work with safe draft/offline recovery and representative performance fixtures before
-closing the capability matrix. Then extend contextual Task help through
+Continue Work with representative performance fixtures and the clean-room ClickUp interaction
+benchmark before closing the capability matrix. Then extend contextual Task help through
 the AI Router only where a protected command and explicit confirmation are available. Keep
 dogfooding with Codex and the real Project, keep Pull Requests #29 and #30 unmerged, and retain
 Calendar and legacy rollback routes.

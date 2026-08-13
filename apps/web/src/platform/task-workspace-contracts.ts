@@ -114,6 +114,7 @@ export const DismissPrivateInboxBodySchema = z
 
 export const CreateTaskBodySchema = z
   .object({
+    clientRequestId: WebUuidSchema,
     title: z.string().trim().min(1).max(200),
     description: z.string().trim().max(8_000).default(""),
     projectId: WebUuidSchema,

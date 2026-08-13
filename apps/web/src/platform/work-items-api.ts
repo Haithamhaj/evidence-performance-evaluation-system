@@ -119,6 +119,7 @@ export async function loadWorkItemContext(input: {
 }
 
 export async function createWorkItem(input: {
+  readonly clientRequestId: string;
   readonly employeeId: string;
   readonly projectId: string;
   readonly title: string;
@@ -127,6 +128,7 @@ export async function createWorkItem(input: {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
+      clientRequestId: WebUuidSchema.parse(input.clientRequestId),
       title: input.title,
       description: "",
       projectId: input.projectId,

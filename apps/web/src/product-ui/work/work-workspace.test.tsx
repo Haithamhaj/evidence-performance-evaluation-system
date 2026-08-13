@@ -207,16 +207,23 @@ describe("WorkWorkspace", () => {
   });
 
   it("restores the employee-owned Quick Task draft without creating activity or progress", async () => {
+    const clientRequestId = crypto.randomUUID();
     window.localStorage.setItem(
       `command-brief.quick-task.v1:${employeeId}`,
-      JSON.stringify({ projectId, title: "Continue the Codex Work bundle", version: 1 }),
+      JSON.stringify({
+        clientRequestId,
+        projectId,
+        title: "Continue the Codex Work bundle",
+        version: 2,
+      }),
     );
     const gateway = service();
     renderWork(gateway);
 
     expect(await screen.findByDisplayValue("Continue the Codex Work bundle")).toBeVisible();
     expect(screen.getByLabelText("Project is required")).toHaveValue(projectId);
-    expect(gateway.create).not.toHaveBeenCalled();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Create task" }));
+    expect(gateway.create).toHaveBeenCalledWith(expect.objectContaining({ clientRequestId }));
     expect(screen.queryByText(/evidence created|progress changed/iu)).not.toBeInTheDocument();
   });
 
