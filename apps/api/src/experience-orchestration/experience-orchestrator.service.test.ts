@@ -43,6 +43,16 @@ function harness(
     wrongUser?: boolean;
     aiOutput?: Record<string, unknown>;
     workspace?: import("@evaluation/contracts").DailyWorkspaceSnapshot;
+    checkIns?: readonly Readonly<{
+      projectId: string;
+      projectName: string;
+      workstreamId: string;
+      workstreamName: string;
+      weekStartsAt: string;
+      weekEndsAt: string;
+      state: "not_due" | "required" | "satisfied_by_update" | "exempt_approved_leave";
+      capture: { projectId: string; workstreamId: string; workItemId: null } | null;
+    }>[];
   } = {},
 ) {
   const reviewQueue = vi.fn(async ({ actor }: { actor: { userId: string } }) => ({
@@ -117,6 +127,7 @@ function harness(
     service: new ExperienceOrchestratorService({
       contextReview: { reviewQueue },
       dailyWork: { dailyWorkspace } as never,
+      checkIns: { listForEmployee: vi.fn(async () => options.checkIns ?? []) },
       persistence: persistence as never,
       router: router as never,
       promptArtifacts: {
@@ -196,6 +207,87 @@ describe("ExperienceOrchestratorService", () => {
 
       expect(result.items[0]?.why.toLowerCase()).toContain(fixture.expectedWhy);
       expect(result.items[0]?.editableDraft.body).toContain(fixture.expectedBody);
+    },
+  );
+
+  it("prepares a missing-update follow-up only from a required authoritative check-in", async () => {
+    const workstreamId = "92000000-0000-4000-8000-000000000012";
+    const { service } = harness({
+      workspace: {
+        needsMyAction: [],
+        today: [],
+        overdue: [],
+        reviewQueue: [],
+        inbox: [],
+        projectPulse: [],
+        upcoming: [],
+      },
+      checkIns: [
+        {
+          projectId,
+          projectName: "Evaluation System",
+          workstreamId,
+          workstreamName: "Work Agent",
+          weekStartsAt: "2026-08-09T21:00:00.000Z",
+          weekEndsAt: "2026-08-16T21:00:00.000Z",
+          state: "required",
+          capture: { projectId, workstreamId, workItemId: null },
+        },
+      ],
+    });
+
+    const result = await service.compose({
+      actor: { userId: employeeId, active: true, roles: ["employee"] },
+      correlationId,
+    });
+
+    expect(result.items[0]).toMatchObject({
+      kind: "next_action",
+      why: expect.stringContaining("no substantive update"),
+      editableDraft: {
+        title: "Prepare the Work Agent check-in",
+        body: expect.stringContaining("What changed"),
+      },
+    });
+    expect(result.items[0]?.sourceReferences).toEqual([
+      `check-in:${workstreamId}`,
+      `project:${projectId}`,
+    ]);
+  });
+
+  it.each(["satisfied_by_update", "exempt_approved_leave"] as const)(
+    "does not prepare a missing-update reminder when the check-in is %s",
+    async (state) => {
+      const { service } = harness({
+        workspace: {
+          needsMyAction: [],
+          today: [],
+          overdue: [],
+          reviewQueue: [],
+          inbox: [],
+          projectPulse: [],
+          upcoming: [],
+        },
+        checkIns: [
+          {
+            projectId,
+            projectName: "Evaluation System",
+            workstreamId: "92000000-0000-4000-8000-000000000012",
+            workstreamName: "Work Agent",
+            weekStartsAt: "2026-08-09T21:00:00.000Z",
+            weekEndsAt: "2026-08-16T21:00:00.000Z",
+            state,
+            capture: null,
+          },
+        ],
+      });
+
+      await expect(
+        service.compose({
+          actor: { userId: employeeId, active: true, roles: ["employee"] },
+          correlationId,
+        }),
+      ).resolves.toEqual({ state: "idle", items: [] });
     },
   );
 

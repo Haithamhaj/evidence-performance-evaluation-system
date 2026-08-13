@@ -688,6 +688,44 @@ describe("WorkWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "Open prepared Task" }));
     expect(window.location.search).toContain(`item=${item.id}`);
   });
+
+  it("opens the existing Project Update flow for a prepared missing-update reminder", async () => {
+    const projectId = "22222222-2222-4222-8222-222222222222";
+    renderWork(
+      service({
+        loadPrepared: vi.fn().mockResolvedValue({
+          state: "prepared",
+          items: [
+            {
+              id: crypto.randomUUID(),
+              schemaVersion: "experience-prepared-output.v1",
+              state: "prepared",
+              kind: "next_action",
+              sourceReferences: [`check-in:${crypto.randomUUID()}`, `project:${projectId}`],
+              why: "No substantive update exists for the required check-in window.",
+              freshness: {
+                status: "fresh",
+                sourceObservedAt: "2026-08-09T21:00:00.000Z",
+                preparedAt: "2026-08-13T20:00:00.000Z",
+              },
+              consequence: "Nothing is recorded until you confirm it.",
+              editableDraft: {
+                title: "Prepare the Work Agent check-in",
+                body: "What changed, what is blocked, and what is next?",
+              },
+              assistance: { mode: "deterministic", label: "Source-backed", routeTrace: null },
+              correlationId: crypto.randomUUID(),
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(await screen.findByRole("link", { name: "Review update draft" })).toHaveAttribute(
+      "href",
+      `/en/projects/${projectId}/daily-work`,
+    );
+  });
 });
 
 function renderWork(

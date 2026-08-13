@@ -64,6 +64,19 @@ type Dependencies = Readonly<{
   dailyWork: Readonly<{
     dailyWorkspace(actor: Actor): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot>;
   }>;
+  checkIns?: Readonly<{
+    listForEmployee(input: { employeeId: string }): Promise<
+      readonly Readonly<{
+        projectId: string;
+        projectName: string;
+        workstreamId: string;
+        workstreamName: string;
+        weekStartsAt: string;
+        weekEndsAt: string;
+        state: "not_due" | "required" | "satisfied_by_update" | "exempt_approved_leave";
+      }>[]
+    >;
+  }>;
   persistence: PreparedExperiencePersistence;
   router: Router;
   promptArtifacts?: Readonly<{
@@ -91,6 +104,7 @@ type Candidate = Readonly<{
   body: string;
   deterministicWhy: string;
   consequence: string;
+  actionReference?: string;
 }>;
 
 export class ExperienceOrchestratorService {
@@ -108,13 +122,15 @@ export class ExperienceOrchestratorService {
     }>,
   ): Promise<import("@evaluation/contracts").PreparedExperienceComposition> {
     assertEmployee(input.actor);
-    const [reviewResult, workspace] = await Promise.all([
+    const [reviewResult, workspace, checkIns] = await Promise.all([
       this.dependencies.contextReview.reviewQueue({
         actor: { userId: input.actor.userId, active: input.actor.active },
       }),
       this.dependencies.dailyWork.dailyWorkspace(input.actor),
+      this.dependencies.checkIns?.listForEmployee({ employeeId: input.actor.userId }) ??
+        Promise.resolve([]),
     ]);
-    const candidate = selectCandidate(reviewResult, workspace);
+    const candidate = selectCandidate(reviewResult, workspace, checkIns);
     if (candidate === null) return { state: "idle", items: [] };
 
     const now = (this.dependencies.now ?? (() => new Date()))();
@@ -158,7 +174,7 @@ export class ExperienceOrchestratorService {
     if (this.dependencies.aiEnabled) {
       try {
         const prompt = await this.requirePrompt();
-        const sourceReferences = [candidate.reference];
+        const sourceReferences = candidateReferences(candidate);
         const outputReference = `experience-prepared:${itemId}`;
         const result = await this.dependencies.router.run(
           {
@@ -398,6 +414,15 @@ function assertEmployee(actor: Actor): void {
 function selectCandidate(
   reviewResult: unknown,
   workspace: import("@evaluation/contracts").DailyWorkspaceSnapshot,
+  checkIns: readonly Readonly<{
+    projectId: string;
+    projectName: string;
+    workstreamId: string;
+    workstreamName: string;
+    weekStartsAt: string;
+    weekEndsAt: string;
+    state: "not_due" | "required" | "satisfied_by_update" | "exempt_approved_leave";
+  }>[],
 ): Candidate | null {
   const reviewItems =
     isRecord(reviewResult) && Array.isArray(reviewResult.items) ? reviewResult.items : [];
@@ -433,7 +458,22 @@ function selectCandidate(
         : workspace.overdue[0] !== undefined
           ? ({ group: "overdue", task: workspace.overdue[0] } as const)
           : null;
-  if (source === null) return null;
+  if (source === null) {
+    const requiredCheckIn = checkIns.find(({ state }) => state === "required");
+    if (requiredCheckIn === undefined) return null;
+    return {
+      kind: "next_action",
+      reference: `check-in:${requiredCheckIn.workstreamId}`,
+      actionReference: `project:${requiredCheckIn.projectId}`,
+      observedAt: requiredCheckIn.weekStartsAt,
+      title: `Prepare the ${requiredCheckIn.workstreamName} check-in`,
+      body: "What changed, what is blocked, and what is the next useful step? Review and edit before confirming the Update.",
+      deterministicWhy:
+        "This authorized workstream has no substantive update for the current required check-in window.",
+      consequence:
+        "Reviewing this draft opens the existing Update flow; nothing is recorded until you confirm it.",
+    };
+  }
   const task = source.task;
   const trigger = workItemTrigger(source.group, task);
   return {
@@ -497,7 +537,7 @@ function deterministicItem(
     schemaVersion: EXPERIENCE_PREPARE_OUTPUT_SCHEMA_VERSION,
     state: input.state,
     kind: input.candidate.kind,
-    sourceReferences: [input.candidate.reference],
+    sourceReferences: candidateReferences(input.candidate),
     why: input.candidate.deterministicWhy,
     freshness: {
       status: input.state === "stale" ? "stale" : "fresh",
@@ -509,6 +549,13 @@ function deterministicItem(
     assistance: { mode: "deterministic", label: input.label, routeTrace: null },
     correlationId: input.correlationId,
   });
+}
+
+function candidateReferences(candidate: Candidate): string[] {
+  return [
+    candidate.reference,
+    ...(candidate.actionReference === undefined ? [] : [candidate.actionReference]),
+  ];
 }
 
 function stableUuid(value: string): string {

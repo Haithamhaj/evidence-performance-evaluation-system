@@ -12,6 +12,7 @@ import { CONTEXT_INTELLIGENCE_WORKFLOW } from "../context-intelligence/context-a
 import { ContextIntelligenceModule } from "../context-intelligence/context-intelligence.module.js";
 import { DailyWorkQueryService } from "../daily-work/daily-work-query.service.js";
 import { DailyWorkModule } from "../daily-work/daily-work.module.js";
+import { CheckInService } from "@evaluation/updates-evidence";
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { ExperienceOrchestrationController } from "./experience-orchestration.controller.js";
 import { CaptureUnderstandingController } from "./capture-understanding.controller.js";
@@ -56,15 +57,18 @@ Module({
         EXPERIENCE_ORCHESTRATION_DATABASE,
         CONTEXT_INTELLIGENCE_WORKFLOW,
         DailyWorkQueryService,
+        CheckInService,
       ],
       useFactory: async (
         database: Database,
         contextReview: import("../context-intelligence/context-analysis.controller.js").ContextIntelligenceWorkflow,
         dailyWork: DailyWorkQueryService,
+        checkIns: CheckInService,
       ) =>
         new ExperienceOrchestratorService({
           contextReview: contextReview as never,
           dailyWork,
+          checkIns,
           persistence: new PrismaPreparedExperiencePersistence(database),
           router: createDeferredRuntimeAiRouter(() =>
             createRuntimeAiRouter({

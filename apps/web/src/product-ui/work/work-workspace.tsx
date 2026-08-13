@@ -895,6 +895,7 @@ export function WorkWorkspace({
         <PreparedWorkAction
           catalog={catalog}
           item={prepared.items[0]}
+          locale={locale}
           onOpen={(id) => select(id)}
         />
       )}
@@ -1082,14 +1083,20 @@ export function WorkWorkspace({
 function PreparedWorkAction({
   catalog,
   item,
+  locale,
   onOpen,
 }: Readonly<{
   catalog: Catalog;
   item: import("../../platform/experience-orchestration-contracts").WebPreparedExperienceItem;
+  locale: "ar" | "en";
   onOpen(id: string): void;
 }>) {
   const source = item.sourceReferences[0] ?? "";
   const taskId = source.startsWith("work-item:") ? source.slice("work-item:".length) : null;
+  const projectReference = item.sourceReferences.find((reference) =>
+    reference.startsWith("project:"),
+  );
+  const projectId = projectReference?.slice("project:".length) ?? null;
   return (
     <section className={styles.preparedAction!}>
       <div>
@@ -1119,6 +1126,11 @@ function PreparedWorkAction({
         <button onClick={() => onOpen(taskId)} type="button">
           {catalog["work.prepared.openTask"]}
         </button>
+      )}
+      {projectId === null ? null : (
+        <a href={`/${locale}/projects/${projectId}/daily-work`}>
+          {catalog["work.prepared.openUpdate"]}
+        </a>
       )}
     </section>
   );

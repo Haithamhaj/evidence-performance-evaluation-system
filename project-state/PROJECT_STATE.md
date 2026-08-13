@@ -213,7 +213,12 @@ every engine authority and protected product rule, and all retained rollback rou
 - The Work Agent now explains three existing authoritative daily triggers distinctly: an overdue Task,
   a Task due today, and a Task ready for action. Each preparation remains one source-backed suggestion;
   it opens the Task but does not transition it, create evidence, or infer Project progress or employee
-  performance. Missing-update and follow-up preparation remain the next P2-10/P2-11 gap.
+  performance.
+- The authoritative Thursday check-in is now also a Work Agent trigger. Only a `required` obligation
+  with no substantive accepted Update prepares an editable follow-up; an existing substantive Update
+  or approved leave suppresses it. The prepared item links to the existing Project Update flow and
+  records nothing until employee confirmation. Completion/dependency event-driven recomposition and
+  broader confirmed-command preparation remain the final P2-10–P2-12 closure gap.
 
 ## Active Risks
 
