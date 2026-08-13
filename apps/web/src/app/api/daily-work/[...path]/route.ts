@@ -39,9 +39,11 @@ import {
   CreateTaskBodySchema,
   DismissPrivateInboxBodySchema,
   PromotePrivateInboxBodySchema,
+  ReplaceTaskDependenciesBodySchema,
   TransitionTaskBodySchema,
   UpdateTaskBodySchema,
   WebPrivateInboxItemSchema,
+  WebWorkItemDependenciesSchema,
   WebWorkItemSchema,
 } from "../../../../platform/task-workspace-contracts";
 import {
@@ -283,6 +285,20 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
           method: "GET",
           path: `/api/v1/work-items/${path[1]}`,
           schema: WebWorkItemSchema,
+        }),
+      );
+    }
+    if (
+      path.length === 3 &&
+      path[0] === "work-items" &&
+      isUuid(path[1]) &&
+      path[2] === "dependencies"
+    ) {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: `/api/v1/work-items/${path[1]}/dependencies`,
+          schema: WebWorkItemDependenciesSchema,
         }),
       );
     }
@@ -620,7 +636,7 @@ export async function PATCH(request: Request, context: Context): Promise<NextRes
   if (
     !safeRequestPath(request, path) ||
     new URL(request.url).search !== "" ||
-    path.length !== 2 ||
+    ![2, 3].includes(path.length) ||
     path[0] !== "work-items" ||
     !isUuid(path[1])
   ) {
@@ -633,6 +649,17 @@ export async function PATCH(request: Request, context: Context): Promise<NextRes
     return invalid();
   }
   try {
+    if (path.length === 3 && path[2] === "dependencies") {
+      return json(
+        await fetchProtectedUpstream({
+          path: `/api/v1/work-items/${path[1]}/dependencies`,
+          schema: WebWorkItemDependenciesSchema,
+          method: "PATCH",
+          body: ReplaceTaskDependenciesBodySchema.parse(body),
+        }),
+      );
+    }
+    if (path.length !== 2) return notFound();
     return json(
       await fetchProtectedUpstream({
         path: `/api/v1/work-items/${path[1]}`,

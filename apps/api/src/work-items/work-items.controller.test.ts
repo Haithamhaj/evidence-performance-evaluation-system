@@ -72,6 +72,32 @@ describe("WorkItemsController", () => {
     );
   });
 
+  it("reads and replaces dependencies through the authenticated Work Items boundary", async () => {
+    const dependencyId = crypto.randomUUID();
+    const getAuthorizedDependencies = vi.fn(async (command) => command);
+    const replaceDependencies = vi.fn(async (command) => command);
+    const controller = new WorkItemsController(
+      { replaceDependencies } as never,
+      { getAuthorizedDependencies } as never,
+    );
+
+    await controller.dependencies(request, workItemId);
+    await controller.replaceDependencies(request, workItemId, {
+      dependsOnWorkItemIds: [dependencyId],
+      expectedVersion: 2,
+      reason: "Codex confirmed the dependency.",
+    });
+
+    expect(getAuthorizedDependencies).toHaveBeenCalledWith({ actorId, workItemId });
+    expect(replaceDependencies).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: { userId: actorId, active: true },
+        workItemId,
+        input: expect.objectContaining({ dependsOnWorkItemIds: [dependencyId] }),
+      }),
+    );
+  });
+
   it("validates Task edits and workspace view options", async () => {
     const update = vi.fn(async (command) => command);
     const listWorkspace = vi.fn(async (command) => command);

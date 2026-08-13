@@ -2,6 +2,7 @@ import {
   AssignWorkItemInputSchema,
   CreateWorkItemInputSchema,
   ListWorkItemsInputSchema,
+  ReplaceWorkItemDependenciesInputSchema,
   TransitionWorkItemInputSchema,
   UpdateWorkItemInputSchema,
 } from "@evaluation/contracts";
@@ -51,6 +52,13 @@ export class WorkItemsController {
     });
   }
 
+  dependencies(request: Request, workItemId: string) {
+    return this.query.getAuthorizedDependencies({
+      actorId: request.principal.userId,
+      workItemId: z.string().uuid().parse(workItemId),
+    });
+  }
+
   list(request: Request, query: unknown) {
     const parsed = ListWorkItemsInputSchema.parse(query);
     return this.query.listWorkspace({
@@ -92,6 +100,15 @@ export class WorkItemsController {
       input: AssignWorkItemInputSchema.parse(body),
     });
   }
+
+  replaceDependencies(request: Request, workItemId: string, body: unknown) {
+    return this.service.replaceDependencies({
+      actor: actor(request),
+      correlationId: request.correlationId,
+      workItemId: z.string().uuid().parse(workItemId),
+      input: ReplaceWorkItemDependenciesInputSchema.parse(body),
+    });
+  }
 }
 
 function actor(request: Request) {
@@ -118,6 +135,14 @@ Req()(WorkItemsController.prototype, "get", 0);
 Param("workItemId")(WorkItemsController.prototype, "get", 1);
 Get(":workItemId")(WorkItemsController.prototype, "get", get);
 
+const dependencies = Object.getOwnPropertyDescriptor(
+  WorkItemsController.prototype,
+  "dependencies",
+)!;
+Req()(WorkItemsController.prototype, "dependencies", 0);
+Param("workItemId")(WorkItemsController.prototype, "dependencies", 1);
+Get(":workItemId/dependencies")(WorkItemsController.prototype, "dependencies", dependencies);
+
 const update = Object.getOwnPropertyDescriptor(WorkItemsController.prototype, "update")!;
 Req()(WorkItemsController.prototype, "update", 0);
 Param("workItemId")(WorkItemsController.prototype, "update", 1);
@@ -135,3 +160,16 @@ Req()(WorkItemsController.prototype, "assign", 0);
 Param("workItemId")(WorkItemsController.prototype, "assign", 1);
 Body()(WorkItemsController.prototype, "assign", 2);
 Patch(":workItemId/assignee")(WorkItemsController.prototype, "assign", assign);
+
+const replaceDependencies = Object.getOwnPropertyDescriptor(
+  WorkItemsController.prototype,
+  "replaceDependencies",
+)!;
+Req()(WorkItemsController.prototype, "replaceDependencies", 0);
+Param("workItemId")(WorkItemsController.prototype, "replaceDependencies", 1);
+Body()(WorkItemsController.prototype, "replaceDependencies", 2);
+Patch(":workItemId/dependencies")(
+  WorkItemsController.prototype,
+  "replaceDependencies",
+  replaceDependencies,
+);

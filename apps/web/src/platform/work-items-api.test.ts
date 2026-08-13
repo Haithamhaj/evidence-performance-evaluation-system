@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { loadWorkItemContext } from "./work-items-api.js";
+import {
+  loadWorkItemContext,
+  loadWorkItemDependencies,
+  replaceWorkItemDependencies,
+} from "./work-items-api.js";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const itemId = "22222222-2222-4222-8222-222222222222";
@@ -38,6 +42,43 @@ describe("loadWorkItemContext", () => {
     expect(fetcher).toHaveBeenCalledWith(
       `/api/daily-work/timeline?projectId=${projectId}&limit=20`,
       { cache: "no-store" },
+    );
+    expect(JSON.stringify(fetcher.mock.calls)).not.toMatch(/actor|employeeId|userId/u);
+  });
+});
+
+describe("Work Item dependency gateway", () => {
+  it("uses the protected same-origin dependency reader and replacement command", async () => {
+    const dependencyId = crypto.randomUUID();
+    const response = {
+      workItemId: itemId,
+      version: 2,
+      readiness: "blocked_by_dependency",
+      allowedTransitions: ["blocked", "cancelled"],
+      dependsOn: [{ id: dependencyId, title: "Complete the engine", status: "in_progress" }],
+      blocks: [],
+    };
+    const fetcher = vi.fn().mockImplementation(async () => Response.json(response));
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(loadWorkItemDependencies(itemId)).resolves.toEqual(response);
+    await expect(
+      replaceWorkItemDependencies(itemId, {
+        dependsOnWorkItemIds: [],
+        expectedVersion: 2,
+        reason: "Codex removed the resolved dependency.",
+      }),
+    ).resolves.toEqual(response);
+
+    expect(fetcher).toHaveBeenNthCalledWith(
+      1,
+      `/api/daily-work/work-items/${itemId}/dependencies`,
+      { cache: "no-store" },
+    );
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      `/api/daily-work/work-items/${itemId}/dependencies`,
+      expect.objectContaining({ method: "PATCH" }),
     );
     expect(JSON.stringify(fetcher.mock.calls)).not.toMatch(/actor|employeeId|userId/u);
   });

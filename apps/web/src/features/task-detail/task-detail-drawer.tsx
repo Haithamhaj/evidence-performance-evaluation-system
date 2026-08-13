@@ -5,37 +5,56 @@ import type { Catalog } from "@evaluation/localization";
 import { ProductIcon } from "@evaluation/ui";
 import { useEffect, useState } from "react";
 
-import type { WebWorkItem, WorkItemContext, WorkItemStatus } from "../../platform/work-items-api";
+import type {
+  WebWorkItem,
+  WorkItemContext,
+  WorkItemDependencies,
+  WorkItemStatus,
+} from "../../platform/work-items-api";
 import styles from "../../product-ui/work/work-workspace.module.css";
 
 export function TaskDetailDrawer({
   catalog,
   context,
   contextState,
+  dependencies,
+  dependencyCandidates,
+  dependencyState,
   item,
   locale,
   notice,
   onClose,
   onRetry,
+  onReplaceDependencies,
   onTransition,
   state,
 }: Readonly<{
   catalog: Catalog;
   context: WorkItemContext | null;
   contextState: "loading" | "ready" | "error";
+  dependencies: WorkItemDependencies | null;
+  dependencyCandidates: readonly Pick<WebWorkItem, "id" | "status" | "title">[];
+  dependencyState: "loading" | "ready" | "saving" | "error";
   item: WebWorkItem | null;
   locale: "ar" | "en";
   notice: "stale" | "transition_error" | null;
   onClose(): void;
   onRetry(): void;
+  onReplaceDependencies(ids: readonly string[]): Promise<void>;
   onTransition(status: WorkItemStatus): Promise<void>;
   state: "loading" | "ready" | "forbidden" | "error" | "transitioning";
 }>) {
   const [status, setStatus] = useState<WorkItemStatus>("ready");
+  const [editingDependencies, setEditingDependencies] = useState(false);
+  const [selectedDependencies, setSelectedDependencies] = useState<readonly string[]>([]);
 
   useEffect(() => {
     if (item !== null) setStatus(item.allowedTransitions[0] ?? item.status);
   }, [item?.allowedTransitions, item?.id, item?.status]);
+
+  useEffect(() => {
+    setSelectedDependencies(dependencies?.dependsOn.map(({ id }) => id) ?? []);
+  }, [dependencies]);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -114,6 +133,93 @@ export function TaskDetailDrawer({
                 </ul>
               </section>
             )}
+            <section className={styles.taskDependencies!}>
+              <div className={styles.taskContextHeading!}>
+                <h4>{catalog["work.dependencies.title"]}</h4>
+                {item.allowedActions.includes("edit") && dependencyCandidates.length > 0 ? (
+                  <button
+                    className={styles.linkButton!}
+                    onClick={() => setEditingDependencies((value) => !value)}
+                    type="button"
+                  >
+                    {editingDependencies
+                      ? catalog["actions.cancel"]
+                      : catalog["work.dependencies.edit"]}
+                  </button>
+                ) : null}
+              </div>
+              {dependencyState === "loading" ? (
+                <p aria-busy="true">{catalog["work.dependencies.loading"]}</p>
+              ) : dependencyState === "error" ? (
+                <p role="status">{catalog["work.dependencies.error"]}</p>
+              ) : dependencies === null ? null : (
+                <>
+                  <p
+                    className={
+                      dependencies.readiness === "blocked_by_dependency"
+                        ? styles.dependencyBlocked!
+                        : styles.dependencyReady!
+                    }
+                  >
+                    {catalog[`work.dependencies.${dependencies.readiness}`]}
+                  </p>
+                  {dependencies.dependsOn.length === 0 ? (
+                    <p>{catalog["work.dependencies.none"]}</p>
+                  ) : (
+                    <DependencyList
+                      catalog={catalog}
+                      items={dependencies.dependsOn}
+                      title={catalog["work.dependencies.dependsOn"]}
+                    />
+                  )}
+                  {dependencies.blocks.length > 0 ? (
+                    <DependencyList
+                      catalog={catalog}
+                      items={dependencies.blocks}
+                      title={catalog["work.dependencies.blocks"]}
+                    />
+                  ) : null}
+                </>
+              )}
+              {editingDependencies ? (
+                <form
+                  className={styles.dependencyEditor!}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void onReplaceDependencies(selectedDependencies).then(() =>
+                      setEditingDependencies(false),
+                    );
+                  }}
+                >
+                  <fieldset>
+                    <legend>{catalog["work.dependencies.choose"]}</legend>
+                    {dependencyCandidates.map((candidate) => (
+                      <label key={candidate.id}>
+                        <input
+                          checked={selectedDependencies.includes(candidate.id)}
+                          onChange={(event) =>
+                            setSelectedDependencies((current) =>
+                              event.target.checked
+                                ? [...current, candidate.id]
+                                : current.filter((id) => id !== candidate.id),
+                            )
+                          }
+                          type="checkbox"
+                        />
+                        <span>{candidate.title}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <button
+                    className={styles.primaryAction!}
+                    disabled={dependencyState === "saving"}
+                    type="submit"
+                  >
+                    {catalog["actions.save"]}
+                  </button>
+                </form>
+              ) : null}
+            </section>
             <section className={styles.taskContext!}>
               <div className={styles.taskContextHeading!}>
                 <h4>{catalog["work.context.title"]}</h4>
@@ -187,6 +293,30 @@ export function TaskDetailDrawer({
           </div>
         )}
       </aside>
+    </div>
+  );
+}
+
+function DependencyList({
+  catalog,
+  items,
+  title,
+}: Readonly<{
+  catalog: Catalog;
+  items: WorkItemDependencies["dependsOn"];
+  title: string;
+}>) {
+  return (
+    <div className={styles.dependencyList!}>
+      <h5>{title}</h5>
+      <ul>
+        {items.map((entry) => (
+          <li key={entry.id}>
+            <span>{entry.title}</span>
+            <small>{catalog[`myWork.status.${entry.status}`]}</small>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import type { z } from "zod";
 
-import { WebUuidSchema, WebWorkItemSchema } from "./task-workspace-contracts";
+import {
+  WebUuidSchema,
+  WebWorkItemDependenciesSchema,
+  WebWorkItemSchema,
+} from "./task-workspace-contracts";
 import { TimelineResponseSchema } from "./updates-evidence-contracts";
 
 export type WebWorkItem = z.infer<typeof WebWorkItemSchema>;
@@ -18,6 +22,7 @@ export type WorkItemContext = Readonly<{
   updates: readonly WorkItemContextEntry[];
   evidence: readonly WorkItemContextEntry[];
 }>;
+export type WorkItemDependencies = z.infer<typeof WebWorkItemDependenciesSchema>;
 
 export class WorkItemGatewayError extends Error {
   constructor(readonly status: number) {
@@ -27,6 +32,37 @@ export class WorkItemGatewayError extends Error {
 
 export async function loadWorkItem(id: string): Promise<WebWorkItem> {
   return request(`/api/daily-work/work-items/${WebUuidSchema.parse(id)}`);
+}
+
+export async function loadWorkItemDependencies(id: string): Promise<WorkItemDependencies> {
+  const response = await fetch(
+    `/api/daily-work/work-items/${WebUuidSchema.parse(id)}/dependencies`,
+    {
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) throw new WorkItemGatewayError(response.status);
+  return WebWorkItemDependenciesSchema.parse(await response.json());
+}
+
+export async function replaceWorkItemDependencies(
+  id: string,
+  input: {
+    readonly dependsOnWorkItemIds: readonly string[];
+    readonly expectedVersion: number;
+    readonly reason: string;
+  },
+): Promise<WorkItemDependencies> {
+  const response = await fetch(
+    `/api/daily-work/work-items/${WebUuidSchema.parse(id)}/dependencies`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!response.ok) throw new WorkItemGatewayError(response.status);
+  return WebWorkItemDependenciesSchema.parse(await response.json());
 }
 
 export async function loadWorkItemContext(input: {

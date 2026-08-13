@@ -1,6 +1,9 @@
 import { AppError, MyWorkResponseSchema, WorkItemDetailSchema } from "@evaluation/contracts";
 
-import { getAllowedWorkItemTransitions } from "./invariants.js";
+import {
+  getAllowedWorkItemTransitions,
+  getDependencyAwareWorkItemTransitions,
+} from "./invariants.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type WorkItemWhere = NonNullable<
@@ -63,6 +66,43 @@ export class WorkItemQueryService {
       );
     }
     return serialize(item);
+  }
+
+  async getAuthorizedDependencies(input: {
+    actorId: string;
+    workItemId: string;
+  }): Promise<import("@evaluation/contracts").WorkItemDependencies> {
+    await this.getAuthorizedWorkItem(input);
+    const item = await this.client.workItem.findUniqueOrThrow({
+      where: { id: input.workItemId },
+      select: {
+        id: true,
+        status: true,
+        version: true,
+        dependencies: {
+          orderBy: { createdAt: "asc" },
+          select: { dependsOnWorkItem: { select: { id: true, title: true, status: true } } },
+        },
+        blocks: {
+          orderBy: { createdAt: "asc" },
+          select: { workItem: { select: { id: true, title: true, status: true } } },
+        },
+      },
+    });
+    const dependsOn = item.dependencies.map(({ dependsOnWorkItem }) => dependsOnWorkItem);
+    return (await import("@evaluation/contracts")).WorkItemDependenciesSchema.parse({
+      workItemId: item.id,
+      version: item.version,
+      readiness: dependsOn.some(({ status }) => !["done", "cancelled"].includes(status))
+        ? "blocked_by_dependency"
+        : "ready",
+      allowedTransitions: getDependencyAwareWorkItemTransitions(
+        item.status,
+        dependsOn.some(({ status }) => !["done", "cancelled"].includes(status)),
+      ),
+      dependsOn,
+      blocks: item.blocks.map(({ workItem }) => workItem),
+    });
   }
 
   async listMyWork(input: {

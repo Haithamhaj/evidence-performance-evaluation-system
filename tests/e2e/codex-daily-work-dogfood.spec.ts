@@ -43,6 +43,13 @@ test("Codex works on the real evaluation-system Project without fabricated progr
   await expect(page.getByText(/does not score Codex or change Project progress/u)).toBeVisible();
   await page.getByRole("button", { name: "Close" }).click();
 
+  await page.getByRole("button", { name: /Connect Task detail to updates and evidence/u }).click();
+  const dependentTask = page.getByRole("dialog", { name: "Task details" });
+  await expect(page.getByText("Blocked by an unfinished Task.")).toBeVisible();
+  await expect(page.getByText("Review Phase 2 Work query bundle").last()).toBeVisible();
+  await expect(dependentTask.getByRole("option", { name: "Ready" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Close" }).click();
+
   const task = page.getByRole("listitem").filter({ hasText: "Implement safe inline Task edits" });
   await task.getByRole("button", { name: "Edit task" }).click();
   const editor = task.getByRole("form", { name: "Edit task" });

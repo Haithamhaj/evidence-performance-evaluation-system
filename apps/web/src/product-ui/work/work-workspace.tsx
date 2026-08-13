@@ -11,9 +11,12 @@ import {
   createWorkItem,
   loadWorkItem,
   loadWorkItemContext,
+  loadWorkItemDependencies,
+  replaceWorkItemDependencies,
   transitionWorkItem,
   updateWorkItem,
   type WorkItemContext,
+  type WorkItemDependencies,
   type WebWorkItem,
   WorkItemGatewayError,
   type WorkItemStatus,
@@ -24,6 +27,11 @@ export type WorkWorkspaceGateway = Readonly<{
   create(input: { employeeId: string; projectId: string; title: string }): Promise<WebWorkItem>;
   load(id: string): Promise<WebWorkItem>;
   loadContext(input: { itemId: string; projectId: string }): Promise<WorkItemContext>;
+  loadDependencies(id: string): Promise<WorkItemDependencies>;
+  replaceDependencies(
+    id: string,
+    input: { dependsOnWorkItemIds: readonly string[]; expectedVersion: number; reason: string },
+  ): Promise<WorkItemDependencies>;
   update(
     id: string,
     input: {
@@ -44,6 +52,8 @@ const defaultGateway: WorkWorkspaceGateway = {
   create: createWorkItem,
   load: loadWorkItem,
   loadContext: loadWorkItemContext,
+  loadDependencies: loadWorkItemDependencies,
+  replaceDependencies: replaceWorkItemDependencies,
   transition: transitionWorkItem,
   update: updateWorkItem,
 };
@@ -82,7 +92,11 @@ export function WorkWorkspace({
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [detail, setDetail] = useState<WebWorkItem | null>(null);
   const [detailContext, setDetailContext] = useState<WorkItemContext | null>(null);
+  const [dependencies, setDependencies] = useState<WorkItemDependencies | null>(null);
   const [contextState, setContextState] = useState<"loading" | "ready" | "error">("loading");
+  const [dependencyState, setDependencyState] = useState<"loading" | "ready" | "saving" | "error">(
+    "loading",
+  );
   const [detailState, setDetailState] = useState<
     "loading" | "ready" | "forbidden" | "error" | "transitioning"
   >("ready");
@@ -172,29 +186,38 @@ export function WorkWorkspace({
   async function load(id: string, generation = ++detailRequestGeneration.current) {
     setDetailState("loading");
     setContextState("loading");
+    setDependencyState("loading");
     setDetailContext(null);
+    setDependencies(null);
     setNotice(null);
     try {
       const loaded = await gateway.load(id);
       if (detailRequestGeneration.current !== generation) return;
       setDetail(loaded);
       setDetailState("ready");
-      try {
-        const context = await gateway.loadContext({
-          itemId: loaded.id,
-          projectId: loaded.projectId,
-        });
-        if (detailRequestGeneration.current !== generation) return;
-        setDetailContext(context);
+      const [contextResult, dependenciesResult] = await Promise.allSettled([
+        gateway.loadContext({ itemId: loaded.id, projectId: loaded.projectId }),
+        gateway.loadDependencies(loaded.id),
+      ]);
+      if (detailRequestGeneration.current !== generation) return;
+      if (contextResult.status === "fulfilled") {
+        setDetailContext(contextResult.value);
         setContextState("ready");
-      } catch {
-        if (detailRequestGeneration.current !== generation) return;
-        setContextState("error");
-      }
+      } else setContextState("error");
+      if (dependenciesResult.status === "fulfilled") {
+        setDependencies(dependenciesResult.value);
+        setDetail((current) =>
+          current === null
+            ? null
+            : { ...current, allowedTransitions: dependenciesResult.value.allowedTransitions },
+        );
+        setDependencyState("ready");
+      } else setDependencyState("error");
     } catch (error) {
       if (detailRequestGeneration.current !== generation) return;
       setDetail(null);
       setDetailContext(null);
+      setDependencies(null);
       setDetailState(
         error instanceof WorkItemGatewayError && error.status === 403 ? "forbidden" : "error",
       );
@@ -327,6 +350,40 @@ export function WorkWorkspace({
         }
       }
       return "error";
+    }
+  }
+
+  async function replaceDependencies(dependsOnWorkItemIds: readonly string[]) {
+    if (detail === null) return;
+    setDependencyState("saving");
+    try {
+      const result = await gateway.replaceDependencies(detail.id, {
+        dependsOnWorkItemIds,
+        expectedVersion: detail.version,
+        reason: catalog["work.dependencies.reason"],
+      });
+      setDependencies(result);
+      setDetail((current) =>
+        current === null
+          ? null
+          : {
+              ...current,
+              allowedTransitions: result.allowedTransitions,
+              version: result.version,
+            },
+      );
+      setItems((current) =>
+        current.map((item) =>
+          item.id === result.workItemId ? { ...item, version: result.version } : item,
+        ),
+      );
+      setDependencyState("ready");
+    } catch (error) {
+      if (error instanceof WorkItemGatewayError && error.status === 409) {
+        await load(detail.id);
+        return;
+      }
+      setDependencyState("error");
     }
   }
 
@@ -584,11 +641,17 @@ export function WorkWorkspace({
           catalog={catalog}
           context={detailContext}
           contextState={contextState}
+          dependencies={dependencies}
+          dependencyCandidates={items.filter(
+            (item) => item.projectId === detail?.projectId && item.id !== detail.id,
+          )}
+          dependencyState={dependencyState}
           item={detail}
           locale={locale}
           notice={notice}
           onClose={() => select(null)}
           onRetry={() => void load(selectedId)}
+          onReplaceDependencies={replaceDependencies}
           onTransition={transition}
           state={detailState}
         />

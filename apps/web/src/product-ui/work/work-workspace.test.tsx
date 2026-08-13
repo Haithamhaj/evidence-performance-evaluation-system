@@ -66,10 +66,55 @@ describe("WorkWorkspace", () => {
     expect(await screen.findByRole("dialog", { name: "Task details" })).toBeInTheDocument();
     expect(gateway.load).toHaveBeenCalledWith(itemId);
     expect(gateway.loadContext).toHaveBeenCalledWith({ itemId, projectId });
+    expect(gateway.loadDependencies).toHaveBeenCalledWith(itemId);
 
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(window.location.search).not.toContain("item=");
     expect(row).toHaveFocus();
+  });
+
+  it("shows dependency readiness and uses the protected replacement command", async () => {
+    const prerequisite = {
+      ...item,
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Finish the source contract",
+      status: "in_progress" as const,
+    };
+    const gateway = service({
+      loadDependencies: vi.fn().mockResolvedValue({
+        workItemId: item.id,
+        version: 1,
+        readiness: "blocked_by_dependency",
+        allowedTransitions: ["blocked", "cancelled"],
+        dependsOn: [
+          { id: prerequisite.id, title: prerequisite.title, status: prerequisite.status },
+        ],
+        blocks: [],
+      }),
+      replaceDependencies: vi.fn().mockResolvedValue({
+        workItemId: item.id,
+        version: 2,
+        readiness: "ready",
+        allowedTransitions: ["in_progress", "blocked", "cancelled"],
+        dependsOn: [],
+        blocks: [],
+      }),
+    });
+    const user = userEvent.setup();
+    renderWork(gateway, item.id, "en", [item, prerequisite]);
+
+    expect(await screen.findByText("Blocked by an unfinished Task.")).toBeVisible();
+    expect(screen.getAllByText(prerequisite.title).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("option", { name: "In progress" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit dependencies" }));
+    await user.click(screen.getByRole("checkbox", { name: prerequisite.title }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(gateway.replaceDependencies).toHaveBeenCalledWith(
+      item.id,
+      expect.objectContaining({ dependsOnWorkItemIds: [] }),
+    );
+    expect(await screen.findByText(/no unresolved dependency/u)).toBeVisible();
   });
 
   it("shows linked updates and suggested GitHub evidence as context, not progress or scoring", async () => {
@@ -178,6 +223,14 @@ describe("WorkWorkspace", () => {
     };
     const gateway = service({
       load: vi.fn().mockResolvedValue(planned),
+      loadDependencies: vi.fn().mockResolvedValue({
+        workItemId: planned.id,
+        version: planned.version,
+        readiness: "ready",
+        allowedTransitions: planned.allowedTransitions,
+        dependsOn: [],
+        blocks: [],
+      }),
       transition: vi.fn().mockResolvedValue(transitioned),
     });
     const user = userEvent.setup();
@@ -418,6 +471,15 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
     create: vi.fn().mockImplementation(async ({ title }) => ({ ...item, title })),
     load: vi.fn().mockResolvedValue(item),
     loadContext: vi.fn().mockResolvedValue({ evidence: [], updates: [] }),
+    loadDependencies: vi.fn().mockResolvedValue({
+      workItemId: item.id,
+      version: item.version,
+      readiness: "ready",
+      allowedTransitions: item.allowedTransitions,
+      dependsOn: [],
+      blocks: [],
+    }),
+    replaceDependencies: vi.fn(),
     update: vi.fn().mockImplementation(async (_id, input) => ({
       ...item,
       ...input,
@@ -433,6 +495,8 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
     create: ReturnType<typeof vi.fn>;
     load: ReturnType<typeof vi.fn>;
     loadContext: ReturnType<typeof vi.fn>;
+    loadDependencies: ReturnType<typeof vi.fn>;
+    replaceDependencies: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     transition: ReturnType<typeof vi.fn>;
   };

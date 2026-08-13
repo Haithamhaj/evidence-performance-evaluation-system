@@ -105,6 +105,33 @@ export const AssignWorkItemInputSchema = z
   })
   .strict();
 
+export const ReplaceWorkItemDependenciesInputSchema = z
+  .object({
+    dependsOnWorkItemIds: z.array(UuidSchema).max(100),
+    expectedVersion: PositiveVersionSchema,
+    reason: ReasonSchema,
+  })
+  .strict();
+
+const WorkItemDependencyRefSchema = z
+  .object({
+    id: UuidSchema,
+    title: z.string().trim().min(1).max(200),
+    status: WorkItemStatusSchema,
+  })
+  .strict();
+
+export const WorkItemDependenciesSchema = z
+  .object({
+    workItemId: UuidSchema,
+    version: PositiveVersionSchema,
+    readiness: z.enum(["ready", "blocked_by_dependency"]),
+    allowedTransitions: z.array(WorkItemStatusSchema),
+    dependsOn: z.array(WorkItemDependencyRefSchema).max(100),
+    blocks: z.array(WorkItemDependencyRefSchema).max(100),
+  })
+  .strict();
+
 export const CapturePrivateInboxInputSchema = z
   .object({
     text: z.string().trim().min(1).max(4_000),
@@ -246,6 +273,10 @@ export type CreateWorkItemInput = z.infer<typeof CreateWorkItemInputSchema>;
 export type UpdateWorkItemInput = z.infer<typeof UpdateWorkItemInputSchema>;
 export type TransitionWorkItemInput = z.infer<typeof TransitionWorkItemInputSchema>;
 export type AssignWorkItemInput = z.infer<typeof AssignWorkItemInputSchema>;
+export type ReplaceWorkItemDependenciesInput = z.infer<
+  typeof ReplaceWorkItemDependenciesInputSchema
+>;
+export type WorkItemDependencies = z.infer<typeof WorkItemDependenciesSchema>;
 export type PrivateInboxStatus = z.infer<typeof PrivateInboxStatusSchema>;
 export type PrivateCaptureSourceType = z.infer<typeof PrivateCaptureSourceTypeSchema>;
 export type CapturePrivateInboxInput = z.infer<typeof CapturePrivateInboxInputSchema>;

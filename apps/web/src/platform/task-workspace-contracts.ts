@@ -162,6 +162,43 @@ export const UpdateTaskBodySchema = z
   })
   .strict();
 
+export const ReplaceTaskDependenciesBodySchema = z
+  .object({
+    dependsOnWorkItemIds: z.array(WebUuidSchema).max(100),
+    expectedVersion: z.number().int().positive(),
+    reason: z.string().trim().min(1).max(1_000),
+  })
+  .strict();
+
+const WebWorkItemDependencyRefSchema = z
+  .object({
+    id: WebUuidSchema,
+    title: z.string().trim().min(1).max(200),
+    status: z.enum([
+      "planned",
+      "ready",
+      "in_progress",
+      "blocked",
+      "in_review",
+      "done",
+      "cancelled",
+    ]),
+  })
+  .strict();
+
+export const WebWorkItemDependenciesSchema = z
+  .object({
+    workItemId: WebUuidSchema,
+    version: z.number().int().positive(),
+    readiness: z.enum(["ready", "blocked_by_dependency"]),
+    allowedTransitions: z.array(
+      z.enum(["planned", "ready", "in_progress", "blocked", "in_review", "done", "cancelled"]),
+    ),
+    dependsOn: z.array(WebWorkItemDependencyRefSchema).max(100),
+    blocks: z.array(WebWorkItemDependencyRefSchema).max(100),
+  })
+  .strict();
+
 export const TransitionTaskBodySchema = z
   .object({
     status: z.enum([

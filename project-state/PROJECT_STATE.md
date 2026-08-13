@@ -151,6 +151,12 @@ every engine authority and protected product rule, and all retained rollback rou
   Task to the authenticated employee, saves a versioned employee-owned draft on that device, clears
   it only after successful creation, and immediately opens the authoritative Task detail. Creating
   the Task does not create Evidence, an Update, or Project progress.
+- P2-05 is complete: employees can see which same-Project Tasks a Task depends on and which Tasks it
+  blocks, edit those links through the protected Work Items boundary, and see an explicit readiness
+  state. Unfinished prerequisites prevent ready/active/review/done transitions; cycles and
+  cross-Project dependencies are rejected. The Codex dogfood journey now shows the connected-detail
+  Task waiting for the reviewed Work-query bundle, without converting Task state into Project
+  progress or employee evaluation.
 
 ## Active Risks
 
@@ -179,10 +185,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Execute P2-05 dependency parity through the existing Work Items domain, then continue toward Board
-and Calendar interaction parity. Continue dogfooding with Codex and the
-real Project, keep Pull Requests #29 and #30 unmerged, and retain Board, Calendar, and legacy rollback
-routes.
+Continue with Board interaction parity as the next bounded Work bundle, followed by Calendar parity.
+Keep dogfooding with Codex and the real Project, keep Pull Requests #29 and #30 unmerged, and retain
+Board, Calendar, and legacy rollback routes.
 
 ## Critical References
 

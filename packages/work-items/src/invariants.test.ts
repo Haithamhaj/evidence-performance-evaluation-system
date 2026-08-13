@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertWorkItemScope,
   assertWorkItemTransition,
+  getDependencyAwareWorkItemTransitions,
   getAllowedWorkItemTransitions,
 } from "./invariants.js";
 
@@ -10,6 +11,16 @@ describe("work item invariants", () => {
   it("publishes the same authoritative next states used by transition validation", () => {
     expect(getAllowedWorkItemTransitions("planned")).toEqual(["ready", "cancelled"]);
     expect(getAllowedWorkItemTransitions("done")).toEqual([]);
+  });
+
+  it("removes start and completion paths while an unfinished dependency remains", () => {
+    expect(getDependencyAwareWorkItemTransitions("planned", true)).toEqual(["cancelled"]);
+    expect(getDependencyAwareWorkItemTransitions("ready", true)).toEqual(["blocked", "cancelled"]);
+    expect(getDependencyAwareWorkItemTransitions("blocked", false)).toEqual([
+      "ready",
+      "in_progress",
+      "cancelled",
+    ]);
   });
 
   it("requires a Project and a Workstream from the same Project", () => {

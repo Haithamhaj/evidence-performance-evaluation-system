@@ -461,6 +461,7 @@ const codexWorkItems = [
   },
 ];
 workItems.push(...codexWorkItems);
+const workItemDependencies = new Map([[codexWorkItems[2].id, [codexWorkItems[0].id]]]);
 timelineItems.push(...initialSliceFourTimeline());
 
 const myWork = {
@@ -1881,6 +1882,16 @@ const server = createServer(async (request, response) => {
       ]),
     });
   }
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/work-items\/[0-9a-f-]+\/dependencies$/u.test(url.pathname)
+  ) {
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
+    return item === undefined
+      ? json(response, 404, { messageKey: "errors.notFound" })
+      : json(response, 200, workItemDependencyResponse(item));
+  }
   if (request.method === "GET" && /^\/api\/v1\/work-items\/[0-9a-f-]+$/u.test(url.pathname)) {
     const workItemId = url.pathname.split("/")[4];
     const item = workItems.find(({ id }) => id === workItemId);
@@ -2007,6 +2018,30 @@ const server = createServer(async (request, response) => {
     return json(response, 200, item);
   }
   if (
+    request.method === "PATCH" &&
+    /^\/api\/v1\/work-items\/[0-9a-f-]+\/dependencies$/u.test(url.pathname)
+  ) {
+    const body = await readJson(request);
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
+    const dependencyIds = body?.dependsOnWorkItemIds;
+    if (
+      item === undefined ||
+      body?.expectedVersion !== item.version ||
+      !Array.isArray(dependencyIds) ||
+      dependencyIds.some((id) => {
+        const candidate = workItems.find((entry) => entry.id === id);
+        return candidate === undefined || candidate.projectId !== item.projectId || id === item.id;
+      })
+    ) {
+      return json(response, 409, { messageKey: "errors.workItems.versionConflict" });
+    }
+    workItemDependencies.set(item.id, [...new Set(dependencyIds)]);
+    item.version += 1;
+    item.updatedAt = new Date().toISOString();
+    return json(response, 200, workItemDependencyResponse(item));
+  }
+  if (
     request.method === "POST" &&
     /^\/api\/v1\/work-items\/[0-9a-f-]+\/transitions$/u.test(url.pathname)
   ) {
@@ -2021,6 +2056,12 @@ const server = createServer(async (request, response) => {
       !["ready", "in_progress", "blocked", "in_review", "done", "cancelled"].includes(body.status)
     ) {
       return json(response, 400, { messageKey: "errors.validation" });
+    }
+    if (
+      ["ready", "in_progress", "in_review", "done"].includes(body.status) &&
+      unresolvedWorkItemDependencies(item).length > 0
+    ) {
+      return json(response, 409, { messageKey: "errors.workItems.dependencyBlocked" });
     }
     item.status = body.status;
     item.allowedTransitions = workItemTransitions(item.status);
@@ -2638,6 +2679,37 @@ function json(response, status, body) {
     "cache-control": "no-store",
   });
   response.end(JSON.stringify(body));
+}
+
+function unresolvedWorkItemDependencies(item) {
+  return (workItemDependencies.get(item.id) ?? [])
+    .map((id) => workItems.find((candidate) => candidate.id === id))
+    .filter(
+      (candidate) => candidate !== undefined && !["done", "cancelled"].includes(candidate.status),
+    );
+}
+
+function workItemDependencyResponse(item) {
+  const dependsOn = (workItemDependencies.get(item.id) ?? [])
+    .map((id) => workItems.find((candidate) => candidate.id === id))
+    .filter((candidate) => candidate !== undefined)
+    .map(({ id, title, status }) => ({ id, title, status }));
+  const blocks = workItems
+    .filter((candidate) => (workItemDependencies.get(candidate.id) ?? []).includes(item.id))
+    .map(({ id, title, status }) => ({ id, title, status }));
+  const blocked = unresolvedWorkItemDependencies(item).length > 0;
+  return {
+    workItemId: item.id,
+    version: item.version,
+    readiness: blocked ? "blocked_by_dependency" : "ready",
+    allowedTransitions: blocked
+      ? workItemTransitions(item.status).filter(
+          (status) => !["ready", "in_progress", "in_review", "done"].includes(status),
+        )
+      : workItemTransitions(item.status),
+    dependsOn,
+    blocks,
+  };
 }
 
 function empty(response, status) {

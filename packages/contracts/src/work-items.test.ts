@@ -10,6 +10,7 @@ import {
   PrivateInboxItemSchema,
   PromotePrivateInboxInputSchema,
   TransitionWorkItemInputSchema,
+  WorkItemDependenciesSchema,
   UpdateWorkItemInputSchema,
   WorkItemDetailSchema,
 } from "./work-items.js";
@@ -116,6 +117,32 @@ describe("work item contracts", () => {
         assigneeId: null,
         expectedVersion: 4,
         reason: "Remove responsibility",
+      }),
+    ).toThrow();
+  });
+
+  it("keeps dependency readiness separate from progress and performance", () => {
+    expect(
+      WorkItemDependenciesSchema.parse({
+        workItemId: crypto.randomUUID(),
+        version: 2,
+        readiness: "blocked_by_dependency",
+        allowedTransitions: ["blocked", "cancelled"],
+        dependsOn: [
+          { id: crypto.randomUUID(), title: "Finish the engine contract", status: "in_progress" },
+        ],
+        blocks: [],
+      }),
+    ).toMatchObject({ readiness: "blocked_by_dependency" });
+    expect(() =>
+      WorkItemDependenciesSchema.parse({
+        workItemId: crypto.randomUUID(),
+        version: 2,
+        readiness: "ready",
+        allowedTransitions: [],
+        dependsOn: [],
+        blocks: [],
+        progressPercent: 80,
       }),
     ).toThrow();
   });

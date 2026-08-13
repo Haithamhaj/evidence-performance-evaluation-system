@@ -17,6 +17,16 @@ export function getAllowedWorkItemTransitions(status: WorkItemStatus): readonly 
   return allowedTransitions[status];
 }
 
+export function getDependencyAwareWorkItemTransitions(
+  status: WorkItemStatus,
+  hasUnresolvedDependency: boolean,
+): readonly WorkItemStatus[] {
+  if (!hasUnresolvedDependency) return getAllowedWorkItemTransitions(status);
+  return getAllowedWorkItemTransitions(status).filter(
+    (target) => !["ready", "in_progress", "in_review", "done"].includes(target),
+  );
+}
+
 export function assertWorkItemScope(input: {
   projectId: string;
   workstream: Readonly<{ id: string; projectId: string }> | null;

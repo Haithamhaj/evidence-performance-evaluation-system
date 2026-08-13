@@ -2,6 +2,7 @@ import {
   AppError,
   AssignWorkItemInputSchema,
   CreateWorkItemInputSchema,
+  ReplaceWorkItemDependenciesInputSchema,
   TransitionWorkItemInputSchema,
   UpdateWorkItemInputSchema,
   WorkItemDetailSchema,
@@ -11,6 +12,7 @@ import { z } from "zod";
 import {
   assertWorkItemScope,
   assertWorkItemTransition,
+  getDependencyAwareWorkItemTransitions,
   getAllowedWorkItemTransitions,
 } from "./invariants.js";
 import {
@@ -55,6 +57,10 @@ const AssignCommandSchema = CommandBaseSchema.extend({
 const UpdateCommandSchema = CommandBaseSchema.extend({
   workItemId: z.string().uuid(),
   input: UpdateWorkItemInputSchema,
+}).strict();
+const ReplaceDependenciesCommandSchema = CommandBaseSchema.extend({
+  workItemId: z.string().uuid(),
+  input: ReplaceWorkItemDependenciesInputSchema,
 }).strict();
 
 export class WorkItemService {
@@ -230,6 +236,16 @@ export class WorkItemService {
       const item = await loadAuthorizedItem(transaction, parsed.actor, parsed.workItemId, current);
       if (item.version !== parsed.input.expectedVersion) throw versionError();
       assertWorkItemTransition(item.status, parsed.input.status);
+      if (["ready", "in_progress", "in_review", "done"].includes(parsed.input.status)) {
+        const unresolved = await transaction.workItemDependency.findFirst({
+          where: {
+            workItemId: item.id,
+            dependsOnWorkItem: { status: { notIn: ["done", "cancelled"] } },
+          },
+          select: { id: true },
+        });
+        if (unresolved !== null) throw dependencyBlockedError();
+      }
       const updated = await transaction.workItem.update({
         where: { id: item.id },
         data: { status: parsed.input.status, version: { increment: 1 } },
@@ -287,6 +303,87 @@ export class WorkItemService {
         toAssigneeId: updated.assigneeId,
       });
       return serialize(updated);
+    });
+  }
+
+  async replaceDependencies(
+    command: unknown,
+  ): Promise<import("@evaluation/contracts").WorkItemDependencies> {
+    const parsed = ReplaceDependenciesCommandSchema.parse(command);
+    const current = validClock(this.clock());
+    return serializable(this.client, async (transaction) => {
+      await lockWorkItem(transaction, parsed.workItemId);
+      const item = await loadAuthorizedItem(transaction, parsed.actor, parsed.workItemId, current);
+      if (item.version !== parsed.input.expectedVersion) throw versionError();
+      if (["done", "cancelled"].includes(item.status)) throw stateError();
+      const dependencyIds = [...new Set(parsed.input.dependsOnWorkItemIds)];
+      if (dependencyIds.includes(item.id)) throw dependencyCycleError();
+      const projectItems = await transaction.workItem.findMany({
+        where: { projectId: item.projectId },
+        select: { id: true, title: true, status: true },
+      });
+      const projectIds = new Set(projectItems.map(({ id }) => id));
+      if (dependencyIds.some((id) => !projectIds.has(id))) throw dependencyScopeError();
+      const relations = await transaction.workItemDependency.findMany({
+        where: { workItem: { projectId: item.projectId } },
+        select: { workItemId: true, dependsOnWorkItemId: true },
+      });
+      const adjacency = new Map<string, string[]>();
+      for (const relation of relations) {
+        if (relation.workItemId === item.id) continue;
+        const values = adjacency.get(relation.workItemId) ?? [];
+        values.push(relation.dependsOnWorkItemId);
+        adjacency.set(relation.workItemId, values);
+      }
+      adjacency.set(item.id, dependencyIds);
+      if (dependencyIds.some((id) => reaches(id, item.id, adjacency))) {
+        throw dependencyCycleError();
+      }
+      await transaction.workItemDependency.deleteMany({ where: { workItemId: item.id } });
+      if (dependencyIds.length > 0) {
+        await transaction.workItemDependency.createMany({
+          data: dependencyIds.map((dependsOnWorkItemId) => ({
+            workItemId: item.id,
+            dependsOnWorkItemId,
+          })),
+        });
+      }
+      const updated = await transaction.workItem.update({
+        where: { id: item.id },
+        data: { version: { increment: 1 } },
+      });
+      await this.auditWriter.append(transaction, {
+        eventType: "work_item.changed",
+        actor: { kind: "human", id: parsed.actor.userId },
+        effectiveSubjectId: item.assigneeId ?? parsed.actor.userId,
+        scopeType: "project",
+        scopeId: item.projectId,
+        targetType: "work_item",
+        targetId: item.id,
+        reason: parsed.input.reason,
+        safeDiff: { changedFields: ["dependencies"], dependencyCount: dependencyIds.length },
+        correlationId: parsed.correlationId,
+        source: "api",
+      });
+      const blocks = await transaction.workItemDependency.findMany({
+        where: { dependsOnWorkItemId: item.id },
+        select: { workItem: { select: { id: true, title: true, status: true } } },
+      });
+      const byId = new Map(projectItems.map((entry) => [entry.id, entry]));
+      const dependsOn = dependencyIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+      return (await import("@evaluation/contracts")).WorkItemDependenciesSchema.parse({
+        workItemId: item.id,
+        version: updated.version,
+        readiness: dependsOn.some(({ status }) => !["done", "cancelled"].includes(status))
+          ? "blocked_by_dependency"
+          : "ready",
+        allowedTransitions: getDependencyAwareWorkItemTransitions(
+          item.status,
+          dependsOn.some(({ status }) => !["done", "cancelled"].includes(status)),
+        ),
+        dependsOn,
+        blocks: blocks.map(({ workItem }) => workItem),
+      });
     });
   }
 
@@ -463,6 +560,31 @@ export class WorkItemService {
       return serialize(detailed);
     });
   }
+}
+
+function reaches(start: string, target: string, adjacency: ReadonlyMap<string, readonly string[]>) {
+  const pending = [start];
+  const visited = new Set<string>();
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    if (current === target) return true;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    pending.push(...(adjacency.get(current) ?? []));
+  }
+  return false;
+}
+
+function dependencyBlockedError() {
+  return new AppError("WORK_ITEM_DEPENDENCY_BLOCKED", "errors.workItems.dependencyBlocked", 409);
+}
+
+function dependencyCycleError() {
+  return new AppError("WORK_ITEM_DEPENDENCY_CYCLE", "errors.workItems.dependencyCycle", 409);
+}
+
+function dependencyScopeError() {
+  return new AppError("WORK_ITEM_DEPENDENCY_SCOPE", "errors.workItems.dependencyScope", 400);
 }
 
 function serialize(item: {
