@@ -14,12 +14,17 @@ import { DailyWorkQueryService } from "../daily-work/daily-work-query.service.js
 import { DailyWorkModule } from "../daily-work/daily-work.module.js";
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { ExperienceOrchestrationController } from "./experience-orchestration.controller.js";
+import { CaptureUnderstandingController } from "./capture-understanding.controller.js";
+import {
+  CAPTURE_UNDERSTANDING_ROUTE,
+  CaptureUnderstandingService,
+} from "./capture-understanding.service.js";
 import {
   EXPERIENCE_PREPARE_ROUTE,
   ExperienceOrchestratorService,
 } from "./experience-orchestrator.service.js";
 import { PrismaPreparedExperiencePersistence } from "./prisma-prepared-experience.persistence.js";
-import { EXPERIENCE_ORCHESTRATOR } from "./tokens.js";
+import { CAPTURE_UNDERSTANDING, EXPERIENCE_ORCHESTRATOR } from "./tokens.js";
 
 type Database = ReturnType<typeof createDatabaseClient>;
 const EXPERIENCE_ORCHESTRATION_DATABASE = Symbol("EXPERIENCE_ORCHESTRATION_DATABASE");
@@ -30,7 +35,7 @@ export class ExperienceOrchestrationModule {}
 
 Module({
   imports: [AuthModule, ContextIntelligenceModule, DailyWorkModule],
-  controllers: [ExperienceOrchestrationController],
+  controllers: [ExperienceOrchestrationController, CaptureUnderstandingController],
   providers: [
     {
       provide: EXPERIENCE_ORCHESTRATION_DATABASE,
@@ -82,6 +87,35 @@ Module({
           },
           systemId: await resolveSystemAiScopeId(database, EXPERIENCE_PREPARE_ROUTE),
           aiEnabled: process.env.EXPERIENCE_ORCHESTRATOR_AI_ENABLED === "true",
+        }),
+    },
+    {
+      provide: CAPTURE_UNDERSTANDING,
+      inject: [EXPERIENCE_ORCHESTRATION_DATABASE, DailyWorkQueryService],
+      useFactory: async (database: Database, dailyWork: DailyWorkQueryService) =>
+        new CaptureUnderstandingService({
+          context: dailyWork,
+          router: createDeferredRuntimeAiRouter(() =>
+            createRuntimeAiRouter({
+              database,
+              secretResolver: new EnvironmentAiCredentialSecretResolver(),
+            }),
+          ),
+          promptArtifacts: {
+            read: (routeKey, version) =>
+              database.analysisPromptArtifact.findUnique({
+                where: { routeKey_version: { routeKey, version } },
+                select: {
+                  id: true,
+                  routeKey: true,
+                  version: true,
+                  bodyHash: true,
+                  trustedBody: true,
+                },
+              }),
+          },
+          systemId: await resolveSystemAiScopeId(database, CAPTURE_UNDERSTANDING_ROUTE),
+          aiEnabled: process.env.CAPTURE_UNDERSTANDING_AI_ENABLED === "true",
         }),
     },
     WorkItemsPolicyGuard,

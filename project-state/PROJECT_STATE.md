@@ -121,6 +121,11 @@ contract-verification surfaces with the final daily journey.
 - The governing visual specification and targets are stored in
   `docs/superpowers/specs/2026-08-13-ai-native-final-employee-experience-design.md` and
   `docs/product/screenshots/ai-native-final-design/`.
+- T095–T099 are complete. Universal Capture now accepts mixed text, URL, code, voice/file/image
+  inputs without source-type classification, prepares one authorized interpretation through the AI
+  Router, asks one missing question at a time, and preserves a private/manual recovery path. It
+  creates no official Update, Evidence, Work Item, progress, or evaluation record before the T100
+  employee review and confirmation gate.
 
 ## Active Risks
 
@@ -149,9 +154,9 @@ contract-verification surfaces with the final daily journey.
 
 ## Next Recommended Action
 
-Execute the bounded final employee-experience plan in visible, reversible bundles, beginning with
-the shared composition model and Home Overview. Keep Pull Request #29 unmerged and retain all legacy
-routes until the running end-to-end journey passes Product Owner acceptance.
+Implement T100 Review & Confirmation, then run T101 as one authenticated Home → Project → Work →
+Capture → Clarify → Review journey. Keep Pull Request #29 unmerged and retain all legacy routes until
+that running end-to-end journey passes Product Owner acceptance.
 
 ## Critical References
 

@@ -21,6 +21,14 @@ import {
   EXPERIENCE_PREPARE_TRUSTED_PROMPT,
   ExperiencePreparedAiOutputSchema,
 } from "../apps/api/src/experience-orchestration/experience-orchestrator.service.js";
+import {
+  CAPTURE_UNDERSTANDING_INPUT_SCHEMA_VERSION,
+  CAPTURE_UNDERSTANDING_OUTPUT_SCHEMA_VERSION,
+  CAPTURE_UNDERSTANDING_PROMPT_VERSION,
+  CAPTURE_UNDERSTANDING_ROUTE,
+  CAPTURE_UNDERSTANDING_TRUSTED_PROMPT,
+  CaptureUnderstandingAiOutputSchema,
+} from "../apps/api/src/experience-orchestration/capture-understanding.service.js";
 
 const ArgumentsSchema = z
   .object({
@@ -41,6 +49,14 @@ const governedRoutes = [
     promptTemplateVersion: EXPERIENCE_PREPARE_PROMPT_VERSION,
     trustedPrompt: EXPERIENCE_PREPARE_TRUSTED_PROMPT,
     outputSchema: ExperiencePreparedAiOutputSchema,
+  },
+  {
+    routeKey: CAPTURE_UNDERSTANDING_ROUTE,
+    inputSchemaVersion: CAPTURE_UNDERSTANDING_INPUT_SCHEMA_VERSION,
+    outputSchemaVersion: CAPTURE_UNDERSTANDING_OUTPUT_SCHEMA_VERSION,
+    promptTemplateVersion: CAPTURE_UNDERSTANDING_PROMPT_VERSION,
+    trustedPrompt: CAPTURE_UNDERSTANDING_TRUSTED_PROMPT,
+    outputSchema: CaptureUnderstandingAiOutputSchema,
   },
 ] as const;
 
@@ -242,6 +258,9 @@ async function registerPrompt(
 }
 
 function expectedOutputBehavior(routeKey: string): string {
+  if (routeKey === CAPTURE_UNDERSTANDING_ROUTE) {
+    return "Returns one private, source-backed Capture interpretation with at most one clarification and no command, rating, readiness, or progress authority.";
+  }
   if (routeKey === EXPERIENCE_PREPARE_ROUTE) {
     return "Returns one editable source-backed action or clarification draft with no command, rating, readiness, or progress authority.";
   }
@@ -255,6 +274,9 @@ function expectedOutputBehavior(routeKey: string): string {
 }
 
 function expectedPromptBehavior(routeKey: string): string {
+  if (routeKey === CAPTURE_UNDERSTANDING_ROUTE) {
+    return "One bounded private Capture interpretation from authorized candidates; employee review and confirmation remain mandatory.";
+  }
   if (routeKey === EXPERIENCE_PREPARE_ROUTE) {
     return "One bounded employee-reviewable draft selected from already-authorized sources; human action remains mandatory.";
   }

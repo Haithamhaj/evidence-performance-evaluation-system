@@ -974,7 +974,7 @@ The detailed authority is
 
 ## T099 — Build the Intelligent Universal Capture Journey
 
-**Status:** Not started
+**Status:** Complete — the approved mixed-input sheet, AI Router-only interpretation, one-question clarification, private fallback, provider recovery, desktop/mobile visual proof, and no-write-before-confirmation boundary are verified.
 **Priority:** P0
 **Dependencies:** T095–T098
 **Purpose:** Let the employee share text, voice, URL, image, code, or file; prepare one source-backed interpretation; ask one missing question at a time; and preserve a private fallback.

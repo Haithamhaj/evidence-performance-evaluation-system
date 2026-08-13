@@ -109,6 +109,49 @@ describe("daily-work same-origin gateway", () => {
     });
   });
 
+  it("forwards only the bounded private capture understanding input", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue(captureUnderstanding());
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/capture-understand", {
+        method: "POST",
+        body: JSON.stringify({
+          locale: "en",
+          rawText: "Atlas Delivery API fallback works in staging.",
+          sources: [{ kind: "link", label: "https://github.com/atlas/voice/pull/184" }],
+        }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "capture-understand"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/v1/experience-orchestration/capture/understand",
+      body: {
+        locale: "en",
+        rawText: "Atlas Delivery API fallback works in staging.",
+        sources: [{ kind: "link", label: "https://github.com/atlas/voice/pull/184" }],
+      },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/capture-understand", {
+        method: "POST",
+        body: JSON.stringify({
+          locale: "en",
+          rawText: "Private draft",
+          sources: [],
+          actorId: projectId,
+        }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "capture-understand"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
   it("preserves an upstream Project-decision conflict for stale recovery", async () => {
     mocks.open.mockReturnValue({
       id: "44444444-4444-4444-8444-444444444444",
@@ -1040,5 +1083,22 @@ function workItem(id: string) {
     checklist: [],
     collaboratorIds: [],
     allowedActions: ["edit", "transition", "assign", "add_update"],
+  };
+}
+
+function captureUnderstanding() {
+  return {
+    schemaVersion: "capture-understanding.v1",
+    likelyProject: { id: projectId, name: "Atlas Delivery", confidence: "high" },
+    likelyMeaning: "suggested_evidence",
+    relatedWorkItemId: null,
+    relatedComponentId: null,
+    sourceRefs: [],
+    clarification: {
+      question: "What measured API error rate did you observe, and where can it be verified?",
+      missingField: "kpi_measurement",
+    },
+    confidence: "high",
+    createsOfficialRecord: false,
   };
 }

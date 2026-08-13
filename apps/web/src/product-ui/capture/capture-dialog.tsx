@@ -1,11 +1,17 @@
 "use client";
 
-import { ActionButton, FocusedDialog } from "@evaluation/ui";
-import { createElement, useState } from "react";
+import { ActionButton, FocusedDialog, ProductIcon } from "@evaluation/ui";
+import { createElement, useRef, useState } from "react";
 
+import { understandCapture } from "../../platform/capture-understanding-api";
+import type {
+  CaptureUnderstandingInput,
+  WebCaptureUnderstanding,
+} from "../../platform/capture-understanding-contracts";
 import styles from "./capture-dialog.module.css";
 
 type SourceType = "text" | "link" | "code" | "file" | "image";
+type Source = CaptureUnderstandingInput["sources"][number] & Readonly<{ file?: File }>;
 
 export function CaptureDialog({
   catalog,
@@ -13,6 +19,7 @@ export function CaptureDialog({
   locale,
   onSaved,
   save,
+  understand = understandCapture,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
   disabled?: boolean;
@@ -21,28 +28,75 @@ export function CaptureDialog({
   save: (
     input: Readonly<{ sourceType: SourceType; text: string; sourceUploadId: string | null }>,
   ) => Promise<void>;
+  understand?: (input: CaptureUnderstandingInput) => Promise<WebCaptureUnderstanding>;
 }>) {
-  const [sourceType, setSourceType] = useState<SourceType>("text");
   const [text, setText] = useState("");
-  const [reviewing, setReviewing] = useState(false);
+  const [sources, setSources] = useState<readonly Source[]>([]);
+  const [understanding, setUnderstanding] = useState<WebCaptureUnderstanding | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const imageInput = useRef<HTMLInputElement>(null);
+  const voiceInput = useRef<HTMLInputElement>(null);
   if (disabled) return null;
-  const savePrivate = async () => {
+
+  const resetInterpretation = () => {
+    setUnderstanding(null);
+    setAnswer("");
+    setError(false);
+  };
+  const addFile = (kind: Source["kind"], file: File | undefined) => {
+    if (file === undefined) return;
+    setSources((current) => [...current, { kind, label: file.name, file }]);
+    resetInterpretation();
+  };
+  const runUnderstanding = async () => {
+    setBusy(true);
     setError(false);
     try {
-      const sourceUploadId = file === null ? null : await stageFile(file);
-      await save({ sourceType, text: file === null ? text.trim() : file.name, sourceUploadId });
+      setUnderstanding(
+        await understand({
+          locale,
+          rawText: text.trim(),
+          sources: inferredSources(text, sources),
+        }),
+      );
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const savePrivate = async () => {
+    setBusy(true);
+    setError(false);
+    try {
+      const upload = sources.find(
+        (source) =>
+          (source.kind === "file" || source.kind === "image") && source.file !== undefined,
+      );
+      const sourceUploadId = upload?.file === undefined ? null : await stageFile(upload.file);
+      await save({
+        sourceType: privateSourceType(text, upload),
+        text: text.trim() || sources.map(({ label }) => label).join(", "),
+        sourceUploadId,
+      });
       setText("");
-      setFile(null);
-      setReviewing(false);
+      setSources([]);
+      setUnderstanding(null);
+      setAnswer("");
       onSaved();
     } catch {
       setError(true);
+    } finally {
+      setBusy(false);
     }
   };
+
   return createElement(FocusedDialog, {
     closeLabel: catalog["actions.close"],
+    layout: "workspace",
     title: catalog["capture.title"],
     trigger: createElement(ActionButton, {
       "aria-label": catalog["shell.global.capture"],
@@ -50,97 +104,266 @@ export function CaptureDialog({
       variant: "primary",
     }),
     children: (
-      <form
-        className={styles.form!}
-        dir={locale === "ar" ? "rtl" : "ltr"}
-        onSubmit={(event) => {
-          event.preventDefault();
-          reviewing ? void savePrivate() : setReviewing(true);
-        }}
-      >
-        <p className={styles.privateHint!}>{catalog["capture.privateHint"]}</p>
-        <div className={styles.field!}>
-          <label className={styles.label!} htmlFor="capture-source">
-            {catalog["capture.source"]}
+      <div className={styles.workspace!} dir={locale === "ar" ? "rtl" : "ltr"}>
+        <header className={styles.intro!}>
+          <p>{catalog["capture.subtitle"]}</p>
+          <ol aria-label={catalog["capture.title"]} className={styles.steps!}>
+            <li className={styles.activeStep!}>1&nbsp; {catalog["capture.step.capture"]}</li>
+            <li className={understanding === null ? "" : styles.activeStep!}>
+              2&nbsp; {catalog["capture.step.clarify"]}
+            </li>
+            <li>3&nbsp; {catalog["capture.step.review"]}</li>
+          </ol>
+        </header>
+
+        <section className={styles.composer!}>
+          <label className={styles.srOnly!} htmlFor="capture-composer">
+            {catalog["capture.composerLabel"]}
           </label>
-          <select
-            className={styles.control!}
-            id="capture-source"
+          <textarea
+            aria-label={catalog["capture.composerLabel"]}
+            id="capture-composer"
+            maxLength={8_000}
             onChange={(event) => {
-              setSourceType(event.target.value as SourceType);
-              setError(false);
+              setText(event.target.value);
+              resetInterpretation();
             }}
-            value={sourceType}
-          >
-            <option value="text">{catalog["capture.source.text"]}</option>
-            <option value="link">{catalog["capture.source.link"]}</option>
-            <option value="code">{catalog["capture.source.code"]}</option>
-            <option value="file">{catalog["capture.source.file"]}</option>
-            <option value="image">{catalog["capture.source.image"]}</option>
-          </select>
-        </div>
-        {sourceType === "file" || sourceType === "image" ? (
-          <div className={styles.field!}>
-            <label className={styles.label!} htmlFor="capture-file">
-              {catalog["capture.file"]}
-            </label>
-            <input
-              accept={
-                sourceType === "image" ? "image/png,image/jpeg,image/webp" : ".md,.txt,.docx,.pdf"
-              }
-              className={`${styles.control!} ${styles.fileControl!}`}
-              id="capture-file"
-              onChange={(event) => {
-                setFile(event.target.files?.[0] ?? null);
-                setError(false);
-              }}
-              required
-              type="file"
-            />
+            placeholder={catalog["capture.composerPlaceholder"]}
+            value={text}
+          />
+          {sources.length > 0 ? (
+            <ul className={styles.sources!}>
+              {sources.map((source, index) => (
+                <li key={`${source.kind}-${source.label}-${index}`}>
+                  {createElement(ProductIcon, {
+                    name:
+                      source.kind === "voice"
+                        ? "microphone"
+                        : source.kind === "file"
+                          ? "paperclip"
+                          : source.kind,
+                    size: "small",
+                  })}
+                  <span>{source.label}</span>
+                  <button
+                    aria-label={catalog["capture.removeSource"].replace("{source}", source.label)}
+                    onClick={() => {
+                      setSources((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      );
+                      resetInterpretation();
+                    }}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className={styles.composerTools!}>
+            <div className={styles.sourceActions!}>
+              <SourceButton
+                label={catalog["capture.addVoice"]}
+                name="microphone"
+                onClick={() => voiceInput.current?.click()}
+              />
+              <SourceButton
+                label={catalog["capture.addLink"]}
+                name="link"
+                onClick={() =>
+                  setText((current) => `${current}${current === "" ? "" : "\n"}https://`)
+                }
+              />
+              <SourceButton
+                label={catalog["capture.addImage"]}
+                name="image"
+                onClick={() => imageInput.current?.click()}
+              />
+              <SourceButton
+                label={catalog["capture.addCode"]}
+                name="code"
+                onClick={() =>
+                  setText((current) => `${current}${current === "" ? "" : "\n"}\`\`\`\n\n\`\`\``)
+                }
+              />
+              <SourceButton
+                label={catalog["capture.addFile"]}
+                name="paperclip"
+                onClick={() => fileInput.current?.click()}
+              />
+            </div>
+            <span>{catalog["capture.characterCount"].replace("{count}", String(text.length))}</span>
           </div>
-        ) : (
-          <div className={styles.field!}>
-            <label className={styles.label!} htmlFor="capture-text">
-              {
-                catalog[
-                  sourceType === "link"
-                    ? "capture.link"
-                    : sourceType === "code"
-                      ? "capture.code"
-                      : "capture.note"
-                ]
-              }
+          <input
+            accept="audio/*"
+            className={styles.srOnly!}
+            onChange={(event) => addFile("voice", event.target.files?.[0])}
+            ref={voiceInput}
+            type="file"
+          />
+          <input
+            accept="image/png,image/jpeg,image/webp"
+            className={styles.srOnly!}
+            onChange={(event) => addFile("image", event.target.files?.[0])}
+            ref={imageInput}
+            type="file"
+          />
+          <input
+            accept=".md,.txt,.docx,.pdf"
+            className={styles.srOnly!}
+            onChange={(event) => addFile("file", event.target.files?.[0])}
+            ref={fileInput}
+            type="file"
+          />
+        </section>
+
+        {busy && understanding === null ? (
+          <p aria-live="polite" className={styles.loading!}>
+            {catalog["capture.understanding"]}
+          </p>
+        ) : null}
+        {understanding === null ? null : (
+          <UnderstandingPanel catalog={catalog} understanding={understanding} />
+        )}
+        {understanding?.clarification === null || understanding === null ? null : (
+          <section className={styles.clarification!}>
+            <h3>
+              {createElement(ProductIcon, { name: "sparkles", size: "small" })}
+              {catalog["capture.clarification"]}
+            </h3>
+            <p>{understanding.clarification.question}</p>
+            <label className={styles.srOnly!} htmlFor="capture-answer">
+              {catalog["capture.answer"]}
             </label>
             <textarea
-              className={`${styles.control!} ${styles.textarea!}`}
-              id="capture-text"
-              onChange={(event) => {
-                setText(event.target.value);
-                setError(false);
-              }}
-              required
-              value={text}
+              id="capture-answer"
+              maxLength={1_000}
+              onChange={(event) => setAnswer(event.target.value)}
+              placeholder={catalog["capture.answer"]}
+              value={answer}
             />
-          </div>
+            <button className={styles.secondaryAction!} onClick={() => setAnswer("")} type="button">
+              {catalog["capture.notYet"]}
+            </button>
+          </section>
         )}
-        {reviewing ? <p className={styles.reviewHint!}>{catalog["capture.reviewHint"]}</p> : null}
+        <p className={styles.privateNotice!}>
+          {createElement(ProductIcon, { name: "shield", size: "small" })}
+          {catalog["capture.noRecord"]}
+        </p>
         {error ? (
           <p className={styles.recovery!} role="alert">
             {catalog["capture.recovery"]}
           </p>
         ) : null}
-        <button
-          className={styles.action!}
-          disabled={
-            sourceType === "file" || sourceType === "image" ? file === null : text.trim() === ""
-          }
-          type="submit"
-        >
-          {reviewing ? catalog["capture.savePrivate"] : catalog["capture.reviewSave"]}
-        </button>
-      </form>
+        <footer className={styles.footer!}>
+          <button
+            className={styles.secondaryAction!}
+            disabled={busy || (text.trim() === "" && sources.length === 0)}
+            onClick={() => void savePrivate()}
+            type="button"
+          >
+            {catalog["capture.savePrivate"]}
+          </button>
+          <button
+            className={styles.primaryAction!}
+            disabled={busy || (text.trim() === "" && sources.length === 0)}
+            onClick={() => void runUnderstanding()}
+            type="button"
+          >
+            {understanding === null
+              ? catalog["capture.understand"]
+              : catalog["capture.continueReview"]}
+          </button>
+        </footer>
+      </div>
     ),
   });
+}
+
+// JSX-only references are removed before the repository's base unused-variable rule runs.
+// eslint-disable-next-line no-unused-vars
+function SourceButton({
+  label,
+  name,
+  onClick,
+}: Readonly<{
+  label: string;
+  name: import("@evaluation/ui").ProductIconName;
+  onClick: () => void;
+}>) {
+  return (
+    <button aria-label={label} onClick={onClick} title={label} type="button">
+      {createElement(ProductIcon, { name, size: "medium" })}
+    </button>
+  );
+}
+
+// JSX-only references are removed before the repository's base unused-variable rule runs.
+// eslint-disable-next-line no-unused-vars
+function UnderstandingPanel({
+  catalog,
+  understanding,
+}: Readonly<{
+  catalog: import("@evaluation/localization").Catalog;
+  understanding: WebCaptureUnderstanding;
+}>) {
+  return (
+    <section className={styles.understanding!}>
+      <h3>{catalog["capture.understoodTitle"]}</h3>
+      <dl>
+        <div>
+          <dt>{catalog["capture.likelyProject"]}</dt>
+          <dd>
+            <strong>
+              {understanding.likelyProject?.name ?? catalog["capture.confidence.uncertain"]}
+            </strong>
+            <span>{catalog[`capture.confidence.${understanding.confidence}`]}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>{catalog["capture.likelyMeaning"]}</dt>
+          <dd>{catalog[`capture.meaning.${understanding.likelyMeaning}`]}</dd>
+        </div>
+        <div>
+          <dt>{catalog["capture.relatedWork"]}</dt>
+          <dd>
+            {
+              catalog[
+                understanding.relatedWorkItemId === null
+                  ? "capture.relatedWorkNone"
+                  : "capture.relatedWorkFound"
+              ]
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>{catalog["capture.kpiSignal"]}</dt>
+          <dd>{catalog["capture.kpiMissing"]}</dd>
+        </div>
+        <div>
+          <dt>{catalog["capture.privacy"]}</dt>
+          <dd>{catalog["capture.privateDraft"]}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
+function inferredSources(text: string, sources: readonly Source[]) {
+  const inferred: Source[] = [];
+  if (/https?:\/\//u.test(text))
+    inferred.push({ kind: "link", label: text.match(/https?:\/\/\S+/u)?.[0] ?? "Link" });
+  if (/```/u.test(text)) inferred.push({ kind: "code", label: "Pasted code" });
+  return [...sources.map(({ kind, label }) => ({ kind, label })), ...inferred].slice(0, 20);
+}
+
+function privateSourceType(text: string, upload: Source | undefined): SourceType {
+  if (upload?.kind === "file" || upload?.kind === "image") return upload.kind;
+  if (/https?:\/\//u.test(text)) return "link";
+  if (/```/u.test(text)) return "code";
+  return "text";
 }
 
 async function stageFile(file: File): Promise<string> {

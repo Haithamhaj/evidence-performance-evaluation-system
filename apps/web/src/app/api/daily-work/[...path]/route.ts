@@ -60,6 +60,10 @@ import { z } from "zod";
 
 import { WhatChangedProjectionSchema } from "../../../../platform/experience-events-contracts";
 import { WebPreparedExperienceCompositionSchema } from "../../../../platform/experience-orchestration-contracts";
+import {
+  CaptureUnderstandingInputSchema,
+  WebCaptureUnderstandingSchema,
+} from "../../../../platform/capture-understanding-contracts";
 
 import {
   fetchProtectedUpstream,
@@ -386,6 +390,14 @@ export async function POST(request: Request, context: Context): Promise<NextResp
     return invalid();
   }
   try {
+    if (path.length === 2 && path[0] === "experience" && path[1] === "capture-understand") {
+      const input = CaptureUnderstandingInputSchema.parse(body);
+      return await post(
+        "/api/v1/experience-orchestration/capture/understand",
+        input,
+        WebCaptureUnderstandingSchema,
+      );
+    }
     if (path.length === 1 && path[0] === "private-inbox") {
       return await post(
         "/api/v1/private-inbox",

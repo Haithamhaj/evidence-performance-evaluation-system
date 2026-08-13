@@ -1,49 +1,44 @@
-# Design QA — Final Employee Work Workspace
+# Design QA — Intelligent Universal Capture
 
-- source visual truth path: `docs/product/screenshots/ai-native-final-design/work-approved.png`
-- implementation screenshot path: `docs/product/screenshots/ai-native-final-implementation/t098-work-desktop.png`
-- combined comparison evidence: `docs/product/screenshots/ai-native-final-implementation/t098-work-comparison.png`
-- mobile evidence: `docs/product/screenshots/ai-native-final-implementation/t098-work-mobile.png`
-- viewport: 1487 × 1058 CSS px desktop; 390 × 844 CSS px mobile
-- source pixels: 1487 × 1058
-- implementation pixels: 1487 × 1058 at device scale 1
-- normalization: identical desktop viewport and state; no scaling or density conversion
-- state: authenticated employee `Codex`, English, My tasks, first authoritative Task drawer open
+- source visual truth: `docs/product/screenshots/ai-native-final-design/universal-capture-approved.png`
+- implementation: `docs/product/screenshots/ai-native-final-implementation/t099-clarify-desktop.png`
+- initial capture: `docs/product/screenshots/ai-native-final-implementation/t099-capture-desktop.png`
+- mobile: `docs/product/screenshots/ai-native-final-implementation/t099-capture-mobile.png`
+- provider recovery: `docs/product/screenshots/ai-native-final-implementation/t099-provider-recovery.png`
+- desktop viewport: 1487 × 1056 CSS px; mobile viewport: 390 × 844 CSS px
+- state: authenticated employee, English, mixed URL + text, one clarification question
 
-## Full-view comparison evidence
+## Comparison result
 
-The comparison preserves the approved persistent shell, compact Work hierarchy, explicit create and capture actions, My/Team scope, retained List/Board/Calendar routes, authoritative Task drawer, and progressively disclosed secondary groups. The implementation uses the existing ProductIcon family and no substitute raster or custom SVG assets.
+The implementation preserves the approved right-side workspace sheet, mixed composer, attachment
+actions, three-step orientation, likely Project/meaning/Work/KPI/privacy summary, one focused
+clarification, and private/continue actions. It uses the existing ProductIcon family; no mock assets,
+branding, raster substitutes, or copied external components are used.
 
-## Focused region evidence
+## Findings corrected
 
-- Daily hierarchy: Needs My Action, Today, and Overdue render first; Waiting/Blocked and Upcoming remain collapsed until requested.
-- Task drawer: selection is URL-owned, loads the authoritative Task, exposes only valid transitions, and returns focus to the originating row.
-- Mobile: 390 px evidence keeps the two primary actions, Task groups, and existing bottom navigation visible without horizontal overflow.
+1. P1 — the previous Capture required choosing a source type and did not show the assistant's
+   interpretation. Replaced by one mixed composer and source-backed understanding panel.
+2. P1 — the sheet was initially wider than the approved target. Reduced the desktop sheet to 52vw,
+   matching the reference split while retaining a full-width mobile bottom sheet.
+3. P1 — provider failure needed an honest usable state. The raw draft remains visible, the employee
+   can retry or save privately, and no official record is claimed.
+4. P2 — technical source IDs could leak into the daily UI. The sheet renders human labels and
+   confidence only; opaque identifiers stay inside validated command payloads.
 
-## Findings and comparison history
+## Required behavior evidence
 
-1. P1 — the first Work pass rendered as a narrow centered column and did not communicate a daily workspace.
-   - Fix: the bounded Work grid now consumes the available content width while retaining a readable maximum.
-   - Post-fix evidence: the 1487 px capture uses the full work canvas without horizontal overflow.
-2. P1 — Work originally exposed one undifferentiated list.
-   - Fix: source-backed daily signals now produce the exact approved hierarchy with deterministic de-duplication.
-   - Post-fix evidence: every Task appears in one group only, with the first three groups immediately readable.
-3. P2 — the create form competed with the daily list.
-   - Fix: Add task reveals the existing form on demand; Share anything opens the existing private Capture dialog.
-   - Post-fix evidence: both shortcuts were exercised in the authenticated preview.
+- No official Update, Evidence, Work Item, progress, or evaluation record is created by Understand.
+- One missing question is displayed at a time.
+- Project candidates are server-authorized before they reach the AI route.
+- Uploaded or pasted content is treated as bounded untrusted input.
+- Keyboard close/focus, visible focus, reduced motion, English/Arabic catalogs, RTL, and 390px layout
+  remain supported.
 
-## Required fidelity surfaces
+## Deferred to T100 by approved scope
 
-- Fonts and typography: existing Geist product typography retained with compact, glanceable row hierarchy at both viewports.
-- Spacing and layout rhythm: grouped rows, dividers, action alignment, and disclosure spacing match the selected target intent without clipping.
-- Colors and visual tokens: dark navy navigation, blue primary actions, status colors, and muted dividers preserve the approved palette and contrast.
-- Image quality and asset fidelity: the target contains no photographic assets; all icons use the existing product icon library.
-- Copy and content: Task copy is coherent, localized, and keeps Project context next to the next action.
-- Accessibility and behavior: semantic regions, keyboard-operable disclosures, focus return, reduced motion, 390 px no-overflow, and retained mobile navigation are present.
-
-## Remaining P3 polish
-
-- Add the richer assistant detail rail when its source-backed Task suggestion contract is finalized.
-- Add dense table column labels once Workstream and due-date fields are consistently populated by the public composition.
+- The third step becomes active only when the Review & Confirmation model is connected.
+- Employee selection of Update, Evidence, contribution context, and progress proposal happens there,
+  not inside Capture.
 
 final result: passed

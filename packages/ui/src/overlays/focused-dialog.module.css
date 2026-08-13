@@ -55,9 +55,49 @@
     padding: var(--ui-space-5);
   }
 
+  .workspaceOverlay {
+    align-items: stretch;
+    justify-items: end;
+    padding: 0;
+  }
+
+  .workspaceModal {
+    inline-size: min(58rem, 52vw);
+    max-block-size: 100dvh;
+    border-radius: 0;
+    box-shadow: -1rem 0 3.5rem rgb(15 23 42 / 18%);
+  }
+
+  .workspaceModal .header {
+    padding-block: var(--ui-space-5);
+    padding-inline: var(--ui-space-6);
+  }
+
+  .workspaceModal .content {
+    padding: 0 var(--ui-space-6) var(--ui-space-6);
+  }
+
   @media (min-width: 48rem) {
     .overlay {
       align-items: center;
+    }
+  }
+
+  @media (max-width: 47.999rem) {
+    .workspaceOverlay {
+      align-items: end;
+    }
+
+    .workspaceModal {
+      inline-size: 100%;
+      max-block-size: 94dvh;
+      border-start-start-radius: var(--ui-radius-sheet);
+      border-start-end-radius: var(--ui-radius-sheet);
+    }
+
+    .workspaceModal .header,
+    .workspaceModal .content {
+      padding-inline: var(--ui-space-4);
     }
   }
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { registerContextIntelligenceAiRoutes } from "./register-context-intelligence-ai-routes.js";
 
 describe("Context Intelligence AI route registration", () => {
-  it("plans the three context artifacts and one bounded experience artifact without configuring a provider", async () => {
+  it("plans the context and bounded experience artifacts without configuring a provider", async () => {
     const plan = await registerContextIntelligenceAiRoutes({ dryRun: true });
 
     expect(plan).toEqual({
@@ -30,6 +30,12 @@ describe("Context Intelligence AI route registration", () => {
           routeKey: "experience.prepare-next.v1",
           promptVersion: "experience-prepare-prompt.v1",
           outputSchemaVersion: "experience-prepared-output.v1",
+          outputSchemaHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        }),
+        expect.objectContaining({
+          routeKey: "experience.capture-understand.v1",
+          promptVersion: "capture-understanding-prompt.v1",
+          outputSchemaVersion: "capture-understanding-ai-output.v1",
           outputSchemaHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
         }),
       ],

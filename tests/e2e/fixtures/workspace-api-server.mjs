@@ -1393,6 +1393,37 @@ const server = createServer(async (request, response) => {
     return json(response, 200, experiencePrepared());
   }
 
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/experience-orchestration/capture/understand"
+  ) {
+    if (accessToken !== ownerAccessToken)
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    const body = await readJson(request);
+    if (body === null || typeof body.rawText !== "string")
+      return json(response, 400, { messageKey: "errors.validation" });
+    if (body.rawText.includes("[provider-unavailable]"))
+      return json(response, 503, { messageKey: "errors.ai.unavailable" });
+    return json(response, 200, {
+      schemaVersion: "capture-understanding.v1",
+      likelyProject: {
+        id: projectId,
+        name: "Atlas Delivery",
+        confidence: "high",
+      },
+      likelyMeaning: "suggested_evidence",
+      relatedWorkItemId: workItems[0]?.id ?? null,
+      relatedComponentId: null,
+      sourceRefs: [],
+      clarification: {
+        question: "What measured API error rate did you observe, and where can it be verified?",
+        missingField: "measured_result",
+      },
+      confidence: "high",
+      createsOfficialRecord: false,
+    });
+  }
+
   if (request.method === "GET" && url.pathname === "/api/v1/experience/what-changed") {
     if (accessToken !== ownerAccessToken)
       return json(response, 200, { items: [], nextCursor: null });

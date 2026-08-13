@@ -19,6 +19,59 @@ afterEach(() => {
 });
 
 describe("CaptureDialog", () => {
+  it("turns one mixed private capture into an understood draft and one clarification", async () => {
+    const catalog = await getCatalog("en");
+    const user = userEvent.setup();
+    const understand = vi.fn().mockResolvedValue({
+      schemaVersion: "capture-understanding.v1",
+      likelyProject: {
+        id: "11111111-1111-4111-8111-111111111111",
+        name: "Atlas Delivery",
+        confidence: "high",
+      },
+      likelyMeaning: "suggested_evidence",
+      relatedWorkItemId: "22222222-2222-4222-8222-222222222222",
+      relatedComponentId: null,
+      sourceRefs: [],
+      clarification: {
+        question: "What measured API error rate did you observe, and where can it be verified?",
+        missingField: "kpi_measurement",
+      },
+      confidence: "high",
+      createsOfficialRecord: false,
+    });
+    render(
+      createElement(CaptureDialog, {
+        catalog,
+        locale: "en",
+        onSaved: vi.fn(),
+        save: vi.fn(),
+        understand,
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Capture" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Share anything" }));
+    await user.type(
+      dialog.getByRole("textbox", { name: "What are you working on?" }),
+      "https://github.com/atlas/voice/pull/184 API fallback works in staging.",
+    );
+    await user.click(dialog.getByRole("button", { name: "Understand this" }));
+
+    await waitFor(() => expect(understand).toHaveBeenCalledTimes(1));
+    expect(dialog.getByText("Atlas Delivery")).not.toBeNull();
+    expect(dialog.getByText("High confidence")).not.toBeNull();
+    expect(dialog.getByText("Suggested evidence")).not.toBeNull();
+    expect(
+      dialog.getByText(
+        "What measured API error rate did you observe, and where can it be verified?",
+      ),
+    ).not.toBeNull();
+    expect(
+      dialog.getByText("Nothing will be posted or recorded until you confirm."),
+    ).not.toBeNull();
+  });
+
   it("labels the private review flow without creating official work", async () => {
     const catalog = await getCatalog("en");
     const markup = renderToStaticMarkup(
@@ -56,8 +109,10 @@ describe("CaptureDialog", () => {
     const trigger = screen.getByRole("button", { name: "Capture" });
 
     await user.click(trigger);
-    const dialog = screen.getByRole("dialog", { name: "Capture privately" });
-    expect(dialog.contains(screen.getByRole("textbox", { name: "Capture note" }))).toBe(true);
+    const dialog = screen.getByRole("dialog", { name: "Share anything" });
+    expect(dialog.contains(screen.getByRole("textbox", { name: "What are you working on?" }))).toBe(
+      true,
+    );
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(document.activeElement).toBe(trigger));
@@ -69,22 +124,13 @@ describe("CaptureDialog", () => {
       EmployeeEnglish.args,
       {
         close: "Close",
-        code: "Pasted code",
-        file: "Private file or image",
-        link: "HTTP or HTTPS link",
-        note: "Capture note",
-        options: ["Note", "Link", "Pasted code", "File", "Image"],
-        privateHint:
-          "Save a raw note, link, code, file, or image to your private Inbox. This does not create a Task, Update, Evidence record, Project progress, or evaluation input.",
+        composer: "What are you working on?",
+        privateNotice: "Nothing will be posted or recorded until you confirm.",
         recovery:
           "Your private draft is still here. Try again or save manually when you are ready.",
-        review: "Review and save privately",
-        reviewHint:
-          "Review this raw private draft before saving. Promotion to official work remains a separate action.",
         save: "Save privately",
         saved: "Saved to your private Inbox.",
-        source: "Source type",
-        title: "Capture privately",
+        title: "Share anything",
         trigger: "Capture",
       },
     ],
@@ -93,21 +139,12 @@ describe("CaptureDialog", () => {
       EmployeeArabic.args,
       {
         close: "إغلاق",
-        code: "شفرة ملصقة",
-        file: "ملف أو صورة خاصة",
-        link: "رابط HTTP أو HTTPS",
-        note: "ملاحظة الإضافة",
-        options: ["ملاحظة", "رابط", "شفرة ملصقة", "ملف", "صورة"],
-        privateHint:
-          "احفظ ملاحظة أو رابطًا أو شفرة أو ملفًا أو صورة خامًا في صندوقك الخاص. لا ينشئ ذلك مهمة أو تحديثًا أو سجل أدلة أو تقدم مشروع أو مدخلًا للتقييم.",
+        composer: "على ماذا تعمل؟",
+        privateNotice: "لن يتم نشر أو تسجيل أي شيء حتى تؤكد.",
         recovery: "ما زالت مسودتك الخاصة هنا. حاول مرة أخرى أو احفظ يدويًا عندما تكون جاهزًا.",
-        review: "مراجعة وحفظ خاص",
-        reviewHint:
-          "راجع هذه المسودة الخاصة الخام قبل الحفظ. تبقى الترقية إلى عمل رسمي إجراءً منفصلًا.",
         save: "حفظ خاص",
         saved: "تم الحفظ في صندوقك الخاص.",
-        source: "نوع المصدر",
-        title: "إضافة خاصة",
+        title: "شارك أي شيء",
         trigger: "إضافة",
       },
     ],
@@ -126,22 +163,8 @@ describe("CaptureDialog", () => {
       await user.click(screen.getByRole("button", { name: labels.trigger }));
       const capture = within(screen.getByRole("dialog", { name: labels.title }));
       expect(capture.getByRole("button", { name: labels.close })).not.toBeNull();
-      expect(capture.getByText(labels.privateHint)).not.toBeNull();
-      const source = capture.getByRole("combobox", { name: labels.source });
-      for (const option of labels.options) {
-        expect(capture.getByRole("option", { name: option })).not.toBeNull();
-      }
-
-      await user.selectOptions(source, "link");
-      expect(capture.getByRole("textbox", { name: labels.link })).not.toBeNull();
-      await user.selectOptions(source, "code");
-      expect(capture.getByRole("textbox", { name: labels.code })).not.toBeNull();
-      await user.selectOptions(source, "file");
-      expect(capture.getByLabelText(labels.file)).not.toBeNull();
-      await user.selectOptions(source, "text");
-      await user.type(capture.getByRole("textbox", { name: labels.note }), "Private draft");
-      await user.click(capture.getByRole("button", { name: labels.review }));
-      expect(capture.getByText(labels.reviewHint)).not.toBeNull();
+      expect(capture.getByText(labels.privateNotice)).not.toBeNull();
+      await user.type(capture.getByRole("textbox", { name: labels.composer }), "Private draft");
 
       await user.click(capture.getByRole("button", { name: labels.save }));
       await waitFor(() => expect(capture.getByRole("alert").textContent).toBe(labels.recovery));
