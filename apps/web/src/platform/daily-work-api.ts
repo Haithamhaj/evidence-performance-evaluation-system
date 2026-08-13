@@ -27,6 +27,7 @@ export type DailyWorkRoute =
   | { readonly kind: "projects" }
   | { readonly kind: "update_context" }
   | { readonly kind: "project"; readonly projectId: string }
+  | { readonly kind: "project_experience"; readonly projectId: string }
   | { readonly kind: "check_ins" }
   | { readonly kind: "readiness"; readonly projectId: string }
   | { readonly kind: "manager_operations" };
@@ -205,6 +206,7 @@ export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
   .strict();
 
 export { EmployeeHomeV1Schema as WebEmployeeHomeSchema } from "@evaluation/contracts/employee-experience";
+export { EmployeeProjectExperienceV1Schema as WebEmployeeProjectExperienceSchema } from "@evaluation/contracts/employee-experience";
 
 export async function fetchDailyWorkUpstream<T>(input: {
   readonly reauthenticateTo?: string;
@@ -251,6 +253,9 @@ function routePath(route: DailyWorkRoute): string {
   if (route.kind === "update_context") return "/api/v1/daily-work/update-context";
   if (route.kind === "check_ins") return "/api/v1/daily-work/check-ins";
   if (route.kind === "manager_operations") return "/api/v1/daily-work/manager/operations";
+  if (route.kind === "project_experience") {
+    return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}/experience`;
+  }
   if (route.kind === "readiness") {
     return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}/readiness`;
   }

@@ -673,6 +673,168 @@ function employeeHome() {
   };
 }
 
+function employeeProjectExperience() {
+  const source = {
+    kind: "progress_contract",
+    label: "Approved Project contract",
+    observedAt: "2026-08-13T07:00:00.000Z",
+    freshness: "fresh",
+  };
+  return {
+    schemaVersion: "employee-project-experience.v1",
+    generatedAt: "2026-08-13T07:05:00.000Z",
+    project: {
+      id: projectId,
+      name: "Atlas Delivery",
+      description: "Deliver secure API access and pilot integration for Atlas.",
+      status: "active",
+      ownerName: "Codex",
+      workstreams: [{ id: workstreamId, name: "API readiness" }],
+    },
+    document: {
+      id: projectDocumentVersionId,
+      title: "Project Document",
+      version: 2,
+      source: { ...source, kind: "project_document", label: "Approved Project Document" },
+      href: `/en/projects/${projectId}`,
+    },
+    progress: {
+      state: "accepted",
+      percent: 62,
+      source,
+      explanation: "Approved contract rule",
+    },
+    milestones: [
+      {
+        componentId: "e3333333-3333-4333-8333-333333333333",
+        name: "Discovery",
+        kind: "milestone",
+        state: "complete",
+        percent: 100,
+      },
+      {
+        componentId: "e4444444-4444-4333-8333-333333333333",
+        name: "API authentication",
+        kind: "milestone",
+        state: "current",
+        percent: 62,
+      },
+      {
+        componentId: "e5555555-5555-4555-8555-555555555555",
+        name: "Pilot readiness",
+        kind: "milestone",
+        state: "next",
+        percent: null,
+      },
+    ],
+    kpi: {
+      componentId: "e6666666-6666-4666-8666-666666666666",
+      name: "API error rate",
+      baseline: 4.1,
+      current: 1.8,
+      target: 1,
+      unit: "%",
+      direction: "decrease",
+      source,
+    },
+    attention: [
+      {
+        id: "attention:decision",
+        title: "Owner decision on PR #184",
+        subtitle: "API authentication",
+        href: `/en/projects/${projectId}`,
+        source,
+      },
+      {
+        id: "attention:document",
+        title: "Missing retention document",
+        subtitle: "Required for pilot readiness",
+        href: `/en/projects/${projectId}`,
+        source: { ...source, kind: "project_document" },
+      },
+      {
+        id: "attention:task",
+        title: "Validate streaming fallback",
+        subtitle: "Due today",
+        href: `/en/tasks?item=${workItems[0].id}`,
+        source: { ...source, kind: "work_item" },
+      },
+    ],
+    collections: {
+      work: [
+        {
+          id: "work:1",
+          title: "Design review — AI-native employee journey",
+          subtitle: "Ready · Due today",
+          href: `/en/tasks?item=${workItems[0].id}`,
+          source: { ...source, kind: "work_item", label: "Work Item" },
+        },
+      ],
+      updates: [
+        {
+          id: "update:1",
+          title: "Authentication fallback verified",
+          subtitle: "Employee confirmed",
+          href: `/en/projects/${projectId}`,
+          source: { ...source, kind: "update", label: "Confirmed update" },
+        },
+      ],
+      evidence: [
+        {
+          id: "evidence:1",
+          title: "PR #182 merged: milestone condition satisfied",
+          subtitle: "Suggested evidence · employee review required",
+          href: `/en/projects/${projectId}`,
+          source: { ...source, kind: "github", label: "GitHub suggested evidence" },
+        },
+      ],
+      documents: [
+        {
+          id: "document:1",
+          title: "Project Document v2",
+          subtitle: "Approved source",
+          href: `/en/projects/${projectId}`,
+          source: { ...source, kind: "project_document", label: "Approved Project Document" },
+        },
+      ],
+    },
+    timeline: [
+      {
+        id: "timeline:verified",
+        kind: "verified_change",
+        occurredAt: "2026-08-13T13:15:00.000Z",
+        title: "PR #182 merged: contract milestone condition satisfied",
+        projectId,
+        projectName: "Atlas Delivery",
+        statusLabel: "Verified",
+        href: `/en/projects/${projectId}`,
+        source: { ...source, kind: "github", label: "GitHub suggested evidence" },
+      },
+      {
+        id: "timeline:decision",
+        kind: "decision",
+        occurredAt: "2026-08-13T05:45:00.000Z",
+        title: "Owner decision requested on PR #184",
+        projectId,
+        projectName: "Atlas Delivery",
+        statusLabel: "Needs your decision",
+        href: `/en/projects/${projectId}`,
+        source: { ...source, kind: "human_decision", label: "Owner confirmation" },
+      },
+    ],
+    nextCursor: null,
+    smartBrief: {
+      title: "What should I focus on?",
+      body: "The API authentication decision can unblock the next milestone.",
+      source,
+      why: "Review PR #184 before the pilot-readiness work continues.",
+      consequence:
+        "Nothing is confirmed and official Project progress does not change until the authorized owner decides.",
+      action: { label: "Review API authentication decision", href: `/en/projects/${projectId}` },
+    },
+  };
+}
+
 function experiencePrepared() {
   return {
     state: "prepared",
@@ -1392,6 +1554,12 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/home") {
     return json(response, 200, employeeHome());
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/daily-work/projects/${projectId}/experience`
+  ) {
+    return json(response, 200, employeeProjectExperience());
   }
   if (request.method === "GET" && url.pathname === "/api/v1/work-items") {
     return json(response, 200, {

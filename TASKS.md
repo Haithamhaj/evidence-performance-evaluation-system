@@ -958,7 +958,7 @@ The detailed authority is
 
 ## T097 — Build the Final Project Workspace
 
-**Status:** Not started
+**Status:** Complete — the source-backed Project workspace, compact progress journey, evidence collections, Timeline, Smart Brief, rollback, and desktop/mobile visual proof are verified.
 **Priority:** P1
 **Dependencies:** T095, T096
 **Purpose:** Connect purpose, approved progress, milestones, KPI, Work, Updates, Evidence, Documents, and Timeline around one Project.

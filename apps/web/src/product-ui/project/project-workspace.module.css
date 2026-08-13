@@ -1,0 +1,380 @@
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  min-block-size: calc(100vh - 8.5rem);
+  margin: -2rem;
+  background: #fff;
+}
+.main {
+  min-inline-size: 0;
+  padding: 1.5rem 2rem 3rem;
+}
+.breadcrumbs {
+  display: flex;
+  gap: 0.55rem;
+  color: #58667a;
+  font-size: 0.78rem;
+}
+.breadcrumbs a,
+.projectHeader a,
+.attention a,
+.collections a {
+  color: #0f5fd8;
+  text-decoration: none;
+}
+.projectHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem 1.35rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.projectHeader > a {
+  white-space: nowrap;
+}
+.projectHeader h1,
+.projectHeader p {
+  margin: 0;
+}
+.projectHeader h1 {
+  font-size: 2rem;
+}
+.projectHeader small {
+  color: #526076;
+}
+.projectIcon {
+  display: grid;
+  place-items: center;
+  inline-size: 3.2rem;
+  block-size: 3.2rem;
+  border-radius: 999px;
+  background: #1264e8;
+  color: #fff;
+}
+.progressPanel {
+  display: grid;
+  grid-template-columns: 14rem minmax(16rem, 1fr) 9rem;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.35rem 0;
+  border-block-end: 1px solid #dfe4ec;
+}
+.progressBlock {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.progressBlock > div:last-child {
+  display: grid;
+  gap: 0.2rem;
+}
+.progressBlock small,
+.kpi small,
+.milestone small {
+  color: #58667a;
+}
+.progressRing {
+  --progress: 0%;
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 5.5rem;
+  block-size: 5.5rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(#1264e8 var(--progress), #e1e6ed 0);
+}
+.progressRing:before {
+  position: absolute;
+  inset: 0.45rem;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+}
+.progressRing strong {
+  position: relative;
+  font-size: 1.2rem;
+}
+.milestones {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.milestones:before {
+  position: absolute;
+  inset-block-start: 0.85rem;
+  inset-inline: 12%;
+  block-size: 1px;
+  background: #9ca9ba;
+  content: "";
+}
+.milestone {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+.milestone > span {
+  display: grid;
+  place-items: center;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border: 1.5px solid #718099;
+  border-radius: 50%;
+  background: #fff;
+}
+.milestone[data-state="complete"] > span {
+  border-color: #169548;
+  color: #169548;
+}
+.milestone[data-state="current"] > span {
+  border: 0.35rem solid #bfd6ff;
+  background: #1264e8;
+}
+.milestone strong {
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+.kpi {
+  display: grid;
+  gap: 0.25rem;
+  border-inline-start: 1px solid #dfe4ec;
+  padding-inline-start: 1rem;
+}
+.kpi > span {
+  color: #4d5a6d;
+  font-size: 0.76rem;
+}
+.kpi strong {
+  font-size: 1.55rem;
+}
+.attention,
+.collections,
+.timeline {
+  padding-block: 1.1rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.attention h2,
+.collections h2,
+.timeline h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.15rem;
+}
+.attention ul,
+.collectionGrid ul,
+.timeline ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.attention li,
+.collectionGrid li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem;
+  border-block-end: 1px solid #edf0f4;
+}
+.attention li div,
+.collectionGrid li div {
+  display: grid;
+}
+.attention li span,
+.collectionGrid li span {
+  color: #58667a;
+  font-size: 0.78rem;
+}
+.attention li > a,
+.collectionGrid li > a {
+  white-space: nowrap;
+}
+.tabs {
+  display: flex;
+  gap: 1.25rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.tabs a {
+  padding: 0.6rem 0.2rem;
+  border-block-end: 2px solid #1264e8;
+}
+.tabs span {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 1.4rem;
+  border-radius: 999px;
+  background: #eaf2ff;
+  padding: 0.1rem 0.35rem;
+}
+.collectionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding-block-start: 0.9rem;
+}
+.collectionGrid section {
+  min-inline-size: 0;
+}
+.collectionGrid h3 {
+  font-size: 0.95rem;
+}
+.timeline li {
+  display: grid;
+  grid-template-columns: 9rem 2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0;
+}
+.timeline li div {
+  display: grid;
+}
+.timeline time,
+.timeline li span {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.timelineMarker {
+  display: grid;
+  place-items: center;
+  inline-size: 1.7rem;
+  block-size: 1.7rem;
+  border-radius: 50%;
+  background: #e8f7ed;
+  color: #168847;
+}
+.assistant {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  border-inline-start: 1px solid #dfe4ec;
+  padding: 1.5rem 1.25rem;
+}
+.assistant header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block-end: 1rem;
+  border-block-end: 1px solid #e0e5ed;
+}
+.assistant h2,
+.assistant p {
+  margin: 0;
+}
+.assistant h2 {
+  font-size: 1rem;
+}
+.assistant small {
+  color: #58667a;
+}
+.assistant p,
+.assistant h2,
+.assistant small {
+  overflow-wrap: anywhere;
+}
+.eyebrow {
+  color: #4d5a6d;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.primaryAction {
+  display: block;
+  border-radius: 0.35rem;
+  background: #1264e8;
+  padding: 0.75rem;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 700;
+}
+.workspace :focus-visible {
+  outline: 0.1875rem solid #f28b32;
+  outline-offset: 0.18rem;
+}
+@media (width<=1180px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .assistant {
+    border-block-start: 1px solid #dfe4ec;
+    border-inline-start: 0;
+  }
+  .progressPanel {
+    grid-template-columns: 12rem minmax(18rem, 1fr);
+  }
+  .kpi {
+    grid-column: 1/-1;
+    border-inline-start: 0;
+    border-block-start: 1px solid #edf0f4;
+    padding-block-start: 0.7rem;
+    padding-inline-start: 0;
+  }
+}
+@media (width<=760px) {
+  .workspace {
+    margin: -0.75rem -0.75rem -6rem;
+  }
+  .main {
+    padding: 1rem 0.9rem 6rem;
+  }
+  .projectHeader {
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+  }
+  .projectHeader h1 {
+    font-size: 1.65rem;
+  }
+  .projectHeader p,
+  .projectHeader small {
+    overflow-wrap: anywhere;
+  }
+  .projectHeader > a {
+    grid-column: 1/-1;
+  }
+  .progressPanel {
+    grid-template-columns: 1fr;
+  }
+  .progressBlock {
+    align-items: center;
+  }
+  .milestones {
+    gap: 0.35rem;
+  }
+  .milestone strong,
+  .milestone small {
+    max-inline-size: 6.5rem;
+    line-height: 1.25;
+  }
+  .milestones,
+  .kpi {
+    grid-column: 1;
+  }
+  .collectionGrid {
+    grid-template-columns: 1fr;
+  }
+  .tabs {
+    overflow-x: auto;
+  }
+  .attention li,
+  .collectionGrid li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .attention li > a,
+  .collectionGrid li > a {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .assistant {
+    display: none;
+  }
+  .timeline li {
+    grid-template-columns: 6.5rem 1.7rem minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progressRing {
+    transition: none;
+  }
+}

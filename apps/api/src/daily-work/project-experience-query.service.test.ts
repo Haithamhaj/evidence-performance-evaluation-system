@@ -1,0 +1,186 @@
+import { describe, expect, it } from "vitest";
+
+import { ProjectExperienceQueryService } from "./project-experience-query.service.js";
+
+const actor = { userId: "20000000-0000-4000-8000-000000000001", active: true };
+const projectId = "20000000-0000-4000-8000-000000000002";
+const documentVersionId = "20000000-0000-4000-8000-000000000003";
+
+describe("ProjectExperienceQueryService", () => {
+  it("composes one authorized Project without recalculating progress", async () => {
+    const service = new ProjectExperienceQueryService({
+      project: async () => projectView(),
+      myWork: async () => ({
+        groups: [{ key: "today", items: [workItem()], collapsedByDefault: false }],
+      }),
+      timeline: async () => ({ items: [timelineItem()], nextCursor: null }),
+    });
+
+    const result = await service.load(actor, projectId);
+
+    expect(result).toMatchObject({
+      project: { id: projectId, name: "Atlas Delivery", ownerName: "Codex" },
+      document: { id: documentVersionId, version: 2 },
+      progress: { state: "accepted", percent: 62 },
+      kpi: { name: "API error rate", current: 1.8, target: 1 },
+    });
+    expect(result.collections.work).toHaveLength(1);
+    expect(result.timeline).toHaveLength(1);
+  });
+
+  it("keeps missing progress and document states honest", async () => {
+    const service = new ProjectExperienceQueryService({
+      project: async () => ({
+        ...projectView(),
+        contract: null,
+        progress: { state: "awaiting_contract" },
+        pulse: { milestoneStates: [], nextRequiredEvidence: [], explanation: [] },
+        contractDraftSourceRequest: null,
+        document: null,
+      }),
+      myWork: async () => ({ groups: [] }),
+      timeline: async () => ({ items: [], nextCursor: null }),
+    });
+
+    const result = await service.load(actor, projectId);
+
+    expect(result.progress).toEqual({ state: "awaiting_contract" });
+    expect(result.document).toBeNull();
+    expect(result.kpi).toBeNull();
+    expect(result.attention.map(({ title }) => title)).toContain("Project document is missing");
+  });
+
+  it("rejects inactive actors before protected readers", async () => {
+    const service = new ProjectExperienceQueryService({
+      project: async () => {
+        throw new Error("must not read");
+      },
+      myWork: async () => ({ groups: [] }),
+      timeline: async () => ({ items: [], nextCursor: null }),
+    });
+    await expect(service.load({ ...actor, active: false }, projectId)).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+});
+
+function projectView() {
+  return {
+    project: {
+      id: projectId,
+      name: "Atlas Delivery",
+      description: "Deliver secure API access.",
+      status: "active",
+    },
+    workspace: {
+      project: {
+        id: projectId,
+        name: "Atlas Delivery",
+        description: "Deliver secure API access.",
+        status: "active",
+      },
+      people: [
+        {
+          person: { id: actor.userId, displayName: "Codex" },
+          responsibilityType: "original",
+          endsAt: null,
+        },
+      ],
+      workstreams: [{ id: "20000000-0000-4000-8000-000000000010", name: "API readiness" }],
+    },
+    document: { id: documentVersionId, title: "Project Document", version: 2 },
+    contract: {
+      components: [
+        {
+          id: "20000000-0000-4000-8000-000000000004",
+          kind: "operational_kpi",
+          name: "API error rate",
+          baseline: 4.1,
+          target: 1,
+          unit: "%",
+          direction: "decrease",
+        },
+      ],
+    },
+    progress: {
+      state: "accepted",
+      percent: 62,
+      reason: "Approved contract rule",
+      updatedAt: "2026-08-13T07:00:00.000Z",
+    },
+    pulse: {
+      milestoneStates: [
+        {
+          componentId: "20000000-0000-4000-8000-000000000005",
+          name: "Discovery",
+          kind: "milestone",
+          percent: 100,
+          state: "complete",
+        },
+        {
+          componentId: "20000000-0000-4000-8000-000000000006",
+          name: "API authentication",
+          kind: "milestone",
+          percent: 62,
+          state: "in_progress",
+        },
+        {
+          componentId: "20000000-0000-4000-8000-000000000004",
+          name: "API error rate",
+          kind: "operational_kpi",
+          percent: 62,
+          measuredValue: 1.8,
+          observedAt: "2026-08-13T07:00:00.000Z",
+          state: "in_progress",
+        },
+      ],
+      nextRequiredEvidence: [
+        {
+          componentId: "20000000-0000-4000-8000-000000000006",
+          componentName: "API authentication",
+          label: "Owner confirmation",
+        },
+      ],
+      explanation: [],
+    },
+    contractDraftSourceRequest: {
+      documentVersionId,
+      sourceVersion: 2,
+      sourceChecksum: "a".repeat(64),
+    },
+  };
+}
+
+function workItem() {
+  return {
+    id: "20000000-0000-4000-8000-000000000020",
+    projectId,
+    title: "Validate streaming fallback",
+    status: "ready",
+    dueAt: "2026-08-13T12:00:00.000Z",
+  };
+}
+
+function timelineItem() {
+  return {
+    id: "20000000-0000-4000-8000-000000000030",
+    kind: "update",
+    projectId,
+    workstreamId: null,
+    workItemId: null,
+    employeeId: actor.userId,
+    occurredAt: "2026-08-13T07:00:00.000Z",
+    title: "Authentication fallback verified",
+    detail: "Staging result confirmed",
+    sourceReferences: ["update:1"],
+    sourceProvenance: "employee_text",
+    reviewState: "employee_confirmed",
+    project: { id: projectId, name: "Atlas Delivery" },
+    workstream: null,
+    workItem: null,
+    relatedKpiComponents: [],
+    relatedCriteria: [],
+    verificationState: "unverified",
+    decisionOutcome: null,
+  };
+}

@@ -10,7 +10,8 @@ import {
   ProgressQueryService,
 } from "@evaluation/projects";
 import { PrivateInboxQueryService, WorkItemQueryService } from "@evaluation/work-items";
-import { CheckInService } from "@evaluation/updates-evidence";
+import { ActivityReader, CheckInService } from "@evaluation/updates-evidence";
+import { ProjectService } from "@evaluation/projects";
 import { ResearchReadinessReader } from "@evaluation/research-experiments";
 import { Module } from "@nestjs/common";
 
@@ -22,6 +23,7 @@ import { DailyWorkController, ProgressContractsController } from "./daily-work.c
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
 import { EmployeeHomeQueryService } from "./employee-home-query.service.js";
 import { ProjectDashboardQueryService } from "./project-dashboard-query.service.js";
+import { ProjectExperienceQueryService } from "./project-experience-query.service.js";
 import {
   createDatabaseManagerOperationsQueryService,
   ManagerOperationsQueryService,
@@ -65,6 +67,17 @@ Module({
       provide: ProgressQueryService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
         new ProgressQueryService(client),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: ProjectService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new ProjectService(client, databaseAuditWriter as never, () => new Date()),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: ActivityReader,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) => new ActivityReader(client),
       inject: [DAILY_WORK_DATABASE],
     },
     {
@@ -140,6 +153,26 @@ Module({
       useFactory: (dailyWork: DailyWorkQueryService, experience: ExperienceEventRuntime) =>
         new EmployeeHomeQueryService(dailyWork, experience),
       inject: [DailyWorkQueryService, ExperienceEventRuntime],
+    },
+    {
+      provide: ProjectExperienceQueryService,
+      useFactory: (
+        dailyWork: DailyWorkQueryService,
+        projects: ProjectService,
+        activity: ActivityReader,
+      ) =>
+        new ProjectExperienceQueryService({
+          project: async (actorId, projectId) => {
+            const [progress, workspace] = await Promise.all([
+              dailyWork.project(actorId, projectId),
+              projects.getWorkspace({ actor: { userId: actorId, active: true }, projectId }),
+            ]);
+            return { ...(progress as object), workspace };
+          },
+          myWork: (actorId) => dailyWork.myWork(actorId),
+          timeline: (input) => activity.timeline(input),
+        }),
+      inject: [DailyWorkQueryService, ProjectService, ActivityReader],
     },
     WorkItemsPolicyGuard,
   ],
