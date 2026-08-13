@@ -1087,17 +1087,18 @@ function experiencePrepared() {
         schemaVersion: "experience-prepared-output.v1",
         state: "prepared",
         kind: "next_action",
-        sourceReferences: [`work-item:${workItems[0].id}`],
-        why: "This authorized Task needs your attention today.",
+        sourceReferences: [`work-item:${codexWorkItems[0].id}`],
+        why: "Codex should review the next authorized Work bundle for this Project.",
         freshness: {
           status: "fresh",
-          sourceObservedAt: "2026-08-12T08:00:00.000Z",
-          preparedAt: "2026-08-12T08:05:00.000Z",
+          sourceObservedAt: "2026-08-13T19:30:00.000Z",
+          preparedAt: "2026-08-13T19:35:00.000Z",
         },
-        consequence: "Reviewing it keeps the current work visible; nothing changes until you act.",
+        consequence:
+          "Reviewing it keeps the frontend-engine work moving; nothing changes until Codex acts.",
         editableDraft: {
-          title: "Review today’s acceptance Task",
-          body: "Check the authorized Task and decide the next manual action.",
+          title: "Review the next frontend-engine Task",
+          body: "Open the authorized Project Task and decide the next manual action.",
         },
         assistance: {
           mode: "deterministic",

@@ -175,6 +175,11 @@ every engine authority and protected product rule, and all retained rollback rou
   one existing protected transition command per Task and never infers authority in the browser. A
   rejected or dependency-blocked Task remains unchanged and the employee receives an exact partial
   result; no bulk action writes Project progress, Evidence, or evaluation data.
+- The first P2-10/P2-11 Work Agent slice is complete: Work consumes the existing protected
+  orchestration result and shows Codex at most one source-backed prepared action with its reason,
+  freshness, and consequence. The action opens the real Project Task for Codex; it does not execute
+  a command, create Evidence, infer performance, or alter Project progress. The real dogfood journey
+  now proves this handoff against the Evidence Performance Evaluation System Project.
 
 ## Active Risks
 
@@ -203,9 +208,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue with Calendar interaction parity as the next bounded Work bundle, then personal views where
-they reduce repeated setup. Keep dogfooding with Codex and the real Project, keep Pull Requests #29
-and #30 unmerged, and retain Calendar and legacy rollback routes.
+Continue the Work Agent bundle with the remaining approved source-backed triggers and contextual
+Task help, then complete the bounded Work reporting view. Keep dogfooding with Codex and the real
+Project, keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

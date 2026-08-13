@@ -31,8 +31,16 @@ test("Codex works on the real evaluation-system Project without fabricated progr
 
   await page.goto(`/en/tasks?view=my&layout=list&project=${dogfoodProjectId}`);
   await expect(page.locator("select").nth(1)).toHaveValue(dogfoodProjectId);
-  await expect(page.getByText("Review Phase 2 Work query bundle")).toBeVisible();
-  await expect(page.getByText("Implement safe inline Task edits")).toBeVisible();
+  await expect(page.getByText("Review Phase 2 Work query bundle", { exact: true })).toBeVisible();
+  await expect(page.getByText("Implement safe inline Task edits", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Prepared for You" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Review the next frontend-engine Task" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Open prepared Task" }).click();
+  await expect(page).toHaveURL(/item=/u);
+  await expect(page.getByRole("dialog", { name: "Task details" })).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
 
   await page.getByRole("button", { name: /Review Phase 2 Work query bundle/u }).click();
   await expect(page.getByRole("heading", { name: "Activity and evidence" })).toBeVisible();
@@ -81,7 +89,9 @@ test("Codex works on the real evaluation-system Project without fabricated progr
   await editor.getByLabel("Task title").fill("Implement safe inline Task edits — Codex");
   await editor.getByLabel("Priority").selectOption("urgent");
   await editor.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Implement safe inline Task edits — Codex")).toBeVisible();
+  await expect(
+    page.getByText("Implement safe inline Task edits — Codex", { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Add task" }).click();
   await page.getByLabel("Task title").fill("Record Codex dogfood feedback");

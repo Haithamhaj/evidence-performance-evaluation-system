@@ -11,6 +11,8 @@ import {
   listConnectedWorkContext,
   type ConnectedWorkContext,
 } from "../../platform/connected-work-context-api";
+import { loadPreparedExperience } from "../../platform/experience-orchestration-api";
+import type { WebPreparedExperienceComposition } from "../../platform/experience-orchestration-contracts";
 import {
   createWorkItem,
   loadWorkItem,
@@ -32,6 +34,7 @@ export type WorkWorkspaceGateway = Readonly<{
   load(id: string): Promise<WebWorkItem>;
   loadContext(input: { itemId: string; projectId: string }): Promise<WorkItemContext>;
   loadConnectedContext(): Promise<ConnectedWorkContext>;
+  loadPrepared(): Promise<WebPreparedExperienceComposition>;
   loadDependencies(id: string): Promise<WorkItemDependencies>;
   replaceDependencies(
     id: string,
@@ -58,6 +61,7 @@ const defaultGateway: WorkWorkspaceGateway = {
   load: loadWorkItem,
   loadContext: loadWorkItemContext,
   loadConnectedContext: listConnectedWorkContext,
+  loadPrepared: loadPreparedExperience,
   loadDependencies: loadWorkItemDependencies,
   replaceDependencies: replaceWorkItemDependencies,
   transition: transitionWorkItem,
@@ -128,6 +132,7 @@ export function WorkWorkspace({
   const [bulkState, setBulkState] = useState<
     { state: "idle" | "saving" } | { state: "done"; updated: number; unchanged: number }
   >({ state: "idle" });
+  const [prepared, setPrepared] = useState<WebPreparedExperienceComposition | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
   const quickDraftKey = `command-brief.quick-task.v1:${currentUserId}`;
@@ -224,6 +229,21 @@ export function WorkWorkspace({
       active = false;
     };
   }, [gateway, initialLayout]);
+
+  useEffect(() => {
+    let active = true;
+    void gateway
+      .loadPrepared()
+      .then((result) => {
+        if (active) setPrepared(result);
+      })
+      .catch(() => {
+        if (active) setPrepared(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [gateway]);
 
   function updateFilterUrl(next: typeof filters) {
     setFilters(next);
@@ -774,6 +794,14 @@ export function WorkWorkspace({
         )}
       </section>
 
+      {prepared?.items[0] === undefined ? null : (
+        <PreparedWorkAction
+          catalog={catalog}
+          item={prepared.items[0]}
+          onOpen={(id) => select(id)}
+        />
+      )}
+
       {initialLayout === "list" && (selectedIds.length > 0 || bulkState.state === "done") ? (
         <form
           aria-label={catalog["work.bulk.title"]}
@@ -938,6 +966,51 @@ export function WorkWorkspace({
           onTransition={transition}
           state={detailState}
         />
+      )}
+    </section>
+  );
+}
+
+function PreparedWorkAction({
+  catalog,
+  item,
+  onOpen,
+}: Readonly<{
+  catalog: Catalog;
+  item: import("../../platform/experience-orchestration-contracts").WebPreparedExperienceItem;
+  onOpen(id: string): void;
+}>) {
+  const source = item.sourceReferences[0] ?? "";
+  const taskId = source.startsWith("work-item:") ? source.slice("work-item:".length) : null;
+  return (
+    <section className={styles.preparedAction!}>
+      <div>
+        <h2>{catalog["work.prepared.label"]}</h2>
+        <h3>{item.editableDraft.title}</h3>
+        <span>{item.editableDraft.body}</span>
+      </div>
+      <dl>
+        <div>
+          <dt>{catalog["work.prepared.why"]}</dt>
+          <dd>{item.why}</dd>
+        </div>
+        <div>
+          <dt>{catalog["work.prepared.freshness"]}</dt>
+          <dd>
+            <time dateTime={item.freshness.sourceObservedAt}>
+              {item.freshness.sourceObservedAt}
+            </time>
+          </dd>
+        </div>
+        <div>
+          <dt>{catalog["work.prepared.consequence"]}</dt>
+          <dd>{item.consequence}</dd>
+        </div>
+      </dl>
+      {taskId === null ? null : (
+        <button onClick={() => onOpen(taskId)} type="button">
+          {catalog["work.prepared.openTask"]}
+        </button>
       )}
     </section>
   );

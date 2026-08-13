@@ -576,6 +576,45 @@ describe("WorkWorkspace", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("1 updated · 1 unchanged");
     expect(transition).toHaveBeenCalledTimes(2);
   });
+
+  it("shows one source-backed Work Agent preparation and leaves the Task command to Codex", async () => {
+    const gateway = service({
+      loadPrepared: vi.fn().mockResolvedValue({
+        state: "prepared",
+        items: [
+          {
+            id: "55555555-5555-4555-8555-555555555555",
+            schemaVersion: "experience-prepared-output.v1",
+            state: "prepared",
+            kind: "next_action",
+            sourceReferences: [`work-item:${item.id}`],
+            why: "This authorized Task needs your attention today.",
+            freshness: {
+              status: "fresh",
+              sourceObservedAt: "2026-08-13T09:00:00.000Z",
+              preparedAt: "2026-08-13T09:05:00.000Z",
+            },
+            consequence: "Nothing changes until you act.",
+            editableDraft: { title: item.title, body: "Run the final check." },
+            assistance: {
+              mode: "deterministic",
+              label: "Prepared from your authorized Work data.",
+              routeTrace: null,
+            },
+            correlationId: "66666666-6666-4666-8666-666666666666",
+          },
+        ],
+      }),
+    });
+    const user = userEvent.setup();
+    renderWork(gateway);
+
+    expect(await screen.findByRole("heading", { name: "Prepared for You" })).toBeVisible();
+    expect(screen.getByText("This authorized Task needs your attention today.")).toBeVisible();
+    expect(screen.queryByText(/rating|productivity score|employee rank/iu)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Open prepared Task" }));
+    expect(window.location.search).toContain(`item=${item.id}`);
+  });
 });
 
 function renderWork(
@@ -640,6 +679,7 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
       dependsOn: [],
       blocks: [],
     }),
+    loadPrepared: vi.fn().mockResolvedValue({ state: "idle", items: [] }),
     replaceDependencies: vi.fn(),
     update: vi.fn().mockImplementation(async (_id, input) => ({
       ...item,

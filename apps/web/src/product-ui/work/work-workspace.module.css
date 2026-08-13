@@ -694,6 +694,71 @@
     font-weight: 750;
   }
 
+  .preparedAction {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1fr) minmax(22rem, 1.4fr) auto;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid #9fc0f1;
+    border-inline-start: 0.22rem solid #1467e8;
+    border-radius: 0.55rem;
+    background: #f8fbff;
+    padding: 0.85rem 1rem;
+  }
+
+  .preparedAction > div,
+  .preparedAction dl,
+  .preparedAction dl > div {
+    display: grid;
+    gap: 0.22rem;
+  }
+
+  .preparedAction h2,
+  .preparedAction h3,
+  .preparedAction dl,
+  .preparedAction dd {
+    margin: 0;
+  }
+
+  .preparedAction > div > h2 {
+    color: #1259c3;
+    font-size: 0.7rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .preparedAction h3 {
+    font-size: 1rem;
+  }
+
+  .preparedAction > div > span,
+  .preparedAction dd {
+    color: var(--ui-color-text-muted, #536174);
+    font-size: 0.76rem;
+  }
+
+  .preparedAction dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .preparedAction dt {
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+
+  .preparedAction button {
+    min-block-size: 2.4rem;
+    border: 1px solid #1467e8;
+    border-radius: 0.42rem;
+    background: #fff;
+    padding-inline: 0.7rem;
+    color: #1259c3;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
   .rowSelection {
     display: grid;
     place-items: center;
@@ -1114,6 +1179,14 @@
     }
 
     .calendarWorkspace {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .preparedAction {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .preparedAction dl {
       grid-template-columns: minmax(0, 1fr);
     }
 
