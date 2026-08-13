@@ -990,7 +990,7 @@ The detailed authority is
 
 ## T101 — Run the Final Employee Journey Acceptance
 
-**Status:** Technical acceptance complete — the authenticated English Home → Project → Work → Capture → Clarify → Review → Confirm journey, independent receipts, unchanged official progress, mobile Review sheet, recovery evidence, and rollback recommendation are documented. Awaiting Product Owner visual acceptance; no route retirement or merge is authorized.
+**Status:** Complete — the Product Owner accepted the running final employee journey on 2026-08-13. The authenticated English Home → Project → Work → Capture → Clarify → Review → Confirm journey, independent receipts, unchanged official progress, mobile Review sheet, recovery evidence, and rollback recommendation are documented. No route retirement or merge is authorized by this acceptance.
 **Priority:** P0
 **Dependencies:** T096–T100
 **Purpose:** Prove Home → Project → Work → Capture → Clarify → Review & Confirmation as one realistic customer journey before route retirement or merge.

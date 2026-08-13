@@ -3,7 +3,7 @@
 **Date:** 2026-08-13  
 **Branch:** `codex/ai-native-frontend-phase-1`  
 **Pull Request:** #30, draft and unmerged  
-**State:** `READY_FOR_PRODUCT_OWNER_REVIEW`  
+**State:** `PRODUCT_OWNER_ACCEPTED`  
 **Protected gate:** no route retirement or merge before Product Owner acceptance
 
 ## Result
@@ -92,8 +92,9 @@ journey returned `Update confirmed` and `Evidence confirmed`.
 - Product Owner visual acceptance is still required. No Pull Request merge or route removal has been
   performed.
 
-## Recommendation
+## Product Owner decision
 
-Accept the final Home, Project, Work, Capture, Clarify, and Review interaction direction for the
-English employee pilot. Keep all retained routes available until a later, route-by-route retirement
-decision. The running preview is intentionally left open at Share Anything for Product Owner review.
+The Product Owner accepted the running final employee journey on 13 August 2026 and instructed work
+to continue. The acceptance covers the Home, Project, Work, Capture, Clarify, and Review interaction
+direction for the English employee pilot. It does not merge a Pull Request or retire a route; all
+retained routes remain available until a later, route-by-route decision.

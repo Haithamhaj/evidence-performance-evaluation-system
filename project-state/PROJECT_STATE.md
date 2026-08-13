@@ -2,10 +2,9 @@
 
 ## Current Goal
 
-Implement the Product Owner-approved connected AI-native employee experience: Home Overview,
-Project Workspace, Work, Universal Capture, and Review & Confirmation. Preserve every engine
-authority, protected product rule, retained route, and rollback path while replacing the temporary
-contract-verification surfaces with the final daily journey.
+Continue the Product Owner-approved AI-native frontend by completing the Work experience in bounded
+Phase 2 bundles. Preserve the accepted Home, Project, Capture, Clarification, and Review journey,
+every engine authority and protected product rule, and all retained rollback routes.
 
 ## Current Reality
 
@@ -131,6 +130,10 @@ contract-verification surfaces with the final daily journey.
   confirmation, GitHub-derived Evidence cannot be selected before an employee edit, and each command
   returns an independent authoritative receipt or truthful failure. A selected progress proposal is
   recorded only as Update context for the owner to review; it never mutates official progress.
+- T101 is accepted by the Product Owner on 2026-08-13. The full English employee journey passed with
+  independent Update/Evidence receipts, unchanged official progress, mobile review evidence, and
+  retained rollback routes. This acceptance does not authorize route retirement or Pull Request
+  merge.
 
 ## Active Risks
 
@@ -159,9 +162,10 @@ contract-verification surfaces with the final daily journey.
 
 ## Next Recommended Action
 
-Review the running English T101 Share Anything → Clarify → Review → Confirm journey at
-`http://127.0.0.1:3000/en/tasks`. Technical acceptance is complete, but keep Pull Requests #29 and
-#30 unmerged and retain all legacy routes until Product Owner visual acceptance.
+Execute the first bounded Phase 2 Work bundle: authoritative query/search/filter/sort/count behavior
+and a compact keyboard-friendly list, reusing the accepted Work screen and existing Work Items
+authority. Keep Pull Requests #29 and #30 unmerged and retain Board, Calendar, and legacy rollback
+routes.
 
 ## Critical References
 
