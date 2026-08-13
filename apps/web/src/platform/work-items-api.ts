@@ -1,9 +1,23 @@
 import type { z } from "zod";
 
 import { WebUuidSchema, WebWorkItemSchema } from "./task-workspace-contracts";
+import { TimelineResponseSchema } from "./updates-evidence-contracts";
 
 export type WebWorkItem = z.infer<typeof WebWorkItemSchema>;
 export type WorkItemStatus = WebWorkItem["status"];
+export type WorkItemContextEntry = Readonly<{
+  id: string;
+  kind: "evidence" | "update";
+  title: string;
+  detail: string;
+  occurredAt: string;
+  sourceProvenance: import("./updates-evidence-contracts").TimelineItem["sourceProvenance"];
+  reviewState: import("./updates-evidence-contracts").TimelineItem["reviewState"];
+}>;
+export type WorkItemContext = Readonly<{
+  updates: readonly WorkItemContextEntry[];
+  evidence: readonly WorkItemContextEntry[];
+}>;
 
 export class WorkItemGatewayError extends Error {
   constructor(readonly status: number) {
@@ -13,6 +27,38 @@ export class WorkItemGatewayError extends Error {
 
 export async function loadWorkItem(id: string): Promise<WebWorkItem> {
   return request(`/api/daily-work/work-items/${WebUuidSchema.parse(id)}`);
+}
+
+export async function loadWorkItemContext(input: {
+  readonly itemId: string;
+  readonly projectId: string;
+}): Promise<WorkItemContext> {
+  const itemId = WebUuidSchema.parse(input.itemId);
+  const projectId = WebUuidSchema.parse(input.projectId);
+  const response = await fetch(`/api/daily-work/timeline?projectId=${projectId}&limit=20`, {
+    cache: "no-store",
+  });
+  if (!response.ok) throw new WorkItemGatewayError(response.status);
+  const entries = TimelineResponseSchema.parse(await response.json())
+    .items.filter(
+      (entry) =>
+        entry.projectId === projectId &&
+        entry.workItemId === itemId &&
+        (entry.kind === "update" || entry.kind === "evidence"),
+    )
+    .map((entry) => ({
+      id: entry.id,
+      kind: entry.kind as "evidence" | "update",
+      title: entry.title,
+      detail: entry.detail,
+      occurredAt: entry.occurredAt,
+      sourceProvenance: entry.sourceProvenance,
+      reviewState: entry.reviewState,
+    }));
+  return {
+    updates: entries.filter((entry) => entry.kind === "update"),
+    evidence: entries.filter((entry) => entry.kind === "evidence"),
+  };
 }
 
 export async function createWorkItem(input: {

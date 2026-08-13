@@ -64,10 +64,50 @@ describe("WorkWorkspace", () => {
     expect(window.location.search).toContain(`item=${itemId}`);
     expect(await screen.findByRole("dialog", { name: "Task details" })).toBeInTheDocument();
     expect(gateway.load).toHaveBeenCalledWith(itemId);
+    expect(gateway.loadContext).toHaveBeenCalledWith({ itemId, projectId });
 
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(window.location.search).not.toContain("item=");
     expect(row).toHaveFocus();
+  });
+
+  it("shows linked updates and suggested GitHub evidence as context, not progress or scoring", async () => {
+    const gateway = service({
+      loadContext: vi.fn().mockResolvedValue({
+        updates: [
+          {
+            id: crypto.randomUUID(),
+            kind: "update",
+            title: "Work query implemented",
+            detail: "Codex completed the bounded query bundle.",
+            occurredAt: "2026-08-13T09:15:00.000Z",
+            sourceProvenance: "employee_code",
+            reviewState: "employee_confirmed",
+          },
+        ],
+        evidence: [
+          {
+            id: crypto.randomUUID(),
+            kind: "evidence",
+            title: "Commit e4fefae",
+            detail: "Filtered results use the authoritative response.",
+            occurredAt: "2026-08-13T09:20:00.000Z",
+            sourceProvenance: "github_automated",
+            reviewState: "automated_project_fact",
+          },
+        ],
+      }),
+    });
+    renderWork(gateway, itemId);
+
+    expect(await screen.findByRole("heading", { name: "Activity and evidence" })).toBeVisible();
+    expect(screen.getByText("Work query implemented")).toBeVisible();
+    expect(screen.getByText("Commit e4fefae")).toBeVisible();
+    expect(
+      screen.getByText("GitHub suggested evidence · employee confirmation required"),
+    ).toBeVisible();
+    expect(screen.getByText(/does not score Codex or change Project progress/u)).toBeVisible();
+    expect(screen.queryByText(/performance score/iu)).not.toBeInTheDocument();
   });
 
   it("creates through the existing protected command and opens the authoritative item", async () => {
@@ -360,6 +400,7 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
   return {
     create: vi.fn().mockImplementation(async ({ title }) => ({ ...item, title })),
     load: vi.fn().mockResolvedValue(item),
+    loadContext: vi.fn().mockResolvedValue({ evidence: [], updates: [] }),
     update: vi.fn().mockImplementation(async (_id, input) => ({
       ...item,
       ...input,
@@ -374,6 +415,7 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
   } as WorkWorkspaceGateway & {
     create: ReturnType<typeof vi.fn>;
     load: ReturnType<typeof vi.fn>;
+    loadContext: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     transition: ReturnType<typeof vi.fn>;
   };

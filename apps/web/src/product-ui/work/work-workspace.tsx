@@ -10,8 +10,10 @@ import { TaskDetailDrawer } from "../../features/task-detail/task-detail-drawer"
 import {
   createWorkItem,
   loadWorkItem,
+  loadWorkItemContext,
   transitionWorkItem,
   updateWorkItem,
+  type WorkItemContext,
   type WebWorkItem,
   WorkItemGatewayError,
   type WorkItemStatus,
@@ -21,6 +23,7 @@ import styles from "./work-workspace.module.css";
 export type WorkWorkspaceGateway = Readonly<{
   create(input: { employeeId: string; projectId: string; title: string }): Promise<WebWorkItem>;
   load(id: string): Promise<WebWorkItem>;
+  loadContext(input: { itemId: string; projectId: string }): Promise<WorkItemContext>;
   update(
     id: string,
     input: {
@@ -40,6 +43,7 @@ export type WorkWorkspaceGateway = Readonly<{
 const defaultGateway: WorkWorkspaceGateway = {
   create: createWorkItem,
   load: loadWorkItem,
+  loadContext: loadWorkItemContext,
   transition: transitionWorkItem,
   update: updateWorkItem,
 };
@@ -77,6 +81,8 @@ export function WorkWorkspace({
   const [items, setItems] = useState([...initialItems]);
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [detail, setDetail] = useState<WebWorkItem | null>(null);
+  const [detailContext, setDetailContext] = useState<WorkItemContext | null>(null);
+  const [contextState, setContextState] = useState<"loading" | "ready" | "error">("loading");
   const [detailState, setDetailState] = useState<
     "loading" | "ready" | "forbidden" | "error" | "transitioning"
   >("ready");
@@ -130,15 +136,30 @@ export function WorkWorkspace({
 
   async function load(id: string, generation = ++detailRequestGeneration.current) {
     setDetailState("loading");
+    setContextState("loading");
+    setDetailContext(null);
     setNotice(null);
     try {
       const loaded = await gateway.load(id);
       if (detailRequestGeneration.current !== generation) return;
       setDetail(loaded);
       setDetailState("ready");
+      try {
+        const context = await gateway.loadContext({
+          itemId: loaded.id,
+          projectId: loaded.projectId,
+        });
+        if (detailRequestGeneration.current !== generation) return;
+        setDetailContext(context);
+        setContextState("ready");
+      } catch {
+        if (detailRequestGeneration.current !== generation) return;
+        setContextState("error");
+      }
     } catch (error) {
       if (detailRequestGeneration.current !== generation) return;
       setDetail(null);
+      setDetailContext(null);
       setDetailState(
         error instanceof WorkItemGatewayError && error.status === 403 ? "forbidden" : "error",
       );
@@ -522,7 +543,10 @@ export function WorkWorkspace({
       {selectedId === null ? null : (
         <TaskDetailDrawer
           catalog={catalog}
+          context={detailContext}
+          contextState={contextState}
           item={detail}
+          locale={locale}
           notice={notice}
           onClose={() => select(null)}
           onRetry={() => void load(selectedId)}

@@ -143,6 +143,10 @@ every engine authority and protected product rule, and all retained rollback rou
   priority, and due date without leaving the list. The existing protected update command remains
   authoritative; stale versions reload the current Task while preserving the employee's unsaved
   fields, and Project/assignee changes remain outside this shortcut.
+- P2-03 is complete: the URL-addressable Task detail now composes only timeline entries explicitly
+  linked to that Task. Codex can see the real Project update and GitHub suggestion beside the Task;
+  GitHub remains unconfirmed evidence, the context is not a performance score, and it cannot change
+  official Project progress. The focused drawer keeps the Project overview path and focus return.
 
 ## Active Risks
 
@@ -171,9 +175,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Execute P2-03: extend the URL-addressable Task detail with source, Update, and Evidence context while
-retaining focus return and owning-domain authority. Continue dogfooding with Codex and the real
-Project, keep Pull Requests #29 and #30 unmerged, and retain Board, Calendar, and legacy rollback
+Execute the next bounded Phase 2 Work bundle: finish Quick Task capture and then add checklist and
+collaborator parity through the existing Work Items commands. Continue dogfooding with Codex and the
+real Project, keep Pull Requests #29 and #30 unmerged, and retain Board, Calendar, and legacy rollback
 routes.
 
 ## Critical References

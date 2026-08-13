@@ -2527,7 +2527,13 @@ const server = createServer(async (request, response) => {
     return json(response, 200, { ...evidenceDetail({}), state: "rejected" });
   }
   if (request.method === "GET" && url.pathname === "/api/v1/timeline") {
-    return json(response, 200, { items: timelineItems, nextCursor: null });
+    return json(response, 200, {
+      items:
+        url.searchParams.get("projectId") === dogfoodProjectId
+          ? dogfoodTaskTimeline()
+          : timelineItems,
+      nextCursor: null,
+    });
   }
   if (request.method === "GET" && url.pathname === `/api/v1/projects/${projectId}/workspace`) {
     return json(response, 200, { project, people, workstreams: [workstream] });
@@ -3406,6 +3412,55 @@ function initialSliceFourTimeline(includeExamples = false) {
         },
       ]
     : [];
+}
+
+function dogfoodTaskTimeline() {
+  const item = codexWorkItems[0];
+  return [
+    {
+      id: "dc111111-1111-4111-8111-111111111111",
+      kind: "update",
+      projectId: dogfoodProjectId,
+      workstreamId: null,
+      workItemId: item.id,
+      employeeId: ownerId,
+      occurredAt: "2026-08-13T09:15:00.000Z",
+      title: "Work query and keyboard bundle implemented",
+      detail: "Codex completed the bounded Work query bundle and moved it to review.",
+      sourceReferences: ["work-item-update:dc211111-1111-4111-8111-111111111111"],
+      sourceProvenance: "employee_code",
+      reviewState: "employee_confirmed",
+      project: { id: dogfoodProjectId, name: dogfoodProject.name },
+      workstream: null,
+      workItem: { id: item.id, title: item.title },
+      relatedKpiComponents: [],
+      relatedCriteria: [],
+      verificationState: null,
+      decisionOutcome: null,
+    },
+    {
+      id: "dc311111-1111-4111-8111-111111111111",
+      kind: "evidence",
+      projectId: dogfoodProjectId,
+      workstreamId: null,
+      workItemId: item.id,
+      employeeId: ownerId,
+      occurredAt: "2026-08-13T09:20:00.000Z",
+      title: "Commit e4fefae uses the authoritative Work response",
+      detail:
+        "GitHub detected the implementation change; Codex must confirm it before contribution use.",
+      sourceReferences: ["github-source-event:dc411111-1111-4111-8111-111111111111"],
+      sourceProvenance: "github_automated",
+      reviewState: "automated_project_fact",
+      project: { id: dogfoodProjectId, name: dogfoodProject.name },
+      workstream: null,
+      workItem: { id: item.id, title: item.title },
+      relatedKpiComponents: [],
+      relatedCriteria: [],
+      verificationState: "pending",
+      decisionOutcome: null,
+    },
+  ];
 }
 
 function githubProjectFact() {

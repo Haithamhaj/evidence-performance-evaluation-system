@@ -105,6 +105,96 @@
     color: #1259c3;
   }
 
+  .taskContext {
+    display: grid;
+    gap: 0.7rem;
+    border-block-start: 1px solid var(--ui-color-border, #d7dee8);
+    padding-block-start: 1rem;
+  }
+
+  .taskContextHeading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .taskContextHeading h4,
+  .contextGroup h5 {
+    margin: 0;
+  }
+
+  .taskContextHeading a {
+    color: #1259c3;
+    font-size: 0.8rem;
+    font-weight: 750;
+  }
+
+  .contextNote {
+    margin: 0;
+    border-inline-start: 0.2rem solid #1467e8;
+    padding-inline-start: 0.65rem;
+    color: var(--ui-color-text-muted, #536174);
+    font-size: 0.82rem;
+  }
+
+  .contextGroups {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .contextGroup {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .contextGroup h5 {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+  }
+
+  .contextGroup h5 span {
+    display: grid;
+    min-block-size: 1.25rem;
+    min-inline-size: 1.25rem;
+    place-items: center;
+    border-radius: 999px;
+    background: #eaf2ff;
+    color: #1259c3;
+  }
+
+  .contextGroup ul {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    border: 1px solid var(--ui-color-border, #d7dee8);
+    border-radius: 0.45rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .contextGroup li {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.7rem;
+  }
+
+  .contextGroup li + li {
+    border-block-start: 1px solid var(--ui-color-border, #e2e7ef);
+  }
+
+  .contextGroup li span,
+  .contextGroup li small {
+    color: var(--ui-color-text-muted, #536174);
+  }
+
+  .contextGroup li small {
+    font-weight: 700;
+  }
+
   .toolbar {
     display: flex;
     flex-wrap: wrap;

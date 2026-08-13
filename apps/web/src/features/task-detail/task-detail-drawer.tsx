@@ -5,12 +5,15 @@ import type { Catalog } from "@evaluation/localization";
 import { ProductIcon } from "@evaluation/ui";
 import { useEffect, useState } from "react";
 
-import type { WebWorkItem, WorkItemStatus } from "../../platform/work-items-api";
+import type { WebWorkItem, WorkItemContext, WorkItemStatus } from "../../platform/work-items-api";
 import styles from "../../product-ui/work/work-workspace.module.css";
 
 export function TaskDetailDrawer({
   catalog,
+  context,
+  contextState,
   item,
+  locale,
   notice,
   onClose,
   onRetry,
@@ -18,7 +21,10 @@ export function TaskDetailDrawer({
   state,
 }: Readonly<{
   catalog: Catalog;
+  context: WorkItemContext | null;
+  contextState: "loading" | "ready" | "error";
   item: WebWorkItem | null;
+  locale: "ar" | "en";
   notice: "stale" | "transition_error" | null;
   onClose(): void;
   onRetry(): void;
@@ -108,6 +114,36 @@ export function TaskDetailDrawer({
                 </ul>
               </section>
             )}
+            <section className={styles.taskContext!}>
+              <div className={styles.taskContextHeading!}>
+                <h4>{catalog["work.context.title"]}</h4>
+                <a href={`/${locale}/projects/${item.projectId}`}>
+                  {catalog["work.context.openProject"]}
+                </a>
+              </div>
+              <p className={styles.contextNote!}>{catalog["work.context.note"]}</p>
+              {contextState === "loading" ? (
+                <p aria-busy="true">{catalog["work.context.loading"]}</p>
+              ) : contextState === "error" ? (
+                <p role="status">{catalog["work.context.error"]}</p>
+              ) : context === null ||
+                (context.updates.length === 0 && context.evidence.length === 0) ? (
+                <p>{catalog["work.context.empty"]}</p>
+              ) : (
+                <div className={styles.contextGroups!}>
+                  <ContextGroup
+                    catalog={catalog}
+                    entries={context.updates}
+                    title={catalog["work.context.updates"]}
+                  />
+                  <ContextGroup
+                    catalog={catalog}
+                    entries={context.evidence}
+                    title={catalog["work.context.evidence"]}
+                  />
+                </div>
+              )}
+            </section>
             {notice === "stale" ? (
               <p className={styles.alert!} role="alert">
                 {catalog["work.stale"]}
@@ -152,5 +188,39 @@ export function TaskDetailDrawer({
         )}
       </aside>
     </div>
+  );
+}
+
+function ContextGroup({
+  catalog,
+  entries,
+  title,
+}: Readonly<{
+  catalog: Catalog;
+  entries: WorkItemContext["evidence"];
+  title: string;
+}>) {
+  if (entries.length === 0) return null;
+  return (
+    <section className={styles.contextGroup!}>
+      <h5>
+        {title} <span>{entries.length}</span>
+      </h5>
+      <ul>
+        {entries.map((entry) => (
+          <li key={entry.id}>
+            <strong>{entry.title}</strong>
+            <span>{entry.detail}</span>
+            <small>
+              {entry.sourceProvenance === "github_automated"
+                ? catalog["work.context.githubSuggested"]
+                : entry.reviewState === "employee_confirmed"
+                  ? catalog["work.context.employeeConfirmed"]
+                  : catalog["work.context.recorded"]}
+            </small>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
