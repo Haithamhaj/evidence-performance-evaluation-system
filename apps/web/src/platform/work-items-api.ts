@@ -39,11 +39,15 @@ export async function listWorkItems(input: {
   readonly status: WorkItemStatus | null;
   readonly search: string | null;
   readonly sort: "due_asc" | "updated_desc" | "priority_desc";
+  readonly cursor?: string | null;
 }): Promise<WebTaskWorkspaceResponse> {
   const query = new URLSearchParams({ layout: input.layout, sort: input.sort, view: input.view });
   if (input.projectId !== null) query.set("projectId", WebUuidSchema.parse(input.projectId));
   if (input.status !== null) query.set("status", input.status);
   if (input.search !== null) query.set("search", input.search);
+  if (input.cursor !== undefined && input.cursor !== null) {
+    query.set("cursor", WebUuidSchema.parse(input.cursor));
+  }
   const response = await fetch(`/api/daily-work/work-items?${query.toString()}`, {
     cache: "no-store",
   });

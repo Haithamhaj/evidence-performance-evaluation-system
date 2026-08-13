@@ -368,6 +368,19 @@
     gap: 0.55rem;
   }
 
+  .loadMore {
+    justify-self: center;
+    min-block-size: 2.5rem;
+    border: 1px solid #9fc0f1;
+    border-radius: 0.45rem;
+    background: #fff;
+    padding-inline: 1rem;
+    color: #1259c3;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
   .listSection > h2 {
     display: flex;
     align-items: center;

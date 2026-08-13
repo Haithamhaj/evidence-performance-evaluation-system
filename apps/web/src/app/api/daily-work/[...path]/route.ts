@@ -173,6 +173,7 @@ const WorkItemsQuerySchema = z
       .optional(),
     search: z.string().trim().min(1).max(200).optional(),
     sort: z.enum(["due_asc", "updated_desc", "priority_desc"]),
+    cursor: UuidSchema.optional(),
   })
   .strict();
 const UploadMetadataSchema = z
@@ -228,6 +229,7 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
       if (query.projectId !== undefined) params.set("projectId", query.projectId);
       if (query.status !== undefined) params.set("status", query.status);
       if (query.search !== undefined) params.set("search", query.search);
+      if (query.cursor !== undefined) params.set("cursor", query.cursor);
       return json(
         await fetchProtectedUpstream({
           method: "GET",

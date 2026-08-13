@@ -427,6 +427,8 @@
   "work.sort.priority_desc": "Priority",
   "work.applyFilters": "Apply",
   "work.clearFilters": "Clear",
+  "work.loadMore": "Load more Tasks",
+  "work.loadingMore": "Loading more Tasks…",
   "work.personalViews": "Personal views",
   "work.saveCurrentView": "Save current view",
   "work.viewName": "View name",

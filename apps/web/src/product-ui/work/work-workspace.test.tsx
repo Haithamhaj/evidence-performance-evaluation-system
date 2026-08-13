@@ -61,6 +61,38 @@ describe("WorkWorkspace", () => {
     });
   });
 
+  it("loads the next authoritative page without rendering 1,000 Tasks at once", async () => {
+    const user = userEvent.setup();
+    const next = { ...item, id: crypto.randomUUID(), title: "Task 201" };
+    const gateway = service({
+      list: vi.fn().mockResolvedValue({
+        counts: {
+          all: 1_000,
+          blocked: 0,
+          cancelled: 0,
+          done: 0,
+          in_progress: 0,
+          in_review: 0,
+          planned: 0,
+          ready: 1_000,
+        },
+        items: [next],
+        layout: "list",
+        nextCursor: null,
+        view: "my",
+      }),
+    });
+    renderWork(gateway, null, "en", [item], undefined, "77777777-7777-4777-8777-777777777777");
+
+    await user.click(screen.getByRole("button", { name: "Load more Tasks" }));
+
+    expect(await screen.findByText(next.title)).toBeVisible();
+    expect(gateway.list).toHaveBeenCalledWith(
+      expect.objectContaining({ cursor: "77777777-7777-4777-8777-777777777777" }),
+    );
+    expect(screen.queryByRole("button", { name: "Load more Tasks" })).not.toBeInTheDocument();
+  });
+
   it("shows Needs my action, Today, and Overdue before collapsed secondary groups", () => {
     renderWork(service(), null, "en", [item], {
       ...snapshot(),
@@ -664,6 +696,7 @@ function renderWork(
   locale: "ar" | "en" = "en",
   items: import("../../platform/work-items-api").WebWorkItem[] = [item],
   initialSnapshot?: import("@evaluation/contracts").DailyWorkspaceSnapshot,
+  initialNextCursor?: string | null,
 ) {
   return render(
     <WorkWorkspace
@@ -672,6 +705,7 @@ function renderWork(
       gateway={gateway}
       initialItems={items}
       initialLayout="list"
+      {...(initialNextCursor === undefined ? {} : { initialNextCursor })}
       initialSelectedId={selectedId}
       {...(initialSnapshot === undefined ? {} : { initialSnapshot })}
       initialView="my"

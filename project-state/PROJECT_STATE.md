@@ -195,6 +195,16 @@ every engine authority and protected product rule, and all retained rollback rou
   authoritative Task. Migration 0042 adds only the creator-scoped nullable uniqueness key, and the
   domain rejects reuse of the ID with different Task content. Drafts remain device-local and contain
   no Evidence, Project progress, evaluation, or manager data.
+- P2-15 is complete: representative 50/200/1,000-Task fixtures preserve identity within the focused
+  composition budget. The protected reader remains cursor-bounded, and Work now loads additional
+  pages in place without duplicates or losing filters. Virtualization is deferred because paging is
+  simpler and already prevents an unbounded daily screen.
+- P2-16 is complete: the clean-room ClickUp interaction benchmark records action count, keyboard
+  paths, density, filters, URL-owned detail context, and retry behavior. No ClickUp code, asset,
+  schema, API, or branding entered the repository.
+- P2-17 remains open by design. Core Work/Task management is complete, but the Work Agent still needs
+  the remaining authoritative triggers, prepared Update/follow-up actions, and confirmation-bound
+  command preparation before the capability matrix can be closed honestly.
 
 ## Active Risks
 
@@ -223,9 +233,8 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue Work with representative performance fixtures and the clean-room ClickUp interaction
-benchmark before closing the capability matrix. Then extend contextual Task help through
-the AI Router only where a protected command and explicit confirmation are available. Keep
+Close the remaining P2-10–P2-12 Work Agent gaps through existing authoritative signals, AI Router
+routes, and explicit human confirmation, then reconcile P2-17 against the capability matrix. Keep
 dogfooding with Codex and the real Project, keep Pull Requests #29 and #30 unmerged, and retain
 Calendar and legacy rollback routes.
 
@@ -241,6 +250,7 @@ Calendar and legacy rollback routes.
 - `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
 - `docs/product/AI_NATIVE_FRONTEND_SOURCE_SNAPSHOT.md`
 - `docs/reviews/AI_NATIVE_FRONTEND_D0_EVIDENCE.md`
+- `docs/reviews/PHASE_2_WORK_EXPERIENCE_BENCHMARK.md`
 - `docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-master-plan.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0a.md`

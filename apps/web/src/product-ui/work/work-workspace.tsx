@@ -46,6 +46,7 @@ export type WorkWorkspaceGateway = Readonly<{
     status: WorkItemStatus | null;
     search: string | null;
     sort: "due_asc" | "updated_desc" | "priority_desc";
+    cursor?: string | null;
   }): Promise<WebTaskWorkspaceResponse>;
   loadContext(input: { itemId: string; projectId: string }): Promise<WorkItemContext>;
   loadConnectedContext(): Promise<ConnectedWorkContext>;
@@ -91,6 +92,7 @@ export function WorkWorkspace({
   initialCounts,
   initialFilters = { projectId: null, search: null, sort: "due_asc", status: null },
   initialItems,
+  initialNextCursor = null,
   initialLayout,
   initialSelectedId = null,
   initialSnapshot,
@@ -110,6 +112,7 @@ export function WorkWorkspace({
   }>;
   initialItems: readonly WebWorkItem[];
   initialLayout: "board" | "calendar" | "list";
+  initialNextCursor?: string | null;
   initialSnapshot?: import("@evaluation/contracts").DailyWorkspaceSnapshot;
   initialSelectedId?: string | null;
   initialView: "my" | "team";
@@ -117,6 +120,8 @@ export function WorkWorkspace({
   projects: readonly { id: string; name: string }[];
 }>) {
   const [items, setItems] = useState([...initialItems]);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [detail, setDetail] = useState<WebWorkItem | null>(null);
   const [detailContext, setDetailContext] = useState<WorkItemContext | null>(null);
@@ -203,6 +208,7 @@ export function WorkWorkspace({
           if (!active) return;
           setItems([...result.items]);
           setLiveCounts(result.counts);
+          setNextCursor(result.nextCursor);
         })
         .catch(() => undefined);
     };
@@ -219,6 +225,32 @@ export function WorkWorkspace({
       window.clearInterval(timer);
     };
   }, [filters, gateway, initialLayout, initialView]);
+
+  async function loadMore() {
+    if (nextCursor === null || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const result = await gateway.list({
+        cursor: nextCursor,
+        layout: initialLayout,
+        projectId: filters.projectId,
+        search: filters.search,
+        sort: filters.sort,
+        status: filters.status,
+        view: initialView,
+      });
+      setItems((current) => {
+        const byId = new Map([...current, ...result.items].map((item) => [item.id, item]));
+        return [...byId.values()];
+      });
+      setNextCursor(result.nextCursor);
+      setLiveCounts(result.counts);
+    } catch {
+      // Keep the currently loaded authoritative page available for a safe retry.
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -1010,6 +1042,17 @@ export function WorkWorkspace({
             />
           )}
         </section>
+      )}
+
+      {nextCursor === null ? null : (
+        <button
+          className={styles.loadMore!}
+          disabled={loadingMore}
+          onClick={() => void loadMore()}
+          type="button"
+        >
+          {loadingMore ? catalog["work.loadingMore"] : catalog["work.loadMore"]}
+        </button>
       )}
 
       {selectedId === null ? null : (

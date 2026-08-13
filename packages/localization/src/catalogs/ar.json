@@ -427,6 +427,8 @@
   "work.sort.priority_desc": "الأولوية",
   "work.applyFilters": "تطبيق",
   "work.clearFilters": "مسح",
+  "work.loadMore": "تحميل المزيد من المهام",
+  "work.loadingMore": "جارٍ تحميل المزيد من المهام…",
   "work.personalViews": "العروض الشخصية",
   "work.saveCurrentView": "حفظ العرض الحالي",
   "work.viewName": "اسم العرض",

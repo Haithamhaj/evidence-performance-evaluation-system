@@ -83,6 +83,7 @@ export default async function TasksPage({ params, searchParams }: Properties) {
           currentUserId: currentUser.userId,
           initialItems: response.items,
           initialLayout: layout,
+          initialNextCursor: response.nextCursor,
           initialCounts: response.counts,
           initialFilters: { projectId, search, sort, status },
           initialSelectedId: selectedId,
