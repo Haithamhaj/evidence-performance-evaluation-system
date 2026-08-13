@@ -42,20 +42,33 @@ function harness(
     routerFails?: boolean;
     wrongUser?: boolean;
     aiOutput?: Record<string, unknown>;
+    workspace?: import("@evaluation/contracts").DailyWorkspaceSnapshot;
   } = {},
 ) {
   const reviewQueue = vi.fn(async ({ actor }: { actor: { userId: string } }) => ({
     items: options.wrongUser || actor.userId !== employeeId ? [] : [],
   }));
-  const dailyWorkspace = vi.fn(async (actor: { userId: string }) => ({
-    needsMyAction: options.wrongUser || actor.userId !== employeeId ? [] : [task],
-    today: [],
-    overdue: [],
-    reviewQueue: [],
-    inbox: [],
-    projectPulse: [],
-    upcoming: [],
-  }));
+  const dailyWorkspace = vi.fn(async (actor: { userId: string }) =>
+    options.wrongUser || actor.userId !== employeeId
+      ? {
+          needsMyAction: [],
+          today: [],
+          overdue: [],
+          reviewQueue: [],
+          inbox: [],
+          projectPulse: [],
+          upcoming: [],
+        }
+      : (options.workspace ?? {
+          needsMyAction: [task],
+          today: [],
+          overdue: [],
+          reviewQueue: [],
+          inbox: [],
+          projectPulse: [],
+          upcoming: [],
+        }),
+  );
   const rows = new Map<string, import("@evaluation/contracts").PreparedExperienceItem>();
   const persistence = {
     find: vi.fn(async (key: string) => rows.get(key) ?? null),
@@ -141,6 +154,50 @@ describe("ExperienceOrchestratorService", () => {
     expect(JSON.stringify(result)).not.toMatch(/rating|readiness|productivity|progress/iu);
     expect(router.run).not.toHaveBeenCalled();
   });
+
+  it.each([
+    {
+      group: "overdue" as const,
+      item: { ...task, dueAt: "2026-08-11T07:00:00.000Z" },
+      expectedWhy: "overdue",
+      expectedBody: "Review the overdue Task",
+    },
+    {
+      group: "today" as const,
+      item: task,
+      expectedWhy: "due today",
+      expectedBody: "Review today's Task",
+    },
+    {
+      group: "needsMyAction" as const,
+      item: { ...task, status: "ready" as const },
+      expectedWhy: "ready for action",
+      expectedBody: "Start the ready Task",
+    },
+  ])(
+    "explains the authoritative $group trigger instead of using a generic prompt",
+    async (fixture) => {
+      const workspace = {
+        needsMyAction: [],
+        today: [],
+        overdue: [],
+        reviewQueue: [],
+        inbox: [],
+        projectPulse: [],
+        upcoming: [],
+        [fixture.group]: [fixture.item],
+      };
+      const { service } = harness({ workspace });
+
+      const result = await service.compose({
+        actor: { userId: employeeId, active: true, roles: ["employee"] },
+        correlationId,
+      });
+
+      expect(result.items[0]?.why.toLowerCase()).toContain(fixture.expectedWhy);
+      expect(result.items[0]?.editableDraft.body).toContain(fixture.expectedBody);
+    },
+  );
 
   it("uses the governed AI Router and returns its trace while keeping one item", async () => {
     const { service, router } = harness({ aiEnabled: true });

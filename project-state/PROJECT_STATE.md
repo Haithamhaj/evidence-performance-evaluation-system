@@ -210,6 +210,10 @@ every engine authority and protected product rule, and all retained rollback rou
   separate Product Owner Task, and recent commits remain suggested evidence. The full browser journey
   exposed and fixed one authority mismatch: List and Board now use dependency-aware transitions, so a
   Task waiting on unfinished work cannot advertise `Ready` even before its detail is opened.
+- The Work Agent now explains three existing authoritative daily triggers distinctly: an overdue Task,
+  a Task due today, and a Task ready for action. Each preparation remains one source-backed suggestion;
+  it opens the Task but does not transition it, create evidence, or infer Project progress or employee
+  performance. Missing-update and follow-up preparation remain the next P2-10/P2-11 gap.
 
 ## Active Risks
 

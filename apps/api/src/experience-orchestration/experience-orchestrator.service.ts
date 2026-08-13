@@ -425,15 +425,59 @@ function selectCandidate(
         "Reviewing it does not change official work until you confirm an owning-domain command.",
     };
   }
-  const task = workspace.needsMyAction[0] ?? workspace.today[0] ?? workspace.overdue[0];
-  if (task === undefined) return null;
+  const source =
+    workspace.needsMyAction[0] !== undefined
+      ? ({ group: "needs_my_action", task: workspace.needsMyAction[0] } as const)
+      : workspace.today[0] !== undefined
+        ? ({ group: "today", task: workspace.today[0] } as const)
+        : workspace.overdue[0] !== undefined
+          ? ({ group: "overdue", task: workspace.overdue[0] } as const)
+          : null;
+  if (source === null) return null;
+  const task = source.task;
+  const trigger = workItemTrigger(source.group, task);
   return {
     kind: "next_action",
     reference: `work-item:${task.id}`,
     observedAt: task.updatedAt,
     title: task.title,
-    body: task.nextAction ?? "Open the task and decide the next useful step.",
-    deterministicWhy: "This authorized task needs your attention today.",
+    body: trigger.body,
+    deterministicWhy: trigger.why,
+    consequence: trigger.consequence,
+  };
+}
+
+function workItemTrigger(
+  group: "needs_my_action" | "today" | "overdue",
+  task: import("@evaluation/contracts").WorkItemDetail,
+): Readonly<{ body: string; why: string; consequence: string }> {
+  if (group === "overdue") {
+    return {
+      why: "This authorized Task is overdue and still open.",
+      body: `Review the overdue Task. ${task.nextAction ?? "Decide the next useful step."}`,
+      consequence:
+        "Reviewing it can clarify the next action; its status changes only through your protected command.",
+    };
+  }
+  if (group === "today") {
+    return {
+      why: "This authorized Task is due today.",
+      body: `Review today's Task. ${task.nextAction ?? "Decide the next useful step."}`,
+      consequence:
+        "Reviewing it keeps today's plan current; nothing changes until you use an authorized action.",
+    };
+  }
+  if (task.status === "ready") {
+    return {
+      why: "This authorized Task is ready for action.",
+      body: `Start the ready Task. ${task.nextAction ?? "Open it and decide the next useful step."}`,
+      consequence:
+        "Opening it helps you start the next step; the assistant does not change its status for you.",
+    };
+  }
+  return {
+    why: "This authorized Task needs your review.",
+    body: task.nextAction ?? "Open the Task and decide the next useful step.",
     consequence: "Reviewing it keeps the current work visible; nothing changes until you act.",
   };
 }
