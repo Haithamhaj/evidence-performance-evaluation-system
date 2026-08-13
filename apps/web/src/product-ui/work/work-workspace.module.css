@@ -650,6 +650,70 @@
     font: inherit;
   }
 
+  .bulkActions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.55rem;
+    border: 1px solid var(--ui-color-border, #d7dee8);
+    border-radius: 0.5rem;
+    background: #f7f9fc;
+    padding: 0.65rem;
+  }
+
+  .bulkActions label {
+    display: grid;
+    gap: 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 750;
+  }
+
+  .bulkActions select,
+  .bulkActions button {
+    min-block-size: 2.3rem;
+    border: 1px solid var(--ui-color-border-strong, #aeb9c8);
+    border-radius: 0.4rem;
+    background: #fff;
+    padding-inline: 0.65rem;
+    color: inherit;
+    font: inherit;
+  }
+
+  .bulkActions button {
+    border-color: #1467e8;
+    color: #1259c3;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .bulkActions p {
+    margin: 0;
+    align-self: center;
+    color: #35644a;
+    font-size: 0.78rem;
+    font-weight: 750;
+  }
+
+  .rowSelection {
+    display: grid;
+    place-items: center;
+    padding-inline: 0.7rem;
+  }
+
+  .rowSelection input {
+    block-size: 1rem;
+    inline-size: 1rem;
+  }
+
+  .visuallyHidden {
+    position: absolute;
+    overflow: hidden;
+    inline-size: 1px;
+    block-size: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .calendarDates {
     display: grid;
     gap: 0.75rem;

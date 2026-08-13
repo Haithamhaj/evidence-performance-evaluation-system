@@ -553,6 +553,29 @@ describe("WorkWorkspace", () => {
     expect(stored).toContain("My launch work");
     expect(stored).not.toMatch(/manager|evaluation|rating|readiness/iu);
   });
+
+  it("bulk-moves only Tasks whose protected command succeeds and reports the unchanged item", async () => {
+    const second = {
+      ...item,
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Confirm the handoff",
+    };
+    const transition = vi
+      .fn()
+      .mockResolvedValueOnce({ ...item, status: "in_progress", version: 2 })
+      .mockRejectedValueOnce(new WorkItemGatewayError(403));
+    const gateway = service({ transition });
+    const user = userEvent.setup();
+    renderWork(gateway, null, "en", [item, second]);
+
+    await user.click(screen.getByRole("checkbox", { name: `Select ${item.title}` }));
+    await user.click(screen.getByRole("checkbox", { name: `Select ${second.title}` }));
+    await user.selectOptions(screen.getByLabelText("Bulk status"), "in_progress");
+    await user.click(screen.getByRole("button", { name: "Update 2 Tasks" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("1 updated · 1 unchanged");
+    expect(transition).toHaveBeenCalledTimes(2);
+  });
 });
 
 function renderWork(

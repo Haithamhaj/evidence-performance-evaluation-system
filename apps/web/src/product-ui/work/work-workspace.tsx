@@ -123,6 +123,11 @@ export function WorkWorkspace({
   const [savedViews, setSavedViews] = useState<PersonalWorkView[]>([]);
   const [savingView, setSavingView] = useState(false);
   const [viewName, setViewName] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<WorkItemStatus>("in_progress");
+  const [bulkState, setBulkState] = useState<
+    { state: "idle" | "saving" } | { state: "done"; updated: number; unchanged: number }
+  >({ state: "idle" });
   const [filters, setFilters] = useState(initialFilters);
   const detailRequestGeneration = useRef(0);
   const quickDraftKey = `command-brief.quick-task.v1:${currentUserId}`;
@@ -266,6 +271,32 @@ export function WorkWorkspace({
     if (saved.sort !== "due_asc") search.set("sort", saved.sort);
     if (saved.status !== null) search.set("status", saved.status);
     return `/${locale}/tasks?${search.toString()}`;
+  }
+
+  async function applyBulkStatus() {
+    setBulkState({ state: "saving" });
+    let updatedCount = 0;
+    let unchangedCount = 0;
+    for (const id of selectedIds) {
+      const item = items.find((candidate) => candidate.id === id);
+      if (item === undefined || !item.allowedTransitions.includes(bulkStatus)) {
+        unchangedCount += 1;
+        continue;
+      }
+      try {
+        const updated = await gateway.transition(item.id, {
+          status: bulkStatus,
+          expectedVersion: item.version,
+          reason: catalog["work.bulk.reason"],
+        });
+        setItems((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+        updatedCount += 1;
+      } catch {
+        unchangedCount += 1;
+      }
+    }
+    setSelectedIds([]);
+    setBulkState({ state: "done", updated: updatedCount, unchanged: unchangedCount });
   }
 
   async function load(id: string, generation = ++detailRequestGeneration.current) {
@@ -743,6 +774,41 @@ export function WorkWorkspace({
         )}
       </section>
 
+      {initialLayout === "list" && (selectedIds.length > 0 || bulkState.state === "done") ? (
+        <form
+          aria-label={catalog["work.bulk.title"]}
+          className={styles.bulkActions!}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void applyBulkStatus();
+          }}
+        >
+          <label>
+            <span>{catalog["work.bulk.status"]}</span>
+            <select
+              aria-label={catalog["work.bulk.status"]}
+              onChange={(event) => setBulkStatus(event.target.value as WorkItemStatus)}
+              value={bulkStatus}
+            >
+              {boardStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {catalog[`myWork.status.${status}`]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button disabled={selectedIds.length === 0 || bulkState.state === "saving"} type="submit">
+            {catalog["work.bulk.update"]} {selectedIds.length} {catalog["work.bulk.tasks"]}
+          </button>
+          {bulkState.state === "done" ? (
+            <p role="status">
+              {bulkState.updated} {catalog["work.bulk.updated"]} · {bulkState.unchanged}{" "}
+              {catalog["work.bulk.unchanged"]}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
+
       {boardNotice === null ? null : (
         <p className={styles.alert!} role="alert">
           {catalog[boardNotice === "stale" ? "work.board.stale" : "work.board.error"]}
@@ -792,6 +858,14 @@ export function WorkWorkspace({
                   onEdit={setEditingId}
                   onSave={update}
                   onSelect={select}
+                  onToggleSelection={(id) =>
+                    setSelectedIds((current) =>
+                      current.includes(id)
+                        ? current.filter((selected) => selected !== id)
+                        : [...current, id],
+                    )
+                  }
+                  selectedIds={selectedIds}
                 />
               </details>
             ) : (
@@ -803,6 +877,14 @@ export function WorkWorkspace({
                 onEdit={setEditingId}
                 onSave={update}
                 onSelect={select}
+                onToggleSelection={(id) =>
+                  setSelectedIds((current) =>
+                    current.includes(id)
+                      ? current.filter((selected) => selected !== id)
+                      : [...current, id],
+                  )
+                }
+                selectedIds={selectedIds}
               />
             )}
           </section>
@@ -824,6 +906,14 @@ export function WorkWorkspace({
               onEdit={setEditingId}
               onSave={update}
               onSelect={select}
+              onToggleSelection={(id) =>
+                setSelectedIds((current) =>
+                  current.includes(id)
+                    ? current.filter((selected) => selected !== id)
+                    : [...current, id],
+                )
+              }
+              selectedIds={selectedIds}
             />
           )}
         </section>
@@ -1178,6 +1268,8 @@ function WorkRows({
   onEdit,
   onSave,
   onSelect,
+  onToggleSelection,
+  selectedIds,
 }: Readonly<{
   catalog: Catalog;
   editingId: string | null;
@@ -1203,6 +1295,8 @@ function WorkRows({
     input: Pick<WebWorkItem, "dueAt" | "priority" | "title">,
   ): Promise<"saved" | "stale" | "forbidden" | "error">;
   onSelect(id: string): void;
+  onToggleSelection(id: string): void;
+  selectedIds: readonly string[];
 }>) {
   function handleKeyDown(event: import("react").KeyboardEvent<HTMLButtonElement>) {
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
@@ -1229,6 +1323,17 @@ function WorkRows({
       {items.map(({ item, projectName }) => (
         <li key={item.id}>
           <div className={styles.row!}>
+            <label className={styles.rowSelection!}>
+              <span className={styles.visuallyHidden!}>
+                {catalog["work.bulk.select"]} {item.title}
+              </span>
+              <input
+                aria-label={`${catalog["work.bulk.select"]} ${item.title}`}
+                checked={selectedIds.includes(item.id)}
+                onChange={() => onToggleSelection(item.id)}
+                type="checkbox"
+              />
+            </label>
             <button
               className={styles.rowOpen!}
               data-work-item-id={item.id}

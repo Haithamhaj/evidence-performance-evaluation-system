@@ -171,6 +171,10 @@ every engine authority and protected product rule, and all retained rollback rou
 - P2-08 is complete: Codex can save up to eight employee-owned personal Work views from the
   allowlisted URL state (layout, Project, status, search, and sort). Views stay on that employee's
   device and deliberately contain no manager, evaluation, rating, readiness, or performance data.
+- P2-09 is complete in the bounded safe form: List supports multi-select status changes, but sends
+  one existing protected transition command per Task and never infers authority in the browser. A
+  rejected or dependency-blocked Task remains unchanged and the employee receives an exact partial
+  result; no bulk action writes Project progress, Evidence, or evaluation data.
 
 ## Active Risks
 
