@@ -219,6 +219,10 @@ every engine authority and protected product rule, and all retained rollback rou
   or approved leave suppresses it. The prepared item links to the existing Project Update flow and
   records nothing until employee confirmation. Completion/dependency event-driven recomposition and
   broader confirmed-command preparation remain the final P2-10–P2-12 closure gap.
+- Work refresh now recomposes both the authoritative Task page and the single Work Agent preparation
+  on focus, visible return, and the existing bounded interval. This gives completion, overdue, and
+  newly actionable state changes a truthful refresh path without creating a second event store or
+  claiming instantaneous delivery.
 
 ## Active Risks
 

@@ -51,6 +51,7 @@ describe("WorkWorkspace", () => {
     window.dispatchEvent(new Event("focus"));
 
     expect(await screen.findByText("Authoritative title")).toBeVisible();
+    expect(gateway.loadPrepared).toHaveBeenCalled();
     expect(gateway.list).toHaveBeenCalledWith({
       layout: "list",
       projectId: null,

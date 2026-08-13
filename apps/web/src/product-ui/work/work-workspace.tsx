@@ -195,22 +195,25 @@ export function WorkWorkspace({
   useEffect(() => {
     let active = true;
     const refresh = () => {
-      void gateway
-        .list({
+      void Promise.allSettled([
+        gateway.list({
           layout: initialLayout,
           projectId: filters.projectId,
           search: filters.search,
           sort: filters.sort,
           status: filters.status,
           view: initialView,
-        })
-        .then((result) => {
-          if (!active) return;
-          setItems([...result.items]);
-          setLiveCounts(result.counts);
-          setNextCursor(result.nextCursor);
-        })
-        .catch(() => undefined);
+        }),
+        gateway.loadPrepared(),
+      ]).then(([workspace, preparation]) => {
+        if (!active) return;
+        if (workspace.status === "fulfilled") {
+          setItems([...workspace.value.items]);
+          setLiveCounts(workspace.value.counts);
+          setNextCursor(workspace.value.nextCursor);
+        }
+        if (preparation.status === "fulfilled") setPrepared(preparation.value);
+      });
     };
     const visible = () => {
       if (document.visibilityState === "visible") refresh();
