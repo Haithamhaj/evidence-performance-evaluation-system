@@ -1413,8 +1413,15 @@ const server = createServer(async (request, response) => {
       },
       likelyMeaning: "suggested_evidence",
       relatedWorkItemId: workItems[0]?.id ?? null,
-      relatedComponentId: null,
-      sourceRefs: [],
+      relatedComponentId: "e3333333-3333-4333-8333-333333333333",
+      sourceRefs: [
+        {
+          kind: "github",
+          label: "GitHub PR #184",
+          observedAt: "2026-08-13T08:00:00.000Z",
+          freshness: "fresh",
+        },
+      ],
       clarification: {
         question: "What measured API error rate did you observe, and where can it be verified?",
         missingField: "measured_result",

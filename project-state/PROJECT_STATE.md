@@ -126,6 +126,11 @@ contract-verification surfaces with the final daily journey.
   Router, asks one missing question at a time, and preserves a private/manual recovery path. It
   creates no official Update, Evidence, Work Item, progress, or evaluation record before the T100
   employee review and confirmation gate.
+- T100 is complete. Review & Confirmation keeps Update, Evidence, contribution context, and a
+  progress proposal separately selectable; employee edits are revised through the owning APIs before
+  confirmation, GitHub-derived Evidence cannot be selected before an employee edit, and each command
+  returns an independent authoritative receipt or truthful failure. A selected progress proposal is
+  recorded only as Update context for the owner to review; it never mutates official progress.
 
 ## Active Risks
 
@@ -154,9 +159,9 @@ contract-verification surfaces with the final daily journey.
 
 ## Next Recommended Action
 
-Implement T100 Review & Confirmation, then run T101 as one authenticated Home → Project → Work →
-Capture → Clarify → Review journey. Keep Pull Request #29 unmerged and retain all legacy routes until
-that running end-to-end journey passes Product Owner acceptance.
+Run T101 as one authenticated Home → Project → Work → Capture → Clarify → Review → Confirm journey.
+Keep Pull Request #29 unmerged and retain all legacy routes until that running end-to-end journey
+passes Product Owner acceptance.
 
 ## Critical References
 

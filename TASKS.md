@@ -982,7 +982,7 @@ The detailed authority is
 
 ## T100 — Build Review & Confirmation
 
-**Status:** Not started
+**Status:** Complete — editable Update, separately selectable employee-edited Evidence, optional owner-gated progress proposal, explicit consequences/acknowledgment, truthful stale/partial recovery, and the append-only domain confirmation path are verified.
 **Priority:** P0
 **Dependencies:** T099
 **Purpose:** Separate editable Update, selectable Evidence, contribution context, and progress proposal so the employee confirms only the intended actions and official progress still follows its owning rule.

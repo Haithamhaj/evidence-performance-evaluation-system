@@ -1,0 +1,226 @@
+@layer product {
+  .review {
+    display: grid;
+    gap: 1rem;
+    color: #18202b;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    border-block-end: 1px solid #dce3ed;
+    padding-block-end: 0.75rem;
+  }
+  .header h2,
+  .header p,
+  .section h3 {
+    margin: 0;
+  }
+  .header p {
+    color: #536078;
+    font-size: 0.82rem;
+  }
+  .steps {
+    display: flex;
+    gap: 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: #65718a;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .active {
+    color: #075fea;
+    font-weight: 700;
+  }
+  .sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    border: 1px solid #cbd6e6;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+  }
+  .sources span {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .section {
+    display: grid;
+    gap: 0.65rem;
+    border-block-end: 1px solid #dce3ed;
+    padding-block-end: 1rem;
+  }
+  .sectionTitle {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.65rem;
+  }
+  .sectionTitle b {
+    display: grid;
+    place-items: center;
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    border-radius: 50%;
+    background: #075fea;
+    color: white;
+    font-size: 0.72rem;
+  }
+  .sectionTitle span {
+    color: #64718a;
+    font-size: 0.75rem;
+  }
+  .section label:not(.select) {
+    display: grid;
+    gap: 0.3rem;
+    color: #46536a;
+    font-size: 0.76rem;
+  }
+  .section input[type="text"],
+  .section input:not([type]),
+  .section textarea {
+    border: 1px solid #cbd6e6;
+    border-radius: 0.4rem;
+    padding: 0.65rem;
+    color: #18202b;
+    font: inherit;
+  }
+  .section textarea {
+    min-block-size: 4.5rem;
+    resize: vertical;
+  }
+  .select {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
+  .progress {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1.2fr;
+    gap: 1rem;
+    font-size: 0.78rem;
+  }
+  .progress span {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .rationale,
+  .protections {
+    border: 1px solid #cbd6e6;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+  }
+  .rationale summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .rationale p {
+    margin: 0.45rem 0 0;
+    color: #536078;
+  }
+  .protections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .protections h3 {
+    margin: 0;
+    font-size: 0.86rem;
+  }
+  .protections p,
+  .protections ul {
+    margin: 0.35rem 0 0;
+    color: #536078;
+    font-size: 0.76rem;
+    line-height: 1.5;
+  }
+  .error {
+    margin: 0;
+    border: 1px solid #d84a4a;
+    border-radius: 0.4rem;
+    background: #fff0f0;
+    padding: 0.65rem;
+    color: #a32727;
+  }
+  .outcomes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .outcomes li {
+    padding: 0.5rem;
+    color: #176b45;
+  }
+  .outcomes li:not([data-state="confirmed"]) {
+    color: #9a5b00;
+  }
+  .footer {
+    position: sticky;
+    inset-block-end: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-block-start: 1px solid #dce3ed;
+    background: white;
+    padding-block: 1rem 0;
+  }
+  .footer > label {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+  }
+  .footer > div {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .footer button {
+    min-block-size: 2.65rem;
+    border: 1px solid #bdc9da;
+    border-radius: 0.4rem;
+    background: white;
+    padding-inline: 1rem;
+    font-weight: 700;
+  }
+  .footer button:last-child {
+    border-color: #075fea;
+    background: #075fea;
+    color: white;
+  }
+  .footer button:disabled {
+    opacity: 0.45;
+  }
+  @media (max-width: 47.999rem) {
+    .header {
+      display: grid;
+    }
+    .steps {
+      justify-content: space-between;
+      gap: 0.25rem;
+    }
+    .progress,
+    .protections {
+      grid-template-columns: 1fr;
+    }
+    .footer {
+      display: grid;
+    }
+    .footer > div {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .footer button:last-child {
+      grid-column: 1/-1;
+    }
+    .review {
+      font-size: 0.92rem;
+    }
+  }
+}
