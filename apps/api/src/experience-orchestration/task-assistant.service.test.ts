@@ -71,6 +71,17 @@ function harness(options: { fails?: boolean; output?: unknown; ai?: boolean } = 
       nextCursor: null,
     })),
   };
+  const projects = {
+    getProject: vi.fn(async () => ({
+      id: projectId,
+      departmentId: "93000000-0000-4000-8000-000000000009",
+      name: "Evidence Performance Evaluation System",
+      description: "An AI-native daily work and evidence-supported evaluation platform.",
+      status: "active",
+      version: 4,
+      primaryOwnerId: employeeId,
+    })),
+  };
   const router = {
     run: vi.fn(async (request: { sourceReferences: readonly string[] }, persist: Function) => {
       if (options.fails) throw new AppError("AI_PROVIDER_FAILED", "errors.ai.providerFailed", 502);
@@ -97,6 +108,7 @@ function harness(options: { fails?: boolean; output?: unknown; ai?: boolean } = 
     router,
     service: new TaskAssistantService({
       workItems: workItems as never,
+      projects,
       activity: activity as never,
       router: router as never,
       promptArtifacts: {
@@ -110,7 +122,7 @@ function harness(options: { fails?: boolean; output?: unknown; ai?: boolean } = 
       },
       systemId: "93000000-0000-4000-8000-000000000008",
       aiEnabled: options.ai ?? true,
-    }),
+    } as never),
   };
 }
 
@@ -118,7 +130,12 @@ describe("TaskAssistantService", () => {
   it("answers from authorized Task sources and only prepares an allowed protected action", async () => {
     const { service, router } = harness();
     const result = await service.ask({
-      actor: { userId: employeeId, active: true, roles: ["employee"] },
+      actor: {
+        userId: employeeId,
+        email: "codex.acceptance@example.invalid",
+        active: true,
+        roles: ["employee"],
+      },
       correlationId,
       input: { workItemId, locale: "en", question: "What remains before this can be reviewed?" },
     });
@@ -136,7 +153,23 @@ describe("TaskAssistantService", () => {
       ]),
     );
     expect(router.run).toHaveBeenCalledWith(
-      expect.objectContaining({ routeKey: TASK_ASSISTANT_ROUTE, requiresHumanApproval: true }),
+      expect.objectContaining({
+        routeKey: TASK_ASSISTANT_ROUTE,
+        requiresHumanApproval: true,
+        input: expect.objectContaining({
+          untrustedContent: expect.objectContaining({
+            employee: {
+              displayName: "Codex",
+              authority: "employee_confirmed_actions_only",
+            },
+            project: {
+              name: "Evidence Performance Evaluation System",
+              description: "An AI-native daily work and evidence-supported evaluation platform.",
+              status: "active",
+            },
+          }),
+        }),
+      }),
       expect.any(Function),
     );
   });
@@ -149,7 +182,12 @@ describe("TaskAssistantService", () => {
       },
     });
     const result = await service.ask({
-      actor: { userId: employeeId, active: true, roles: ["employee"] },
+      actor: {
+        userId: employeeId,
+        email: "codex.acceptance@example.invalid",
+        active: true,
+        roles: ["employee"],
+      },
       correlationId,
       input: { workItemId, locale: "en", question: "Finish it for me" },
     });
@@ -159,7 +197,12 @@ describe("TaskAssistantService", () => {
 
   it("falls back truthfully and rejects protected rating or inferred-progress output", async () => {
     const fallback = await harness({ fails: true }).service.ask({
-      actor: { userId: employeeId, active: true, roles: ["employee"] },
+      actor: {
+        userId: employeeId,
+        email: "codex.acceptance@example.invalid",
+        active: true,
+        roles: ["employee"],
+      },
       correlationId,
       input: { workItemId, locale: "en", question: "What should I do next?" },
     });
@@ -174,7 +217,12 @@ describe("TaskAssistantService", () => {
           suggestedAction: null,
         },
       }).service.ask({
-        actor: { userId: employeeId, active: true, roles: ["employee"] },
+        actor: {
+          userId: employeeId,
+          email: "codex.acceptance@example.invalid",
+          active: true,
+          roles: ["employee"],
+        },
         correlationId,
         input: { workItemId, locale: "en", question: "How am I doing?" },
       }),
@@ -185,7 +233,12 @@ describe("TaskAssistantService", () => {
     const { service, router } = harness();
     await expect(
       service.ask({
-        actor: { userId: employeeId, active: false, roles: ["employee"] },
+        actor: {
+          userId: employeeId,
+          email: "codex.acceptance@example.invalid",
+          active: false,
+          roles: ["employee"],
+        },
         correlationId,
         input: { workItemId, locale: "en", question: "What remains?" },
       }),

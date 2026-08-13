@@ -234,13 +234,18 @@ every engine authority and protected product rule, and all retained rollback rou
   preserves GitHub as suggested Evidence, and may prepare only a status contained in the current
   authoritative transition set. Provider failure falls back to the existing deterministic next
   action. This closes P2-12/P2-17 without a chat store or a second command path.
+- Live Codex dogfood now proves that path against the real local Project and the configured OpenAI
+  route. Prompt v3 names the employee and Project, requires a closed structured response, and keeps
+  any status action behind employee confirmation. Codex received a governed source-grounded answer,
+  reviewed the proposed `ready -> in_progress` transition, and explicitly confirmed it through the
+  existing Work Items command. The successful run remained pending human approval until that action;
+  it created no rating, evidence, or Project-progress mutation.
 
 ## Active Risks
 
-- Real-provider quality, latency, and recovery require production credentials and deployment-time
-  monitoring; deterministic tests verify contracts, not provider quality.
-- The first live T089 provider probe was safely quarantined by the protected semantic guard. Prompt
-  tuning is a non-blocking follow-up; deterministic fallback remains truthful and functional.
+- Real-provider quality and latency still require deployment-time monitoring. The live Task assistant
+  route is now proven with the configured OpenAI credential; deterministic fallback remains available
+  when the provider fails or a response violates the governed schema.
 - Production Google/GitHub/OIDC/email/storage/telemetry/backup require administrator configuration,
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
@@ -262,8 +267,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Run the complete Codex employee dogfood journey with the closed Work Agent capability matrix, record
-any concrete usability gaps, and proceed to the next approved engine capability bundle. Keep Pull
+Continue the real Codex employee dogfood journey from the active acceptance Task: record the
+source-backed Update/Evidence produced by the work, validate the Project overview without inferring
+progress from Task activity, and proceed to the next approved engine capability bundle. Keep Pull
 Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References

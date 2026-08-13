@@ -41,6 +41,7 @@ import {
 const ArgumentsSchema = z
   .object({
     dryRun: z.boolean(),
+    routeKey: z.string().trim().min(1).max(200).optional(),
     actorId: z.string().uuid().optional(),
     correlationId: z.string().uuid().optional(),
     systemScopeId: z.string().uuid().optional(),
@@ -98,16 +99,27 @@ type RegistrationContext = z.infer<typeof ArgumentsSchema> & {
 };
 
 export async function registerContextIntelligenceAiRoutes(
-  input: z.infer<typeof ArgumentsSchema> & { databaseUrl?: string },
+  input: z.input<typeof ArgumentsSchema> & { databaseUrl?: string },
 ) {
   const parsed = ArgumentsSchema.parse({
     dryRun: input.dryRun,
+    routeKey: input.routeKey,
     actorId: input.actorId,
     correlationId: input.correlationId,
     systemScopeId: input.systemScopeId,
     reason: input.reason,
   });
-  if (parsed.dryRun) return { routes: plan };
+  const selectedRouteMetadata =
+    parsed.routeKey === undefined
+      ? routeMetadata
+      : routeMetadata.filter(({ routeKey }) => routeKey === parsed.routeKey);
+  if (selectedRouteMetadata.length === 0) {
+    throw new AppError("AI_ROUTE_NOT_GOVERNED", "errors.ai.routeNotGoverned", 400);
+  }
+  const selectedPlan = plan.filter(
+    ({ routeKey }) => parsed.routeKey === undefined || routeKey === parsed.routeKey,
+  );
+  if (parsed.dryRun) return { routes: selectedPlan };
   if (
     parsed.actorId === undefined ||
     parsed.correlationId === undefined ||
@@ -153,14 +165,33 @@ export async function registerContextIntelligenceAiRoutes(
     }
 
     const registeredRoutes = [];
-    for (const route of routeMetadata) {
+    for (const route of selectedRouteMetadata) {
+      const existingOutputArtifact = await database.aiOutputSchemaArtifact.findUnique({
+        where: {
+          routeKey_version: {
+            routeKey: route.routeKey,
+            version: route.outputSchemaVersion,
+          },
+        },
+        select: {
+          reason: true,
+          expectedBehavior: true,
+          evaluationEvidenceReferences: true,
+        },
+      });
       const outputArtifact = await registerAuthorizedAiOutputSchema(database, principal, {
         routeKey: route.routeKey,
         version: route.outputSchemaVersion,
         schema: route.outputSchema,
-        reason: context.reason,
-        expectedBehavior: expectedOutputBehavior(route.routeKey),
-        evaluationEvidenceReferences: [`ai-eval:${route.schema.schemaHash}`],
+        // Output schemas are immutable artifacts. A prompt-only revision must reuse the
+        // artifact's original governance metadata instead of pretending to register a
+        // second version of the same schema.
+        reason: existingOutputArtifact?.reason ?? context.reason,
+        expectedBehavior:
+          existingOutputArtifact?.expectedBehavior ?? expectedOutputBehavior(route.routeKey),
+        evaluationEvidenceReferences: stringArray(
+          existingOutputArtifact?.evaluationEvidenceReferences,
+        ) ?? [`ai-eval:${route.schema.schemaHash}`],
         correlationId: context.correlationId,
       });
       const prompt = await registerPrompt(database, context, route, outputArtifact.id);
@@ -273,6 +304,12 @@ async function registerPrompt(
   });
 }
 
+function stringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string")
+    ? value
+    : undefined;
+}
+
 function expectedOutputBehavior(routeKey: string): string {
   if (routeKey === TASK_ASSISTANT_ROUTE) {
     return "Returns one source-grounded Task answer and at most one allowed status-change preparation; no command, rating, readiness, or progress authority.";
@@ -321,7 +358,8 @@ function parseArguments(argv: readonly string[]) {
     }
     const next = argv[index + 1];
     if (next === undefined) throw new Error(`Missing value for ${argument}`);
-    if (argument === "--actor-id") values.actorId = next;
+    if (argument === "--route-key") values.routeKey = next;
+    else if (argument === "--actor-id") values.actorId = next;
     else if (argument === "--correlation-id") values.correlationId = next;
     else if (argument === "--system-scope-id") values.systemScopeId = next;
     else if (argument === "--reason") values.reason = next;

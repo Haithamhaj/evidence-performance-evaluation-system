@@ -40,7 +40,7 @@ describe("Context Intelligence AI route registration", () => {
         }),
         expect.objectContaining({
           routeKey: "experience.task-assistant.v1",
-          promptVersion: "task-assistant-prompt.v1",
+          promptVersion: "task-assistant-prompt.v3",
           outputSchemaVersion: "task-assistant-output.v1",
           outputSchemaHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
         }),
@@ -52,6 +52,23 @@ describe("Context Intelligence AI route registration", () => {
   it("requires authorized production registration context outside dry-run", async () => {
     await expect(registerContextIntelligenceAiRoutes({ dryRun: false })).rejects.toMatchObject({
       code: "AI_ROUTE_REGISTRATION_CONTEXT_REQUIRED",
+    });
+  });
+
+  it("plans only one requested governed route for a bounded registration", async () => {
+    await expect(
+      registerContextIntelligenceAiRoutes({
+        dryRun: true,
+        routeKey: "experience.task-assistant.v1",
+      }),
+    ).resolves.toMatchObject({
+      routes: [
+        {
+          routeKey: "experience.task-assistant.v1",
+          promptVersion: "task-assistant-prompt.v3",
+          outputSchemaVersion: "task-assistant-output.v1",
+        },
+      ],
     });
   });
 });

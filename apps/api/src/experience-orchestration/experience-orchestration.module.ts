@@ -15,8 +15,10 @@ import { DailyWorkModule } from "../daily-work/daily-work.module.js";
 import { CheckInService } from "@evaluation/updates-evidence";
 import { ActivityReader } from "@evaluation/updates-evidence";
 import { WorkItemQueryService } from "@evaluation/work-items";
+import { ProjectService } from "@evaluation/projects";
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { WorkItemsModule } from "../work-items/work-items.module.js";
+import { ProjectsModule } from "../projects/projects.module.js";
 import { UpdatesEvidenceModule } from "../updates-evidence/updates-evidence.module.js";
 import { ExperienceOrchestrationController } from "./experience-orchestration.controller.js";
 import { CaptureUnderstandingController } from "./capture-understanding.controller.js";
@@ -47,6 +49,7 @@ Module({
     ContextIntelligenceModule,
     DailyWorkModule,
     WorkItemsModule,
+    ProjectsModule,
     UpdatesEvidenceModule,
   ],
   controllers: [
@@ -141,14 +144,21 @@ Module({
     },
     {
       provide: TASK_ASSISTANT,
-      inject: [EXPERIENCE_ORCHESTRATION_DATABASE, WorkItemQueryService, ActivityReader],
+      inject: [
+        EXPERIENCE_ORCHESTRATION_DATABASE,
+        WorkItemQueryService,
+        ProjectService,
+        ActivityReader,
+      ],
       useFactory: async (
         database: Database,
         workItems: WorkItemQueryService,
+        projects: ProjectService,
         activity: ActivityReader,
       ) =>
         new TaskAssistantService({
           workItems,
+          projects,
           activity,
           router: createDeferredRuntimeAiRouter(() =>
             createRuntimeAiRouter({

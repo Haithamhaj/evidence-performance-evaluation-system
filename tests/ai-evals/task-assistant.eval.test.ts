@@ -17,7 +17,9 @@ describe("Task assistant AI boundary", () => {
       },
     });
     expect(output.suggestedAction?.status).toBe("in_review");
-    expect(TASK_ASSISTANT_TRUSTED_PROMPT).toContain("Human confirmation remains mandatory");
+    expect(TASK_ASSISTANT_TRUSTED_PROMPT).toContain(
+      "employee's explicit confirmation through the protected command remains mandatory",
+    );
     expect(TASK_ASSISTANT_TRUSTED_PROMPT).toContain("suggested GitHub Evidence");
   });
 

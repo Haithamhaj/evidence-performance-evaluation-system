@@ -19,6 +19,7 @@ export class TaskAssistantController {
     return this.service.ask({
       actor: {
         userId: request.principal.userId,
+        email: request.principal.email,
         active: request.principal.active,
         roles: request.principal.roles,
       },
