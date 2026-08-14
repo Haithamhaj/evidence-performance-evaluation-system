@@ -57,7 +57,10 @@ describe("buildProjectExperienceModel", () => {
   });
 });
 
-export function fixture(): import("@evaluation/contracts/employee-experience").EmployeeProjectExperienceV1 {
+export function fixture(): Extract<
+  import("@evaluation/contracts/employee-experience").EmployeeProjectExperienceV1,
+  { access: "current" }
+> {
   const projectId = "40000000-0000-4000-8000-000000000001";
   const source = {
     kind: "progress_contract" as const,
@@ -68,6 +71,7 @@ export function fixture(): import("@evaluation/contracts/employee-experience").E
   return {
     schemaVersion: "employee-project-experience.v1",
     generatedAt: "2026-08-13T07:05:00.000Z",
+    access: "current",
     project: {
       id: projectId,
       name: "Atlas Delivery",
@@ -77,6 +81,7 @@ export function fixture(): import("@evaluation/contracts/employee-experience").E
       workstreams: [{ id: "40000000-0000-4000-8000-000000000002", name: "API readiness" }],
     },
     ownership: {
+      access: "current",
       viewerRole: "owner",
       currentOwner: {
         id: "40000000-0000-4000-8000-000000000010",

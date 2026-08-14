@@ -333,56 +333,69 @@ const ProjectOwnershipV1Schema = z
   })
   .strict();
 
+const EmployeeProjectCurrentExperienceV1Schema = z
+  .object({
+    schemaVersion: z.literal("employee-project-experience.v1"),
+    generatedAt: UtcInstantSchema,
+    access: z.literal("current"),
+    project: z
+      .object({
+        id: UuidSchema,
+        name: z.string().trim().min(1).max(240),
+        description: z.string().trim().max(2_000),
+        status: z.enum(["active", "paused"]),
+        ownerName: z.string().trim().min(1).max(240).nullable(),
+        workstreams: z
+          .array(z.object({ id: UuidSchema, name: z.string().trim().min(1).max(240) }).strict())
+          .max(100),
+      })
+      .strict(),
+    ownership: ProjectOwnershipV1Schema.extend({ access: z.literal("current") }),
+    document: z
+      .object({
+        id: UuidSchema,
+        title: z.string().trim().min(1).max(500),
+        version: z.number().int().positive(),
+        source: EmployeeExperienceSourceRefV1Schema,
+        href: LocalHrefSchema,
+      })
+      .strict()
+      .nullable(),
+    documentWorkspace: ProjectDocumentWorkspaceV1Schema.optional(),
+    criteriaContract: ProjectCriteriaContractV1Schema.optional(),
+    progress: OperationalProgressV1Schema,
+    progressReview: ProjectProgressReviewV1Schema.optional(),
+    milestones: z.array(EmployeeExperienceMilestoneV1Schema).max(100),
+    kpi: KpiV1Schema.nullable(),
+    attention: z.array(ProjectCollectionItemV1Schema).max(50),
+    collections: z
+      .object({
+        work: z.array(ProjectCollectionItemV1Schema).max(100),
+        updates: z.array(ProjectCollectionItemV1Schema).max(100),
+        evidence: z.array(ProjectCollectionItemV1Schema).max(100),
+        documents: z.array(ProjectCollectionItemV1Schema).max(100),
+      })
+      .strict(),
+    timeline: z.array(TimelineItemV1Schema).max(50),
+    nextCursor: z.string().trim().min(1).max(1_000).nullable(),
+    agentSignals: z.array(ProjectAgentSignalV1Schema).max(5).default([]),
+    preparedActions: z.array(ProjectPreparedActionV1Schema).max(4).default([]),
+    smartBrief: SmartBriefV1Schema.nullable(),
+  })
+  .strict();
+
 export const EmployeeProjectExperienceV1Schema = guarded(
-  z
-    .object({
-      schemaVersion: z.literal("employee-project-experience.v1"),
-      generatedAt: UtcInstantSchema,
-      project: z
-        .object({
-          id: UuidSchema,
-          name: z.string().trim().min(1).max(240),
-          description: z.string().trim().max(2_000),
-          status: z.enum(["active", "paused"]),
-          ownerName: z.string().trim().min(1).max(240).nullable(),
-          workstreams: z
-            .array(z.object({ id: UuidSchema, name: z.string().trim().min(1).max(240) }).strict())
-            .max(100),
-        })
-        .strict(),
-      ownership: ProjectOwnershipV1Schema,
-      document: z
-        .object({
-          id: UuidSchema,
-          title: z.string().trim().min(1).max(500),
-          version: z.number().int().positive(),
-          source: EmployeeExperienceSourceRefV1Schema,
-          href: LocalHrefSchema,
-        })
-        .strict()
-        .nullable(),
-      documentWorkspace: ProjectDocumentWorkspaceV1Schema.optional(),
-      criteriaContract: ProjectCriteriaContractV1Schema.optional(),
-      progress: OperationalProgressV1Schema,
-      progressReview: ProjectProgressReviewV1Schema.optional(),
-      milestones: z.array(EmployeeExperienceMilestoneV1Schema).max(100),
-      kpi: KpiV1Schema.nullable(),
-      attention: z.array(ProjectCollectionItemV1Schema).max(50),
-      collections: z
-        .object({
-          work: z.array(ProjectCollectionItemV1Schema).max(100),
-          updates: z.array(ProjectCollectionItemV1Schema).max(100),
-          evidence: z.array(ProjectCollectionItemV1Schema).max(100),
-          documents: z.array(ProjectCollectionItemV1Schema).max(100),
-        })
-        .strict(),
-      timeline: z.array(TimelineItemV1Schema).max(50),
-      nextCursor: z.string().trim().min(1).max(1_000).nullable(),
-      agentSignals: z.array(ProjectAgentSignalV1Schema).max(5).default([]),
-      preparedActions: z.array(ProjectPreparedActionV1Schema).max(4).default([]),
-      smartBrief: SmartBriefV1Schema.nullable(),
-    })
-    .strict(),
+  z.discriminatedUnion("access", [
+    EmployeeProjectCurrentExperienceV1Schema,
+    z
+      .object({
+        schemaVersion: z.literal("employee-project-experience.v1"),
+        generatedAt: UtcInstantSchema,
+        access: z.literal("ended"),
+        ownership: z.object({ access: z.literal("ended") }).strict(),
+      })
+      .strict(),
+  ]),
 );
 
 export const CaptureUnderstandingV1Schema = guarded(

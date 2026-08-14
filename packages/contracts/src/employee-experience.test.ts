@@ -101,6 +101,22 @@ describe("final employee experience contracts", () => {
     const project = {
       schemaVersion: "employee-project-experience.v1" as const,
       generatedAt: "2026-08-13T07:05:00.000Z",
+      access: "current" as const,
+      ownership: {
+        access: "current" as const,
+        viewerRole: "owner" as const,
+        currentOwner: {
+          id: projectId,
+          displayName: "Codex",
+          responsibilityType: "original" as const,
+          startsAt: "2026-08-01T09:00:00.000Z",
+          endsAt: null,
+        },
+        viewerWindow: { startsAt: "2026-08-01T09:00:00.000Z", endsAt: null },
+        plannedReturnOwnerName: null,
+        contributors: [],
+        transfer: { allowed: false as const, expectedVersion: 1, candidates: [] },
+      },
       project: {
         id: projectId,
         name: "Atlas Delivery",
@@ -142,8 +158,9 @@ describe("final employee experience contracts", () => {
       smartBrief,
     };
 
-    expect(EmployeeProjectExperienceV1Schema.parse(project)).toEqual(project);
-    expect("percent" in EmployeeProjectExperienceV1Schema.parse(project).progress).toBe(false);
+    const parsed = EmployeeProjectExperienceV1Schema.parse(project);
+    expect(parsed).toEqual(project);
+    if (parsed.access === "current") expect("percent" in parsed.progress).toBe(false);
     expect(() =>
       EmployeeProjectExperienceV1Schema.parse({
         ...project,

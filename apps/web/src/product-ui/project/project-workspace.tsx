@@ -7,13 +7,26 @@ import { buildProjectExperienceModel } from "../../features/project-experience/p
 import { ProjectAssistant } from "./project-assistant";
 import styles from "./project-workspace.module.css";
 
-type Experience = import("@evaluation/contracts/employee-experience").EmployeeProjectExperienceV1;
+type Experience = any;
 
 export function ProjectWorkspace({
   catalog,
   experience,
   locale,
 }: Readonly<{ catalog: Catalog; experience: Experience; locale: "ar" | "en" }>) {
+  if (experience.access === "ended") {
+    return (
+      <section
+        className={styles.accessEnded!}
+        data-testid="project-access-ended"
+        dir={locale === "ar" ? "rtl" : "ltr"}
+      >
+        <h1>{catalog["project.experience.accessEnded"]}</h1>
+        <p>{catalog["project.experience.accessEndedDetail"]}</p>
+        <a href={`/${locale}/projects`}>{catalog["project.experience.backToProjects"]}</a>
+      </section>
+    );
+  }
   const model = buildProjectExperienceModel(experience);
   const copy = buildCopy(catalog);
   return (

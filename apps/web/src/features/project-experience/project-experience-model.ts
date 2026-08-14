@@ -1,5 +1,8 @@
 export function buildProjectExperienceModel(
-  experience: import("@evaluation/contracts/employee-experience").EmployeeProjectExperienceV1,
+  experience: Extract<
+    import("@evaluation/contracts/employee-experience").EmployeeProjectExperienceV1,
+    { access: "current" }
+  >,
 ) {
   const current = experience.milestones.find(({ state }) => state === "current") ?? null;
   const next = experience.milestones.find(({ state }) => state === "next") ?? null;

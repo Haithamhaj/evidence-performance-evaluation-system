@@ -276,6 +276,68 @@ describe("ProjectService", () => {
     expect(contributorView.workstreams.map(({ id }) => id)).toEqual([first.id]);
   });
 
+  it("returns a Projects-owned safe ownership projection and fails closed after access ends", async () => {
+    const service = createProjectService(client, databaseAuditWriter as never, () => now);
+    const project = await service.createProject(command());
+    await service.addProjectMember({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      input: {
+        userId: fixture.memberId,
+        startsAt: "2026-07-17T07:00:00Z",
+        reason: "Approved contribution",
+      },
+    });
+
+    const ownerProjection = await (service as any).getOwnershipProjection({
+      actor: { userId: fixture.ownerId, active: true },
+      projectId: project.id,
+    });
+    expect(ownerProjection).toMatchObject({
+      access: "current",
+      viewerRole: "owner",
+      transfer: { allowed: false, candidates: [] },
+    });
+
+    const managerProjection = await (service as any).getOwnershipProjection({
+      actor: { userId: fixture.managerId, active: true },
+      projectId: project.id,
+    });
+    expect(managerProjection).toMatchObject({
+      access: "current",
+      viewerRole: "manager",
+      transfer: {
+        allowed: true,
+        candidates: expect.arrayContaining([expect.objectContaining({ id: fixture.memberId })]),
+      },
+    });
+    await expect(
+      (service as any).getOwnershipProjection({
+        actor: { userId: fixture.otherManagerId, active: true },
+        projectId: project.id,
+      }),
+    ).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH" });
+
+    await service.endProjectMember({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      userId: fixture.memberId,
+      input: {
+        endsAt: "2026-07-17T11:00:00Z",
+        expectedVersion: 1,
+        reason: "Contribution complete",
+      },
+    });
+    await expect(
+      (service as any).getOwnershipProjection({
+        actor: { userId: fixture.memberId, active: true },
+        projectId: project.id,
+      }),
+    ).resolves.toEqual({ access: "ended" });
+  });
+
   it("denies cross-department managers and system administrators", async () => {
     const service = createProjectService(client, databaseAuditWriter as never, () => now);
     await expect(service.createProject(command(fixture.otherManagerId))).rejects.toMatchObject({

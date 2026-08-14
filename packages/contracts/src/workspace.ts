@@ -23,6 +23,43 @@ export const WorkspacePersonPeriodSchema = z
   })
   .strict();
 
+const OwnershipPersonSchema = WorkspacePersonPeriodSchema.refine(
+  (person) => person.responsibilityType !== "contributor",
+);
+
+export const ProjectOwnershipProjectionSchema = z.discriminatedUnion("access", [
+  z
+    .object({
+      access: z.literal("current"),
+      viewerRole: z.enum(["owner", "contributor", "manager", "acting_owner"]),
+      currentOwner: OwnershipPersonSchema.nullable(),
+      viewerWindow: z
+        .object({ startsAt: UtcInstantSchema, endsAt: UtcInstantSchema.nullable() })
+        .strict()
+        .nullable(),
+      plannedReturnOwnerName: z.string().trim().min(1).max(240).nullable(),
+      contributors: z.array(WorkspacePersonPeriodSchema).max(100),
+      transfer: z
+        .object({
+          allowed: z.literal(true),
+          expectedVersion: z.number().int().positive(),
+          candidates: z.array(WorkspacePersonSchema).min(1).max(100),
+        })
+        .strict()
+        .or(
+          z
+            .object({
+              allowed: z.literal(false),
+              expectedVersion: z.number().int().positive(),
+              candidates: z.array(WorkspacePersonSchema).length(0),
+            })
+            .strict(),
+        ),
+    })
+    .strict(),
+  z.object({ access: z.literal("ended") }).strict(),
+]);
+
 export const ProjectWorkspaceSchema = z
   .object({
     project: ProjectSchema,
@@ -167,6 +204,7 @@ export const DailyWorkspaceSnapshotSchema = z
 export type WorkspacePerson = z.infer<typeof WorkspacePersonSchema>;
 export type WorkspacePersonPeriod = z.infer<typeof WorkspacePersonPeriodSchema>;
 export type ProjectWorkspace = z.infer<typeof ProjectWorkspaceSchema>;
+export type ProjectOwnershipProjection = z.infer<typeof ProjectOwnershipProjectionSchema>;
 export type WorkstreamWorkspace = z.infer<typeof WorkstreamWorkspaceSchema>;
 export type CriteriaWorkspaceAction = z.infer<typeof CriteriaWorkspaceActionSchema>;
 export type CriteriaWorkspace = z.infer<typeof CriteriaWorkspaceSchema>;

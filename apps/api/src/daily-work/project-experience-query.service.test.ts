@@ -9,6 +9,7 @@ const documentVersionId = "20000000-0000-4000-8000-000000000003";
 describe("ProjectExperienceQueryService", () => {
   it("composes one authorized Project without recalculating progress", async () => {
     const service = new ProjectExperienceQueryService({
+      ownership: async () => ownership(),
       project: async () => projectView(),
       document: async () => documentDetail(),
       myWork: async () => ({
@@ -97,6 +98,7 @@ describe("ProjectExperienceQueryService", () => {
       blocker: "Waiting for the staging credential decision",
     };
     const service = new ProjectExperienceQueryService({
+      ownership: async () => ownership(),
       project: async () => view,
       document: async () => documentDetail(),
       myWork: async () => ({ groups: [{ key: "today", items: [blocked] }] }),
@@ -133,6 +135,7 @@ describe("ProjectExperienceQueryService", () => {
       pendingChange: null,
     };
     const service = new ProjectExperienceQueryService({
+      ownership: async () => ownership(),
       project: async () => view,
       document: async () => documentDetail(),
       myWork: async () => ({ groups: [] }),
@@ -155,6 +158,7 @@ describe("ProjectExperienceQueryService", () => {
 
   it("keeps missing progress and document states honest", async () => {
     const service = new ProjectExperienceQueryService({
+      ownership: async () => ownership(),
       project: async () => ({
         ...projectView(),
         contract: null,
@@ -193,6 +197,7 @@ describe("ProjectExperienceQueryService", () => {
 
   it("rejects inactive actors before protected readers", async () => {
     const service = new ProjectExperienceQueryService({
+      ownership: async () => ownership(),
       project: async () => {
         throw new Error("must not read");
       },
@@ -239,6 +244,25 @@ describe("ProjectExperienceQueryService", () => {
       view.workspace.people = people;
       view.workspace.project.version = 4;
       const service = new ProjectExperienceQueryService({
+        ownership: async () => ({
+          ...ownership(),
+          viewerRole: expectedRole,
+          currentOwner: {
+            person: {
+              id: currentActor.userId,
+              displayName: responsibilityType === "contributor" ? "Project owner" : "Codex",
+            },
+            responsibilityType:
+              responsibilityType === "contributor" ? "original" : responsibilityType,
+            startsAt: "2026-08-13T07:00:00.000Z",
+            endsAt: responsibilityType === "acting" ? "2026-08-20T07:00:00.000Z" : null,
+          },
+          transfer: {
+            allowed: canTransfer,
+            expectedVersion: 4,
+            candidates: canTransfer ? [actorPerson()] : [],
+          },
+        }),
         project: async () => view,
         document: async () => null,
         myWork: async () => ({ groups: [] }),
@@ -259,6 +283,27 @@ describe("ProjectExperienceQueryService", () => {
     },
   );
 });
+
+function actorPerson() {
+  return { id: actor.userId, displayName: "Codex" };
+}
+
+function ownership() {
+  return {
+    access: "current" as const,
+    viewerRole: "owner" as const,
+    currentOwner: {
+      person: actorPerson(),
+      responsibilityType: "original" as const,
+      startsAt: "2026-07-01T08:00:00.000Z",
+      endsAt: null,
+    },
+    viewerWindow: { startsAt: "2026-07-01T08:00:00.000Z", endsAt: null },
+    plannedReturnOwnerName: null,
+    contributors: [],
+    transfer: { allowed: false as const, expectedVersion: 1, candidates: [] },
+  };
+}
 
 function projectView() {
   return {

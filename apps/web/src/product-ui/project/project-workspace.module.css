@@ -5,6 +5,20 @@
   margin: -2rem;
   background: #fff;
 }
+.accessEnded {
+  max-inline-size: 42rem;
+  margin: 2rem auto;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.7rem;
+  padding: 1.5rem;
+}
+.accessEnded h1,
+.accessEnded p {
+  margin-block: 0 0.6rem;
+}
+.accessEnded a {
+  color: #0f5fd8;
+}
 .main {
   min-inline-size: 0;
   padding: 1.5rem 2rem 3rem;

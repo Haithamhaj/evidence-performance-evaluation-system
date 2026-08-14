@@ -1,7 +1,12 @@
 import { AppError, EmployeeProjectExperienceV1Schema } from "@evaluation/contracts";
 
 type Actor = Readonly<{ userId: string; active: boolean; roles?: readonly string[] }>;
+type CurrentExperience = Extract<
+  import("@evaluation/contracts/employee-experience").EmployeeProjectExperienceV1,
+  { access: "current" }
+>;
 type Readers = Readonly<{
+  ownership(actorId: string, projectId: string): Promise<unknown>;
   project(actorId: string, projectId: string): Promise<unknown>;
   document(actorId: string, projectId: string): Promise<unknown | null>;
   myWork(actorId: string): Promise<any>;
@@ -23,7 +28,7 @@ export class ProjectExperienceQueryService {
     this.now = now;
   }
 
-  async load(actor: Actor, projectId: string) {
+  async load(actor: Actor, projectId: string): Promise<CurrentExperience> {
     if (!actor.active) {
       throw new AppError(
         "PROJECT_EXPERIENCE_FORBIDDEN",
@@ -31,6 +36,16 @@ export class ProjectExperienceQueryService {
         403,
       );
     }
+    const ownershipProjection = (await this.readers.ownership(actor.userId, projectId)) as any;
+    if (ownershipProjection.access === "ended") {
+      return EmployeeProjectExperienceV1Schema.parse({
+        schemaVersion: "employee-project-experience.v1",
+        generatedAt: this.now().toISOString(),
+        access: "ended",
+        ownership: ownershipProjection,
+      }) as CurrentExperience;
+    }
+    const ownership = ownershipExperience(ownershipProjection);
     const [raw, documentDetail, work, timeline] = await Promise.all([
       this.readers.project(actor.userId, projectId),
       this.readers.document(actor.userId, projectId),
@@ -70,7 +85,6 @@ export class ProjectExperienceQueryService {
         },
       }));
     const document = documentSummary(view, projectId, source);
-    const ownership = ownershipContext(view.workspace, actor);
     const milestones = milestoneJourney(view);
     const kpi = selectKpi(view, source);
     const attention = attentionItems(view, document, source, projectId);
@@ -111,6 +125,7 @@ export class ProjectExperienceQueryService {
     return EmployeeProjectExperienceV1Schema.parse({
       schemaVersion: "employee-project-experience.v1",
       generatedAt: this.now().toISOString(),
+      access: "current",
       project: {
         id: view.project.id,
         name: view.project.name,
@@ -167,55 +182,29 @@ export class ProjectExperienceQueryService {
                 href: smartAction.href ?? `/en/projects/${projectId}`,
               },
             },
-    });
+    }) as CurrentExperience;
   }
 }
 
-function ownershipContext(workspace: any, actor: Actor) {
-  const people = workspace?.people ?? [];
-  const actorWindow = people.find((item: any) => item.person?.id === actor.userId) ?? null;
-  const currentOwner =
-    people.find((item: any) =>
-      ["original", "acting", "permanent"].includes(item.responsibilityType),
-    ) ?? null;
-  const isManager = actor.roles?.includes("manager") ?? false;
-  const viewerRole = isManager
-    ? ("manager" as const)
-    : actorWindow?.responsibilityType === "acting"
-      ? ("acting_owner" as const)
-      : ["original", "permanent"].includes(actorWindow?.responsibilityType)
-        ? ("owner" as const)
-        : ("contributor" as const);
+function ownershipExperience(ownership: any) {
   return {
-    viewerRole,
+    ...ownership,
     currentOwner:
-      currentOwner === null
+      ownership.currentOwner === null
         ? null
         : {
-            id: currentOwner.person.id,
-            displayName: currentOwner.person.displayName,
-            responsibilityType: currentOwner.responsibilityType,
-            startsAt: currentOwner.startsAt,
-            endsAt: currentOwner.endsAt,
+            id: ownership.currentOwner.person.id,
+            displayName: ownership.currentOwner.person.displayName,
+            responsibilityType: ownership.currentOwner.responsibilityType,
+            startsAt: ownership.currentOwner.startsAt,
+            endsAt: ownership.currentOwner.endsAt,
           },
-    viewerWindow:
-      actorWindow === null ? null : { startsAt: actorWindow.startsAt, endsAt: actorWindow.endsAt },
-    plannedReturnOwnerName: null,
-    contributors: people
-      .filter((item: any) => item.responsibilityType === "contributor")
-      .map((item: any) => ({
-        id: item.person.id,
-        displayName: item.person.displayName,
-        startsAt: item.startsAt,
-        endsAt: item.endsAt,
-      })),
-    transfer: {
-      allowed: isManager,
-      expectedVersion: workspace.project.version,
-      candidates: isManager
-        ? people.map((item: any) => ({ id: item.person.id, displayName: item.person.displayName }))
-        : [],
-    },
+    contributors: ownership.contributors.map((contributor: any) => ({
+      id: contributor.person.id,
+      displayName: contributor.person.displayName,
+      startsAt: contributor.startsAt,
+      endsAt: contributor.endsAt,
+    })),
   };
 }
 

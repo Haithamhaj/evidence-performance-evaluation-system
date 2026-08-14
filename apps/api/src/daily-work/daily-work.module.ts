@@ -177,6 +177,11 @@ Module({
         activity: ActivityReader,
       ) =>
         new ProjectExperienceQueryService({
+          ownership: (actorId, projectId) =>
+            projects.getOwnershipProjection({
+              actor: { userId: actorId, active: true },
+              projectId,
+            }),
           project: async (actorId, projectId) => {
             const [progress, workspace] = await Promise.all([
               dailyWork.project(actorId, projectId),

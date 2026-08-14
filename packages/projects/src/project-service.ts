@@ -4,6 +4,7 @@ import {
   AppError,
   CreateProjectSchema,
   EndMembershipSchema,
+  ProjectOwnershipProjectionSchema,
   ProjectWorkspaceSchema,
   ProjectSchema,
   UpdateStatusSchema,
@@ -256,6 +257,104 @@ export class ProjectService {
         loadAuthorizedWorkstreams(transaction, parsed.actor, row.id, current),
       ]);
       return ProjectWorkspaceSchema.parse({ project, people, workstreams });
+    });
+  }
+
+  async getOwnershipProjection(
+    command: unknown,
+  ): Promise<import("@evaluation/contracts").ProjectOwnershipProjection> {
+    const parsed = GetProjectCommandSchema.parse(command);
+    const current = validClock(this.clock());
+    return this.client.$transaction(async (transaction) => {
+      const scope = await loadProjectReadScope(transaction, parsed.actor, current);
+      const row = await transaction.project.findFirst({
+        where: { AND: [{ id: parsed.projectId }, authorizedProjectWhere(scope)] },
+        select: projectSelection,
+      });
+      if (row === null) {
+        const historical = await transaction.responsibilityWindow.findFirst({
+          where: {
+            employeeId: parsed.actor.userId,
+            OR: [{ projectId: parsed.projectId }, { workstream: { projectId: parsed.projectId } }],
+          },
+          select: { id: true },
+        });
+        if (historical !== null) return ProjectOwnershipProjectionSchema.parse({ access: "ended" });
+        throw authorizationError("SCOPE_MISMATCH");
+      }
+      const [people, roles, departmentScope] = await Promise.all([
+        loadWorkspacePeople(transaction, { projectId: row.id }, current),
+        transaction.roleAssignment.findMany({
+          where: { userId: parsed.actor.userId },
+          select: { role: true, scopeType: true, scopeId: true },
+        }),
+        transaction.authorizationScope.findFirst({
+          where: { departmentId: row.departmentId, scopeType: "department" },
+          select: { id: true },
+        }),
+      ]);
+      if (departmentScope === null) throw resourceError("PROJECT_SCOPE_INVALID", 500);
+      const transfer = decide(
+        { subjectId: parsed.actor.userId, active: true, roles },
+        "responsibility.transfer",
+        { kind: "project", projectId: row.id, departmentId: departmentScope.id },
+        { now: current.toISOString() },
+      );
+      const currentOwner =
+        people.find(({ responsibilityType }) => responsibilityType !== "contributor") ?? null;
+      const viewerWindow = people.find(({ person }) => person.id === parsed.actor.userId) ?? null;
+      const returning =
+        currentOwner?.responsibilityType === "acting" && currentOwner.endsAt !== null
+          ? await transaction.responsibilityWindow.findFirst({
+              where: {
+                projectId: row.id,
+                responsibilityType: { in: ["original", "permanent"] },
+                startsAt: new Date(currentOwner.endsAt),
+              },
+              select: { employee: { select: { displayName: true } } },
+            })
+          : null;
+      const candidates = transfer.allowed
+        ? await transaction.user.findMany({
+            where: {
+              active: true,
+              roleAssignments: {
+                some: {
+                  role: "employee",
+                  scopeType: "department",
+                  scopeId: departmentScope.id,
+                },
+              },
+            },
+            orderBy: [{ displayName: "asc" }, { id: "asc" }],
+            select: { id: true, displayName: true },
+          })
+        : [];
+      const viewerRole = transfer.allowed
+        ? "manager"
+        : viewerWindow?.responsibilityType === "acting"
+          ? "acting_owner"
+          : viewerWindow?.responsibilityType === "contributor"
+            ? "contributor"
+            : "owner";
+      return ProjectOwnershipProjectionSchema.parse({
+        access: "current",
+        viewerRole,
+        currentOwner,
+        viewerWindow:
+          viewerWindow === null
+            ? null
+            : { startsAt: viewerWindow.startsAt, endsAt: viewerWindow.endsAt },
+        plannedReturnOwnerName: returning?.employee.displayName ?? null,
+        contributors: people.filter(
+          ({ responsibilityType }) => responsibilityType === "contributor",
+        ),
+        transfer: {
+          allowed: transfer.allowed,
+          expectedVersion: row.version,
+          candidates,
+        },
+      });
     });
   }
 
