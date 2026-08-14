@@ -43,6 +43,7 @@
     "db:verify": "node --env-file=.env.example scripts/verify-migrations.mjs",
     "ai:register:project-progress-contract": "tsx scripts/seed-codex-dogfood.ts --register-route",
     "ai:register:coaching-insight": "tsx scripts/register-coaching-insight-ai-route.ts",
+    "ai:register:gpt-5-6-policy": "tsx scripts/register-gpt-5-6-routing-policy.ts",
     "ai:register:research-experiments": "tsx scripts/register-research-experiments-ai-routes.ts",
     "ai:register:update-transcribe": "tsx scripts/register-update-transcribe-ai-route.ts",
     "dogfood:seed": "tsx scripts/seed-codex-dogfood.ts --seed",

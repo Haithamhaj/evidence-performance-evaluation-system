@@ -262,12 +262,19 @@ every engine authority and protected product rule, and all retained rollback rou
   one clear `Overview / Plan / Work / Progress / Timeline` navigation; Work reuses the authoritative
   Project-filtered Task surface, Plan exposes the real Workstream, and Overview shows the confirmed
   Update and Evidence in the Project Timeline. Missing contract progress remains explicitly missing.
+- The approved GPT-5.6 cost-quality policy is active through the AI Router. Luna handles frequent
+  bounded preparation, Terra handles daily Capture/Update/Task assistance, and Sol handles complex
+  Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
+  A real governed `update.structure` run succeeded on `gpt-5.6-terra`; the specialized audio route
+  remains on its transcription model, and protected Project progress still awaits its human owner.
 
 ## Active Risks
 
 - Real-provider quality and latency still require deployment-time monitoring. The live Task assistant
-  route is now proven with the configured OpenAI credential; deterministic fallback remains available
-  when the provider fails or a response violates the governed schema.
+  and Update routes are now proven with the configured OpenAI credential, including GPT-5.6 Terra;
+  deterministic fallback remains available when the provider fails or a response violates the
+  governed schema. Sol and Luna are configured on their governed routes and need normal journey-level
+  observation as those authorized tasks are exercised.
 - Production Google/GitHub/OIDC/email/storage/telemetry/backup require administrator configuration,
   minimum permissions, secrets, consent, and key custody.
 - Arabic employee evaluation/export remains blocked until T016 approved Arabic content and semantic
@@ -307,6 +314,7 @@ unmerged, and retain Calendar and legacy rollback routes.
 - `docs/reviews/AI_NATIVE_FRONTEND_D0_EVIDENCE.md`
 - `docs/reviews/PHASE_2_WORK_EXPERIENCE_BENCHMARK.md`
 - `docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`
+- `docs/decisions/GPT_5_6_ROUTING_POLICY.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-master-plan.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0a.md`
 - `docs/superpowers/plans/2026-08-11-ai-native-frontend-phase-0b.md`
