@@ -167,6 +167,72 @@ export function ProjectWorkspace({
           </div>
         </section>
 
+        <section className={styles.criteriaContract!} aria-label={copy.criteriaContract}>
+          <header>
+            <div>
+              <h2>{copy.criteriaContract}</h2>
+              <p>{copy.criteriaContractDetail}</p>
+            </div>
+            {model.criteriaContract.actionOwner === "employee" ? (
+              <a href={`/${locale}/projects/${model.project.id}/settings/progress-contract`}>
+                {copy[model.criteriaContract.nextAction]}
+              </a>
+            ) : (
+              <span className={styles.ownerAction!}>{copy.projectOwnerAction}</span>
+            )}
+          </header>
+          <div className={styles.criteriaContractFlow!}>
+            <section data-complete={model.criteriaContract.sourceDocumentVersion !== null}>
+              <span>1</span>
+              <div>
+                <small>{copy.contractSource}</small>
+                <strong>
+                  {model.criteriaContract.sourceDocumentVersion === null
+                    ? copy.documentMissing
+                    : `${copy.projectDocument} v${model.criteriaContract.sourceDocumentVersion}`}
+                </strong>
+              </div>
+            </section>
+            <section
+              data-complete={
+                model.criteriaContract.proposal?.state === "ready" ||
+                model.criteriaContract.proposal?.state === "applied"
+              }
+            >
+              <span>2</span>
+              <div>
+                <small>{copy.contractProposal}</small>
+                <strong>{copy[model.criteriaContract.status]}</strong>
+                {model.criteriaContract.proposal ? (
+                  <em>
+                    {copy.proposedComponents.replace(
+                      "{count}",
+                      String(model.criteriaContract.proposal.componentCount),
+                    )}
+                    {" · "}
+                    {copy.questionsToResolve.replace(
+                      "{count}",
+                      String(model.criteriaContract.proposal.ambiguityCount),
+                    )}
+                  </em>
+                ) : null}
+              </div>
+            </section>
+            <section data-complete={model.criteriaContract.status === "active"}>
+              <span>3</span>
+              <div>
+                <small>{copy.humanApproval}</small>
+                <strong>
+                  {model.criteriaContract.status === "active"
+                    ? copy.contractActivated
+                    : copy.humanApprovalRequired}
+                </strong>
+              </div>
+            </section>
+          </div>
+          <p className={styles.criteriaContractGuardrail!}>{copy.criteriaContractGuardrail}</p>
+        </section>
+
         <section className={styles.progressReview!} aria-label={copy.progressReview}>
           <header>
             <div>
@@ -574,6 +640,30 @@ function buildCopy(catalog: Catalog) {
     upload: catalog["project.experience.uploadSource"],
     github: catalog["project.experience.githubSource"],
     external_link: catalog["project.experience.externalLinkSource"],
+    criteriaContract: catalog["project.experience.criteriaContract"],
+    criteriaContractDetail: catalog["project.experience.criteriaContractDetail"],
+    contractSource: catalog["project.experience.contractSource"],
+    projectDocument: catalog["project.experience.projectDocument"],
+    contractProposal: catalog["project.experience.contractProposal"],
+    proposedComponents: catalog["project.experience.proposedComponents"],
+    questionsToResolve: catalog["project.experience.questionsToResolve"],
+    humanApproval: catalog["project.experience.humanApproval"],
+    contractActivated: catalog["project.experience.contractActivated"],
+    humanApprovalRequired: catalog["project.experience.humanApprovalRequired"],
+    criteriaContractGuardrail: catalog["project.experience.criteriaContractGuardrail"],
+    source_required: catalog["project.experience.sourceRequired"],
+    proposal_required: catalog["project.experience.proposalRequired"],
+    proposal_pending: catalog["project.experience.proposalPending"],
+    review_required: catalog["project.experience.reviewRequired"],
+    recovery_required: catalog["project.experience.recoveryRequired"],
+    active: catalog["project.experience.contractActive"],
+    connect_document: catalog["project.experience.connectDocument"],
+    request_proposal: catalog["project.experience.requestProposal"],
+    wait_for_proposal: catalog["project.experience.waitForProposal"],
+    review_proposal: catalog["project.experience.reviewProposal"],
+    recover_proposal: catalog["project.experience.recoverProposal"],
+    review_active_contract: catalog["project.experience.reviewActiveContract"],
+    projectOwnerAction: catalog["project.experience.projectOwnerAction"],
     assistant: catalog["home.overview.assistant"],
     suggestedAction: catalog["home.overview.suggestedAction"],
     source: catalog["home.overview.source"],

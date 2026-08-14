@@ -72,6 +72,15 @@ describe("ProgressQueryService Project pulse", () => {
       state: "pending",
       requestedAt: "2026-08-02T10:00:00.000Z",
     });
+    expect(result.contractProposal).toEqual({
+      state: "ready",
+      revision: 2,
+      origin: "human",
+      sourceDocumentVersion: 6,
+      componentCount: 4,
+      ambiguityCount: 1,
+      requestedAt: "2026-08-03T10:00:00.000Z",
+    });
   });
 
   it("explains a source-supported decrease from append-only snapshot history", async () => {
@@ -175,6 +184,23 @@ function projectProgressDatabase(input: {
         ],
         snapshots: input.snapshots,
         recalculationRequests: input.recalculationRequests,
+      })),
+    },
+    progressContractAiDraftRequest: {
+      findFirst: vi.fn(async () => ({
+        state: "ready",
+        createdAt: new Date("2026-08-03T10:00:00.000Z"),
+        documentVersion: { version: 6 },
+        revisions: [
+          {
+            revision: 2,
+            origin: "human",
+            content: {
+              components: [{}, {}, {}, {}],
+              ambiguities: ["Confirm the pilot acceptance source"],
+            },
+          },
+        ],
       })),
     },
   };

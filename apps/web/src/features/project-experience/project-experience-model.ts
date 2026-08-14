@@ -43,5 +43,14 @@ export function buildProjectExperienceModel(
         experience.progress.state === "awaiting_information" ? experience.progress.missing : [],
     },
     documentWorkspace: experience.documentWorkspace ?? null,
+    criteriaContract: experience.criteriaContract ?? {
+      sourceDocumentVersion: experience.document?.version ?? null,
+      status: experience.document ? ("proposal_required" as const) : ("source_required" as const),
+      proposal: null,
+      nextAction: experience.document
+        ? ("request_proposal" as const)
+        : ("connect_document" as const),
+      actionOwner: "project_owner" as const,
+    },
   };
 }

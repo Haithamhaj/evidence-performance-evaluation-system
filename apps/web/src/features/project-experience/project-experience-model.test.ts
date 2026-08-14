@@ -35,6 +35,12 @@ describe("buildProjectExperienceModel", () => {
       sourceAvailability: "available",
       history: [{ version: 2 }, { version: 1 }],
     });
+    expect(model.criteriaContract).toMatchObject({
+      status: "review_required",
+      nextAction: "review_proposal",
+      actionOwner: "employee",
+      proposal: { revision: 3, componentCount: 4, ambiguityCount: 1 },
+    });
   });
 });
 
@@ -115,6 +121,20 @@ export function fixture(): import("@evaluation/contracts/employee-experience").E
       },
       pendingChange: { state: "pending", requestedAt: "2026-08-13T08:00:00.000Z" },
       ambiguities: ["Owner confirmation"],
+    },
+    criteriaContract: {
+      sourceDocumentVersion: 2,
+      status: "review_required",
+      proposal: {
+        state: "ready",
+        revision: 3,
+        origin: "human",
+        componentCount: 4,
+        ambiguityCount: 1,
+        requestedAt: "2026-08-13T08:30:00.000Z",
+      },
+      nextAction: "review_proposal",
+      actionOwner: "employee",
     },
     milestones: [
       {

@@ -107,6 +107,7 @@ export class ProjectExperienceQueryService {
       },
       document,
       documentWorkspace: documentWorkspace(documentDetail),
+      criteriaContract: criteriaContract(view, document, actor.userId),
       progress,
       progressReview: progressReview(view, progress, source),
       milestones,
@@ -148,6 +149,86 @@ export class ProjectExperienceQueryService {
             },
     });
   }
+}
+
+function criteriaContract(view: any, document: any, actorId: string) {
+  const actionOwner = isActiveProjectOwner(view.workspace, actorId)
+    ? ("employee" as const)
+    : ("project_owner" as const);
+  const rawProposal = view.contractProposal ?? null;
+  const sourceDocumentVersion = rawProposal?.sourceDocumentVersion ?? document?.version ?? null;
+  const proposal =
+    rawProposal === null
+      ? null
+      : {
+          state: rawProposal.state,
+          revision: rawProposal.revision,
+          origin: rawProposal.origin,
+          componentCount: rawProposal.componentCount,
+          ambiguityCount: rawProposal.ambiguityCount,
+          requestedAt: rawProposal.requestedAt,
+        };
+  if (sourceDocumentVersion === null) {
+    return {
+      sourceDocumentVersion: null,
+      status: "source_required" as const,
+      proposal: null,
+      nextAction: "connect_document" as const,
+      actionOwner,
+    };
+  }
+  if (view.contract !== null) {
+    return {
+      sourceDocumentVersion,
+      status: "active" as const,
+      proposal,
+      nextAction: "review_active_contract" as const,
+      actionOwner,
+    };
+  }
+  if (proposal === null || proposal.state === "rejected") {
+    return {
+      sourceDocumentVersion,
+      status: "proposal_required" as const,
+      proposal,
+      nextAction: "request_proposal" as const,
+      actionOwner,
+    };
+  }
+  if (proposal.state === "pending") {
+    return {
+      sourceDocumentVersion,
+      status: "proposal_pending" as const,
+      proposal,
+      nextAction: "wait_for_proposal" as const,
+      actionOwner,
+    };
+  }
+  if (proposal.state === "failed") {
+    return {
+      sourceDocumentVersion,
+      status: "recovery_required" as const,
+      proposal,
+      nextAction: "recover_proposal" as const,
+      actionOwner,
+    };
+  }
+  return {
+    sourceDocumentVersion,
+    status: "review_required" as const,
+    proposal,
+    nextAction: "review_proposal" as const,
+    actionOwner,
+  };
+}
+
+function isActiveProjectOwner(workspace: any, actorId: string) {
+  return (workspace?.people ?? []).some(
+    (item: any) =>
+      item.person?.id === actorId &&
+      ["original", "acting", "permanent"].includes(item.responsibilityType) &&
+      item.endsAt === null,
+  );
 }
 
 function documentWorkspace(detail: any) {

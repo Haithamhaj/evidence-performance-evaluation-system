@@ -277,6 +277,11 @@ every engine authority and protected product rule, and all retained rollback rou
   through the existing authorized Document service. Long immutable source reasons are compacted
   visually without changing them; external links remain labelled untrusted until reviewed. This
   surface cannot upload, approve criteria, or mutate Document history.
+- P3-06 Criteria/Contract is complete in the bounded read-only form. The Project workspace now shows
+  the exact `Project Document → proposed criteria → authorized human approval` lifecycle, including
+  proposal state, revision counts, ambiguities, and the next safe action. The real Codex contributor
+  correctly sees that Project-owner action is required rather than an unusable approval control;
+  AI may prepare a proposal but cannot approve, activate, or change official Project progress.
 - The approved GPT-5.6 cost-quality policy is active through the AI Router. Luna handles frequent
   bounded preparation, Terra handles daily Capture/Update/Task assistance, and Sol handles complex
   Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
@@ -311,9 +316,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue the Project Criteria/Contract surface from its existing public readers and human approval
-gates, then close the meaningful Timeline and Project Agent gaps. Keep Pull Requests #29 and #30
-unmerged, and retain Calendar and legacy rollback routes.
+Continue with the meaningful Project Timeline and Project Agent surfaces using the existing
+authorized readers and AI Router. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and
+legacy rollback routes.
 
 ## Critical References
 

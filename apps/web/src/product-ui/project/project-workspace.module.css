@@ -223,6 +223,97 @@
   padding-block: 1.1rem;
   border-block-end: 1px solid #dfe4ec;
 }
+.criteriaContract {
+  padding-block: 1.1rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.criteriaContract > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 0.8rem;
+}
+.criteriaContract h2,
+.criteriaContract p {
+  margin: 0;
+}
+.criteriaContract h2 {
+  font-size: 1.15rem;
+}
+.criteriaContract header p,
+.criteriaContract em,
+.criteriaContractGuardrail {
+  color: #58667a;
+  font-size: 0.76rem;
+  font-style: normal;
+}
+.criteriaContract a {
+  color: #0f5fd8;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ownerAction {
+  border-radius: 999px;
+  background: #eef2f7;
+  padding: 0.35rem 0.6rem;
+  color: #526176;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.criteriaContractFlow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+.criteriaContractFlow > section {
+  display: flex;
+  align-items: start;
+  gap: 0.65rem;
+  min-inline-size: 0;
+  padding: 0.85rem;
+  border-inline-end: 1px solid #e6eaf0;
+}
+.criteriaContractFlow > section:last-child {
+  border-inline-end: 0;
+}
+.criteriaContractFlow > section > span {
+  display: grid;
+  place-items: center;
+  inline-size: 1.65rem;
+  block-size: 1.65rem;
+  flex: 0 0 auto;
+  border: 1px solid #8a97aa;
+  border-radius: 50%;
+  color: #526176;
+  font-weight: 800;
+}
+.criteriaContractFlow > section[data-complete="true"] > span {
+  border-color: #168847;
+  background: #e8f7ed;
+  color: #13723d;
+}
+.criteriaContractFlow div {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+.criteriaContractFlow small {
+  color: #58667a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.criteriaContractFlow strong {
+  font-size: 0.86rem;
+}
+.criteriaContractGuardrail {
+  margin-block-start: 0.65rem !important;
+}
 .progressReview > header {
   display: flex;
   align-items: start;
@@ -708,6 +799,18 @@
   }
   .progressReview > header {
     display: grid;
+  }
+  .criteriaContract > header,
+  .criteriaContractFlow {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .criteriaContractFlow > section {
+    border-inline-end: 0;
+    border-block-end: 1px solid #e6eaf0;
+  }
+  .criteriaContractFlow > section:last-child {
+    border-block-end: 0;
   }
   .documentSources > header,
   .documentSourcesGrid {

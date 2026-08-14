@@ -51,6 +51,14 @@ describe("ProjectWorkspace", () => {
     expect(review).toHaveTextContent("Owner confirmation");
     expect(review).toHaveTextContent("API error rate");
     expect(review).toHaveTextContent("This does not change official progress until approved");
+    const criteria = screen.getByLabelText("Criteria and Progress Contract");
+    expect(criteria).toHaveTextContent("Project Document v2");
+    expect(criteria).toHaveTextContent("Ready for your review");
+    expect(criteria).toHaveTextContent("4 proposed components");
+    expect(criteria).toHaveTextContent("1 question to resolve");
+    expect(criteria).toHaveTextContent(
+      "Only an authorized human can edit, approve, and activate it",
+    );
     const documents = screen.getByLabelText("Project documents and sources");
     expect(documents).toHaveTextContent("Current versionv2");
     expect(documents).toHaveTextContent("Source availabilityAvailable");

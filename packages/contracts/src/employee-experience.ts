@@ -219,6 +219,40 @@ const ProjectDocumentWorkspaceV1Schema = z
   })
   .strict();
 
+const ProjectCriteriaContractV1Schema = z
+  .object({
+    sourceDocumentVersion: z.number().int().positive().nullable(),
+    status: z.enum([
+      "source_required",
+      "proposal_required",
+      "proposal_pending",
+      "review_required",
+      "recovery_required",
+      "active",
+    ]),
+    proposal: z
+      .object({
+        state: z.enum(["pending", "ready", "failed", "applied", "rejected"]),
+        revision: z.number().int().positive().nullable(),
+        origin: z.enum(["ai", "human"]).nullable(),
+        componentCount: z.number().int().nonnegative(),
+        ambiguityCount: z.number().int().nonnegative(),
+        requestedAt: UtcInstantSchema,
+      })
+      .strict()
+      .nullable(),
+    nextAction: z.enum([
+      "connect_document",
+      "request_proposal",
+      "wait_for_proposal",
+      "review_proposal",
+      "recover_proposal",
+      "review_active_contract",
+    ]),
+    actionOwner: z.enum(["employee", "project_owner"]),
+  })
+  .strict();
+
 export const EmployeeProjectExperienceV1Schema = guarded(
   z
     .object({
@@ -247,6 +281,7 @@ export const EmployeeProjectExperienceV1Schema = guarded(
         .strict()
         .nullable(),
       documentWorkspace: ProjectDocumentWorkspaceV1Schema.optional(),
+      criteriaContract: ProjectCriteriaContractV1Schema.optional(),
       progress: OperationalProgressV1Schema,
       progressReview: ProjectProgressReviewV1Schema.optional(),
       milestones: z.array(EmployeeExperienceMilestoneV1Schema).max(100),

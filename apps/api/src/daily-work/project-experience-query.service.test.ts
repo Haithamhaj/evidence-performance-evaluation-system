@@ -30,6 +30,19 @@ describe("ProjectExperienceQueryService", () => {
         pendingChange: { state: "pending" },
         ambiguities: ["Owner confirmation"],
       },
+      criteriaContract: {
+        sourceDocumentVersion: 2,
+        status: "active",
+        proposal: {
+          state: "ready",
+          revision: 3,
+          origin: "human",
+          componentCount: 4,
+          ambiguityCount: 1,
+        },
+        nextAction: "review_active_contract",
+        actionOwner: "employee",
+      },
       documentWorkspace: {
         currentVersion: 2,
         sourceAvailability: "available",
@@ -52,6 +65,7 @@ describe("ProjectExperienceQueryService", () => {
         progress: { state: "awaiting_contract" },
         pulse: { milestoneStates: [], nextRequiredEvidence: [], explanation: [] },
         contractDraftSourceRequest: null,
+        contractProposal: null,
         document: null,
         pendingChange: null,
       }),
@@ -70,6 +84,13 @@ describe("ProjectExperienceQueryService", () => {
       latestSnapshot: null,
       pendingChange: null,
       ambiguities: [],
+    });
+    expect(result.criteriaContract).toEqual({
+      sourceDocumentVersion: null,
+      status: "source_required",
+      proposal: null,
+      nextAction: "connect_document",
+      actionOwner: "employee",
     });
     expect(result.attention.map(({ title }) => title)).toContain("Project document is missing");
   });
@@ -182,6 +203,15 @@ function projectView() {
       documentVersionId,
       sourceVersion: 2,
       sourceChecksum: "a".repeat(64),
+    },
+    contractProposal: {
+      state: "ready",
+      revision: 3,
+      origin: "human",
+      sourceDocumentVersion: 2,
+      componentCount: 4,
+      ambiguityCount: 1,
+      requestedAt: "2026-08-13T08:30:00.000Z",
     },
   };
 }
