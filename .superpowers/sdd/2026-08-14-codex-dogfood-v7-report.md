@@ -22,8 +22,23 @@ through the existing Documents service; it will not alter a migration or histori
 
 ## Verification
 
-- `scripts/codex-dogfood-runtime.test.ts`: 6/6 passed after an observed RED for the missing v7 source.
-- Focused formatting, lint, secret scan, and diff checks are recorded at checkpoint completion.
+- The final focused set passed 27/27 tests after observed RED cases for the missing v7 source,
+  incomplete prompt shape, and prompt-version idempotency lineage.
+- Projects typecheck, affected lint/format, 1,914-file secret scan, and diff check passed.
+
+## Live dogfood result
+
+- Project Document v7 appended as document version `7`; v1–v6 remain unchanged.
+- The first GPT-5.6 Sol response was rejected as `invalid_output`, with no revision persisted.
+- Prompt v3 now supplies the complete closed JSON shape, field requirements, no-weight stage-gate
+  rules, source-reference rules, and locale-stable field names.
+- The dogfood idempotency key now includes the prompt version, preserving the failed v2 lineage and
+  starting a new immutable v3 request instead of rewriting history.
+- The governed retry succeeded: request `c938a606-be35-453e-98ca-1ae5a708f104`, revision `1`, document
+  version `7`, AI run trace `a7db5fcb-473c-493a-9d7d-c9fecf7fd62e`.
+- The product displays seven stage gates and one operational KPI, with no weights or official Project
+  percentage.
+- No save, apply, submit, approve, or activate action was invoked.
 
 ## Security and privacy
 
@@ -32,6 +47,5 @@ The generated contract cannot cross the existing human activation gate.
 
 ## Remaining gate
 
-Run the real local append and AI generation, review every proposed contract component, and obtain
-direct Product Owner approval before any save or activation action.
-
+Obtain direct Product Owner approval or edits for the eight exact components and four ambiguities
+before any save or activation action.

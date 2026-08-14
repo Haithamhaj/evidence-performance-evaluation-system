@@ -9,7 +9,7 @@ import { createDatabaseClient } from "@evaluation/database";
 import {
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_V1,
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
-  PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
+  PROJECT_PROGRESS_CONTRACT_PROMPT_V3,
   PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
 } from "../packages/projects/src/progress-contract-draft-artifacts.js";
@@ -33,7 +33,7 @@ const ArgumentsSchema = z
 
 const modelKey = "gpt-5.5-2026-04-23";
 const providerEndpoint = "https://api.openai.com/v1";
-const promptHash = createHash("sha256").update(PROJECT_PROGRESS_CONTRACT_PROMPT_V2).digest("hex");
+const promptHash = createHash("sha256").update(PROJECT_PROGRESS_CONTRACT_PROMPT_V3).digest("hex");
 const schema = outputSchemaDescriptor(
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
@@ -198,7 +198,7 @@ async function registerPrompt(
     if (
       existing !== null &&
       (existing.bodyHash !== promptHash ||
-        existing.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V2)
+        existing.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V3)
     ) {
       throw new AppError("AI_PROMPT_VERSION_CONFLICT", "errors.ai.promptVersionConflict", 409);
     }
@@ -208,7 +208,7 @@ async function registerPrompt(
         routeKey: PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
         version: PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
         bodyHash: promptHash,
-        trustedBody: PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
+        trustedBody: PROJECT_PROGRESS_CONTRACT_PROMPT_V3,
         expectedBehavior:
           "A source-cited, document-derived Project Progress Contract proposal for mandatory human review.",
         registeredById: input.actorId,

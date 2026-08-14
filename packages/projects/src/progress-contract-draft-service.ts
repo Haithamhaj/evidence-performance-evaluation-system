@@ -12,7 +12,7 @@ import { z } from "zod";
 import {
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_V1,
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
-  PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
+  PROJECT_PROGRESS_CONTRACT_PROMPT_V3,
   PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
 } from "./progress-contract-draft-artifacts.js";
@@ -194,12 +194,12 @@ export class ProgressContractDraftService {
         select: { id: true, bodyHash: true, trustedBody: true },
       });
       const expectedPromptHash = createHash("sha256")
-        .update(PROJECT_PROGRESS_CONTRACT_PROMPT_V2)
+        .update(PROJECT_PROGRESS_CONTRACT_PROMPT_V3)
         .digest("hex");
       if (
         prompt === null ||
         prompt.bodyHash !== expectedPromptHash ||
-        prompt.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V2
+        prompt.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V3
       ) {
         throw new AppError("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
       }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CODEX_DOGFOOD_PULL_REQUEST_NUMBER,
   CODEX_DOGFOOD_SOURCE_PATHS,
+  buildCodexDogfoodDraftIdempotencyKey,
   buildCodexDogfoodEvaluationEvidenceReferences,
   resolveCodexDogfoodPullRequestLineage,
 } from "./codex-dogfood-runtime.js";
@@ -13,6 +14,12 @@ describe("Codex dogfood Project Document source", () => {
       "docs/product/CODEX_DOGFOOD_PROJECT_DOCUMENT_V7.md",
     ]);
     expect(CODEX_DOGFOOD_PULL_REQUEST_NUMBER).toBe("30");
+  });
+
+  it("starts a new immutable draft lineage when the governed prompt version changes", () => {
+    expect(buildCodexDogfoodDraftIdempotencyKey("11111111-1111-4111-8111-111111111111")).toBe(
+      "codex-dogfood-contract:11111111-1111-4111-8111-111111111111:project-progress-contract-draft.v3",
+    );
   });
 });
 

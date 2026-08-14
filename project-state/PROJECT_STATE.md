@@ -313,6 +313,11 @@ and all retained rollback routes.
   remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
   Update, GitHub, commit, file, and line volume from Project progress. A generated contract remains
   review-only until direct human save and activation.
+- Project Document v7 is now appended and approved in the local dogfood history. GPT-5.6 Sol prepared
+  eight source-backed components through prompt v3: the seven remaining stage gates plus the
+  zero-violation operational KPI. The draft identifies four honest ambiguities and is still
+  `human_activation_required`; no human revision, contract draft, activation, snapshot, or percentage
+  has been created from it.
 
 ## Active Risks
 
@@ -343,12 +348,12 @@ and all retained rollback routes.
 
 ## Next Recommended Action
 
-Append the approved Project Document v7, generate its Progress Contract draft through the governed AI
-Router, and present the exact proposed components to the Product Owner. Stop before save, submission,
-approval, or activation. After direct human approval, activate the contract, rerun the P3-14
-active-state visual comparison, and complete P3-15 capability closure. Do not insert a synthetic
-percentage, let Codex approve as a contributor, merge Pull Requests #29/#30, or retire Calendar and
-legacy rollback routes to bypass this protected gate.
+The Product Owner reviews the eight exact v7 components and resolves or accepts the four identified
+ambiguities. Stop before save, submission, approval, or activation until that direct decision. After
+approval, save the human revision, activate the contract through the existing protected workflow,
+rerun the P3-14 active-state visual comparison, and complete P3-15 capability closure. Do not insert a
+synthetic percentage, let Codex approve as a contributor, merge Pull Requests #29/#30, or retire
+Calendar and legacy rollback routes to bypass this protected gate.
 
 ## Critical References
 

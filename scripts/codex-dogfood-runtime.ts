@@ -33,6 +33,7 @@ import { PrivateInboxService, WorkItemService } from "@evaluation/work-items";
 
 import { CODEX_DOGFOOD_PROJECT_NAME, seedCodexDogfood } from "./seed-codex-dogfood.js";
 import { registerProgressContractDraftAiRoute } from "./register-progress-contract-draft-ai-route.js";
+import { PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION } from "../packages/projects/src/progress-contract-draft-artifacts.js";
 
 export const CODEX_DOGFOOD_SOURCE_PATHS = [
   "docs/product/CODEX_DOGFOOD_PROJECT_DOCUMENT_V7.md",
@@ -109,6 +110,10 @@ export function buildCodexDogfoodEvaluationEvidenceReferences(
     `pull-request-base:${input.pullRequestBaseSha}`,
     `pull-request-head:${input.pullRequestHeadSha}`,
   ];
+}
+
+export function buildCodexDogfoodDraftIdempotencyKey(documentVersionId: string): string {
+  return `codex-dogfood-contract:${documentVersionId}:${PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION}`;
 }
 
 function executeReadOnlyCommand(file: string, args: readonly string[]): string {
@@ -895,7 +900,7 @@ async function runDraft() {
     const receipt = await service.requestDraft({
       actor: { userId: ownerId, active: true },
       correlationId: randomUUID(),
-      idempotencyKey: `codex-dogfood-contract:${version.id}:gpt-5.5-v1`,
+      idempotencyKey: buildCodexDogfoodDraftIdempotencyKey(version.id),
       projectId: project.id,
       documentVersionId: version.id,
       sourceChecksum: checksum,
