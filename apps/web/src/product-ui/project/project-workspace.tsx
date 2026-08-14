@@ -115,12 +115,23 @@ export function ProjectWorkspace({
               </>
             )}
           </div>
+          <a
+            className={styles.progressAction!}
+            href={`/${locale}/projects/${model.project.id}/settings/progress-contract`}
+          >
+            {copy.reviewContract}
+          </a>
         </section>
 
         <section id="plan" className={styles.plan!}>
           <div>
             <h2>{copy.plan}</h2>
             <p>{copy.workstreams}</p>
+            {model.project.ownerName ? (
+              <p>
+                {copy.owner}: <strong>{model.project.ownerName}</strong>
+              </p>
+            ) : null}
           </div>
           {model.project.workstreams.length === 0 ? (
             <p>{copy.noWorkstreams}</p>
@@ -264,6 +275,8 @@ function buildCopy(catalog: Catalog) {
     timelineNav: catalog["project.experience.timelineNav"],
     workstreams: catalog["project.experience.workstreams"],
     noWorkstreams: catalog["project.experience.noWorkstreams"],
+    owner: catalog["project.experience.owner"],
+    reviewContract: catalog["project.experience.reviewContract"],
     home: catalog["project.experience.home"],
     projects: catalog["project.experience.projects"],
     grounded: catalog["project.experience.grounded"],

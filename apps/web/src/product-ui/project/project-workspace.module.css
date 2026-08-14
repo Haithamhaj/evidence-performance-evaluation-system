@@ -95,6 +95,13 @@
   padding: 1.35rem 0;
   border-block-end: 1px solid #dfe4ec;
 }
+.progressAction {
+  grid-column: 1 / -1;
+  justify-self: end;
+  color: #0f5fd8;
+  font-size: 0.82rem;
+  text-decoration: none;
+}
 .progressBlock {
   display: flex;
   align-items: center;

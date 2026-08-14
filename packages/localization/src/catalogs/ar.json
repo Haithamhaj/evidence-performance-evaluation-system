@@ -1037,6 +1037,8 @@
   "project.experience.timelineNav": "الخط الزمني",
   "project.experience.workstreams": "مسارات العمل",
   "project.experience.noWorkstreams": "لا توجد مسارات عمل مرتبطة بعد.",
+  "project.experience.owner": "مالك المشروع",
+  "project.experience.reviewContract": "مراجعة عقد التقدم",
   "project.experience.home": "الرئيسية",
   "project.experience.projects": "المشاريع",
   "project.experience.grounded": "مبني على",

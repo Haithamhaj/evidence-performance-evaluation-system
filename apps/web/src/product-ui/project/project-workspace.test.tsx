@@ -24,6 +24,11 @@ describe("ProjectWorkspace", () => {
     );
     expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument();
     expect(screen.getByText("API readiness")).toBeInTheDocument();
+    expect(screen.getByText("Codex")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review progress contract" })).toHaveAttribute(
+      "href",
+      "/en/projects/40000000-0000-4000-8000-000000000001/settings/progress-contract",
+    );
     expect(screen.getByLabelText("62% confirmed Project progress")).toBeInTheDocument();
     expect(screen.getByText("Needs attention now")).toBeInTheDocument();
     expect(screen.getByText("Work and evidence")).toBeInTheDocument();

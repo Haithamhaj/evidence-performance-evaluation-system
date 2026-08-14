@@ -1037,6 +1037,8 @@
   "project.experience.timelineNav": "Timeline",
   "project.experience.workstreams": "Workstreams",
   "project.experience.noWorkstreams": "No workstreams are connected yet.",
+  "project.experience.owner": "Project owner",
+  "project.experience.reviewContract": "Review progress contract",
   "project.experience.home": "Home",
   "project.experience.projects": "Projects",
   "project.experience.grounded": "Grounded in",
