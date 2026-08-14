@@ -73,7 +73,7 @@ export function ReviewStep({
         {contract?.state === "active" ? null : (
           <label>
             <span>{catalog["progressContract.reason"]}</span>
-            <textarea dir="auto" name="reason" required rows={2} />
+            <textarea dir="auto" maxLength={500} name="reason" required rows={2} />
           </label>
         )}
         <p className="boundaryNote">{catalog["progressContract.activationRequired"]}</p>

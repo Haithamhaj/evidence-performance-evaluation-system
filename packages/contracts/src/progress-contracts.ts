@@ -277,7 +277,7 @@ export const ProgressContractSchema = ProgressContractCoreSchema.extend({
 export const ProgressContractDecisionInputSchema = z
   .object({
     expectedVersion: PositiveVersionSchema,
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 
@@ -297,7 +297,7 @@ export const CalculateProgressInputSchema = z
   .object({
     expectedContractVersion: PositiveVersionSchema,
     asOf: UtcInstantSchema,
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
     sources: z.array(ProgressSourceFactSchema).max(500),
   })
   .strict();

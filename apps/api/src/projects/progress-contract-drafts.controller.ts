@@ -30,7 +30,7 @@ const CreateBodySchema = z
     locale: z.enum(["ar", "en"]),
     timezone: z.string().trim().min(1).max(100),
     effectiveAt: z.iso.datetime({ offset: true }),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 const PublicComponentSchema = z
@@ -73,7 +73,7 @@ const RevisionBodySchema = z
   .object({
     expectedRevision: z.number().int().positive(),
     content: PublicContentSchema,
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 const ApplyBodySchema = z
@@ -81,13 +81,13 @@ const ApplyBodySchema = z
     expectedRevision: z.number().int().positive(),
     selectedRevision: z.number().int().positive(),
     calculationKind: z.enum(["weighted", "stage_gate"]),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 const RejectBodySchema = z
   .object({
     expectedRevision: z.number().int().positive(),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 

@@ -41,6 +41,9 @@ and all retained rollback routes.
 - GitHub/Google/manual sources remain private or suggested until the required human confirmation.
 - AI prepares, connects, summarizes, and drafts; it never selects/recommends a rating or bypasses a
   human gate.
+- AI assistance should reduce employee effort without taking control: use approved sources to prepare
+  a reviewable draft, ask only for genuinely missing information, explain suggested decisions, and
+  require the employee or authorized owner to edit, accept, or reject every official action.
 - Final employee rating is the manager’s human decision. Pilot upward feedback remains truthfully
   `IDENTIFIED`.
 - Preserve the modular monolith and public domain ownership; no microservice, generic activity
@@ -306,18 +309,19 @@ and all retained rollback routes.
   authority, and Auto + Undo remains intentionally disabled because no current action satisfies the
   full compensation and durable-recovery gate.
 - P3-14 is technically complete: accepted contract measures render as a circular Project indicator,
-  milestone/KPI context, source-backed previous/current summary, and accessible table. The real Codex
-  Project correctly renders no percentage or chart because it has no approved Progress Contract.
+  milestone/KPI context, source-backed previous/current summary, and accessible table.
 - The Product Owner approved creating Project Document v7 as the bounded current source for the real
   Codex dogfood Project. It replaces no history: v1–v6 remain immutable. The v7 design uses seven
   remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
   Update, GitHub, commit, file, and line volume from Project progress. A generated contract remains
   review-only until direct human save and activation.
-- Project Document v7 is now appended and approved in the local dogfood history. GPT-5.6 Sol prepared
-  eight source-backed components through prompt v3: the seven remaining stage gates plus the
-  zero-violation operational KPI. The draft identifies four honest ambiguities and is still
-  `human_activation_required`; no human revision, contract draft, activation, snapshot, or percentage
-  has been created from it.
+- Project Document v7 is appended and preserved in the local dogfood history. GPT-5.6 Sol prepared
+  eight source-backed components through prompt v3: seven remaining stage gates plus the
+  zero-violation operational KPI. The Product Owner approved the AI-draft/human-control balance, a
+  human revision was saved, and contract `d62600c4-1624-44d0-be5f-984a4ec54f0b` version 1 is active.
+  It uses `stage_gate`, has no weights, and still has no Progress Snapshot or official percentage;
+  the authoritative state is truthfully `awaiting_information` until approved evidence or authorized
+  human confirmation advances a gate.
 
 ## Active Risks
 
@@ -348,12 +352,11 @@ and all retained rollback routes.
 
 ## Next Recommended Action
 
-The Product Owner reviews the eight exact v7 components and resolves or accepts the four identified
-ambiguities. Stop before save, submission, approval, or activation until that direct decision. After
-approval, save the human revision, activate the contract through the existing protected workflow,
-rerun the P3-14 active-state visual comparison, and complete P3-15 capability closure. Do not insert a
-synthetic percentage, let Codex approve as a contributor, merge Pull Requests #29/#30, or retire
-Calendar and legacy rollback routes to bypass this protected gate.
+Refresh the running Codex Project page and review the newly active v7 stage-gate contract in its honest
+`awaiting_information` state. Close the P3-14 visual comparison only if the page is clear without a
+synthetic percentage, then complete P3-15 capability closure. Do not let Task or activity volume move
+Project progress, let AI approve official actions, merge Pull Requests #29/#30, or retire Calendar and
+legacy rollback routes to bypass the remaining protected gates.
 
 ## Critical References
 

@@ -33,7 +33,7 @@ const RequestDraftSchema = z
     locale: z.string().trim().min(2).max(20),
     timezone: z.string().trim().min(1).max(100),
     effectiveAt: z.iso.datetime({ offset: true }),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 const ReviseDraftSchema = z
@@ -43,7 +43,7 @@ const ReviseDraftSchema = z
     requestId: z.string().uuid(),
     expectedRevision: z.number().int().nonnegative(),
     content: z.unknown(),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 const RejectDraftSchema = ReviseDraftSchema.omit({ content: true });

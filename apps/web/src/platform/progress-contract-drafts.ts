@@ -72,7 +72,7 @@ export const CreateProgressContractDraftInputSchema = z
     locale: z.enum(["ar", "en"]),
     timezone: z.string().trim().min(1).max(100),
     effectiveAt: z.iso.datetime({ offset: true }),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 
@@ -90,7 +90,7 @@ export const ReviseProgressContractDraftInputSchema = z
         clarificationQuestions: z.array(z.string().trim().min(1).max(500)).max(12),
       })
       .strict(),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 
@@ -99,19 +99,19 @@ export const ApplyProgressContractDraftInputSchema = z
     expectedRevision: z.number().int().positive(),
     selectedRevision: z.number().int().positive(),
     calculationKind: z.enum(["weighted", "stage_gate"]),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 export const RejectProgressContractDraftInputSchema = z
   .object({
     expectedRevision: z.number().int().positive(),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 export const ProgressContractDecisionBodySchema = z
   .object({
     expectedVersion: z.number().int().positive(),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 export const AppliedProgressContractDraftSchema = z

@@ -160,7 +160,7 @@ export function RulesStep({
         />
         <label>
           <span>{catalog["progressContract.reason"]}</span>
-          <textarea dir="auto" name="reason" required rows={2} />
+          <textarea dir="auto" maxLength={500} name="reason" required rows={2} />
         </label>
         <p className="boundaryNote">{catalog["progressSetup.notPerformance"]}</p>
         <div className="formActions">

@@ -34,7 +34,7 @@ const ProposalCommandSchema = z
   .object({
     actor: ActorSchema,
     correlationId: z.string().uuid(),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
     draft: z.unknown(),
   })
   .strict();
