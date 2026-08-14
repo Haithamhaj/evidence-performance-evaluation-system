@@ -47,7 +47,22 @@ export function ProjectWorkspace({
           ) : null}
         </header>
 
-        <section className={styles.progressPanel!} aria-label={copy.progress}>
+        <nav className={styles.workspaceNav!} aria-label={copy.workspaceNav}>
+          <a aria-current="page" href="#overview">
+            {copy.overview}
+          </a>
+          <a href="#plan">{copy.plan}</a>
+          <a href={`/${locale}/tasks?view=my&layout=list&project=${model.project.id}`}>
+            {copy.work}
+          </a>
+          <a href="#progress">{copy.progressNav}</a>
+          <a href="#timeline">{copy.timelineNav}</a>
+        </nav>
+
+        <section id="overview" className={styles.overviewAnchor!}>
+          <h2 className={styles.visuallyHidden!}>{copy.overview}</h2>
+        </section>
+        <section id="progress" className={styles.progressPanel!} aria-label={copy.progress}>
           <div className={styles.progressBlock!}>
             <div
               className={styles.progressRing!}
@@ -100,6 +115,25 @@ export function ProjectWorkspace({
               </>
             )}
           </div>
+        </section>
+
+        <section id="plan" className={styles.plan!}>
+          <div>
+            <h2>{copy.plan}</h2>
+            <p>{copy.workstreams}</p>
+          </div>
+          {model.project.workstreams.length === 0 ? (
+            <p>{copy.noWorkstreams}</p>
+          ) : (
+            <ul>
+              {model.project.workstreams.map((workstream) => (
+                <li key={workstream.id}>
+                  <ProductIcon name="folder" size="small" />
+                  <strong>{workstream.name}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className={styles.attention!}>
@@ -163,7 +197,7 @@ export function ProjectWorkspace({
           </div>
         </section>
 
-        <section className={styles.timeline!}>
+        <section id="timeline" className={styles.timeline!}>
           <h2>{copy.timeline}</h2>
           {model.timeline.length === 0 ? (
             <p>{copy.empty}</p>
@@ -223,6 +257,13 @@ export function ProjectWorkspace({
 function buildCopy(catalog: Catalog) {
   return {
     breadcrumbs: catalog["project.experience.breadcrumbs"],
+    workspaceNav: catalog["project.experience.workspaceNav"],
+    overview: catalog["project.experience.overview"],
+    plan: catalog["project.experience.plan"],
+    progressNav: catalog["project.experience.progressNav"],
+    timelineNav: catalog["project.experience.timelineNav"],
+    workstreams: catalog["project.experience.workstreams"],
+    noWorkstreams: catalog["project.experience.noWorkstreams"],
     home: catalog["project.experience.home"],
     projects: catalog["project.experience.projects"],
     grounded: catalog["project.experience.grounded"],

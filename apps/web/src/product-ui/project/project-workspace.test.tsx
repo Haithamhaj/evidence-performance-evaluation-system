@@ -12,6 +12,18 @@ describe("ProjectWorkspace", () => {
   it("renders the approved Project hierarchy", () => {
     render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={fixture()} locale="en" />);
     expect(screen.getByRole("heading", { name: "Atlas Delivery" })).toBeInTheDocument();
+    const navigation = screen.getByRole("navigation", { name: "Project workspace" });
+    expect(navigation).toHaveTextContent("Overview");
+    expect(navigation).toHaveTextContent("Plan");
+    expect(navigation).toHaveTextContent("Work");
+    expect(navigation).toHaveTextContent("Progress");
+    expect(navigation).toHaveTextContent("Timeline");
+    expect(screen.getByRole("link", { name: "Work" })).toHaveAttribute(
+      "href",
+      "/en/tasks?view=my&layout=list&project=40000000-0000-4000-8000-000000000001",
+    );
+    expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument();
+    expect(screen.getByText("API readiness")).toBeInTheDocument();
     expect(screen.getByLabelText("62% confirmed Project progress")).toBeInTheDocument();
     expect(screen.getByText("Needs attention now")).toBeInTheDocument();
     expect(screen.getByText("Work and evidence")).toBeInTheDocument();

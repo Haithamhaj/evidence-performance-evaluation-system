@@ -258,6 +258,10 @@ every engine authority and protected product rule, and all retained rollback rou
   receipt. The Work Item remains `in_progress` and the Project received no progress snapshot. The
   dogfood also exposed trailing prose punctuation in captured URLs; future URL Evidence now removes
   that punctuation while the accepted historical receipt remains immutable.
+- Phase 3 Project Workspace has started as a visible vertical slice. The real Codex Project now has
+  one clear `Overview / Plan / Work / Progress / Timeline` navigation; Work reuses the authoritative
+  Project-filtered Task surface, Plan exposes the real Workstream, and Overview shows the confirmed
+  Update and Evidence in the Project Timeline. Missing contract progress remains explicitly missing.
 
 ## Active Risks
 
@@ -285,9 +289,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Validate and connect the Project overview without inferring progress from Task activity, then proceed
-to the next approved engine capability bundle. Keep Pull Requests #29 and #30 unmerged, and retain
-Calendar and legacy rollback routes.
+Expand the Project Plan from its real Workstream and contract sources, then add the focused Progress
+review surface without inferring progress from Task activity. Keep Pull Requests #29 and #30
+unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

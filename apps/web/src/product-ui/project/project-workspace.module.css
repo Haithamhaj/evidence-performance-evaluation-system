@@ -52,6 +52,41 @@
   background: #1264e8;
   color: #fff;
 }
+.workspaceNav {
+  position: sticky;
+  z-index: 3;
+  inset-block-start: 0;
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border-block-end: 1px solid #dfe4ec;
+  background: #fff;
+  padding-block: 0.35rem;
+}
+.workspaceNav a {
+  border-radius: 0.45rem;
+  color: #405067;
+  padding: 0.55rem 0.8rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.workspaceNav a:hover,
+.workspaceNav a:focus-visible,
+.workspaceNav a[aria-current="page"] {
+  background: #eaf2ff;
+  color: #0f5fd8;
+}
+.overviewAnchor {
+  scroll-margin-block-start: 4rem;
+}
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .progressPanel {
   display: grid;
   grid-template-columns: 14rem minmax(16rem, 1fr) 9rem;
@@ -153,16 +188,52 @@
   font-size: 1.55rem;
 }
 .attention,
+.plan,
 .collections,
 .timeline {
   padding-block: 1.1rem;
   border-block-end: 1px solid #dfe4ec;
 }
 .attention h2,
+.plan h2,
 .collections h2,
 .timeline h2 {
   margin: 0 0 0.65rem;
   font-size: 1.15rem;
+}
+.plan {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.35fr) minmax(0, 1fr);
+  gap: 1rem;
+  scroll-margin-block-start: 4rem;
+}
+.plan h2,
+.plan p {
+  margin: 0;
+}
+.plan > div > p {
+  color: #58667a;
+  font-size: 0.78rem;
+}
+.plan ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.6rem;
+  padding: 0.65rem 0.8rem;
+}
+.progressPanel,
+.timeline {
+  scroll-margin-block-start: 4rem;
 }
 .attention ul,
 .collectionGrid ul,
