@@ -93,6 +93,40 @@ describe("ProjectWorkspace", () => {
     expect(screen.getByTestId("project-workspace")).toHaveAttribute("dir", "rtl");
   });
 
+  it("pairs contract-based progress charts with the same source-backed table data", () => {
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={fixture()} locale="en" />);
+
+    const charts = screen.getByRole("region", { name: "Contract-based progress charts" });
+    expect(charts).toHaveTextContent("Approved Project contract");
+    expect(charts).toHaveTextContent("Previous50%Current62%");
+    const table = screen.getByRole("table", { name: "Accessible progress data" });
+    expect(table).toHaveTextContent(
+      "MeasureBaselinePreviousCurrentTargetSourceOverall Project progress—50%62%—Approved Project contract",
+    );
+    expect(table).toHaveTextContent("API error rate4.1%—1.8%1%Approved Project contract");
+  });
+
+  it("does not draw a chart when no approved Progress Contract exists", () => {
+    const experience = fixture();
+    experience.progress = { state: "awaiting_contract" };
+    experience.progressReview = {
+      contract: null,
+      latestSnapshot: null,
+      pendingChange: null,
+      ambiguities: [],
+    };
+    experience.kpi = null;
+
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={experience} locale="en" />);
+
+    const charts = screen.getByRole("region", { name: "Contract-based progress charts" });
+    expect(charts).toHaveTextContent(
+      "Charts appear after an approved Progress Contract has a verified measurement.",
+    );
+    expect(screen.queryByRole("table", { name: "Accessible progress data" })).toBeNull();
+    expect(screen.queryByRole("img", { name: /Project progress/u })).toBeNull();
+  });
+
   it("shows the human-only transfer form only for the authorized manager projection", () => {
     const experience = fixture();
     experience.ownership = {

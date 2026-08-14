@@ -185,12 +185,91 @@
   white-space: nowrap;
 }
 .progressPanel {
-  display: grid;
-  grid-template-columns: 14rem minmax(16rem, 1fr) 9rem;
-  align-items: center;
-  gap: 1rem;
   padding: 1.35rem 0;
   border-block-end: 1px solid #dfe4ec;
+}
+.progressChartHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+.progressChartHeader h2,
+.progressChartHeader p,
+.progressChartEmpty h2,
+.progressChartEmpty p {
+  margin: 0;
+}
+.progressChartHeader h2,
+.progressChartEmpty h2 {
+  font-size: 1.15rem;
+}
+.progressChartHeader p,
+.progressChartEmpty p,
+.progressChartHeader > small {
+  margin-block-start: 0.2rem;
+  color: #58667a;
+}
+.progressVisuals {
+  display: grid;
+  grid-template-columns: 14rem 10rem minmax(9rem, 1fr);
+  align-items: center;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+.progressComparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+.progressComparison div {
+  display: grid;
+  gap: 0.2rem;
+}
+.progressComparison dt {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.progressComparison dd {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 760;
+}
+.progressDataTable {
+  overflow-x: auto;
+  margin-block-start: 1rem;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.45rem;
+}
+.progressDataTable table {
+  inline-size: 100%;
+  min-inline-size: 42rem;
+  border-collapse: collapse;
+  text-align: start;
+}
+.progressDataTable th,
+.progressDataTable td {
+  padding: 0.65rem 0.75rem;
+  border-block-end: 1px solid #e6eaf0;
+  text-align: start;
+}
+.progressDataTable thead th {
+  background: #f7f9fc;
+  color: #4d5a6d;
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+.progressDataTable tbody tr:last-child > * {
+  border-block-end: 0;
+}
+.progressChartEmpty {
+  display: grid;
+  gap: 0.35rem;
+  border-inline-start: 3px solid #9ca9ba;
+  background: #f7f9fc;
+  padding: 0.85rem 1rem;
 }
 .progressBlock {
   display: flex;
@@ -926,14 +1005,10 @@
     border-inline-start: 0;
   }
   .progressPanel {
-    grid-template-columns: 12rem minmax(18rem, 1fr);
+    display: block;
   }
-  .kpi {
-    grid-column: 1/-1;
-    border-inline-start: 0;
-    border-block-start: 1px solid #edf0f4;
-    padding-block-start: 0.7rem;
-    padding-inline-start: 0;
+  .progressVisuals {
+    grid-template-columns: 12rem 10rem minmax(9rem, 1fr);
   }
   .overviewSummary dl {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -982,7 +1057,19 @@
     grid-column: 1/-1;
   }
   .progressPanel {
+    display: block;
+  }
+  .progressChartHeader {
+    display: grid;
+  }
+  .progressVisuals {
     grid-template-columns: 1fr;
+  }
+  .kpi {
+    border-inline-start: 0;
+    border-block-start: 1px solid #edf0f4;
+    padding-block-start: 0.7rem;
+    padding-inline-start: 0;
   }
   .overviewSummary dl,
   .plan,

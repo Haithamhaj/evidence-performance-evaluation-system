@@ -184,59 +184,128 @@ export function ProjectWorkspace({
             </aside>
           ) : null}
         </section>
-        <section id="progress" className={styles.progressPanel!} aria-label={copy.progress}>
-          <div className={styles.progressBlock!}>
-            <div
-              className={styles.progressRing!}
-              role="img"
-              aria-label={copy.confirmedProgress.replace("{value}", model.progress.label)}
-              style={
-                model.progress.value === null
-                  ? undefined
-                  : ({ "--progress": `${model.progress.value}%` } as CSSProperties)
-              }
-            >
-              <strong>{model.progress.label}</strong>
-            </div>
-            <div>
-              <strong>{copy.progress}</strong>
-              <small>{copy.contractBased}</small>
-            </div>
-          </div>
-          <div className={styles.milestones!}>
-            {model.milestones.slice(0, 3).map((milestone) => (
-              <div
-                data-state={milestone.state}
-                className={styles.milestone!}
-                key={milestone.componentId}
-              >
-                <span>
-                  {milestone.state === "complete" ? (
-                    <ProductIcon name="check" size="small" />
-                  ) : null}
-                </span>
-                <strong>{milestone.name}</strong>
-                <small>{copy[milestone.state]}</small>
+        <section id="progress" className={styles.progressPanel!} aria-label={copy.progressCharts}>
+          {model.progress.kind === "accepted" && model.progressReview.contract ? (
+            <>
+              <header className={styles.progressChartHeader!}>
+                <div>
+                  <h2>{copy.progressCharts}</h2>
+                  <p>{copy.progressChartsDetail}</p>
+                </div>
+                <small>{model.progressReview.latestSnapshot?.source.label}</small>
+              </header>
+              <div className={styles.progressVisuals!}>
+                <div className={styles.progressBlock!}>
+                  <div
+                    className={styles.progressRing!}
+                    role="img"
+                    aria-label={copy.confirmedProgress.replace("{value}", model.progress.label)}
+                    style={{ "--progress": `${model.progress.value}%` } as CSSProperties}
+                  >
+                    <strong>{model.progress.label}</strong>
+                  </div>
+                  <div>
+                    <strong>{copy.progress}</strong>
+                    <small>{copy.contractBased}</small>
+                  </div>
+                </div>
+                <dl className={styles.progressComparison!}>
+                  <div>
+                    <dt>{copy.previous}</dt>
+                    <dd>
+                      {model.progressReview.latestSnapshot?.previousPercent === null ||
+                      model.progressReview.latestSnapshot?.previousPercent === undefined
+                        ? copy.notAvailable
+                        : `${model.progressReview.latestSnapshot.previousPercent}%`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{copy.currentMeasure}</dt>
+                    <dd>{model.progress.label}</dd>
+                  </div>
+                </dl>
+                <div className={styles.kpi!}>
+                  {model.kpi ? (
+                    <>
+                      <span>{model.kpi.name}</span>
+                      <strong>{formatKpi(model.kpi)}</strong>
+                      <small>
+                        {copy.target}: {formatMetric(model.kpi.target, model.kpi.unit)}
+                      </small>
+                    </>
+                  ) : (
+                    <>
+                      <strong>{copy.noKpi}</strong>
+                      <small>{copy.noKpiDetail}</small>
+                    </>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
-          <div className={styles.kpi!}>
-            {model.kpi ? (
-              <>
-                <span>{model.kpi.name}</span>
-                <strong>{formatKpi(model.kpi)}</strong>
-                <small>
-                  {copy.target}: {model.kpi.target}
-                  {model.kpi.unit}
-                </small>
-              </>
-            ) : (
-              <>
-                <strong>{copy.noKpi}</strong>
-                <small>{copy.noKpiDetail}</small>
-              </>
-            )}
-          </div>
+              <div className={styles.milestones!}>
+                {model.milestones.slice(0, 3).map((milestone) => (
+                  <div
+                    data-state={milestone.state}
+                    className={styles.milestone!}
+                    key={milestone.componentId}
+                  >
+                    <span>
+                      {milestone.state === "complete" ? (
+                        <ProductIcon name="check" size="small" />
+                      ) : null}
+                    </span>
+                    <strong>{milestone.name}</strong>
+                    <small>{copy[milestone.state]}</small>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.progressDataTable!}>
+                <table aria-label={copy.progressData}>
+                  <caption className={styles.visuallyHidden!}>{copy.progressData}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">{copy.measure}</th>
+                      <th scope="col">{copy.baseline}</th>
+                      <th scope="col">{copy.previous}</th>
+                      <th scope="col">{copy.currentMeasure}</th>
+                      <th scope="col">{copy.target}</th>
+                      <th scope="col">{copy.source}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">{copy.overallProgress}</th>
+                      <td>—</td>
+                      <td>
+                        {model.progressReview.latestSnapshot?.previousPercent === null ||
+                        model.progressReview.latestSnapshot?.previousPercent === undefined
+                          ? "—"
+                          : `${model.progressReview.latestSnapshot.previousPercent}%`}
+                      </td>
+                      <td>{model.progress.label}</td>
+                      <td>—</td>
+                      <td>{model.progressReview.latestSnapshot?.source.label ?? "—"}</td>
+                    </tr>
+                    {model.kpi ? (
+                      <tr>
+                        <th scope="row">{model.kpi.name}</th>
+                        <td>{formatMetric(model.kpi.baseline, model.kpi.unit)}</td>
+                        <td>—</td>
+                        <td>{formatMetric(model.kpi.current, model.kpi.unit)}</td>
+                        <td>{formatMetric(model.kpi.target, model.kpi.unit)}</td>
+                        <td>{model.kpi.source.label}</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div className={styles.progressChartEmpty!}>
+              <h2>{copy.progressCharts}</h2>
+              <strong>{copy.noProgressChart}</strong>
+              <p>{copy.noProgressChartDetail}</p>
+            </div>
+          )}
         </section>
 
         <section className={styles.criteriaContract!} aria-label={copy.criteriaContract}>
@@ -722,6 +791,15 @@ function buildCopy(catalog: Catalog) {
     documentMissing: catalog["project.experience.documentMissing"],
     openDocument: catalog["project.experience.openDocument"],
     progress: catalog["project.experience.progress"],
+    progressCharts: catalog["project.experience.progressCharts"],
+    progressChartsDetail: catalog["project.experience.progressChartsDetail"],
+    progressData: catalog["project.experience.progressData"],
+    noProgressChart: catalog["project.experience.noProgressChart"],
+    noProgressChartDetail: catalog["project.experience.noProgressChartDetail"],
+    measure: catalog["project.experience.measure"],
+    baseline: catalog["project.experience.baseline"],
+    currentMeasure: catalog["project.experience.currentMeasure"],
+    overallProgress: catalog["project.experience.overallProgress"],
     confirmedProgress: catalog["project.experience.confirmedProgress"],
     contractBased: catalog["project.experience.contractBased"],
     target: catalog["project.experience.target"],
@@ -840,6 +918,9 @@ function formatKpi(kpi: NonNullable<Experience["kpi"]>) {
   return ["flow", "flows", "source", "sources"].includes(unit.toLowerCase())
     ? `${kpi.current}/${kpi.target}`
     : `${kpi.current}${unit === "%" ? unit : ` ${unit}`}`;
+}
+function formatMetric(value: number, unit: string) {
+  return unit.trim() === "%" ? `${value}%` : `${value} ${unit.trim()}`;
 }
 function formatDate(value: string, locale: "ar" | "en") {
   return new Intl.DateTimeFormat(locale === "ar" ? "ar-SA" : "en-GB", {

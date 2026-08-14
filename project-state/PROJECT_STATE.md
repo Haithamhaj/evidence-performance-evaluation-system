@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Continue the Product Owner-approved AI-native frontend by completing the Work experience in bounded
-Phase 2 bundles. Preserve the accepted Home, Project, Capture, Clarification, and Review journey,
-every engine authority and protected product rule, and all retained rollback routes.
+Complete the Product Owner-approved Phase 3 Project Workspace while preserving the accepted Home,
+Work, Capture, Clarification, and Review journey, every engine authority and protected product rule,
+and all retained rollback routes.
 
 ## Current Reality
 
@@ -302,6 +302,12 @@ every engine authority and protected product rule, and all retained rollback rou
   Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
   A real governed `update.structure` run succeeded on `gpt-5.6-terra`; the specialized audio route
   remains on its transcription model, and protected Project progress still awaits its human owner.
+- P3-12 and P3-13 are complete: the real Codex Project shows contributor/owner scope without manager
+  authority, and Auto + Undo remains intentionally disabled because no current action satisfies the
+  full compensation and durable-recovery gate.
+- P3-14 is technically complete: accepted contract measures render as a circular Project indicator,
+  milestone/KPI context, source-backed previous/current summary, and accessible table. The real Codex
+  Project correctly renders no percentage or chart because it has no approved Progress Contract.
 
 ## Active Risks
 
@@ -332,10 +338,10 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue with P3-14 Project charts using only approved Progress Contract measures and an accessible
-summary/table alternative. P3-13 completed with Auto + Undo intentionally disabled because no current
-action satisfies the complete compensation and durable-recovery gate. Keep Pull Requests #29 and #30
-unmerged, and retain Calendar and legacy rollback routes.
+The authorized Project Owner reviews and activates the real Codex Project Progress Contract. Then
+rerun the P3-14 active-state visual comparison and complete P3-15 capability closure. Do not insert a
+synthetic percentage, let Codex approve as a contributor, merge Pull Requests #29/#30, or retire
+Calendar and legacy rollback routes to bypass this protected gate.
 
 ## Critical References
 
