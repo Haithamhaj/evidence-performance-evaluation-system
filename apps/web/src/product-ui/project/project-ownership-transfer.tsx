@@ -20,6 +20,11 @@ export function ProjectOwnershipTransfer({
 }: Readonly<{ catalog: Catalog; locale: "ar" | "en"; ownership: any; projectId: string }>) {
   const [state, action, pending] = useActionState(transferProjectOwnershipAction, initialState);
   const [kind, setKind] = useState<"permanent" | "acting">("permanent");
+  const returnOwner = ownership.plannedReturnOwnerName ?? ownership.currentOwner?.displayName;
+  const continuityImpact =
+    kind === "permanent"
+      ? catalog["project.experience.permanentContinuityImpact"]
+      : catalog["project.experience.actingContinuityImpact"].replace("{owner}", returnOwner);
   return (
     <form action={action}>
       <input name="locale" type="hidden" value={locale} />
@@ -65,6 +70,9 @@ export function ProjectOwnershipTransfer({
       </label>
       <output aria-label={catalog["project.experience.expectedVersion"]}>
         {ownership.transfer.expectedVersion}
+      </output>
+      <output aria-label={catalog["project.experience.continuityImpact"]}>
+        {continuityImpact}
       </output>
       <p>{catalog["project.experience.transferHumanGate"]}</p>
       {state.status === "stale" ? (

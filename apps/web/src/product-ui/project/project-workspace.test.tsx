@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { getCatalogSync } from "@evaluation/localization";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -112,6 +112,13 @@ describe("ProjectWorkspace", () => {
     expect(screen.getByLabelText("New owner")).toHaveTextContent("Amina");
     expect(screen.getByLabelText("Transfer type")).toBeInTheDocument();
     expect(screen.getByLabelText("Expected version")).toHaveTextContent("4");
+    expect(screen.getByLabelText("Continuity impact")).toHaveTextContent(
+      "Permanent handoff starts a new responsibility window and preserves prior attribution.",
+    );
+    fireEvent.change(screen.getByLabelText("Transfer type"), { target: { value: "acting" } });
+    expect(screen.getByLabelText("Continuity impact")).toHaveTextContent(
+      "Acting coverage returns responsibility to Codex and preserves prior attribution.",
+    );
     expect(
       screen.getByText("AI cannot choose the owner or submit this transfer."),
     ).toBeInTheDocument();

@@ -2,7 +2,7 @@
 
 ## Status
 
-DONE_WITH_CONCERNS — remediation commits `77badf9` and pending follow-up.
+DONE_WITH_CONCERNS — remediation commits `77badf9`, `5c63939`, and the continuity/authorization follow-up.
 
 ## What changed
 
@@ -14,6 +14,7 @@ DONE_WITH_CONCERNS — remediation commits `77badf9` and pending follow-up.
 - Remediation: added a compact manager-only ownership transfer form. It calls the existing protected Project transfer command, requires a human-selected owner, effective timestamp, transfer type, acting end when applicable, reason, and optimistic-concurrency version; a 409 result asks the manager to reload current responsibility before retrying.
 - Remediation: acting ownership projection now exposes the prospective named return owner when the append-only return responsibility is scheduled.
 - Remediation: former participants receive the intentionally content-free `access: ended` experience with safe Project-list navigation.
+- Follow-up: the manager form now gives a read-only, localized continuity-impact summary. Permanent handoffs start a new responsibility window; acting coverage names the return owner. Both preserve historical attribution.
 
 ## Files changed
 
@@ -29,6 +30,7 @@ DONE_WITH_CONCERNS — remediation commits `77badf9` and pending follow-up.
 - `apps/web/src/product-ui/project/project-ownership-transfer.tsx`
 - `packages/localization/src/catalogs/en.json`
 - `packages/localization/src/catalogs/ar.json`
+- `packages/projects/src/project-service.integration.test.ts`
 
 ## Database changes
 
@@ -38,7 +40,9 @@ None.
 
 - RED observed: the focused Project Workspace test could not find the new `Ownership and access` area.
 - RED observed: the Project Experience service returned no `ownership` projection for owner, contributor, manager, or acting-owner cases.
+- RED observed: the manager transfer form had no continuity-impact summary for permanent versus acting coverage.
 - GREEN: focused unit/API tests — 64 tests passed; Projects integration ownership projection — 13 tests passed.
+- GREEN: follow-up focused Project Workspace test — 4 tests passed; Projects integration projection/authorization matrix — 14 tests passed.
 - GREEN: protected API matrix — 53 controllers and 29 policy rows valid.
 - Type checks passed for Contracts, API, and Web.
 - Web lint passed.
@@ -48,12 +52,12 @@ None.
 ## Security and privacy impact
 
 - The browser receives only the existing server-authorized workspace facts plus a narrow ownership projection.
-- The UI does not make authorization decisions. Transfer context is visible only when the server-side authenticated role contains `manager` and the existing Projects reader has already authorized the Project.
+- The UI does not make authorization decisions. Transfer context and safe candidate names are visible only when the Projects-owned, department-scoped `responsibility.transfer` policy projection permits that specific Project action.
 - Owner coordination remains explicitly distinct from manager authority. No performance, readiness, or activity metrics were introduced.
 
 ## Remaining risk / not yet closed
 
-- Existing authorization tests and the new projection integration test cover owner-not-manager, contributor/owner mutation denial, scoped wrong-department manager denial, active/expired acting-owner policy enforcement, and ended access. No client-side authority was added.
+- The focused composed integration matrix now proves: a current contributor receives no transfer projection and is denied by the protected transfer service; a current acting owner has named return coverage but no transfer capability; and the same actor becomes `access: ended` after acting coverage expires and remains denied. Existing protected authorization coverage separately proves owner-not-manager and wrong-department manager denial. No client-side authority was added.
 - Local Codex dogfood preparation reached the safety gate but stopped at `UPLOAD_SAFETY_REJECTED`. No records were reset, deleted, or bypassed; a local upload-safety service must be ready before controller capture can proceed.
 - No browser capture was performed, as instructed.
 
