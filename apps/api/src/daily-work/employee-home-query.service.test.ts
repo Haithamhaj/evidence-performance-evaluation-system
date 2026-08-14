@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { EmployeeHomeQueryService } from "./employee-home-query.service.js";
 
@@ -12,6 +12,30 @@ const projectId = "20000000-0000-4000-8000-000000000002";
 const componentId = "20000000-0000-4000-8000-000000000003";
 
 describe("EmployeeHomeQueryService", () => {
+  it("keeps display-only email out of the strict daily-work authorization actor", async () => {
+    const dailyWorkspace = vi.fn(async () => ({
+      needsMyAction: [],
+      today: [],
+      overdue: [],
+      reviewQueue: [],
+      inbox: [],
+      projectPulse: [],
+      upcoming: [],
+    }));
+    const service = new EmployeeHomeQueryService(
+      { dailyWorkspace, project: async () => projectProgress() } as never,
+      { listWhatChanged: async () => ({ items: [], nextCursor: null }) } as never,
+    );
+
+    await service.load(actor);
+
+    expect(dailyWorkspace).toHaveBeenCalledWith({
+      userId: actor.userId,
+      active: true,
+      roles: ["employee"],
+    });
+  });
+
   it("copies accepted Project progress and complete KPI measurements from authoritative readers", async () => {
     const service = new EmployeeHomeQueryService(
       {

@@ -66,7 +66,11 @@ export class EmployeeHomeQueryService {
       throw new AppError("HOME_ACCESS_FORBIDDEN", "errors.authorization.inactivePrincipal", 403);
     }
     const [workspace, changed] = await Promise.all([
-      this.dailyWork.dailyWorkspace(actor),
+      this.dailyWork.dailyWorkspace({
+        userId: actor.userId,
+        active: actor.active,
+        roles: actor.roles,
+      }),
       this.experience.listWhatChanged({ actorId: actor.userId, afterCursor: null }),
     ]);
     const details = await Promise.all(
