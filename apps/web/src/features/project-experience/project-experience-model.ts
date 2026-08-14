@@ -1,6 +1,8 @@
 export function buildProjectExperienceModel(
   experience: import("@evaluation/contracts/employee-experience").EmployeeProjectExperienceV1,
 ) {
+  const current = experience.milestones.find(({ state }) => state === "current") ?? null;
+  const next = experience.milestones.find(({ state }) => state === "next") ?? null;
   return {
     ...experience,
     progress:
@@ -18,6 +20,20 @@ export function buildProjectExperienceModel(
                 : "Needs information",
             value: null,
           },
-    currentMilestone: experience.milestones.find(({ state }) => state === "current")?.name ?? null,
+    currentMilestone: current?.name ?? null,
+    overview: {
+      current,
+      next,
+      blocker: experience.attention[0] ?? null,
+      latestChange: experience.timeline[0] ?? null,
+      nextAction: experience.smartBrief?.action ?? null,
+    },
+    plan: {
+      ownerName: experience.project.ownerName,
+      workstreams: experience.project.workstreams,
+      milestones: experience.milestones,
+      document: experience.document,
+      progressState: experience.progress.state,
+    },
   };
 }

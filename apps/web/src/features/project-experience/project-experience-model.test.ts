@@ -8,6 +8,22 @@ describe("buildProjectExperienceModel", () => {
     expect(model.progress).toEqual({ kind: "accepted", label: "62%", value: 62 });
     expect(model.currentMilestone).toBe("API authentication");
     expect(model.collections.work).toHaveLength(1);
+    expect(model.overview).toMatchObject({
+      current: { name: "API authentication" },
+      next: { name: "Pilot readiness" },
+      blocker: { title: "Owner decision on PR #184" },
+      latestChange: { title: "PR #182 merged" },
+      nextAction: { label: "Review decision" },
+    });
+    expect(model.plan).toMatchObject({
+      ownerName: "Codex",
+      workstreams: [{ name: "API readiness" }],
+    });
+    expect(model.plan.milestones.map(({ name }) => name)).toEqual([
+      "Discovery",
+      "API authentication",
+      "Pilot readiness",
+    ]);
   });
 });
 

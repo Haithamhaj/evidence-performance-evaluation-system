@@ -59,8 +59,58 @@ export function ProjectWorkspace({
           <a href="#timeline">{copy.timelineNav}</a>
         </nav>
 
-        <section id="overview" className={styles.overviewAnchor!}>
+        <section id="overview" className={styles.overviewSummary!} aria-label={copy.atGlance}>
           <h2 className={styles.visuallyHidden!}>{copy.overview}</h2>
+          <dl>
+            <div>
+              <dt>{copy.currentStage}</dt>
+              <dd>{model.overview.current?.name ?? copy.notAvailable}</dd>
+            </div>
+            <div>
+              <dt>{copy.nextStage}</dt>
+              <dd>{model.overview.next?.name ?? copy.notAvailable}</dd>
+            </div>
+            <div>
+              <dt>{copy.activeBlocker}</dt>
+              <dd>
+                {model.overview.blocker ? (
+                  model.overview.blocker.href ? (
+                    <a href={localizedHref(model.overview.blocker.href, locale)}>
+                      {model.overview.blocker.title}
+                    </a>
+                  ) : (
+                    model.overview.blocker.title
+                  )
+                ) : (
+                  copy.noActiveBlocker
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>{copy.latestChange}</dt>
+              <dd>
+                {model.overview.latestChange ? (
+                  <a href={localizedHref(model.overview.latestChange.href, locale)}>
+                    {model.overview.latestChange.title}
+                  </a>
+                ) : (
+                  copy.notAvailable
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>{copy.nextAction}</dt>
+              <dd>
+                {model.overview.nextAction ? (
+                  <a href={localizedHref(model.overview.nextAction.href, locale)}>
+                    {model.overview.nextAction.label}
+                  </a>
+                ) : (
+                  copy.notAvailable
+                )}
+              </dd>
+            </div>
+          </dl>
         </section>
         <section id="progress" className={styles.progressPanel!} aria-label={copy.progress}>
           <div className={styles.progressBlock!}>
@@ -124,27 +174,55 @@ export function ProjectWorkspace({
         </section>
 
         <section id="plan" className={styles.plan!}>
-          <div>
+          <header>
             <h2>{copy.plan}</h2>
-            <p>{copy.workstreams}</p>
-            {model.project.ownerName ? (
+            <p>{model.project.description}</p>
+            {model.plan.ownerName ? (
               <p>
-                {copy.owner}: <strong>{model.project.ownerName}</strong>
+                {copy.owner}: <strong>{model.plan.ownerName}</strong>
               </p>
             ) : null}
+            <p>
+              {copy.planSource}: {model.plan.document?.title ?? copy.documentMissing}
+            </p>
+          </header>
+          <div className={styles.planContent!}>
+            <section>
+              <h3>{copy.workstreams}</h3>
+              {model.plan.workstreams.length === 0 ? (
+                <p>{copy.noWorkstreams}</p>
+              ) : (
+                <ul className={styles.workstreamList!}>
+                  {model.plan.workstreams.map((workstream) => (
+                    <li key={workstream.id}>
+                      <ProductIcon name="folder" size="small" />
+                      <a
+                        href={`/${locale}/projects/${model.project.id}/workstreams/${workstream.id}`}
+                      >
+                        {workstream.name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section>
+              <h3>{copy.milestonePlan}</h3>
+              {model.plan.milestones.length === 0 ? (
+                <p>{copy.notAvailable}</p>
+              ) : (
+                <ol className={styles.planMilestones!}>
+                  {model.plan.milestones.map((milestone) => (
+                    <li key={milestone.componentId} data-state={milestone.state}>
+                      <span>{milestone.state === "complete" ? "✓" : ""}</span>
+                      <strong>{milestone.name}</strong>
+                      <small>{copy[milestone.state]}</small>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
           </div>
-          {model.project.workstreams.length === 0 ? (
-            <p>{copy.noWorkstreams}</p>
-          ) : (
-            <ul>
-              {model.project.workstreams.map((workstream) => (
-                <li key={workstream.id}>
-                  <ProductIcon name="folder" size="small" />
-                  <strong>{workstream.name}</strong>
-                </li>
-              ))}
-            </ul>
-          )}
         </section>
 
         <section className={styles.attention!}>
@@ -298,6 +376,16 @@ function buildCopy(catalog: Catalog) {
     documents: catalog["project.experience.documents"],
     empty: catalog["project.experience.empty"],
     timeline: catalog["project.experience.timeline"],
+    atGlance: catalog["project.experience.atGlance"],
+    currentStage: catalog["project.experience.currentStage"],
+    nextStage: catalog["project.experience.nextStage"],
+    activeBlocker: catalog["project.experience.activeBlocker"],
+    latestChange: catalog["project.experience.latestChange"],
+    nextAction: catalog["project.experience.nextAction"],
+    notAvailable: catalog["project.experience.notAvailable"],
+    noActiveBlocker: catalog["project.experience.noActiveBlocker"],
+    milestonePlan: catalog["project.experience.milestonePlan"],
+    planSource: catalog["project.experience.planSource"],
     assistant: catalog["home.overview.assistant"],
     suggestedAction: catalog["home.overview.suggestedAction"],
     source: catalog["home.overview.source"],

@@ -23,6 +23,20 @@ describe("ProjectWorkspace", () => {
       "/en/tasks?view=my&layout=list&project=40000000-0000-4000-8000-000000000001",
     );
     expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Project at a glance")).toHaveTextContent(
+      "Current stageAPI authentication",
+    );
+    expect(screen.getByLabelText("Project at a glance")).toHaveTextContent(
+      "Next stagePilot readiness",
+    );
+    expect(screen.getByLabelText("Project at a glance")).toHaveTextContent(
+      "Active blockerOwner decision on PR #184",
+    );
+    expect(screen.getByRole("link", { name: "API readiness" })).toHaveAttribute(
+      "href",
+      "/en/projects/40000000-0000-4000-8000-000000000001/workstreams/40000000-0000-4000-8000-000000000002",
+    );
+    expect(screen.getByRole("heading", { name: "Milestone plan" })).toBeInTheDocument();
     expect(screen.getByText("API readiness")).toBeInTheDocument();
     expect(screen.getByText("Codex")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review progress contract" })).toHaveAttribute(

@@ -262,6 +262,11 @@ every engine authority and protected product rule, and all retained rollback rou
   one clear `Overview / Plan / Work / Progress / Timeline` navigation; Work reuses the authoritative
   Project-filtered Task surface, Plan exposes the real Workstream, and Overview shows the confirmed
   Update and Evidence in the Project Timeline. Missing contract progress remains explicitly missing.
+- The bounded Project Overview/Plan follow-up is complete. The running English workspace now exposes
+  the current stage, next stage, active blocker, latest confirmed change, and Codex's next action at a
+  glance, then shows the real Project purpose, owner, source document, Workstream links, and available
+  milestone plan. Missing milestones and progress remain truthfully unavailable; no Task, GitHub, or
+  activity volume was converted into Project progress.
 - The approved GPT-5.6 cost-quality policy is active through the AI Router. Luna handles frequent
   bounded preparation, Terra handles daily Capture/Update/Task assistance, and Sol handles complex
   Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
@@ -296,9 +301,10 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Expand the Project Plan from its real Workstream and contract sources, then add the focused Progress
-review surface without inferring progress from Task activity. Keep Pull Requests #29 and #30
-unmerged, and retain Calendar and legacy rollback routes.
+Add the focused Project Progress review from approved contract components, proposals, and snapshots
+without inferring progress from Task activity, then continue the remaining Project Documents/Sources
+and Criteria surfaces. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy
+rollback routes.
 
 ## Critical References
 

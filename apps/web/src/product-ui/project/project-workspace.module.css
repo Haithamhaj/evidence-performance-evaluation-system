@@ -76,8 +76,40 @@
   background: #eaf2ff;
   color: #0f5fd8;
 }
-.overviewAnchor {
+.overviewSummary {
   scroll-margin-block-start: 4rem;
+  border-block-end: 1px solid #dfe4ec;
+  padding-block: 0.85rem;
+}
+.overviewSummary dl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+}
+.overviewSummary dl > div {
+  min-inline-size: 0;
+  padding: 0.35rem 0.85rem;
+  border-inline-end: 1px solid #e6eaf0;
+}
+.overviewSummary dl > div:last-child {
+  border-inline-end: 0;
+}
+.overviewSummary dt {
+  color: #58667a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.overviewSummary dd {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.overviewSummary a,
+.plan a {
+  color: #0f5fd8;
+  text-decoration: none;
 }
 .visuallyHidden {
   position: absolute;
@@ -215,14 +247,24 @@
   scroll-margin-block-start: 4rem;
 }
 .plan h2,
+.plan h3,
 .plan p {
   margin: 0;
 }
-.plan > div > p {
+.plan > header > p {
   color: #58667a;
   font-size: 0.78rem;
 }
-.plan ul {
+.planContent {
+  display: grid;
+  grid-template-columns: minmax(11rem, 0.4fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+.planContent h3 {
+  margin-block-end: 0.55rem;
+  font-size: 0.85rem;
+}
+.workstreamList {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
@@ -230,13 +272,50 @@
   padding: 0;
   list-style: none;
 }
-.plan li {
+.workstreamList li {
   display: flex;
   align-items: center;
   gap: 0.45rem;
   border: 1px solid #dfe4ec;
   border-radius: 0.6rem;
   padding: 0.65rem 0.8rem;
+}
+.planMilestones {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.planMilestones li {
+  display: grid;
+  grid-template-columns: 1.35rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding-block: 0.35rem;
+  border-block-end: 1px solid #edf0f4;
+}
+.planMilestones li > span {
+  display: grid;
+  place-items: center;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border: 1px solid #8491a4;
+  border-radius: 50%;
+  color: #168847;
+  font-size: 0.72rem;
+}
+.planMilestones li[data-state="complete"] > span {
+  border-color: #168847;
+  background: #e8f7ed;
+}
+.planMilestones li[data-state="current"] > span {
+  border: 0.3rem solid #bfd6ff;
+  background: #1264e8;
+}
+.planMilestones small {
+  color: #58667a;
+  white-space: nowrap;
 }
 .progressPanel,
 .timeline {
@@ -390,6 +469,15 @@
     padding-block-start: 0.7rem;
     padding-inline-start: 0;
   }
+  .overviewSummary dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .overviewSummary dl > div:nth-child(3) {
+    border-inline-end: 0;
+  }
+  .overviewSummary dl > div:nth-child(n + 4) {
+    border-block-start: 1px solid #e6eaf0;
+  }
 }
 @media (width<=760px) {
   .workspace {
@@ -413,6 +501,19 @@
   }
   .progressPanel {
     grid-template-columns: 1fr;
+  }
+  .overviewSummary dl,
+  .plan,
+  .planContent {
+    grid-template-columns: 1fr;
+  }
+  .overviewSummary dl > div,
+  .overviewSummary dl > div:nth-child(3) {
+    border-inline-end: 0;
+    border-block-start: 1px solid #e6eaf0;
+  }
+  .overviewSummary dl > div:first-child {
+    border-block-start: 0;
   }
   .progressBlock {
     align-items: center;
