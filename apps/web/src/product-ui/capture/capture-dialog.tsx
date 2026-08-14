@@ -497,7 +497,7 @@ function updateSourceId(sourceReferences: readonly string[]) {
 }
 
 function evidenceSource(rawText: string) {
-  const url = rawText.match(/https?:\/\/\S+/u)?.[0];
+  const url = rawText.match(/https?:\/\/\S+/u)?.[0].replace(/[),.;!?]+$/u, "");
   return url === undefined
     ? ({ kind: "pasted_text", text: rawText } as const)
     : ({ kind: "url", url } as const);

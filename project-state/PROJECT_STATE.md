@@ -252,6 +252,12 @@ every engine authority and protected product rule, and all retained rollback rou
   project-work copilot, requires source-grounded claims and practical one-at-a-time clarification,
   and preserves employee authority to edit, reject, or defer every proposed action. Evidence still
   cannot change Project progress or employee performance.
+- Live Codex dogfood now completes that combined journey through the real OpenAI route. GPT-5.5 and
+  prompt v5 prepared an Update and source-backed Evidence draft from the real Project, Work Item, and
+  commit URL; Codex edited both, selected the Evidence, and explicitly confirmed each independent
+  receipt. The Work Item remains `in_progress` and the Project received no progress snapshot. The
+  dogfood also exposed trailing prose punctuation in captured URLs; future URL Evidence now removes
+  that punctuation while the accepted historical receipt remains immutable.
 
 ## Active Risks
 
@@ -279,10 +285,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Complete the live Codex dogfood checkpoint for the new Evidence handoff, validate the Project
-overview without inferring progress from Task activity, and proceed to the next approved engine
-capability bundle. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback
-routes.
+Validate and connect the Project overview without inferring progress from Task activity, then proceed
+to the next approved engine capability bundle. Keep Pull Requests #29 and #30 unmerged, and retain
+Calendar and legacy rollback routes.
 
 ## Critical References
 

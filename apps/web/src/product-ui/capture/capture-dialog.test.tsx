@@ -135,7 +135,7 @@ describe("CaptureDialog", () => {
     const capture = within(screen.getByRole("dialog", { name: "Share anything" }));
     await user.type(
       capture.getByRole("textbox", { name: "What are you working on?" }),
-      "https://github.com/Haithamhaj/evidence-performance-evaluation-system/commit/65e4fcf",
+      "https://github.com/Haithamhaj/evidence-performance-evaluation-system/commit/65e4fcf. Focused tests passed.",
     );
     await user.click(capture.getByRole("button", { name: "Understand this" }));
     await user.click(await capture.findByRole("button", { name: "Continue review" }));
