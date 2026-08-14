@@ -1,6 +1,6 @@
 import { AppError, EmployeeProjectExperienceV1Schema } from "@evaluation/contracts";
 
-type Actor = Readonly<{ userId: string; active: boolean }>;
+type Actor = Readonly<{ userId: string; active: boolean; roles?: readonly string[] }>;
 type Readers = Readonly<{
   project(actorId: string, projectId: string): Promise<unknown>;
   document(actorId: string, projectId: string): Promise<unknown | null>;
@@ -70,6 +70,7 @@ export class ProjectExperienceQueryService {
         },
       }));
     const document = documentSummary(view, projectId, source);
+    const ownership = ownershipContext(view.workspace, actor);
     const milestones = milestoneJourney(view);
     const kpi = selectKpi(view, source);
     const attention = attentionItems(view, document, source, projectId);
@@ -121,6 +122,7 @@ export class ProjectExperienceQueryService {
           name: item.name,
         })),
       },
+      ownership,
       document,
       documentWorkspace: documentWorkspace(documentDetail),
       criteriaContract: criteriaContract(view, document, actor.userId),
@@ -167,6 +169,54 @@ export class ProjectExperienceQueryService {
             },
     });
   }
+}
+
+function ownershipContext(workspace: any, actor: Actor) {
+  const people = workspace?.people ?? [];
+  const actorWindow = people.find((item: any) => item.person?.id === actor.userId) ?? null;
+  const currentOwner =
+    people.find((item: any) =>
+      ["original", "acting", "permanent"].includes(item.responsibilityType),
+    ) ?? null;
+  const isManager = actor.roles?.includes("manager") ?? false;
+  const viewerRole = isManager
+    ? ("manager" as const)
+    : actorWindow?.responsibilityType === "acting"
+      ? ("acting_owner" as const)
+      : ["original", "permanent"].includes(actorWindow?.responsibilityType)
+        ? ("owner" as const)
+        : ("contributor" as const);
+  return {
+    viewerRole,
+    currentOwner:
+      currentOwner === null
+        ? null
+        : {
+            id: currentOwner.person.id,
+            displayName: currentOwner.person.displayName,
+            responsibilityType: currentOwner.responsibilityType,
+            startsAt: currentOwner.startsAt,
+            endsAt: currentOwner.endsAt,
+          },
+    viewerWindow:
+      actorWindow === null ? null : { startsAt: actorWindow.startsAt, endsAt: actorWindow.endsAt },
+    plannedReturnOwnerName: null,
+    contributors: people
+      .filter((item: any) => item.responsibilityType === "contributor")
+      .map((item: any) => ({
+        id: item.person.id,
+        displayName: item.person.displayName,
+        startsAt: item.startsAt,
+        endsAt: item.endsAt,
+      })),
+    transfer: {
+      allowed: isManager,
+      expectedVersion: workspace.project.version,
+      candidates: isManager
+        ? people.map((item: any) => ({ id: item.person.id, displayName: item.person.displayName }))
+        : [],
+    },
+  };
 }
 
 function projectAgentSignals({

@@ -22,6 +22,10 @@ describe("ProjectWorkspace", () => {
       "href",
       "/en/tasks?view=my&layout=list&project=40000000-0000-4000-8000-000000000001",
     );
+    const ownership = screen.getByLabelText("Ownership and access");
+    expect(ownership).toHaveTextContent("Current ownerCodex");
+    expect(ownership).toHaveTextContent("Your roleOwner");
+    expect(ownership).toHaveTextContent("Coordination only — this is not manager authority");
     expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument();
     expect(screen.getByLabelText("Project at a glance")).toHaveTextContent(
       "Current stageAPI authentication",
@@ -38,7 +42,7 @@ describe("ProjectWorkspace", () => {
     );
     expect(screen.getByRole("heading", { name: "Milestone plan" })).toBeInTheDocument();
     expect(screen.getByText("API readiness")).toBeInTheDocument();
-    expect(screen.getByText("Codex")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ownership and access")).toHaveTextContent("Current ownerCodex");
     expect(screen.getByRole("link", { name: "Review progress contract" })).toHaveAttribute(
       "href",
       "/en/projects/40000000-0000-4000-8000-000000000001/settings/progress-contract",

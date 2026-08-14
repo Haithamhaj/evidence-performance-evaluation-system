@@ -76,6 +76,20 @@ export function fixture(): import("@evaluation/contracts/employee-experience").E
       ownerName: "Codex",
       workstreams: [{ id: "40000000-0000-4000-8000-000000000002", name: "API readiness" }],
     },
+    ownership: {
+      viewerRole: "owner",
+      currentOwner: {
+        id: "40000000-0000-4000-8000-000000000010",
+        displayName: "Codex",
+        responsibilityType: "original",
+        startsAt: "2026-07-01T08:00:00.000Z",
+        endsAt: null,
+      },
+      viewerWindow: { startsAt: "2026-07-01T08:00:00.000Z", endsAt: null },
+      plannedReturnOwnerName: null,
+      contributors: [],
+      transfer: { allowed: false, expectedVersion: 4, candidates: [] },
+    },
     document: {
       id: "40000000-0000-4000-8000-000000000003",
       title: "Project Document",

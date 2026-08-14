@@ -80,7 +80,7 @@ export class DailyWorkController {
     if (this.projectExperience === undefined)
       throw new Error("Project Experience service is not configured");
     return this.projectExperience.load(
-      { userId: request.principal.userId, active: request.principal.active },
+      projectExperienceActor(request),
       z.string().uuid().parse(projectId),
     );
   }
@@ -184,6 +184,14 @@ function employeeHomeActor(request: Request) {
   return {
     ...dailyWorkspaceActor(request),
     email: request.principal.email,
+  };
+}
+
+function projectExperienceActor(request: Request) {
+  return {
+    userId: request.principal.userId,
+    active: request.principal.active,
+    roles: request.principal.roles,
   };
 }
 

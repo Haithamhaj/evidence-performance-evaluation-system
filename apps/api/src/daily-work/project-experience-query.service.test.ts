@@ -204,6 +204,60 @@ describe("ProjectExperienceQueryService", () => {
       status: 403,
     });
   });
+
+  it.each([
+    ["owner", actor, "original", "owner", false],
+    ["contributor", actor, "contributor", "contributor", false],
+    [
+      "authorized department manager",
+      { ...actor, roles: ["manager"] },
+      "contributor",
+      "manager",
+      true,
+    ],
+    ["acting owner", actor, "acting", "acting_owner", false],
+  ] as const)(
+    "derives the effective %s role from the server-authorized workspace",
+    async (_state, currentActor, responsibilityType, expectedRole, canTransfer) => {
+      const view = projectView();
+      const people: any[] = [
+        {
+          person: { id: currentActor.userId, displayName: "Codex" },
+          responsibilityType,
+          startsAt: "2026-08-13T07:00:00.000Z",
+          endsAt: responsibilityType === "acting" ? "2026-08-20T07:00:00.000Z" : null,
+        },
+      ];
+      if (responsibilityType === "contributor") {
+        people.unshift({
+          person: { id: "20000000-0000-4000-8000-000000000099", displayName: "Project owner" },
+          responsibilityType: "original",
+          startsAt: "2026-07-01T07:00:00.000Z",
+          endsAt: null,
+        });
+      }
+      view.workspace.people = people;
+      view.workspace.project.version = 4;
+      const service = new ProjectExperienceQueryService({
+        project: async () => view,
+        document: async () => null,
+        myWork: async () => ({ groups: [] }),
+        timeline: async () => ({ items: [], nextCursor: null }),
+      });
+
+      const result = await service.load(currentActor, projectId);
+
+      expect(result.ownership).toMatchObject({
+        viewerRole: expectedRole,
+        currentOwner: {
+          displayName: responsibilityType === "contributor" ? "Project owner" : "Codex",
+          responsibilityType:
+            responsibilityType === "contributor" ? "original" : responsibilityType,
+        },
+        transfer: { allowed: canTransfer, expectedVersion: 4 },
+      });
+    },
+  );
 });
 
 function projectView() {
@@ -220,11 +274,13 @@ function projectView() {
         name: "Atlas Delivery",
         description: "Deliver secure API access.",
         status: "active",
+        version: 1,
       },
       people: [
         {
           person: { id: actor.userId, displayName: "Codex" },
           responsibilityType: "original",
+          startsAt: "2026-07-01T08:00:00.000Z",
           endsAt: null,
         },
       ],

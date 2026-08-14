@@ -113,6 +113,57 @@ export function ProjectWorkspace({
             </div>
           </dl>
         </section>
+        <section className={styles.ownership!} aria-label={copy.ownership}>
+          <div>
+            <h2>{copy.ownership}</h2>
+            <small>{copy.coordinationOnly}</small>
+          </div>
+          <dl>
+            <div>
+              <dt>{copy.currentOwner}</dt>
+              <dd>{model.ownership.currentOwner?.displayName ?? copy.notAvailable}</dd>
+            </div>
+            <div>
+              <dt>{copy.yourRole}</dt>
+              <dd>{roleLabel(copy, model.ownership.viewerRole)}</dd>
+            </div>
+            <div>
+              <dt>{copy.activeFrom}</dt>
+              <dd>
+                {model.ownership.viewerWindow
+                  ? formatDate(model.ownership.viewerWindow.startsAt, locale)
+                  : copy.notAvailable}
+              </dd>
+            </div>
+            {model.ownership.viewerRole === "acting_owner" ? (
+              <div>
+                <dt>{copy.until}</dt>
+                <dd>
+                  {model.ownership.viewerWindow?.endsAt
+                    ? formatDate(model.ownership.viewerWindow.endsAt, locale)
+                    : copy.notAvailable}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+          <p>
+            <strong>{copy.contributors}</strong>{" "}
+            {model.ownership.contributors.length === 0
+              ? copy.noContributors
+              : model.ownership.contributors.map(({ displayName }) => displayName).join(", ")}
+          </p>
+          {model.ownership.plannedReturnOwnerName ? (
+            <p>
+              <strong>{copy.plannedReturn}</strong> {model.ownership.plannedReturnOwnerName}
+            </p>
+          ) : null}
+          {model.ownership.transfer.allowed ? (
+            <aside className={styles.transferContext!}>
+              <strong>{copy.humanTransfer}</strong>
+              <p>{copy.transferDetail}</p>
+            </aside>
+          ) : null}
+        </section>
         <section id="progress" className={styles.progressPanel!} aria-label={copy.progress}>
           <div className={styles.progressBlock!}>
             <div
@@ -629,6 +680,21 @@ function buildCopy(catalog: Catalog) {
     workstreams: catalog["project.experience.workstreams"],
     noWorkstreams: catalog["project.experience.noWorkstreams"],
     owner: catalog["project.experience.owner"],
+    ownership: catalog["project.experience.ownership"],
+    currentOwner: catalog["project.experience.currentOwner"],
+    yourRole: catalog["project.experience.yourRole"],
+    ownerRole: catalog["project.experience.ownerRole"],
+    contributor: catalog["project.experience.contributorRole"],
+    manager: catalog["project.experience.managerRole"],
+    acting_owner: catalog["project.experience.actingOwnerRole"],
+    coordinationOnly: catalog["project.experience.coordinationOnly"],
+    activeFrom: catalog["project.experience.activeFrom"],
+    until: catalog["project.experience.until"],
+    contributors: catalog["project.experience.contributors"],
+    noContributors: catalog["project.experience.noContributors"],
+    plannedReturn: catalog["project.experience.plannedReturn"],
+    humanTransfer: catalog["project.experience.humanTransfer"],
+    transferDetail: catalog["project.experience.transferDetail"],
     reviewContract: catalog["project.experience.reviewContract"],
     home: catalog["project.experience.home"],
     projects: catalog["project.experience.projects"],
@@ -737,6 +803,14 @@ function buildCopy(catalog: Catalog) {
     awaiting_evidence: catalog["home.overview.awaitingEvidence"],
     not_started: catalog["home.overview.notStarted"],
   } as const;
+}
+
+function roleLabel(
+  copy: ReturnType<typeof buildCopy>,
+  role: "owner" | "contributor" | "manager" | "acting_owner",
+) {
+  if (role === "owner") return copy.ownerRole;
+  return copy[role];
 }
 function localizedHref(href: string, locale: "ar" | "en") {
   return href.replace(/^\/(?:ar|en)(?=\/)/u, `/${locale}`);

@@ -290,6 +290,49 @@ const ProjectPreparedActionV1Schema = z
   })
   .strict();
 
+const ProjectOwnershipPersonV1Schema = z
+  .object({
+    id: UuidSchema,
+    displayName: z.string().trim().min(1).max(240),
+    responsibilityType: z.enum(["original", "acting", "permanent"]),
+    startsAt: UtcInstantSchema,
+    endsAt: UtcInstantSchema.nullable(),
+  })
+  .strict();
+
+const ProjectContributorV1Schema = z
+  .object({
+    id: UuidSchema,
+    displayName: z.string().trim().min(1).max(240),
+    startsAt: UtcInstantSchema,
+    endsAt: UtcInstantSchema.nullable(),
+  })
+  .strict();
+
+const ProjectOwnershipV1Schema = z
+  .object({
+    viewerRole: z.enum(["owner", "contributor", "manager", "acting_owner"]),
+    currentOwner: ProjectOwnershipPersonV1Schema.nullable(),
+    viewerWindow: z
+      .object({ startsAt: UtcInstantSchema, endsAt: UtcInstantSchema.nullable() })
+      .strict()
+      .nullable(),
+    plannedReturnOwnerName: z.string().trim().min(1).max(240).nullable(),
+    contributors: z.array(ProjectContributorV1Schema).max(100),
+    transfer: z
+      .object({
+        allowed: z.boolean(),
+        expectedVersion: z.number().int().positive(),
+        candidates: z
+          .array(
+            z.object({ id: UuidSchema, displayName: z.string().trim().min(1).max(240) }).strict(),
+          )
+          .max(100),
+      })
+      .strict(),
+  })
+  .strict();
+
 export const EmployeeProjectExperienceV1Schema = guarded(
   z
     .object({
@@ -307,6 +350,7 @@ export const EmployeeProjectExperienceV1Schema = guarded(
             .max(100),
         })
         .strict(),
+      ownership: ProjectOwnershipV1Schema,
       document: z
         .object({
           id: UuidSchema,
