@@ -189,6 +189,36 @@ const ProjectProgressReviewV1Schema = z
   })
   .strict();
 
+const ProjectDocumentWorkspaceV1Schema = z
+  .object({
+    currentVersion: z.number().int().positive(),
+    sourceAvailability: z.enum(["available", "missing"]),
+    history: z
+      .array(
+        z
+          .object({
+            version: z.number().int().positive(),
+            reason: z.string().trim().min(1).max(1_000),
+            createdAt: UtcInstantSchema,
+            sourceCount: z.number().int().nonnegative(),
+          })
+          .strict(),
+      )
+      .max(100),
+    sources: z
+      .array(
+        z
+          .object({
+            kind: z.enum(["upload", "external_link", "github"]),
+            label: z.string().trim().min(1).max(500),
+            href: z.url().nullable(),
+          })
+          .strict(),
+      )
+      .max(100),
+  })
+  .strict();
+
 export const EmployeeProjectExperienceV1Schema = guarded(
   z
     .object({
@@ -216,6 +246,7 @@ export const EmployeeProjectExperienceV1Schema = guarded(
         })
         .strict()
         .nullable(),
+      documentWorkspace: ProjectDocumentWorkspaceV1Schema.optional(),
       progress: OperationalProgressV1Schema,
       progressReview: ProjectProgressReviewV1Schema.optional(),
       milestones: z.array(EmployeeExperienceMilestoneV1Schema).max(100),

@@ -316,6 +316,7 @@
 }
 .attention,
 .plan,
+.documentSources,
 .collections,
 .timeline {
   padding-block: 1.1rem;
@@ -323,10 +324,93 @@
 }
 .attention h2,
 .plan h2,
+.documentSources h2,
 .collections h2,
 .timeline h2 {
   margin: 0 0 0.65rem;
   font-size: 1.15rem;
+}
+.documentSources > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 0.8rem;
+}
+.documentSources h2,
+.documentSources h3,
+.documentSources p,
+.documentSources dl,
+.documentSources ol,
+.documentSources ul {
+  margin: 0;
+}
+.documentSources > header p,
+.documentSources small {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.documentSources a {
+  color: #0f5fd8;
+  text-decoration: none;
+}
+.documentSourcesGrid {
+  display: grid;
+  grid-template-columns: 9rem minmax(13rem, 0.8fr) minmax(13rem, 1fr);
+  gap: 1rem;
+}
+.documentSourcesGrid > dl {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+}
+.documentSourcesGrid dt {
+  color: #58667a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.documentSourcesGrid dd {
+  margin: 0.12rem 0 0;
+  font-weight: 800;
+}
+.documentSourcesGrid h3 {
+  margin-block-end: 0.45rem;
+  font-size: 0.85rem;
+}
+.documentSourcesGrid ol,
+.documentSourcesGrid ul {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0;
+  list-style: none;
+}
+.documentSourcesGrid li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  border-block-start: 1px solid #edf0f4;
+  padding-block-start: 0.35rem;
+  font-size: 0.78rem;
+}
+.documentSourcesGrid li > span,
+.documentSourcesGrid li > div {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.documentSourcesGrid ol li {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.documentSourcesGrid ol li > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.documentSourcesGrid ol li > small {
+  grid-column: 2;
+}
+.documentSourcesGrid li > div {
+  display: grid;
 }
 .plan {
   display: grid;
@@ -576,6 +660,12 @@
   .progressReviewGrid > section:last-child {
     border-block-end: 0;
   }
+  .documentSourcesGrid {
+    grid-template-columns: 8rem 1fr;
+  }
+  .documentSourcesGrid > section:last-child {
+    grid-column: 1 / -1;
+  }
 }
 @media (width<=760px) {
   .workspace {
@@ -618,6 +708,14 @@
   }
   .progressReview > header {
     display: grid;
+  }
+  .documentSources > header,
+  .documentSourcesGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .documentSourcesGrid > section:last-child {
+    grid-column: 1;
   }
   .milestones {
     gap: 0.35rem;

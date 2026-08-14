@@ -42,5 +42,6 @@ export function buildProjectExperienceModel(
       ambiguities:
         experience.progress.state === "awaiting_information" ? experience.progress.missing : [],
     },
+    documentWorkspace: experience.documentWorkspace ?? null,
   };
 }

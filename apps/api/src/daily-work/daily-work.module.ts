@@ -1,7 +1,11 @@
 import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
 import { PrismaApprovedLeaveReader } from "@evaluation/continuity";
-import { ProgressContractDraftSourceLocator, ProgressDocumentReader } from "@evaluation/documents";
+import {
+  DocumentService,
+  ProgressContractDraftSourceLocator,
+  ProgressDocumentReader,
+} from "@evaluation/documents";
 import {
   CriteriaReviewReader,
   createProgressContractService,
@@ -73,6 +77,16 @@ Module({
       provide: ProjectService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
         new ProjectService(client, databaseAuditWriter as never, () => new Date()),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: DocumentService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new DocumentService(
+          client,
+          new DocumentResourceReader(client),
+          databaseAuditWriter as never,
+        ),
       inject: [DAILY_WORK_DATABASE],
     },
     {
@@ -159,6 +173,7 @@ Module({
       useFactory: (
         dailyWork: DailyWorkQueryService,
         projects: ProjectService,
+        documents: DocumentService,
         activity: ActivityReader,
       ) =>
         new ProjectExperienceQueryService({
@@ -169,10 +184,17 @@ Module({
             ]);
             return { ...(progress as object), workspace };
           },
+          document: (actorId, projectId) =>
+            documents.getByResource({
+              actor: { userId: actorId, active: true },
+              correlationId: crypto.randomUUID(),
+              kind: "project",
+              resourceId: projectId,
+            }),
           myWork: (actorId) => dailyWork.myWork(actorId),
           timeline: (input) => activity.timeline(input),
         }),
-      inject: [DailyWorkQueryService, ProjectService, ActivityReader],
+      inject: [DailyWorkQueryService, ProjectService, DocumentService, ActivityReader],
     },
     WorkItemsPolicyGuard,
   ],

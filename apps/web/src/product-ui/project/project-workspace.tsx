@@ -311,6 +311,75 @@ export function ProjectWorkspace({
           </div>
         </section>
 
+        <section className={styles.documentSources!} aria-label={copy.projectDocumentsSources}>
+          <header>
+            <div>
+              <h2>{copy.projectDocumentsSources}</h2>
+              <p>{copy.recordedSourcesNote}</p>
+            </div>
+            {model.document ? (
+              <a href={localizedHref(model.document.href, locale)}>{copy.openDocument}</a>
+            ) : null}
+          </header>
+          {model.documentWorkspace ? (
+            <div className={styles.documentSourcesGrid!}>
+              <dl>
+                <div>
+                  <dt>{copy.currentVersion}</dt>
+                  <dd>v{model.documentWorkspace.currentVersion}</dd>
+                </div>
+                <div>
+                  <dt>{copy.sourceAvailability}</dt>
+                  <dd>{copy[model.documentWorkspace.sourceAvailability]}</dd>
+                </div>
+              </dl>
+              <section>
+                <h3>{copy.versionHistory}</h3>
+                <ol>
+                  {model.documentWorkspace.history.map((version) => (
+                    <li key={version.version}>
+                      <strong>v{version.version}</strong>
+                      <span title={version.reason}>{version.reason}</span>
+                      <small>
+                        {copy.sourceCount.replace("{count}", String(version.sourceCount))} ·{" "}
+                        {formatDate(version.createdAt, locale)}
+                      </small>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+              <section>
+                <h3>{copy.recordedSources}</h3>
+                {model.documentWorkspace.sources.length === 0 ? (
+                  <p>{copy.noRecordedSources}</p>
+                ) : (
+                  <ul>
+                    {model.documentWorkspace.sources.map((source, index) => (
+                      <li key={`${source.kind}:${source.label}:${index}`}>
+                        <ProductIcon
+                          name={source.kind === "upload" ? "document" : "link"}
+                          size="small"
+                        />
+                        <div>
+                          <strong>{source.label}</strong>
+                          <small>{copy[source.kind]}</small>
+                        </div>
+                        {source.href ? (
+                          <a href={source.href} target="_blank" rel="noreferrer">
+                            {copy.open}
+                          </a>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+          ) : (
+            <p>{copy.documentMissing}</p>
+          )}
+        </section>
+
         <section className={styles.attention!}>
           <h2>{copy.attention}</h2>
           {model.attention.length === 0 ? (
@@ -492,6 +561,19 @@ function buildCopy(catalog: Catalog) {
     noAmbiguity: catalog["project.experience.noAmbiguity"],
     noContract: catalog["project.experience.noContract"],
     doesNotChangeProgress: catalog["project.experience.doesNotChangeProgress"],
+    projectDocumentsSources: catalog["project.experience.projectDocumentsSources"],
+    recordedSourcesNote: catalog["project.experience.recordedSourcesNote"],
+    currentVersion: catalog["project.experience.currentVersion"],
+    sourceAvailability: catalog["project.experience.sourceAvailability"],
+    available: catalog["project.experience.available"],
+    missing: catalog["project.experience.missing"],
+    versionHistory: catalog["project.experience.versionHistory"],
+    sourceCount: catalog["project.experience.sourceCount"],
+    recordedSources: catalog["project.experience.recordedSources"],
+    noRecordedSources: catalog["project.experience.noRecordedSources"],
+    upload: catalog["project.experience.uploadSource"],
+    github: catalog["project.experience.githubSource"],
+    external_link: catalog["project.experience.externalLinkSource"],
     assistant: catalog["home.overview.assistant"],
     suggestedAction: catalog["home.overview.suggestedAction"],
     source: catalog["home.overview.source"],

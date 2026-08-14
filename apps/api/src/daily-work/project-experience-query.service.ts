@@ -3,6 +3,7 @@ import { AppError, EmployeeProjectExperienceV1Schema } from "@evaluation/contrac
 type Actor = Readonly<{ userId: string; active: boolean }>;
 type Readers = Readonly<{
   project(actorId: string, projectId: string): Promise<unknown>;
+  document(actorId: string, projectId: string): Promise<unknown | null>;
   myWork(actorId: string): Promise<any>;
   timeline(input: {
     actorId: string;
@@ -30,8 +31,9 @@ export class ProjectExperienceQueryService {
         403,
       );
     }
-    const [raw, work, timeline] = await Promise.all([
+    const [raw, documentDetail, work, timeline] = await Promise.all([
       this.readers.project(actor.userId, projectId),
+      this.readers.document(actor.userId, projectId),
       this.readers.myWork(actor.userId),
       this.readers.timeline({
         actorId: actor.userId,
@@ -104,6 +106,7 @@ export class ProjectExperienceQueryService {
         })),
       },
       document,
+      documentWorkspace: documentWorkspace(documentDetail),
       progress,
       progressReview: progressReview(view, progress, source),
       milestones,
@@ -145,6 +148,40 @@ export class ProjectExperienceQueryService {
             },
     });
   }
+}
+
+function documentWorkspace(detail: any) {
+  if (detail === null) return undefined;
+  const versions = [...(detail.versions ?? [])].sort(
+    (left: any, right: any) => right.version - left.version,
+  );
+  const sources = versions.flatMap((version: any) =>
+    (version.sources ?? []).map((source: any) => {
+      if (source.sourceType === "upload") {
+        return {
+          kind: "upload" as const,
+          label: source.uploadedSource.filename,
+          href: null,
+        };
+      }
+      return {
+        kind: source.sourceType,
+        label: source.url.replace(/^https?:\/\//u, ""),
+        href: source.url,
+      };
+    }),
+  );
+  return {
+    currentVersion: detail.currentVersion,
+    sourceAvailability: sources.length > 0 ? ("available" as const) : ("missing" as const),
+    history: versions.map((version: any) => ({
+      version: version.version,
+      reason: version.reason,
+      createdAt: version.createdAt,
+      sourceCount: (version.sources ?? []).length,
+    })),
+    sources,
+  };
 }
 
 function progressReview(view: any, progress: any, source: any) {

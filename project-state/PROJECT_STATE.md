@@ -272,6 +272,11 @@ every engine authority and protected product rule, and all retained rollback rou
   snapshot, a pending recalculation request, and unresolved source gaps. The real Codex Project
   truthfully shows that no active contract exists; the surface cannot approve a contract, accept a
   proposal, or calculate progress from Tasks, Updates, GitHub, or employee activity.
+- P3-05 Documents/Sources is complete in the bounded read-only form. The real Codex Project now shows
+  current Document v6, its six append-only versions, source counts, and the recorded source files
+  through the existing authorized Document service. Long immutable source reasons are compacted
+  visually without changing them; external links remain labelled untrusted until reviewed. This
+  surface cannot upload, approve criteria, or mutate Document history.
 - The approved GPT-5.6 cost-quality policy is active through the AI Router. Luna handles frequent
   bounded preparation, Terra handles daily Capture/Update/Task assistance, and Sol handles complex
   Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
@@ -306,9 +311,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue the Project Documents/Sources and Criteria/Contract surfaces from their existing public
-readers and human approval gates, then close the meaningful Timeline and Project Agent gaps. Keep
-Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
+Continue the Project Criteria/Contract surface from its existing public readers and human approval
+gates, then close the meaningful Timeline and Project Agent gaps. Keep Pull Requests #29 and #30
+unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

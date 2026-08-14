@@ -30,6 +30,11 @@ describe("buildProjectExperienceModel", () => {
       pendingChange: { state: "pending" },
       ambiguities: ["Owner confirmation"],
     });
+    expect(model.documentWorkspace).toMatchObject({
+      currentVersion: 2,
+      sourceAvailability: "available",
+      history: [{ version: 2 }, { version: 1 }],
+    });
   });
 });
 
@@ -58,6 +63,32 @@ export function fixture(): import("@evaluation/contracts/employee-experience").E
       version: 2,
       source: { ...source, kind: "project_document" },
       href: `/en/projects/${projectId}`,
+    },
+    documentWorkspace: {
+      currentVersion: 2,
+      sourceAvailability: "available",
+      history: [
+        {
+          version: 2,
+          reason: "Approved delivery revision",
+          createdAt: "2026-07-20T08:00:00.000Z",
+          sourceCount: 2,
+        },
+        {
+          version: 1,
+          reason: "Initial approved scope",
+          createdAt: "2026-07-01T08:00:00.000Z",
+          sourceCount: 1,
+        },
+      ],
+      sources: [
+        {
+          kind: "github",
+          label: "github.com/atlas/project",
+          href: "https://github.com/atlas/project",
+        },
+        { kind: "upload", label: "requirements.pdf", href: null },
+      ],
     },
     progress: { state: "accepted", percent: 62, source, explanation: "Approved contract rule" },
     progressReview: {

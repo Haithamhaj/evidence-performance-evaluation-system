@@ -10,6 +10,7 @@ describe("ProjectExperienceQueryService", () => {
   it("composes one authorized Project without recalculating progress", async () => {
     const service = new ProjectExperienceQueryService({
       project: async () => projectView(),
+      document: async () => documentDetail(),
       myWork: async () => ({
         groups: [{ key: "today", items: [workItem()], collapsedByDefault: false }],
       }),
@@ -29,6 +30,15 @@ describe("ProjectExperienceQueryService", () => {
         pendingChange: { state: "pending" },
         ambiguities: ["Owner confirmation"],
       },
+      documentWorkspace: {
+        currentVersion: 2,
+        sourceAvailability: "available",
+        history: [{ version: 2 }, { version: 1 }],
+        sources: [
+          { kind: "github", label: "github.com/atlas/project" },
+          { kind: "upload", label: "requirements.pdf" },
+        ],
+      },
     });
     expect(result.collections.work).toHaveLength(1);
     expect(result.timeline).toHaveLength(1);
@@ -45,6 +55,7 @@ describe("ProjectExperienceQueryService", () => {
         document: null,
         pendingChange: null,
       }),
+      document: async () => null,
       myWork: async () => ({ groups: [] }),
       timeline: async () => ({ items: [], nextCursor: null }),
     });
@@ -68,6 +79,7 @@ describe("ProjectExperienceQueryService", () => {
       project: async () => {
         throw new Error("must not read");
       },
+      document: async () => null,
       myWork: async () => ({ groups: [] }),
       timeline: async () => ({ items: [], nextCursor: null }),
     });
@@ -205,5 +217,63 @@ function timelineItem() {
     relatedCriteria: [],
     verificationState: "unverified",
     decisionOutcome: null,
+  };
+}
+
+function documentDetail() {
+  return {
+    id: documentVersionId,
+    kind: "project",
+    resourceId: projectId,
+    templateVersionId: "20000000-0000-4000-8000-000000000040",
+    currentVersion: 2,
+    createdAt: "2026-07-01T08:00:00.000Z",
+    versions: [
+      {
+        id: "20000000-0000-4000-8000-000000000041",
+        documentId: documentVersionId,
+        version: 1,
+        templateVersionId: "20000000-0000-4000-8000-000000000040",
+        createdById: actor.userId,
+        reason: "Initial approved scope",
+        createdAt: "2026-07-01T08:00:00.000Z",
+        sources: [
+          {
+            id: "20000000-0000-4000-8000-000000000042",
+            position: 1,
+            sourceType: "upload",
+            uploadedSource: {
+              id: "20000000-0000-4000-8000-000000000043",
+              kind: "project",
+              resourceId: projectId,
+              filename: "requirements.pdf",
+              detectedMime: "application/pdf",
+              detectedType: "pdf",
+              byteSize: 1200,
+              sha256: "a".repeat(64),
+              createdAt: "2026-07-01T08:00:00.000Z",
+            },
+          },
+        ],
+      },
+      {
+        id: "20000000-0000-4000-8000-000000000044",
+        documentId: documentVersionId,
+        version: 2,
+        templateVersionId: "20000000-0000-4000-8000-000000000040",
+        createdById: actor.userId,
+        reason: "Approved delivery revision",
+        createdAt: "2026-07-20T08:00:00.000Z",
+        sources: [
+          {
+            id: "20000000-0000-4000-8000-000000000045",
+            position: 1,
+            sourceType: "github",
+            url: "https://github.com/atlas/project",
+            sourceId: "atlas/project",
+          },
+        ],
+      },
+    ],
   };
 }

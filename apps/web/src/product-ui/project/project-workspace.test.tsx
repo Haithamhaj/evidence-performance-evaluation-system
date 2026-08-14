@@ -51,6 +51,12 @@ describe("ProjectWorkspace", () => {
     expect(review).toHaveTextContent("Owner confirmation");
     expect(review).toHaveTextContent("API error rate");
     expect(review).toHaveTextContent("This does not change official progress until approved");
+    const documents = screen.getByLabelText("Project documents and sources");
+    expect(documents).toHaveTextContent("Current versionv2");
+    expect(documents).toHaveTextContent("Source availabilityAvailable");
+    expect(documents).toHaveTextContent("Approved delivery revision");
+    expect(documents).toHaveTextContent("github.com/atlas/project");
+    expect(documents).toHaveTextContent("requirements.pdf");
     expect(screen.getByText("Needs attention now")).toBeInTheDocument();
     expect(screen.getByText("Work and evidence")).toBeInTheDocument();
     expect(screen.getByText("Project timeline")).toBeInTheDocument();
