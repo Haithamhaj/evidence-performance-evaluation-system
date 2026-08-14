@@ -165,12 +165,98 @@ export function ProjectWorkspace({
               </>
             )}
           </div>
-          <a
-            className={styles.progressAction!}
-            href={`/${locale}/projects/${model.project.id}/settings/progress-contract`}
-          >
-            {copy.reviewContract}
-          </a>
+        </section>
+
+        <section className={styles.progressReview!} aria-label={copy.progressReview}>
+          <header>
+            <div>
+              <h2>{copy.progressReview}</h2>
+              <p>{copy.officialSourcesOnly}</p>
+            </div>
+            <a href={`/${locale}/projects/${model.project.id}/settings/progress-contract`}>
+              {copy.reviewContract}
+            </a>
+          </header>
+          {model.progressReview.contract ? (
+            <div className={styles.progressReviewGrid!}>
+              <section>
+                <span className={styles.reviewLabel!}>{copy.activeContract}</span>
+                <strong>
+                  {copy.contractVersion.replace(
+                    "{version}",
+                    String(model.progressReview.contract.contractVersion),
+                  )}
+                </strong>
+                <small>
+                  {copy[model.progressReview.contract.calculationKind]} · {copy.effective}{" "}
+                  {formatDate(model.progressReview.contract.effectiveAt, locale)}
+                </small>
+                <h3>{copy.components}</h3>
+                <ul>
+                  {model.progressReview.contract.components.map((component) => (
+                    <li key={component.componentId}>
+                      <span>{component.name}</span>
+                      <small>
+                        {component.weight === null ? copy.notWeighted : `${component.weight}%`}
+                      </small>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <span className={styles.reviewLabel!}>{copy.latestApprovedSnapshot}</span>
+                {model.progressReview.latestSnapshot ? (
+                  <>
+                    <strong>{model.progressReview.latestSnapshot.percent}%</strong>
+                    <small>
+                      {copy.previous}{" "}
+                      {model.progressReview.latestSnapshot.previousPercent === null
+                        ? copy.notAvailable
+                        : `${model.progressReview.latestSnapshot.previousPercent}%`}
+                    </small>
+                    <p>{model.progressReview.latestSnapshot.reason}</p>
+                    <small>
+                      {copy.source}: {model.progressReview.latestSnapshot.source.label}
+                    </small>
+                  </>
+                ) : (
+                  <p>{copy.noApprovedSnapshot}</p>
+                )}
+              </section>
+              <section>
+                <span className={styles.reviewLabel!}>{copy.pendingChange}</span>
+                {model.progressReview.pendingChange ? (
+                  <>
+                    <strong>{copy[model.progressReview.pendingChange.state]}</strong>
+                    <small>
+                      {formatDate(model.progressReview.pendingChange.requestedAt, locale)}
+                    </small>
+                  </>
+                ) : (
+                  <p>{copy.noPendingChange}</p>
+                )}
+                <h3>{copy.informationNeeded}</h3>
+                {model.progressReview.ambiguities.length === 0 ? (
+                  <p>{copy.noAmbiguity}</p>
+                ) : (
+                  <ul>
+                    {model.progressReview.ambiguities.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+          ) : (
+            <div className={styles.progressReviewEmpty!}>
+              <ProductIcon name="help" size="small" />
+              <div>
+                <strong>{copy.noContract}</strong>
+                <p>{copy.noKpiDetail}</p>
+              </div>
+            </div>
+          )}
+          <p className={styles.progressGuardrail!}>{copy.doesNotChangeProgress}</p>
         </section>
 
         <section id="plan" className={styles.plan!}>
@@ -386,6 +472,26 @@ function buildCopy(catalog: Catalog) {
     noActiveBlocker: catalog["project.experience.noActiveBlocker"],
     milestonePlan: catalog["project.experience.milestonePlan"],
     planSource: catalog["project.experience.planSource"],
+    progressReview: catalog["project.experience.progressReview"],
+    officialSourcesOnly: catalog["project.experience.officialSourcesOnly"],
+    activeContract: catalog["project.experience.activeContract"],
+    contractVersion: catalog["project.experience.contractVersion"],
+    weighted: catalog["project.experience.weighted"],
+    stage_gate: catalog["project.experience.stageGate"],
+    effective: catalog["project.experience.effective"],
+    components: catalog["project.experience.components"],
+    notWeighted: catalog["project.experience.notWeighted"],
+    latestApprovedSnapshot: catalog["project.experience.latestApprovedSnapshot"],
+    previous: catalog["project.experience.previous"],
+    noApprovedSnapshot: catalog["project.experience.noApprovedSnapshot"],
+    pendingChange: catalog["project.experience.pendingChange"],
+    pending: catalog["project.experience.pending"],
+    failed: catalog["project.experience.failed"],
+    noPendingChange: catalog["project.experience.noPendingChange"],
+    informationNeeded: catalog["project.experience.informationNeeded"],
+    noAmbiguity: catalog["project.experience.noAmbiguity"],
+    noContract: catalog["project.experience.noContract"],
+    doesNotChangeProgress: catalog["project.experience.doesNotChangeProgress"],
     assistant: catalog["home.overview.assistant"],
     suggestedAction: catalog["home.overview.suggestedAction"],
     source: catalog["home.overview.source"],

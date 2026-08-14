@@ -23,6 +23,12 @@ describe("ProjectExperienceQueryService", () => {
       document: { id: documentVersionId, version: 2 },
       progress: { state: "accepted", percent: 62 },
       kpi: { name: "API error rate", current: 1.8, target: 1 },
+      progressReview: {
+        contract: { contractVersion: 2, calculationKind: "weighted" },
+        latestSnapshot: { percent: 62, previousPercent: 50 },
+        pendingChange: { state: "pending" },
+        ambiguities: ["Owner confirmation"],
+      },
     });
     expect(result.collections.work).toHaveLength(1);
     expect(result.timeline).toHaveLength(1);
@@ -37,6 +43,7 @@ describe("ProjectExperienceQueryService", () => {
         pulse: { milestoneStates: [], nextRequiredEvidence: [], explanation: [] },
         contractDraftSourceRequest: null,
         document: null,
+        pendingChange: null,
       }),
       myWork: async () => ({ groups: [] }),
       timeline: async () => ({ items: [], nextCursor: null }),
@@ -47,6 +54,12 @@ describe("ProjectExperienceQueryService", () => {
     expect(result.progress).toEqual({ state: "awaiting_contract" });
     expect(result.document).toBeNull();
     expect(result.kpi).toBeNull();
+    expect(result.progressReview).toEqual({
+      contract: null,
+      latestSnapshot: null,
+      pendingChange: null,
+      ambiguities: [],
+    });
     expect(result.attention.map(({ title }) => title)).toContain("Project document is missing");
   });
 
@@ -90,6 +103,9 @@ function projectView() {
     },
     document: { id: documentVersionId, title: "Project Document", version: 2 },
     contract: {
+      contractVersion: 2,
+      calculationKind: "weighted",
+      effectiveAt: "2026-07-20T00:00:00.000Z",
       components: [
         {
           id: "20000000-0000-4000-8000-000000000004",
@@ -104,9 +120,14 @@ function projectView() {
     },
     progress: {
       state: "accepted",
+      snapshotId: "20000000-0000-4000-8000-000000000008",
       percent: 62,
       reason: "Approved contract rule",
       updatedAt: "2026-08-13T07:00:00.000Z",
+    },
+    pendingChange: {
+      state: "pending",
+      requestedAt: "2026-08-13T08:00:00.000Z",
     },
     pulse: {
       milestoneStates: [
@@ -142,6 +163,8 @@ function projectView() {
         },
       ],
       explanation: [],
+      officialProgress: 62,
+      previousOfficialProgress: 50,
     },
     contractDraftSourceRequest: {
       documentVersionId,

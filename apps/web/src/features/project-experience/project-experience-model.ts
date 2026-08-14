@@ -35,5 +35,12 @@ export function buildProjectExperienceModel(
       document: experience.document,
       progressState: experience.progress.state,
     },
+    progressReview: experience.progressReview ?? {
+      contract: null,
+      latestSnapshot: null,
+      pendingChange: null,
+      ambiguities:
+        experience.progress.state === "awaiting_information" ? experience.progress.missing : [],
+    },
   };
 }

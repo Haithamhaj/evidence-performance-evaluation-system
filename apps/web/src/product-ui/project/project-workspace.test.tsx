@@ -44,6 +44,13 @@ describe("ProjectWorkspace", () => {
       "/en/projects/40000000-0000-4000-8000-000000000001/settings/progress-contract",
     );
     expect(screen.getByLabelText("62% confirmed Project progress")).toBeInTheDocument();
+    const review = screen.getByLabelText("Project progress review");
+    expect(review).toHaveTextContent("Contract v2");
+    expect(review).toHaveTextContent("Latest approved snapshot62%Previous 50%");
+    expect(review).toHaveTextContent("Pending changePending review");
+    expect(review).toHaveTextContent("Owner confirmation");
+    expect(review).toHaveTextContent("API error rate");
+    expect(review).toHaveTextContent("This does not change official progress until approved");
     expect(screen.getByText("Needs attention now")).toBeInTheDocument();
     expect(screen.getByText("Work and evidence")).toBeInTheDocument();
     expect(screen.getByText("Project timeline")).toBeInTheDocument();

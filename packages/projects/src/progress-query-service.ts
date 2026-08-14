@@ -117,10 +117,12 @@ export class ProgressQueryService {
         contract: null,
         progress: { state: "awaiting_contract" as const },
         pulse: emptyPulse(),
+        pendingChange: null,
       };
     }
     const snapshot = contract.snapshots[0];
     const pulse = projectPulse(contract, snapshot);
+    const latestRequest = contract.recalculationRequests[0];
     return {
       project,
       contract: {
@@ -154,6 +156,13 @@ export class ProgressQueryService {
               updatedAt: snapshot.createdAt.toISOString(),
             },
       pulse,
+      pendingChange:
+        latestRequest === undefined || latestRequest.state === "completed"
+          ? null
+          : {
+              state: latestRequest.state,
+              requestedAt: latestRequest.createdAt.toISOString(),
+            },
     };
   }
 

@@ -68,6 +68,10 @@ describe("ProgressQueryService Project pulse", () => {
     expect(result.pulse.nextRequiredEvidence).toEqual([
       expect.objectContaining({ componentId, label: "Acceptance record" }),
     ]);
+    expect(result.pendingChange).toEqual({
+      state: "pending",
+      requestedAt: "2026-08-02T10:00:00.000Z",
+    });
   });
 
   it("explains a source-supported decrease from append-only snapshot history", async () => {
@@ -128,6 +132,7 @@ describe("ProgressQueryService Project pulse", () => {
         observedAt: "2026-08-02T09:55:00.000Z",
       }),
     ]);
+    expect(result.pendingChange).toBeNull();
   });
 });
 

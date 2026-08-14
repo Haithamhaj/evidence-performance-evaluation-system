@@ -267,6 +267,11 @@ every engine authority and protected product rule, and all retained rollback rou
   glance, then shows the real Project purpose, owner, source document, Workstream links, and available
   milestone plan. Missing milestones and progress remain truthfully unavailable; no Task, GitHub, or
   activity volume was converted into Project progress.
+- P3-07 Project Progress review is complete in the bounded read-only form. The Project workspace now
+  distinguishes the active contract and its approved components, the latest append-only official
+  snapshot, a pending recalculation request, and unresolved source gaps. The real Codex Project
+  truthfully shows that no active contract exists; the surface cannot approve a contract, accept a
+  proposal, or calculate progress from Tasks, Updates, GitHub, or employee activity.
 - The approved GPT-5.6 cost-quality policy is active through the AI Router. Luna handles frequent
   bounded preparation, Terra handles daily Capture/Update/Task assistance, and Sol handles complex
   Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
@@ -301,10 +306,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Add the focused Project Progress review from approved contract components, proposals, and snapshots
-without inferring progress from Task activity, then continue the remaining Project Documents/Sources
-and Criteria surfaces. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy
-rollback routes.
+Continue the Project Documents/Sources and Criteria/Contract surfaces from their existing public
+readers and human approval gates, then close the meaningful Timeline and Project Agent gaps. Keep
+Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

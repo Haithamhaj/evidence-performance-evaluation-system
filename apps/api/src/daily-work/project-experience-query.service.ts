@@ -105,6 +105,7 @@ export class ProjectExperienceQueryService {
       },
       document,
       progress,
+      progressReview: progressReview(view, progress, source),
       milestones,
       kpi,
       attention,
@@ -144,6 +145,39 @@ export class ProjectExperienceQueryService {
             },
     });
   }
+}
+
+function progressReview(view: any, progress: any, source: any) {
+  const contract = view.contract
+    ? {
+        contractVersion: view.contract.contractVersion,
+        calculationKind: view.contract.calculationKind,
+        effectiveAt: view.contract.effectiveAt,
+        components: (view.contract.components ?? []).map((component: any) => ({
+          componentId: component.id,
+          name: component.name,
+          kind: component.kind,
+          weight: component.weight ?? null,
+          requiredEvidence: strings(component.requiredEvidence),
+        })),
+      }
+    : null;
+  const latestSnapshot =
+    progress.state === "accepted"
+      ? {
+          percent: progress.percent,
+          previousPercent: view.pulse?.previousOfficialProgress ?? null,
+          reason: progress.explanation,
+          observedAt: progress.source.observedAt ?? view.progress.updatedAt,
+          source,
+        }
+      : null;
+  return {
+    contract,
+    latestSnapshot,
+    pendingChange: view.pendingChange ?? null,
+    ambiguities: unique((view.pulse?.nextRequiredEvidence ?? []).map((item: any) => item.label)),
+  };
 }
 
 function operationalProgress(view: any) {
@@ -282,4 +316,7 @@ function sourceLabel(value: string) {
 }
 function unique(values: string[]) {
   return [...new Set(values)];
+}
+function strings(value: unknown): string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
 }

@@ -145,6 +145,50 @@ const ProjectCollectionItemV1Schema = z
   })
   .strict();
 
+const ProjectProgressReviewV1Schema = z
+  .object({
+    contract: z
+      .object({
+        contractVersion: z.number().int().positive(),
+        calculationKind: z.enum(["weighted", "stage_gate"]),
+        effectiveAt: UtcInstantSchema,
+        components: z
+          .array(
+            z
+              .object({
+                componentId: UuidSchema,
+                name: z.string().trim().min(1).max(500),
+                kind: z.enum(["milestone", "deliverable", "operational_kpi"]),
+                weight: z.number().min(0).max(100).nullable(),
+                requiredEvidence: z.array(z.string().trim().min(1).max(500)).max(50),
+              })
+              .strict(),
+          )
+          .max(100),
+      })
+      .strict()
+      .nullable(),
+    latestSnapshot: z
+      .object({
+        percent: z.number().min(0).max(100),
+        previousPercent: z.number().min(0).max(100).nullable(),
+        reason: z.string().trim().min(1).max(1_000),
+        observedAt: UtcInstantSchema,
+        source: EmployeeExperienceSourceRefV1Schema,
+      })
+      .strict()
+      .nullable(),
+    pendingChange: z
+      .object({
+        state: z.enum(["pending", "failed"]),
+        requestedAt: UtcInstantSchema,
+      })
+      .strict()
+      .nullable(),
+    ambiguities: z.array(z.string().trim().min(1).max(500)).max(50),
+  })
+  .strict();
+
 export const EmployeeProjectExperienceV1Schema = guarded(
   z
     .object({
@@ -173,6 +217,7 @@ export const EmployeeProjectExperienceV1Schema = guarded(
         .strict()
         .nullable(),
       progress: OperationalProgressV1Schema,
+      progressReview: ProjectProgressReviewV1Schema.optional(),
       milestones: z.array(EmployeeExperienceMilestoneV1Schema).max(100),
       kpi: KpiV1Schema.nullable(),
       attention: z.array(ProjectCollectionItemV1Schema).max(50),

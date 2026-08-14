@@ -24,6 +24,12 @@ describe("buildProjectExperienceModel", () => {
       "API authentication",
       "Pilot readiness",
     ]);
+    expect(model.progressReview).toMatchObject({
+      contract: { contractVersion: 2, calculationKind: "weighted" },
+      latestSnapshot: { percent: 62, previousPercent: 50 },
+      pendingChange: { state: "pending" },
+      ambiguities: ["Owner confirmation"],
+    });
   });
 });
 
@@ -54,6 +60,31 @@ export function fixture(): import("@evaluation/contracts/employee-experience").E
       href: `/en/projects/${projectId}`,
     },
     progress: { state: "accepted", percent: 62, source, explanation: "Approved contract rule" },
+    progressReview: {
+      contract: {
+        contractVersion: 2,
+        calculationKind: "weighted",
+        effectiveAt: "2026-07-20T00:00:00.000Z",
+        components: [
+          {
+            componentId: "40000000-0000-4000-8000-000000000007",
+            name: "API error rate",
+            kind: "operational_kpi",
+            weight: 100,
+            requiredEvidence: ["Verified KPI measurement"],
+          },
+        ],
+      },
+      latestSnapshot: {
+        percent: 62,
+        previousPercent: 50,
+        reason: "Approved contract rule",
+        observedAt: "2026-08-13T07:00:00.000Z",
+        source,
+      },
+      pendingChange: { state: "pending", requestedAt: "2026-08-13T08:00:00.000Z" },
+      ambiguities: ["Owner confirmation"],
+    },
     milestones: [
       {
         componentId: "40000000-0000-4000-8000-000000000004",
