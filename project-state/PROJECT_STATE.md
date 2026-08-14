@@ -332,9 +332,10 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue with bounded P3-12 ownership and role matrix for owner, contributor, manager, acting owner,
-and ended access. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback
-routes.
+Run the bounded P3-13 Auto + Undo eligibility gate. Select at most one low-risk action only if it has
+real compensation, a durable receipt, authorization, and recovery; otherwise record the gate as
+disabled and continue. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy
+rollback routes.
 
 ## Critical References
 

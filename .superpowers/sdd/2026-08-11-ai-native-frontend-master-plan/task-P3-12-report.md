@@ -2,7 +2,7 @@
 
 ## Status
 
-DONE_WITH_CONCERNS — remediation commits `77badf9`, `5c63939`, and the continuity/authorization follow-up.
+DONE — implementation commits `067853f`, `77badf9`, `5c63939`, and `8570a5f`; the real local Codex employee journey was verified on 14 August 2026.
 
 ## What changed
 
@@ -31,6 +31,7 @@ DONE_WITH_CONCERNS — remediation commits `77badf9`, `5c63939`, and the continu
 - `packages/localization/src/catalogs/en.json`
 - `packages/localization/src/catalogs/ar.json`
 - `packages/projects/src/project-service.integration.test.ts`
+- `docs/product/screenshots/ai-native-final-design/p3-12-ownership-en.png`
 
 ## Database changes
 
@@ -48,6 +49,14 @@ None.
 - Web lint passed.
 - Production Web build passed.
 - `git diff --check` passed.
+- Real local browser verification passed at
+  `http://localhost:3000/en/projects/c2ab037e-e945-4ed9-a6cd-756099e2b066` using the actual
+  PostgreSQL Project and a real short-lived OIDC session for the synthetic `Codex` employee. The
+  page rendered the contributor-safe ownership projection, current owner, active window, Project
+  document version, source-backed work/evidence, truthful missing Progress Contract state, and the
+  Project Assistant next action.
+- Captured browser evidence:
+  `docs/product/screenshots/ai-native-final-design/p3-12-ownership-en.png`.
 
 ## Security and privacy impact
 
@@ -55,12 +64,15 @@ None.
 - The UI does not make authorization decisions. Transfer context and safe candidate names are visible only when the Projects-owned, department-scoped `responsibility.transfer` policy projection permits that specific Project action.
 - Owner coordination remains explicitly distinct from manager authority. No performance, readiness, or activity metrics were introduced.
 
-## Remaining risk / not yet closed
+## Remaining risk
 
 - The focused composed integration matrix now proves: a current contributor receives no transfer projection and is denied by the protected transfer service; a current acting owner has named return coverage but no transfer capability; and the same actor becomes `access: ended` after acting coverage expires and remains denied. Existing protected authorization coverage separately proves owner-not-manager and wrong-department manager denial. No client-side authority was added.
-- Local Codex dogfood preparation reached the safety gate but stopped at `UPLOAD_SAFETY_REJECTED`. No records were reset, deleted, or bypassed; a local upload-safety service must be ready before controller capture can proceed.
-- No browser capture was performed, as instructed.
+- A fresh dogfood document upload remains blocked by the local ClamAV container becoming unhealthy
+  under the current emulated local runtime. The safety gate was not bypassed, and the existing
+  approved Project document/history was used for the live verification. This is a local operational
+  dependency issue, not a P3-12 authorization or UI defect.
 
 ## Project state
 
-Not updated: local dogfood preparation remains blocked at upload safety, so the end-to-end controller capture gate is not verified.
+Updated: P3-12 is complete. The next bounded action is the P3-13 Auto + Undo eligibility gate; no
+automatic action may be enabled without a real compensation path and durable recovery receipt.
