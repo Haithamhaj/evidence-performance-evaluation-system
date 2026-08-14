@@ -308,6 +308,11 @@ and all retained rollback routes.
 - P3-14 is technically complete: accepted contract measures render as a circular Project indicator,
   milestone/KPI context, source-backed previous/current summary, and accessible table. The real Codex
   Project correctly renders no percentage or chart because it has no approved Progress Contract.
+- The Product Owner approved creating Project Document v7 as the bounded current source for the real
+  Codex dogfood Project. It replaces no history: v1–v6 remain immutable. The v7 design uses seven
+  remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
+  Update, GitHub, commit, file, and line volume from Project progress. A generated contract remains
+  review-only until direct human save and activation.
 
 ## Active Risks
 
@@ -338,10 +343,12 @@ and all retained rollback routes.
 
 ## Next Recommended Action
 
-The authorized Project Owner reviews and activates the real Codex Project Progress Contract. Then
-rerun the P3-14 active-state visual comparison and complete P3-15 capability closure. Do not insert a
-synthetic percentage, let Codex approve as a contributor, merge Pull Requests #29/#30, or retire
-Calendar and legacy rollback routes to bypass this protected gate.
+Append the approved Project Document v7, generate its Progress Contract draft through the governed AI
+Router, and present the exact proposed components to the Product Owner. Stop before save, submission,
+approval, or activation. After direct human approval, activate the contract, rerun the P3-14
+active-state visual comparison, and complete P3-15 capability closure. Do not insert a synthetic
+percentage, let Codex approve as a contributor, merge Pull Requests #29/#30, or retire Calendar and
+legacy rollback routes to bypass this protected gate.
 
 ## Critical References
 

@@ -34,13 +34,8 @@ import { PrivateInboxService, WorkItemService } from "@evaluation/work-items";
 import { CODEX_DOGFOOD_PROJECT_NAME, seedCodexDogfood } from "./seed-codex-dogfood.js";
 import { registerProgressContractDraftAiRoute } from "./register-progress-contract-draft-ai-route.js";
 
-const sourcePaths = [
-  "docs/PROJECT_REFERENCE.md",
-  "docs/IMPLEMENTATION_PLAN.md",
-  "TASKS.md",
-  "docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md",
-  "docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md",
-  "docs/superpowers/plans/2026-07-20-slice-1-daily-home-tasks.md",
+export const CODEX_DOGFOOD_SOURCE_PATHS = [
+  "docs/product/CODEX_DOGFOOD_PROJECT_DOCUMENT_V7.md",
 ] as const;
 
 export type CodexDogfoodPullRequestLineage = Readonly<{
@@ -52,7 +47,7 @@ export type CodexDogfoodPullRequestLineage = Readonly<{
 type CommandRunner = (file: string, args: readonly string[]) => string;
 
 const codexDogfoodRepository = "Haithamhaj/evidence-performance-evaluation-system";
-const codexDogfoodPullRequestNumber = "5";
+export const CODEX_DOGFOOD_PULL_REQUEST_NUMBER = "30";
 
 export function resolveCodexDogfoodPullRequestLineage(
   environment: NodeJS.ProcessEnv = process.env,
@@ -81,7 +76,7 @@ export function resolveCodexDogfoodPullRequestLineage(
       runCommand("gh", [
         "pr",
         "view",
-        codexDogfoodPullRequestNumber,
+        CODEX_DOGFOOD_PULL_REQUEST_NUMBER,
         "--repo",
         codexDogfoodRepository,
         "--json",
@@ -141,7 +136,7 @@ function validatePullRequestLineage(
         : "Explicit Pull Request base and head commits must be exact SHA-1 values",
     );
   }
-  const expectedReference = `https://github.com/${codexDogfoodRepository}/pull/${codexDogfoodPullRequestNumber}`;
+  const expectedReference = `https://github.com/${codexDogfoodRepository}/pull/${CODEX_DOGFOOD_PULL_REQUEST_NUMBER}`;
   if (input.pullRequestRef !== expectedReference) {
     throw new Error(`Pull Request reference must be ${expectedReference}`);
   }
@@ -170,7 +165,7 @@ async function runSeed() {
       cwd: process.cwd(),
       encoding: "utf8",
     }).trim();
-    const sources = sourcePaths.map((sourcePath) => {
+    const sources = CODEX_DOGFOOD_SOURCE_PATHS.map((sourcePath) => {
       const content = execFileSync("git", ["show", `${commitSha}:${sourcePath}`], {
         cwd: process.cwd(),
         encoding: "utf8",
