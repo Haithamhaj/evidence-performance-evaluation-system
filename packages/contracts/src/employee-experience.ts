@@ -110,6 +110,8 @@ const TimelineItemV1Schema = z
     projectId: UuidSchema,
     projectName: z.string().trim().min(1).max(240),
     statusLabel: z.string().trim().min(1).max(240),
+    detail: z.string().trim().min(1).max(4_000).optional(),
+    contextLabel: z.string().trim().min(1).max(1_000).optional(),
     href: LocalHrefSchema,
     source: EmployeeExperienceSourceRefV1Schema,
   })

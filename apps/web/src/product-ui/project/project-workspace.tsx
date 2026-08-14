@@ -507,8 +507,11 @@ export function ProjectWorkspace({
           </div>
         </section>
 
-        <section id="timeline" className={styles.timeline!}>
-          <h2>{copy.timeline}</h2>
+        <section id="timeline" className={styles.timeline!} aria-label={copy.meaningfulTimeline}>
+          <header>
+            <h2>{copy.timeline}</h2>
+            <p>{copy.meaningfulTimelineDetail}</p>
+          </header>
           {model.timeline.length === 0 ? (
             <p>{copy.empty}</p>
           ) : (
@@ -520,10 +523,13 @@ export function ProjectWorkspace({
                     <ProductIcon name="check" size="small" />
                   </span>
                   <div>
+                    <span className={styles.timelineStatus!}>{item.statusLabel}</span>
                     <strong>{item.title}</strong>
-                    <span>
-                      {item.statusLabel} · {item.source.label}
-                    </span>
+                    {item.detail ? <p>{item.detail}</p> : null}
+                    <small>
+                      {item.contextLabel ? `${item.contextLabel} · ` : ""}
+                      {copy.source}: {item.source.label}
+                    </small>
                   </div>
                 </li>
               ))}
@@ -597,6 +603,8 @@ function buildCopy(catalog: Catalog) {
     documents: catalog["project.experience.documents"],
     empty: catalog["project.experience.empty"],
     timeline: catalog["project.experience.timeline"],
+    meaningfulTimeline: catalog["project.experience.meaningfulTimeline"],
+    meaningfulTimelineDetail: catalog["project.experience.meaningfulTimelineDetail"],
     atGlance: catalog["project.experience.atGlance"],
     currentStage: catalog["project.experience.currentStage"],
     nextStage: catalog["project.experience.nextStage"],

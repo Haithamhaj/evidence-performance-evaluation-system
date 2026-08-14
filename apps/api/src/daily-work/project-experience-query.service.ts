@@ -51,19 +51,22 @@ export class ProjectExperienceQueryService {
       .filter((item: any) => item.projectId === projectId);
     const timelineItems = (timeline.items ?? [])
       .filter((item: any) => item.projectId === projectId)
+      .filter(isMeaningfulTimelineItem)
       .map((item: any) => ({
         id: `timeline:${item.id}`,
-        kind: item.kind,
+        kind: timelineKind(item.kind),
         occurredAt: item.occurredAt,
         title: item.title,
+        detail: item.detail,
+        contextLabel: timelineContext(item),
         projectId,
         projectName: view.project.name,
-        statusLabel: item.reviewState === "employee_confirmed" ? "Confirmed" : "Recorded",
+        statusLabel: timelineStatusLabel(item),
         href: `/en/projects/${projectId}`,
         source: {
           ...source,
-          kind: sourceKind(item.sourceProvenance),
-          label: sourceLabel(item.sourceProvenance),
+          kind: timelineSourceKind(item),
+          label: timelineSourceLabel(item),
         },
       }));
     const document = documentSummary(view, projectId, source);
@@ -422,15 +425,43 @@ function progressSource(observedAt: string) {
     freshness: "fresh" as const,
   };
 }
-function sourceKind(value: string) {
-  return value === "github_automated"
-    ? ("github" as const)
-    : value?.startsWith("employee_file")
-      ? ("evidence" as const)
-      : ("evidence" as const);
+function isMeaningfulTimelineItem(item: any) {
+  if (["update", "evidence"].includes(item.kind)) return item.reviewState === "employee_confirmed";
+  if (item.kind === "project_fact") return item.reviewState === "automated_project_fact";
+  if (item.kind === "decision") return item.reviewState === "human_decision";
+  return (
+    ["research", "experiment", "applied_learning"].includes(item.kind) &&
+    ["employee_confirmed", "human_decision"].includes(item.reviewState)
+  );
 }
-function sourceLabel(value: string) {
-  return value === "github_automated" ? "GitHub suggested evidence" : "Confirmed employee record";
+function timelineKind(value: string) {
+  if (["update", "evidence", "decision"].includes(value)) return value;
+  return "verified_change" as const;
+}
+function timelineStatusLabel(item: any) {
+  if (item.kind === "update") return "Confirmed update";
+  if (item.kind === "evidence") return "Confirmed evidence";
+  if (item.kind === "decision") return "Human decision";
+  if (["research", "experiment", "applied_learning"].includes(item.kind))
+    return "Confirmed learning";
+  return "Verified Project change";
+}
+function timelineSourceKind(item: any) {
+  if (item.sourceProvenance === "github_automated") return "github" as const;
+  if (item.kind === "update") return "update" as const;
+  if (item.kind === "decision") return "human_decision" as const;
+  return "evidence" as const;
+}
+function timelineSourceLabel(item: any) {
+  if (item.sourceProvenance === "github_automated") return "Verified GitHub Project fact";
+  if (item.kind === "update") return "Employee-confirmed update";
+  if (item.kind === "evidence") return "Employee-confirmed evidence";
+  if (item.kind === "decision") return "Authorized human decision";
+  return "Confirmed Project learning";
+}
+function timelineContext(item: any) {
+  const parts = [item.workstream?.name, item.workItem?.title].filter(Boolean);
+  return parts.length === 0 ? undefined : parts.join(" · ");
 }
 function unique(values: string[]) {
   return [...new Set(values)];

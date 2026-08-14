@@ -282,6 +282,10 @@ every engine authority and protected product rule, and all retained rollback rou
   proposal state, revision counts, ambiguities, and the next safe action. The real Codex contributor
   correctly sees that Project-owner action is required rather than an unusable approval control;
   AI may prepare a proposal but cannot approve, activate, or change official Project progress.
+- P3-08 Meaningful Timeline is complete in the bounded read-only form. The Project Timeline now
+  includes only confirmed Updates/Evidence, verified Project facts, authorized decisions, and
+  confirmed Research/Experiment learning, with its Workstream/Task context and source. Technical
+  audit activity remains separate and no raw activity volume is surfaced as progress or performance.
 - The approved GPT-5.6 cost-quality policy is active through the AI Router. Luna handles frequent
   bounded preparation, Terra handles daily Capture/Update/Task assistance, and Sol handles complex
   Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
@@ -316,9 +320,8 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue with the meaningful Project Timeline and Project Agent surfaces using the existing
-authorized readers and AI Router. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and
-legacy rollback routes.
+Continue with Project Agent signals and prepared actions using the existing authorized readers and
+AI Router. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

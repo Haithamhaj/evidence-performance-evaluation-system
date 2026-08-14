@@ -68,6 +68,10 @@ describe("ProjectWorkspace", () => {
     expect(screen.getByText("Needs attention now")).toBeInTheDocument();
     expect(screen.getByText("Work and evidence")).toBeInTheDocument();
     expect(screen.getByText("Project timeline")).toBeInTheDocument();
+    const timeline = screen.getByLabelText("Meaningful Project timeline");
+    expect(timeline).toHaveTextContent("Confirmed update");
+    expect(timeline).toHaveTextContent("API readiness · Validate streaming fallback");
+    expect(timeline).toHaveTextContent("Employee-confirmed update");
     expect(screen.getByText("SMART BRIEF")).toBeInTheDocument();
   });
   it("keeps the Arabic surface RTL", () => {

@@ -41,6 +41,11 @@ describe("buildProjectExperienceModel", () => {
       actionOwner: "employee",
       proposal: { revision: 3, componentCount: 4, ambiguityCount: 1 },
     });
+    expect(model.timeline[0]).toMatchObject({
+      detail: "Authentication acceptance confirmed in staging.",
+      contextLabel: "API readiness · Validate streaming fallback",
+      statusLabel: "Confirmed update",
+    });
   });
 });
 
@@ -219,14 +224,16 @@ export function fixture(): import("@evaluation/contracts/employee-experience").E
     timeline: [
       {
         id: "timeline:1",
-        kind: "verified_change",
+        kind: "update",
         occurredAt: "2026-08-13T07:00:00.000Z",
         title: "PR #182 merged",
         projectId,
         projectName: "Atlas Delivery",
-        statusLabel: "Verified",
+        statusLabel: "Confirmed update",
+        detail: "Authentication acceptance confirmed in staging.",
+        contextLabel: "API readiness · Validate streaming fallback",
         href: `/en/projects/${projectId}`,
-        source: { ...source, kind: "github" },
+        source: { ...source, kind: "update", label: "Employee-confirmed update" },
       },
     ],
     nextCursor: null,

@@ -55,6 +55,13 @@ describe("ProjectExperienceQueryService", () => {
     });
     expect(result.collections.work).toHaveLength(1);
     expect(result.timeline).toHaveLength(1);
+    expect(result.timeline[0]).toMatchObject({
+      kind: "update",
+      detail: "Staging result confirmed",
+      contextLabel: "API readiness · Validate streaming fallback",
+      statusLabel: "Confirmed update",
+      source: { kind: "update", label: "Employee-confirmed update" },
+    });
   });
 
   it("keeps missing progress and document states honest", async () => {
@@ -231,8 +238,8 @@ function timelineItem() {
     id: "20000000-0000-4000-8000-000000000030",
     kind: "update",
     projectId,
-    workstreamId: null,
-    workItemId: null,
+    workstreamId: "20000000-0000-4000-8000-000000000010",
+    workItemId: "20000000-0000-4000-8000-000000000020",
     employeeId: actor.userId,
     occurredAt: "2026-08-13T07:00:00.000Z",
     title: "Authentication fallback verified",
@@ -241,8 +248,14 @@ function timelineItem() {
     sourceProvenance: "employee_text",
     reviewState: "employee_confirmed",
     project: { id: projectId, name: "Atlas Delivery" },
-    workstream: null,
-    workItem: null,
+    workstream: {
+      id: "20000000-0000-4000-8000-000000000010",
+      name: "API readiness",
+    },
+    workItem: {
+      id: "20000000-0000-4000-8000-000000000020",
+      title: "Validate streaming fallback",
+    },
     relatedKpiComponents: [],
     relatedCriteria: [],
     verificationState: "unverified",

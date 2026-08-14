@@ -1060,6 +1060,8 @@
   "project.experience.documents": "المستندات",
   "project.experience.empty": "لا توجد سجلات مؤكدة بعد.",
   "project.experience.timeline": "الخط الزمني للمشروع",
+  "project.experience.meaningfulTimeline": "الخط الزمني المفيد للمشروع",
+  "project.experience.meaningfulTimelineDetail": "التغييرات والقرارات والتعلم المؤكد فقط. يبقى سجل التدقيق التقني منفصلًا.",
   "project.experience.atGlance": "المشروع بنظرة واحدة",
   "project.experience.currentStage": "المرحلة الحالية",
   "project.experience.nextStage": "المرحلة التالية",

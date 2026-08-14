@@ -1060,6 +1060,8 @@
   "project.experience.documents": "Documents",
   "project.experience.empty": "No confirmed records yet.",
   "project.experience.timeline": "Project timeline",
+  "project.experience.meaningfulTimeline": "Meaningful Project timeline",
+  "project.experience.meaningfulTimelineDetail": "Confirmed changes, decisions, and learning only. Technical audit activity stays separate.",
   "project.experience.atGlance": "Project at a glance",
   "project.experience.currentStage": "Current stage",
   "project.experience.nextStage": "Next stage",

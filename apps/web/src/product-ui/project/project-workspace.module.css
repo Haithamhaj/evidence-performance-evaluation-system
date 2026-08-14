@@ -649,8 +649,38 @@
   gap: 0.6rem;
   padding: 0.7rem 0;
 }
+.timeline > header {
+  margin-block-end: 0.45rem;
+}
+.timeline > header h2,
+.timeline > header p,
+.timeline li p {
+  margin: 0;
+}
+.timeline > header p,
+.timeline li p,
+.timeline li small {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.timeline li p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.timelineStatus {
+  inline-size: fit-content;
+  border-radius: 999px;
+  background: #e8f7ed;
+  padding: 0.1rem 0.4rem;
+  color: #13723d !important;
+  font-size: 0.68rem !important;
+  font-weight: 800;
+}
 .timeline li div {
   display: grid;
+  gap: 0.15rem;
 }
 .timeline time,
 .timeline li span {
