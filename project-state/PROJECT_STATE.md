@@ -246,6 +246,12 @@ every engine authority and protected product rule, and all retained rollback rou
   `in_progress`; no employee score or automatic Project-progress change is created. The journey also
   fixed an invalid attachment reference and replaced Capture's prototype Update identifiers with a
   real idempotent Update session.
+- The final Capture review now preserves the AI-prepared source-backed Evidence claim instead of
+  discarding it at the handoff. It prepares one private, idempotent Evidence draft beside the Update;
+  Codex must still edit, select, and explicitly confirm it. Prompt v5 frames the assistant as a
+  project-work copilot, requires source-grounded claims and practical one-at-a-time clarification,
+  and preserves employee authority to edit, reject, or defer every proposed action. Evidence still
+  cannot change Project progress or employee performance.
 
 ## Active Risks
 
@@ -273,10 +279,10 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue the real Codex employee dogfood journey from the accepted Update: add employee-confirmed
-source-backed Evidence where appropriate, validate the Project overview without inferring progress
-from Task activity, and proceed to the next approved engine capability bundle. Keep Pull Requests #29
-and #30 unmerged, and retain Calendar and legacy rollback routes.
+Complete the live Codex dogfood checkpoint for the new Evidence handoff, validate the Project
+overview without inferring progress from Task activity, and proceed to the next approved engine
+capability bundle. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback
+routes.
 
 ## Critical References
 

@@ -98,6 +98,66 @@ describe("CaptureDialog", () => {
     expect(review.queryByRole("heading", { name: "Suggested Evidence draft" })).toBeNull();
   });
 
+  it("prepares a source-backed Evidence draft for employee edit and selection", async () => {
+    const catalog = await getCatalog("en");
+    const user = userEvent.setup();
+    const draft = structuredDraft({
+      result: "The live Capture journey is verified.",
+      summary: "Live Capture journey verified",
+    });
+    const prepareEvidence = vi.fn().mockResolvedValue({
+      id: "77777777-7777-4777-8777-777777777777",
+      revision: 1,
+      supportedClaim: "The live Capture journey is verified by commit 65e4fcf.",
+      contributionContext: "AI-prepared contribution context for employee review.",
+    });
+    render(
+      createElement(CaptureDialog, {
+        catalog,
+        locale: "en",
+        onSaved: vi.fn(),
+        prepareEvidence,
+        prepareUpdate: vi.fn().mockResolvedValue({
+          state: "ready_for_review",
+          sessionId: draft.sessionId,
+          sessionVersion: 1,
+          draft: {
+            ...draft,
+            evidenceClaimDrafts: ["The live Capture journey is verified by commit 65e4fcf."],
+          },
+        }),
+        save: vi.fn(),
+        understand: vi.fn().mockResolvedValue(codexUnderstanding()),
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Capture" }));
+    const capture = within(screen.getByRole("dialog", { name: "Share anything" }));
+    await user.type(
+      capture.getByRole("textbox", { name: "What are you working on?" }),
+      "https://github.com/Haithamhaj/evidence-performance-evaluation-system/commit/65e4fcf",
+    );
+    await user.click(capture.getByRole("button", { name: "Understand this" }));
+    await user.click(await capture.findByRole("button", { name: "Continue review" }));
+
+    expect(prepareEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "11111111-1111-4111-8111-111111111111",
+        source: {
+          kind: "url",
+          url: "https://github.com/Haithamhaj/evidence-performance-evaluation-system/commit/65e4fcf",
+        },
+        supportedClaim: "The live Capture journey is verified by commit 65e4fcf.",
+        workItemId: "22222222-2222-4222-8222-222222222222",
+      }),
+    );
+    const review = within(await screen.findByRole("dialog", { name: "Review before confirming" }));
+    expect(review.getByRole("heading", { name: "Suggested Evidence draft" })).not.toBeNull();
+    expect(
+      (review.getByLabelText("Confirm evidence contribution") as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
   it("answers one real Update clarification before opening Review", async () => {
     const catalog = await getCatalog("en");
     const user = userEvent.setup();
@@ -325,6 +385,7 @@ function structuredDraft(input: { summary: string; result: string }) {
     contributionContext: "Codex performed the employee journey.",
     executionMode: "ai_assisted" as const,
     sourceReferences: ["update-source:55555555-5555-4555-8555-555555555555"],
+    evidenceClaimDrafts: [],
     evidenceIds: [],
     documentationNeeds: [],
     relatedProgressComponentIds: [],

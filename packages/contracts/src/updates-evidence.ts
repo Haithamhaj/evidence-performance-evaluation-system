@@ -273,6 +273,7 @@ export const StructuredUpdateDraftSchema = z
     executionMode: ExecutionModeSchema,
     sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
     evidenceIds: z.array(UuidSchema).max(100),
+    evidenceClaimDrafts: z.array(z.string().trim().min(1).max(2_000)).max(20).default([]),
     documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
     relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
     comparison: UpdateComparisonSchema,

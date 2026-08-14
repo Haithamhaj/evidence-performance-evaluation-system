@@ -715,6 +715,7 @@ function serializeDraft(row: {
   contributionContext: string;
   executionMode: import("@evaluation/contracts").ExecutionMode;
   sourceReferences: unknown;
+  evidenceClaimDrafts: unknown;
   documentationNeeds: unknown;
   relatedProgressComponentIds: unknown;
   comparison: unknown;
@@ -731,6 +732,7 @@ function serializeDraft(row: {
     executionMode: row.executionMode,
     sourceReferences: jsonArray(row.sourceReferences),
     evidenceIds: [],
+    evidenceClaimDrafts: jsonArray(row.evidenceClaimDrafts),
     documentationNeeds: jsonArray(row.documentationNeeds),
     relatedProgressComponentIds: jsonArray(row.relatedProgressComponentIds),
     comparison: UpdateComparisonSchema.parse(row.comparison),

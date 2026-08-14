@@ -4,7 +4,11 @@ import { ActionButton, FocusedDialog, ProductIcon } from "@evaluation/ui";
 import { createElement, useRef, useState } from "react";
 
 import { understandCapture } from "../../platform/capture-understanding-api";
-import { answerCaptureUpdate, prepareCaptureUpdate } from "../../platform/capture-update-api";
+import {
+  answerCaptureUpdate,
+  prepareCaptureEvidence,
+  prepareCaptureUpdate,
+} from "../../platform/capture-update-api";
 import type {
   CaptureUnderstandingInput,
   WebCaptureUnderstanding,
@@ -24,6 +28,7 @@ export function CaptureDialog({
   disabled = false,
   locale,
   onSaved,
+  prepareEvidence = prepareCaptureEvidence,
   prepareUpdate = prepareCaptureUpdate,
   answerUpdate = answerCaptureUpdate,
   save,
@@ -40,6 +45,7 @@ export function CaptureDialog({
     workItemId: string | null;
     rawText: string;
   }) => Promise<import("../../platform/capture-update-api").CapturePreparedUpdate>;
+  prepareEvidence?: typeof prepareCaptureEvidence;
   save: (
     input: Readonly<{ sourceType: SourceType; text: string; sourceUploadId: string | null }>,
   ) => Promise<void>;
@@ -51,11 +57,12 @@ export function CaptureDialog({
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const [review, setReview] = useState<ReturnType<typeof reviewDraft> | null>(null);
+  const [review, setReview] = useState<Awaited<ReturnType<typeof reviewDraft>> | null>(null);
   const [preparedUpdate, setPreparedUpdate] = useState<
     import("../../platform/capture-update-api").CapturePreparedUpdate | null
   >(null);
   const [updateIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [evidenceIdempotencyKey] = useState(() => crypto.randomUUID());
   const fileInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const voiceInput = useRef<HTMLInputElement>(null);
@@ -131,7 +138,15 @@ export function CaptureDialog({
       if (prepared.state === "draft_with_question") {
         return;
       }
-      setReview(reviewDraft(understanding, prepared));
+      setReview(
+        await reviewDraft(
+          understanding,
+          prepared,
+          text.trim(),
+          evidenceIdempotencyKey,
+          prepareEvidence,
+        ),
+      );
     } catch {
       setError(true);
     } finally {
@@ -152,7 +167,15 @@ export function CaptureDialog({
       setPreparedUpdate(prepared);
       setAnswer("");
       if (prepared.state === "ready_for_review" && understanding !== null) {
-        setReview(reviewDraft(understanding, prepared));
+        setReview(
+          await reviewDraft(
+            understanding,
+            prepared,
+            text.trim(),
+            evidenceIdempotencyKey,
+            prepareEvidence,
+          ),
+        );
       }
     } catch {
       setError(true);
@@ -385,12 +408,15 @@ export function CaptureDialog({
   });
 }
 
-function reviewDraft(
+async function reviewDraft(
   understanding: WebCaptureUnderstanding,
   prepared: Extract<
     import("../../platform/capture-update-api").CapturePreparedUpdate,
     { state: "ready_for_review" }
   >,
+  rawText: string,
+  evidenceIdempotencyKey: string,
+  prepareEvidence: typeof prepareCaptureEvidence,
 ) {
   const sourceRefs = prepared.draft.sourceReferences.map((label) => ({
     kind: "manual_capture" as const,
@@ -398,6 +424,29 @@ function reviewDraft(
     observedAt: null,
     freshness: "fresh" as const,
   }));
+  const evidence = await Promise.all(
+    (prepared.draft.evidenceClaimDrafts ?? []).slice(0, 1).map(async (supportedClaim) => {
+      const draft = await prepareEvidence({
+        idempotencyKey: evidenceIdempotencyKey,
+        projectId: understanding.likelyProject!.id,
+        workItemId: understanding.relatedWorkItemId,
+        updateSourceId: updateSourceId(prepared.draft.sourceReferences),
+        source: evidenceSource(rawText),
+        supportedClaim,
+        contributionContext: prepared.draft.contributionContext,
+      });
+      return {
+        draftId: draft.id,
+        expectedRevision: draft.revision,
+        selected: false,
+        employeeEditRequired: true,
+        employeeEdited: false,
+        supportedClaim: draft.supportedClaim,
+        contributionContext: draft.contributionContext,
+        sourceRefs,
+      };
+    }),
+  );
   return {
     schemaVersion: "review-confirmation-draft.v1" as const,
     captureId: crypto.randomUUID(),
@@ -419,7 +468,7 @@ function reviewDraft(
       nextAction: prepared.draft.nextAction,
       sourceRefs,
     },
-    evidence: [],
+    evidence,
     progressProposal:
       understanding.relatedComponentId === null
         ? null
@@ -435,10 +484,23 @@ function reviewDraft(
     uncertainty: "No additional uncertainty was identified.",
     afterConfirmation: [
       "Append the selected Update to the Timeline.",
-      "Create Evidence only when selected and employee-edited.",
+      "Confirm Evidence only when selected and employee-edited.",
       "Official Project progress remains unchanged unless its owner confirms the approved measurable rule.",
     ],
   };
+}
+
+function updateSourceId(sourceReferences: readonly string[]) {
+  const reference = sourceReferences.find((value) => value.startsWith("update-source:"));
+  if (reference === undefined) throw new Error("CAPTURE_UPDATE_SOURCE_MISSING");
+  return reference.slice("update-source:".length);
+}
+
+function evidenceSource(rawText: string) {
+  const url = rawText.match(/https?:\/\/\S+/u)?.[0];
+  return url === undefined
+    ? ({ kind: "pasted_text", text: rawText } as const)
+    : ({ kind: "url", url } as const);
 }
 
 // JSX-only references are removed before the repository's base unused-variable rule runs.

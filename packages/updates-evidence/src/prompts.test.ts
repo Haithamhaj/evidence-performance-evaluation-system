@@ -11,11 +11,17 @@ import {
 
 describe("update structuring prompt", () => {
   it("pins JSON mode instructions to a new governed prompt version", () => {
-    expect(UPDATE_STRUCTURE_PROMPT_VERSION).toBe("update-structure.v4");
+    expect(UPDATE_STRUCTURE_PROMPT_VERSION).toBe("update-structure.v5");
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toMatch(/\bJSON\b/u);
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"state":"draft_with_question"');
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"state":"ready_for_review"');
     expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain('"comparisonExplanation"');
+    expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain(
+      "The employee may edit, select, reject, or defer every proposed action",
+    );
+    expect(UPDATE_STRUCTURE_TRUSTED_PROMPT).toContain(
+      "Draft evidence claims only when a supplied source can support the claim",
+    );
   });
 
   it("keeps the registered output schema portable", () => {
