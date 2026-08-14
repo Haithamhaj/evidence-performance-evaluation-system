@@ -10,7 +10,7 @@ The product uses all three available GPT-5.6 models through the existing AI Rout
 
 | Tier                   | Primary         | Ordered fallback | Intended work                                                                                             |
 | ---------------------- | --------------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
-| Frequent and bounded   | `gpt-5.6-luna`  | Terra, then Sol  | Project matching and short next-step preparation                                                          |
+| Frequent and bounded   | `gpt-5.6-luna`  | Terra, then Sol  | Project matching, short next-step preparation, and bounded Project questions                              |
 | Daily assistance       | `gpt-5.6-terra` | Sol, then Luna   | Capture understanding, update structuring, task drafting, context summaries, and routine research framing |
 | Complex or high-impact | `gpt-5.6-sol`   | Terra            | Progress-contract drafting, research synthesis, and experiment review or interpretation                   |
 

@@ -292,6 +292,11 @@ every engine authority and protected product rule, and all retained rollback rou
   reflected in a Progress Contract and prepares both the owner review context and a Project Update
   starting from the latest confirmed change. Nothing is published, approved, or counted as official
   progress before the authorized human confirmation.
+- P3-11 Project Chat is complete. Codex can ask what changed, why the Project is blocked, or what
+  Evidence is missing from the same Project page. The server re-authorizes the Project experience,
+  uses only its meaningful Timeline and source-backed Project Agent context, and answers through the
+  AI Router without creating a command. The real dogfood Project returned one live Luna-tier answer
+  grounded in six authorized sources and explicitly kept official Project progress unchanged.
 - The approved GPT-5.6 cost-quality policy is active through the AI Router. Luna handles frequent
   bounded preparation, Terra handles daily Capture/Update/Task assistance, and Sol handles complex
   Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
@@ -300,8 +305,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Active Risks
 
-- Real-provider quality and latency still require deployment-time monitoring. The live Task assistant
-  and Update routes are now proven with the configured OpenAI credential, including GPT-5.6 Terra;
+- Real-provider quality and latency still require deployment-time monitoring. The live Task assistant,
+  Project assistant, and Update routes are now proven with the configured OpenAI credential, including
+  GPT-5.6 Terra and the Luna-tier Project route;
   deterministic fallback remains available when the provider fails or a response violates the
   governed schema. Sol and Luna are configured on their governed routes and need normal journey-level
   observation as those authorized tasks are exercised.
@@ -326,9 +332,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue with bounded P3-11 Project Chat for “what changed”, “why blocked”, and “what evidence is
-missing” through the existing AI Router and authorized readers. Keep Pull Requests #29 and #30
-unmerged, and retain Calendar and legacy rollback routes.
+Continue with bounded P3-12 ownership and role matrix for owner, contributor, manager, acting owner,
+and ended access. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback
+routes.
 
 ## Critical References
 

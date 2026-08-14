@@ -725,6 +725,47 @@
 .assistant small {
   overflow-wrap: anywhere;
 }
+.projectAssistant {
+  display: grid;
+  gap: 0.65rem;
+  padding-block: 1rem;
+  border-block: 1px solid #dfe4ec;
+}
+.projectAssistant h2,
+.projectAssistant p {
+  margin: 0;
+}
+.projectAssistantQuestions {
+  display: grid;
+  gap: 0.45rem;
+}
+.projectAssistantQuestions button {
+  border: 1px solid #b7c9e8;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #0f5fd8;
+  padding: 0.65rem 0.75rem;
+  text-align: start;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.projectAssistantQuestions button:hover,
+.projectAssistantQuestions button:focus-visible {
+  background: #edf4ff;
+}
+.projectAssistantQuestions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.projectAssistantAnswer {
+  border-inline-start: 3px solid #1264e8;
+  background: #f4f8ff;
+  padding: 0.75rem;
+}
+.projectAssistantError {
+  color: #a3251c;
+}
 .agentSignals,
 .preparedActions {
   display: grid;

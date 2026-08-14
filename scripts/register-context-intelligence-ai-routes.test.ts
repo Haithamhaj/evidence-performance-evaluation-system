@@ -44,6 +44,12 @@ describe("Context Intelligence AI route registration", () => {
           outputSchemaVersion: "task-assistant-output.v1",
           outputSchemaHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
         }),
+        expect.objectContaining({
+          routeKey: "experience.project-assistant.v1",
+          promptVersion: "project-assistant-prompt.v1",
+          outputSchemaVersion: "project-assistant-output.v1",
+          outputSchemaHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        }),
       ],
     });
     expect(JSON.stringify(plan)).not.toMatch(/provider|endpoint|credential|token/iu);

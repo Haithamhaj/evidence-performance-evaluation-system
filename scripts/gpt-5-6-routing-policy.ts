@@ -9,6 +9,7 @@ export type Gpt56Tier = keyof typeof GPT_5_6_MODELS;
 const ROUTE_TIERS = {
   "context.project-match.v1": "luna",
   "experience.prepare-next.v1": "luna",
+  "experience.project-assistant.v1": "luna",
 
   "context.summarize.v1": "terra",
   "experience.capture-understand.v1": "terra",

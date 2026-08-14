@@ -11,6 +11,7 @@ import { AuthModule } from "../auth/auth.module.js";
 import { CONTEXT_INTELLIGENCE_WORKFLOW } from "../context-intelligence/context-analysis.controller.js";
 import { ContextIntelligenceModule } from "../context-intelligence/context-intelligence.module.js";
 import { DailyWorkQueryService } from "../daily-work/daily-work-query.service.js";
+import { ProjectExperienceQueryService } from "../daily-work/project-experience-query.service.js";
 import { DailyWorkModule } from "../daily-work/daily-work.module.js";
 import { CheckInService } from "@evaluation/updates-evidence";
 import { ActivityReader } from "@evaluation/updates-evidence";
@@ -23,6 +24,7 @@ import { UpdatesEvidenceModule } from "../updates-evidence/updates-evidence.modu
 import { ExperienceOrchestrationController } from "./experience-orchestration.controller.js";
 import { CaptureUnderstandingController } from "./capture-understanding.controller.js";
 import { TaskAssistantController } from "./task-assistant.controller.js";
+import { ProjectAssistantController } from "./project-assistant.controller.js";
 import {
   CAPTURE_UNDERSTANDING_ROUTE,
   CaptureUnderstandingService,
@@ -33,8 +35,9 @@ import {
 } from "./experience-orchestrator.service.js";
 import { PrismaPreparedExperiencePersistence } from "./prisma-prepared-experience.persistence.js";
 import { CAPTURE_UNDERSTANDING, EXPERIENCE_ORCHESTRATOR } from "./tokens.js";
-import { TASK_ASSISTANT } from "./tokens.js";
+import { PROJECT_ASSISTANT, TASK_ASSISTANT } from "./tokens.js";
 import { TASK_ASSISTANT_ROUTE, TaskAssistantService } from "./task-assistant.service.js";
+import { PROJECT_ASSISTANT_ROUTE, ProjectAssistantService } from "./project-assistant.service.js";
 
 type Database = ReturnType<typeof createDatabaseClient>;
 const EXPERIENCE_ORCHESTRATION_DATABASE = Symbol("EXPERIENCE_ORCHESTRATION_DATABASE");
@@ -56,6 +59,7 @@ Module({
     ExperienceOrchestrationController,
     CaptureUnderstandingController,
     TaskAssistantController,
+    ProjectAssistantController,
   ],
   providers: [
     {
@@ -181,6 +185,35 @@ Module({
           },
           systemId: await resolveSystemAiScopeId(database, TASK_ASSISTANT_ROUTE),
           aiEnabled: process.env.TASK_ASSISTANT_AI_ENABLED === "true",
+        }),
+    },
+    {
+      provide: PROJECT_ASSISTANT,
+      inject: [EXPERIENCE_ORCHESTRATION_DATABASE, ProjectExperienceQueryService],
+      useFactory: async (database: Database, experience: ProjectExperienceQueryService) =>
+        new ProjectAssistantService({
+          experience,
+          router: createDeferredRuntimeAiRouter(() =>
+            createRuntimeAiRouter({
+              database,
+              secretResolver: new EnvironmentAiCredentialSecretResolver(),
+            }),
+          ),
+          promptArtifacts: {
+            read: (routeKey, version) =>
+              database.analysisPromptArtifact.findUnique({
+                where: { routeKey_version: { routeKey, version } },
+                select: {
+                  id: true,
+                  routeKey: true,
+                  version: true,
+                  bodyHash: true,
+                  trustedBody: true,
+                },
+              }),
+          },
+          systemId: await resolveSystemAiScopeId(database, PROJECT_ASSISTANT_ROUTE),
+          aiEnabled: process.env.PROJECT_ASSISTANT_AI_ENABLED === "true",
         }),
     },
     WorkItemsPolicyGuard,

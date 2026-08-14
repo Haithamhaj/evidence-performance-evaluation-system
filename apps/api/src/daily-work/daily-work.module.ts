@@ -198,5 +198,5 @@ Module({
     },
     WorkItemsPolicyGuard,
   ],
-  exports: [CheckInService, DailyWorkQueryService],
+  exports: [CheckInService, DailyWorkQueryService, ProjectExperienceQueryService],
 })(DailyWorkModule);

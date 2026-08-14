@@ -5,6 +5,7 @@ import { GPT_5_6_MODELS, gpt56ProviderOrder, gpt56TierForRoute } from "./gpt-5-6
 describe("GPT-5.6 routing policy", () => {
   it("uses Luna for frequent bounded preparation", () => {
     expect(gpt56TierForRoute("experience.prepare-next.v1")).toBe("luna");
+    expect(gpt56TierForRoute("experience.project-assistant.v1")).toBe("luna");
     expect(gpt56ProviderOrder("experience.prepare-next.v1")).toEqual([
       GPT_5_6_MODELS.luna,
       GPT_5_6_MODELS.terra,

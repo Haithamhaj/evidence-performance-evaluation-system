@@ -190,6 +190,47 @@ describe("daily-work same-origin gateway", () => {
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
   });
 
+  it("forwards one bounded Project question without accepting browser authority", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      schemaVersion: "project-assistant-output.v1",
+      answer: "The latest confirmed change is the Project Agent checkpoint.",
+      sourceReferences: [`project:${projectId}`],
+      assistance: "ai_assisted",
+      createsCommand: false,
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/project-assistant", {
+        method: "POST",
+        body: JSON.stringify({ projectId, locale: "en", question: "what_changed" }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "project-assistant"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/v1/experience-orchestration/project-assistant/ask",
+      body: { projectId, locale: "en", question: "what_changed" },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/project-assistant", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId,
+          locale: "en",
+          question: "what_changed",
+          actorId: sessionId,
+        }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "project-assistant"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
   it("preserves an upstream Project-decision conflict for stale recovery", async () => {
     mocks.open.mockReturnValue({
       id: "44444444-4444-4444-8444-444444444444",

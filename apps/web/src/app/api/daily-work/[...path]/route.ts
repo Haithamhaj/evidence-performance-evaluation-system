@@ -71,6 +71,10 @@ import {
   AskTaskAssistantInputSchema,
   WebTaskAssistantAnswerSchema,
 } from "../../../../platform/task-assistant-contracts";
+import {
+  AskProjectAssistantInputSchema,
+  WebProjectAssistantAnswerSchema,
+} from "../../../../platform/project-assistant-contracts";
 
 import {
   fetchProtectedUpstream,
@@ -459,6 +463,14 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         "/api/v1/experience-orchestration/task-assistant/ask",
         input,
         WebTaskAssistantAnswerSchema,
+      );
+    }
+    if (path.length === 2 && path[0] === "experience" && path[1] === "project-assistant") {
+      const input = AskProjectAssistantInputSchema.parse(body);
+      return await post(
+        "/api/v1/experience-orchestration/project-assistant/ask",
+        input,
+        WebProjectAssistantAnswerSchema,
       );
     }
     if (path.length === 1 && path[0] === "private-inbox") {

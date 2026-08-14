@@ -37,6 +37,14 @@ import {
   TASK_ASSISTANT_TRUSTED_PROMPT,
   TaskAssistantAiOutputSchema,
 } from "../apps/api/src/experience-orchestration/task-assistant.service.js";
+import {
+  PROJECT_ASSISTANT_INPUT_SCHEMA_VERSION,
+  PROJECT_ASSISTANT_OUTPUT_SCHEMA_VERSION,
+  PROJECT_ASSISTANT_PROMPT_VERSION,
+  PROJECT_ASSISTANT_ROUTE,
+  PROJECT_ASSISTANT_TRUSTED_PROMPT,
+  ProjectAssistantAiOutputSchema,
+} from "../apps/api/src/experience-orchestration/project-assistant.service.js";
 
 const ArgumentsSchema = z
   .object({
@@ -74,6 +82,14 @@ const governedRoutes = [
     promptTemplateVersion: TASK_ASSISTANT_PROMPT_VERSION,
     trustedPrompt: TASK_ASSISTANT_TRUSTED_PROMPT,
     outputSchema: TaskAssistantAiOutputSchema,
+  },
+  {
+    routeKey: PROJECT_ASSISTANT_ROUTE,
+    inputSchemaVersion: PROJECT_ASSISTANT_INPUT_SCHEMA_VERSION,
+    outputSchemaVersion: PROJECT_ASSISTANT_OUTPUT_SCHEMA_VERSION,
+    promptTemplateVersion: PROJECT_ASSISTANT_PROMPT_VERSION,
+    trustedPrompt: PROJECT_ASSISTANT_TRUSTED_PROMPT,
+    outputSchema: ProjectAssistantAiOutputSchema,
   },
 ] as const;
 
@@ -311,6 +327,9 @@ function stringArray(value: unknown): string[] | undefined {
 }
 
 function expectedOutputBehavior(routeKey: string): string {
+  if (routeKey === PROJECT_ASSISTANT_ROUTE) {
+    return "Returns one source-grounded Project explanation for an approved question; no command, rating, readiness, or progress authority.";
+  }
   if (routeKey === TASK_ASSISTANT_ROUTE) {
     return "Returns one source-grounded Task answer and at most one allowed status-change preparation; no command, rating, readiness, or progress authority.";
   }
@@ -330,6 +349,9 @@ function expectedOutputBehavior(routeKey: string): string {
 }
 
 function expectedPromptBehavior(routeKey: string): string {
+  if (routeKey === PROJECT_ASSISTANT_ROUTE) {
+    return "One bounded answer from the authorized Project experience for what changed, why blocked, or missing Evidence; no action is executed.";
+  }
   if (routeKey === TASK_ASSISTANT_ROUTE) {
     return "One bounded answer from an authorized Task, dependencies, Updates, and Evidence; human confirmation remains mandatory for any suggested action.";
   }

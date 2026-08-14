@@ -4,6 +4,7 @@ import { ProductDisclosure, ProductIcon } from "@evaluation/ui";
 import type { CSSProperties } from "react";
 
 import { buildProjectExperienceModel } from "../../features/project-experience/project-experience-model";
+import { ProjectAssistant } from "./project-assistant";
 import styles from "./project-workspace.module.css";
 
 type Experience = import("@evaluation/contracts/employee-experience").EmployeeProjectExperienceV1;
@@ -588,6 +589,7 @@ export function ProjectWorkspace({
             <small>{copy.preparedGuardrail}</small>
           </section>
         ) : null}
+        <ProjectAssistant catalog={catalog} locale={locale} projectId={model.project.id} />
         {model.smartBrief ? (
           <>
             <p className={styles.eyebrow!}>SMART BRIEF</p>
