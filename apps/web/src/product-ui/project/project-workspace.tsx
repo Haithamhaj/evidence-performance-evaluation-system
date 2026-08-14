@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 
 import { buildProjectExperienceModel } from "../../features/project-experience/project-experience-model";
 import { ProjectAssistant } from "./project-assistant";
+import { ProjectOwnershipTransfer } from "./project-ownership-transfer";
 import styles from "./project-workspace.module.css";
 
 type Experience = any;
@@ -174,6 +175,12 @@ export function ProjectWorkspace({
             <aside className={styles.transferContext!}>
               <strong>{copy.humanTransfer}</strong>
               <p>{copy.transferDetail}</p>
+              <ProjectOwnershipTransfer
+                catalog={catalog}
+                locale={locale}
+                ownership={model.ownership}
+                projectId={model.project.id}
+              />
             </aside>
           ) : null}
         </section>

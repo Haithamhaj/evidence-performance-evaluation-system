@@ -3,7 +3,11 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { getCatalogSync } from "@evaluation/localization";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../app/[locale]/projects/ownership-actions", () => ({
+  transferProjectOwnershipAction: async () => ({ status: "idle" }),
+}));
 import { fixture } from "../../features/project-experience/project-experience-model.test.js";
 import { ProjectWorkspace } from "./project-workspace.js";
 
@@ -87,5 +91,29 @@ describe("ProjectWorkspace", () => {
   it("keeps the Arabic surface RTL", () => {
     render(<ProjectWorkspace catalog={getCatalogSync("ar")} experience={fixture()} locale="ar" />);
     expect(screen.getByTestId("project-workspace")).toHaveAttribute("dir", "rtl");
+  });
+
+  it("shows the human-only transfer form only for the authorized manager projection", () => {
+    const experience = fixture();
+    experience.ownership = {
+      ...experience.ownership,
+      viewerRole: "manager",
+      transfer: {
+        allowed: true,
+        expectedVersion: 4,
+        candidates: [
+          { id: "40000000-0000-4000-8000-000000000010", displayName: "Codex" },
+          { id: "40000000-0000-4000-8000-000000000011", displayName: "Amina" },
+        ],
+      },
+    };
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={experience} locale="en" />);
+
+    expect(screen.getByLabelText("New owner")).toHaveTextContent("Amina");
+    expect(screen.getByLabelText("Transfer type")).toBeInTheDocument();
+    expect(screen.getByLabelText("Expected version")).toHaveTextContent("4");
+    expect(
+      screen.getByText("AI cannot choose the owner or submit this transfer."),
+    ).toBeInTheDocument();
   });
 });

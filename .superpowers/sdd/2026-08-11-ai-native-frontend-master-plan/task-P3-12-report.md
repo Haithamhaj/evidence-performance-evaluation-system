@@ -2,7 +2,7 @@
 
 ## Status
 
-DONE_WITH_CONCERNS
+DONE_WITH_CONCERNS — remediation commits `77badf9` and pending follow-up.
 
 ## What changed
 
@@ -10,6 +10,10 @@ DONE_WITH_CONCERNS
 - Derived the visible effective role from server-authorized responsibility windows plus the authenticated server-side manager role: owner, contributor, manager, or acting owner.
 - Added a compact Command Brief-aligned Ownership and access panel to the existing Project Workspace. It shows current owner, the viewer role, active window, contributors, the coordination-not-manager boundary, and manager-only human-transfer context.
 - Added English and Arabic catalog content; the Project surface continues to set RTL for Arabic.
+- Remediation: moved transfer visibility and candidate selection to the Projects-owned scoped policy projection. A manager receives candidates only when the Projects policy permits `responsibility.transfer` for that Project's department.
+- Remediation: added a compact manager-only ownership transfer form. It calls the existing protected Project transfer command, requires a human-selected owner, effective timestamp, transfer type, acting end when applicable, reason, and optimistic-concurrency version; a 409 result asks the manager to reload current responsibility before retrying.
+- Remediation: acting ownership projection now exposes the prospective named return owner when the append-only return responsibility is scheduled.
+- Remediation: former participants receive the intentionally content-free `access: ended` experience with safe Project-list navigation.
 
 ## Files changed
 
@@ -21,6 +25,8 @@ DONE_WITH_CONCERNS
 - `apps/web/src/product-ui/project/project-workspace.tsx`
 - `apps/web/src/product-ui/project/project-workspace.module.css`
 - `apps/web/src/product-ui/project/project-workspace.test.tsx`
+- `apps/web/src/app/[locale]/projects/ownership-actions.ts`
+- `apps/web/src/product-ui/project/project-ownership-transfer.tsx`
 - `packages/localization/src/catalogs/en.json`
 - `packages/localization/src/catalogs/ar.json`
 
@@ -32,7 +38,8 @@ None.
 
 - RED observed: the focused Project Workspace test could not find the new `Ownership and access` area.
 - RED observed: the Project Experience service returned no `ownership` projection for owner, contributor, manager, or acting-owner cases.
-- GREEN: `pnpm exec vitest run --project unit apps/web/src/product-ui/project/project-workspace.test.tsx apps/web/src/features/project-experience/project-experience-model.test.ts apps/api/src/daily-work/project-experience-query.service.test.ts` — 13 tests passed.
+- GREEN: focused unit/API tests — 64 tests passed; Projects integration ownership projection — 13 tests passed.
+- GREEN: protected API matrix — 53 controllers and 29 policy rows valid.
 - Type checks passed for Contracts, API, and Web.
 - Web lint passed.
 - Production Web build passed.
@@ -46,12 +53,10 @@ None.
 
 ## Remaining risk / not yet closed
 
-- This bounded change does **not** implement the required fail-closed, user-visible ended-access response. Current Projects authorization still denies ended access, but the final Project page has no dedicated access-ended recovery state.
-- The manager context is explanatory only; it does not yet provide the required executable ownership-transfer form with new-owner selection, effective date, transfer type, continuity, reason, expected version, and stale conflict recovery.
-- Planned return-owner identity remains unavailable in the current safe workspace projection, so acting-owner UI can show its end but not the named planned return owner.
-- The focused test matrix covers server-derived owner/contributor/manager/acting roles, but does not add the requested positive/negative integration authorization matrix for ended access, wrong-department manager, or expired acting owner.
-- No local browser demo/screenshot was captured and no preview was started, to avoid disturbing existing running services.
+- Existing authorization tests and the new projection integration test cover owner-not-manager, contributor/owner mutation denial, scoped wrong-department manager denial, active/expired acting-owner policy enforcement, and ended access. No client-side authority was added.
+- Local Codex dogfood preparation reached the safety gate but stopped at `UPLOAD_SAFETY_REJECTED`. No records were reset, deleted, or bypassed; a local upload-safety service must be ready before controller capture can proceed.
+- No browser capture was performed, as instructed.
 
 ## Project state
 
-Not updated: P3-12 is not fully verified against the required five-state outcome.
+Not updated: local dogfood preparation remains blocked at upload safety, so the end-to-end controller capture gate is not verified.
