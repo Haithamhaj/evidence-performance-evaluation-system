@@ -332,10 +332,10 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Run the bounded P3-13 Auto + Undo eligibility gate. Select at most one low-risk action only if it has
-real compensation, a durable receipt, authorization, and recovery; otherwise record the gate as
-disabled and continue. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy
-rollback routes.
+Continue with P3-14 Project charts using only approved Progress Contract measures and an accessible
+summary/table alternative. P3-13 completed with Auto + Undo intentionally disabled because no current
+action satisfies the complete compensation and durable-recovery gate. Keep Pull Requests #29 and #30
+unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

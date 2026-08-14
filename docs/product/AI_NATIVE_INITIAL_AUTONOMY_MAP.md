@@ -1,6 +1,7 @@
 # AI-Native Initial Autonomy Map
 
-**Status:** Phase 0A action-level bounds for H-001–H-016  
+**Status:** Phase 3 action-level bounds for H-001–H-016; P3-13 gate completed
+
 **Rule:** Each row records the strictest applicable class. `auto_with_undo` is disabled because Phase
 0A selects no production action with a real compensation command.
 
@@ -58,9 +59,21 @@ The effective class is the strictest bound from the engine maximum, protected pr
 organization policy, Project/Progress Contract, current permission/scope/version, and user preference
 only where that preference can further restrict behavior. Unknown action/signal/output fails closed.
 
-## Future `auto_with_undo` Gate
+## P3-13 `auto_with_undo` Gate
 
-It remains disabled until a later Product Owner decision names one real action with explicit
+The Phase 3 gate selected no production action, so `auto_with_undo` remains disabled. This is the
+intentional successful result of the gate, not an incomplete runtime.
+
+| Candidate                                       | Decision     | Reason                                                                                                         |
+| ----------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
+| Automatically link Google/GitHub context        | Not eligible | H-008/H-009 require employee confirmation; model confidence cannot increase authority; no durable undo receipt |
+| Change a Task state or shared deadline          | Not eligible | Shared work is `human_only`; compensation could conflict with a later authorized version                       |
+| Confirm Evidence or Project progress            | Not eligible | Evidence confirmation and contract-based progress keep their named human gates                                 |
+| Transfer Project/Workstream ownership           | Not eligible | Consequential authority remains manager-selected and `human_only`                                              |
+| Retire/dedupe resolved presentation projections | Maintenance  | Deterministic presentation upkeep remains `auto_maintenance`; it does not need or justify Auto + Undo          |
+
+Activation still requires a later explicit Product Owner decision naming one real action with explicit
 permission, expected version, idempotency, bounded side effects, a genuine compensation command,
 durable receipt, undo expiry, and partial-failure recovery. It cannot affect Evaluation, another
-person, consequential ownership, or a shared deadline without separate approval.
+person, consequential ownership, or a shared deadline without separate approval. No generic Auto +
+Undo runtime, database table, or decorative interface is created before such an action exists.
