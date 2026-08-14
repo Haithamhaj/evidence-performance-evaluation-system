@@ -542,6 +542,52 @@ export function ProjectWorkspace({
           <ProductIcon name="sparkles" size="small" />
           <strong>{copy.assistant}</strong>
         </header>
+        {model.agentSignals.length > 0 ? (
+          <section className={styles.agentSignals!} aria-label={copy.agentSignals}>
+            <div>
+              <p className={styles.eyebrow!}>{copy.projectAgent}</p>
+              <h2>{copy.whatINoticed}</h2>
+            </div>
+            <ul>
+              {model.agentSignals.map((signal) => (
+                <li key={signal.id} data-severity={signal.severity}>
+                  <span />
+                  <div>
+                    <strong>{signal.title}</strong>
+                    <p>{signal.detail}</p>
+                    <small>
+                      {copy.source}: {signal.source.label}
+                    </small>
+                    <a href={localizedHref(signal.action.href, locale)}>{signal.action.label}</a>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        {model.preparedActions.length > 0 ? (
+          <section className={styles.preparedActions!} aria-label={copy.preparedActions}>
+            <div>
+              <p className={styles.eyebrow!}>{copy.preparedForYou}</p>
+              <h2>{copy.reviewBeforeChange}</h2>
+            </div>
+            <ul>
+              {model.preparedActions.map((prepared) => (
+                <li key={prepared.id}>
+                  <ProductIcon name="sparkles" size="small" />
+                  <div>
+                    <strong>{prepared.title}</strong>
+                    <p>{prepared.detail}</p>
+                    <a href={localizedHref(prepared.action.href, locale)}>
+                      {prepared.action.label}
+                    </a>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <small>{copy.preparedGuardrail}</small>
+          </section>
+        ) : null}
         {model.smartBrief ? (
           <>
             <p className={styles.eyebrow!}>SMART BRIEF</p>
@@ -672,6 +718,13 @@ function buildCopy(catalog: Catalog) {
     recover_proposal: catalog["project.experience.recoverProposal"],
     review_active_contract: catalog["project.experience.reviewActiveContract"],
     projectOwnerAction: catalog["project.experience.projectOwnerAction"],
+    agentSignals: catalog["project.experience.agentSignals"],
+    projectAgent: catalog["project.experience.projectAgent"],
+    whatINoticed: catalog["project.experience.whatINoticed"],
+    preparedActions: catalog["project.experience.preparedActions"],
+    preparedForYou: catalog["project.experience.preparedForYou"],
+    reviewBeforeChange: catalog["project.experience.reviewBeforeChange"],
+    preparedGuardrail: catalog["project.experience.preparedGuardrail"],
     assistant: catalog["home.overview.assistant"],
     suggestedAction: catalog["home.overview.suggestedAction"],
     source: catalog["home.overview.source"],

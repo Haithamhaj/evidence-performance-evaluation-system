@@ -255,6 +255,41 @@ const ProjectCriteriaContractV1Schema = z
   })
   .strict();
 
+const ProjectAgentSignalV1Schema = z
+  .object({
+    id: z.string().trim().min(1).max(256),
+    kind: z.enum([
+      "milestone_risk",
+      "dependency",
+      "evidence_gap",
+      "ownership_gap",
+      "source_change",
+    ]),
+    severity: z.enum(["attention", "watch", "info"]),
+    title: z.string().trim().min(1).max(500),
+    detail: SafeTextSchema,
+    source: EmployeeExperienceSourceRefV1Schema,
+    action: ActionV1Schema,
+  })
+  .strict();
+
+const ProjectPreparedActionV1Schema = z
+  .object({
+    id: z.string().trim().min(1).max(256),
+    kind: z.enum([
+      "update_draft",
+      "progress_proposal",
+      "next_milestone_context",
+      "intervention_item",
+    ]),
+    title: z.string().trim().min(1).max(500),
+    detail: SafeTextSchema,
+    source: EmployeeExperienceSourceRefV1Schema,
+    action: ActionV1Schema,
+    requiresConfirmation: z.literal(true),
+  })
+  .strict();
+
 export const EmployeeProjectExperienceV1Schema = guarded(
   z
     .object({
@@ -299,6 +334,8 @@ export const EmployeeProjectExperienceV1Schema = guarded(
         .strict(),
       timeline: z.array(TimelineItemV1Schema).max(50),
       nextCursor: z.string().trim().min(1).max(1_000).nullable(),
+      agentSignals: z.array(ProjectAgentSignalV1Schema).max(5).default([]),
+      preparedActions: z.array(ProjectPreparedActionV1Schema).max(4).default([]),
       smartBrief: SmartBriefV1Schema.nullable(),
     })
     .strict(),

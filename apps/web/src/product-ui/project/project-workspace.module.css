@@ -725,6 +725,73 @@
 .assistant small {
   overflow-wrap: anywhere;
 }
+.agentSignals,
+.preparedActions {
+  display: grid;
+  gap: 0.7rem;
+  padding-block-end: 1rem;
+  border-block-end: 1px solid #e0e5ed;
+}
+.agentSignals ul,
+.preparedActions ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agentSignals li {
+  display: grid;
+  grid-template-columns: 0.35rem minmax(0, 1fr);
+  gap: 0.55rem;
+  border: 1px solid #dfe5ed;
+  border-radius: 0.55rem;
+  padding: 0.65rem;
+}
+.agentSignals li > span {
+  border-radius: 999px;
+  background: #f0a33a;
+}
+.agentSignals li[data-severity="watch"] > span {
+  background: #2f70df;
+}
+.agentSignals li[data-severity="info"] > span {
+  background: #2b9a5a;
+}
+.agentSignals li div,
+.preparedActions li div {
+  display: grid;
+  gap: 0.25rem;
+}
+.agentSignals strong,
+.preparedActions strong {
+  font-size: 0.82rem;
+}
+.agentSignals p,
+.preparedActions p {
+  color: #526076;
+  font-size: 0.76rem;
+}
+.agentSignals a,
+.preparedActions a {
+  color: #0f5fd8;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.preparedActions li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  border-radius: 0.55rem;
+  background: #f4f8ff;
+  padding: 0.65rem;
+  color: #145fc9;
+}
+.preparedActions li p,
+.preparedActions li strong {
+  color: #26364d;
+}
 .eyebrow {
   color: #4d5a6d;
   font-size: 0.72rem;

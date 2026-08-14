@@ -52,5 +52,7 @@ export function buildProjectExperienceModel(
         : ("connect_document" as const),
       actionOwner: "project_owner" as const,
     },
+    agentSignals: experience.agentSignals ?? [],
+    preparedActions: experience.preparedActions ?? [],
   };
 }

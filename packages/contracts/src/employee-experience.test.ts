@@ -117,11 +117,39 @@ describe("final employee experience contracts", () => {
       collections: { work: [], updates: [], evidence: [], documents: [] },
       timeline: [],
       nextCursor: null,
+      agentSignals: [
+        {
+          id: "project-signal:evidence-gap",
+          kind: "evidence_gap" as const,
+          severity: "attention" as const,
+          title: "Evidence needed for API authentication",
+          detail: "Owner confirmation",
+          source,
+          action: { label: "Review missing evidence", href: `/en/projects/${projectId}` },
+        },
+      ],
+      preparedActions: [
+        {
+          id: "project-preparation:milestone-context",
+          kind: "next_milestone_context" as const,
+          title: "Prepare the next milestone context",
+          detail: "Review what is still needed before API authentication can move forward.",
+          source,
+          action: { label: "Review context", href: `/en/projects/${projectId}` },
+          requiresConfirmation: true as const,
+        },
+      ],
       smartBrief,
     };
 
     expect(EmployeeProjectExperienceV1Schema.parse(project)).toEqual(project);
     expect("percent" in EmployeeProjectExperienceV1Schema.parse(project).progress).toBe(false);
+    expect(() =>
+      EmployeeProjectExperienceV1Schema.parse({
+        ...project,
+        preparedActions: [{ ...project.preparedActions[0], requiresConfirmation: false }],
+      }),
+    ).toThrow();
   });
 
   it("keeps capture interpretation private and non-commanding", () => {

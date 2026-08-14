@@ -286,6 +286,12 @@ every engine authority and protected product rule, and all retained rollback rou
   includes only confirmed Updates/Evidence, verified Project facts, authorized decisions, and
   confirmed Research/Experiment learning, with its Workstream/Task context and source. Technical
   audit activity remains separate and no raw activity volume is surfaced as progress or performance.
+- P3-09 and the bounded P3-10 preparation slice are complete. Project Agent now surfaces at most five
+  source-backed milestone, dependency, evidence, ownership, or source/contract gaps and prepares at
+  most four review-only actions. The real Codex Project identifies that Document v6 is not yet
+  reflected in a Progress Contract and prepares both the owner review context and a Project Update
+  starting from the latest confirmed change. Nothing is published, approved, or counted as official
+  progress before the authorized human confirmation.
 - The approved GPT-5.6 cost-quality policy is active through the AI Router. Luna handles frequent
   bounded preparation, Terra handles daily Capture/Update/Task assistance, and Sol handles complex
   Progress Contract and research analysis, with ordered fallbacks and audited administrator changes.
@@ -320,8 +326,9 @@ every engine authority and protected product rule, and all retained rollback rou
 
 ## Next Recommended Action
 
-Continue with Project Agent signals and prepared actions using the existing authorized readers and
-AI Router. Keep Pull Requests #29 and #30 unmerged, and retain Calendar and legacy rollback routes.
+Continue with bounded P3-11 Project Chat for “what changed”, “why blocked”, and “what evidence is
+missing” through the existing AI Router and authorized readers. Keep Pull Requests #29 and #30
+unmerged, and retain Calendar and legacy rollback routes.
 
 ## Critical References
 

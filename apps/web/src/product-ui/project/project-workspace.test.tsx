@@ -72,6 +72,12 @@ describe("ProjectWorkspace", () => {
     expect(timeline).toHaveTextContent("Confirmed update");
     expect(timeline).toHaveTextContent("API readiness · Validate streaming fallback");
     expect(timeline).toHaveTextContent("Employee-confirmed update");
+    const agent = screen.getByLabelText("Project Agent signals");
+    expect(agent).toHaveTextContent("Evidence needed for API authentication");
+    expect(agent).toHaveTextContent("Owner confirmation");
+    const prepared = screen.getByLabelText("Prepared Project actions");
+    expect(prepared).toHaveTextContent("Prepare the next milestone context");
+    expect(prepared).toHaveTextContent("Review before anything changes");
     expect(screen.getByText("SMART BRIEF")).toBeInTheDocument();
   });
   it("keeps the Arabic surface RTL", () => {

@@ -93,6 +93,19 @@ export class ProjectExperienceQueryService {
     const evidenceCollection = timelineItems
       .filter((item: any) => item.kind === "evidence")
       .map(collectionFromTimeline);
+    const agentSignals = projectAgentSignals({
+      view,
+      document,
+      workItems,
+      milestones,
+      source,
+      projectId,
+    });
+    const preparedActions = projectPreparedActions({
+      signals: agentSignals,
+      timelineItems,
+      projectId,
+    });
     const smartAction = attention[0] ?? workCollection[0] ?? null;
     return EmployeeProjectExperienceV1Schema.parse({
       schemaVersion: "employee-project-experience.v1",
@@ -135,6 +148,8 @@ export class ProjectExperienceQueryService {
       },
       timeline: timelineItems,
       nextCursor: timeline.nextCursor ?? null,
+      agentSignals,
+      preparedActions,
       smartBrief:
         smartAction === null
           ? null
@@ -152,6 +167,164 @@ export class ProjectExperienceQueryService {
             },
     });
   }
+}
+
+function projectAgentSignals({
+  view,
+  document,
+  workItems,
+  milestones,
+  source,
+  projectId,
+}: Readonly<{
+  view: any;
+  document: any;
+  workItems: any[];
+  milestones: any[];
+  source: any;
+  projectId: string;
+}>) {
+  const signals: any[] = [];
+  if (activeOwnerName(view.workspace) === null) {
+    signals.push({
+      id: "project-signal:ownership-gap",
+      kind: "ownership_gap",
+      severity: "attention",
+      title: "Project ownership needs attention",
+      detail: "No active Primary Project Owner is recorded for this Project.",
+      source: { ...source, kind: "human_decision", label: "Project responsibility record" },
+      action: { label: "Review Project ownership", href: `/en/projects/${projectId}` },
+    });
+  }
+  const contractSourceVersion = view.contractProposal?.sourceDocumentVersion ?? null;
+  if (document !== null && view.contract === null && contractSourceVersion === null) {
+    signals.push({
+      id: "project-signal:source-change",
+      kind: "source_change",
+      severity: "attention",
+      title: "Project source is not reflected in a Progress Contract",
+      detail: `Project Document v${document.version} is current; no active contract or proposal is grounded in it.`,
+      source: {
+        ...document.source,
+        label: `Project Document v${document.version}`,
+      },
+      action: { label: "Review source gap", href: `/en/projects/${projectId}#progress` },
+    });
+  } else if (
+    document !== null &&
+    contractSourceVersion !== null &&
+    document.version !== contractSourceVersion
+  ) {
+    signals.push({
+      id: "project-signal:source-change",
+      kind: "source_change",
+      severity: "attention",
+      title: "Project document changed after the contract source",
+      detail: `Project Document v${document.version} is current; the criteria proposal is grounded in v${contractSourceVersion}.`,
+      source: {
+        ...document.source,
+        label: `Project Document v${document.version}`,
+      },
+      action: { label: "Review source change", href: `/en/projects/${projectId}` },
+    });
+  }
+  const blocked = workItems.find((item) => item.status === "blocked");
+  if (blocked) {
+    signals.push({
+      id: `project-signal:dependency:${blocked.id}`,
+      kind: "dependency",
+      severity: "attention",
+      title: `Blocked work: ${blocked.title}`,
+      detail: blocked.blocker || "A Project Task is blocked and needs an authorized next step.",
+      source: { ...source, kind: "work_item", label: "Authorized Project Task" },
+      action: { label: "Review blocked Task", href: `/en/tasks?item=${blocked.id}` },
+    });
+  }
+  const evidenceGap = view.pulse?.nextRequiredEvidence?.[0];
+  if (evidenceGap) {
+    signals.push({
+      id: `project-signal:evidence-gap:${evidenceGap.componentId}`,
+      kind: "evidence_gap",
+      severity: "watch",
+      title: `Evidence needed for ${evidenceGap.componentName}`,
+      detail: evidenceGap.label,
+      source,
+      action: { label: "Review missing evidence", href: `/en/projects/${projectId}#progress` },
+    });
+  }
+  const milestoneRisk = milestones.find((item) => item.state === "awaiting_evidence");
+  if (milestoneRisk) {
+    signals.push({
+      id: `project-signal:milestone-risk:${milestoneRisk.componentId}`,
+      kind: "milestone_risk",
+      severity: "watch",
+      title: `Milestone is waiting for evidence: ${milestoneRisk.name}`,
+      detail:
+        "The approved contract cannot confirm this milestone until its required evidence is available.",
+      source,
+      action: { label: "Review milestone context", href: `/en/projects/${projectId}#progress` },
+    });
+  }
+  return signals.slice(0, 5);
+}
+
+function projectPreparedActions({
+  signals,
+  timelineItems,
+  projectId,
+}: Readonly<{ signals: any[]; timelineItems: any[]; projectId: string }>) {
+  const prepared: any[] = [];
+  const firstByKind = (kind: string) => signals.find((signal) => signal.kind === kind);
+  const intervention = firstByKind("ownership_gap") ?? firstByKind("dependency");
+  if (intervention) {
+    prepared.push({
+      id: "project-preparation:intervention",
+      kind: "intervention_item",
+      title: "Prepare an intervention item",
+      detail: intervention.detail,
+      source: intervention.source,
+      action: intervention.action,
+      requiresConfirmation: true,
+    });
+  }
+  const sourceChange = firstByKind("source_change");
+  if (sourceChange) {
+    prepared.push({
+      id: "project-preparation:progress-proposal",
+      kind: "progress_proposal",
+      title: "Prepare a contract-based progress proposal",
+      detail:
+        "Review the new Project source against the active contract before an authorized owner considers any progress change.",
+      source: sourceChange.source,
+      action: sourceChange.action,
+      requiresConfirmation: true,
+    });
+  }
+  const milestoneContext = firstByKind("milestone_risk") ?? firstByKind("evidence_gap");
+  if (milestoneContext) {
+    prepared.push({
+      id: "project-preparation:milestone-context",
+      kind: "next_milestone_context",
+      title: "Prepare the next milestone context",
+      detail: milestoneContext.detail,
+      source: milestoneContext.source,
+      action: milestoneContext.action,
+      requiresConfirmation: true,
+    });
+  }
+  const latestChange = timelineItems[0];
+  if (latestChange) {
+    prepared.push({
+      id: `project-preparation:update:${latestChange.id}`,
+      kind: "update_draft",
+      title: "Prepare a Project Update draft",
+      detail: `Start from the latest confirmed change: ${latestChange.title}`,
+      source: latestChange.source,
+      action: { label: "Review update context", href: `/en/projects/${projectId}#timeline` },
+      requiresConfirmation: true,
+    });
+  }
+  return prepared.slice(0, 4);
 }
 
 function criteriaContract(view: any, document: any, actorId: string) {

@@ -46,6 +46,14 @@ describe("buildProjectExperienceModel", () => {
       contextLabel: "API readiness · Validate streaming fallback",
       statusLabel: "Confirmed update",
     });
+    expect(model.agentSignals).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: "evidence_gap" })]),
+    );
+    expect(model.preparedActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "next_milestone_context", requiresConfirmation: true }),
+      ]),
+    );
   });
 });
 
@@ -237,6 +245,28 @@ export function fixture(): import("@evaluation/contracts/employee-experience").E
       },
     ],
     nextCursor: null,
+    agentSignals: [
+      {
+        id: "project-signal:evidence-gap",
+        kind: "evidence_gap",
+        severity: "attention",
+        title: "Evidence needed for API authentication",
+        detail: "Owner confirmation",
+        source,
+        action: { label: "Review missing evidence", href: `/en/projects/${projectId}` },
+      },
+    ],
+    preparedActions: [
+      {
+        id: "project-preparation:milestone-context",
+        kind: "next_milestone_context",
+        title: "Prepare the next milestone context",
+        detail: "Review what is still needed before API authentication can move forward.",
+        source,
+        action: { label: "Review context", href: `/en/projects/${projectId}` },
+        requiresConfirmation: true,
+      },
+    ],
     smartBrief: {
       title: "What needs attention?",
       body: "Owner confirmation is pending.",

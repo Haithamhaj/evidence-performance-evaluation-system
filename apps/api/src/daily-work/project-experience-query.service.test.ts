@@ -62,6 +62,95 @@ describe("ProjectExperienceQueryService", () => {
       statusLabel: "Confirmed update",
       source: { kind: "update", label: "Employee-confirmed update" },
     });
+    expect(result.agentSignals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "evidence_gap",
+          title: "Evidence needed for API authentication",
+          source: expect.objectContaining({ kind: "progress_contract" }),
+        }),
+      ]),
+    );
+    expect(result.preparedActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "next_milestone_context",
+          requiresConfirmation: true,
+        }),
+        expect.objectContaining({
+          kind: "update_draft",
+          requiresConfirmation: true,
+        }),
+      ]),
+    );
+    expect(result.agentSignals.some((signal) => "percent" in signal)).toBe(false);
+  });
+
+  it("surfaces only source-backed Project gaps and prepares no autonomous command", async () => {
+    const view = projectView();
+    view.workspace.people = [];
+    view.document.version = 3;
+    view.contractProposal.sourceDocumentVersion = 2;
+    const blocked = {
+      ...workItem(),
+      status: "blocked",
+      blocker: "Waiting for the staging credential decision",
+    };
+    const service = new ProjectExperienceQueryService({
+      project: async () => view,
+      document: async () => documentDetail(),
+      myWork: async () => ({ groups: [{ key: "today", items: [blocked] }] }),
+      timeline: async () => ({ items: [timelineItem()], nextCursor: null }),
+    });
+
+    const result = await service.load(actor, projectId);
+
+    expect(result.agentSignals.map(({ kind }) => kind)).toEqual([
+      "ownership_gap",
+      "source_change",
+      "dependency",
+      "evidence_gap",
+    ]);
+    expect(result.agentSignals[2]).toMatchObject({
+      detail: "Waiting for the staging credential decision",
+      action: { href: `/en/tasks?item=${blocked.id}` },
+    });
+    expect(result.preparedActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "intervention_item", requiresConfirmation: true }),
+        expect.objectContaining({ kind: "progress_proposal", requiresConfirmation: true }),
+      ]),
+    );
+  });
+
+  it("flags a current Project document that is not yet reflected in a Progress Contract", async () => {
+    const view = {
+      ...projectView(),
+      contract: null,
+      contractProposal: null,
+      progress: { state: "awaiting_contract" },
+      pulse: { milestoneStates: [], nextRequiredEvidence: [], explanation: [] },
+      pendingChange: null,
+    };
+    const service = new ProjectExperienceQueryService({
+      project: async () => view,
+      document: async () => documentDetail(),
+      myWork: async () => ({ groups: [] }),
+      timeline: async () => ({ items: [], nextCursor: null }),
+    });
+
+    const result = await service.load(actor, projectId);
+
+    expect(result.agentSignals).toEqual([
+      expect.objectContaining({
+        kind: "source_change",
+        title: "Project source is not reflected in a Progress Contract",
+        detail: "Project Document v2 is current; no active contract or proposal is grounded in it.",
+      }),
+    ]);
+    expect(result.preparedActions).toEqual([
+      expect.objectContaining({ kind: "progress_proposal", requiresConfirmation: true }),
+    ]);
   });
 
   it("keeps missing progress and document states honest", async () => {
