@@ -87,6 +87,9 @@ describe("EvaluationWorkspace", () => {
     expect(facts).toHaveTextContent("Delivered the protected API flow");
     expect(facts).toHaveTextContent("Validated retrieval against the Project constraints");
     expect(facts).toHaveTextContent("One claim still needs a source");
+    expect(facts).toHaveTextContent(
+      "Preparation assistant: facts, gaps, and editable wording only",
+    );
 
     const criterionButtons = screen
       .getAllByRole("button", { name: /Quality and reliability|Project contribution/ })
@@ -104,6 +107,44 @@ describe("EvaluationWorkspace", () => {
     expect(document.body).not.toHaveTextContent(
       /readiness percentage|recommended rating|predicted rating/i,
     );
+  });
+
+  it("never lets assistant wording reorder the approved criterion sequence", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          schemaVersion: "evaluation-justification.v1",
+          draft: "Editable wording only.",
+          sourceReferences: [],
+          limitations: [],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    render(
+      <EvaluationWorkspace
+        catalog={getCatalogSync("en")}
+        factView={factView()}
+        journey={journey()}
+        locale="en"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("radio", { name: "3 Consistently meets the approved expectation" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Draft reflection with assistant" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Your evidence-based reflection")).toHaveValue(
+        "Editable wording only.",
+      ),
+    );
+
+    expect(
+      screen
+        .getAllByRole("button", { name: /Quality and reliability|Project contribution/ })
+        .map(({ textContent }) => textContent),
+    ).toEqual(["01Quality and reliabilityComplete", "02Project contributionNot started"]);
   });
 
   it("keeps the assessment compact by opening one criterion at a time and preserving progress", () => {

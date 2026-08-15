@@ -68,6 +68,13 @@ export class ManagerEvaluationPolicyGuard {
       return true;
     }
     if (cycle === null) throw forbidden();
+    if (handler === "readParticipant") {
+      const eligible = await this.#database.managerEvaluatorEligibility.count({
+        where: { cycleId: cycle.id, evaluatorId: principal.userId },
+      });
+      if (eligible !== 1) throw forbidden();
+      return true;
+    }
     if (handler === "eligibility") {
       if (principal.userId !== cycle.managerId && !canConfigure(roles, cycle.departmentId)) {
         throw forbidden();

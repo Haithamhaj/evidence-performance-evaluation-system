@@ -223,6 +223,46 @@ export const IdentifiedManagerResponseSchema = z
   })
   .strict();
 
+const ManagerEvaluationAnchorSchema = z
+  .object({ rating: RatingSchema, text: normalizedText(8_000) })
+  .strict();
+
+export const ManagerEvaluationParticipantJourneySchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    cycle: z
+      .object({
+        id: UuidSchema,
+        state: z.enum(["OPEN", "CLOSED", "CANCELLED"]),
+        visibilityMode: z.literal("IDENTIFIED"),
+        startsAt: UtcInstantSchema,
+        endsAt: UtcInstantSchema,
+      })
+      .strict(),
+    manager: z.object({ id: UuidSchema, displayName: normalizedText(500) }).strict(),
+    eligibility: z
+      .object({
+        id: UuidSchema,
+        state: ManagerEvaluatorStateSchema,
+        version: PositiveVersionSchema,
+      })
+      .strict(),
+    criteria: z
+      .array(
+        z
+          .object({
+            criterionId: UuidSchema,
+            stableCriterionId: z.enum(["MGR-01", "MGR-02", "MGR-03", "MGR-04", "MGR-05"]),
+            commentRequired: z.boolean(),
+            anchors: z.array(ManagerEvaluationAnchorSchema).length(5),
+          })
+          .strict(),
+      )
+      .length(5),
+    submittedResponse: IdentifiedManagerResponseSchema.nullable(),
+  })
+  .strict();
+
 export const ManagerEvaluationCompletionEntrySchema = z
   .object({
     evaluatorId: UuidSchema,
@@ -478,6 +518,9 @@ export type ManagerCriterionResponse = z.infer<typeof ManagerCriterionResponseSc
 export type ManagerCriterionResponses = z.infer<typeof ManagerCriterionResponsesSchema>;
 export type SubmitManagerEvaluationInput = z.infer<typeof SubmitManagerEvaluationInputSchema>;
 export type SubmitManagerEvaluationReceipt = z.infer<typeof SubmitManagerEvaluationReceiptSchema>;
+export type ManagerEvaluationParticipantJourney = z.infer<
+  typeof ManagerEvaluationParticipantJourneySchema
+>;
 export type IdentifiedManagerResponse = z.infer<typeof IdentifiedManagerResponseSchema>;
 export type ManagerEvaluationCompletionEntry = z.infer<
   typeof ManagerEvaluationCompletionEntrySchema

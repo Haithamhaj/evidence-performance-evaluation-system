@@ -321,7 +321,7 @@ export function EvaluationWorkspace({
       const response = await fetch(`/api/evaluation/assignments/${journey.assignment.id}/export`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale: "en" }),
+        body: JSON.stringify({ locale: "en", cycleId: journey.cycle.id }),
       });
       if (!response.ok) throw new Error("export failed");
       setExportState("saved");
@@ -419,6 +419,7 @@ export function EvaluationWorkspace({
             </article>
           ))}
         </div>
+        <p className={styles.preparationBoundary!}>{copy.preparationBoundary}</p>
         {factView.sourceCoverageNotes.length === 0 ? null : (
           <aside className={styles.coverage!}>
             <strong>{copy.coverageNotes}</strong>
@@ -925,6 +926,7 @@ function copyFor(catalog: Catalog) {
     sourceSupported: catalog["evaluation.workspace.sourceSupported"],
     employeeConfirmed: catalog["evaluation.workspace.employeeConfirmed"],
     coverageNotes: catalog["evaluation.coverageNotes"],
+    preparationBoundary: catalog["evaluation.workspace.preparationBoundary"],
     yourPerspective: catalog["evaluation.workspace.yourPerspective"],
     yourAssessment: catalog["evaluation.workspace.yourAssessment"],
     ratingBoundary: catalog["evaluation.workspace.ratingBoundary"],

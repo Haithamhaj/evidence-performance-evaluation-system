@@ -131,7 +131,7 @@ const AcknowledgmentReceiptSchema = z
     recordedAt: z.iso.datetime({ offset: true }),
   })
   .strict();
-const ExportInputSchema = z.object({ locale: z.literal("en") }).strict();
+const ExportInputSchema = z.object({ locale: z.literal("en"), cycleId: UuidSchema }).strict();
 const ExportResponseSchema = z
   .object({
     request: z.object({ id: UuidSchema }).passthrough(),
@@ -253,7 +253,7 @@ async function requestExport(request: Request) {
         audience: "EMPLOYEE_SELF",
         format: "PDF",
         locale: input.locale,
-        cycleId: null,
+        cycleId: input.cycleId,
         timezone: "Asia/Riyadh",
       },
       schema: ExportResponseSchema,

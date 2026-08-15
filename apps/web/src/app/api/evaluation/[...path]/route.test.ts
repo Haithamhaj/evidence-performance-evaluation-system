@@ -281,7 +281,10 @@ describe("evaluation same-origin gateway", () => {
     const response = await POST(
       new Request(`http://localhost:3000/api/evaluation/assignments/${assignmentId}/export`, {
         method: "POST",
-        body: JSON.stringify({ locale: "en" }),
+        body: JSON.stringify({
+          locale: "en",
+          cycleId: "80000000-0000-4000-8000-000000000001",
+        }),
       }),
       { params: Promise.resolve({ path: ["assignments", assignmentId, "export"] }) },
     );
@@ -296,7 +299,7 @@ describe("evaluation same-origin gateway", () => {
         audience: "EMPLOYEE_SELF",
         format: "PDF",
         locale: "en",
-        cycleId: null,
+        cycleId: "80000000-0000-4000-8000-000000000001",
         timezone: "Asia/Riyadh",
       },
       schema: expect.anything(),

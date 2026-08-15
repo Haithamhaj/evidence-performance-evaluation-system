@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Execute Phase 6 Evaluation over the completed employee daily-work, Project, Update/Evidence, and
-Research journeys while preserving human-only rating decisions, immutable snapshots, independent
-employee/manager drafts, and every protected visibility boundary.
+Execute Phase 7 Manager Operations and Continuity over the completed employee and Evaluation
+journeys while preserving private employee context, human-only performance judgment, scoped
+authority, and leave fairness.
 
 ## Current Reality
 
@@ -342,6 +342,13 @@ employee/manager drafts, and every protected visibility boundary.
   initial position; the employee can acknowledge or preserve a reservation without changing that
   decision; and the authorized English immutable export enters the existing queued, expiring, and
   revocable reporting lifecycle. No AI rating path or Arabic-gate bypass was added.
+- Phase 6 P6-01–P6-14 are now capability-complete for the English pilot. Employees and managers use
+  one fact-first, fixed-order human assessment journey; final ratings remain manager-only decisions;
+  employees can acknowledge or reserve without changing the result; identified upward feedback
+  requires explicit identity disclosure and shows authorized managers named originals; and exports
+  are pinned to the requested evaluation cycle. Evaluation preparation exposes only source facts,
+  coverage gaps, and editable post-rating wording. Arabic employee evaluation/export remains gated
+  by T016, and future blinded/anonymous upward modes remain disabled.
 - The Product Owner approved creating Project Document v7 as the bounded current source for the real
   Codex dogfood Project. It replaces no history: v1–v6 remain immutable. The v7 design uses seven
   remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
@@ -384,12 +391,12 @@ employee/manager drafts, and every protected visibility boundary.
 
 ## Next Recommended Action
 
-Continue Phase 6 Evaluation with P6-08 and P6-10–P6-14: identified upward feedback,
-preparation-agent closure, fixed-composition and negative-boundary proof, Arabic-gate proof, and
-capability reconciliation. Keep ratings human-only, employee and manager drafts independent,
-and Fact View sources separate from interpretation. Keep the real v7 Project in its honest
-`awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
-merge Pull Requests #29/#30, or retire retained rollback routes.
+Begin Phase 7 with P7-01–P7-03: compose the manager home from existing authorized approvals,
+blockers, ownership gaps, handovers, and project/milestone context, then expose the smallest useful
+owner-domain action. Do not add employee scores, rankings, readiness values, activity-based risk, or
+private employee context. Keep the real v7 Project in its honest `awaiting_information` state; do not
+let activity volume move progress, let AI confirm evidence, merge Pull Requests #29/#30, or retire
+retained rollback routes.
 
 ## Critical References
 

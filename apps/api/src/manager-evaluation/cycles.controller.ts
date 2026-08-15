@@ -2,8 +2,11 @@ import {
   OpenManagerEvaluationCycleInputSchema,
   RecordManagerEvaluationEligibilityDecisionInputSchema,
 } from "@evaluation/contracts";
-import { ManagerEvaluationCycleService } from "@evaluation/manager-evaluation";
-import { Body, Controller, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import {
+  ManagerEvaluationCycleService,
+  ManagerEvaluationParticipantReader,
+} from "@evaluation/manager-evaluation";
+import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 
 import { ManagerEvaluationPolicyGuard } from "./manager-evaluation-policy.guard.js";
 import {
@@ -13,8 +16,13 @@ import {
 
 export class ManagerEvaluationCyclesController {
   private readonly cycles: ManagerEvaluationCycleService;
-  constructor(cycles: ManagerEvaluationCycleService) {
+  private readonly participants: ManagerEvaluationParticipantReader;
+  constructor(
+    cycles: ManagerEvaluationCycleService,
+    participants: ManagerEvaluationParticipantReader,
+  ) {
     this.cycles = cycles;
+    this.participants = participants;
   }
 
   open(
@@ -51,12 +59,24 @@ export class ManagerEvaluationCyclesController {
       actorId: request.principal!.userId,
     });
   }
+
+  readParticipant(
+    request: import("./manager-evaluation-policy.guard.js").ManagerEvaluationRequest,
+    cycleId: string,
+  ) {
+    return this.participants.read({
+      cycleId: parseManagerEvaluationUuid(cycleId),
+      evaluatorId: request.principal!.userId,
+    });
+  }
 }
 
 Controller("api/v1/manager-evaluation/cycles")(ManagerEvaluationCyclesController);
 UseGuards(ManagerEvaluationPolicyGuard)(ManagerEvaluationCyclesController);
 Inject(ManagerEvaluationCycleService)(ManagerEvaluationCyclesController, undefined, 0);
+Inject(ManagerEvaluationParticipantReader)(ManagerEvaluationCyclesController, undefined, 1);
 decorate("open", Post(), [Req(), Body()]);
+decorate("readParticipant", Get(":cycleId/participant-view"), [Req(), Param("cycleId")]);
 decorate("eligibility", Post(":cycleId/eligibility/:evaluatorId"), [
   Req(),
   Param("cycleId"),

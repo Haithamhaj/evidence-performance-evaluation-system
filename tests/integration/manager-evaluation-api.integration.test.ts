@@ -3,6 +3,7 @@ import {
   IdentifiedCompletionReader,
   IdentifiedProjectionPolicy,
   ManagerEvaluationCycleService,
+  ManagerEvaluationParticipantReader,
   ManagerEvaluationSubmissionService,
 } from "@evaluation/manager-evaluation";
 import { Module } from "@nestjs/common";
@@ -58,6 +59,10 @@ Module({
     ManagerEvaluationPolicyGuard,
     { provide: ManagerEvaluationCycleService, useValue: {} },
     {
+      provide: ManagerEvaluationParticipantReader,
+      useFactory: () => new ManagerEvaluationParticipantReader(database),
+    },
+    {
       provide: ManagerEvaluationSubmissionService,
       useFactory: () => new ManagerEvaluationSubmissionService(database),
     },
@@ -105,6 +110,31 @@ afterAll(async () => {
 });
 
 describe("identified manager evaluation protected API", () => {
+  it("shows only the eligible employee their frozen identified form", async () => {
+    const result = await api(
+      "GET",
+      `/api/v1/manager-evaluation/cycles/${fixture.cycleId}/participant-view`,
+      fixture.pendingEmployeeId,
+    );
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      cycle: { id: fixture.cycleId, visibilityMode: "IDENTIFIED" },
+      eligibility: { state: "ELIGIBLE_PENDING" },
+    });
+    expect(
+      (result.body as { criteria: Array<{ stableCriterionId: string }> }).criteria.map(
+        ({ stableCriterionId }) => stableCriterionId,
+      ),
+    ).toEqual(["MGR-01", "MGR-02", "MGR-03", "MGR-04", "MGR-05"]);
+    expect(
+      await api(
+        "GET",
+        `/api/v1/manager-evaluation/cycles/${fixture.cycleId}/participant-view`,
+        fixture.managerId,
+      ),
+    ).toMatchObject({ status: 403 });
+  });
+
   it("shows the frozen manager the named original and leave-aware completion immediately", async () => {
     const result = await api(
       "GET",

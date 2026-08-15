@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { ManagerEvaluationParticipantJourneySchema } from "@evaluation/contracts";
 
 import { OIDC_SESSION_COOKIE, oidcSettings, sessionAccessToken } from "../auth/oidc";
 
@@ -62,32 +63,72 @@ export const IdentifiedManagerViewSchema = z
   .passthrough();
 
 export type IdentifiedManagerView = z.infer<typeof IdentifiedManagerViewSchema>;
+export type ManagerFeedbackExperience =
+  | Readonly<{
+      kind: "participant";
+      journey: z.infer<typeof ManagerEvaluationParticipantJourneySchema>;
+    }>
+  | Readonly<{ kind: "manager"; view: IdentifiedManagerView }>;
+
+export async function fetchManagerFeedbackExperience(input: {
+  cycleId: string;
+  locale: "ar" | "en";
+}): Promise<ManagerFeedbackExperience> {
+  const cycleId = Uuid.parse(input.cycleId);
+  const accessToken = await currentAccessToken(input.locale, cycleId);
+  const participant = await request(
+    accessToken,
+    `/api/v1/manager-evaluation/cycles/${cycleId}/participant-view`,
+  );
+  if (participant.ok) {
+    return {
+      kind: "participant",
+      journey: ManagerEvaluationParticipantJourneySchema.parse(await participant.json()),
+    };
+  }
+  if (participant.status !== 403) {
+    throw new Error(`Manager Evaluation participant request failed: ${participant.status}`);
+  }
+  const manager = await request(
+    accessToken,
+    `/api/v1/manager-evaluation/cycles/${cycleId}/manager-view`,
+  );
+  if (!manager.ok) throw new Error(`Manager Evaluation request failed: ${manager.status}`);
+  return { kind: "manager", view: IdentifiedManagerViewSchema.parse(await manager.json()) };
+}
 
 export async function fetchIdentifiedManagerView(input: { cycleId: string; locale: "ar" | "en" }) {
   const cycleId = Uuid.parse(input.cycleId);
-  const settings = oidcSettings();
-  const cookieStore = await cookies();
-  let accessToken: string;
-  try {
-    accessToken = sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
-  } catch {
-    const loginUrl = new URL("/api/auth/login", settings.redirectUri);
-    loginUrl.searchParams.set("returnTo", `/${input.locale}/manager-feedback/${cycleId}`);
-    redirect(`${loginUrl.pathname}${loginUrl.search}`);
-  }
-  const response = await fetch(
-    `${internalApiBaseUrl()}/api/v1/manager-evaluation/cycles/${cycleId}/manager-view`,
-    {
-      cache: "no-store",
-      headers: {
-        accept: "application/json",
-        authorization: `Bearer ${accessToken}`,
-        "x-correlation-id": randomUUID(),
-      },
-    },
+  const accessToken = await currentAccessToken(input.locale, cycleId);
+  const response = await request(
+    accessToken,
+    `/api/v1/manager-evaluation/cycles/${cycleId}/manager-view`,
   );
   if (!response.ok) throw new Error(`Manager Evaluation request failed: ${response.status}`);
   return IdentifiedManagerViewSchema.parse(await response.json());
+}
+
+async function currentAccessToken(locale: "ar" | "en", cycleId: string) {
+  const settings = oidcSettings();
+  const cookieStore = await cookies();
+  try {
+    return sessionAccessToken(cookieStore.get(OIDC_SESSION_COOKIE)?.value ?? "", settings);
+  } catch {
+    const loginUrl = new URL("/api/auth/login", settings.redirectUri);
+    loginUrl.searchParams.set("returnTo", `/${locale}/manager-feedback/${cycleId}`);
+    redirect(`${loginUrl.pathname}${loginUrl.search}`);
+  }
+}
+
+function request(accessToken: string, path: string) {
+  return fetch(`${internalApiBaseUrl()}${path}`, {
+    cache: "no-store",
+    headers: {
+      accept: "application/json",
+      authorization: `Bearer ${accessToken}`,
+      "x-correlation-id": randomUUID(),
+    },
+  });
 }
 
 function internalApiBaseUrl() {
