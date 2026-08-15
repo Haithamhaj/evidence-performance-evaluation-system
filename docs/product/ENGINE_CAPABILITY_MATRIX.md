@@ -50,16 +50,16 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 
 ## Manager capability view
 
-| Manager outcome                                                | Register IDs     | Baseline | Missing dependency or constraint                              |
-| -------------------------------------------------------------- | ---------------- | -------- | ------------------------------------------------------------- |
-| See operational action queues without employee scoring         | CAP-023          | Complete | Final manager UX not designed                                 |
-| Read source-supported employee facts without readiness leakage | CAP-024, CAP-028 | Complete | English fact-first manager journey complete                   |
-| Independently assess an employee                               | CAP-028, CAP-030 | Complete | Independent human manager journey complete                    |
-| Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete | Human-only finalization journey complete                      |
-| Read identified upward feedback truthfully                     | CAP-033          | Complete | Named originals and completion are available to the manager   |
-| Support coaching and formal development                        | CAP-035–036      | Complete | Bounded shared-action support verified; production UI remains |
-| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Final manager frontend remains                                |
-| Generate authorized reports without ranking                    | CAP-032          | Complete | Live storage configuration; Arabic evaluation blocked at T016 |
+| Manager outcome                                                | Register IDs     | Baseline | Missing dependency or constraint                                 |
+| -------------------------------------------------------------- | ---------------- | -------- | ---------------------------------------------------------------- |
+| See operational action queues without employee scoring         | CAP-023          | Complete | Command Brief home, Project context, and source details complete |
+| Read source-supported employee facts without readiness leakage | CAP-024, CAP-028 | Complete | English fact-first manager journey complete                      |
+| Independently assess an employee                               | CAP-028, CAP-030 | Complete | Independent human manager journey complete                       |
+| Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete | Human-only finalization journey complete                         |
+| Read identified upward feedback truthfully                     | CAP-033          | Complete | Named originals and completion are available to the manager      |
+| Support coaching and formal development                        | CAP-035–036      | Complete | Bounded shared-action support verified; production UI remains    |
+| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Final manager frontend remains                                   |
+| Generate authorized reports without ranking                    | CAP-032          | Complete | Live storage configuration; Arabic evaluation blocked at T016    |
 
 ## System administrator and operations capability view
 

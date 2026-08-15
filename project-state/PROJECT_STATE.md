@@ -349,6 +349,12 @@ authority, and leave fairness.
   are pinned to the requested evaluation cycle. Evaluation preparation exposes only source facts,
   coverage gaps, and editable post-rating wording. Arabic employee evaluation/export remains gated
   by T016, and future blinded/anonymous upward modes remain disabled.
+- Phase 7 P7-01–P7-03 are technically complete in the selected Command Brief experience. The manager
+  home composes only authorized approvals, blockers, ownership gaps, handovers, and commitments into
+  compact action queues; each detail explains its source, freshness, operational impact, and the
+  smallest existing owner-domain action. Portfolio context groups interventions by Project and never
+  exposes an employee score, readiness value, ranking, or private connected-work context. The
+  continuity route remains a deep link until P7-05–P7-08 complete the leave and handover journey.
 - The Product Owner approved creating Project Document v7 as the bounded current source for the real
   Codex dogfood Project. It replaces no history: v1–v6 remain immutable. The v7 design uses seven
   remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
@@ -391,12 +397,12 @@ authority, and leave fairness.
 
 ## Next Recommended Action
 
-Begin Phase 7 with P7-01–P7-03: compose the manager home from existing authorized approvals,
-blockers, ownership gaps, handovers, and project/milestone context, then expose the smallest useful
-owner-domain action. Do not add employee scores, rankings, readiness values, activity-based risk, or
-private employee context. Keep the real v7 Project in its honest `awaiting_information` state; do not
-let activity volume move progress, let AI confirm evidence, merge Pull Requests #29/#30, or retire
-retained rollback routes.
+Continue Phase 7 with P7-04–P7-06: add source-backed coaching support, leave review, and handover
+continuity to the completed manager Command Brief without introducing employee scores, readiness
+values, activity-based risk, or private employee context. AI may prepare and explain an operational
+draft, but the authorized human keeps every coaching, leave, and handover decision. Keep the real v7
+Project in its honest `awaiting_information` state; do not let activity volume move progress, let AI
+confirm evidence, merge Pull Requests #29/#30, or retire retained rollback routes.
 
 ## Critical References
 

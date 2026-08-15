@@ -160,11 +160,13 @@ const WebManagerOperationItemSchema = z
       "ownership_missing",
       "commitment_upcoming",
     ]),
+    observedAt: z.iso.datetime({ offset: true }),
     dueAt: z.iso.datetime({ offset: true }).optional(),
   })
   .strict();
 export const WebManagerOperationsSchema = z
   .object({
+    generatedAt: z.iso.datetime({ offset: true }),
     approvalsWaiting: z.array(WebManagerOperationItemSchema),
     blockedProjects: z.array(WebManagerOperationItemSchema),
     ambiguousProgressEvidence: z.array(WebManagerOperationItemSchema),
@@ -172,6 +174,7 @@ export const WebManagerOperationsSchema = z
     upcomingCommitments: z.array(WebManagerOperationItemSchema),
     readinessHref: z.literal("/manager/readiness"),
     evaluationHref: z.literal("/manager/evaluations"),
+    continuityHref: z.literal("/continuity"),
   })
   .strict();
 export const WebCurrentUserSchema = z.object({ userId: WebUuidSchema }).passthrough();

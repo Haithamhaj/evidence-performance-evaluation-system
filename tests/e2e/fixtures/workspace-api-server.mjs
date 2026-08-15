@@ -3422,12 +3422,14 @@ function resetSliceFiveAcceptanceState() {
 
 function managerOperations() {
   return {
+    generatedAt: "2026-08-15T09:00:00.000Z",
     approvalsWaiting: [
       {
         id: "f1111111-1111-4111-8111-111111111111",
         projectId: dogfoodProjectId,
         projectName: "Evidence Performance System — Phase 2",
         detailKey: "approval_waiting",
+        observedAt: "2026-08-15T08:55:00.000Z",
       },
     ],
     blockedProjects: [
@@ -3436,6 +3438,7 @@ function managerOperations() {
         projectId,
         projectName: "Atlas Delivery",
         detailKey: "project_paused",
+        observedAt: "2026-08-15T08:50:00.000Z",
       },
     ],
     ambiguousProgressEvidence: [
@@ -3445,6 +3448,7 @@ function managerOperations() {
         projectName: "Atlas Delivery",
         label: "Release evidence needs one owner decision",
         detailKey: "progress_source_ambiguous",
+        observedAt: "2026-08-15T08:45:00.000Z",
       },
     ],
     ownershipGaps: [
@@ -3453,6 +3457,7 @@ function managerOperations() {
         projectId,
         projectName: "Atlas Delivery",
         detailKey: "ownership_missing",
+        observedAt: "2026-08-15T08:40:00.000Z",
       },
     ],
     upcomingCommitments: [
@@ -3462,11 +3467,13 @@ function managerOperations() {
         projectName: "Atlas Delivery",
         label: "Product owner acceptance",
         detailKey: "commitment_upcoming",
+        observedAt: "2026-08-15T08:35:00.000Z",
         dueAt: "2026-08-07T12:00:00.000Z",
       },
     ],
     readinessHref: "/manager/readiness",
     evaluationHref: "/manager/evaluations",
+    continuityHref: "/continuity",
   };
 }
 

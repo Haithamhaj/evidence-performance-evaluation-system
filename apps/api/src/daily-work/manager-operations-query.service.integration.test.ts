@@ -18,6 +18,7 @@ describe("ManagerOperationsQueryService", () => {
             projectId,
             projectName: "Customer workspace",
             detailKey: "approval_waiting" as const,
+            observedAt: "2026-08-15T08:55:00.000Z",
           },
         ],
         blockedProjects: [
@@ -26,6 +27,7 @@ describe("ManagerOperationsQueryService", () => {
             projectId,
             projectName: "Customer workspace",
             detailKey: "project_paused" as const,
+            observedAt: "2026-08-15T08:50:00.000Z",
           },
         ],
         ambiguousProgressEvidence: [],
@@ -33,13 +35,18 @@ describe("ManagerOperationsQueryService", () => {
         upcomingCommitments: [],
       })),
     };
-    const service = new ManagerOperationsQueryService(source);
+    const service = new ManagerOperationsQueryService(
+      source,
+      () => new Date("2026-08-15T09:00:00.000Z"),
+    );
 
     const result = await service.load(managerId);
     const serialized = JSON.stringify(result);
 
     expect(result.approvalsWaiting).toHaveLength(1);
     expect(result.blockedProjects).toHaveLength(1);
+    expect(result.generatedAt).toBe("2026-08-15T09:00:00.000Z");
+    expect(result.approvalsWaiting[0]?.observedAt).toBe("2026-08-15T08:55:00.000Z");
     expect(result.readinessHref).toBe("/manager/readiness");
     expect(result.evaluationHref).toBe("/manager/evaluations");
     expect(serialized).not.toMatch(

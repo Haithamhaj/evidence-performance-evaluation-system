@@ -15,6 +15,7 @@ export type ManagerOperationItem = Readonly<{
   projectName: string;
   label?: string;
   detailKey: ManagerOperationDetailKey;
+  observedAt: string;
   dueAt?: string;
 }>;
 
@@ -45,8 +46,10 @@ export class ManagerOperationsQueryService {
     const queues = await this.source.load({ managerId, at: at.toISOString() });
     return {
       ...queues,
+      generatedAt: at.toISOString(),
       readinessHref: "/manager/readiness" as const,
       evaluationHref: "/manager/evaluations" as const,
+      continuityHref: "/continuity" as const,
     };
   }
 }
@@ -82,12 +85,12 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
           ownerId: input.managerId,
           project: { departmentId: { in: departmentIds } },
         },
-        select: { id: true, projectId: true, project: { select: { name: true } } },
+        select: { id: true, projectId: true, createdAt: true, project: { select: { name: true } } },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       }),
       this.client.project.findMany({
         where: { departmentId: { in: departmentIds }, status: "paused" },
-        select: { id: true, name: true },
+        select: { id: true, name: true, updatedAt: true },
         orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
       }),
       this.client.progressRecalculationRequest.findMany({
@@ -101,6 +104,7 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
         select: {
           id: true,
           state: true,
+          createdAt: true,
           contract: {
             select: { projectId: true, project: { select: { name: true } } },
           },
@@ -120,7 +124,7 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
             },
           },
         },
-        select: { id: true, name: true },
+        select: { id: true, name: true, updatedAt: true },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       }),
       this.client.workItem.findMany({
@@ -134,6 +138,7 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
           projectId: true,
           title: true,
           dueAt: true,
+          updatedAt: true,
           project: { select: { name: true } },
         },
         orderBy: [{ dueAt: "asc" }, { id: "asc" }],
@@ -145,12 +150,14 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
         projectId: item.projectId,
         projectName: item.project.name,
         detailKey: "approval_waiting",
+        observedAt: item.createdAt.toISOString(),
       })),
       blockedProjects: blocked.map((project) => ({
         id: project.id,
         projectId: project.id,
         projectName: project.name,
         detailKey: "project_paused",
+        observedAt: project.updatedAt.toISOString(),
       })),
       ambiguousProgressEvidence: uniqueProjects(
         ambiguous.flatMap((item) =>
@@ -162,6 +169,7 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
                   projectId: item.contract.projectId,
                   projectName: item.contract.project.name,
                   detailKey: "progress_source_ambiguous" as const,
+                  observedAt: item.createdAt.toISOString(),
                 },
               ],
         ),
@@ -171,6 +179,7 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
         projectId: project.id,
         projectName: project.name,
         detailKey: "ownership_missing",
+        observedAt: project.updatedAt.toISOString(),
       })),
       upcomingCommitments: commitments.map((item) => ({
         id: item.id,
@@ -178,6 +187,7 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
         projectName: item.project.name,
         label: item.title,
         detailKey: "commitment_upcoming",
+        observedAt: item.updatedAt.toISOString(),
         ...(item.dueAt === null ? {} : { dueAt: item.dueAt.toISOString() }),
       })),
     };

@@ -1,8 +1,10 @@
 import { createElement } from "react";
 
 import { ActionQueue, type ManagerOperationItemView } from "./action-queue";
+import styles from "./manager-operations.module.css";
 
 export type ManagerOperationsView = Readonly<{
+  generatedAt: string;
   approvalsWaiting: readonly ManagerOperationItemView[];
   blockedProjects: readonly ManagerOperationItemView[];
   ambiguousProgressEvidence: readonly ManagerOperationItemView[];
@@ -10,6 +12,7 @@ export type ManagerOperationsView = Readonly<{
   upcomingCommitments: readonly ManagerOperationItemView[];
   readinessHref: "/manager/readiness";
   evaluationHref: "/manager/evaluations";
+  continuityHref: "/continuity";
 }>;
 
 export function ManagerOperationsClient({
@@ -28,29 +31,108 @@ export function ManagerOperationsClient({
     ["managerOps.ownership", view.ownershipGaps],
     ["managerOps.upcoming", view.upcomingCommitments],
   ] as const;
+  const actionCount = queues.reduce((total, [, items]) => total + items.length, 0);
+  const portfolio = [
+    ...new Map(
+      queues.flatMap(([, items]) => items).map((item) => [item.projectId, item.projectName]),
+    ).entries(),
+  ];
   return (
-    <section className="dailyWorkPage" aria-labelledby="manager-operations-heading">
-      <header className="compactPageHeading">
-        <div>
-          <p className="eyebrow">{catalog["managerOps.eyebrow"]}</p>
-          <h1 id="manager-operations-heading">{catalog["managerOps.title"]}</h1>
-          <p>{catalog["managerOps.subtitle"]}</p>
+    <section
+      className={styles.workspace!}
+      aria-labelledby="manager-operations-heading"
+      data-testid="manager-operations-home"
+      dir={locale === "ar" ? "rtl" : "ltr"}
+    >
+      <main className={styles.main!}>
+        <header className={styles.hero!}>
+          <div>
+            <p className="eyebrow">{catalog["managerOps.eyebrow"]}</p>
+            <h1 id="manager-operations-heading">{catalog["managerOps.title"]}</h1>
+            <p>{catalog["managerOps.subtitle"]}</p>
+          </div>
+          <div className={styles.signals!} aria-label={catalog["managerOps.summary"]}>
+            <strong>
+              {catalog["managerOps.openActions"].replace("{count}", String(actionCount))}
+            </strong>
+            <span>
+              {catalog["managerOps.projectsNeedAttention"].replace(
+                "{count}",
+                String(portfolio.length),
+              )}
+            </span>
+            <time dateTime={view.generatedAt}>
+              {catalog["managerOps.updated"]} {formatTime(view.generatedAt, locale)}
+            </time>
+          </div>
+        </header>
+        <nav className={styles.pathLinks!} aria-label={catalog["managerOps.separatePaths"]}>
+          <a className="secondaryLink" href={`/${locale}${view.readinessHref}`}>
+            {catalog["managerOps.readiness"]}
+          </a>
+          <a className="secondaryLink" href={`/${locale}${view.evaluationHref}`}>
+            {catalog["managerOps.evaluation"]}
+          </a>
+          <a className="secondaryLink" href={`/${locale}${view.continuityHref}`}>
+            {catalog["managerOps.continuity"]}
+          </a>
+        </nav>
+        <section className={styles.portfolio!} aria-labelledby="manager-portfolio-title">
+          <div>
+            <p className="eyebrow">{catalog["managerOps.portfolioEyebrow"]}</p>
+            <h2 id="manager-portfolio-title">{catalog["managerOps.portfolio"]}</h2>
+          </div>
+          {portfolio.length === 0 ? (
+            <p>{catalog["managerOps.empty"]}</p>
+          ) : (
+            <ul>
+              {portfolio.map(([projectId, projectName]) => (
+                <li key={projectId}>
+                  <a href={`/${locale}/projects/${projectId}`}>{projectName}</a>
+                  <span>
+                    {catalog["managerOps.interventions"].replace(
+                      "{count}",
+                      String(
+                        queues
+                          .flatMap(([, items]) => items)
+                          .filter((item) => item.projectId === projectId).length,
+                      ),
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <div className={styles.queueGrid!}>
+          {queues.map(([titleKey, items]) =>
+            createElement(ActionQueue, { catalog, items, key: titleKey, locale, styles, titleKey }),
+          )}
         </div>
-      </header>
-      <nav className="managerPathLinks" aria-label={catalog["managerOps.separatePaths"]}>
-        <a className="secondaryLink" href={`/${locale}${view.readinessHref}`}>
-          {catalog["managerOps.readiness"]}
+        <p className={styles.boundary!}>{catalog["managerOps.boundary"]}</p>
+      </main>
+      <aside className={styles.brief!} aria-label={catalog["managerOps.brief"]}>
+        <p className="eyebrow">{catalog["managerOps.brief"]}</p>
+        <h2>{catalog["managerOps.briefTitle"]}</h2>
+        <p>
+          {actionCount === 0
+            ? catalog["managerOps.briefEmpty"]
+            : catalog["managerOps.briefBody"].replace("{count}", String(actionCount))}
+        </p>
+        <strong>{catalog["managerOps.nextBestStep"]}</strong>
+        <p>{catalog["managerOps.nextBestStepBody"]}</p>
+        <a className={styles.primaryAction!} href="#manager-queue-approvals">
+          {catalog["managerOps.reviewFirstAction"]}
         </a>
-        <a className="secondaryLink" href={`/${locale}${view.evaluationHref}`}>
-          {catalog["managerOps.evaluation"]}
-        </a>
-      </nav>
-      <div className="managerQueueGrid">
-        {queues.map(([titleKey, items]) =>
-          createElement(ActionQueue, { catalog, items, key: titleKey, locale, titleKey }),
-        )}
-      </div>
-      <p className="boundaryNote">{catalog["managerOps.boundary"]}</p>
+        <small>{catalog["managerOps.assistantBoundary"]}</small>
+      </aside>
     </section>
   );
+}
+
+function formatTime(value: string, locale: "ar" | "en") {
+  return new Intl.DateTimeFormat(locale === "ar" ? "ar-SA" : "en-GB", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
