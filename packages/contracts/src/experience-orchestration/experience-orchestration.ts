@@ -105,7 +105,39 @@ export const ExperienceOrchestrationJobSchema = z
   })
   .strict();
 
+export const SuggestionFeedbackCategorySchema = z.enum([
+  "HELPFUL",
+  "WRONG_PROJECT",
+  "WRONG_SOURCE_RELATION",
+  "UNNECESSARY",
+  "MISSING_CONTEXT",
+  "BAD_DRAFT",
+  "WRONG_TIMING",
+  "TECHNICAL_ERROR",
+]);
+
+export const SuggestionFeedbackInputSchema = z
+  .object({
+    idempotencyKey: UuidSchema,
+    category: SuggestionFeedbackCategorySchema,
+    surface: z.literal("work_prepared_item"),
+  })
+  .strict();
+
+export const SuggestionFeedbackReceiptSchema = z
+  .object({
+    id: UuidSchema,
+    preparedItemId: UuidSchema,
+    category: SuggestionFeedbackCategorySchema,
+    createdAt: UtcInstantSchema,
+    replay: z.boolean(),
+  })
+  .strict();
+
 export type ExperienceOrchestrationState = z.infer<typeof ExperienceOrchestrationStateSchema>;
 export type PreparedExperienceItem = z.infer<typeof PreparedExperienceItemSchema>;
 export type PreparedExperienceComposition = z.infer<typeof PreparedExperienceCompositionSchema>;
 export type ExperienceOrchestrationJob = z.infer<typeof ExperienceOrchestrationJobSchema>;
+export type SuggestionFeedbackCategory = z.infer<typeof SuggestionFeedbackCategorySchema>;
+export type SuggestionFeedbackInput = z.infer<typeof SuggestionFeedbackInputSchema>;
+export type SuggestionFeedbackReceipt = z.infer<typeof SuggestionFeedbackReceiptSchema>;

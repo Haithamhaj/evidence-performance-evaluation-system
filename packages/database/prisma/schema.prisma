@@ -45,10 +45,11 @@ model User {
   createdTemplateVersions                    DocumentTemplateVersion[]              @relation("DocumentTemplateVersionCreatedBy")
   createdUploadedSources                     UploadedSource[]                       @relation("UploadedSourceCreatedBy")
   privateCaptureUploads                      PrivateCaptureUpload[]                 @relation("PrivateCaptureUploadOwner")
-  workSignalReceipts                        WorkSignalReceipt[]                     @relation("WorkSignalRecipient")
-  workflowEventsAsActor                     ExperienceWorkflowEventReceipt[]        @relation("ExperienceWorkflowEventActor")
-  workflowEventsAsRecipient                 ExperienceWorkflowEventReceipt[]        @relation("ExperienceWorkflowEventRecipient")
-  preparedExperienceItems                   ExperiencePreparedItem[]                 @relation("ExperiencePreparedItemEmployee")
+  workSignalReceipts                         WorkSignalReceipt[]                    @relation("WorkSignalRecipient")
+  workflowEventsAsActor                      ExperienceWorkflowEventReceipt[]       @relation("ExperienceWorkflowEventActor")
+  workflowEventsAsRecipient                  ExperienceWorkflowEventReceipt[]       @relation("ExperienceWorkflowEventRecipient")
+  preparedExperienceItems                    ExperiencePreparedItem[]               @relation("ExperiencePreparedItemEmployee")
+  experienceSuggestionFeedback               ExperienceSuggestionFeedback[]         @relation("ExperienceSuggestionFeedbackEmployee")
   voiceUpdateSessions                        VoiceUpdateSession[]                   @relation("VoiceUpdateSessionEmployee")
   voiceTranscriptConfirmations               VoiceTranscriptConfirmation[]          @relation("VoiceTranscriptConfirmationEmployee")
   createdDocumentRecords                     DocumentRecord[]                       @relation("DocumentRecordCreatedBy")
@@ -196,8 +197,8 @@ model User {
   adminMutationReceipts                      AdminMutationReceipt[]                 @relation("AdminMutationActor")
   createdRetentionPolicyVersions             RetentionPolicyVersion[]               @relation("RetentionPolicyVersionCreatedBy")
   retentionPolicyTransitions                 RetentionPolicyTransition[]            @relation("RetentionPolicyTransitionActor")
-  placedRetentionHolds                       RetentionHold[]                         @relation("RetentionHoldPlacedBy")
-  releasedRetentionHolds                     RetentionHold[]                         @relation("RetentionHoldReleasedBy")
+  placedRetentionHolds                       RetentionHold[]                        @relation("RetentionHoldPlacedBy")
+  releasedRetentionHolds                     RetentionHold[]                        @relation("RetentionHoldReleasedBy")
   createdAt                                  DateTime                               @default(now()) @db.Timestamptz(6)
   updatedAt                                  DateTime                               @updatedAt @db.Timestamptz(6)
 }
@@ -339,32 +340,32 @@ model WorkSignalReceipt {
 }
 
 model ExperienceWorkflowEventReceipt {
-  id               String   @id @db.Uuid
-  schemaVersion    Int
-  eventType        String
-  actorId          String   @db.Uuid
-  actor            User     @relation("ExperienceWorkflowEventActor", fields: [actorId], references: [id], onDelete: Restrict)
-  recipientId      String   @db.Uuid
-  recipient        User     @relation("ExperienceWorkflowEventRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
-  entityRef        Json
-  operationId      String?  @db.Uuid
-  idempotencyKey   String   @unique
-  payloadHash      String
+  id              String   @id @db.Uuid
+  schemaVersion   Int
+  eventType       String
+  actorId         String   @db.Uuid
+  actor           User     @relation("ExperienceWorkflowEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+  recipientId     String   @db.Uuid
+  recipient       User     @relation("ExperienceWorkflowEventRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  entityRef       Json
+  operationId     String?  @db.Uuid
+  idempotencyKey  String   @unique
+  payloadHash     String
   expectedVersion Int?
-  safeReasonCode   String
-  correlationId    String   @db.Uuid
-  occurredAt       DateTime @db.Timestamptz(6)
-  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  safeReasonCode  String
+  correlationId   String   @db.Uuid
+  occurredAt      DateTime @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([recipientId, occurredAt, id])
   @@index([correlationId])
 }
 
 model ExperiencePreparedItem {
-  id               String   @id @db.Uuid
-  employeeId       String   @db.Uuid
-  employee         User     @relation("ExperiencePreparedItemEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  idempotencyKey   String   @unique @db.Uuid
+  id               String                         @id @db.Uuid
+  employeeId       String                         @db.Uuid
+  employee         User                           @relation("ExperiencePreparedItemEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  idempotencyKey   String                         @unique @db.Uuid
   schemaVersion    String
   state            String
   kind             String
@@ -375,10 +376,29 @@ model ExperiencePreparedItem {
   editableDraft    Json
   assistanceMode   String
   assistanceLabel  String
-  outputReference  String   @unique
-  correlationId    String   @db.Uuid
-  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  outputReference  String                         @unique
+  correlationId    String                         @db.Uuid
+  createdAt        DateTime                       @default(now()) @db.Timestamptz(6)
+  feedback         ExperienceSuggestionFeedback[]
 
+  @@index([employeeId, createdAt, id])
+  @@index([correlationId])
+}
+
+model ExperienceSuggestionFeedback {
+  id              String                 @id @db.Uuid
+  preparedItemId  String                 @db.Uuid
+  preparedItem    ExperiencePreparedItem @relation(fields: [preparedItemId], references: [id], onDelete: Restrict)
+  employeeId      String                 @db.Uuid
+  employee        User                   @relation("ExperienceSuggestionFeedbackEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  idempotencyKey  String                 @unique @db.Uuid
+  category        String
+  surface         String
+  outputReference String
+  correlationId   String                 @db.Uuid
+  createdAt       DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@index([preparedItemId, createdAt, id])
   @@index([employeeId, createdAt, id])
   @@index([correlationId])
 }
@@ -977,11 +997,11 @@ model WorkItem {
   updatedAt             DateTime                    @updatedAt @db.Timestamptz(6)
 
   @@unique([id, projectId])
+  @@unique([createdById, clientRequestId], map: "WorkItem_createdById_clientRequestId_key")
   @@index([projectId, status, createdAt])
   @@index([workstreamId, status, createdAt])
   @@index([assigneeId, status, dueAt])
   @@index([createdById, createdAt])
-  @@unique([createdById, clientRequestId], map: "WorkItem_createdById_clientRequestId_key")
 }
 
 model WorkItemChecklistItem {
@@ -999,20 +1019,20 @@ model WorkItemChecklistItem {
 }
 
 model PrivateInboxItem {
-  id                 String             @id @default(uuid()) @db.Uuid
-  employeeId         String             @db.Uuid
-  employee           User               @relation("PrivateInboxEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  id                 String                   @id @default(uuid()) @db.Uuid
+  employeeId         String                   @db.Uuid
+  employee           User                     @relation("PrivateInboxEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
   text               String
-  projectId          String?            @db.Uuid
-  project            Project?           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  projectId          String?                  @db.Uuid
+  project            Project?                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
   sourceType         PrivateCaptureSourceType @default(text)
-  sourceUploadId     String?            @db.Uuid
-  status             PrivateInboxStatus @default(open)
-  promotedWorkItemId String?            @unique @db.Uuid
-  promotedWorkItem   WorkItem?          @relation("PrivateInboxPromotion", fields: [promotedWorkItemId], references: [id], onDelete: Restrict)
-  version            Int                @default(1)
-  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
+  sourceUploadId     String?                  @db.Uuid
+  status             PrivateInboxStatus       @default(open)
+  promotedWorkItemId String?                  @unique @db.Uuid
+  promotedWorkItem   WorkItem?                @relation("PrivateInboxPromotion", fields: [promotedWorkItemId], references: [id], onDelete: Restrict)
+  version            Int                      @default(1)
+  createdAt          DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                 @updatedAt @db.Timestamptz(6)
 
   @@index([employeeId, status, createdAt(sort: Desc), id])
   @@index([projectId, status, createdAt(sort: Desc)])
@@ -5556,25 +5576,25 @@ model NotificationDeliveryAttempt {
 }
 
 model ExportRequest {
-  id              String          @id @default(uuid()) @db.Uuid
-  schemaVersion   Int             @default(1)
-  requesterId     String          @db.Uuid
-  requester       User            @relation("ExportRequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
-  idempotencyKey  String          @db.Uuid
-  reportType      String
-  audience        String
-  format          String
-  locale          String
-  timezone        String
-  cycleId         String?         @db.Uuid
-  state           ExportState     @default(REQUESTED)
-  failureCategory String?
-  attemptCount    Int             @default(0)
-  generationToken String?         @db.Uuid
-  generationLeaseUntil DateTime?  @db.Timestamptz(6)
-  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
-  manifest        ExportManifest?
+  id                   String          @id @default(uuid()) @db.Uuid
+  schemaVersion        Int             @default(1)
+  requesterId          String          @db.Uuid
+  requester            User            @relation("ExportRequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  idempotencyKey       String          @db.Uuid
+  reportType           String
+  audience             String
+  format               String
+  locale               String
+  timezone             String
+  cycleId              String?         @db.Uuid
+  state                ExportState     @default(REQUESTED)
+  failureCategory      String?
+  attemptCount         Int             @default(0)
+  generationToken      String?         @db.Uuid
+  generationLeaseUntil DateTime?       @db.Timestamptz(6)
+  createdAt            DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime        @updatedAt @db.Timestamptz(6)
+  manifest             ExportManifest?
 
   @@unique([requesterId, idempotencyKey])
   @@index([state, createdAt])

@@ -11,8 +11,16 @@ import {
   listConnectedWorkContext,
   type ConnectedWorkContext,
 } from "../../platform/connected-work-context-api";
-import { loadPreparedExperience } from "../../platform/experience-orchestration-api";
-import type { WebPreparedExperienceComposition } from "../../platform/experience-orchestration-contracts";
+import {
+  loadPreparedExperience,
+  recordPreparedExperienceFeedback,
+} from "../../platform/experience-orchestration-api";
+import type {
+  WebPreparedExperienceComposition,
+  WebSuggestionFeedbackCategory,
+  WebSuggestionFeedbackInput,
+  WebSuggestionFeedbackReceipt,
+} from "../../platform/experience-orchestration-contracts";
 import {
   createWorkItem,
   listWorkItems,
@@ -51,6 +59,10 @@ export type WorkWorkspaceGateway = Readonly<{
   loadContext(input: { itemId: string; projectId: string }): Promise<WorkItemContext>;
   loadConnectedContext(): Promise<ConnectedWorkContext>;
   loadPrepared(): Promise<WebPreparedExperienceComposition>;
+  recordPreparedFeedback(
+    id: string,
+    input: WebSuggestionFeedbackInput,
+  ): Promise<WebSuggestionFeedbackReceipt>;
   loadDependencies(id: string): Promise<WorkItemDependencies>;
   replaceDependencies(
     id: string,
@@ -79,6 +91,7 @@ const defaultGateway: WorkWorkspaceGateway = {
   loadContext: loadWorkItemContext,
   loadConnectedContext: listConnectedWorkContext,
   loadPrepared: loadPreparedExperience,
+  recordPreparedFeedback: recordPreparedExperienceFeedback,
   loadDependencies: loadWorkItemDependencies,
   replaceDependencies: replaceWorkItemDependencies,
   transition: transitionWorkItem,
@@ -899,6 +912,7 @@ export function WorkWorkspace({
           catalog={catalog}
           item={prepared.items[0]}
           locale={locale}
+          onFeedback={(id, input) => gateway.recordPreparedFeedback(id, input)}
           onOpen={(id) => select(id)}
         />
       )}
@@ -1087,19 +1101,37 @@ function PreparedWorkAction({
   catalog,
   item,
   locale,
+  onFeedback,
   onOpen,
 }: Readonly<{
   catalog: Catalog;
   item: import("../../platform/experience-orchestration-contracts").WebPreparedExperienceItem;
   locale: "ar" | "en";
+  onFeedback(id: string, input: WebSuggestionFeedbackInput): Promise<unknown>;
   onOpen(id: string): void;
 }>) {
+  const [feedbackState, setFeedbackState] = useState<
+    "idle" | "choosing" | "saving" | "done" | "error"
+  >("idle");
   const source = item.sourceReferences[0] ?? "";
   const taskId = source.startsWith("work-item:") ? source.slice("work-item:".length) : null;
   const projectReference = item.sourceReferences.find((reference) =>
     reference.startsWith("project:"),
   );
   const projectId = projectReference?.slice("project:".length) ?? null;
+  const submitFeedback = async (category: WebSuggestionFeedbackCategory) => {
+    setFeedbackState("saving");
+    try {
+      await onFeedback(item.id, {
+        idempotencyKey: crypto.randomUUID(),
+        category,
+        surface: "work_prepared_item",
+      });
+      setFeedbackState("done");
+    } catch {
+      setFeedbackState("error");
+    }
+  };
   return (
     <section className={styles.preparedAction!}>
       <div>
@@ -1135,9 +1167,54 @@ function PreparedWorkAction({
           {catalog["work.prepared.openUpdate"]}
         </a>
       )}
+      <div className={styles.preparedFeedback!}>
+        <span>{catalog["work.prepared.feedbackPrompt"]}</span>
+        {feedbackState === "done" ? (
+          <p role="status">{catalog["work.prepared.feedbackThanks"]}</p>
+        ) : (
+          <>
+            <button
+              disabled={feedbackState === "saving"}
+              onClick={() => void submitFeedback("HELPFUL")}
+              type="button"
+            >
+              {catalog["work.prepared.feedbackHelpful"]}
+            </button>
+            <button
+              disabled={feedbackState === "saving"}
+              onClick={() => setFeedbackState("choosing")}
+              type="button"
+            >
+              {catalog["work.prepared.feedbackImprove"]}
+            </button>
+          </>
+        )}
+        {feedbackState === "choosing" ? (
+          <div aria-label={catalog["work.prepared.feedbackImprove"]} role="group">
+            {feedbackCategories.map((category) => (
+              <button key={category} onClick={() => void submitFeedback(category)} type="button">
+                {catalog[`work.prepared.feedback.${category}`]}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {feedbackState === "error" ? (
+          <p role="alert">{catalog["work.prepared.feedbackError"]}</p>
+        ) : null}
+      </div>
     </section>
   );
 }
+
+const feedbackCategories = [
+  "WRONG_PROJECT",
+  "WRONG_SOURCE_RELATION",
+  "UNNECESSARY",
+  "MISSING_CONTEXT",
+  "BAD_DRAFT",
+  "WRONG_TIMING",
+  "TECHNICAL_ERROR",
+] as const satisfies readonly WebSuggestionFeedbackCategory[];
 
 type PersonalWorkView = Readonly<{
   id: string;

@@ -160,6 +160,9 @@ routes before parity evidence.
   boundaries pass; AI, Google, GitHub, email, storage, queue, and API outages retain truthful recovery;
   and the final employee surfaces, receipts, source review, and continuity can be disabled
   independently. No retained route was removed.
+- Phase 9 P9-09 is complete: employees can mark a prepared Work suggestion helpful or select one
+  bounded improvement category. The append-only receipt is owner-bound, content-free, trace-linked,
+  idempotent, and cannot become employee performance, Project progress, Evidence, or AI authority.
 - The first Phase 2 Work bundle is complete: the authorized query now supports Project/status/search
   filters, sort, accurate counts, and a compact keyboard list. The local employee preview is now
   dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
@@ -432,8 +435,8 @@ routes before parity evidence.
 
 ## Next Recommended Action
 
-Continue Phase 9 with one compact P9-04/P9-06/P9-07/P9-08 release-evidence pass, then build P9-09
-trace-safe in-product suggestion feedback. Keep unavailable administrator capabilities fail-closed
+Continue Phase 9 with one compact P9-04/P9-06/P9-07/P9-08 release-evidence pass, then close the
+bounded P9-10–P9-13 internal-pilot operations and guides. Keep unavailable administrator capabilities fail-closed
 until their owning domains expose real commands; do not add generic mutation forms. Keep analytics
 outside manager judgment, evaluation authority, Project progress calculation, and private employee context. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,

@@ -8,6 +8,35 @@ const OpaqueSourceReferenceSchema = z
   .max(256)
   .regex(/^[a-z][a-z0-9._-]{0,63}:(?:[0-9]{1,20}|[A-Fa-f0-9-]{32,64})$/u);
 
+export const WebSuggestionFeedbackCategorySchema = z.enum([
+  "HELPFUL",
+  "WRONG_PROJECT",
+  "WRONG_SOURCE_RELATION",
+  "UNNECESSARY",
+  "MISSING_CONTEXT",
+  "BAD_DRAFT",
+  "WRONG_TIMING",
+  "TECHNICAL_ERROR",
+]);
+
+export const WebSuggestionFeedbackInputSchema = z
+  .object({
+    idempotencyKey: UuidSchema,
+    category: WebSuggestionFeedbackCategorySchema,
+    surface: z.literal("work_prepared_item"),
+  })
+  .strict();
+
+export const WebSuggestionFeedbackReceiptSchema = z
+  .object({
+    id: UuidSchema,
+    preparedItemId: UuidSchema,
+    category: WebSuggestionFeedbackCategorySchema,
+    createdAt: UtcInstantSchema,
+    replay: z.boolean(),
+  })
+  .strict();
+
 const PreparedExperienceRouteTraceSchema = z
   .object({
     aiRunId: UuidSchema,
@@ -97,3 +126,6 @@ export type WebPreparedExperienceItem = z.infer<typeof WebPreparedExperienceItem
 export type WebPreparedExperienceComposition = z.infer<
   typeof WebPreparedExperienceCompositionSchema
 >;
+export type WebSuggestionFeedbackCategory = z.infer<typeof WebSuggestionFeedbackCategorySchema>;
+export type WebSuggestionFeedbackInput = z.infer<typeof WebSuggestionFeedbackInputSchema>;
+export type WebSuggestionFeedbackReceipt = z.infer<typeof WebSuggestionFeedbackReceiptSchema>;

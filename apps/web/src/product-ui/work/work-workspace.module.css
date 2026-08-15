@@ -772,6 +772,34 @@
     cursor: pointer;
   }
 
+  .preparedFeedback {
+    grid-column: 1 / -1;
+    display: flex !important;
+    grid-auto-flow: unset;
+    align-items: center;
+    gap: 0.45rem !important;
+    padding-block-start: 0.65rem;
+    border-block-start: 1px solid #d8e5f8;
+    color: var(--ui-color-text-muted, #536174);
+    font-size: 0.74rem;
+  }
+
+  .preparedFeedback > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .preparedFeedback p {
+    margin: 0;
+    color: #35644a;
+    font-weight: 750;
+  }
+
+  .preparedFeedback p[role="alert"] {
+    color: #9d2a22;
+  }
+
   .taskAssistant {
     display: grid;
     gap: 0.75rem;

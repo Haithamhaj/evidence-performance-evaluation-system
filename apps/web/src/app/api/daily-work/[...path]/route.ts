@@ -63,7 +63,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { WhatChangedProjectionSchema } from "../../../../platform/experience-events-contracts";
-import { WebPreparedExperienceCompositionSchema } from "../../../../platform/experience-orchestration-contracts";
+import {
+  WebPreparedExperienceCompositionSchema,
+  WebSuggestionFeedbackInputSchema,
+  WebSuggestionFeedbackReceiptSchema,
+} from "../../../../platform/experience-orchestration-contracts";
 import {
   CaptureUnderstandingInputSchema,
   WebCaptureUnderstandingSchema,
@@ -513,6 +517,19 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         "/api/v1/experience-orchestration/capture/understand",
         input,
         WebCaptureUnderstandingSchema,
+      );
+    }
+    if (
+      path.length === 4 &&
+      path[0] === "experience" &&
+      path[1] === "prepared" &&
+      isUuid(path[2]) &&
+      path[3] === "feedback"
+    ) {
+      return await post(
+        `/api/v1/experience-orchestration/prepared/${path[2]}/feedback`,
+        WebSuggestionFeedbackInputSchema.parse(body),
+        WebSuggestionFeedbackReceiptSchema,
       );
     }
     if (

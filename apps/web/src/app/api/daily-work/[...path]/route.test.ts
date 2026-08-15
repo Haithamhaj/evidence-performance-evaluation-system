@@ -109,6 +109,59 @@ describe("daily-work same-origin gateway", () => {
     });
   });
 
+  it("records only bounded prepared feedback without accepting a browser-selected employee", async () => {
+    const preparedItemId = "77777777-7777-4777-8777-777777777777";
+    const idempotencyKey = "88888888-8888-4888-8888-888888888888";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      id: "99999999-9999-4999-8999-999999999999",
+      preparedItemId,
+      category: "HELPFUL",
+      createdAt: "2026-08-15T09:00:00.000Z",
+      replay: false,
+    });
+
+    const response = await POST(
+      new Request(
+        `http://localhost:3000/api/daily-work/experience/prepared/${preparedItemId}/feedback`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            idempotencyKey,
+            category: "HELPFUL",
+            surface: "work_prepared_item",
+          }),
+        },
+      ),
+      { params: Promise.resolve({ path: ["experience", "prepared", preparedItemId, "feedback"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: `/api/v1/experience-orchestration/prepared/${preparedItemId}/feedback`,
+      body: { idempotencyKey, category: "HELPFUL", surface: "work_prepared_item" },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request(
+        `http://localhost:3000/api/daily-work/experience/prepared/${preparedItemId}/feedback`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            idempotencyKey,
+            category: "BAD_DRAFT",
+            surface: "work_prepared_item",
+            employeeId: sessionId,
+          }),
+        },
+      ),
+      { params: Promise.resolve({ path: ["experience", "prepared", preparedItemId, "feedback"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
   it("lists and resolves notifications through recipient-bound protected endpoints", async () => {
     const notificationId = "88888888-8888-4888-8888-888888888888";
     mocks.fetchProtectedUpstream

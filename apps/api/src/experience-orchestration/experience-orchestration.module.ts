@@ -34,7 +34,12 @@ import {
   ExperienceOrchestratorService,
 } from "./experience-orchestrator.service.js";
 import { PrismaPreparedExperiencePersistence } from "./prisma-prepared-experience.persistence.js";
-import { CAPTURE_UNDERSTANDING, EXPERIENCE_ORCHESTRATOR } from "./tokens.js";
+import { PreparedExperienceFeedbackService } from "./prepared-experience-feedback.service.js";
+import {
+  CAPTURE_UNDERSTANDING,
+  EXPERIENCE_ORCHESTRATOR,
+  PREPARED_EXPERIENCE_FEEDBACK,
+} from "./tokens.js";
 import { PROJECT_ASSISTANT, TASK_ASSISTANT } from "./tokens.js";
 import { TASK_ASSISTANT_ROUTE, TaskAssistantService } from "./task-assistant.service.js";
 import { PROJECT_ASSISTANT_ROUTE, ProjectAssistantService } from "./project-assistant.service.js";
@@ -145,6 +150,11 @@ Module({
           systemId: await resolveSystemAiScopeId(database, CAPTURE_UNDERSTANDING_ROUTE),
           aiEnabled: process.env.CAPTURE_UNDERSTANDING_AI_ENABLED === "true",
         }),
+    },
+    {
+      provide: PREPARED_EXPERIENCE_FEEDBACK,
+      inject: [EXPERIENCE_ORCHESTRATION_DATABASE],
+      useFactory: (database: Database) => new PreparedExperienceFeedbackService(database),
     },
     {
       provide: TASK_ASSISTANT,

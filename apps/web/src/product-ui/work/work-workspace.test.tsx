@@ -652,7 +652,15 @@ describe("WorkWorkspace", () => {
   });
 
   it("shows one source-backed Work Agent preparation and leaves the Task command to Codex", async () => {
+    const recordPreparedFeedback = vi.fn().mockResolvedValue({
+      id: crypto.randomUUID(),
+      preparedItemId: "55555555-5555-4555-8555-555555555555",
+      category: "HELPFUL",
+      createdAt: "2026-08-15T09:00:00.000Z",
+      replay: false,
+    });
     const gateway = service({
+      recordPreparedFeedback,
       loadPrepared: vi.fn().mockResolvedValue({
         state: "prepared",
         items: [
@@ -688,6 +696,16 @@ describe("WorkWorkspace", () => {
     expect(screen.queryByText(/rating|productivity score|employee rank/iu)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open prepared Task" }));
     expect(window.location.search).toContain(`item=${item.id}`);
+    await user.click(screen.getByRole("button", { name: "Helpful" }));
+    await waitFor(() =>
+      expect(recordPreparedFeedback).toHaveBeenCalledWith(
+        "55555555-5555-4555-8555-555555555555",
+        expect.objectContaining({ category: "HELPFUL", surface: "work_prepared_item" }),
+      ),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Thanks — this helps improve future suggestions.",
+    );
   });
 
   it("opens the existing Project Update flow for a prepared missing-update reminder", async () => {
@@ -794,6 +812,7 @@ function service(overrides: Partial<WorkWorkspaceGateway> = {}) {
       blocks: [],
     }),
     loadPrepared: vi.fn().mockResolvedValue({ state: "idle", items: [] }),
+    recordPreparedFeedback: vi.fn(),
     list: vi.fn().mockResolvedValue({
       counts: {
         all: 1,
