@@ -14,6 +14,7 @@ describe("stable shell model", () => {
       "projects",
       "insights",
       "notifications",
+      "reports",
       "research",
       "evaluation",
       "settings",
@@ -107,6 +108,7 @@ describe("stable shell model", () => {
     expect(model.mobileOverflow.map(({ id }) => id)).toEqual([
       "insights",
       "notifications",
+      "reports",
       "settings",
       "help",
     ]);

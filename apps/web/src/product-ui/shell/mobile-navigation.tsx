@@ -16,6 +16,7 @@ const icons: Readonly<
   "manager-operations": "briefcase",
   notifications: "calendar",
   projects: "folder",
+  reports: "document",
   research: "research",
   settings: "settings",
   today: "calendar",

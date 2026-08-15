@@ -81,6 +81,12 @@ import {
   WebNotificationOpenResultSchema,
   WebNotificationResolveResultSchema,
 } from "../../../../platform/notification-contracts";
+import {
+  WebAdminHealthSchema,
+  WebArtifactOpenSchema,
+  WebArtifactRevocationSchema,
+  WebExportHistorySchema,
+} from "../../../../platform/operations-contracts";
 
 import {
   fetchProtectedUpstream,
@@ -246,6 +252,24 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
           method: "GET",
           path: "/api/v1/operations/notifications?limit=100",
           schema: WebNotificationInboxSchema,
+        }),
+      );
+    }
+    if (path.length === 1 && path[0] === "reports") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/operations/exports",
+          schema: WebExportHistorySchema,
+        }),
+      );
+    }
+    if (path.length === 2 && path[0] === "admin" && path[1] === "health") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/operations/administration/health",
+          schema: WebAdminHealthSchema,
         }),
       );
     }
@@ -492,6 +516,37 @@ export async function POST(request: Request, context: Context): Promise<NextResp
       return path[2] === "open"
         ? await post(upstreamPath, {}, WebNotificationOpenResultSchema)
         : await post(upstreamPath, {}, WebNotificationResolveResultSchema);
+    }
+    if (
+      path.length === 4 &&
+      path[0] === "reports" &&
+      path[1] === "artifacts" &&
+      isUuid(path[2]) &&
+      path[3] === "open"
+    ) {
+      z.object({}).strict().parse(body);
+      return await post(
+        `/api/v1/operations/exports/artifacts/${path[2]}/open`,
+        {},
+        WebArtifactOpenSchema,
+      );
+    }
+    if (
+      path.length === 4 &&
+      path[0] === "reports" &&
+      path[1] === "artifacts" &&
+      isUuid(path[2]) &&
+      path[3] === "revoke"
+    ) {
+      const input = z
+        .object({ reason: z.string().trim().min(1).max(2_000) })
+        .strict()
+        .parse(body);
+      return await post(
+        `/api/v1/operations/exports/artifacts/${path[2]}/revoke`,
+        input,
+        WebArtifactRevocationSchema,
+      );
     }
     if (path.length === 2 && path[0] === "experience" && path[1] === "task-assistant") {
       const input = AskTaskAssistantInputSchema.parse(body);

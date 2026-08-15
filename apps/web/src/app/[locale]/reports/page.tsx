@@ -2,10 +2,10 @@
 import { getCatalog, isLocale } from "@evaluation/localization";
 import { notFound } from "next/navigation";
 
-import { AdminOperationsWorkspace } from "../../../../product-ui/admin/admin-operations-workspace";
-import { WorkspaceShell } from "../../workspace-shell";
+import { ReportCenter } from "../../../product-ui/reports/report-center";
+import { WorkspaceShell } from "../workspace-shell";
 
-export default async function AdminOperationsPage({
+export default async function ReportsPage({
   params,
 }: Readonly<{ params: Promise<{ locale: string }> }>) {
   const { locale } = await params;
@@ -16,9 +16,9 @@ export default async function AdminOperationsPage({
     <WorkspaceShell
       catalog={catalog}
       locale={locale}
-      localeSwitchHref={`/${alternateLocale}/admin/operations`}
+      localeSwitchHref={`/${alternateLocale}/reports`}
     >
-      <AdminOperationsWorkspace catalog={catalog} locale={locale} />
+      <ReportCenter catalog={catalog} locale={locale} />
     </WorkspaceShell>
   );
 }

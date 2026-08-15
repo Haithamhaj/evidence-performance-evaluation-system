@@ -66,6 +66,17 @@ type ExportRequestResult = Readonly<{
     renderAt: string;
   }>;
 }>;
+type ExportHistoryView = Readonly<{
+  id: string;
+  reportType: string;
+  audience: string;
+  format: string;
+  locale: string;
+  state: string;
+  artifactId: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}>;
 
 export class ExportService {
   private readonly database: import("@evaluation/database").DatabaseClient;
@@ -152,6 +163,38 @@ export class ExportService {
       }),
     ]);
     return { request, manifest: manifestView(manifest) };
+  }
+
+  async listRequests(requesterId: string, limit = 50): Promise<readonly ExportHistoryView[]> {
+    const requests = await this.database.exportRequest.findMany({
+      where: { requesterId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: Math.min(Math.max(limit, 1), 100),
+      include: {
+        manifest: {
+          include: { artifact: { include: { revocations: { take: 1 } } } },
+        },
+      },
+    });
+    return requests.map((request) => {
+      const artifact = request.manifest?.artifact;
+      const state = artifact?.revocations.length
+        ? "REVOKED"
+        : artifact && artifact.expiresAt.getTime() <= this.now().getTime()
+          ? "EXPIRED"
+          : request.state;
+      return {
+        id: request.id,
+        reportType: request.reportType,
+        audience: request.audience,
+        format: request.format,
+        locale: request.locale,
+        state,
+        artifactId: artifact?.id ?? null,
+        expiresAt: artifact?.expiresAt.toISOString() ?? null,
+        createdAt: request.createdAt.toISOString(),
+      };
+    });
   }
 
   async materialize(requestId: string) {

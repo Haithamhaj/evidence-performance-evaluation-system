@@ -1,0 +1,118 @@
+.workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.workspace > header {
+  border-block-end: 1px solid #dfe4ec;
+  padding-block-end: 1rem;
+}
+
+.workspace h1,
+.workspace h2,
+.workspace p,
+.workspace ol,
+.workspace ul,
+.workspace span {
+  margin: 0;
+}
+
+.workspace > header p {
+  color: #115ed0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workspace > header h1 {
+  margin-block: 0.2rem;
+  font-size: 2rem;
+}
+
+.workspace > header span,
+.error,
+.boundaryNote {
+  color: #56647a;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #dce2eb;
+  border-radius: 0.65rem;
+  padding: 0.9rem;
+}
+
+.summary div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.summary button {
+  min-block-size: 2.25rem;
+  border: 1px solid #1764db;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: #1757b3;
+  padding-inline: 0.8rem;
+}
+
+.dependencies {
+  display: grid;
+  padding: 0;
+  list-style: none;
+}
+
+.dependencies li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(12rem, 0.7fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  border-block-end: 1px solid #e2e7ee;
+  padding-block: 0.9rem;
+}
+
+.dependencies h2 {
+  font-size: 1rem;
+}
+
+.icon {
+  display: grid;
+  block-size: 2.4rem;
+  inline-size: 2.4rem;
+  place-items: center;
+  border-radius: 0.55rem;
+  background: #edf4ff;
+  color: #115ed0;
+}
+
+.boundary {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid #dce2eb;
+  border-radius: 0.65rem;
+  padding: 1rem;
+}
+
+.boundary ul {
+  display: grid;
+  gap: 0.35rem;
+  padding-inline-start: 1.2rem;
+}
+
+.boundary > strong {
+  color: #8a3f08;
+}
+
+@media (max-width: 42rem) {
+  .dependencies li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .dependencies li > strong,
+  .dependencies li > details {
+    grid-column: 2;
+  }
+}

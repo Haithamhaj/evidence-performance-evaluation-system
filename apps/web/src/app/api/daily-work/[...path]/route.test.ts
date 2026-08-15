@@ -155,6 +155,58 @@ describe("daily-work same-origin gateway", () => {
     expect(mocks.fetchProtectedUpstream).not.toHaveBeenCalled();
   });
 
+  it("lists private export history and opens artifacts through protected operations", async () => {
+    const artifactId = "77777777-7777-4777-8777-777777777777";
+    mocks.fetchProtectedUpstream
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ allowed: false, reason: "EXPIRED" });
+
+    const history = await GET(new Request("http://localhost:3000/api/daily-work/reports"), {
+      params: Promise.resolve({ path: ["reports"] }),
+    });
+    const opened = await POST(
+      new Request(`http://localhost:3000/api/daily-work/reports/artifacts/${artifactId}/open`, {
+        body: "{}",
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["reports", "artifacts", artifactId, "open"] }) },
+    );
+
+    expect(history.status).toBe(200);
+    expect(opened.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(1, {
+      method: "GET",
+      path: "/api/v1/operations/exports",
+      schema: expect.anything(),
+    });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(2, {
+      body: {},
+      method: "POST",
+      path: `/api/v1/operations/exports/artifacts/${artifactId}/open`,
+      schema: expect.anything(),
+    });
+  });
+
+  it("reads only the protected administrator health projection", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      schemaVersion: 1,
+      state: "HEALTHY",
+      checkedAt: "2026-08-15T08:00:00.000Z",
+      dependencies: [],
+    });
+
+    const response = await GET(new Request("http://localhost:3000/api/daily-work/admin/health"), {
+      params: Promise.resolve({ path: ["admin", "health"] }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/operations/administration/health",
+      schema: expect.anything(),
+    });
+  });
+
   it("forwards only the bounded private capture understanding input", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue(captureUnderstanding());
 
