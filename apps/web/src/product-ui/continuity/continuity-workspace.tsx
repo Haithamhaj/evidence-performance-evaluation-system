@@ -217,12 +217,255 @@ export function ContinuityWorkspace({
                 (leave.affectedScopes?.length ?? 0) > 0 ? (
                   <HandoverEditor busy={busy} catalog={catalog} leave={leave} submit={submit} />
                 ) : null}
+                {view.mode === "manager" &&
+                leave.state === "APPROVED" &&
+                leave.handover?.confirmed &&
+                !view.delegations.some(({ leaveId }) => leaveId === leave.id) &&
+                (leave.affectedScopes?.length ?? 0) > 0 ? (
+                  <DelegationApproval
+                    busy={busy}
+                    candidates={view.delegationCandidates}
+                    catalog={catalog}
+                    leave={leave}
+                    submit={submit}
+                  />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className={styles.panel} aria-labelledby="delegation-list-heading">
+        <div className={styles.sectionHeading}>
+          <h2 id="delegation-list-heading">{catalog["continuity.experience.delegationTitle"]}</h2>
+          <span>{view.delegations.length}</span>
+        </div>
+        {view.delegations.length === 0 ? (
+          <p className={styles.empty}>{catalog["continuity.experience.delegationEmpty"]}</p>
+        ) : (
+          <ul className={styles.list}>
+            {view.delegations.map((delegation) => (
+              <li className={styles.card} key={delegation.id}>
+                <div className={styles.cardMain}>
+                  <strong>
+                    {delegation.ownerName} → {delegation.delegateName}
+                  </strong>
+                  <span>{formatRange(locale, delegation.startsAt, delegation.endsAt)}</span>
+                  <small>
+                    {catalog[`continuity.experience.delegationState.${delegation.state}`]}
+                  </small>
+                </div>
+                <p>{catalog["continuity.experience.exactScopeBoundary"]}</p>
+                <ul>
+                  {delegation.scopes.map((scope) => (
+                    <li key={`${scope.kind}:${scope.id}`}>
+                      <strong>{scope.name}</strong> — {scope.actions.join(", ")}
+                    </li>
+                  ))}
+                </ul>
+                {delegation.role === "delegate" &&
+                delegation.state === "PENDING_DELEGATE" &&
+                !delegation.delegateConfirmed ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void submit("delegations/confirm", {
+                        delegationId: delegation.id,
+                        receiptConfirmed: true,
+                        accessConfirmed: true,
+                      })
+                    }
+                    type="button"
+                  >
+                    {catalog["continuity.experience.confirmDelegation"]}
+                  </button>
+                ) : null}
+                {delegation.role === "manager" &&
+                delegation.state === "PENDING_DELEGATE" &&
+                delegation.delegateConfirmed &&
+                delegation.openAccessGapCount === 0 ? (
+                  <button
+                    disabled={busy}
+                    onClick={() => void submit(`delegations/${delegation.id}/activate`, {})}
+                    type="button"
+                  >
+                    {catalog["continuity.experience.activateDelegation"]}
+                  </button>
+                ) : null}
+                {delegation.role === "manager" && delegation.state === "ACTIVE" ? (
+                  <button
+                    className={styles.secondary}
+                    disabled={busy}
+                    onClick={() => void submit(`delegations/${delegation.id}/expire`, {})}
+                    type="button"
+                  >
+                    {catalog["continuity.experience.expireDelegation"]}
+                  </button>
+                ) : null}
+                {delegation.role === "delegate" &&
+                delegation.state === "ACTIVE" &&
+                delegation.returnHandover === null ? (
+                  <ReturnEditor
+                    busy={busy}
+                    catalog={catalog}
+                    delegationId={delegation.id}
+                    submit={submit}
+                  />
+                ) : null}
+                {delegation.role === "owner" && delegation.returnHandover?.state === "DRAFT" ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void submit(`delegations/${delegation.id}/return/confirm`, {
+                        returnId: delegation.returnHandover!.id,
+                        expectedVersion: delegation.returnHandover!.version,
+                      })
+                    }
+                    type="button"
+                  >
+                    {catalog["continuity.experience.confirmReturn"]}
+                  </button>
+                ) : null}
+                {delegation.role === "manager" &&
+                delegation.returnHandover?.state === "OWNER_CONFIRMED" ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void submit(`delegations/${delegation.id}/return/finalize`, {
+                        returnId: delegation.returnHandover!.id,
+                        expectedVersion: delegation.returnHandover!.version,
+                        choice: "RETURN",
+                        occurredAt: new Date().toISOString(),
+                        reason: catalog["continuity.experience.returnReason"],
+                      })
+                    }
+                    type="button"
+                  >
+                    {catalog["continuity.experience.finalizeReturn"]}
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
       </section>
     </main>
+  );
+}
+
+function DelegationApproval({
+  busy,
+  candidates,
+  catalog,
+  leave,
+  submit,
+}: Readonly<{
+  busy: boolean;
+  candidates: WebContinuityExperience["delegationCandidates"];
+  catalog: Catalog;
+  leave: WebContinuityExperience["leaves"][number];
+  submit(path: string, body: unknown): Promise<void>;
+}>) {
+  const scopes = leave.affectedScopes ?? [];
+  const departmentId = scopes[0]?.departmentId;
+  const available = candidates.filter(
+    (candidate) => candidate.departmentId === departmentId && candidate.id !== leave.employeeId,
+  );
+  return (
+    <form
+      className={styles.decision}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!departmentId) return;
+        const data = new FormData(event.currentTarget);
+        const projectIds = scopes.filter(({ kind }) => kind === "PROJECT").map(({ id }) => id);
+        const workstreamIds = scopes
+          .filter(({ kind }) => kind === "WORKSTREAM")
+          .map(({ id }) => id);
+        void submit("delegations/approve", {
+          id: crypto.randomUUID(),
+          leaveId: leave.id,
+          ownerId: leave.employeeId,
+          delegateId: data.get("delegateId"),
+          departmentId,
+          startsAt: leave.startsAt,
+          endsAt: leave.endsAt,
+          projectIds,
+          workstreamIds,
+          actions: [
+            ...(projectIds.length > 0 ? ["project.update"] : []),
+            ...(workstreamIds.length > 0 ? ["workstream.update"] : []),
+          ],
+          emergency: false,
+          emergencyReason: null,
+        });
+      }}
+    >
+      <label>
+        {catalog["continuity.experience.delegate"]}
+        <select name="delegateId" required defaultValue="">
+          <option value="" disabled>
+            {catalog["continuity.experience.chooseDelegate"]}
+          </option>
+          {available.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {candidate.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p>{scopes.map(({ name }) => name).join(", ")}</p>
+      <button disabled={busy || available.length === 0} type="submit">
+        {catalog["continuity.experience.approveDelegation"]}
+      </button>
+    </form>
+  );
+}
+
+function ReturnEditor({
+  busy,
+  catalog,
+  delegationId,
+  submit,
+}: Readonly<{
+  busy: boolean;
+  catalog: Catalog;
+  delegationId: string;
+  submit(path: string, body: unknown): Promise<void>;
+}>) {
+  return (
+    <details className={styles.editor}>
+      <summary>{catalog["continuity.experience.prepareReturn"]}</summary>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          void submit(`delegations/${delegationId}/return`, {
+            id: crypto.randomUUID(),
+            completedWork: data.get("completedWork"),
+            decisionsAndChanges: data.get("decisionsAndChanges"),
+            openWork: data.get("openWork"),
+            risksAndNextSteps: data.get("risksAndNextSteps"),
+          });
+        }}
+      >
+        {[
+          ["completedWork", "continuity.experience.completedWork"],
+          ["decisionsAndChanges", "continuity.experience.decisionsAndChanges"],
+          ["openWork", "continuity.experience.openWork"],
+          ["risksAndNextSteps", "continuity.experience.risksAndNextSteps"],
+        ].map(([name, label]) => (
+          <label key={name}>
+            {catalog[label!]}
+            <textarea name={name} required rows={2} />
+          </label>
+        ))}
+        <button disabled={busy} type="submit">
+          {catalog["continuity.experience.saveReturnDraft"]}
+        </button>
+      </form>
+    </details>
   );
 }
 

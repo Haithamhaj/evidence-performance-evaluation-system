@@ -33,7 +33,7 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Submit self-assessment                                      | CAP-028–029      | Complete           | English human-rated journey complete; Arabic remains gated by T016             |
 | Compare, discuss, acknowledge, or reserve                   | CAP-031          | Complete           | Human comparison/finalization/acknowledgment journey complete                  |
 | Receive coaching and maintain development actions           | CAP-035–036      | Complete           | Shared/formal manager support visible; employee-private context remains hidden |
-| Manage leave, handover, and return                          | CAP-037          | Complete           | Leave/handover UX complete; delegation/return remains P7-07–P7-08              |
+| Manage leave, handover, and return                          | CAP-037          | Complete           | Exact-scope delegation, expiry, and human-confirmed return UX complete         |
 
 ## Project and Workstream owner capability view
 
@@ -46,7 +46,7 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Review honest progress and ambiguous source proposals         | CAP-012, CAP-022 | Complete | Live GitHub/Google sources can be externally gated                |
 | Confirm Project-level state without duplicating Workstreams   | CAP-018          | Complete | Full leave exemption workflow is pending                          |
 | Coordinate Research/Experiment decisions and applied learning | CAP-025–027      | Complete | Real production API+PostgreSQL checkpoint; no final UX acceptance |
-| Prepare delegated ownership and handover                      | CAP-037–038      | Complete | Final owner/manager frontend remains                              |
+| Prepare delegated ownership and handover                      | CAP-037–038      | Complete | Exact scope/window/actions and expiry are visible                 |
 
 ## Manager capability view
 
@@ -58,7 +58,7 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete | Human-only finalization journey complete                         |
 | Read identified upward feedback truthfully                     | CAP-033          | Complete | Named originals and completion are available to the manager      |
 | Support coaching and formal development                        | CAP-035–036      | Complete | Shared/formal support visible; private details remain hidden     |
-| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Leave decision UX complete; delegation/reassignment remains      |
+| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Human-gated delegation/return and deactivation queue are connected |
 | Generate authorized reports without ranking                    | CAP-032          | Complete | Live storage configuration; Arabic evaluation blocked at T016    |
 
 ## System administrator and operations capability view
@@ -127,7 +127,7 @@ Continuity, notifications, administration, security, recovery, and launch
 The engine contracts are present; these are frontend-design needs, not missing engines:
 
 - CAP-025–027: dedicated everyday Research/Experiment progression.
-- CAP-035–039: coaching, development, leave/delegation/handover, and notification interactions.
+- CAP-039: notification interactions and preference entry points remain in Phase 8.
 - CAP-040–043: administrator console and protected operations views.
 - CAP-044: Product Owner acceptance and production launch controls.
 

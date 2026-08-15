@@ -92,7 +92,7 @@ export function ActionQueue({
   );
 }
 
-function actionFor(item: ManagerOperationItemView, locale: "ar" | "en") {
+export function actionFor(item: ManagerOperationItemView, locale: "ar" | "en") {
   if (item.detailKey === "approval_waiting") {
     return { href: `/${locale}/projects/${item.projectId}/settings/progress-contract` };
   }

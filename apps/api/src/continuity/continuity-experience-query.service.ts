@@ -7,6 +7,35 @@ type Scope = Readonly<{
   name: string;
   departmentId: string;
 }>;
+type DelegationCandidate = Readonly<{
+  id: string;
+  name: string;
+  departmentId: string;
+}>;
+type DelegationScope = Readonly<{
+  kind: "PROJECT" | "WORKSTREAM";
+  id: string;
+  name: string;
+  actions: readonly string[];
+}>;
+type Delegation = Readonly<{
+  id: string;
+  leaveId: string;
+  role: "manager" | "owner" | "delegate";
+  ownerName: string;
+  delegateName: string;
+  state: "PENDING_DELEGATE" | "ACTIVE" | "EXPIRED" | "RETURNED";
+  startsAt: string;
+  endsAt: string;
+  scopes: readonly DelegationScope[];
+  delegateConfirmed: boolean;
+  openAccessGapCount: number;
+  returnHandover: null | Readonly<{
+    id: string;
+    state: "DRAFT" | "OWNER_CONFIRMED" | "FINALIZED";
+    version: number;
+  }>;
+}>;
 type Leave = Readonly<{
   id: string;
   employeeId: string;
@@ -29,6 +58,8 @@ export type ContinuityExperienceView = Readonly<{
   generatedAt: string;
   leaves: readonly Leave[];
   availableScopes: readonly Scope[];
+  delegationCandidates: readonly DelegationCandidate[];
+  delegations: readonly Delegation[];
 }>;
 
 export interface ContinuityExperienceSource {
@@ -43,7 +74,18 @@ export class ContinuityExperienceQueryService {
 
   async load(actorId: string): Promise<ContinuityExperienceView> {
     const generatedAt = this.clock().toISOString();
-    return { generatedAt, ...(await this.source.load(actorId, generatedAt)) };
+    const view = await this.source.load(actorId, generatedAt);
+    return {
+      generatedAt,
+      ...view,
+      delegations: view.delegations.map((delegation) => ({
+        ...delegation,
+        state:
+          delegation.state === "ACTIVE" && Date.parse(delegation.endsAt) <= Date.parse(generatedAt)
+            ? "EXPIRED"
+            : delegation.state,
+      })),
+    };
   }
 }
 
@@ -64,37 +106,75 @@ class DatabaseContinuityExperienceSource implements ContinuityExperienceSource {
       scope.departmentId === null ? [] : [scope.departmentId],
     );
     if (departmentIds.length > 0) {
-      const rows = await this.database.leaveRecord.findMany({
-        where: {
-          departmentId: { in: departmentIds },
-          state: { in: ["SUBMITTED", "APPROVED", "ACTIVE"] },
-        },
-        include: {
-          employee: { select: { displayName: true } },
-          handovers: {
-            take: 1,
-            orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-            include: {
-              currentRevision: {
-                select: {
-                  revision: true,
-                  items: { select: { id: true } },
-                  confirmations: { select: { id: true } },
+      const [rows, projects, workstreams, candidates, delegations] = await Promise.all([
+        this.database.leaveRecord.findMany({
+          where: {
+            departmentId: { in: departmentIds },
+            state: { in: ["SUBMITTED", "APPROVED", "ACTIVE"] },
+          },
+          include: {
+            employee: { select: { displayName: true } },
+            handovers: {
+              take: 1,
+              orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+              include: {
+                currentRevision: {
+                  select: {
+                    revision: true,
+                    items: { select: { id: true } },
+                    confirmations: { select: { id: true } },
+                  },
                 },
               },
             },
           },
-        },
-        orderBy: [{ startsAt: "asc" }, { id: "asc" }],
-      });
+          orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+        }),
+        this.database.project.findMany({
+          where: { departmentId: { in: departmentIds }, status: "active" },
+          select: { id: true, name: true, departmentId: true },
+        }),
+        this.database.workstream.findMany({
+          where: { project: { departmentId: { in: departmentIds } }, status: "active" },
+          select: {
+            id: true,
+            name: true,
+            project: { select: { departmentId: true } },
+          },
+        }),
+        this.database.roleAssignment.findMany({
+          where: {
+            role: "employee",
+            scopeType: "department",
+            scope: { departmentId: { in: departmentIds } },
+            user: { active: true },
+          },
+          select: {
+            user: { select: { id: true, displayName: true } },
+            scope: { select: { departmentId: true } },
+          },
+          orderBy: [{ user: { displayName: "asc" } }, { userId: "asc" }],
+        }),
+        loadDelegations(this.database, { managerId: actorId }),
+      ]);
+      const availableScopes: Scope[] = [
+        ...projects.map((project) => ({ kind: "PROJECT" as const, ...project })),
+        ...workstreams.map(({ project, ...workstream }) => ({
+          kind: "WORKSTREAM" as const,
+          ...workstream,
+          departmentId: project.departmentId,
+        })),
+      ];
       return {
         mode: "manager" as const,
         availableScopes: [],
-        leaves: rows.map((leave) => projectLeave(leave)),
+        leaves: rows.map((leave) => projectLeave(leave, availableScopes, true)),
+        delegationCandidates: uniqueCandidates(candidates),
+        delegations: delegations.map((delegation) => projectDelegation(delegation, actorId)),
       };
     }
 
-    const [rows, projects, workstreams] = await Promise.all([
+    const [rows, projects, workstreams, delegations] = await Promise.all([
       this.database.leaveRecord.findMany({
         where: { employeeId: actorId },
         include: {
@@ -137,6 +217,7 @@ class DatabaseContinuityExperienceSource implements ContinuityExperienceSource {
           },
         },
       }),
+      loadDelegations(this.database, { actorId }),
     ]);
     const availableScopes: Scope[] = [
       ...projects.map(({ project }) => ({ kind: "PROJECT" as const, ...project })),
@@ -151,6 +232,8 @@ class DatabaseContinuityExperienceSource implements ContinuityExperienceSource {
       mode: "employee" as const,
       leaves: rows.map((leave) => projectLeave(leave, availableScopes)),
       availableScopes,
+      delegationCandidates: [],
+      delegations: delegations.map((delegation) => projectDelegation(delegation, actorId)),
     };
   }
 }
@@ -175,6 +258,7 @@ function projectLeave(
     }[];
   },
   availableScopes: readonly Scope[] = [],
+  exposeScopes = availableScopes.length > 0,
 ): Leave {
   const rawScopes = Array.isArray(leave.affectedScopes) ? leave.affectedScopes : [];
   const scopes = rawScopes.flatMap((value) => {
@@ -202,7 +286,7 @@ function projectLeave(
     startsAt: leave.startsAt.toISOString(),
     endsAt: leave.endsAt.toISOString(),
     affectedScopeCount: rawScopes.length,
-    ...(availableScopes.length > 0 ? { affectedScopes: scopes } : {}),
+    ...(exposeScopes ? { affectedScopes: scopes } : {}),
     version: leave.version,
     handover:
       handover === undefined || revision == null
@@ -214,4 +298,100 @@ function projectLeave(
             confirmed: revision.confirmations.length > 0,
           },
   };
+}
+
+function loadDelegations(
+  database: DatabaseClient,
+  filter: { managerId: string } | { actorId: string },
+) {
+  return database.delegation.findMany({
+    where: {
+      ...(filter && "managerId" in filter
+        ? { managerId: filter.managerId }
+        : { OR: [{ ownerId: filter.actorId }, { delegateId: filter.actorId }] }),
+      state: { in: ["PENDING_DELEGATE", "ACTIVE", "EXPIRED", "RETURNED"] },
+    },
+    include: {
+      owner: { select: { displayName: true } },
+      delegate: { select: { displayName: true } },
+      periods: { orderBy: [{ startsAt: "asc" }, { id: "asc" }] },
+      scopes: {
+        include: {
+          project: { select: { id: true, name: true } },
+          workstream: { select: { id: true, name: true } },
+        },
+        orderBy: [{ scopeKind: "asc" }, { projectId: "asc" }, { workstreamId: "asc" }],
+      },
+      confirmations: { select: { receiptConfirmed: true, accessConfirmed: true } },
+      accessGaps: { where: { state: "OPEN", resolution: null }, select: { id: true } },
+      returnHandovers: {
+        take: 1,
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        select: { id: true, state: true, version: true },
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+  });
+}
+
+type LoadedDelegation = Awaited<ReturnType<typeof loadDelegations>>[number];
+
+function projectDelegation(row: LoadedDelegation, actorId: string): Delegation {
+  const period = row.periods.at(-1);
+  if (!period) throw new Error("Delegation period missing");
+  const grouped = new Map<string, DelegationScope>();
+  for (const scope of row.scopes) {
+    const target = scope.scopeKind === "PROJECT" ? scope.project : scope.workstream;
+    if (!target) continue;
+    const key = `${scope.scopeKind}:${target.id}`;
+    const existing = grouped.get(key);
+    grouped.set(key, {
+      kind: scope.scopeKind,
+      id: target.id,
+      name: target.name,
+      actions: [...(existing?.actions ?? []), scope.action],
+    });
+  }
+  const returnHandover = row.returnHandovers[0];
+  return {
+    id: row.id,
+    leaveId: row.leaveId,
+    role: row.managerId === actorId ? "manager" : row.ownerId === actorId ? "owner" : "delegate",
+    ownerName: row.owner.displayName,
+    delegateName: row.delegate.displayName,
+    state: row.state as Delegation["state"],
+    startsAt: period.startsAt.toISOString(),
+    endsAt: period.endsAt.toISOString(),
+    scopes: [...grouped.values()],
+    delegateConfirmed: row.confirmations.some(
+      ({ receiptConfirmed, accessConfirmed }) => receiptConfirmed && accessConfirmed,
+    ),
+    openAccessGapCount: row.accessGaps.length,
+    returnHandover:
+      returnHandover === undefined
+        ? null
+        : {
+            id: returnHandover.id,
+            state: returnHandover.state,
+            version: returnHandover.version,
+          },
+  };
+}
+
+function uniqueCandidates(
+  rows: readonly {
+    user: { id: string; displayName: string };
+    scope: { departmentId: string | null };
+  }[],
+): DelegationCandidate[] {
+  const unique = new Map<string, DelegationCandidate>();
+  for (const row of rows) {
+    if (row.scope.departmentId === null) continue;
+    unique.set(row.user.id, {
+      id: row.user.id,
+      name: row.user.displayName,
+      departmentId: row.scope.departmentId,
+    });
+  }
+  return [...unique.values()];
 }

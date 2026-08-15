@@ -78,72 +78,101 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
       throw new AppError("AUTH_FORBIDDEN", "errors.forbidden", 403);
     }
     const soon = new Date(at.getTime() + 14 * 86_400_000);
-    const [approvals, blocked, ambiguous, ownershipGaps, commitments] = await Promise.all([
-      this.client.progressContract.findMany({
-        where: {
-          state: "pending_approval",
-          ownerId: input.managerId,
-          project: { departmentId: { in: departmentIds } },
-        },
-        select: { id: true, projectId: true, createdAt: true, project: { select: { name: true } } },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      }),
-      this.client.project.findMany({
-        where: { departmentId: { in: departmentIds }, status: "paused" },
-        select: { id: true, name: true, updatedAt: true },
-        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
-      }),
-      this.client.progressRecalculationRequest.findMany({
-        where: {
-          contractId: { not: null },
-          contract: {
-            state: "active",
+    const [approvals, blocked, ambiguous, projectsMissingOwner, commitments, reassignments] =
+      await Promise.all([
+        this.client.progressContract.findMany({
+          where: {
+            state: "pending_approval",
+            ownerId: input.managerId,
             project: { departmentId: { in: departmentIds } },
           },
-        },
-        select: {
-          id: true,
-          state: true,
-          createdAt: true,
-          contract: {
-            select: { projectId: true, project: { select: { name: true } } },
+          select: {
+            id: true,
+            projectId: true,
+            createdAt: true,
+            project: { select: { name: true } },
           },
-        },
-        orderBy: [{ contractId: "asc" }, { createdAt: "desc" }, { id: "desc" }],
-        distinct: ["contractId"],
-      }),
-      this.client.project.findMany({
-        where: {
-          departmentId: { in: departmentIds },
-          status: "active",
-          responsibilities: {
-            none: {
-              responsibilityType: { in: ["original", "acting", "permanent"] },
-              startsAt: { lte: at },
-              OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        }),
+        this.client.project.findMany({
+          where: { departmentId: { in: departmentIds }, status: "paused" },
+          select: { id: true, name: true, updatedAt: true },
+          orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+        }),
+        this.client.progressRecalculationRequest.findMany({
+          where: {
+            contractId: { not: null },
+            contract: {
+              state: "active",
+              project: { departmentId: { in: departmentIds } },
             },
           },
-        },
-        select: { id: true, name: true, updatedAt: true },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      }),
-      this.client.workItem.findMany({
-        where: {
-          project: { departmentId: { in: departmentIds } },
-          status: { notIn: ["done", "cancelled"] },
-          dueAt: { gte: at, lt: soon },
-        },
-        select: {
-          id: true,
-          projectId: true,
-          title: true,
-          dueAt: true,
-          updatedAt: true,
-          project: { select: { name: true } },
-        },
-        orderBy: [{ dueAt: "asc" }, { id: "asc" }],
-      }),
-    ]);
+          select: {
+            id: true,
+            state: true,
+            createdAt: true,
+            contract: {
+              select: { projectId: true, project: { select: { name: true } } },
+            },
+          },
+          orderBy: [{ contractId: "asc" }, { createdAt: "desc" }, { id: "desc" }],
+          distinct: ["contractId"],
+        }),
+        this.client.project.findMany({
+          where: {
+            departmentId: { in: departmentIds },
+            status: "active",
+            responsibilities: {
+              none: {
+                responsibilityType: { in: ["original", "acting", "permanent"] },
+                startsAt: { lte: at },
+                OR: [{ endsAt: null }, { endsAt: { gt: at } }],
+              },
+            },
+          },
+          select: { id: true, name: true, updatedAt: true },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        }),
+        this.client.workItem.findMany({
+          where: {
+            project: { departmentId: { in: departmentIds } },
+            status: { notIn: ["done", "cancelled"] },
+            dueAt: { gte: at, lt: soon },
+          },
+          select: {
+            id: true,
+            projectId: true,
+            title: true,
+            dueAt: true,
+            updatedAt: true,
+            project: { select: { name: true } },
+          },
+          orderBy: [{ dueAt: "asc" }, { id: "asc" }],
+        }),
+        this.client.reassignmentQueueItem.findMany({
+          where: {
+            departmentId: { in: departmentIds },
+            state: "REASSIGNMENT_REQUIRED",
+          },
+          select: {
+            id: true,
+            createdAt: true,
+            case: {
+              select: {
+                project: { select: { id: true, name: true } },
+                workstream: {
+                  select: {
+                    id: true,
+                    name: true,
+                    project: { select: { id: true, name: true } },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        }),
+      ]);
     return {
       approvalsWaiting: approvals.map((item) => ({
         id: item.id,
@@ -174,13 +203,29 @@ class DatabaseManagerOperationsSource implements ManagerOperationsSource {
               ],
         ),
       ),
-      ownershipGaps: ownershipGaps.map((project) => ({
-        id: project.id,
-        projectId: project.id,
-        projectName: project.name,
-        detailKey: "ownership_missing",
-        observedAt: project.updatedAt.toISOString(),
-      })),
+      ownershipGaps: [
+        ...projectsMissingOwner.map((project) => ({
+          id: project.id,
+          projectId: project.id,
+          projectName: project.name,
+          detailKey: "ownership_missing" as const,
+          observedAt: project.updatedAt.toISOString(),
+        })),
+        ...reassignments.flatMap((item) => {
+          const project = item.case.project ?? item.case.workstream?.project;
+          if (!project) return [];
+          return [
+            {
+              id: item.id,
+              projectId: project.id,
+              projectName: project.name,
+              ...(item.case.workstream === null ? {} : { label: item.case.workstream.name }),
+              detailKey: "ownership_missing" as const,
+              observedAt: item.createdAt.toISOString(),
+            },
+          ];
+        }),
+      ],
       upcomingCommitments: commitments.map((item) => ({
         id: item.id,
         projectId: item.projectId,

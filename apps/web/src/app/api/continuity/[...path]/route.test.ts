@@ -74,4 +74,87 @@ describe("continuity same-origin gateway", () => {
       body: { expectedRevision: 2 },
     });
   });
+
+  it("forwards a bounded delegation approval while rejecting manager identity injection", async () => {
+    const delegationId = "30000000-0000-4000-8000-000000000004";
+    const body = {
+      id: delegationId,
+      leaveId,
+      ownerId: "30000000-0000-4000-8000-000000000005",
+      delegateId: "30000000-0000-4000-8000-000000000006",
+      departmentId: "30000000-0000-4000-8000-000000000007",
+      startsAt: "2026-08-20T00:00:00.000Z",
+      endsAt: "2026-08-22T00:00:00.000Z",
+      projectIds: ["30000000-0000-4000-8000-000000000008"],
+      workstreamIds: [],
+      actions: ["project.update"],
+      emergency: false,
+      emergencyReason: null,
+    };
+    mocks.fetchProtectedUpstream.mockResolvedValue({ id: delegationId });
+
+    const response = await POST(
+      new Request("http://localhost/api/continuity/delegations/approve", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ path: ["delegations", "approve"] }) },
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      path: "/api/v1/continuity/delegations/approve",
+      schema: expect.anything(),
+      method: "POST",
+      body,
+    });
+
+    mocks.fetchProtectedUpstream.mockClear();
+    const rejected = await POST(
+      new Request("http://localhost/api/continuity/delegations/approve", {
+        method: "POST",
+        body: JSON.stringify({ ...body, managerId: body.delegateId }),
+      }),
+      { params: Promise.resolve({ path: ["delegations", "approve"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).not.toHaveBeenCalled();
+  });
+
+  it("forwards return confirmation and final return without browser actor authority", async () => {
+    const delegationId = "30000000-0000-4000-8000-000000000004";
+    const returnId = "30000000-0000-4000-8000-000000000009";
+    mocks.fetchProtectedUpstream.mockResolvedValue({ id: returnId });
+
+    const confirmation = await POST(
+      new Request("http://localhost/api/continuity/delegations/return/confirm", {
+        method: "POST",
+        body: JSON.stringify({ returnId, expectedVersion: 1 }),
+      }),
+      {
+        params: Promise.resolve({
+          path: ["delegations", delegationId, "return", "confirm"],
+        }),
+      },
+    );
+    expect(confirmation.status).toBe(200);
+
+    const finalization = await POST(
+      new Request("http://localhost/api/continuity/delegations/return/finalize", {
+        method: "POST",
+        body: JSON.stringify({
+          returnId,
+          expectedVersion: 2,
+          choice: "RETURN",
+          occurredAt: "2026-08-22T08:00:00.000Z",
+          reason: "Original owner has resumed responsibility.",
+        }),
+      }),
+      {
+        params: Promise.resolve({
+          path: ["delegations", delegationId, "return", "finalize"],
+        }),
+      },
+    );
+    expect(finalization.status).toBe(200);
+  });
 });

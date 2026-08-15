@@ -72,6 +72,9 @@ describe("ManagerOperationsClient", () => {
     expect(markup).toContain("Blocked projects");
     expect(markup).toContain("Ownership gaps");
     expect(markup).toContain("Manager command brief");
+    expect(markup).toContain("Source-backed operational suggestion");
+    expect(markup).toContain("Start with Customer workspace");
+    expect(markup).toContain("This suggestion does not assess or score an employee");
     expect(markup).toContain("5 open actions");
     expect(markup).toContain("Portfolio attention");
     expect(markup).toContain("Why it matters");

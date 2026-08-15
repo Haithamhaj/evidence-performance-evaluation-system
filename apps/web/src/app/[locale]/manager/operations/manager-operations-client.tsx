@@ -2,7 +2,7 @@
 import { createElement } from "react";
 
 import type { WebManagerCoaching } from "../../../../platform/manager-coaching-contracts";
-import { ActionQueue, type ManagerOperationItemView } from "./action-queue";
+import { actionFor, ActionQueue, type ManagerOperationItemView } from "./action-queue";
 import styles from "./manager-operations.module.css";
 
 export type ManagerOperationsView = Readonly<{
@@ -36,6 +36,7 @@ export function ManagerOperationsClient({
     ["managerOps.upcoming", view.upcomingCommitments],
   ] as const;
   const actionCount = queues.reduce((total, [, items]) => total + items.length, 0);
+  const suggestion = queues.flatMap(([, items]) => items)[0];
   const portfolio = [
     ...new Map(
       queues.flatMap(([, items]) => items).map((item) => [item.projectId, item.projectName]),
@@ -154,19 +155,31 @@ export function ManagerOperationsClient({
         <p className={styles.boundary!}>{catalog["managerOps.boundary"]}</p>
       </main>
       <aside className={styles.brief!} aria-label={catalog["managerOps.brief"]}>
-        <p className="eyebrow">{catalog["managerOps.brief"]}</p>
-        <h2>{catalog["managerOps.briefTitle"]}</h2>
-        <p>
-          {actionCount === 0
-            ? catalog["managerOps.briefEmpty"]
-            : catalog["managerOps.briefBody"].replace("{count}", String(actionCount))}
-        </p>
-        <strong>{catalog["managerOps.nextBestStep"]}</strong>
-        <p>{catalog["managerOps.nextBestStepBody"]}</p>
-        <a className={styles.primaryAction!} href="#manager-queue-approvals">
-          {catalog["managerOps.reviewFirstAction"]}
-        </a>
-        <small>{catalog["managerOps.assistantBoundary"]}</small>
+        {suggestion === undefined ? (
+          <>
+            <p className="eyebrow">{catalog["managerOps.brief"]}</p>
+            <h2>{catalog["managerOps.briefTitle"]}</h2>
+            <p>{catalog["managerOps.briefEmpty"]}</p>
+          </>
+        ) : (
+          <>
+            <p className="eyebrow">{catalog["managerOps.suggestionLabel"]}</p>
+            <h2>
+              {catalog["managerOps.suggestionTitle"].replace(
+                "{item}",
+                suggestion.label ?? suggestion.projectName,
+              )}
+            </h2>
+            <p>{catalog[`managerOps.detail.${suggestion.detailKey}`]}</p>
+            <time dateTime={suggestion.observedAt}>
+              {catalog["managerOps.updated"]} {formatTime(suggestion.observedAt, locale)}
+            </time>
+            <a className={styles.primaryAction!} href={actionFor(suggestion, locale).href}>
+              {catalog[`managerOps.action.${suggestion.detailKey}`]}
+            </a>
+            <small>{catalog["managerOps.suggestionBoundary"]}</small>
+          </>
+        )}
       </aside>
     </section>
   );

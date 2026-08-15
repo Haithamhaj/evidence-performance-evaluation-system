@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Execute Phase 7 Manager Operations and Continuity over the completed employee and Evaluation
-journeys while preserving private employee context, human-only performance judgment, scoped
-authority, and leave fairness.
+Execute Phase 8 Insights, Notifications, Connections, Reports, and Administration over the completed
+daily, Project, Evaluation, manager, and continuity journeys without turning operational data into
+employee surveillance or scoring.
 
 ## Current Reality
 
@@ -373,6 +373,12 @@ authority, and leave fairness.
   It uses `stage_gate`, has no weights, and still has no Progress Snapshot or official percentage;
   the authoritative state is truthfully `awaiting_information` until approved evidence or authorized
   human confirmation advances a gate.
+- Phase 7 is technically complete. Managers receive source-backed operational queues and one bounded
+  suggestion, while coaching exposes only shared/formal content. Leave, handover, exact-scope acting
+  ownership, delegate confirmation, activation/expiry, and human-confirmed return use the existing
+  authoritative continuity engine. Deactivation reassignment cases enter the manager ownership queue;
+  administrator authority remains separate. No readiness value, ranking, activity inference,
+  productivity prediction, or AI-owned protected decision was added.
 
 ## Active Risks
 
@@ -403,10 +409,9 @@ authority, and leave fairness.
 
 ## Next Recommended Action
 
-Continue Phase 7 with P7-07–P7-11: expose exact-scope acting ownership, expiry/return, authoritative
-permission refresh, bounded manager suggestions, negative analytics proof, and capability closure.
-Do not introduce employee scores, readiness values, activity-based risk, private employee context, or
-AI-owned leave/delegation/reassignment decisions. Keep the real v7 Project in its honest
+Start Phase 8 with P8-01–P8-03: personal authorized history, Project contract-based insights, and an
+accessible chart/table system. Keep analytics outside manager judgment, evaluation authority, Project
+progress calculation, and private employee context. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
 merge Pull Requests #29/#30, or retire retained rollback routes.
 
