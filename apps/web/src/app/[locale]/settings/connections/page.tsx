@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createElement } from "react";
 
 import { WorkspaceShell } from "../../workspace-shell";
-import { GoogleWorkspaceCard } from "./google-workspace-card";
+import { ConnectionsWorkspace } from "./connections-workspace";
 
 export default async function ConnectionsPage({
   params,
@@ -15,6 +15,10 @@ export default async function ConnectionsPage({
   return createElement(
     WorkspaceShell,
     { catalog, locale, localeSwitchHref: `/${alternateLocale}/settings/connections` },
-    createElement(GoogleWorkspaceCard, { catalog, locale }),
+    createElement(ConnectionsWorkspace, {
+      catalog,
+      githubAvailable: Boolean(process.env.GITHUB_APP_ID?.trim()),
+      locale,
+    }),
   );
 }

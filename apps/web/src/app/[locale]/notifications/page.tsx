@@ -2,6 +2,7 @@
 import { getCatalog, isLocale } from "@evaluation/localization";
 import { notFound } from "next/navigation";
 
+import { NotificationInbox } from "../../../product-ui/notifications/notification-inbox";
 import { WorkspaceShell } from "../workspace-shell";
 
 export default async function NotificationsPage({
@@ -17,18 +18,7 @@ export default async function NotificationsPage({
       locale={locale}
       localeSwitchHref={`/${alternateLocale}/notifications`}
     >
-      <article className="workspacePanel" data-testid="operations-notifications-checkpoint">
-        <p>{catalog["operations.technicalCheckpoint"]}</p>
-        <h1>{catalog["operations.notificationsTitle"]}</h1>
-        <p>{catalog["operations.notificationsDescription"]}</p>
-        <ol>
-          <li>{catalog["operations.inAppAction"]}</li>
-          <li>{catalog["operations.emailRecovery"]}</li>
-          <li>{catalog["operations.deepLinkAuthorization"]}</li>
-          <li>{catalog["operations.exportLifecycle"]}</li>
-        </ol>
-        <p>{catalog["operations.noScoringBoundary"]}</p>
-      </article>
+      <NotificationInbox catalog={catalog} locale={locale} />
     </WorkspaceShell>
   );
 }

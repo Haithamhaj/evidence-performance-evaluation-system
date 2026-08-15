@@ -141,6 +141,10 @@ employee surveillance or scoring.
   confirmed contribution metadata, authorized finalized cycle history, and Project contract-based
   progress. Every progress visual has a visible table equivalent; analytics contain no ratings,
   comments, private content bodies, rankings, productivity scores, or activity-based progress.
+- Phase 8 P8-04–P8-05 are implemented: employees have a deduplicated action center with recipient-only
+  read/resolved lifecycle and re-authorized deep links. The Connections workspace preserves Google
+  owner privacy and shows GitHub minimum-permission, suggested-evidence, and human-confirmation
+  boundaries; missing external setup is truthfully labelled `Administrator setup required`.
 - The first Phase 2 Work bundle is complete: the authorized query now supports Project/status/search
   filters, sort, accurate counts, and a compact keyboard list. The local employee preview is now
   dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
@@ -413,9 +417,10 @@ employee surveillance or scoring.
 
 ## Next Recommended Action
 
-Continue Phase 8 with P8-04–P8-05: actionable notification lifecycle and clear Google/GitHub
-connection setup, health, reconnect, and Administrator setup gates. Keep analytics outside manager
-judgment, evaluation authority, Project progress calculation, and private employee context. Keep the real v7 Project in its honest
+Continue Phase 8 with P8-06–P8-08: authorized report history/export controls, a bounded System
+Administrator console, and safe operational recovery without raw logs or destructive normal-user
+actions. Keep analytics outside manager judgment, evaluation authority, Project progress calculation,
+and private employee context. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
 merge Pull Requests #29/#30, or retire retained rollback routes.
 

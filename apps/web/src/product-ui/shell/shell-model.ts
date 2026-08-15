@@ -7,6 +7,7 @@ export type ShellNavigationId =
   | "help"
   | "insights"
   | "manager-operations"
+  | "notifications"
   | "projects"
   | "research"
   | "settings"
@@ -79,6 +80,7 @@ export function buildShellModel({
     current("work", "shell.nav.work", workHref ?? `/${locale}/my-work`),
     current("projects", "shell.nav.projects", `/${locale}/projects`),
     current("insights", "shell.nav.insights", `/${locale}/insights`),
+    current("notifications", "shell.nav.notifications", `/${locale}/notifications`),
     next("research", "shell.nav.research"),
     current("evaluation", "shell.nav.evaluation", `/${locale}/evaluations/facts`),
   ];

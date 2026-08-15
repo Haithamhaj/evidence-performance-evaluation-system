@@ -109,6 +109,52 @@ describe("daily-work same-origin gateway", () => {
     });
   });
 
+  it("lists and resolves notifications through recipient-bound protected endpoints", async () => {
+    const notificationId = "88888888-8888-4888-8888-888888888888";
+    mocks.fetchProtectedUpstream
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ resolved: true });
+
+    const inbox = await GET(new Request("http://localhost:3000/api/daily-work/notifications"), {
+      params: Promise.resolve({ path: ["notifications"] }),
+    });
+    const resolved = await POST(
+      new Request(`http://localhost:3000/api/daily-work/notifications/${notificationId}/resolve`, {
+        body: "{}",
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["notifications", notificationId, "resolve"] }) },
+    );
+
+    expect(inbox.status).toBe(200);
+    expect(resolved.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(1, {
+      method: "GET",
+      path: "/api/v1/operations/notifications?limit=100",
+      schema: expect.anything(),
+    });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(2, {
+      body: {},
+      method: "POST",
+      path: `/api/v1/operations/notifications/${notificationId}/resolve`,
+      schema: expect.anything(),
+    });
+  });
+
+  it("rejects browser-selected notification authority", async () => {
+    const notificationId = "88888888-8888-4888-8888-888888888888";
+    const response = await POST(
+      new Request(`http://localhost:3000/api/daily-work/notifications/${notificationId}/open`, {
+        body: JSON.stringify({ actorId: sessionId }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["notifications", notificationId, "open"] }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).not.toHaveBeenCalled();
+  });
+
   it("forwards only the bounded private capture understanding input", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue(captureUnderstanding());
 

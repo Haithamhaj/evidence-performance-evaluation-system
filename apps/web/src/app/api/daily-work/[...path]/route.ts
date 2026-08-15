@@ -76,6 +76,11 @@ import {
   AskProjectAssistantInputSchema,
   WebProjectAssistantAnswerSchema,
 } from "../../../../platform/project-assistant-contracts";
+import {
+  WebNotificationInboxSchema,
+  WebNotificationOpenResultSchema,
+  WebNotificationResolveResultSchema,
+} from "../../../../platform/notification-contracts";
 
 import {
   fetchProtectedUpstream,
@@ -232,6 +237,15 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
           method: "GET",
           path: "/api/v1/daily-work/update-context",
           schema: UpdateComposerContextSchema,
+        }),
+      );
+    }
+    if (path.length === 1 && path[0] === "notifications") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/operations/notifications?limit=100",
+          schema: WebNotificationInboxSchema,
         }),
       );
     }
@@ -466,6 +480,18 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         input,
         WebCaptureUnderstandingSchema,
       );
+    }
+    if (
+      path.length === 3 &&
+      path[0] === "notifications" &&
+      isUuid(path[1]) &&
+      ["open", "resolve"].includes(path[2]!)
+    ) {
+      z.object({}).strict().parse(body);
+      const upstreamPath = `/api/v1/operations/notifications/${path[1]}/${path[2]}`;
+      return path[2] === "open"
+        ? await post(upstreamPath, {}, WebNotificationOpenResultSchema)
+        : await post(upstreamPath, {}, WebNotificationResolveResultSchema);
     }
     if (path.length === 2 && path[0] === "experience" && path[1] === "task-assistant") {
       const input = AskTaskAssistantInputSchema.parse(body);

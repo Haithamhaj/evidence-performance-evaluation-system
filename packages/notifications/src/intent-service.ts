@@ -38,6 +38,8 @@ export type NotificationIntentRecord = Readonly<{
   inAppState: string;
   deliverAfter: Date;
   readAt: Date | null;
+  resolvedAt: Date | null;
+  dedupeKey: string;
   createdAt: Date;
 }>;
 
@@ -130,5 +132,25 @@ export class NotificationIntentService {
       allowed: true as const,
       action: { kind: intent.actionKind, resourceId: intent.actionResourceId },
     };
+  }
+
+  async resolve(intentId: string, actorId: string) {
+    const intent = await this.database.notificationIntent.findUnique({ where: { id: intentId } });
+    const now = this.now();
+    if (
+      intent === null ||
+      intent.recipientId !== actorId ||
+      intent.inAppState !== "READY" ||
+      intent.deliverAfter > now
+    ) {
+      return { resolved: false as const };
+    }
+    if (intent.resolvedAt === null) {
+      await this.database.notificationIntent.update({
+        where: { id: intent.id },
+        data: { readAt: intent.readAt ?? now, resolvedAt: now },
+      });
+    }
+    return { resolved: true as const };
   }
 }

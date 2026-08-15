@@ -14,6 +14,7 @@ const icons: Readonly<
   help: "help",
   insights: "chart",
   "manager-operations": "briefcase",
+  notifications: "calendar",
   projects: "folder",
   research: "research",
   settings: "settings",

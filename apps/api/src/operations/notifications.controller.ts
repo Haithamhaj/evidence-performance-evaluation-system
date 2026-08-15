@@ -38,6 +38,10 @@ export class NotificationsController {
       this.targets.authorize(actorId, action),
     );
   }
+
+  resolve(request: OperationsRequest, intentId: string) {
+    return this.intents.resolve(intentId, actor(request));
+  }
 }
 
 Controller("api/v1/operations/notifications")(NotificationsController);
@@ -48,6 +52,7 @@ Inject(OperationsTargetAuthorizer)(NotificationsController, undefined, 2);
 decorate("inbox", Get(), [Req(), Query("cursor"), Query("limit")]);
 decorate("setPreference", Post("preferences"), [Req(), Body()]);
 decorate("open", Post(":intentId/open"), [Req(), Param("intentId")]);
+decorate("resolve", Post(":intentId/resolve"), [Req(), Param("intentId")]);
 
 function actor(request: OperationsRequest) {
   return request.principal!.userId;

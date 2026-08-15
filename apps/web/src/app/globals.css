@@ -92,6 +92,7 @@ h1 {
 
 .connectedContextHeader h2,
 .connectionCard h1,
+.connectionCard h2,
 .connectedContextRow strong,
 .connectedContextRow small {
   display: block;
