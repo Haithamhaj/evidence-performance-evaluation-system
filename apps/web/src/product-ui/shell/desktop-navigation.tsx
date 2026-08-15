@@ -12,6 +12,7 @@ const icons: Readonly<
   evaluation: "chart",
   health: "check",
   help: "help",
+  insights: "chart",
   "manager-operations": "briefcase",
   projects: "folder",
   research: "research",

@@ -19,6 +19,7 @@ export * from "./experience-events/experience-events.js";
 export * from "./experience-orchestration/experience-orchestration.js";
 export * from "./experience-core/entity-refs.js";
 export * from "./github-integration.js";
+export * from "./insights.js";
 export * from "./jobs.js";
 export * from "./manager-evaluation.js";
 export * from "./notifications.js";

@@ -1,0 +1,206 @@
+.workspace {
+  display: grid;
+  gap: 1.6rem;
+  padding: 0.25rem;
+}
+
+.header,
+.sectionHeading,
+.project > header,
+.project > header > div,
+.progressSummary,
+.personalGrid li {
+  display: flex;
+  align-items: center;
+}
+
+.header,
+.sectionHeading,
+.project > header,
+.progressSummary,
+.personalGrid li {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header {
+  border-block-end: 1px solid #dfe4ec;
+  padding-block-end: 1.2rem;
+}
+
+.header h1,
+.header p,
+.header span,
+.sectionHeading h2,
+.sectionHeading p,
+.project h3,
+.personalGrid h3,
+.personalGrid p,
+.personalGrid ul,
+.kpi,
+.kpi dd {
+  margin: 0;
+}
+
+.header p {
+  color: #115ed0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin-block: 0.25rem;
+  font-size: 2rem;
+  letter-spacing: -0.035em;
+}
+
+.header span,
+.header small,
+.sectionHeading p,
+.personalGrid span,
+.personalGrid small,
+.boundary {
+  color: #56647a;
+}
+
+.section {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.sectionHeading h2 {
+  font-size: 1.15rem;
+}
+
+.projectGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr));
+  gap: 0.9rem;
+}
+
+.project,
+.personalGrid > article {
+  border: 1px solid #dce3ed;
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 1rem;
+}
+
+.project > header > div {
+  gap: 0.65rem;
+}
+
+.project > header span {
+  color: #4e5d72;
+  font-size: 0.75rem;
+}
+
+.project a {
+  color: #0f5fd8;
+  text-decoration: none;
+}
+
+.progressSummary {
+  flex-wrap: wrap;
+  margin-block: 1rem;
+}
+
+.progressSummary > span {
+  color: #0c54c3;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.progressSummary progress {
+  block-size: 0.55rem;
+  inline-size: 100%;
+  accent-color: #1266e8;
+}
+
+.kpi {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-block: 1px solid #e4e8ef;
+  padding-block: 0.75rem;
+}
+
+.kpi div + div {
+  border-inline-start: 1px solid #e4e8ef;
+  padding-inline-start: 1rem;
+}
+
+.kpi dt {
+  color: #58667a;
+  font-size: 0.75rem;
+}
+
+.kpi dd {
+  margin-block-start: 0.2rem;
+  font-size: 1.1rem;
+  font-weight: 750;
+}
+
+.table {
+  inline-size: 100%;
+  margin-block-start: 0.8rem;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.table th,
+.table td {
+  border-block-end: 1px solid #edf0f5;
+  padding: 0.55rem 0.35rem;
+  text-align: start;
+}
+
+.table th {
+  color: #4f5e72;
+  font-weight: 650;
+}
+
+.personalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.personalGrid ul {
+  margin-block-start: 0.7rem;
+  padding: 0;
+  list-style: none;
+}
+
+.personalGrid li {
+  border-block-start: 1px solid #edf0f5;
+  padding-block: 0.7rem;
+}
+
+.personalGrid li div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.boundary {
+  margin-block-start: 0.3rem !important;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 48rem) {
+  .header,
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .personalGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace * {
+    scroll-behavior: auto !important;
+  }
+}

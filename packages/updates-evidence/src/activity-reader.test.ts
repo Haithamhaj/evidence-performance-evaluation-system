@@ -209,6 +209,44 @@ describe("ActivityReader", () => {
     expect(result.gaps).toHaveLength(1);
     expect(result.history.map(({ state }) => state)).toEqual(["draft", "confirmed", "rejected"]);
   });
+
+  it("returns only the employee's confirmed contribution metadata without content bodies", async () => {
+    const findMany = vi.fn(async () => [
+      {
+        id: "77777777-7777-4777-8777-777777777772",
+        occurredAt: new Date("2026-08-14T08:00:00.000Z"),
+        project: { id: projectId, name: "Atlas Delivery" },
+        evidence: { workItem: null },
+        confirmation: {
+          employeeId: actorId,
+          evidenceRevision: {
+            sourceKind: "url",
+            supportedClaim: "Must not leave the owning module",
+            contributionContext: "Must not leave the owning module",
+            verifications: [{ outcome: "supported" }],
+          },
+        },
+      },
+    ]);
+    const reader = new ActivityReader({ acceptedEvidenceEvent: { findMany } } as never);
+
+    const result = await reader.confirmedContributionHistory({ actorId, limit: 20 });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { confirmation: { employeeId: actorId } }, take: 20 }),
+    );
+    expect(result).toEqual([
+      {
+        id: "77777777-7777-4777-8777-777777777772",
+        project: { id: projectId, name: "Atlas Delivery" },
+        workItem: null,
+        sourceKind: "link",
+        verificationState: "supported",
+        confirmedAt: "2026-08-14T08:00:00.000Z",
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("Must not leave the owning module");
+  });
 });
 
 function evidenceRecord(input: {

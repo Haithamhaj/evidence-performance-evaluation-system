@@ -45,6 +45,61 @@ describe("EmployeeEvaluationQueryService cycle journey", () => {
       expect.arrayContaining([expect.objectContaining({ kind: "SELF" })]),
     );
   });
+
+  it("returns only the employee's finalized cycle metadata without ratings or comments", async () => {
+    const findMany = vi.fn(async () => [
+      {
+        id: "30000000-0000-4000-8000-000000000001",
+        cycle: {
+          id: "20000000-0000-4000-8000-000000000001",
+          cycleType: "CALIBRATION_NON_BASELINE",
+          startsAt: new Date("2026-01-01T00:00:00.000Z"),
+          endsAt: new Date("2026-03-31T23:59:59.000Z"),
+        },
+        finalSnapshot: { finalizedAt: new Date("2026-04-07T08:00:00.000Z") },
+        acknowledgment: null,
+      },
+    ]);
+    const service = new EmployeeEvaluationQueryService(
+      { evaluationAssignment: { findMany } } as never,
+      { read: vi.fn() } as never,
+    );
+
+    const result = await service.readFinalizedHistory({
+      actorId: employeeId,
+      active: true,
+      limit: 10,
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { employeeId, finalSnapshot: { isNot: null } }, take: 10 }),
+    );
+    expect(result).toEqual([
+      {
+        assignmentId: "30000000-0000-4000-8000-000000000001",
+        cycle: {
+          id: "20000000-0000-4000-8000-000000000001",
+          type: "CALIBRATION_NON_BASELINE",
+          startsAt: "2026-01-01T00:00:00.000Z",
+          endsAt: "2026-03-31T23:59:59.000Z",
+        },
+        finalizedAt: "2026-04-07T08:00:00.000Z",
+        acknowledgment: null,
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toMatch(/rating|justification|comment/iu);
+  });
+
+  it("fails closed for a deactivated employee's finalized history", async () => {
+    const service = new EmployeeEvaluationQueryService(
+      { evaluationAssignment: { findMany: vi.fn() } } as never,
+      { read: vi.fn() } as never,
+    );
+
+    await expect(
+      service.readFinalizedHistory({ actorId: employeeId, active: false, limit: 10 }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
 });
 
 function assignment() {

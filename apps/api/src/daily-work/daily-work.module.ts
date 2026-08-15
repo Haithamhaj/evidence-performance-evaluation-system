@@ -20,12 +20,15 @@ import { ResearchReadinessReader } from "@evaluation/research-experiments";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
+import { EmployeeEvaluationModule } from "../employee-evaluation/employee-evaluation.module.js";
+import { EmployeeEvaluationQueryService } from "../employee-evaluation/employee-evaluation-query.service.js";
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { OperationsModule } from "../operations/operations.module.js";
 import { ExperienceEventRuntime } from "../operations/experience-event-runtime.js";
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
 import { EmployeeHomeQueryService } from "./employee-home-query.service.js";
+import { InsightsQueryService } from "./insights-query.service.js";
 import { ProjectDashboardQueryService } from "./project-dashboard-query.service.js";
 import { ProjectExperienceQueryService } from "./project-experience-query.service.js";
 import {
@@ -44,7 +47,7 @@ const DAILY_WORK_DATABASE_LIFECYCLE = Symbol("DAILY_WORK_DATABASE_LIFECYCLE");
 export class DailyWorkModule {}
 
 Module({
-  imports: [AuthModule, OperationsModule],
+  imports: [AuthModule, OperationsModule, EmployeeEvaluationModule],
   controllers: [DailyWorkController, ProgressContractsController],
   providers: [
     {
@@ -169,6 +172,15 @@ Module({
       inject: [DailyWorkQueryService, ExperienceEventRuntime],
     },
     {
+      provide: InsightsQueryService,
+      useFactory: (
+        activity: ActivityReader,
+        evaluations: EmployeeEvaluationQueryService,
+        dailyWork: DailyWorkQueryService,
+      ) => new InsightsQueryService(activity, evaluations, dailyWork),
+      inject: [ActivityReader, EmployeeEvaluationQueryService, DailyWorkQueryService],
+    },
+    {
       provide: ProjectExperienceQueryService,
       useFactory: (
         dailyWork: DailyWorkQueryService,
@@ -225,5 +237,10 @@ Module({
     },
     WorkItemsPolicyGuard,
   ],
-  exports: [CheckInService, DailyWorkQueryService, ProjectExperienceQueryService],
+  exports: [
+    CheckInService,
+    DailyWorkQueryService,
+    ProjectExperienceQueryService,
+    InsightsQueryService,
+  ],
 })(DailyWorkModule);

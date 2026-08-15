@@ -17,6 +17,67 @@ export class EmployeeEvaluationQueryService {
     this.factViewReader = factViewReader;
   }
 
+  async readFinalizedHistory(
+    input: Readonly<{ actorId: string; active: boolean; limit: number }>,
+  ): Promise<
+    ReadonlyArray<{
+      assignmentId: string;
+      cycle: {
+        id: string;
+        type: "CALIBRATION_NON_BASELINE" | "STANDARD";
+        startsAt: string;
+        endsAt: string;
+      };
+      finalizedAt: string;
+      acknowledgment: {
+        kind: "ACKNOWLEDGED" | "ACKNOWLEDGED_WITH_RESERVATION" | "NO_RESPONSE";
+        recordedAt: string;
+      } | null;
+    }>
+  > {
+    const parsed = z
+      .object({ actorId: z.uuid(), active: z.boolean(), limit: z.number().int().min(1).max(20) })
+      .strict()
+      .parse(input);
+    if (!parsed.active) throw forbidden();
+    const assignments = await this.database.evaluationAssignment.findMany({
+      where: { employeeId: parsed.actorId, finalSnapshot: { isNot: null } },
+      orderBy: [{ finalSnapshot: { finalizedAt: "desc" } }, { id: "desc" }],
+      take: parsed.limit,
+      select: {
+        id: true,
+        cycle: {
+          select: { id: true, cycleType: true, startsAt: true, endsAt: true },
+        },
+        finalSnapshot: { select: { finalizedAt: true } },
+        acknowledgment: { select: { kind: true, recordedAt: true } },
+      },
+    });
+    return assignments.flatMap((assignment) =>
+      assignment.finalSnapshot === null
+        ? []
+        : [
+            {
+              assignmentId: assignment.id,
+              cycle: {
+                id: assignment.cycle.id,
+                type: assignment.cycle.cycleType,
+                startsAt: assignment.cycle.startsAt.toISOString(),
+                endsAt: assignment.cycle.endsAt.toISOString(),
+              },
+              finalizedAt: assignment.finalSnapshot.finalizedAt.toISOString(),
+              acknowledgment:
+                assignment.acknowledgment === null
+                  ? null
+                  : {
+                      kind: assignment.acknowledgment.kind,
+                      recordedAt: assignment.acknowledgment.recordedAt.toISOString(),
+                    },
+            },
+          ],
+    );
+  }
+
   async readAssignment(input: AuthorizedAssignmentRead): Promise<unknown> {
     const assignment = await this.database.evaluationAssignment.findUnique({
       where: { id: input.assignmentId },

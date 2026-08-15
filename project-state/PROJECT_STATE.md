@@ -137,6 +137,10 @@ employee surveillance or scoring.
   independent Update/Evidence receipts, unchanged official progress, mobile review evidence, and
   retained rollback routes. This acceptance does not authorize route retirement or Pull Request
   merge.
+- Phase 8 P8-01–P8-03 are implemented: employees have one protected Insights screen for their own
+  confirmed contribution metadata, authorized finalized cycle history, and Project contract-based
+  progress. Every progress visual has a visible table equivalent; analytics contain no ratings,
+  comments, private content bodies, rankings, productivity scores, or activity-based progress.
 - The first Phase 2 Work bundle is complete: the authorized query now supports Project/status/search
   filters, sort, accurate counts, and a compact keyboard list. The local employee preview is now
   dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
@@ -409,9 +413,9 @@ employee surveillance or scoring.
 
 ## Next Recommended Action
 
-Start Phase 8 with P8-01–P8-03: personal authorized history, Project contract-based insights, and an
-accessible chart/table system. Keep analytics outside manager judgment, evaluation authority, Project
-progress calculation, and private employee context. Keep the real v7 Project in its honest
+Continue Phase 8 with P8-04–P8-05: actionable notification lifecycle and clear Google/GitHub
+connection setup, health, reconnect, and Administrator setup gates. Keep analytics outside manager
+judgment, evaluation authority, Project progress calculation, and private employee context. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
 merge Pull Requests #29/#30, or retire retained rollback routes.
 
