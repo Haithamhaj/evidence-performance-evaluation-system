@@ -163,6 +163,14 @@ routes before parity evidence.
 - Phase 9 P9-09 is complete: employees can mark a prepared Work suggestion helpful or select one
   bounded improvement category. The append-only receipt is owner-bound, content-free, trace-linked,
   idempotent, and cannot become employee performance, Project progress, Evidence, or AI authority.
+- Phase 9 P9-04/P9-06/P9-07/P9-08 release evidence is recorded from the approved locale/device
+  screenshots and focused Storybook, accessibility, long-list, receipt-recovery, logout/gateway,
+  protected API, boundary, secret, and performance-input checks. A real-user Core Web Vitals stream
+  and production telemetry remain external deployment/privacy gates rather than synthetic claims.
+- Phase 9 P9-10/P9-12/P9-13 internal operations are prepared: three bounded cohorts, independent
+  server rollback flags, a weekly product-review process, and a concise employee guide. P9-11 safely
+  supports aggregate suggestion categories only; broader telemetry remains collection-disabled until
+  its approved external gate.
 - The first Phase 2 Work bundle is complete: the authorized query now supports Project/status/search
   filters, sort, accurate counts, and a compact keyboard list. The local employee preview is now
   dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
@@ -435,8 +443,8 @@ routes before parity evidence.
 
 ## Next Recommended Action
 
-Continue Phase 9 with one compact P9-04/P9-06/P9-07/P9-08 release-evidence pass, then close the
-bounded P9-10–P9-13 internal-pilot operations and guides. Keep unavailable administrator capabilities fail-closed
+Prepare the running P9-15 Product Owner internal-launch review, keeping P9-02 retained-route retirement
+until visual acceptance confirms the final baseline. Keep unavailable administrator capabilities fail-closed
 until their owning domains expose real commands; do not add generic mutation forms. Keep analytics
 outside manager judgment, evaluation authority, Project progress calculation, and private employee context. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
