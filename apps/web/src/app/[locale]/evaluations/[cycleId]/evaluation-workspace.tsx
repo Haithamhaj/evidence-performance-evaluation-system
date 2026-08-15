@@ -20,6 +20,14 @@ type EditableEntry = Readonly<{
   directObservationBasis: string;
 }>;
 
+type FinalEditableEntry = Readonly<{
+  initialRating: EvaluationRating;
+  rating: EvaluationRating;
+  justification: string;
+  sourceReferences: ReadonlyArray<string>;
+  changeReason: string;
+}>;
+
 export function EvaluationWorkspace({
   catalog,
   factView,
@@ -74,6 +82,31 @@ export function EvaluationWorkspace({
   >({});
   const [wordingLimitations, setWordingLimitations] = useState<Record<string, string[]>>({});
   const [version, setVersion] = useState(currentDraft?.version ?? 1);
+  const [finalEntries, setFinalEntries] = useState<Record<string, FinalEditableEntry>>(() =>
+    Object.fromEntries(
+      (managerSubmission?.entries ?? []).map((entry) => [
+        entry.criterionId,
+        {
+          initialRating: entry.rating,
+          rating: entry.rating,
+          justification: entry.justification,
+          sourceReferences: entry.sourceReferences,
+          changeReason: "",
+        },
+      ]),
+    ),
+  );
+  const [finalComment, setFinalComment] = useState("");
+  const [finalConfirmed, setFinalConfirmed] = useState(false);
+  const [finalState, setFinalState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [acknowledgmentKind, setAcknowledgmentKind] = useState<
+    "ACKNOWLEDGED" | "ACKNOWLEDGED_WITH_RESERVATION"
+  >("ACKNOWLEDGED");
+  const [reservation, setReservation] = useState("");
+  const [acknowledgmentState, setAcknowledgmentState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+  const [exportState, setExportState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const copy = copyFor(catalog);
   const submitted = currentSubmission !== undefined;
   const editableStage = isSelf
@@ -111,6 +144,21 @@ export function EvaluationWorkspace({
     criteria.findIndex(({ id }) => id === activeCriterionId),
   );
   const activeCriterion = criteria[activeCriterionIndex];
+  const finalizationEntries = criteria.flatMap((criterion) => {
+    const entry = finalEntries[criterion.id];
+    if (entry === undefined || entry.justification.trim() === "") return [];
+    const changed = entry.rating !== entry.initialRating;
+    if (changed && entry.changeReason.trim() === "") return [];
+    return [
+      {
+        criterionId: criterion.id,
+        rating: entry.rating,
+        justification: entry.justification.trim(),
+        sourceReferences: entry.sourceReferences,
+        managerInitialChangeReason: changed ? entry.changeReason.trim() : null,
+      },
+    ];
+  });
 
   async function saveDraft() {
     if (!canEdit || completedEntries.length === 0) return;
@@ -204,6 +252,81 @@ export function EvaluationWorkspace({
       setWordingState((current) => ({ ...current, [criterionId]: "drafted" }));
     } catch {
       setWordingState((current) => ({ ...current, [criterionId]: "error" }));
+    }
+  }
+
+  async function finalizeEvaluation() {
+    if (
+      isSelf ||
+      journey.cycle.state !== "FINALIZATION" ||
+      !finalConfirmed ||
+      finalizationEntries.length !== criteria.length
+    )
+      return;
+    setFinalState("saving");
+    try {
+      const response = await fetch(
+        `/api/evaluation/assignments/${journey.assignment.id}/finalize`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            expectedVersion: journey.assignment.version,
+            entries: finalizationEntries,
+            finalComment: finalComment.trim() === "" ? null : finalComment.trim(),
+          }),
+        },
+      );
+      if (!response.ok) throw new Error("finalization failed");
+      setFinalState("saved");
+    } catch {
+      setFinalState("error");
+    }
+  }
+
+  async function acknowledgeEvaluation() {
+    if (
+      !isSelf ||
+      journey.finalDecision === null ||
+      journey.acknowledgment !== null ||
+      (acknowledgmentKind === "ACKNOWLEDGED_WITH_RESERVATION" && reservation.trim() === "")
+    )
+      return;
+    setAcknowledgmentState("saving");
+    try {
+      const response = await fetch(
+        `/api/evaluation/assignments/${journey.assignment.id}/acknowledge`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            expectedVersion: journey.assignment.version,
+            kind: acknowledgmentKind,
+            reservation:
+              acknowledgmentKind === "ACKNOWLEDGED_WITH_RESERVATION" ? reservation.trim() : null,
+          }),
+        },
+      );
+      if (!response.ok) throw new Error("acknowledgment failed");
+      setAcknowledgmentState("saved");
+    } catch {
+      setAcknowledgmentState("error");
+    }
+  }
+
+  async function requestExport() {
+    if (locale !== "en" || journey.finalDecision === null) return;
+    setExportState("saving");
+    try {
+      const response = await fetch(`/api/evaluation/assignments/${journey.assignment.id}/export`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ locale: "en" }),
+      });
+      if (!response.ok) throw new Error("export failed");
+      setExportState("saved");
+    } catch {
+      setExportState("error");
     }
   }
 
@@ -562,6 +685,189 @@ export function EvaluationWorkspace({
           </div>
         </section>
       ) : null}
+      {!isSelf && journey.cycle.state === "FINALIZATION" && journey.finalDecision === null ? (
+        <section className={styles.finalization!} aria-label={copy.finalHumanDecision}>
+          <header>
+            <div>
+              <p className={styles.eyebrow!}>{copy.finalizationEyebrow}</p>
+              <h2>{copy.finalHumanDecision}</h2>
+              <p>{copy.finalizationBoundary}</p>
+            </div>
+          </header>
+          <div className={styles.finalDecisionRows!}>
+            {criteria.map((criterion) => {
+              const localized =
+                criterion.locales.find((item) => item.locale === locale) ?? criterion.locales[0];
+              const entry = finalEntries[criterion.id];
+              if (!localized || entry === undefined) return null;
+              return (
+                <article key={criterion.id}>
+                  <strong>{localized.title}</strong>
+                  <label>
+                    <span>{copy.finalRating}</span>
+                    <select
+                      aria-label={`${copy.finalRating}: ${localized.title}`}
+                      onChange={(event) =>
+                        setFinalEntries((current) => ({
+                          ...current,
+                          [criterion.id]: {
+                            ...entry,
+                            rating: Number(event.target.value) as EvaluationRating,
+                          },
+                        }))
+                      }
+                      value={entry.rating}
+                    >
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <option key={rating} value={rating}>
+                          {rating}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{copy.finalJustification}</span>
+                    <textarea
+                      onChange={(event) =>
+                        setFinalEntries((current) => ({
+                          ...current,
+                          [criterion.id]: { ...entry, justification: event.target.value },
+                        }))
+                      }
+                      value={entry.justification}
+                    />
+                  </label>
+                  {entry.rating !== entry.initialRating ? (
+                    <label>
+                      <span>{copy.changeReason}</span>
+                      <textarea
+                        onChange={(event) =>
+                          setFinalEntries((current) => ({
+                            ...current,
+                            [criterion.id]: { ...entry, changeReason: event.target.value },
+                          }))
+                        }
+                        value={entry.changeReason}
+                      />
+                    </label>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+          <label className={styles.reflection!}>
+            <span>{copy.finalComment}</span>
+            <textarea
+              onChange={(event) => setFinalComment(event.target.value)}
+              value={finalComment}
+            />
+          </label>
+          <label className={styles.confirmation!}>
+            <input
+              checked={finalConfirmed}
+              onChange={(event) => setFinalConfirmed(event.target.checked)}
+              type="checkbox"
+            />
+            <span>{copy.finalConfirmation}</span>
+          </label>
+          {finalState === "saved" ? <p role="status">{copy.finalized}</p> : null}
+          {finalState === "error" ? <p role="alert">{copy.finalizationFailed}</p> : null}
+          <button
+            disabled={
+              !finalConfirmed ||
+              finalizationEntries.length !== criteria.length ||
+              finalState === "saving"
+            }
+            onClick={finalizeEvaluation}
+            type="button"
+          >
+            {finalState === "saving" ? copy.finalizing : copy.finalize}
+          </button>
+        </section>
+      ) : null}
+      {journey.finalDecision === null ? null : (
+        <section className={styles.finalization!} aria-label={copy.finalManagerDecision}>
+          <header>
+            <div>
+              <p className={styles.eyebrow!}>{copy.finalDecisionEyebrow}</p>
+              <h2>{copy.finalManagerDecision}</h2>
+              <p>{copy.finalDecisionBoundary}</p>
+            </div>
+            {isSelf && locale === "en" ? (
+              <button disabled={exportState === "saving"} onClick={requestExport} type="button">
+                {exportState === "saving" ? copy.preparingExport : copy.prepareExport}
+              </button>
+            ) : null}
+          </header>
+          <div className={styles.finalDecisionRows!}>
+            {journey.finalDecision.entries.map((entry) => {
+              const criterion = criteria.find(({ id }) => id === entry.criterionId);
+              const localized =
+                criterion?.locales.find((item) => item.locale === locale) ?? criterion?.locales[0];
+              return (
+                <article key={entry.criterionId}>
+                  <strong>{localized?.title ?? entry.criterionId}</strong>
+                  <span>
+                    {copy.rating} {entry.rating}
+                  </span>
+                  <p>{entry.justification}</p>
+                </article>
+              );
+            })}
+          </div>
+          {exportState === "saved" ? <p role="status">{copy.exportQueued}</p> : null}
+          {exportState === "error" ? <p role="alert">{copy.exportFailed}</p> : null}
+        </section>
+      )}
+      {isSelf &&
+      journey.cycle.state === "ACKNOWLEDGMENT" &&
+      journey.finalDecision !== null &&
+      journey.acknowledgment === null ? (
+        <section className={styles.acknowledgment!} aria-label={copy.acknowledgmentTitle}>
+          <h2>{copy.acknowledgmentTitle}</h2>
+          <p>{copy.acknowledgmentBoundary}</p>
+          <label>
+            <input
+              checked={acknowledgmentKind === "ACKNOWLEDGED"}
+              name="acknowledgment-kind"
+              onChange={() => setAcknowledgmentKind("ACKNOWLEDGED")}
+              type="radio"
+            />
+            <span>{copy.acknowledge}</span>
+          </label>
+          <label>
+            <input
+              aria-label={copy.acknowledgeWithReservation}
+              checked={acknowledgmentKind === "ACKNOWLEDGED_WITH_RESERVATION"}
+              name="acknowledgment-kind"
+              onChange={() => setAcknowledgmentKind("ACKNOWLEDGED_WITH_RESERVATION")}
+              type="radio"
+            />
+            <span>{copy.acknowledgeWithReservation}</span>
+          </label>
+          {acknowledgmentKind === "ACKNOWLEDGED_WITH_RESERVATION" ? (
+            <label className={styles.reflection!}>
+              <span>{copy.reservation}</span>
+              <textarea
+                onChange={(event) => setReservation(event.target.value)}
+                value={reservation}
+              />
+            </label>
+          ) : null}
+          {acknowledgmentState === "saved" ? <p role="status">{copy.acknowledged}</p> : null}
+          {acknowledgmentState === "error" ? <p role="alert">{copy.acknowledgmentFailed}</p> : null}
+          <button
+            disabled={
+              acknowledgmentState === "saving" ||
+              (acknowledgmentKind === "ACKNOWLEDGED_WITH_RESERVATION" && reservation.trim() === "")
+            }
+            onClick={acknowledgeEvaluation}
+            type="button"
+          >
+            {acknowledgmentState === "saving" ? copy.recording : copy.recordAcknowledgment}
+          </button>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -657,5 +963,34 @@ function copyFor(catalog: Catalog) {
     managerPosition: catalog["evaluation.workspace.managerPosition"],
     positionsAligned: catalog["evaluation.workspace.positionsAligned"],
     discussionNeeded: catalog["evaluation.workspace.discussionNeeded"],
+    finalizationEyebrow: catalog["evaluation.workspace.finalizationEyebrow"],
+    finalHumanDecision: catalog["evaluation.workspace.finalHumanDecision"],
+    finalizationBoundary: catalog["evaluation.workspace.finalizationBoundary"],
+    finalRating: catalog["evaluation.workspace.finalRating"],
+    finalJustification: catalog["evaluation.workspace.finalJustification"],
+    changeReason: catalog["evaluation.workspace.changeReason"],
+    finalComment: catalog["evaluation.workspace.finalComment"],
+    finalConfirmation: catalog["evaluation.workspace.finalConfirmation"],
+    finalize: catalog["evaluation.workspace.finalize"],
+    finalizing: catalog["evaluation.workspace.finalizing"],
+    finalized: catalog["evaluation.workspace.finalized"],
+    finalizationFailed: catalog["evaluation.workspace.finalizationFailed"],
+    finalDecisionEyebrow: catalog["evaluation.workspace.finalDecisionEyebrow"],
+    finalManagerDecision: catalog["evaluation.workspace.finalManagerDecision"],
+    finalDecisionBoundary: catalog["evaluation.workspace.finalDecisionBoundary"],
+    rating: catalog["evaluation.workspace.rating"],
+    prepareExport: catalog["evaluation.workspace.prepareExport"],
+    preparingExport: catalog["evaluation.workspace.preparingExport"],
+    exportQueued: catalog["evaluation.workspace.exportQueued"],
+    exportFailed: catalog["evaluation.workspace.exportFailed"],
+    acknowledgmentTitle: catalog["evaluation.workspace.acknowledgmentTitle"],
+    acknowledgmentBoundary: catalog["evaluation.workspace.acknowledgmentBoundary"],
+    acknowledge: catalog["evaluation.workspace.acknowledge"],
+    acknowledgeWithReservation: catalog["evaluation.workspace.acknowledgeWithReservation"],
+    reservation: catalog["evaluation.workspace.reservation"],
+    recordAcknowledgment: catalog["evaluation.workspace.recordAcknowledgment"],
+    recording: catalog["evaluation.workspace.recording"],
+    acknowledged: catalog["evaluation.workspace.acknowledged"],
+    acknowledgmentFailed: catalog["evaluation.workspace.acknowledgmentFailed"],
   };
 }

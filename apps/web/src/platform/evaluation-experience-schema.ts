@@ -71,6 +71,28 @@ const SubmissionSchema = z
     entries: z.array(AssessmentEntrySchema).max(100),
   })
   .strict();
+const FinalDecisionSchema = z
+  .object({
+    humanManagerDecision: z.literal(true),
+    entries: z.array(AssessmentEntrySchema).min(1).max(100),
+    finalComment: z.string().trim().max(8_000).nullable(),
+    finalizedAt: InstantSchema,
+  })
+  .strict();
+const AcknowledgmentSchema = z
+  .object({
+    kind: z.enum(["ACKNOWLEDGED", "ACKNOWLEDGED_WITH_RESERVATION"]),
+    reservation: z.string().trim().min(1).max(8_000).nullable(),
+    recordedAt: InstantSchema,
+  })
+  .strict();
+const ClosedSnapshotSchema = z
+  .object({
+    id: UuidSchema,
+    schemaVersion: z.number().int().positive(),
+    closedAt: InstantSchema.nullable(),
+  })
+  .strict();
 
 export const EmployeeEvaluationJourneySchema: z.ZodType<
   import("../app/[locale]/evaluations/[cycleId]/evaluation-experience-contracts").EvaluationJourney
@@ -111,9 +133,9 @@ export const EmployeeEvaluationJourneySchema: z.ZodType<
     submissions: z.array(SubmissionSchema).max(2),
     comparison: z.unknown().nullable(),
     discussion: z.array(z.unknown()).max(1_000),
-    finalDecision: z.unknown().nullable(),
-    acknowledgment: z.unknown().nullable(),
-    immutableClosedSnapshot: z.unknown().nullable(),
+    finalDecision: FinalDecisionSchema.nullable(),
+    acknowledgment: AcknowledgmentSchema.nullable(),
+    immutableClosedSnapshot: ClosedSnapshotSchema.nullable(),
     independenceGate: z.object({ managerSubmittedBeforeSelfProjection: z.boolean() }).strict(),
   })
   .strict();

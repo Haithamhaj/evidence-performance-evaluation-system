@@ -84,9 +84,22 @@ export type EvaluationJourney = Readonly<{
   >;
   comparison: unknown | null;
   discussion: ReadonlyArray<unknown>;
-  finalDecision: unknown | null;
-  acknowledgment: unknown | null;
-  immutableClosedSnapshot: unknown | null;
+  finalDecision: Readonly<{
+    humanManagerDecision: true;
+    entries: ReadonlyArray<EvaluationEntry>;
+    finalComment: string | null;
+    finalizedAt: string;
+  }> | null;
+  acknowledgment: Readonly<{
+    kind: "ACKNOWLEDGED" | "ACKNOWLEDGED_WITH_RESERVATION";
+    reservation: string | null;
+    recordedAt: string;
+  }> | null;
+  immutableClosedSnapshot: Readonly<{
+    id: string;
+    schemaVersion: number;
+    closedAt: string | null;
+  }> | null;
   independenceGate: Readonly<{ managerSubmittedBeforeSelfProjection: boolean }>;
 }>;
 

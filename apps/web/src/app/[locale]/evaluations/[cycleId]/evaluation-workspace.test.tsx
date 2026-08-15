@@ -293,7 +293,156 @@ describe("EvaluationWorkspace", () => {
     expect(comparison).toHaveTextContent("It never calculates a midpoint or recommends a rating");
     expect(comparison).not.toHaveTextContent(/suggested result|calculated result/i);
   });
+
+  it("lets the manager record the final human decision without an AI rating field", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "finalized",
+          finalizedAt: "2026-08-15T13:00:00Z",
+          version: 2,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const entry = submittedEntry(3);
+    const finalizationJourney: EvaluationJourney = {
+      ...journey({ oneCriterion: true }),
+      audience: "assigned_manager",
+      cycle: { ...journey().cycle, state: "FINALIZATION" },
+      submissions: [
+        { kind: "SELF", submittedAt: "2026-08-15T12:00:00Z", entries: [entry] },
+        { kind: "MANAGER_INITIAL", submittedAt: "2026-08-15T12:05:00Z", entries: [entry] },
+      ],
+      independenceGate: { managerSubmittedBeforeSelfProjection: true },
+    };
+    render(
+      <EvaluationWorkspace
+        catalog={getCatalogSync("en")}
+        factView={factView()}
+        journey={finalizationJourney}
+        locale="en"
+      />,
+    );
+
+    expect(screen.getByLabelText("Final human decision")).toHaveTextContent(
+      "The manager decides every final rating",
+    );
+    fireEvent.change(screen.getByLabelText("Final comment"), {
+      target: { value: "Final judgment recorded after reviewing both positions." },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "I confirm these are my final human decisions" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Finalize evaluation" }));
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Finalized"));
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/evaluation/assignments/${finalizationJourney.assignment.id}/finalize`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.entries).toEqual([
+      {
+        criterionId: entry.criterionId,
+        rating: 3,
+        justification: entry.justification,
+        sourceReferences: [],
+        managerInitialChangeReason: null,
+      },
+    ]);
+    expect(JSON.stringify(body)).not.toMatch(/aiRating|suggestedRating|recommendedRating/i);
+  });
+
+  it("records an employee reservation without changing the final manager decision", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ status: "acknowledged", recordedAt: "2026-08-15T14:00:00Z" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const acknowledgmentJourney: EvaluationJourney = {
+      ...journey({ oneCriterion: true }),
+      cycle: { ...journey().cycle, state: "ACKNOWLEDGMENT" },
+      finalDecision: {
+        humanManagerDecision: true,
+        entries: [submittedEntry(4)],
+        finalComment: "Manager final judgment.",
+        finalizedAt: "2026-08-15T13:00:00Z",
+      },
+    };
+    render(
+      <EvaluationWorkspace
+        catalog={getCatalogSync("en")}
+        factView={factView()}
+        journey={acknowledgmentJourney}
+        locale="en"
+      />,
+    );
+
+    expect(screen.getByLabelText("Final manager decision")).toHaveTextContent("Rating 4");
+    fireEvent.click(screen.getByLabelText("Acknowledge with reservation"));
+    fireEvent.change(screen.getByLabelText("Reservation"), {
+      target: { value: "I acknowledge receipt and disagree with the context used." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Record acknowledgment" }));
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Acknowledged"));
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toEqual({
+      expectedVersion: 1,
+      kind: "ACKNOWLEDGED_WITH_RESERVATION",
+      reservation: "I acknowledge receipt and disagree with the context used.",
+    });
+    expect(body).not.toHaveProperty("rating");
+  });
+
+  it("queues an English self export from the immutable decision", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({ status: "queued", requestId: "70000000-0000-4000-8000-000000000004" }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+    const exportJourney: EvaluationJourney = {
+      ...journey({ oneCriterion: true }),
+      finalDecision: {
+        humanManagerDecision: true,
+        entries: [submittedEntry(3)],
+        finalComment: null,
+        finalizedAt: "2026-08-15T13:00:00Z",
+      },
+    };
+    render(
+      <EvaluationWorkspace
+        catalog={getCatalogSync("en")}
+        factView={factView()}
+        journey={exportJourney}
+        locale="en"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Prepare export" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Export queued"));
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/evaluation/assignments/${exportJourney.assignment.id}/export`,
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
 });
+
+function submittedEntry(rating: 1 | 2 | 3 | 4 | 5) {
+  return {
+    criterionId: "30000000-0000-4000-8000-000000000001",
+    rating,
+    justification: "Human judgment grounded in the reviewed context.",
+    sourceReferences: [] as string[],
+    directObservationBasis: null,
+  };
+}
 
 function journey(options: { oneCriterion?: boolean } = {}): EvaluationJourney {
   const items = [

@@ -41,7 +41,9 @@
 .cycleOverview,
 .facts,
 .assessment,
-.comparison {
+.comparison,
+.finalization,
+.acknowledgment {
   min-inline-size: 0;
   border: 1px solid #dfe4ec;
   border-radius: 0.75rem;
@@ -419,11 +421,85 @@
   color: #58667a;
   font-size: 0.75rem;
 }
+.finalization > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+.finalization h2,
+.finalization p,
+.acknowledgment h2,
+.acknowledgment p {
+  margin: 0;
+}
+.finalization button,
+.acknowledgment button {
+  border: 0;
+  border-radius: 0.5rem;
+  background: #1264e8;
+  color: #fff;
+  padding: 0.65rem 1rem;
+  font-weight: 760;
+}
+.finalization button:disabled,
+.acknowledgment button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.finalDecisionRows {
+  display: grid;
+  gap: 0.65rem;
+  margin-block-end: 1rem;
+}
+.finalDecisionRows article {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(7rem, auto) minmax(16rem, 2fr);
+  gap: 0.75rem;
+  align-items: start;
+  border-block-start: 1px solid #e6eaf0;
+  padding-block: 0.8rem;
+}
+.finalDecisionRows label {
+  display: grid;
+  gap: 0.35rem;
+  color: #445269;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.finalDecisionRows select,
+.finalDecisionRows textarea {
+  border: 1px solid #c8d0dc;
+  border-radius: 0.45rem;
+  background: #fff;
+  padding: 0.55rem;
+  font: inherit;
+}
+.finalDecisionRows textarea {
+  min-block-size: 4.5rem;
+  resize: vertical;
+}
+.confirmation,
+.acknowledgment > label:not(.reflection) {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-block: 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.acknowledgment > button {
+  margin-block-start: 0.8rem;
+}
 @media (max-width: 1100px) {
   .anchors {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .comparisonRows article {
+    grid-template-columns: 1fr 1fr;
+  }
+  .finalDecisionRows article {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -442,6 +518,7 @@
   }
   .facts > header,
   .assessment > header,
+  .finalization > header,
   .actions {
     align-items: stretch;
     flex-direction: column;
@@ -454,6 +531,9 @@
     padding-inline: 1.15rem;
   }
   .comparisonRows article {
+    grid-template-columns: 1fr;
+  }
+  .finalDecisionRows article {
     grid-template-columns: 1fr;
   }
 }

@@ -200,6 +200,108 @@ describe("evaluation same-origin gateway", () => {
       schema: expect.anything(),
     });
   });
+
+  it("forwards only the manager's explicit final decisions", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      schemaVersion: 2,
+      id: "70000000-0000-4000-8000-000000000001",
+      assignmentId,
+      finalizedAt: "2026-08-15T13:00:00Z",
+      version: 2,
+    });
+    const finalEntry = {
+      criterionId,
+      rating: 3,
+      justification: "Manager final human judgment.",
+      sourceReferences: [],
+      managerInitialChangeReason: null,
+    };
+    const response = await POST(
+      new Request(`http://localhost:3000/api/evaluation/assignments/${assignmentId}/finalize`, {
+        method: "POST",
+        body: JSON.stringify({ expectedVersion: 1, entries: [finalEntry], finalComment: null }),
+      }),
+      { params: Promise.resolve({ path: ["assignments", assignmentId, "finalize"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: `/api/v1/employee-evaluation/assignments/${assignmentId}/finalization`,
+      body: {
+        schemaVersion: 1,
+        expectedVersion: 1,
+        idempotencyKey: expect.any(String),
+        entries: [finalEntry],
+        finalComment: null,
+      },
+      schema: expect.anything(),
+    });
+    expect(JSON.stringify(mocks.fetchProtectedUpstream.mock.calls[0]?.[0].body)).not.toMatch(
+      /aiRating|suggestedRating|recommendedRating/i,
+    );
+  });
+
+  it("records acknowledgment or reservation without accepting a rating", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      schemaVersion: 1,
+      id: "70000000-0000-4000-8000-000000000002",
+      assignmentId,
+      finalSnapshotId: "70000000-0000-4000-8000-000000000003",
+      kind: "ACKNOWLEDGED_WITH_RESERVATION",
+      reservation: "I acknowledge receipt and disagree with the context used.",
+      recordedAt: "2026-08-15T14:00:00Z",
+    });
+    const response = await POST(
+      new Request(`http://localhost:3000/api/evaluation/assignments/${assignmentId}/acknowledge`, {
+        method: "POST",
+        body: JSON.stringify({
+          expectedVersion: 2,
+          kind: "ACKNOWLEDGED_WITH_RESERVATION",
+          reservation: "I acknowledge receipt and disagree with the context used.",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["assignments", assignmentId, "acknowledge"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: `/api/v1/employee-evaluation/assignments/${assignmentId}/acknowledgment`,
+        body: expect.not.objectContaining({ rating: expect.anything() }),
+      }),
+    );
+  });
+
+  it("queues the employee's authorized English evaluation export", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      request: { id: "70000000-0000-4000-8000-000000000004" },
+      manifest: { id: "70000000-0000-4000-8000-000000000005" },
+    });
+    const response = await POST(
+      new Request(`http://localhost:3000/api/evaluation/assignments/${assignmentId}/export`, {
+        method: "POST",
+        body: JSON.stringify({ locale: "en" }),
+      }),
+      { params: Promise.resolve({ path: ["assignments", assignmentId, "export"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/v1/operations/exports",
+      body: {
+        idempotencyKey: expect.any(String),
+        reportType: "EMPLOYEE_EVALUATION",
+        audience: "EMPLOYEE_SELF",
+        format: "PDF",
+        locale: "en",
+        cycleId: null,
+        timezone: "Asia/Riyadh",
+      },
+      schema: expect.anything(),
+    });
+  });
 });
 
 function entry() {

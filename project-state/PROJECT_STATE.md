@@ -337,6 +337,11 @@ employee/manager drafts, and every protected visibility boundary.
   comparison only after both submit. A live governed OpenAI run through `gpt-5.6-terra` prepared
   editable wording after Codex selected a rating; it recommended no rating and disclosed its missing
   source support. Arabic employee evaluation remains correctly gated by T016.
+- Phase 6 P6-06, P6-07, and P6-09 are technically complete. The assigned manager can record the
+  criterion-level final human decision with a required reason for any change from the manager's
+  initial position; the employee can acknowledge or preserve a reservation without changing that
+  decision; and the authorized English immutable export enters the existing queued, expiring, and
+  revocable reporting lifecycle. No AI rating path or Arabic-gate bypass was added.
 - The Product Owner approved creating Project Document v7 as the bounded current source for the real
   Codex dogfood Project. It replaces no history: v1–v6 remain immutable. The v7 design uses seven
   remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
@@ -379,9 +384,9 @@ employee/manager drafts, and every protected visibility boundary.
 
 ## Next Recommended Action
 
-Continue Phase 6 Evaluation with P6-06–P6-14: protected human finalization, acknowledgment/reservation,
-identified upward feedback, exports, preparation-agent closure, fixed-composition and negative-boundary
-proof, and capability reconciliation. Keep ratings human-only, employee and manager drafts independent,
+Continue Phase 6 Evaluation with P6-08 and P6-10–P6-14: identified upward feedback,
+preparation-agent closure, fixed-composition and negative-boundary proof, Arabic-gate proof, and
+capability reconciliation. Keep ratings human-only, employee and manager drafts independent,
 and Fact View sources separate from interpretation. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
 merge Pull Requests #29/#30, or retire retained rollback routes.
