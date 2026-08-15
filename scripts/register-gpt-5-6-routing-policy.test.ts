@@ -19,6 +19,13 @@ describe("GPT-5.6 routing policy registration", () => {
         expect.objectContaining({ tier: "sol", models: expect.arrayContaining(["gpt-5.6-sol"]) }),
       ]),
     );
+    expect(plan.routes).toContainEqual(
+      expect.objectContaining({
+        routeKey: "evaluation.justification",
+        tier: "terra",
+        models: ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"],
+      }),
+    );
     expect(JSON.stringify(plan)).not.toMatch(/credential|api[_-]?key|token/iu);
   });
 

@@ -1,4 +1,5 @@
 import { AppError } from "@evaluation/contracts";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { EvaluationWordingService } from "./ai-wording-service.js";
@@ -6,6 +7,7 @@ import {
   EVALUATION_JUSTIFICATION_OUTPUT_SCHEMA_VERSION,
   EVALUATION_JUSTIFICATION_PROMPT_VERSION,
   EVALUATION_JUSTIFICATION_ROUTE,
+  EVALUATION_JUSTIFICATION_TRUSTED_PROMPT,
 } from "./prompts.js";
 
 const assignmentId = "00000000-0000-4000-8000-000000004001";
@@ -47,7 +49,12 @@ describe("EvaluationWordingService", () => {
       requiresHumanApproval: true,
     });
     expect(routed?.input).toMatchObject({
-      evaluationContext: {
+      trustedInstruction: {
+        routeKey: EVALUATION_JUSTIFICATION_ROUTE,
+        artifactId: "00000000-0000-4000-8000-000000004011",
+        version: EVALUATION_JUSTIFICATION_PROMPT_VERSION,
+      },
+      untrustedContent: {
         selectedRating: 3,
         selectedAnchor: anchor,
         locale: "en",
@@ -58,7 +65,7 @@ describe("EvaluationWordingService", () => {
       },
     });
     const serialized = JSON.stringify(
-      (routed?.input as { evaluationContext?: unknown } | undefined)?.evaluationContext,
+      (routed?.input as { untrustedContent?: unknown } | undefined)?.untrustedContent,
     );
     expect(serialized).toContain(sourceId);
     expect(serialized).not.toContain("private self narrative");
@@ -209,6 +216,9 @@ function serviceFixture(
       },
     }),
   };
+  const promptHash = createHash("sha256")
+    .update(EVALUATION_JUSTIFICATION_TRUSTED_PROMPT)
+    .digest("hex");
   return {
     requests,
     failWith: (error: Error) => {
@@ -217,6 +227,15 @@ function serviceFixture(
     service: new EvaluationWordingService({
       router,
       contextReader,
+      promptArtifacts: {
+        read: async () => ({
+          id: "00000000-0000-4000-8000-000000004011",
+          routeKey: EVALUATION_JUSTIFICATION_ROUTE,
+          version: EVALUATION_JUSTIFICATION_PROMPT_VERSION,
+          bodyHash: promptHash,
+          trustedBody: EVALUATION_JUSTIFICATION_TRUSTED_PROMPT,
+        }),
+      },
       timeoutMs: 3_000,
     }),
   };

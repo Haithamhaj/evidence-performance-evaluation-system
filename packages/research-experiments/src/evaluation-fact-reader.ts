@@ -67,6 +67,7 @@ export class ResearchEvaluationFactReader {
           startsAt: { lte: endsAt },
           OR: [{ endsAt: null }, { endsAt: { gt: startsAt } }],
         },
+        include: { workstream: { select: { projectId: true } } },
         orderBy: [{ startsAt: "asc" }, { id: "asc" }],
       }),
     ]);
@@ -274,12 +275,17 @@ function researchFact(
 
 function projectWindow(row: any): import("@evaluation/contracts").ResponsibilityWindowFact {
   const startedAt = row.startsAt.toISOString();
+  const recordedAt = (row.createdAt ?? row.startsAt).toISOString();
+  const projectId = row.projectId ?? row.workstream?.projectId;
+  if (typeof projectId !== "string") {
+    throw new Error("Responsibility window has no project scope");
+  }
   return ResponsibilityWindowFactSchema.parse({
     kind: "source_fact",
     sourceType: "responsibility_window",
     sourceId: row.id,
-    sourceOccurredAt: startedAt,
-    projectId: row.projectId,
+    sourceOccurredAt: recordedAt,
+    projectId,
     workstreamId: row.workstreamId ?? null,
     responsibilityType:
       (
@@ -298,7 +304,7 @@ function projectWindow(row: any): import("@evaluation/contracts").Responsibility
         sourceType: "responsibility_window",
         sourceId: row.id,
         sourceVersion: null,
-        occurredAt: startedAt,
+        occurredAt: recordedAt,
         url: null,
       },
     ],

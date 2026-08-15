@@ -19,7 +19,10 @@ import { EvaluationFactViewService } from "@evaluation/evaluation-preparation";
 import { Module } from "@nestjs/common";
 
 import { createDeferredRuntimeAiRouter } from "../ai-routing/deferred-runtime-ai-router.js";
-import { resolveSystemAiScopeId } from "../ai-routing/system-ai-scope.js";
+import {
+  resolveDepartmentAiScopeId,
+  resolveSystemAiScopeId,
+} from "../ai-routing/system-ai-scope.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { EvaluationPreparationModule } from "../evaluation-preparation/evaluation-preparation.module.js";
 import { AssessmentsController } from "./assessments.controller.js";
@@ -62,8 +65,9 @@ Module({
     },
     {
       provide: EmployeeEvaluationQueryService,
-      useFactory: (database: Database) => new EmployeeEvaluationQueryService(database),
-      inject: [EMPLOYEE_EVALUATION_DATABASE],
+      useFactory: (database: Database, facts: EvaluationFactViewService) =>
+        new EmployeeEvaluationQueryService(database, facts),
+      inject: [EMPLOYEE_EVALUATION_DATABASE, EvaluationFactViewService],
     },
     {
       provide: AssessmentService,
@@ -109,6 +113,19 @@ Module({
         return new EvaluationWordingService({
           router,
           timeoutMs: 30_000,
+          promptArtifacts: {
+            read: (routeKey, version) =>
+              database.analysisPromptArtifact.findUnique({
+                where: { routeKey_version: { routeKey, version } },
+                select: {
+                  id: true,
+                  routeKey: true,
+                  version: true,
+                  bodyHash: true,
+                  trustedBody: true,
+                },
+              }),
+          },
           contextReader: {
             read: async (input) => readWordingContext(database, facts, input),
           },
@@ -302,7 +319,7 @@ async function readWordingContext(
   return {
     assignmentId: assignment.id,
     actorId: input.actorId,
-    departmentId: assignment.cycle.departmentId,
+    departmentId: await resolveDepartmentAiScopeId(database, assignment.cycle.departmentId),
     systemId: await resolveSystemAiScopeId(database, EVALUATION_JUSTIFICATION_ROUTE),
     criterion: {
       id: item.id,

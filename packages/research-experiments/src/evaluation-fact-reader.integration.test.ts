@@ -3,6 +3,43 @@ import { describe, expect, it, vi } from "vitest";
 import { ResearchEvaluationFactReader } from "./evaluation-fact-reader.js";
 
 describe("ResearchEvaluationFactReader", () => {
+  it("resolves a workstream responsibility window to its owning project", async () => {
+    const projectId = crypto.randomUUID();
+    const workstreamId = crypto.randomUUID();
+    const employeeId = crypto.randomUUID();
+    const reader = new ResearchEvaluationFactReader({
+      researchRecord: { findMany: vi.fn(async () => []) },
+      responsibilityWindow: {
+        findMany: vi.fn(async () => [
+          {
+            id: crypto.randomUUID(),
+            projectId: null,
+            workstreamId,
+            workstream: { projectId },
+            responsibilityType: "contributor",
+            startsAt: new Date("2026-07-01T00:00:00Z"),
+            endsAt: null,
+          },
+        ]),
+      },
+    } as never);
+
+    const bundle = await reader.readAuthorizedFacts({
+      cycleId: crypto.randomUUID(),
+      subjectEmployeeId: employeeId,
+      cycleStart: "2026-08-01T00:00:00.000Z",
+      cycleEnd: "2026-08-31T23:59:59.999Z",
+      requester: {
+        actorId: employeeId,
+        subjectEmployeeId: employeeId,
+        access: "self",
+        active: true,
+      },
+    });
+
+    expect(bundle.responsibilityWindows[0]).toMatchObject({ projectId, workstreamId });
+  });
+
   it("separates source-supported experiment conclusions from employee interpretation", async () => {
     const projectId = crypto.randomUUID();
     const employeeId = crypto.randomUUID();

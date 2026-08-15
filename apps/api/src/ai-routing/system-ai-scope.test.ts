@@ -1,9 +1,36 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  resolveDepartmentAiScopeId,
   resolveContextIntelligenceSystemAiScopes,
   resolveSystemAiScopeId,
 } from "./system-ai-scope.js";
+
+describe("resolveDepartmentAiScopeId", () => {
+  it("maps a department domain id to its authoritative AI authorization scope", async () => {
+    const findScope = vi.fn().mockResolvedValue({ id: "department-ai-scope" });
+
+    await expect(
+      resolveDepartmentAiScopeId(
+        { authorizationScope: { findFirst: findScope } },
+        "department-domain-id",
+      ),
+    ).resolves.toBe("department-ai-scope");
+    expect(findScope).toHaveBeenCalledWith({
+      where: { departmentId: "department-domain-id", scopeType: "department" },
+      select: { id: true },
+    });
+  });
+
+  it("fails closed when the department has no authorization scope", async () => {
+    await expect(
+      resolveDepartmentAiScopeId(
+        { authorizationScope: { findFirst: vi.fn().mockResolvedValue(null) } },
+        "department-domain-id",
+      ),
+    ).rejects.toThrow("The department authorization scope is not configured");
+  });
+});
 
 describe("resolveSystemAiScopeId", () => {
   it("uses the configured system route scope when the route exists", async () => {

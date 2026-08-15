@@ -331,6 +331,12 @@ employee/manager drafts, and every protected visibility boundary.
   conclusion, run an Experiment, confirm a decision, create official work, or move Project progress.
   The meaningful trail and closure check use decisions and learning events rather than source or run
   volume. Focused UI/API tests and the real PostgreSQL Research lifecycle are green.
+- Phase 6 P6-01–P6-05 are technically complete in the selected Command Brief experience. The English
+  pilot journey now enters the protected cycle, presents source-supported Fact View content before
+  interpretation, records criterion-by-criterion employee and independent manager drafts, and shows
+  comparison only after both submit. A live governed OpenAI run through `gpt-5.6-terra` prepared
+  editable wording after Codex selected a rating; it recommended no rating and disclosed its missing
+  source support. Arabic employee evaluation remains correctly gated by T016.
 - The Product Owner approved creating Project Document v7 as the bounded current source for the real
   Codex dogfood Project. It replaces no history: v1–v6 remain immutable. The v7 design uses seven
   remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
@@ -373,9 +379,9 @@ employee/manager drafts, and every protected visibility boundary.
 
 ## Next Recommended Action
 
-Begin Phase 6 Evaluation by reconciling the existing protected cycle, Fact View, self-assessment,
-manager assessment, comparison, finalization, upward feedback, and export capabilities into the
-selected Command Brief experience. Keep ratings human-only, employee and manager drafts independent,
+Continue Phase 6 Evaluation with P6-06–P6-14: protected human finalization, acknowledgment/reservation,
+identified upward feedback, exports, preparation-agent closure, fixed-composition and negative-boundary
+proof, and capability reconciliation. Keep ratings human-only, employee and manager drafts independent,
 and Fact View sources separate from interpretation. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
 merge Pull Requests #29/#30, or retire retained rollback routes.

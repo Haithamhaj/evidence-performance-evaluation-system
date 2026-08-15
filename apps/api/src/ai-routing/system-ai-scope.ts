@@ -6,8 +6,29 @@ type SystemAiScopeDatabase = Readonly<{
   };
   authorizationScope: {
     findUnique(input: unknown): Promise<{ readonly id: string } | null>;
+    findFirst?(input: unknown): Promise<{ readonly id: string } | null>;
   };
 }>;
+
+type DepartmentAiScopeDatabase = Readonly<{
+  authorizationScope: {
+    findFirst(input: unknown): Promise<{ readonly id: string } | null>;
+  };
+}>;
+
+export async function resolveDepartmentAiScopeId(
+  database: DepartmentAiScopeDatabase,
+  departmentId: string,
+): Promise<string> {
+  const scope = await database.authorizationScope.findFirst({
+    where: { departmentId, scopeType: "department" },
+    select: { id: true },
+  });
+  if (scope === null) {
+    throw new Error("The department authorization scope is not configured");
+  }
+  return scope.id;
+}
 
 export async function resolveContextIntelligenceSystemAiScopes(
   database: SystemAiScopeDatabase,

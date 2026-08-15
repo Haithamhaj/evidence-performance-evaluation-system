@@ -18,6 +18,7 @@ const ROUTE_TIERS = {
   "update.structure": "terra",
   "research.source-review.v1": "terra",
   "research.frame.v1": "terra",
+  "evaluation.justification": "terra",
 
   "project.progress-contract.draft": "sol",
   "research.synthesize.v1": "sol",

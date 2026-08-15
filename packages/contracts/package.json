@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./employee-experience": "./src/employee-experience.ts"
+    "./employee-experience": "./src/employee-experience.ts",
+    "./evaluation-fact-view": "./src/evaluation-fact-view.ts"
   },
   "dependencies": {
     "zod": "4.4.3"

@@ -3,12 +3,18 @@ import { Injectable } from "@nestjs/common";
 import { z } from "zod";
 
 type Database = import("@evaluation/database").DatabaseClient;
+type FactViewReader = Pick<
+  import("@evaluation/evaluation-preparation").EvaluationFactViewService,
+  "read"
+>;
 
 export class EmployeeEvaluationQueryService {
   private readonly database: Database;
+  private readonly factViewReader: FactViewReader;
 
-  constructor(database: Database) {
+  constructor(database: Database, factViewReader: FactViewReader) {
     this.database = database;
+    this.factViewReader = factViewReader;
   }
 
   async readAssignment(input: AuthorizedAssignmentRead): Promise<unknown> {
@@ -81,6 +87,12 @@ export class EmployeeEvaluationQueryService {
       },
       include: {
         cycle: { include: { snapshot: true } },
+        assessments: {
+          include: {
+            revisions: { orderBy: { revision: "desc" }, take: 1 },
+            submissions: { orderBy: { confirmedAt: "desc" }, take: 1 },
+          },
+        },
         submissions: { include: { revision: true }, orderBy: { confirmedAt: "asc" } },
         discussionEntries: { orderBy: [{ resultingVersion: "asc" }, { id: "asc" }] },
         finalSnapshot: { include: { decisions: { orderBy: { position: "asc" } } } },
@@ -89,6 +101,29 @@ export class EmployeeEvaluationQueryService {
     });
     if (assignment === null) throw forbidden();
     const access = assignment.employeeId === input.actorId ? "self" : "assigned_manager";
+    const snapshot = assignment.cycle.snapshot;
+    if (snapshot === null) {
+      throw new AppError(
+        "EMPLOYEE_EVALUATION_SNAPSHOT_NOT_FOUND",
+        "errors.evaluation.snapshotNotFound",
+        409,
+      );
+    }
+    const factView = await this.factViewReader.read({
+      cycle: {
+        id: assignment.cycle.id,
+        startsAt: assignment.cycle.startsAt.toISOString(),
+        endsAt: assignment.cycle.endsAt.toISOString(),
+        rubricVersionId: snapshot.rubricVersionId,
+      },
+      subjectEmployeeId: assignment.employeeId,
+      requester: {
+        actorId: input.actorId,
+        subjectEmployeeId: assignment.employeeId,
+        access,
+        active: true,
+      },
+    });
     const managerSubmission = assignment.submissions.find(({ kind }) => kind === "MANAGER_INITIAL");
     const managerIndependenceProven =
       managerSubmission !== undefined && !managerSubmission.selfProjectionAccessedBeforeSubmit;
@@ -107,6 +142,7 @@ export class EmployeeEvaluationQueryService {
         id: assignment.cycle.id,
         type: assignment.cycle.cycleType,
         state: assignment.cycle.state,
+        visibilityMode: assignment.cycle.snapshot?.visibilityMode,
         startsAt: assignment.cycle.startsAt.toISOString(),
         endsAt: assignment.cycle.endsAt.toISOString(),
         version: assignment.cycle.version,
@@ -118,12 +154,26 @@ export class EmployeeEvaluationQueryService {
         version: assignment.version,
       },
       templateSnapshot: assignment.cycle.snapshot?.templateSnapshot ?? null,
+      drafts: assignment.assessments
+        .filter(
+          (assessment) =>
+            assessment.kind === (access === "self" ? "SELF" : "MANAGER_INITIAL") &&
+            assessment.revisions[0] !== undefined &&
+            assessment.submissions.length === 0,
+        )
+        .map((assessment) => ({
+          kind: assessment.kind,
+          version: assessment.version,
+          entries: assessment.revisions[0]!.entries,
+          updatedAt: assessment.revisions[0]!.createdAt.toISOString(),
+        })),
       factViewFirst: {
         responsibilityWindows: reportSnapshot.responsibilityWindows ?? [],
         workFacts: reportSnapshot.workFacts ?? [],
         researchFacts: reportSnapshot.researchFacts ?? [],
         sourceCoverageNotes: reportSnapshot.sourceCoverageNotes ?? [],
       },
+      factView,
       submissions,
       comparison: reportSnapshot.comparison ?? null,
       discussion: assignment.discussionEntries.map((entry) => ({

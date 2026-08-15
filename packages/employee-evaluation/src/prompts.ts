@@ -58,7 +58,11 @@ const RequestSchema = z
 export type EvaluationChosenFact = z.infer<typeof ChosenFactSchema>;
 
 export function buildEvaluationJustificationRequest(input: unknown) {
-  const parsed = RequestSchema.parse(input);
+  const parsed = RequestSchema.extend({
+    prompt: z
+      .object({ artifactId: z.string().uuid(), sha256: z.string().regex(/^[a-f0-9]{64}$/u) })
+      .strict(),
+  }).parse(input);
   return {
     routeKey: EVALUATION_JUSTIFICATION_ROUTE,
     inputSchemaVersion: EVALUATION_JUSTIFICATION_INPUT_SCHEMA_VERSION,
@@ -67,10 +71,11 @@ export function buildEvaluationJustificationRequest(input: unknown) {
     input: {
       trustedInstruction: {
         routeKey: EVALUATION_JUSTIFICATION_ROUTE,
+        artifactId: parsed.prompt.artifactId,
         version: EVALUATION_JUSTIFICATION_PROMPT_VERSION,
-        content: EVALUATION_JUSTIFICATION_TRUSTED_PROMPT,
+        sha256: parsed.prompt.sha256,
       },
-      evaluationContext: {
+      untrustedContent: {
         selectedRating: parsed.selectedRating,
         selectedAnchor: parsed.selectedAnchor,
         chosenFacts: parsed.chosenFacts.map(delimitFact),
