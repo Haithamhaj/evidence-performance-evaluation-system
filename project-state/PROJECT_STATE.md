@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Execute Phase 8 Insights, Notifications, Connections, Reports, and Administration over the completed
-daily, Project, Evaluation, manager, and continuity journeys without turning operational data into
-employee surveillance or scoring.
+Begin Phase 9 internal-beta hardening over the closed Phase 8 employee and administration surfaces,
+without turning operational data into employee surveillance or scoring and without retiring retained
+routes before parity evidence.
 
 ## Current Reality
 
@@ -148,8 +148,13 @@ employee surveillance or scoring.
 - Phase 8 P8-06 and P8-08 are implemented: authorized users can review only their own export history,
   open ready artifacts after a fresh authorization check, and revoke access with a reason. The
   System Administrator sees bounded dependency health and safe recovery actions without raw logs,
-  private content, credentials, or destructive controls. P8-07 has a truthful capability foundation;
-  broad mutation forms remain pending real owning-domain readers and commands.
+  private content, credentials, or destructive controls.
+- Phase 8 P8-07 and P8-09–P8-11 are complete within the approved bounded architecture: the protected
+  administrator console reports only owner-domain commands that are actually wired and marks all
+  unsupported capabilities unavailable instead of rendering fake or generic mutation forms. Product
+  Telemetry remains typed, content-free, isolated from operational/evaluation authority, and
+  collection-disabled. Personal Work views remain explicit, allowlisted, and local to the employee's
+  device. All 44 frontend capability records and the Phase 8 protected boundaries validate.
 - The first Phase 2 Work bundle is complete: the authorized query now supports Project/status/search
   filters, sort, accurate counts, and a compact keyboard list. The local employee preview is now
   dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
@@ -422,10 +427,10 @@ employee surveillance or scoring.
 
 ## Next Recommended Action
 
-Continue Phase 8 with P8-07 and P8-09–P8-11: complete only real owning-domain administrator commands,
-keep product telemetry isolated and minimized, add opt-in personal display preferences, and close the
-Phase 8 capability matrix. Keep analytics outside manager judgment, evaluation authority, Project progress calculation,
-and private employee context. Keep the real v7 Project in its honest
+Start Phase 9 with P9-01 capability parity audit and P9-03/P9-05 bounded role/provider hardening.
+Keep unavailable administrator capabilities fail-closed until their owning domains expose real
+commands; do not add generic mutation forms. Keep analytics outside manager judgment, evaluation
+authority, Project progress calculation, and private employee context. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
 merge Pull Requests #29/#30, or retire retained rollback routes.
 

@@ -102,6 +102,25 @@
   padding-inline-start: 1.2rem;
 }
 
+.capabilityList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-block-end: 1px solid #edf0f4;
+  padding-block: 0.5rem;
+}
+
+.capabilityList strong {
+  color: #68758a;
+  font-size: 0.82rem;
+  text-align: end;
+}
+
+.capabilityList strong[data-available="true"] {
+  color: #137341;
+}
+
 .boundary > strong {
   color: #8a3f08;
 }

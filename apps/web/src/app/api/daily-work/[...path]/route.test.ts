@@ -207,6 +207,25 @@ describe("daily-work same-origin gateway", () => {
     });
   });
 
+  it("reads the protected administrator capability inventory without browser authority", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue([
+      { capability: "AI_ROUTES_MANAGE", available: true },
+      { capability: "USERS_MANAGE", available: false },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/admin/capabilities"),
+      { params: Promise.resolve({ path: ["admin", "capabilities"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/operations/administration/capabilities",
+      schema: expect.anything(),
+    });
+  });
+
   it("forwards only the bounded private capture understanding input", async () => {
     mocks.fetchProtectedUpstream.mockResolvedValue(captureUnderstanding());
 

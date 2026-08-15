@@ -21,6 +21,10 @@ export class AdministrationController {
     await this.events.publishHealth(request.principal!.userId, health);
     return health;
   }
+
+  capabilities() {
+    return this.commands.capabilities();
+  }
 }
 
 Controller("api/v1/operations/administration")(AdministrationController);
@@ -30,6 +34,7 @@ Inject(AdminHealthComposition)(AdministrationController, undefined, 1);
 Inject(AuthoritativeOperationsEventPublisher)(AdministrationController, undefined, 2);
 decorate("execute", Post("commands"), [Req(), Body()]);
 decorate("readHealth", Get("health"), [Req()]);
+decorate("capabilities", Get("capabilities"), []);
 
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};

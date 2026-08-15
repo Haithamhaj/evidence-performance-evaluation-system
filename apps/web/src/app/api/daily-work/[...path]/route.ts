@@ -82,6 +82,7 @@ import {
   WebNotificationResolveResultSchema,
 } from "../../../../platform/notification-contracts";
 import {
+  WebAdminCapabilitiesSchema,
   WebAdminHealthSchema,
   WebArtifactOpenSchema,
   WebArtifactRevocationSchema,
@@ -270,6 +271,15 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
           method: "GET",
           path: "/api/v1/operations/administration/health",
           schema: WebAdminHealthSchema,
+        }),
+      );
+    }
+    if (path.length === 2 && path[0] === "admin" && path[1] === "capabilities") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/operations/administration/capabilities",
+          schema: WebAdminCapabilitiesSchema,
         }),
       );
     }

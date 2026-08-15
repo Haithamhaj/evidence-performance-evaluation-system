@@ -27,6 +27,10 @@ describe("AdminOperationsWorkspace", () => {
             },
           ],
         }}
+        initialCapabilities={[
+          { capability: "AI_ROUTES_MANAGE", available: true },
+          { capability: "USERS_MANAGE", available: false },
+        ]}
         locale="en"
       />,
     );
@@ -34,6 +38,10 @@ describe("AdminOperationsWorkspace", () => {
     expect(screen.getByRole("heading", { name: "System operations" })).toBeTruthy();
     expect(screen.getAllByText("Action required")).toHaveLength(2);
     expect(screen.getAllByText("Administrator setup required")).toHaveLength(2);
+    expect(screen.getByText("AI routes")).toBeTruthy();
+    expect(screen.getByText("Available through governed commands")).toBeTruthy();
+    expect(screen.getByText("User accounts")).toBeTruthy();
+    expect(screen.getByText("Not available in this build")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/password|raw log|access token/iu);
     expect(screen.queryByRole("button", { name: /delete|reset|clear/iu })).toBeNull();
   });

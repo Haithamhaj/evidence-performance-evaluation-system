@@ -71,5 +71,28 @@ export const WebAdminHealthSchema = z
   })
   .strip();
 
+export const WebAdminCapabilitySchema = z
+  .object({
+    capability: z.enum([
+      "USERS_MANAGE",
+      "TECHNICAL_ROLES_MANAGE",
+      "ORGANIZATION_CONFIG_MANAGE",
+      "ORGANIZATION_TEMPLATES_MANAGE",
+      "LOCALIZATION_VERSIONS_MANAGE",
+      "INTEGRATIONS_MANAGE",
+      "AI_ROUTES_MANAGE",
+      "NOTIFICATION_CONFIG_MANAGE",
+      "RETENTION_POLICIES_MANAGE",
+      "AUDIT_QUERY",
+      "EXPORT_OPERATIONS_MANAGE",
+      "SYSTEM_HEALTH_READ",
+    ]),
+    available: z.boolean(),
+  })
+  .strict();
+
+export const WebAdminCapabilitiesSchema = z.array(WebAdminCapabilitySchema).max(20);
+
 export type WebExportHistoryItem = z.infer<typeof WebExportHistoryItemSchema>;
 export type WebAdminHealth = z.infer<typeof WebAdminHealthSchema>;
+export type WebAdminCapability = z.infer<typeof WebAdminCapabilitySchema>;
