@@ -155,6 +155,11 @@ routes before parity evidence.
   Telemetry remains typed, content-free, isolated from operational/evaluation authority, and
   collection-disabled. Personal Work views remain explicit, allowlisted, and local to the employee's
   device. All 44 frontend capability records and the Phase 8 protected boundaries validate.
+- Phase 9 P9-01, P9-03, P9-05, and P9-14 are complete as a focused beta-control baseline: 44/44
+  capabilities retain source test evidence; employee/owner/contributor/manager/acting/admin/inactive
+  boundaries pass; AI, Google, GitHub, email, storage, queue, and API outages retain truthful recovery;
+  and the final employee surfaces, receipts, source review, and continuity can be disabled
+  independently. No retained route was removed.
 - The first Phase 2 Work bundle is complete: the authorized query now supports Project/status/search
   filters, sort, accurate counts, and a compact keyboard list. The local employee preview is now
   dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
@@ -427,10 +432,10 @@ routes before parity evidence.
 
 ## Next Recommended Action
 
-Start Phase 9 with P9-01 capability parity audit and P9-03/P9-05 bounded role/provider hardening.
-Keep unavailable administrator capabilities fail-closed until their owning domains expose real
-commands; do not add generic mutation forms. Keep analytics outside manager judgment, evaluation
-authority, Project progress calculation, and private employee context. Keep the real v7 Project in its honest
+Continue Phase 9 with one compact P9-04/P9-06/P9-07/P9-08 release-evidence pass, then build P9-09
+trace-safe in-product suggestion feedback. Keep unavailable administrator capabilities fail-closed
+until their owning domains expose real commands; do not add generic mutation forms. Keep analytics
+outside manager judgment, evaluation authority, Project progress calculation, and private employee context. Keep the real v7 Project in its honest
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
 merge Pull Requests #29/#30, or retire retained rollback routes.
 
