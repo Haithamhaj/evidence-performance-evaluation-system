@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  ManagerCriterionResponsesSchema,
-  SubmitManagerEvaluationReceiptSchema,
-} from "@evaluation/contracts";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import {
+  WebManagerCriterionResponsesSchema,
+  WebSubmitManagerEvaluationReceiptSchema,
+} from "../../../../platform/manager-feedback-contracts";
 import { fetchProtectedUpstream, safeWorkspaceError } from "../../../../platform/workspace-api";
 
 type Context = Readonly<{ params: Promise<{ path: string[] }> }>;
@@ -16,7 +16,7 @@ const SubmitSchema = z
   .object({
     expectedVersion: z.number().int().positive(),
     identifiedNoticeConfirmed: z.literal(true),
-    responses: ManagerCriterionResponsesSchema,
+    responses: WebManagerCriterionResponsesSchema,
   })
   .strict();
 
@@ -49,7 +49,7 @@ export async function POST(request: Request, context: Context) {
         confirmedAt: new Date().toISOString(),
         responses: input.responses,
       },
-      schema: SubmitManagerEvaluationReceiptSchema,
+      schema: WebSubmitManagerEvaluationReceiptSchema,
     });
     return NextResponse.json({ status: "submitted", submittedAt: result.submittedAt });
   } catch (error) {

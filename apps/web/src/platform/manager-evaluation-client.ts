@@ -5,9 +5,9 @@ import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { ManagerEvaluationParticipantJourneySchema } from "@evaluation/contracts";
 
 import { OIDC_SESSION_COOKIE, oidcSettings, sessionAccessToken } from "../auth/oidc";
+import { WebManagerEvaluationParticipantJourneySchema } from "./manager-feedback-contracts";
 
 const Uuid = z.string().uuid();
 const Instant = z.iso.datetime({ offset: true });
@@ -66,7 +66,7 @@ export type IdentifiedManagerView = z.infer<typeof IdentifiedManagerViewSchema>;
 export type ManagerFeedbackExperience =
   | Readonly<{
       kind: "participant";
-      journey: z.infer<typeof ManagerEvaluationParticipantJourneySchema>;
+      journey: z.infer<typeof WebManagerEvaluationParticipantJourneySchema>;
     }>
   | Readonly<{ kind: "manager"; view: IdentifiedManagerView }>;
 
@@ -83,7 +83,7 @@ export async function fetchManagerFeedbackExperience(input: {
   if (participant.ok) {
     return {
       kind: "participant",
-      journey: ManagerEvaluationParticipantJourneySchema.parse(await participant.json()),
+      journey: WebManagerEvaluationParticipantJourneySchema.parse(await participant.json()),
     };
   }
   if (participant.status !== 403) {
