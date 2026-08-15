@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { executeSelectedActions, ReviewCommandError } from "./review-confirmation-api.js";
+import {
+  executeSelectedActions,
+  rejectEvidenceDraft,
+  ReviewCommandError,
+} from "./review-confirmation-api.js";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -98,6 +102,28 @@ describe("review confirmation commands", () => {
 
   it("does not expose an official progress mutation command", () => {
     expect(new ReviewCommandError(403).status).toBe(403);
+  });
+
+  it("rejects an Evidence suggestion only through the explicit human decision route", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response(200, { revision: 2, state: "rejected" }),
+    );
+
+    await rejectEvidenceDraft({
+      expectedRevision: 1,
+      id: "10000000-0000-4000-8000-000000000006",
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/daily-work/evidence/10000000-0000-4000-8000-000000000006/reject",
+      expect.objectContaining({
+        body: JSON.stringify({
+          expectedRevision: 1,
+          reason: "Employee dismissed the Evidence suggestion during review.",
+        }),
+        method: "POST",
+      }),
+    );
   });
 });
 

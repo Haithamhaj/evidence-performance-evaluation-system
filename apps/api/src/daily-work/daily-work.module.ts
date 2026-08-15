@@ -175,6 +175,7 @@ Module({
         projects: ProjectService,
         documents: DocumentService,
         activity: ActivityReader,
+        workItems: WorkItemQueryService,
       ) =>
         new ProjectExperienceQueryService({
           ownership: (actorId, projectId) =>
@@ -198,8 +199,29 @@ Module({
             }),
           myWork: (actorId) => dailyWork.myWork(actorId),
           timeline: (input) => activity.timeline(input),
+          evidenceWorkspace: (input) => activity.evidenceWorkspace(input),
+          completedWork: async (actorId, projectId) =>
+            (
+              await workItems.listWorkspace({
+                actor: { userId: actorId, active: true },
+                view: "my",
+                layout: "list",
+                projectId,
+                status: "done",
+                search: null,
+                sort: "updated_desc",
+                limit: 50,
+                cursor: null,
+              })
+            ).items,
         }),
-      inject: [DailyWorkQueryService, ProjectService, DocumentService, ActivityReader],
+      inject: [
+        DailyWorkQueryService,
+        ProjectService,
+        DocumentService,
+        ActivityReader,
+        WorkItemQueryService,
+      ],
     },
     WorkItemsPolicyGuard,
   ],

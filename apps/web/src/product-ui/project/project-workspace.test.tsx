@@ -14,7 +14,34 @@ import { ProjectWorkspace } from "./project-workspace.js";
 describe("ProjectWorkspace", () => {
   afterEach(cleanup);
   it("renders the approved Project hierarchy", () => {
-    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={fixture()} locale="en" />);
+    const experience = fixture();
+    experience.evidenceWorkspace = {
+      confirmed: [evidenceWorkspaceItem("confirmed")],
+      pending: [evidenceWorkspaceItem("draft")],
+      attributionIssues: [evidenceWorkspaceItem("draft", "disputed")],
+      gaps: [evidenceWorkspaceItem("confirmed", "acknowledged", "partial")],
+      history: [evidenceWorkspaceItem("rejected")],
+      detections: [
+        {
+          id: "completed-without-update:50000000-0000-4000-8000-000000000002",
+          kind: "completed_without_update",
+          subjectTitle: "Validate streaming fallback",
+          href: "/en/my-work?capture=update&item=50000000-0000-4000-8000-000000000002",
+          workItemId: "50000000-0000-4000-8000-000000000002",
+          evidenceId: null,
+        },
+      ],
+      preparations: [
+        {
+          id: "preparation:completed-without-update:50000000-0000-4000-8000-000000000002",
+          kind: "update_draft",
+          subjectTitle: "Validate streaming fallback",
+          href: "/en/my-work?capture=update&item=50000000-0000-4000-8000-000000000002",
+          requiresConfirmation: true,
+        },
+      ],
+    };
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={experience} locale="en" />);
     expect(screen.getByRole("heading", { name: "Atlas Delivery" })).toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "Project workspace" });
     expect(navigation).toHaveTextContent("Overview");
@@ -75,6 +102,13 @@ describe("ProjectWorkspace", () => {
     expect(documents).toHaveTextContent("requirements.pdf");
     expect(screen.getByText("Needs attention now")).toBeInTheDocument();
     expect(screen.getByText("Work and evidence")).toBeInTheDocument();
+    const evidenceWorkspace = screen.getByLabelText("Evidence workspace");
+    expect(evidenceWorkspace).toHaveTextContent(
+      "Confirmed1Pending1Attribution issues1Gaps1History1",
+    );
+    expect(evidenceWorkspace).toHaveTextContent("Employee contribution context");
+    expect(evidenceWorkspace).toHaveTextContent("Completed work needs an Update");
+    expect(evidenceWorkspace).toHaveTextContent("Update draft prepared");
     expect(screen.getByText("Project timeline")).toBeInTheDocument();
     const timeline = screen.getByLabelText("Meaningful Project timeline");
     expect(timeline).toHaveTextContent("Confirmed update");
@@ -127,6 +161,30 @@ describe("ProjectWorkspace", () => {
     expect(screen.queryByRole("img", { name: /Project progress/u })).toBeNull();
   });
 
+  it("explains an active contract that is still waiting for its first approved measurement", () => {
+    const experience = fixture();
+    experience.progress = {
+      state: "awaiting_information",
+      missing: ["Approved measurable progress information"],
+    };
+    experience.progressReview!.latestSnapshot = null;
+    experience.progressReview!.pendingChange = null;
+    experience.kpi = null;
+
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={experience} locale="en" />);
+
+    const charts = screen.getByRole("region", { name: "Contract-based progress charts" });
+    expect(charts).toHaveTextContent("Progress Contract v2 is active");
+    expect(charts).toHaveTextContent(
+      "A verified measurement or authorized confirmation is still needed before showing progress.",
+    );
+    expect(screen.queryByRole("table", { name: "Accessible progress data" })).toBeNull();
+    expect(screen.queryByRole("img", { name: /Project progress/u })).toBeNull();
+    expect(screen.getByLabelText("Project progress review")).toHaveTextContent(
+      "No approved snapshot yet.",
+    );
+  });
+
   it("shows the human-only transfer form only for the authorized manager projection", () => {
     const experience = fixture();
     experience.ownership = {
@@ -158,3 +216,25 @@ describe("ProjectWorkspace", () => {
     ).toBeInTheDocument();
   });
 });
+
+function evidenceWorkspaceItem(
+  state: "confirmed" | "draft" | "rejected",
+  attributionState: "acknowledged" | "disputed" | "proposed" | null = null,
+  verificationState: "partial" | "supported" | "unverified" = "unverified",
+) {
+  return {
+    id: "50000000-0000-4000-8000-000000000001",
+    state,
+    revision: 1,
+    revisionKind: "employee_edit" as const,
+    sourceKind: "url" as const,
+    supportedClaim: "Authentication fallback is verified.",
+    contributionContext: "Employee contribution context",
+    project: { id: "40000000-0000-4000-8000-000000000001", name: "Atlas Delivery" },
+    workItem: null,
+    verificationState,
+    attributionState,
+    createdAt: "2026-08-13T08:00:00.000Z",
+    updatedAt: "2026-08-13T09:00:00.000Z",
+  };
+}

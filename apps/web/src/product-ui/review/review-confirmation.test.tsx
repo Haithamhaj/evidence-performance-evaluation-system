@@ -23,6 +23,10 @@ describe("ReviewConfirmation", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Review before confirming" })).toBeInTheDocument();
+    expect(screen.getByText("GitHub · PR #184")).toBeInTheDocument();
+    expect(screen.getByText("Fresh source")).toBeInTheDocument();
+    expect(screen.getByText("Private draft until confirmation")).toBeInTheDocument();
+    expect(screen.getByText("Provider source available")).toBeInTheDocument();
     expect(screen.getByLabelText("Confirm and publish project update")).toBeChecked();
     expect(screen.getByLabelText("Confirm evidence contribution")).not.toBeChecked();
     expect(screen.getByText("No official progress change yet.")).toBeInTheDocument();
@@ -72,6 +76,21 @@ describe("ReviewConfirmation", () => {
     expect(
       screen.getByText("Evidence was not confirmed. Your edits remain available to retry."),
     ).toBeInTheDocument();
+  });
+
+  it("dismisses an Evidence suggestion only after the employee chooses that action", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response(200, { revision: 2, state: "rejected" }),
+    );
+    render(
+      <ReviewConfirmationView catalog={getCatalogSync("en")} draft={draft()} onBack={vi.fn()} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Dismiss evidence suggestion" }));
+
+    expect(await screen.findByText("Evidence suggestion dismissed.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Suggested Evidence draft" })).toBeNull();
   });
 });
 

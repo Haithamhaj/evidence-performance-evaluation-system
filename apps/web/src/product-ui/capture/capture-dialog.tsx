@@ -3,7 +3,9 @@
 import { ActionButton, FocusedDialog, ProductIcon } from "@evaluation/ui";
 import { createElement, useRef, useState } from "react";
 
+import { VoiceCapture } from "../../app/[locale]/my-work/voice-capture";
 import { understandCapture } from "../../platform/capture-understanding-api";
+import { stageCaptureUpdateFile } from "../../platform/capture-update-source-api";
 import {
   answerCaptureUpdate,
   prepareCaptureEvidence,
@@ -21,21 +23,28 @@ import styles from "./capture-dialog.module.css";
 const ReviewConfirmationView = ReviewConfirmation;
 
 type SourceType = "text" | "link" | "code" | "file" | "image";
-type Source = CaptureUnderstandingInput["sources"][number] & Readonly<{ file?: File }>;
+type Source = CaptureUnderstandingInput["sources"][number] &
+  Readonly<{ file?: File; transcript?: string; voiceSessionId?: string }>;
 
 export function CaptureDialog({
   catalog,
   disabled = false,
+  loadContext,
   locale,
   onSaved,
   prepareEvidence = prepareCaptureEvidence,
   prepareUpdate = prepareCaptureUpdate,
   answerUpdate = answerCaptureUpdate,
   save,
+  stageUpdateFile = stageCaptureUpdateFile,
   understand = understandCapture,
+  voiceFetcher,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
   disabled?: boolean;
+  loadContext?: () => Promise<
+    import("../../platform/updates-evidence-contracts").UpdateComposerContext
+  >;
   locale: "ar" | "en";
   onSaved: () => void;
   answerUpdate?: typeof answerCaptureUpdate;
@@ -44,12 +53,15 @@ export function CaptureDialog({
     projectId: string;
     workItemId: string | null;
     rawText: string;
+    sources?: import("../../platform/updates-evidence-contracts").UpdateSourceInput[];
   }) => Promise<import("../../platform/capture-update-api").CapturePreparedUpdate>;
   prepareEvidence?: typeof prepareCaptureEvidence;
   save: (
     input: Readonly<{ sourceType: SourceType; text: string; sourceUploadId: string | null }>,
   ) => Promise<void>;
+  stageUpdateFile?: typeof stageCaptureUpdateFile;
   understand?: (input: CaptureUnderstandingInput) => Promise<WebCaptureUnderstanding>;
+  voiceFetcher?: import("react").ComponentProps<typeof VoiceCapture>["fetcher"];
 }>) {
   const [text, setText] = useState("");
   const [sources, setSources] = useState<readonly Source[]>([]);
@@ -61,11 +73,18 @@ export function CaptureDialog({
   const [preparedUpdate, setPreparedUpdate] = useState<
     import("../../platform/capture-update-api").CapturePreparedUpdate | null
   >(null);
+  const [preparedSources, setPreparedSources] = useState<
+    readonly import("../../platform/updates-evidence-contracts").UpdateSourceInput[]
+  >([]);
   const [updateIdempotencyKey] = useState(() => crypto.randomUUID());
   const [evidenceIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [context, setContext] = useState<
+    import("../../platform/updates-evidence-contracts").UpdateComposerContext | null
+  >(null);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
-  const voiceInput = useRef<HTMLInputElement>(null);
   if (disabled) return null;
 
   const resetInterpretation = () => {
@@ -82,13 +101,36 @@ export function CaptureDialog({
     setBusy(true);
     setError(false);
     try {
-      setUnderstanding(
-        await understand({
-          locale,
-          rawText: text.trim(),
-          sources: inferredSources(text, sources),
-        }),
-      );
+      const authorized = await authorizedUpdateContext();
+      const interpreted = await understand({
+        locale,
+        rawText: text.trim(),
+        sources: inferredSources(text, sources),
+      });
+      setUnderstanding(constrainUnderstanding(interpreted, authorized, selectedProjectId));
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const authorizedUpdateContext = async () => {
+    if (context !== null || loadContext === undefined) return context;
+    const loaded = await loadContext();
+    setContext(loaded);
+    if (loaded.projects.length === 1) setSelectedProjectId(loaded.projects[0]!.id);
+    return loaded;
+  };
+  const toggleVoice = async () => {
+    if (voiceOpen) {
+      setVoiceOpen(false);
+      return;
+    }
+    setBusy(true);
+    setError(false);
+    try {
+      await authorizedUpdateContext();
+      setVoiceOpen(true);
     } catch {
       setError(true);
     } finally {
@@ -128,12 +170,35 @@ export function CaptureDialog({
     setBusy(true);
     setError(false);
     try {
-      const prepared = await prepareUpdate({
+      const stagedSources = await Promise.all(
+        sources
+          .filter(
+            (source): source is Source & Readonly<{ kind: "file" | "image"; file: File }> =>
+              (source.kind === "file" || source.kind === "image") && source.file !== undefined,
+          )
+          .map((source) =>
+            stageUpdateFile(source.file, {
+              projectId: understanding.likelyProject!.id,
+              workstreamId: null,
+            }),
+          ),
+      );
+      const voiceSources = sources.flatMap((source) =>
+        source.kind === "voice" && source.voiceSessionId !== undefined
+          ? [{ kind: "voice_transcript" as const, voiceSessionId: source.voiceSessionId }]
+          : [],
+      );
+      const updateSources = [...textUpdateSources(text), ...voiceSources, ...stagedSources];
+      setPreparedSources(updateSources);
+      const updateInput = {
         idempotencyKey: updateIdempotencyKey,
         projectId: understanding.likelyProject.id,
         workItemId: understanding.relatedWorkItemId,
         rawText: text.trim(),
-      });
+      };
+      const prepared = await prepareUpdate(
+        updateSources.length === 0 ? updateInput : { ...updateInput, sources: updateSources },
+      );
       setPreparedUpdate(prepared);
       if (prepared.state === "draft_with_question") {
         return;
@@ -143,6 +208,9 @@ export function CaptureDialog({
           understanding,
           prepared,
           text.trim(),
+          sources,
+          catalog,
+          updateSources,
           evidenceIdempotencyKey,
           prepareEvidence,
         ),
@@ -172,6 +240,9 @@ export function CaptureDialog({
             understanding,
             prepared,
             text.trim(),
+            sources,
+            catalog,
+            preparedSources,
             evidenceIdempotencyKey,
             prepareEvidence,
           ),
@@ -257,7 +328,7 @@ export function CaptureDialog({
                 <SourceButton
                   label={catalog["capture.addVoice"]}
                   name="microphone"
-                  onClick={() => voiceInput.current?.click()}
+                  onClick={() => void toggleVoice()}
                 />
                 <SourceButton
                   label={catalog["capture.addLink"]}
@@ -289,13 +360,6 @@ export function CaptureDialog({
               </span>
             </div>
             <input
-              accept="audio/*"
-              className={styles.srOnly!}
-              onChange={(event) => addFile("voice", event.target.files?.[0])}
-              ref={voiceInput}
-              type="file"
-            />
-            <input
               accept="image/png,image/jpeg,image/webp"
               className={styles.srOnly!}
               onChange={(event) => addFile("image", event.target.files?.[0])}
@@ -310,6 +374,50 @@ export function CaptureDialog({
               type="file"
             />
           </section>
+
+          {voiceOpen && context !== null && context.projects.length > 1 ? (
+            <label className={styles.projectContext!}>
+              <span>{catalog["capture.projectForUpdate"]}</span>
+              <select
+                aria-label={catalog["capture.projectForUpdate"]}
+                onChange={(event) => {
+                  setSelectedProjectId(event.target.value);
+                  resetInterpretation();
+                }}
+                value={selectedProjectId}
+              >
+                <option value="">{catalog["capture.chooseProject"]}</option>
+                {context.projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {voiceOpen && resolvedProject(understanding, context, selectedProjectId) !== null
+            ? createElement(VoiceCapture, {
+                catalog,
+                scope: {
+                  projectId: resolvedProject(understanding, context, selectedProjectId)!.id,
+                  workstreamId: null,
+                  workItemId: understanding?.relatedWorkItemId ?? null,
+                },
+                onConfirmed: (source) => {
+                  setSources((current) => [
+                    ...current.filter((item) => item.kind !== "voice"),
+                    {
+                      kind: "voice",
+                      label: catalog["voice.title"],
+                      transcript: source.transcript,
+                      voiceSessionId: source.voiceSessionId,
+                    },
+                  ]);
+                },
+                ...(voiceFetcher === undefined ? {} : { fetcher: voiceFetcher }),
+              })
+            : null}
 
           {busy && understanding === null ? (
             <p aria-live="polite" className={styles.loading!}>
@@ -408,6 +516,54 @@ export function CaptureDialog({
   });
 }
 
+function resolvedProject(
+  understanding: WebCaptureUnderstanding | null,
+  context: import("../../platform/updates-evidence-contracts").UpdateComposerContext | null,
+  selectedProjectId: string,
+) {
+  const selected = context?.projects.find((project) => project.id === selectedProjectId) ?? null;
+  return selected ?? understanding?.likelyProject ?? null;
+}
+
+function constrainUnderstanding(
+  understanding: WebCaptureUnderstanding,
+  context: import("../../platform/updates-evidence-contracts").UpdateComposerContext | null,
+  selectedProjectId: string,
+): WebCaptureUnderstanding {
+  if (context === null) return understanding;
+  const selected =
+    context.projects.find((project) => project.id === selectedProjectId) ??
+    (context.projects.length === 1 ? context.projects[0]! : null);
+  const inferred = context.projects.find(
+    (project) => project.id === understanding.likelyProject?.id,
+  );
+  const project = selected ?? inferred ?? null;
+  if (project === null) {
+    return {
+      ...understanding,
+      likelyProject: null,
+      relatedComponentId: null,
+      relatedWorkItemId: null,
+      relatedWorkItemTitle: null,
+      confidence: "uncertain",
+    };
+  }
+  const workItem = project.workItems.find((item) => item.id === understanding.relatedWorkItemId);
+  const changedProject = understanding.likelyProject?.id !== project.id;
+  return {
+    ...understanding,
+    likelyProject: {
+      confidence:
+        selected === null ? (understanding.likelyProject?.confidence ?? "uncertain") : "high",
+      id: project.id,
+      name: project.name,
+    },
+    relatedComponentId: changedProject ? null : understanding.relatedComponentId,
+    relatedWorkItemId: workItem?.id ?? null,
+    relatedWorkItemTitle: workItem?.title ?? null,
+  };
+}
+
 async function reviewDraft(
   understanding: WebCaptureUnderstanding,
   prepared: Extract<
@@ -415,15 +571,13 @@ async function reviewDraft(
     { state: "ready_for_review" }
   >,
   rawText: string,
+  captureSources: readonly Source[],
+  catalog: import("@evaluation/localization").Catalog,
+  updateSources: readonly import("../../platform/updates-evidence-contracts").UpdateSourceInput[],
   evidenceIdempotencyKey: string,
   prepareEvidence: typeof prepareCaptureEvidence,
 ) {
-  const sourceRefs = prepared.draft.sourceReferences.map((label) => ({
-    kind: "manual_capture" as const,
-    label,
-    observedAt: null,
-    freshness: "fresh" as const,
-  }));
+  const sourceRefs = reviewSourceRefs(rawText, captureSources, catalog);
   const evidence = await Promise.all(
     (prepared.draft.evidenceClaimDrafts ?? []).slice(0, 1).map(async (supportedClaim) => {
       const draft = await prepareEvidence({
@@ -431,7 +585,7 @@ async function reviewDraft(
         projectId: understanding.likelyProject!.id,
         workItemId: understanding.relatedWorkItemId,
         updateSourceId: updateSourceId(prepared.draft.sourceReferences),
-        source: evidenceSource(rawText),
+        source: evidenceSource(rawText, captureSources, updateSources),
         supportedClaim,
         contributionContext: prepared.draft.contributionContext,
       });
@@ -490,17 +644,75 @@ async function reviewDraft(
   };
 }
 
+function reviewSourceRefs(
+  rawText: string,
+  sources: readonly Source[],
+  catalog: import("@evaluation/localization").Catalog,
+) {
+  const captured = sources.map((source) => ({
+    kind: "manual_capture" as const,
+    label: source.label,
+    observedAt: null,
+    freshness: "fresh" as const,
+  }));
+  const links = [...rawText.matchAll(/https?:\/\/[^\s)\],;!?]+/gu)].map((match) => ({
+    kind: match[0].startsWith("https://github.com/")
+      ? ("github" as const)
+      : ("manual_capture" as const),
+    label: match[0],
+    observedAt: null,
+    freshness: "fresh" as const,
+  }));
+  const combined = [...captured, ...links];
+  return combined.length > 0
+    ? combined.slice(0, 20)
+    : [
+        {
+          kind: "manual_capture" as const,
+          label: catalog["review.source.writtenUpdate"],
+          observedAt: null,
+          freshness: "fresh" as const,
+        },
+      ];
+}
+
 function updateSourceId(sourceReferences: readonly string[]) {
   const reference = sourceReferences.find((value) => value.startsWith("update-source:"));
   if (reference === undefined) throw new Error("CAPTURE_UPDATE_SOURCE_MISSING");
   return reference.slice("update-source:".length);
 }
 
-function evidenceSource(rawText: string) {
+function evidenceSource(
+  rawText: string,
+  captureSources: readonly Source[],
+  updateSources: readonly import("../../platform/updates-evidence-contracts").UpdateSourceInput[],
+) {
+  const uploaded = updateSources.find(
+    (
+      source,
+    ): source is Readonly<{
+      kind: "document" | "file" | "image" | "screenshot";
+      uploadedSourceId: string;
+    }> =>
+      source.kind === "image" ||
+      source.kind === "screenshot" ||
+      source.kind === "file" ||
+      source.kind === "document",
+  );
+  if (uploaded !== undefined) return uploaded;
   const url = rawText.match(/https?:\/\/\S+/u)?.[0].replace(/[),.;!?]+$/u, "");
-  return url === undefined
-    ? ({ kind: "pasted_text", text: rawText } as const)
-    : ({ kind: "url", url } as const);
+  if (url !== undefined) return { kind: "url" as const, url };
+  const code = updateSources.find((source) => source.kind === "pasted_code");
+  if (code !== undefined && "text" in code) {
+    return { kind: "pasted_code" as const, text: code.text };
+  }
+  const voice = captureSources.find(
+    (source) => source.kind === "voice" && source.transcript !== undefined,
+  );
+  return {
+    kind: "pasted_text" as const,
+    text: voice?.transcript ?? rawText,
+  };
 }
 
 // JSX-only references are removed before the repository's base unused-variable rule runs.
@@ -578,6 +790,19 @@ function inferredSources(text: string, sources: readonly Source[]) {
     inferred.push({ kind: "link", label: text.match(/https?:\/\/\S+/u)?.[0] ?? "Link" });
   if (/```/u.test(text)) inferred.push({ kind: "code", label: "Pasted code" });
   return [...sources.map(({ kind, label }) => ({ kind, label })), ...inferred].slice(0, 20);
+}
+
+function textUpdateSources(
+  text: string,
+): import("../../platform/updates-evidence-contracts").UpdateSourceInput[] {
+  const urls = [...text.matchAll(/https?:\/\/[^\s)\],;!?]+/gu)].map(
+    (match) => ({ kind: "url", url: match[0] }) as const,
+  );
+  const code = [...text.matchAll(/```(?:[^\n]*)\n([\s\S]*?)```/gu)]
+    .map((match) => match[1]?.trim() ?? "")
+    .filter((value) => value !== "")
+    .map((value) => ({ kind: "pasted_code", text: value }) as const);
+  return [...urls, ...code].slice(0, 20);
 }
 
 function privateSourceType(text: string, upload: Source | undefined): SourceType {

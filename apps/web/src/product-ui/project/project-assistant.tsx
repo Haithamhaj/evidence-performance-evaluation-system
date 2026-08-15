@@ -58,6 +58,20 @@ export function ProjectAssistant({
         >
           {catalog["project.assistant.missingEvidence"]}
         </button>
+        <button
+          disabled={loading !== null}
+          onClick={() => submit("explain_evidence_source")}
+          type="button"
+        >
+          {catalog["project.assistant.explainEvidenceSource"]}
+        </button>
+        <button
+          disabled={loading !== null}
+          onClick={() => submit("revise_evidence_draft")}
+          type="button"
+        >
+          {catalog["project.assistant.reviseEvidenceDraft"]}
+        </button>
       </div>
       {loading === null ? null : <p aria-live="polite">{catalog["project.assistant.thinking"]}</p>}
       {failed ? (

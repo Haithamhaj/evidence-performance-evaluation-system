@@ -17,6 +17,8 @@ type Readers = Readonly<{
     limit: number;
     cursor: null;
   }): Promise<any>;
+  evidenceWorkspace?(input: { actorId: string; projectId: string; limit: number }): Promise<any>;
+  completedWork?(actorId: string, projectId: string): Promise<any[]>;
 }>;
 
 export class ProjectExperienceQueryService {
@@ -46,18 +48,22 @@ export class ProjectExperienceQueryService {
       }) as CurrentExperience;
     }
     const ownership = ownershipExperience(ownershipProjection);
-    const [raw, documentDetail, work, timeline] = await Promise.all([
-      this.readers.project(actor.userId, projectId),
-      this.readers.document(actor.userId, projectId),
-      this.readers.myWork(actor.userId),
-      this.readers.timeline({
-        actorId: actor.userId,
-        projectId,
-        workstreamId: null,
-        limit: 20,
-        cursor: null,
-      }),
-    ]);
+    const [raw, documentDetail, work, timeline, rawEvidenceWorkspace, completedWork] =
+      await Promise.all([
+        this.readers.project(actor.userId, projectId),
+        this.readers.document(actor.userId, projectId),
+        this.readers.myWork(actor.userId),
+        this.readers.timeline({
+          actorId: actor.userId,
+          projectId,
+          workstreamId: null,
+          limit: 20,
+          cursor: null,
+        }),
+        this.readers.evidenceWorkspace?.({ actorId: actor.userId, projectId, limit: 50 }) ??
+          Promise.resolve(undefined),
+        this.readers.completedWork?.(actor.userId, projectId) ?? Promise.resolve([]),
+      ]);
     const view = raw as any;
     const progress = operationalProgress(view);
     const source = progressSource(view.progress?.updatedAt ?? this.now().toISOString());
@@ -84,6 +90,21 @@ export class ProjectExperienceQueryService {
           label: timelineSourceLabel(item),
         },
       }));
+    const evidenceWorkspace = (() => {
+      if (rawEvidenceWorkspace === undefined) return undefined;
+      const detections = proactiveEvidenceDetections({
+        actorId: actor.userId,
+        projectId,
+        completedWork,
+        timelineItems: timeline.items ?? [],
+        evidenceWorkspace: rawEvidenceWorkspace,
+      });
+      return {
+        ...rawEvidenceWorkspace,
+        detections,
+        preparations: proactiveEvidencePreparations(detections),
+      };
+    })();
     const document = documentSummary(view, projectId, source);
     const milestones = milestoneJourney(view);
     const kpi = selectKpi(view, source);
@@ -163,6 +184,7 @@ export class ProjectExperienceQueryService {
                 },
               ],
       },
+      evidenceWorkspace,
       timeline: timelineItems,
       nextCursor: timeline.nextCursor ?? null,
       agentSignals,
@@ -184,6 +206,77 @@ export class ProjectExperienceQueryService {
             },
     }) as CurrentExperience;
   }
+}
+
+function proactiveEvidenceDetections({
+  actorId,
+  projectId,
+  completedWork,
+  timelineItems,
+  evidenceWorkspace,
+}: Readonly<{
+  actorId: string;
+  projectId: string;
+  completedWork: any[];
+  timelineItems: any[];
+  evidenceWorkspace: any;
+}>) {
+  const detections: any[] = [];
+  const updatedWorkItemIds = new Set(
+    timelineItems
+      .filter((item) => item.kind === "update" && item.employeeId === actorId)
+      .map((item) => item.workItemId)
+      .filter(Boolean),
+  );
+  const completedWithoutUpdate = completedWork.find((item) => !updatedWorkItemIds.has(item.id));
+  if (completedWithoutUpdate) {
+    detections.push({
+      id: `completed-without-update:${completedWithoutUpdate.id}`,
+      kind: "completed_without_update",
+      subjectTitle: completedWithoutUpdate.title,
+      href: `/en/my-work?capture=update&item=${completedWithoutUpdate.id}`,
+      workItemId: completedWithoutUpdate.id,
+      evidenceId: null,
+    });
+  }
+  const unrelatedSource = evidenceWorkspace.pending.find((item: any) => item.workItem === null);
+  if (unrelatedSource) {
+    detections.push({
+      id: `source-without-relation:${unrelatedSource.id}`,
+      kind: "source_without_relation",
+      subjectTitle: unrelatedSource.supportedClaim,
+      href: `/en/projects/${projectId}#evidence-workspace`,
+      workItemId: null,
+      evidenceId: unrelatedSource.id,
+    });
+  }
+  const gap = evidenceWorkspace.gaps[0];
+  if (gap) {
+    detections.push({
+      id: `evidence-gap:${gap.id}`,
+      kind: "evidence_gap",
+      subjectTitle: gap.supportedClaim,
+      href: `/en/projects/${projectId}#evidence-workspace`,
+      workItemId: gap.workItem?.id ?? null,
+      evidenceId: gap.id,
+    });
+  }
+  return detections.slice(0, 5);
+}
+
+function proactiveEvidencePreparations(detections: any[]) {
+  return detections.map((detection) => ({
+    id: `preparation:${detection.id}`,
+    kind:
+      detection.kind === "completed_without_update"
+        ? ("update_draft" as const)
+        : detection.kind === "source_without_relation"
+          ? ("relationship_suggestion" as const)
+          : ("evidence_candidate" as const),
+    subjectTitle: detection.subjectTitle,
+    href: detection.href,
+    requiresConfirmation: true as const,
+  }));
 }
 
 function ownershipExperience(ownership: any) {

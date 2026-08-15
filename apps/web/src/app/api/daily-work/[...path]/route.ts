@@ -23,6 +23,7 @@ import {
   ReviseVoiceTranscriptInputSchema,
   StartVoiceUpdateInputSchema,
   VoiceUpdateSessionSchema,
+  UpdateComposerContextSchema,
 } from "../../../../platform/updates-evidence-contracts";
 import {
   AppliedProgressContractDraftSchema,
@@ -222,6 +223,15 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
           method: "GET",
           path: "/api/v1/experience-orchestration/prepared",
           schema: WebPreparedExperienceCompositionSchema,
+        }),
+      );
+    }
+    if (path.length === 1 && path[0] === "update-context") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/daily-work/update-context",
+          schema: UpdateComposerContextSchema,
         }),
       );
     }

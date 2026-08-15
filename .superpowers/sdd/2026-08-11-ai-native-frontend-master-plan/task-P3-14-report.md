@@ -2,7 +2,7 @@
 
 ## Status
 
-TECHNICALLY COMPLETE — protected Project Owner visual gate remains.
+TECHNICALLY COMPLETE — live browser comparison deferred; no product-rule gate was bypassed.
 
 ## What changed
 
@@ -48,13 +48,14 @@ None.
 - The UI cannot manufacture progress from Task completion, Update frequency, GitHub activity, files,
   commits, or employee activity.
 
-## Remaining protected gate
+## Current real state
 
-The real Codex Project has no approved Progress Contract. Codex is a contributor and cannot activate
-one. The authorized Project Owner must review and activate a measurable contract before the active
-circle/KPI/table state can be visually accepted on real data. No synthetic percentage was inserted to
-bypass this gate.
+The real Codex Project now has approved v7 Progress Contract v1, but no approved Progress Snapshot.
+The UI distinguishes this from a missing contract and shows no synthetic percentage or chart until a
+verified measurement or authorized confirmation exists. The live browser comparison is deferred
+because this sandbox cannot access the local container runtime; it is not claimed as completed.
 
 ## Project state
 
-Updated. P3-15 capability closure must wait for this Project Owner visual acceptance gate.
+Updated. P3-15 technical capability closure is recorded separately; Phase 4 can proceed while the
+presentation-only browser comparison remains open.

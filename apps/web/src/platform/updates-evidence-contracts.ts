@@ -70,12 +70,13 @@ const UrlUpdateSourceSchema = z
 const VoiceTranscriptUpdateSourceSchema = z
   .object({ kind: z.literal("voice_transcript"), voiceSessionId: UuidSchema })
   .strict();
-const UpdateSourceInputSchema = z.union([
+export const UpdateSourceInputSchema = z.union([
   UploadedUpdateSourceSchema,
   TextUpdateSourceSchema,
   UrlUpdateSourceSchema,
   VoiceTranscriptUpdateSourceSchema,
 ]);
+export type UpdateSourceInput = z.infer<typeof UpdateSourceInputSchema>;
 
 export const StartVoiceUpdateInputSchema = UpdateContextSchema.extend({
   idempotencyKey: UuidSchema,

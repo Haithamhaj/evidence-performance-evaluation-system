@@ -2,9 +2,9 @@
 
 ## Current Goal
 
-Complete the Product Owner-approved Phase 3 Project Workspace while preserving the accepted Home,
-Work, Capture, Clarification, and Review journey, every engine authority and protected product rule,
-and all retained rollback routes.
+Execute Phase 6 Evaluation over the completed employee daily-work, Project, Update/Evidence, and
+Research journeys while preserving human-only rating decisions, immutable snapshots, independent
+employee/manager drafts, and every protected visibility boundary.
 
 ## Current Reality
 
@@ -308,8 +308,29 @@ and all retained rollback routes.
 - P3-12 and P3-13 are complete: the real Codex Project shows contributor/owner scope without manager
   authority, and Auto + Undo remains intentionally disabled because no current action satisfies the
   full compensation and durable-recovery gate.
-- P3-14 is technically complete: accepted contract measures render as a circular Project indicator,
-  milestone/KPI context, source-backed previous/current summary, and accessible table.
+- P3-14 and P3-15 are technically complete. Accepted contract measures render as a circular Project
+  indicator, milestone/KPI context, source-backed previous/current summary, and accessible table;
+  an active contract without its first approved measurement renders no percentage or chart.
+- CAP-006–CAP-012 and H-010–H-014 are reconciled to the Project workspace, retained protected action
+  routes, role projections, meaningful timeline, and focused tests. The live v7 browser comparison is
+  deferred while this sandbox cannot access the local container runtime.
+- Phase 4 P4-01–P4-14 are technically complete in the selected Command Brief Capture and Project
+  Evidence workspace. Text, URL,
+  code, image, file, and employee-confirmed voice transcript feed one Project-scoped Update path;
+  one authorized Project is automatic and multiple Projects require one choice. Review exposes
+  truthful source cues, prepares Evidence unselected, and leaves edit/revise/confirm/dismiss entirely
+  with the employee. The owner-scoped Evidence workspace groups confirmed/pending/history states,
+  detects three bounded source-backed gaps, prepares editable actions, preserves raw input through
+  assistance failure, feeds only accepted facts to Evaluation preparation, and provides source/draft
+  discussion through Project Assistant prompt v2. Nothing confirms Evidence or changes progress
+  automatically.
+- Phase 5 P5-01–P5-12 are technically complete. The employee can move from a Project-linked Research
+  question through cited source review, synthesis, a reproducible Experiment method, retained
+  successful/failed outcomes, an explicit human decision, and Applied Learning. The assistant shows
+  one source-backed next step and prepares editable context only; it cannot invent evidence or a
+  conclusion, run an Experiment, confirm a decision, create official work, or move Project progress.
+  The meaningful trail and closure check use decisions and learning events rather than source or run
+  volume. Focused UI/API tests and the real PostgreSQL Research lifecycle are green.
 - The Product Owner approved creating Project Document v7 as the bounded current source for the real
   Codex dogfood Project. It replaces no history: v1–v6 remain immutable. The v7 design uses seven
   remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
@@ -352,11 +373,12 @@ and all retained rollback routes.
 
 ## Next Recommended Action
 
-Refresh the running Codex Project page and review the newly active v7 stage-gate contract in its honest
-`awaiting_information` state. Close the P3-14 visual comparison only if the page is clear without a
-synthetic percentage, then complete P3-15 capability closure. Do not let Task or activity volume move
-Project progress, let AI approve official actions, merge Pull Requests #29/#30, or retire Calendar and
-legacy rollback routes to bypass the remaining protected gates.
+Begin Phase 6 Evaluation by reconciling the existing protected cycle, Fact View, self-assessment,
+manager assessment, comparison, finalization, upward feedback, and export capabilities into the
+selected Command Brief experience. Keep ratings human-only, employee and manager drafts independent,
+and Fact View sources separate from interpretation. Keep the real v7 Project in its honest
+`awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
+merge Pull Requests #29/#30, or retire retained rollback routes.
 
 ## Critical References
 

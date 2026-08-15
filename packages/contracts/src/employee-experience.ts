@@ -147,6 +147,80 @@ const ProjectCollectionItemV1Schema = z
   })
   .strict();
 
+const ProjectEvidenceWorkspaceItemV1Schema = z
+  .object({
+    id: UuidSchema,
+    project: z.object({ id: UuidSchema, name: z.string().trim().min(1).max(500) }).strict(),
+    workItem: z
+      .object({ id: UuidSchema, title: z.string().trim().min(1).max(500) })
+      .strict()
+      .nullable(),
+    state: z.enum(["draft", "confirmed", "rejected"]),
+    revision: z.number().int().positive(),
+    revisionKind: z.enum(["ai_draft", "employee_edit", "manual_draft"]),
+    sourceKind: z.enum([
+      "image",
+      "screenshot",
+      "file",
+      "document",
+      "pasted_code",
+      "pasted_text",
+      "cli_snapshot",
+      "url",
+    ]),
+    supportedClaim: z.string().trim().min(1).max(2_000),
+    contributionContext: z.string().trim().min(1).max(2_000),
+    verificationState: z.enum([
+      "unverified",
+      "pending",
+      "supported",
+      "partial",
+      "conflicting",
+      "rejected",
+    ]),
+    attributionState: z.enum(["proposed", "acknowledged", "disputed"]).nullable(),
+    createdAt: UtcInstantSchema,
+    updatedAt: UtcInstantSchema,
+  })
+  .strict();
+
+const ProjectEvidenceWorkspaceV1Schema = z
+  .object({
+    confirmed: z.array(ProjectEvidenceWorkspaceItemV1Schema).max(100),
+    pending: z.array(ProjectEvidenceWorkspaceItemV1Schema).max(100),
+    attributionIssues: z.array(ProjectEvidenceWorkspaceItemV1Schema).max(100),
+    gaps: z.array(ProjectEvidenceWorkspaceItemV1Schema).max(100),
+    history: z.array(ProjectEvidenceWorkspaceItemV1Schema).max(100),
+    detections: z
+      .array(
+        z
+          .object({
+            id: z.string().trim().min(1).max(256),
+            kind: z.enum(["completed_without_update", "source_without_relation", "evidence_gap"]),
+            subjectTitle: z.string().trim().min(1).max(500),
+            href: LocalHrefSchema,
+            workItemId: UuidSchema.nullable(),
+            evidenceId: UuidSchema.nullable(),
+          })
+          .strict(),
+      )
+      .max(5),
+    preparations: z
+      .array(
+        z
+          .object({
+            id: z.string().trim().min(1).max(256),
+            kind: z.enum(["update_draft", "evidence_candidate", "relationship_suggestion"]),
+            subjectTitle: z.string().trim().min(1).max(500),
+            href: LocalHrefSchema,
+            requiresConfirmation: z.literal(true),
+          })
+          .strict(),
+      )
+      .max(5),
+  })
+  .strict();
+
 const ProjectProgressReviewV1Schema = z
   .object({
     contract: z
@@ -376,6 +450,7 @@ const EmployeeProjectCurrentExperienceV1Schema = z
         documents: z.array(ProjectCollectionItemV1Schema).max(100),
       })
       .strict(),
+    evidenceWorkspace: ProjectEvidenceWorkspaceV1Schema.optional(),
     timeline: z.array(TimelineItemV1Schema).max(50),
     nextCursor: z.string().trim().min(1).max(1_000).nullable(),
     agentSignals: z.array(ProjectAgentSignalV1Schema).max(5).default([]),

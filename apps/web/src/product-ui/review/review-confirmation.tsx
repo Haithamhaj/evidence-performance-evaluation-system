@@ -12,7 +12,11 @@ import {
   toggleProgressProposal,
   toggleUpdate,
 } from "../../features/review-confirmation/review-confirmation-model";
-import { executeSelectedActions, type ReviewOutcome } from "../../platform/review-confirmation-api";
+import {
+  executeSelectedActions,
+  rejectEvidenceDraft,
+  type ReviewOutcome,
+} from "../../platform/review-confirmation-api";
 import styles from "./review-confirmation.module.css";
 
 // JSX-only references are removed before the repository's base unused-variable rule runs.
@@ -33,8 +37,9 @@ export function ReviewConfirmation({
   const [error, setError] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<readonly ReviewOutcome[]>([]);
   const [busy, setBusy] = useState(false);
+  const [dismissedEvidenceId, setDismissedEvidenceId] = useState<string | null>(null);
   const update = state.update;
-  const evidence = state.evidence[0] ?? null;
+  const evidence = state.evidence.find((item) => item.draftId !== dismissedEvidenceId) ?? null;
   const progress = state.progressProposal;
 
   const confirm = async () => {
@@ -69,6 +74,22 @@ export function ReviewConfirmation({
       setBusy(false);
     }
   };
+  const dismissEvidence = async () => {
+    if (evidence === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await rejectEvidenceDraft({
+        expectedRevision: evidence.expectedRevision,
+        id: evidence.draftId,
+      });
+      setDismissedEvidenceId(evidence.draftId);
+    } catch {
+      setError(catalog["review.recovery"]);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className={styles.review!}>
@@ -84,17 +105,32 @@ export function ReviewConfirmation({
         </ol>
       </header>
 
-      <div className={styles.sources!}>
+      <ul aria-label={catalog["review.sources"]} className={styles.sources!}>
         {draft.update?.sourceRefs.map((source) => (
-          <span key={`${source.kind}-${source.label}`}>
+          <li key={`${source.kind}-${source.label}`}>
             <ReviewProductIcon
               name={source.kind === "github" ? "github" : "paperclip"}
               size="small"
             />
-            {source.label}
-          </span>
+            <strong>
+              {catalog[`review.source.kind.${source.kind}`]} · {source.label}
+            </strong>
+            <span>{catalog[`review.source.freshness.${source.freshness}`]}</span>
+            <span>{catalog["review.source.visibility.privateDraft"]}</span>
+            <span>
+              {
+                catalog[
+                  source.kind === "github" ||
+                  source.kind === "google_gmail" ||
+                  source.kind === "google_calendar"
+                    ? "review.source.provider.available"
+                    : "review.source.provider.notApplicable"
+                ]
+              }
+            </span>
+          </li>
         ))}
-      </div>
+      </ul>
 
       <p>
         <strong>{draft.project.name}</strong>
@@ -212,7 +248,14 @@ export function ReviewConfirmation({
             />
           </label>
           <small>{catalog["review.verificationRequired"]}</small>
+          <button disabled={busy} onClick={() => void dismissEvidence()} type="button">
+            {catalog["review.dismissEvidence"]}
+          </button>
         </section>
+      )}
+
+      {dismissedEvidenceId === null ? null : (
+        <p className={styles.dismissed!}>{catalog["review.evidenceRejected"]}</p>
       )}
 
       {progress === null ? null : (

@@ -42,7 +42,7 @@ describe("ProjectAssistant", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("offers the three approved questions and a truthful recovery state", async () => {
+  it("offers source explanation, draft revision, Evidence discussion, and a truthful recovery state", async () => {
     const ask = vi.fn(async () => {
       throw new Error("offline");
     });
@@ -58,6 +58,10 @@ describe("ProjectAssistant", () => {
     expect(screen.getByRole("button", { name: "What changed?" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Why are we blocked?" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "What evidence is missing?" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Explain latest Evidence source" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Help revise Evidence draft" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Why are we blocked?" }));
     await act(async () => undefined);
     expect(screen.getByRole("alert")).toHaveTextContent("Project assistance is unavailable");

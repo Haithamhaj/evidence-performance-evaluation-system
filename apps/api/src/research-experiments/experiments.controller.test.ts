@@ -5,11 +5,25 @@ import { ExperimentsController } from "./experiments.controller.js";
 
 const userId = crypto.randomUUID();
 const experimentId = crypto.randomUUID();
+const researchId = crypto.randomUUID();
 const runId = crypto.randomUUID();
 const correlationId = crypto.randomUUID();
 const request = { principal: { userId, active: true }, correlationId } as never;
 
 describe("ExperimentsController", () => {
+  it("lists only Experiments authorized by the Research query boundary", async () => {
+    const list = vi.fn(async () => [{ id: experimentId, researchId, state: "READY" }]);
+    const controller = new ExperimentsController({} as never, { list } as never);
+
+    await expect(controller.listForResearch(request, researchId)).resolves.toEqual([
+      { id: experimentId, researchId, state: "READY" },
+    ]);
+    expect(list).toHaveBeenCalledWith({
+      actor: { userId, active: true },
+      researchId,
+    });
+  });
+
   it("passes strict method revisions with path identity and correlation", async () => {
     const reviseMethod = vi.fn(async (command) => command);
     const controller = new ExperimentsController({ reviseMethod } as never, {} as never);

@@ -125,6 +125,44 @@ describe("ProjectExperienceQueryService", () => {
     );
   });
 
+  it("detects completed work without an Update, an unrelated source, and an Evidence gap", async () => {
+    const completed = { ...workItem(), id: "20000000-0000-4000-8000-000000000090", status: "done" };
+    const unrelated = evidenceWorkspaceItem({
+      id: "20000000-0000-4000-8000-000000000091",
+      state: "draft",
+      workItem: null,
+      verificationState: "unverified",
+    });
+    const service = new ProjectExperienceQueryService({
+      ownership: async () => ownership(),
+      project: async () => projectView(),
+      document: async () => documentDetail(),
+      myWork: async () => ({ groups: [] }),
+      timeline: async () => ({ items: [], nextCursor: null }),
+      completedWork: async () => [completed],
+      evidenceWorkspace: async () => ({
+        confirmed: [],
+        pending: [unrelated],
+        attributionIssues: [],
+        gaps: [unrelated],
+        history: [unrelated],
+      }),
+    });
+
+    const result = await service.load(actor, projectId);
+
+    expect(result.evidenceWorkspace?.detections).toEqual([
+      expect.objectContaining({ kind: "completed_without_update", workItemId: completed.id }),
+      expect.objectContaining({ kind: "source_without_relation", evidenceId: unrelated.id }),
+      expect.objectContaining({ kind: "evidence_gap", evidenceId: unrelated.id }),
+    ]);
+    expect(result.evidenceWorkspace?.preparations).toEqual([
+      expect.objectContaining({ kind: "update_draft", requiresConfirmation: true }),
+      expect.objectContaining({ kind: "relationship_suggestion", requiresConfirmation: true }),
+      expect.objectContaining({ kind: "evidence_candidate", requiresConfirmation: true }),
+    ]);
+  });
+
   it("flags a current Project document that is not yet reflected in a Progress Contract", async () => {
     const view = {
       ...projectView(),
@@ -286,6 +324,26 @@ describe("ProjectExperienceQueryService", () => {
 
 function actorPerson() {
   return { id: actor.userId, displayName: "Codex" };
+}
+
+function evidenceWorkspaceItem(input: {
+  id: string;
+  state: "draft" | "confirmed" | "rejected";
+  workItem: null;
+  verificationState: "unverified" | "supported";
+}) {
+  return {
+    ...input,
+    project: { id: projectId, name: "Atlas Delivery" },
+    revision: 1,
+    revisionKind: "employee_edit",
+    sourceKind: "url",
+    supportedClaim: "Authentication fallback is verified.",
+    contributionContext: "Employee contribution context",
+    attributionState: null,
+    createdAt: "2026-08-13T08:00:00.000Z",
+    updatedAt: "2026-08-13T09:00:00.000Z",
+  };
 }
 
 function ownership() {

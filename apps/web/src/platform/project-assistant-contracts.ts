@@ -6,6 +6,8 @@ export const ProjectAssistantQuestionSchema = z.enum([
   "what_changed",
   "why_blocked",
   "missing_evidence",
+  "explain_evidence_source",
+  "revise_evidence_draft",
 ]);
 
 export const AskProjectAssistantInputSchema = z

@@ -128,6 +128,25 @@ describe("ProjectAssistantService", () => {
       }),
     ).resolves.toMatchObject({ assistance: "deterministic", createsCommand: false });
   });
+
+  it("explains Evidence sources and suggests editable draft improvements without creating a command", async () => {
+    const source = await harness({ ai: false }).service.ask({
+      actor: { userId: employeeId, active: true, roles: ["employee"] },
+      correlationId,
+      input: { projectId, locale: "en", question: "explain_evidence_source" },
+    });
+    const revision = await harness({ ai: false }).service.ask({
+      actor: { userId: employeeId, active: true, roles: ["employee"] },
+      correlationId,
+      input: { projectId, locale: "ar", question: "revise_evidence_draft" },
+    });
+
+    expect(source.answer).toContain("URL");
+    expect(source.answer).toContain("unverified");
+    expect(revision.answer).toContain("Authentication fallback");
+    expect(source.createsCommand).toBe(false);
+    expect(revision.createsCommand).toBe(false);
+  });
 });
 
 function projectExperience() {
@@ -148,6 +167,31 @@ function projectExperience() {
     kpi: null,
     attention: [],
     collections: { work: [], updates: [], evidence: [], documents: [] },
+    evidenceWorkspace: {
+      confirmed: [],
+      pending: [
+        {
+          id: "94000000-0000-4000-8000-000000000020",
+          project: { id: projectId, name: "Evidence Performance System" },
+          workItem: null,
+          state: "draft",
+          revision: 1,
+          revisionKind: "employee_edit",
+          sourceKind: "url",
+          supportedClaim: "Authentication fallback is verified.",
+          contributionContext: "Implemented and reviewed the fallback.",
+          verificationState: "unverified",
+          attributionState: "acknowledged",
+          createdAt: "2026-08-14T05:00:00.000Z",
+          updatedAt: "2026-08-14T05:00:00.000Z",
+        },
+      ],
+      attributionIssues: [],
+      gaps: [],
+      history: [],
+      detections: [],
+      preparations: [],
+    },
     timeline: [
       {
         id: "timeline:confirmed-update",

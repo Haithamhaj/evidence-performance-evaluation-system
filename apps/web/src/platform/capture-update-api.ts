@@ -1,15 +1,22 @@
 import { z } from "zod";
 
-import { ClarificationStateSchema, StartTextUpdateInputSchema } from "./updates-evidence-contracts";
+import {
+  ClarificationStateSchema,
+  CreateManualEvidenceInputSchema,
+  StartTextUpdateInputSchema,
+  UpdateSourceInputSchema,
+} from "./updates-evidence-contracts";
 
 const InputSchema = z
   .object({
     idempotencyKey: z.string().uuid(),
     projectId: z.string().uuid(),
     workItemId: z.string().uuid().nullable(),
-    rawText: z.string().trim().min(1).max(8_000),
+    rawText: z.string().trim().max(8_000),
+    sources: z.array(UpdateSourceInputSchema).max(20).optional(),
   })
-  .strict();
+  .strict()
+  .refine((value) => value.rawText.length > 0 || (value.sources?.length ?? 0) > 0);
 
 export type CapturePreparedUpdate = z.infer<typeof ClarificationStateSchema>;
 
@@ -30,6 +37,7 @@ export async function prepareCaptureUpdate(input: z.input<typeof InputSchema>) {
     workstreamId: null,
     workItemId: parsed.workItemId,
     rawText: parsed.rawText,
+    sources: parsed.sources,
     executionMode: "ai_assisted",
   });
   const response = await fetch("/api/daily-work/updates/text", {
@@ -69,31 +77,24 @@ export async function prepareCaptureEvidence(input: {
   projectId: string;
   workItemId: string | null;
   updateSourceId: string;
-  source: { kind: "url"; url: string } | { kind: "pasted_text"; text: string };
+  source: z.input<typeof CreateManualEvidenceInputSchema>["source"];
   supportedClaim: string;
   contributionContext: string;
 }) {
-  const body = {
+  const body = CreateManualEvidenceInputSchema.parse({
     idempotencyKey: z.string().uuid().parse(input.idempotencyKey),
     projectId: z.string().uuid().parse(input.projectId),
     workstreamId: null,
     workItemId: z.string().uuid().nullable().parse(input.workItemId),
     capturedFromWorkItem: input.workItemId !== null,
     updateSourceId: z.string().uuid().parse(input.updateSourceId),
-    source: z
-      .union([
-        z.object({ kind: z.literal("url"), url: z.url().max(2_000) }).strict(),
-        z
-          .object({ kind: z.literal("pasted_text"), text: z.string().trim().min(1).max(100_000) })
-          .strict(),
-      ])
-      .parse(input.source),
+    source: input.source,
     supportedClaim: z.string().trim().min(1).max(2_000).parse(input.supportedClaim),
     relatedKpiComponentId: null,
     relatedCriterionId: null,
     contributionContext: z.string().trim().min(1).max(2_000).parse(input.contributionContext),
     executionMode: "ai_assisted" as const,
-  };
+  });
   const response = await fetch("/api/daily-work/evidence", {
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },

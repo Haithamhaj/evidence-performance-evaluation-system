@@ -7,6 +7,7 @@ import { GlobalActions } from "./global-actions";
 import { MobileNavigation } from "./mobile-navigation";
 import * as whatChanged from "./what-changed-dialog";
 import { CaptureDialog } from "../capture/capture-dialog";
+import { loadCaptureUpdateContext } from "../../platform/capture-update-context-api";
 import styles from "./stable-shell.module.css";
 
 export function StableShell({
@@ -64,6 +65,7 @@ export function StableShell({
         {canCapture
           ? createElement(CaptureDialog, {
               catalog,
+              loadContext: loadCaptureUpdateContext,
               locale,
               onSaved: () => setNotice(catalog["capture.saved"]),
               save: async (input) => {

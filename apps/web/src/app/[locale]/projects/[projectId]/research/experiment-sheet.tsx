@@ -1,12 +1,7 @@
-export type ResearchExperimentView = Readonly<{
-  title: string;
-  state: "DRAFT" | "READY" | "RUNNING" | "RESULT_RECORDED" | "CONCLUDED";
-  methodSummary: string;
-  result: string | null;
-  resultStatus: "COMPLETED" | "FAILED" | "INVALID" | "STOPPED" | null;
-  humanConclusion: string | null;
-  evidenceLinked: boolean;
-}>;
+import { createElement } from "react";
+
+export type ResearchExperimentView =
+  import("../../../../../platform/research-experiments-contracts").WebExperimentRecord;
 
 export function ExperimentSheet({
   catalog,
@@ -17,37 +12,99 @@ export function ExperimentSheet({
 }>) {
   if (experiments.length === 0) return null;
   return (
-    <details className="panel researchDetails">
-      <summary>{catalog["research.experiments"]}</summary>
+    <section aria-labelledby="research-experiments-title" className="researchExperimentSection">
+      <header className="researchSectionHeading">
+        <div>
+          <p className="eyebrow">{catalog["research.experimentTrail"]}</p>
+          <h2 id="research-experiments-title">{catalog["research.experiments"]}</h2>
+        </div>
+      </header>
       <div className="researchExperimentList">
         {experiments.map((experiment) => (
-          <article className="researchExperiment" key={experiment.title}>
+          <article className="panel researchExperiment" key={experiment.handle}>
             <header>
-              <h3 dir="auto">{experiment.title}</h3>
+              <div>
+                <p className="eyebrow">{catalog["research.hypothesis"]}</p>
+                <h3 dir="auto">{experiment.title}</h3>
+              </div>
               <span className="statusBadge">
                 {catalog[`research.experimentState.${experiment.state}`]}
               </span>
             </header>
-            <p dir="auto">{experiment.methodSummary}</p>
+            <p dir="auto">{experiment.question}</p>
+            <div className="researchExperimentMethod">
+              {createElement(MethodFact, {
+                label: catalog["research.baseline"],
+                values: [experiment.baseline],
+              })}
+              {createElement(MethodFact, {
+                label: catalog["research.measures"],
+                values: experiment.measures,
+              })}
+              {createElement(MethodFact, {
+                label: catalog["research.testCases"],
+                values: experiment.testCases,
+              })}
+              {createElement(MethodFact, {
+                label: catalog["research.controls"],
+                values: experiment.controls,
+              })}
+              {createElement(MethodFact, {
+                label: catalog["research.versionsConditions"],
+                values: experiment.versions,
+              })}
+              {createElement(MethodFact, {
+                label: catalog["research.reproducibility"],
+                values: [experiment.reproducibility],
+              })}
+            </div>
             {experiment.result === null ? null : (
-              <p dir="auto">
-                <strong>{catalog["research.result"]}: </strong>
-                {experiment.result}
-              </p>
+              <section className="researchRunResult">
+                <h4>{catalog["research.result"]}</h4>
+                <p dir="auto">{experiment.result}</p>
+                {experiment.resultStatus === null ? null : (
+                  <p className="statusBadge">
+                    {catalog[`research.resultStatus.${experiment.resultStatus}`]}
+                  </p>
+                )}
+              </section>
             )}
-            {experiment.resultStatus === null ? null : (
-              <p>{catalog[`research.resultStatus.${experiment.resultStatus}`]}</p>
+            {experiment.humanConclusion === null ? (
+              <p className="boundaryNote">{catalog["research.resultNeedsDecision"]}</p>
+            ) : (
+              <section className="researchHumanConclusion">
+                <h4>{catalog["research.humanConclusion"]}</h4>
+                <p dir="auto">{experiment.humanConclusion}</p>
+                {experiment.limitations.length === 0 ? null : (
+                  <ul>
+                    {experiment.limitations.map((limitation) => (
+                      <li dir="auto" key={limitation}>
+                        {limitation}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             )}
-            {experiment.humanConclusion === null ? null : (
-              <p dir="auto">
-                <strong>{catalog["research.humanConclusion"]}: </strong>
-                {experiment.humanConclusion}
-              </p>
-            )}
-            {experiment.evidenceLinked ? <p>{catalog["research.evidenceLinked"]}</p> : null}
           </article>
         ))}
       </div>
-    </details>
+    </section>
+  );
+}
+
+function MethodFact({ label, values }: Readonly<{ label: string; values: readonly string[] }>) {
+  if (values.length === 0) return null;
+  return (
+    <section>
+      <h4>{label}</h4>
+      <ul>
+        {values.map((value) => (
+          <li dir="auto" key={value}>
+            {value}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

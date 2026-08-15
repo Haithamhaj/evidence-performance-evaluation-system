@@ -30,6 +30,7 @@ export function ProjectWorkspace({
   }
   const model = buildProjectExperienceModel(experience);
   const copy = buildCopy(catalog);
+  const evidenceWorkspace = model.evidenceWorkspace;
   return (
     <section
       className={styles.workspace!}
@@ -302,8 +303,19 @@ export function ProjectWorkspace({
           ) : (
             <div className={styles.progressChartEmpty!}>
               <h2>{copy.progressCharts}</h2>
-              <strong>{copy.noProgressChart}</strong>
-              <p>{copy.noProgressChartDetail}</p>
+              <strong>
+                {model.progressReview.contract
+                  ? copy.activeContractWithoutMeasurement.replace(
+                      "{version}",
+                      String(model.progressReview.contract.contractVersion),
+                    )
+                  : copy.noProgressChart}
+              </strong>
+              <p>
+                {model.progressReview.contract
+                  ? copy.activeContractWithoutMeasurementDetail
+                  : copy.noProgressChartDetail}
+              </p>
             </div>
           )}
         </section>
@@ -648,6 +660,118 @@ export function ProjectWorkspace({
           </div>
         </section>
 
+        {evidenceWorkspace ? (
+          <section
+            id="evidence-workspace"
+            className={styles.evidenceWorkspace!}
+            aria-label={copy.evidenceWorkspace}
+          >
+            <header>
+              <div>
+                <h2>{copy.evidenceWorkspace}</h2>
+                <p>{copy.evidenceWorkspaceDetail}</p>
+              </div>
+              <small>{copy.evidenceWorkspacePrivacy}</small>
+            </header>
+            {evidenceWorkspace.detections.length > 0 ? (
+              <section className={styles.evidenceDetections!} aria-label={copy.detectedForReview}>
+                <h3>{copy.detectedForReview}</h3>
+                <ul>
+                  {evidenceWorkspace.detections.map((detection) => (
+                    <li key={detection.id}>
+                      <ProductIcon name="sparkles" size="small" />
+                      <div>
+                        <strong>{copy[detection.kind]}</strong>
+                        <span>
+                          {copy[`${detection.kind}Detail`].replace(
+                            "{subject}",
+                            detection.subjectTitle,
+                          )}
+                        </span>
+                      </div>
+                      <a href={localizedHref(detection.href, locale)}>{copy.reviewDetection}</a>
+                    </li>
+                  ))}
+                </ul>
+                <small>{copy.detectionGuardrail}</small>
+              </section>
+            ) : null}
+            {evidenceWorkspace.preparations.length > 0 ? (
+              <section className={styles.evidencePreparations!} aria-label={copy.agentPreparations}>
+                <h3>{copy.agentPreparations}</h3>
+                <ul>
+                  {evidenceWorkspace.preparations.map((preparation) => (
+                    <li key={preparation.id}>
+                      <ProductIcon name="sparkles" size="small" />
+                      <div>
+                        <strong>{copy[preparation.kind]}</strong>
+                        <span>
+                          {copy[`${preparation.kind}Detail`].replace(
+                            "{subject}",
+                            preparation.subjectTitle,
+                          )}
+                        </span>
+                      </div>
+                      <a href={localizedHref(preparation.href, locale)}>{copy.reviewPrepared}</a>
+                    </li>
+                  ))}
+                </ul>
+                <small>{copy.preparationGuardrail}</small>
+              </section>
+            ) : null}
+            <dl className={styles.evidenceCounts!}>
+              {(
+                [
+                  ["confirmed", copy.confirmedEvidence],
+                  ["pending", copy.pendingEvidence],
+                  ["attributionIssues", copy.attributionIssues],
+                  ["gaps", copy.evidenceGaps],
+                  ["history", copy.evidenceHistory],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key}>
+                  <dt>{label}</dt>
+                  <dd>{evidenceWorkspace[key].length}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className={styles.evidenceGroups!}>
+              {(
+                [
+                  ["pending", copy.pendingEvidence],
+                  ["confirmed", copy.confirmedEvidence],
+                  ["attributionIssues", copy.attributionIssues],
+                  ["gaps", copy.evidenceGaps],
+                ] as const
+              ).map(([key, label]) => (
+                <section key={key}>
+                  <h3>{label}</h3>
+                  {evidenceWorkspace[key].length === 0 ? (
+                    <p>{copy.noEvidenceInGroup}</p>
+                  ) : (
+                    <ul>
+                      {evidenceWorkspace[key].slice(0, 3).map((item) => (
+                        <li key={`${key}:${item.id}`}>
+                          <div>
+                            <strong>{item.supportedClaim}</strong>
+                            <span>{item.contributionContext}</span>
+                          </div>
+                          <small>
+                            {copy.verification}: {copy[item.verificationState]}
+                            {item.attributionState
+                              ? ` · ${copy.attribution}: ${copy[item.attributionState]}`
+                              : ""}
+                          </small>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section id="timeline" className={styles.timeline!} aria-label={copy.meaningfulTimeline}>
           <header>
             <h2>{copy.timeline}</h2>
@@ -796,6 +920,10 @@ function buildCopy(catalog: Catalog) {
     progressData: catalog["project.experience.progressData"],
     noProgressChart: catalog["project.experience.noProgressChart"],
     noProgressChartDetail: catalog["project.experience.noProgressChartDetail"],
+    activeContractWithoutMeasurement:
+      catalog["project.experience.activeContractWithoutMeasurement"],
+    activeContractWithoutMeasurementDetail:
+      catalog["project.experience.activeContractWithoutMeasurementDetail"],
     measure: catalog["project.experience.measure"],
     baseline: catalog["project.experience.baseline"],
     currentMeasure: catalog["project.experience.currentMeasure"],
@@ -813,6 +941,43 @@ function buildCopy(catalog: Catalog) {
     updates: catalog["project.experience.updates"],
     evidence: catalog["project.experience.evidence"],
     documents: catalog["project.experience.documents"],
+    evidenceWorkspace: catalog["project.experience.evidenceWorkspace"],
+    evidenceWorkspaceDetail: catalog["project.experience.evidenceWorkspaceDetail"],
+    evidenceWorkspacePrivacy: catalog["project.experience.evidenceWorkspacePrivacy"],
+    confirmedEvidence: catalog["project.experience.confirmedEvidence"],
+    pendingEvidence: catalog["project.experience.pendingEvidence"],
+    attributionIssues: catalog["project.experience.attributionIssues"],
+    evidenceGaps: catalog["project.experience.evidenceGaps"],
+    evidenceHistory: catalog["project.experience.evidenceHistory"],
+    noEvidenceInGroup: catalog["project.experience.noEvidenceInGroup"],
+    detectedForReview: catalog["project.experience.detectedForReview"],
+    completed_without_update: catalog["project.experience.completedWithoutUpdate"],
+    completed_without_updateDetail: catalog["project.experience.completedWithoutUpdateDetail"],
+    source_without_relation: catalog["project.experience.sourceWithoutRelation"],
+    source_without_relationDetail: catalog["project.experience.sourceWithoutRelationDetail"],
+    evidence_gap: catalog["project.experience.detectedEvidenceGap"],
+    evidence_gapDetail: catalog["project.experience.detectedEvidenceGapDetail"],
+    reviewDetection: catalog["project.experience.reviewDetection"],
+    detectionGuardrail: catalog["project.experience.detectionGuardrail"],
+    agentPreparations: catalog["project.experience.agentPreparations"],
+    update_draft: catalog["project.experience.updateDraftPrepared"],
+    update_draftDetail: catalog["project.experience.updateDraftPreparedDetail"],
+    evidence_candidate: catalog["project.experience.evidenceCandidatePrepared"],
+    evidence_candidateDetail: catalog["project.experience.evidenceCandidatePreparedDetail"],
+    relationship_suggestion: catalog["project.experience.relationshipPrepared"],
+    relationship_suggestionDetail: catalog["project.experience.relationshipPreparedDetail"],
+    reviewPrepared: catalog["project.experience.reviewPrepared"],
+    preparationGuardrail: catalog["project.experience.preparationGuardrail"],
+    verification: catalog["project.experience.verification"],
+    attribution: catalog["project.experience.attribution"],
+    unverified: catalog["project.experience.unverified"],
+    supported: catalog["project.experience.supported"],
+    partial: catalog["project.experience.partial"],
+    conflicting: catalog["project.experience.conflicting"],
+    rejected: catalog["project.experience.rejected"],
+    proposed: catalog["project.experience.proposed"],
+    acknowledged: catalog["project.experience.acknowledged"],
+    disputed: catalog["project.experience.disputed"],
     empty: catalog["project.experience.empty"],
     timeline: catalog["project.experience.timeline"],
     meaningfulTimeline: catalog["project.experience.meaningfulTimeline"],

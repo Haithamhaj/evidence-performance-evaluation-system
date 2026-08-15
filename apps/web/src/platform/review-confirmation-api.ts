@@ -7,6 +7,9 @@ const AcceptedUpdateSchema = z.object({ id: UuidSchema }).passthrough();
 const AcceptedEvidenceSchema = z.object({ id: UuidSchema }).passthrough();
 const RevisedUpdateSchema = z.object({ revision: z.number().int().positive() }).passthrough();
 const RevisedEvidenceSchema = z.object({ revision: z.number().int().positive() }).passthrough();
+const RejectedEvidenceSchema = z
+  .object({ revision: z.number().int().positive(), state: z.literal("rejected") })
+  .passthrough();
 
 export class ReviewCommandError extends Error {
   constructor(readonly status: number) {
@@ -20,6 +23,20 @@ export type ReviewOutcome = Readonly<{
   receiptId: string | null;
   safeMessage: string;
 }>;
+
+export async function rejectEvidenceDraft(input: { id: string; expectedRevision: number }) {
+  const id = UuidSchema.parse(input.id);
+  const response = await fetch(`/api/daily-work/evidence/${id}/reject`, {
+    body: JSON.stringify({
+      expectedRevision: z.number().int().positive().parse(input.expectedRevision),
+      reason: "Employee dismissed the Evidence suggestion during review.",
+    }),
+    headers: { "content-type": "application/json" },
+    method: "POST",
+  });
+  if (!response.ok) throw new ReviewCommandError(response.status);
+  return RejectedEvidenceSchema.parse(await response.json());
+}
 
 export async function executeSelectedActions(actions: readonly SelectedReviewAction[]): Promise<
   Readonly<{

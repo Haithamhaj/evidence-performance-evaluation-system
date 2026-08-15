@@ -460,6 +460,34 @@ export const EvidenceReviewSchema = z
   })
   .strict();
 
+export const EvidenceWorkspaceItemSchema = z
+  .object({
+    id: UuidSchema,
+    project: ProjectReferenceSchema,
+    workItem: WorkItemReferenceSchema.nullable(),
+    state: z.enum(["draft", "confirmed", "rejected"]),
+    revision: PositiveVersionSchema,
+    revisionKind: z.enum(["ai_draft", "employee_edit", "manual_draft"]),
+    sourceKind: EvidenceSourceKindSchema,
+    supportedClaim: z.string().trim().min(1).max(2_000),
+    contributionContext: z.string().trim().min(1).max(2_000),
+    verificationState: EvidenceVerificationStateSchema,
+    attributionState: z.enum(["proposed", "acknowledged", "disputed"]).nullable(),
+    createdAt: UtcInstantSchema,
+    updatedAt: UtcInstantSchema,
+  })
+  .strict();
+
+export const EvidenceWorkspaceSchema = z
+  .object({
+    confirmed: z.array(EvidenceWorkspaceItemSchema).max(100),
+    pending: z.array(EvidenceWorkspaceItemSchema).max(100),
+    attributionIssues: z.array(EvidenceWorkspaceItemSchema).max(100),
+    gaps: z.array(EvidenceWorkspaceItemSchema).max(100),
+    history: z.array(EvidenceWorkspaceItemSchema).max(100),
+  })
+  .strict();
+
 export const EvidenceDetailSchema = z
   .object({
     id: UuidSchema,
@@ -537,6 +565,7 @@ export type UpdateStructureAiOutput = z.infer<typeof UpdateStructureAiOutputSche
 export type AcceptedUpdateEvent = z.infer<typeof AcceptedUpdateEventSchema>;
 export type UpdateResultCard = z.infer<typeof UpdateResultCardSchema>;
 export type EvidenceReview = z.infer<typeof EvidenceReviewSchema>;
+export type EvidenceWorkspace = z.infer<typeof EvidenceWorkspaceSchema>;
 export type EvidenceDetail = z.infer<typeof EvidenceDetailSchema>;
 export type AcceptedEvidenceEvent = z.infer<typeof AcceptedEvidenceEventSchema>;
 export type TimelineItem = z.infer<typeof TimelineItemSchema>;

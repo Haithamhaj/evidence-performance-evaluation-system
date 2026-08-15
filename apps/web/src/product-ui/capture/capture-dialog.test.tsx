@@ -16,9 +16,217 @@ import stableShellStory, {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("CaptureDialog", () => {
+  it("keeps a voice transcript editable and employee-confirmed before using it in the Update", async () => {
+    vi.stubGlobal("Audio", undefined);
+    const catalog = await getCatalog("en");
+    const user = userEvent.setup();
+    const sessionId = "88888888-8888-4888-8888-888888888888";
+    const voiceFetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith("/evidence/uploads")) {
+        return new Response(JSON.stringify({ id: "77777777-7777-4777-8777-777777777777" }), {
+          status: 200,
+        });
+      }
+      if (path.endsWith(`/voice-updates/${sessionId}/confirm`)) {
+        return new Response(
+          JSON.stringify({
+            sessionId,
+            state: "transcript_confirmed",
+            transcript: "Verified the voice Update flow.",
+            revision: 1,
+            transcriptConfirmed: true,
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          sessionId,
+          state: "transcript_ready",
+          transcript: "Verified the voice Update flow.",
+          revision: 1,
+          transcriptConfirmed: false,
+        }),
+        { status: 200 },
+      );
+    });
+    const draft = structuredDraft({
+      result: "The employee confirmed the voice transcript.",
+      summary: "Voice Update flow verified",
+    });
+    const prepareUpdate = vi.fn().mockResolvedValue({
+      state: "ready_for_review",
+      sessionId: draft.sessionId,
+      sessionVersion: 1,
+      draft: {
+        ...draft,
+        evidenceClaimDrafts: ["The confirmed voice transcript verifies the result."],
+      },
+    });
+    const prepareEvidence = vi.fn().mockResolvedValue({
+      id: "99999999-9999-4999-8999-999999999999",
+      revision: 1,
+      supportedClaim: "The confirmed voice transcript verifies the result.",
+      contributionContext: "Employee-confirmed voice transcript.",
+    });
+    render(
+      createElement(CaptureDialog, {
+        catalog,
+        loadContext: vi.fn().mockResolvedValue({
+          projects: [
+            {
+              id: "11111111-1111-4111-8111-111111111111",
+              name: "Evidence Performance System — Phase 2",
+              workItems: [],
+              workstreams: [],
+            },
+          ],
+        }),
+        locale: "en",
+        onSaved: vi.fn(),
+        prepareEvidence,
+        prepareUpdate,
+        save: vi.fn(),
+        understand: vi.fn().mockResolvedValue(codexUnderstanding()),
+        voiceFetcher,
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Capture" }));
+    const capture = within(screen.getByRole("dialog", { name: "Share anything" }));
+    await user.click(capture.getByRole("button", { name: "Add a voice note" }));
+    const voice = within(await capture.findByRole("region", { name: "Voice update" }));
+    const upload = voice.getByLabelText("Upload audio") as HTMLInputElement;
+    await user.upload(upload, new File(["audio"], "update.mp3", { type: "audio/mpeg" }));
+    await user.click(await voice.findByRole("button", { name: "Confirm transcript" }));
+    expect(await voice.findByText("Transcript ready for your review")).not.toBeNull();
+
+    await user.click(capture.getByRole("button", { name: "Understand this" }));
+    await user.click(await capture.findByRole("button", { name: "Continue review" }));
+    expect(prepareUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "11111111-1111-4111-8111-111111111111",
+        rawText: "",
+        sources: [{ kind: "voice_transcript", voiceSessionId: sessionId }],
+      }),
+    );
+    expect(prepareEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: {
+          kind: "pasted_text",
+          text: "Verified the voice Update flow.",
+        },
+      }),
+    );
+  });
+
+  it("asks for one Project when voice starts and more than one authorized Project is available", async () => {
+    const catalog = await getCatalog("en");
+    const user = userEvent.setup();
+    render(
+      createElement(CaptureDialog, {
+        catalog,
+        loadContext: vi.fn().mockResolvedValue({
+          projects: [
+            {
+              id: "11111111-1111-4111-8111-111111111111",
+              name: "Atlas Delivery",
+              workItems: [],
+              workstreams: [],
+            },
+            {
+              id: "22222222-2222-4222-8222-222222222222",
+              name: "Evaluation System",
+              workItems: [],
+              workstreams: [],
+            },
+          ],
+        }),
+        locale: "en",
+        onSaved: vi.fn(),
+        save: vi.fn(),
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Capture" }));
+    const capture = within(screen.getByRole("dialog", { name: "Share anything" }));
+    await user.click(capture.getByRole("button", { name: "Add a voice note" }));
+
+    const project = await capture.findByRole("combobox", { name: "Project for this update" });
+    expect(capture.queryByRole("region", { name: "Voice update" })).toBeNull();
+    await user.selectOptions(project, "22222222-2222-4222-8222-222222222222");
+    expect(await capture.findByRole("region", { name: "Voice update" })).not.toBeNull();
+  });
+
+  it("stages an attached image in the understood Project and sends it with the Update", async () => {
+    const catalog = await getCatalog("en");
+    const user = userEvent.setup();
+    const stageUpdateFile = vi.fn().mockResolvedValue({
+      kind: "image",
+      uploadedSourceId: "77777777-7777-4777-8777-777777777777",
+    });
+    const draft = structuredDraft({
+      result: "The screenshot records the verified result.",
+      summary: "Screenshot attached to the Project Update",
+    });
+    const prepareUpdate = vi.fn().mockResolvedValue({
+      state: "ready_for_review",
+      sessionId: draft.sessionId,
+      sessionVersion: 1,
+      draft,
+    });
+    render(
+      createElement(CaptureDialog, {
+        catalog,
+        locale: "en",
+        onSaved: vi.fn(),
+        prepareUpdate,
+        save: vi.fn(),
+        stageUpdateFile,
+        understand: vi.fn().mockResolvedValue(codexUnderstanding()),
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Capture" }));
+    const capture = within(screen.getByRole("dialog", { name: "Share anything" }));
+    await user.type(
+      capture.getByRole("textbox", { name: "What are you working on?" }),
+      "https://example.invalid/result\nThe attached screenshot records the verified result.\n```ts\nexpect(ready).toBe(true);\n```",
+    );
+    const imageInput = screen
+      .getByRole("dialog", { name: "Share anything" })
+      .querySelector<HTMLInputElement>('input[accept="image/png,image/jpeg,image/webp"]')!;
+    const image = new File(["image"], "verified-result.png", { type: "image/png" });
+    await user.upload(imageInput, image);
+    await user.click(capture.getByRole("button", { name: "Understand this" }));
+    await user.click(await capture.findByRole("button", { name: "Continue review" }));
+
+    expect(stageUpdateFile).toHaveBeenCalledWith(image, {
+      projectId: "11111111-1111-4111-8111-111111111111",
+      workstreamId: null,
+    });
+    expect(prepareUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sources: [
+          { kind: "url", url: "https://example.invalid/result" },
+          { kind: "pasted_code", text: "expect(ready).toBe(true);" },
+          {
+            kind: "image",
+            uploadedSourceId: "77777777-7777-4777-8777-777777777777",
+          },
+        ],
+      }),
+    );
+    const review = within(await screen.findByRole("dialog", { name: "Review before confirming" }));
+    expect(review.getByText("Manual capture · verified-result.png")).not.toBeNull();
+    expect(review.queryByText(/update-source:/u)).toBeNull();
+  });
+
   it("opens Review with a real prepared Update session instead of prototype identifiers", async () => {
     const catalog = await getCatalog("en");
     const user = userEvent.setup();
