@@ -2,6 +2,10 @@
 import { getCatalog, isLocale } from "@evaluation/localization";
 import { notFound } from "next/navigation";
 
+import { WebContinuityExperienceSchema } from "../../../platform/continuity-contracts";
+import { fetchProtectedUpstream } from "../../../platform/workspace-api";
+import { ContinuityWorkspace } from "../../../product-ui/continuity/continuity-workspace";
+import { continuityWorkspaceEnabled } from "../../../server/continuity/continuity-workspace-flag";
 import { WorkspaceShell } from "../workspace-shell";
 
 export default async function ContinuityPage({
@@ -17,19 +21,22 @@ export default async function ContinuityPage({
       locale={locale}
       localeSwitchHref={`/${alternateLocale}/continuity`}
     >
-      <article className="workspacePanel" data-testid="continuity-technical-checkpoint">
-        <p>{catalog["continuity.technicalCheckpoint"]}</p>
-        <h1>{catalog["continuity.title"]}</h1>
-        <p>{catalog["continuity.description"]}</p>
-        <ol>
-          <li>{catalog["continuity.leave"]}</li>
-          <li>{catalog["continuity.handover"]}</li>
-          <li>{catalog["continuity.delegation"]}</li>
-          <li>{catalog["continuity.return"]}</li>
-          <li>{catalog["continuity.offboarding"]}</li>
-        </ol>
-        <p>{catalog["continuity.boundary"]}</p>
-      </article>
+      {continuityWorkspaceEnabled() ? (
+        <ContinuityWorkspace
+          catalog={catalog}
+          locale={locale}
+          view={await fetchProtectedUpstream({
+            path: "/api/v1/continuity/experience",
+            schema: WebContinuityExperienceSchema,
+          })}
+        />
+      ) : (
+        <article className="workspacePanel" data-testid="continuity-technical-checkpoint">
+          <p>{catalog["continuity.technicalCheckpoint"]}</p>
+          <h1>{catalog["continuity.title"]}</h1>
+          <p>{catalog["continuity.description"]}</p>
+        </article>
+      )}
     </WorkspaceShell>
   );
 }

@@ -1,5 +1,7 @@
+/* eslint-disable no-unused-vars */
 import { createElement } from "react";
 
+import type { WebManagerCoaching } from "../../../../platform/manager-coaching-contracts";
 import { ActionQueue, type ManagerOperationItemView } from "./action-queue";
 import styles from "./manager-operations.module.css";
 
@@ -17,10 +19,12 @@ export type ManagerOperationsView = Readonly<{
 
 export function ManagerOperationsClient({
   catalog,
+  coachingView,
   locale,
   view,
 }: Readonly<{
   catalog: import("@evaluation/localization").Catalog;
+  coachingView?: WebManagerCoaching;
   locale: import("@evaluation/localization").Locale;
   view: ManagerOperationsView;
 }>) {
@@ -99,6 +103,44 @@ export function ManagerOperationsClient({
                       ),
                     )}
                   </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section className={styles.coaching!} aria-labelledby="manager-coaching-title">
+          <div>
+            <p className="eyebrow">{catalog["managerOps.coachingEyebrow"]}</p>
+            <h2 id="manager-coaching-title">{catalog["managerOps.coachingTitle"]}</h2>
+            <p>{catalog["managerOps.coachingBoundary"]}</p>
+          </div>
+          {(coachingView?.sharedActions.length ?? 0) + (coachingView?.formalPlans.length ?? 0) ===
+          0 ? (
+            <p>{catalog["managerOps.coachingEmpty"]}</p>
+          ) : (
+            <ul>
+              {coachingView?.sharedActions.map((action) => (
+                <li key={action.id}>
+                  <div>
+                    <strong>{action.title}</strong>
+                    <span>{action.employeeName}</span>
+                  </div>
+                  <details>
+                    <summary>{catalog["managerOps.reviewSharedAction"]}</summary>
+                    <p>{action.objective}</p>
+                  </details>
+                </li>
+              ))}
+              {coachingView?.formalPlans.map((plan) => (
+                <li key={plan.id}>
+                  <div>
+                    <strong>{plan.developmentArea}</strong>
+                    <span>{plan.employeeName}</span>
+                  </div>
+                  <details>
+                    <summary>{catalog["managerOps.reviewFormalPlan"]}</summary>
+                    <p>{plan.expectedBehavior}</p>
+                  </details>
                 </li>
               ))}
             </ul>

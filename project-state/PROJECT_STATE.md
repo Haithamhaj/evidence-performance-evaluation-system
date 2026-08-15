@@ -355,6 +355,12 @@ authority, and leave fairness.
   smallest existing owner-domain action. Portfolio context groups interventions by Project and never
   exposes an employee score, readiness value, ranking, or private connected-work context. The
   continuity route remains a deep link until P7-05–P7-08 complete the leave and handover journey.
+- Phase 7 P7-04–P7-06 are technically complete. The manager sees employee-shared development actions
+  and formal plans but never private notes or rejection reasons. The continuity workspace provides a
+  short Project/Workstream-scoped leave request, manager approval/rejection with a reason, versioned
+  handover drafting, visible completeness, and separate employee confirmation. Approved leave remains
+  an operational fairness exclusion, never a performance cue. Delegation, return, and deactivation
+  interaction remain P7-07–P7-08.
 - The Product Owner approved creating Project Document v7 as the bounded current source for the real
   Codex dogfood Project. It replaces no history: v1–v6 remain immutable. The v7 design uses seven
   remaining stage gates, one zero-violation operational KPI, no weights, and explicitly excludes Task,
@@ -397,12 +403,12 @@ authority, and leave fairness.
 
 ## Next Recommended Action
 
-Continue Phase 7 with P7-04–P7-06: add source-backed coaching support, leave review, and handover
-continuity to the completed manager Command Brief without introducing employee scores, readiness
-values, activity-based risk, or private employee context. AI may prepare and explain an operational
-draft, but the authorized human keeps every coaching, leave, and handover decision. Keep the real v7
-Project in its honest `awaiting_information` state; do not let activity volume move progress, let AI
-confirm evidence, merge Pull Requests #29/#30, or retire retained rollback routes.
+Continue Phase 7 with P7-07–P7-11: expose exact-scope acting ownership, expiry/return, authoritative
+permission refresh, bounded manager suggestions, negative analytics proof, and capability closure.
+Do not introduce employee scores, readiness values, activity-based risk, private employee context, or
+AI-owned leave/delegation/reassignment decisions. Keep the real v7 Project in its honest
+`awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
+merge Pull Requests #29/#30, or retire retained rollback routes.
 
 ## Critical References
 

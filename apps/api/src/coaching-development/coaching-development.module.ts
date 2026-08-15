@@ -16,6 +16,11 @@ import { ApiCoachingInsightDraftService } from "./api-coaching-insight-draft.ser
 import { CoachingActionsController } from "./actions.controller.js";
 import { CoachingFormalPlansController } from "./formal-plans.controller.js";
 import { CoachingInsightsController } from "./insights.controller.js";
+import { ManagerCoachingController } from "./manager-coaching.controller.js";
+import {
+  createDatabaseManagerCoachingQueryService,
+  ManagerCoachingQueryService,
+} from "./manager-coaching-query.service.js";
 import {
   COACHING_DEVELOPMENT_POLICY_DATABASE,
   CoachingPolicyGuard,
@@ -30,6 +35,7 @@ Module({
     CoachingInsightsController,
     CoachingActionsController,
     CoachingFormalPlansController,
+    ManagerCoachingController,
   ],
   providers: [
     {
@@ -91,6 +97,11 @@ Module({
           findIdempotentPlan: (key) => store.findIdempotentPlan(key),
         }),
       inject: [CoachingDevelopmentPersistence],
+    },
+    {
+      provide: ManagerCoachingQueryService,
+      useFactory: (database: Database) => createDatabaseManagerCoachingQueryService(database),
+      inject: [COACHING_DEVELOPMENT_DATABASE],
     },
     CoachingPolicyGuard,
   ],

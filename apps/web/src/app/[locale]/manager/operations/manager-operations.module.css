@@ -112,6 +112,57 @@
   font-size: 0.72rem;
 }
 
+.coaching {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.45fr) minmax(0, 1fr);
+  gap: 1rem;
+  border-block-end: 1px solid #dfe4ec;
+  padding-block: 1rem;
+}
+
+.coaching h2,
+.coaching p {
+  margin: 0;
+}
+
+.coaching h2 {
+  font-size: 1.15rem;
+}
+.coaching > div > p:last-child {
+  margin-block-start: 0.35rem;
+  color: #526076;
+  font-size: 0.82rem;
+}
+.coaching ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.coaching li {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid #d6deea;
+  border-radius: 0.55rem;
+  padding: 0.7rem;
+}
+.coaching li div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.coaching li span,
+.coaching li p {
+  color: #627087;
+  font-size: 0.8rem;
+}
+.coaching summary {
+  cursor: pointer;
+  color: #0f5fd8;
+  font-weight: 750;
+}
+
 .queueGrid {
   display: grid;
   gap: 0;
@@ -252,7 +303,8 @@
   }
 
   .queueItem,
-  .portfolio {
+  .portfolio,
+  .coaching {
     grid-template-columns: 1fr;
   }
 }

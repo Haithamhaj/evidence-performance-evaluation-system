@@ -32,8 +32,8 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Review neutral facts before self-assessment                 | CAP-024, CAP-028 | Complete           | English Command Brief journey complete; Arabic remains gated by T016           |
 | Submit self-assessment                                      | CAP-028–029      | Complete           | English human-rated journey complete; Arabic remains gated by T016             |
 | Compare, discuss, acknowledge, or reserve                   | CAP-031          | Complete           | Human comparison/finalization/acknowledgment journey complete                  |
-| Receive coaching and maintain development actions           | CAP-035–036      | Complete           | Technical engine verified; final everyday UI remains                           |
-| Manage leave, handover, and return                          | CAP-037          | Complete           | Final daily-use frontend remains                                               |
+| Receive coaching and maintain development actions           | CAP-035–036      | Complete           | Shared/formal manager support visible; employee-private context remains hidden |
+| Manage leave, handover, and return                          | CAP-037          | Complete           | Leave/handover UX complete; delegation/return remains P7-07–P7-08              |
 
 ## Project and Workstream owner capability view
 
@@ -57,8 +57,8 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Independently assess an employee                               | CAP-028, CAP-030 | Complete | Independent human manager journey complete                       |
 | Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete | Human-only finalization journey complete                         |
 | Read identified upward feedback truthfully                     | CAP-033          | Complete | Named originals and completion are available to the manager      |
-| Support coaching and formal development                        | CAP-035–036      | Complete | Bounded shared-action support verified; production UI remains    |
-| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Final manager frontend remains                                   |
+| Support coaching and formal development                        | CAP-035–036      | Complete | Shared/formal support visible; private details remain hidden     |
+| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Leave decision UX complete; delegation/reassignment remains      |
 | Generate authorized reports without ranking                    | CAP-032          | Complete | Live storage configuration; Arabic evaluation blocked at T016    |
 
 ## System administrator and operations capability view
