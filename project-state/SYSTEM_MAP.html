@@ -1,1219 +1,2961 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Evidence-Based Performance Evaluation System — System Map</title>
+    <link rel="icon" href="data:," />
+    <meta
+      name="description"
+      content="Current bilingual map of the evidence-supported work and human-decided evaluation system."
+    />
+    <title>Current System Map — Evidence-Supported Work &amp; Evaluation</title>
     <style>
       :root {
-        --bg: #f5f7fb;
-        --panel: #ffffff;
+        color-scheme: light;
+        --navy-950: #07162e;
+        --navy-900: #0b2144;
+        --navy-800: #143b76;
+        --blue-700: #1557d5;
+        --blue-600: #2468e8;
+        --blue-100: #eaf1ff;
+        --blue-50: #f5f8ff;
+        --green-700: #0b7554;
+        --green-100: #e7f7f0;
+        --amber-800: #8c4c00;
+        --amber-100: #fff2db;
+        --red-700: #a82c3a;
+        --red-100: #fdecef;
+        --violet-700: #6840c7;
+        --violet-100: #f1ebff;
         --ink: #172033;
-        --muted: #5e6a7f;
-        --line: #d8dfeb;
-        --accent: #3659d9;
-        --accent2: #0f8a73;
-        --warn: #b66a00;
-        --danger: #b33a3a;
-        --soft: #eef2ff;
+        --muted: #5f6b7c;
+        --line: #dce3ee;
+        --line-strong: #c6d1df;
+        --surface: #ffffff;
+        --surface-soft: #f7f9fc;
+        --canvas: #eef3f9;
+        --focus: #ff9f1c;
+        --shadow: 0 14px 40px rgba(12, 32, 70, 0.08);
+        --radius-xl: 24px;
+        --radius-lg: 17px;
+        --radius-md: 12px;
       }
+
       * {
         box-sizing: border-box;
       }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
       body {
         margin: 0;
-        background: var(--bg);
+        overflow-x: clip;
+        background: var(--canvas);
         color: var(--ink);
-        font-family:
-          Inter,
-          ui-sans-serif,
-          system-ui,
-          -apple-system,
-          Segoe UI,
-          Arial,
-          sans-serif;
-        line-height: 1.45;
+        font-family: Inter, "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+        line-height: 1.55;
       }
+
+      a {
+        color: var(--blue-700);
+      }
+
+      a:hover {
+        text-decoration-thickness: 2px;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      :focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 3px;
+      }
+
+      .skip-link {
+        position: fixed;
+        inset-inline-start: 16px;
+        top: -80px;
+        z-index: 50;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--navy-950);
+        font-weight: 800;
+      }
+
+      .skip-link:focus {
+        top: 12px;
+      }
+
       header {
-        padding: 42px 28px 26px;
-        background: linear-gradient(135deg, #18244b, #3659d9);
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 82% 10%, rgba(71, 137, 255, 0.38), transparent 34%),
+          linear-gradient(135deg, var(--navy-950), var(--navy-800));
         color: white;
       }
-      header .wrap,
-      main {
-        max-width: 1200px;
-        margin: auto;
+
+      header::after {
+        position: absolute;
+        width: 340px;
+        height: 340px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 50%;
+        content: "";
+        inset-inline-end: -110px;
+        bottom: -210px;
       }
+
+      .header-inner,
+      .nav-inner,
+      main,
+      footer {
+        width: min(1240px, calc(100% - 32px));
+        margin-inline: auto;
+      }
+
+      .header-inner {
+        position: relative;
+        z-index: 1;
+        padding: 42px 0 34px;
+      }
+
+      .header-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: #b9d0ff;
+        font-size: 13px;
+        font-weight: 850;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
       h1 {
-        margin: 0 0 8px;
-        font-size: clamp(28px, 4vw, 46px);
-        line-height: 1.08;
-      }
-      header p {
+        max-width: 900px;
         margin: 0;
-        max-width: 850px;
-        color: #dbe3ff;
-        font-size: 17px;
+        font-size: clamp(32px, 5vw, 58px);
+        line-height: 1.06;
+        letter-spacing: -0.035em;
       }
+
+      [dir="rtl"] h1 {
+        letter-spacing: 0;
+      }
+
+      .lede {
+        max-width: 840px;
+        margin: 18px 0 0;
+        color: #dfe9ff;
+        font-size: clamp(16px, 2vw, 20px);
+      }
+
+      .snapshot {
+        margin: 22px 0 0;
+        color: #b9d0ff;
+        font-size: 13px;
+      }
+
+      .language-switch {
+        display: inline-flex;
+        flex: 0 0 auto;
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 999px;
+        background: rgba(7, 22, 46, 0.38);
+      }
+
+      .language-switch button {
+        min-width: 72px;
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: transparent;
+        color: #dfe9ff;
+        cursor: pointer;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .language-switch button[aria-pressed="true"] {
+        background: white;
+        color: var(--navy-950);
+      }
+
+      .status-strip {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 30px;
+      }
+
+      .status-item {
+        min-height: 94px;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.17);
+        border-radius: var(--radius-md);
+        background: rgba(255, 255, 255, 0.07);
+      }
+
+      .status-item strong,
+      .status-item span {
+        display: block;
+      }
+
+      .status-item strong {
+        font-size: 14px;
+      }
+
+      .status-item span {
+        margin-top: 4px;
+        color: #cbdcff;
+        font-size: 12px;
+      }
+
       nav {
         position: sticky;
         top: 0;
-        z-index: 5;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
+        z-index: 20;
         border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 4px 18px rgba(12, 32, 70, 0.05);
+        backdrop-filter: blur(14px);
       }
-      nav .wrap {
-        max-width: 1200px;
-        margin: auto;
+
+      .nav-inner {
         display: flex;
-        gap: 8px;
-        overflow: auto;
-        padding: 10px 18px;
+        gap: 6px;
+        overflow-x: auto;
+        padding-block: 9px;
+        scrollbar-width: thin;
       }
+
       nav a {
-        white-space: nowrap;
-        text-decoration: none;
-        color: var(--ink);
-        padding: 8px 12px;
+        flex: 0 0 auto;
         border-radius: 999px;
-        font-size: 14px;
+        padding: 8px 11px;
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 750;
+        text-decoration: none;
       }
-      nav a:hover {
-        background: var(--soft);
-        color: var(--accent);
+
+      nav a:hover,
+      nav a:focus-visible {
+        background: var(--blue-100);
+        color: var(--blue-700);
       }
+
       main {
-        padding: 28px 18px 70px;
+        padding-block: 28px 70px;
       }
+
       section {
-        scroll-margin-top: 70px;
-        margin: 0 0 26px;
-      }
-      .panel {
-        background: var(--panel);
+        scroll-margin-top: 76px;
+        margin-bottom: 24px;
+        padding: clamp(20px, 3vw, 32px);
         border: 1px solid var(--line);
-        border-radius: 18px;
-        padding: 22px;
-        box-shadow: 0 8px 24px rgba(21, 35, 76, 0.06);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow);
       }
-      h2 {
-        font-size: 26px;
-        margin: 0 0 16px;
-      }
-      h3 {
-        font-size: 18px;
-        margin: 0 0 8px;
-      }
-      .grid {
+
+      .section-heading {
         display: grid;
-        grid-template-columns: repeat(12, 1fr);
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 18px;
+        margin-bottom: 22px;
+      }
+
+      .section-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        margin-bottom: 12px;
+        border-radius: 11px;
+        background: var(--navy-950);
+        color: white;
+        font-weight: 900;
+      }
+
+      h2,
+      h3,
+      h4 {
+        line-height: 1.2;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: clamp(25px, 3vw, 36px);
+        letter-spacing: -0.025em;
+      }
+
+      [dir="rtl"] h2 {
+        letter-spacing: 0;
+      }
+
+      h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      .section-intro {
+        max-width: 820px;
+        margin-top: 9px;
+        color: var(--muted);
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 7px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .chip::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+      }
+
+      .implemented {
+        background: var(--green-100);
+        color: var(--green-700);
+      }
+
+      .human-gate {
+        background: var(--blue-100);
+        color: var(--blue-700);
+      }
+
+      .external-gate {
+        background: var(--amber-100);
+        color: var(--amber-800);
+      }
+
+      .retained {
+        background: var(--violet-100);
+        color: var(--violet-700);
+      }
+
+      .prohibited {
+        background: var(--red-100);
+        color: var(--red-700);
+      }
+
+      .overview-grid,
+      .journey-grid,
+      .capability-grid,
+      .architecture-grid,
+      .boundary-grid,
+      .delivery-grid {
+        display: grid;
         gap: 14px;
       }
+
+      .overview-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .journey-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .capability-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .architecture-grid,
+      .boundary-grid,
+      .delivery-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .card {
-        grid-column: span 4;
-        background: #fff;
+        padding: 18px;
         border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 16px;
+        border-radius: var(--radius-lg);
+        background: var(--surface-soft);
       }
-      .card.wide {
-        grid-column: span 6;
-      }
-      .card.full {
-        grid-column: 1/-1;
-      }
-      .card p {
+
+      .card p,
+      .card li {
         color: var(--muted);
-        margin: 6px 0 0;
         font-size: 14px;
       }
-      .tag {
-        display: inline-block;
-        padding: 3px 8px;
-        border-radius: 999px;
-        background: var(--soft);
-        color: var(--accent);
-        font-size: 12px;
-        font-weight: 700;
+
+      .card ul {
+        margin: 10px 0 0;
+        padding-inline-start: 20px;
       }
+
+      .card li + li {
+        margin-top: 6px;
+      }
+
+      .primary-card {
+        border-color: #bbcff9;
+        background: var(--blue-50);
+      }
+
+      .guardrail {
+        border-color: #f1bbc2;
+        background: #fff7f8;
+      }
+
+      .callout {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 12px;
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid #bbcff9;
+        border-radius: var(--radius-lg);
+        background: var(--blue-50);
+      }
+
+      .callout-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--blue-700);
+        color: white;
+        font-weight: 900;
+      }
+
+      .callout p {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
       .flow {
         display: flex;
         align-items: stretch;
-        gap: 10px;
-        overflow: auto;
-        padding: 6px 0 10px;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 4px 2px 12px;
+        scrollbar-width: thin;
       }
-      .node {
-        min-width: 165px;
-        flex: 1;
-        background: #fff;
+
+      .step {
+        position: relative;
+        min-width: 160px;
+        flex: 1 0 160px;
+        padding: 16px;
         border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 14px;
+        border-radius: var(--radius-md);
+        background: white;
       }
-      .arrow {
-        display: flex;
+
+      .step::after {
+        position: absolute;
+        top: calc(50% - 12px);
+        inset-inline-end: -16px;
+        z-index: 1;
+        color: var(--blue-600);
+        content: "→";
+        font-size: 22px;
+        font-weight: 900;
+      }
+
+      [dir="rtl"] .step::after {
+        content: "←";
+      }
+
+      .step:last-child::after {
+        content: none;
+      }
+
+      .step-index {
+        display: inline-flex;
         align-items: center;
-        color: var(--accent);
-        font-size: 24px;
+        justify-content: center;
+        width: 25px;
+        height: 25px;
+        margin-bottom: 10px;
+        border-radius: 50%;
+        background: var(--blue-100);
+        color: var(--blue-700);
+        font-size: 12px;
+        font-weight: 900;
       }
-      .node strong {
-        display: block;
-        margin-bottom: 5px;
-      }
-      .node span {
+
+      .step p {
         color: var(--muted);
         font-size: 13px;
       }
-      .matrix {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
+
+      .subheading {
+        margin: 26px 0 12px;
+        font-size: 20px;
       }
-      .matrix th,
-      .matrix td {
+
+      .table-wrap {
+        overflow-x: auto;
         border: 1px solid var(--line);
-        padding: 10px;
-        text-align: left;
+        border-radius: var(--radius-lg);
+      }
+
+      table {
+        width: 100%;
+        min-width: 780px;
+        border-collapse: collapse;
+        background: white;
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: start;
         vertical-align: top;
       }
-      .matrix th {
-        background: #f0f3fa;
+
+      th {
+        background: var(--surface-soft);
+        color: var(--navy-900);
+        font-size: 12px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
       }
-      .yes {
-        color: var(--accent2);
-        font-weight: 700;
+
+      [dir="rtl"] th {
+        letter-spacing: 0;
       }
-      .no {
-        color: var(--danger);
-        font-weight: 700;
+
+      tr:last-child td {
+        border-bottom: 0;
       }
-      .limited {
-        color: var(--warn);
-        font-weight: 700;
-      }
-      .legend {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
+
+      td p {
         color: var(--muted);
-        font-size: 13px;
-        margin: 8px 0 0;
       }
-      .phase {
-        border-left: 4px solid var(--accent);
-        padding: 0 0 0 14px;
-        margin: 14px 0;
+
+      code {
+        border-radius: 5px;
+        padding: 2px 5px;
+        background: #e8edf5;
+        color: var(--navy-900);
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+        unicode-bidi: isolate;
       }
-      .phase b {
-        display: block;
+
+      .architecture-layer {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        padding: 14px 0;
+        border-bottom: 1px dashed var(--line-strong);
       }
-      .phase span {
+
+      .architecture-layer:last-child {
+        border-bottom: 0;
+      }
+
+      .architecture-layer strong {
+        color: var(--navy-900);
+      }
+
+      .architecture-layer p {
         color: var(--muted);
         font-size: 14px;
       }
-      svg {
-        width: 100%;
-        height: auto;
-        background: #fbfcff;
-        border: 1px solid var(--line);
-        border-radius: 14px;
+
+      .timeline {
+        position: relative;
+        margin: 0;
+        padding: 0;
+        list-style: none;
       }
-      footer {
+
+      .timeline::before {
+        position: absolute;
+        top: 10px;
+        bottom: 10px;
+        inset-inline-start: 11px;
+        width: 2px;
+        background: var(--line-strong);
+        content: "";
+      }
+
+      .timeline li {
+        position: relative;
+        padding: 0 0 20px 36px;
+      }
+
+      [dir="rtl"] .timeline li {
+        padding: 0 36px 20px 0;
+      }
+
+      .timeline li:last-child {
+        padding-bottom: 0;
+      }
+
+      .timeline li::before {
+        position: absolute;
+        top: 4px;
+        inset-inline-start: 4px;
+        width: 14px;
+        height: 14px;
+        border: 3px solid white;
+        border-radius: 50%;
+        background: var(--blue-600);
+        box-shadow: 0 0 0 1px var(--blue-600);
+        content: "";
+      }
+
+      .timeline p {
         color: var(--muted);
-        text-align: center;
-        padding: 18px;
+        font-size: 14px;
       }
-      @media (max-width: 850px) {
-        .card,
-        .card.wide {
-          grid-column: 1/-1;
+
+      details {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: white;
+      }
+
+      summary {
+        padding: 13px 15px;
+        cursor: pointer;
+        color: var(--navy-900);
+        font-weight: 850;
+      }
+
+      details .details-body {
+        padding: 0 15px 15px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      footer {
+        padding: 0 0 44px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      footer .footer-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px;
+        border-top: 1px solid var(--line-strong);
+      }
+
+      @media (max-width: 980px) {
+        .status-strip {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
-        .flow {
+
+        .overview-grid,
+        .capability-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 720px) {
+        .header-inner,
+        .nav-inner,
+        main,
+        footer {
+          width: min(100% - 22px, 1240px);
+        }
+
+        .header-top {
+          align-items: flex-start;
+          flex-direction: column-reverse;
+        }
+
+        .header-inner {
+          padding-block: 28px;
+        }
+
+        .status-strip,
+        .overview-grid,
+        .journey-grid,
+        .capability-grid,
+        .architecture-grid,
+        .boundary-grid,
+        .delivery-grid {
+          grid-template-columns: 1fr;
+        }
+
+        section {
+          padding: 18px;
+          border-radius: 18px;
+        }
+
+        .section-heading {
+          grid-template-columns: 1fr;
+        }
+
+        .legend {
+          justify-content: flex-start;
+        }
+
+        .architecture-layer {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+
+        footer .footer-inner {
+          align-items: flex-start;
           flex-direction: column;
         }
-        .arrow {
-          justify-content: center;
-          transform: rotate(90deg);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition: none !important;
         }
       }
+
       @media print {
-        nav {
-          display: none;
-        }
         body {
           background: white;
         }
-        .panel,
-        .card {
-          box-shadow: none;
-          break-inside: avoid;
+
+        nav,
+        .language-switch,
+        .skip-link {
+          display: none !important;
         }
+
         header {
           background: white;
-          color: black;
-          border-bottom: 2px solid #333;
+          color: var(--ink);
         }
-        header p {
-          color: #333;
+
+        .lede,
+        .snapshot,
+        .status-item span {
+          color: var(--muted);
+        }
+
+        .status-item,
+        section {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+
+        .status-item {
+          border-color: var(--line);
+          color: var(--ink);
         }
       }
     </style>
   </head>
-  <body>
-    <header>
-      <div class="wrap">
-        <h1>Evidence-Based Performance Evaluation System</h1>
-        <p>
-          Current engine map for daily work, projects, research and experiments, evidence,
-          evaluation preparation, protected human decisions, and the path to the final frontend.
-        </p>
+  <body
+    data-title-en="Current System Map — Evidence-Supported Work & Evaluation"
+    data-title-ar="خريطة النظام الحالية — العمل والتقييم المدعوم بالأدلة"
+  >
+    <a
+      class="skip-link"
+      href="#overview"
+      data-en="Skip to system overview"
+      data-ar="انتقل إلى نظرة النظام"
+    >
+      Skip to system overview
+    </a>
+
+    <header id="top">
+      <div class="header-inner">
+        <div class="header-top">
+          <div>
+            <p
+              class="eyebrow"
+              data-en="Current product and architecture reference"
+              data-ar="المرجع الحالي للمنتج والبنية"
+            >
+              Current product and architecture reference
+            </p>
+            <h1
+              data-en="Evidence-supported work. Human-decided evaluation."
+              data-ar="عمل مدعوم بالأدلة. وتقييم بقرار بشري."
+            >
+              Evidence-supported work. Human-decided evaluation.
+            </h1>
+            <p
+              class="lede"
+              data-en="One connected system that helps employees organize work, understand Projects, confirm meaningful Evidence, and prepare for fair evaluation—without turning activity into a score or giving AI authority over people."
+              data-ar="نظام واحد مترابط يساعد الموظفين على تنظيم العمل وفهم المشاريع وتأكيد الأدلة المهمة والاستعداد لتقييم عادل، من دون تحويل النشاط إلى علامة أو منح الذكاء الاصطناعي سلطة على الأشخاص."
+            >
+              One connected system that helps employees organize work, understand Projects, confirm
+              meaningful Evidence, and prepare for fair evaluation—without turning activity into a
+              score or giving AI authority over people.
+            </p>
+            <p
+              class="snapshot"
+              data-en="Status snapshot: 16 August 2026 · English pilot · Arabic/RTL foundation retained"
+              data-ar="لقطة الحالة: 16 أغسطس 2026 · التجربة الإنجليزية · أساس العربية وRTL محفوظ"
+            >
+              Status snapshot: 16 August 2026 · English pilot · Arabic/RTL foundation retained
+            </p>
+          </div>
+          <div
+            class="language-switch"
+            role="group"
+            aria-label="Language"
+            data-aria-en="Language"
+            data-aria-ar="اللغة"
+          >
+            <button type="button" data-locale="en" aria-pressed="true">English</button>
+            <button type="button" data-locale="ar" aria-pressed="false">العربية</button>
+          </div>
+        </div>
+
+        <div
+          class="status-strip"
+          aria-label="Current delivery status"
+          data-aria-en="Current delivery status"
+          data-aria-ar="حالة التنفيذ الحالية"
+        >
+          <div class="status-item">
+            <strong data-en="Engine baseline" data-ar="المحرك الأساسي">Engine baseline</strong>
+            <span data-en="Implemented and merged to main" data-ar="منفذ ومدمج في main"
+              >Implemented and merged to main</span
+            >
+          </div>
+          <div class="status-item">
+            <strong data-en="Employee experience" data-ar="تجربة الموظف"
+              >Employee experience</strong
+            >
+            <span data-en="Implemented on frontend branch" data-ar="منفذة على فرع الواجهات"
+              >Implemented on frontend branch</span
+            >
+          </div>
+          <div class="status-item">
+            <strong data-en="Manager & admin" data-ar="المدير والإدارة">Manager &amp; admin</strong>
+            <span
+              data-en="Technically complete; acceptance remains"
+              data-ar="مكتملة تقنيًا؛ القبول النهائي متبقٍ"
+              >Technically complete; acceptance remains</span
+            >
+          </div>
+          <div class="status-item">
+            <strong data-en="Codex dogfood" data-ar="تجربة Codex الفعلية">Codex dogfood</strong>
+            <span
+              data-en="Running locally with real Project flow"
+              data-ar="تعمل محليًا مع رحلة مشروع حقيقية"
+              >Running locally with real Project flow</span
+            >
+          </div>
+          <div class="status-item">
+            <strong data-en="Merge state" data-ar="حالة الدمج">Merge state</strong>
+            <span
+              data-en="PR #30 and PR #29 are open drafts"
+              data-ar="PR #30 وPR #29 ما زالا مسودتين مفتوحتين"
+              >PR #30 and PR #29 are open drafts</span
+            >
+          </div>
+        </div>
       </div>
     </header>
-    <nav>
-      <div class="wrap">
-        <a href="#product">Product</a><a href="#engine-baseline">Engine Baseline</a
-        ><a href="#operating">Operating Model</a><a href="#evaluation">Evaluation</a>
-        <a href="#architecture">Architecture</a><a href="#roles">Roles</a
-        ><a href="#privacy">Manager Feedback</a> <a href="#ai">AI Routing</a
-        ><a href="#phases">Build Phases</a><a href="#readiness">Readiness</a>
+
+    <nav
+      aria-label="System map sections"
+      data-aria-en="System map sections"
+      data-aria-ar="أقسام خريطة النظام"
+    >
+      <div class="nav-inner">
+        <a href="#overview" data-en="Overview" data-ar="نظرة عامة">Overview</a>
+        <a href="#employee-journey" data-en="Employee" data-ar="الموظف">Employee</a>
+        <a href="#manager-journey" data-en="Manager" data-ar="المدير">Manager</a>
+        <a href="#capabilities" data-en="Capabilities" data-ar="القدرات">Capabilities</a>
+        <a href="#source-lifecycle" data-en="Sources" data-ar="المصادر">Sources</a>
+        <a href="#progress" data-en="Progress" data-ar="التقدم">Progress</a>
+        <a href="#evaluation" data-en="Evaluation" data-ar="التقييم">Evaluation</a>
+        <a href="#ai" data-en="AI" data-ar="الذكاء الاصطناعي">AI</a>
+        <a href="#architecture" data-en="Architecture" data-ar="البنية">Architecture</a>
+        <a href="#authority" data-en="Authority" data-ar="الصلاحيات">Authority</a>
+        <a href="#delivery" data-en="Delivery" data-ar="التنفيذ">Delivery</a>
       </div>
     </nav>
+
     <main>
-      <section id="product" class="panel">
-        <h2>1. Product Logic</h2>
-        <div class="flow">
-          <div class="node">
-            <strong>Define Work</strong
-            ><span
-              >Project and Workstream documents establish problem, scope, outcome, and
-              success.</span
+      <section id="overview" aria-labelledby="overview-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">1</span>
+            <h2 id="overview-title" data-en="The system in one view" data-ar="النظام في نظرة واحدة">
+              The system in one view
+            </h2>
+            <p
+              class="section-intro"
+              data-en="The product is a daily work assistant and an evidence-supported evaluation system. It reduces employee effort, connects work context, and preserves human authority over every official decision."
+              data-ar="المنتج مساعد للعمل اليومي ونظام تقييم مدعوم بالأدلة. يقلل جهد الموظف ويربط سياق العمل ويحافظ على سلطة الإنسان في كل قرار رسمي."
             >
+              The product is a daily work assistant and an evidence-supported evaluation system. It
+              reduces employee effort, connects work context, and preserves human authority over
+              every official decision.
+            </p>
           </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Observe Work</strong
-            ><span
-              >Updates, evidence, decisions, responsibility windows, and Thursday check-ins.</span
+          <div
+            class="legend"
+            aria-label="Status legend"
+            data-aria-en="Status legend"
+            data-aria-ar="دليل الحالات"
+          >
+            <span class="chip implemented" data-en="Implemented" data-ar="منفذ">Implemented</span>
+            <span class="chip human-gate" data-en="Human gate" data-ar="اعتماد بشري"
+              >Human gate</span
             >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Prepare Evaluation</strong
-            ><span>AI organizes sources and gaps without assigning ratings.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Human Decision</strong
-            ><span>Employee self-assesses; manager evaluates, discusses, and finalizes.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Develop</strong
-            ><span>Coaching insights and formal development plans feed the next cycle.</span>
+            <span class="chip external-gate" data-en="External gate" data-ar="بوابة خارجية"
+              >External gate</span
+            >
+            <span class="chip retained" data-en="Retained route" data-ar="مسار محفوظ"
+              >Retained route</span
+            >
           </div>
         </div>
-      </section>
 
-      <section id="engine-baseline" class="panel">
-        <h2>2. Engine-First Baseline</h2>
-        <div class="flow" aria-label="Engine completion sequence">
-          <div class="node">
-            <span class="tag">E2 complete</span><strong>Trace Every Capability</strong
-            ><span>Authoritative requirement → owner module → API → history → tests → status.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <span class="tag">E3 technically complete</span
-            ><strong>Research &amp; Experiments</strong
-            ><span
-              >Safe link review, questions, hypotheses, baselines, measures, results, decisions, and
-              applied learning.</span
+        <div class="overview-grid">
+          <article class="card primary-card">
+            <h3 data-en="Daily work, simplified" data-ar="العمل اليومي بصورة أبسط">
+              Daily work, simplified
+            </h3>
+            <p
+              data-en="Home summarizes multiple Projects. Work prioritizes decisions, Today, and Overdue. The assistant prepares one useful next step at a time."
+              data-ar="تلخص الصفحة الرئيسية عدة مشاريع. ويرتب العمل القرارات ومهام اليوم والمتأخر. ويجهز المساعد خطوة مفيدة واحدة في كل مرة."
             >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <span class="tag">E4–E5 technically complete</span
-            ><strong>Human Evaluation &amp; Development</strong
-            ><span
-              >Immutable cycles, self/manager assessment, identified upward feedback, coaching, and
-              development.</span
+              Home summarizes multiple Projects. Work prioritizes decisions, Today, and Overdue. The
+              assistant prepares one useful next step at a time.
+            </p>
+          </article>
+          <article class="card primary-card">
+            <h3 data-en="Projects with real context" data-ar="مشاريع بسياق حقيقي">
+              Projects with real context
+            </h3>
+            <p
+              data-en="A Project connects its approved document, Workstreams, Tasks, sources, Updates, Evidence, Research, Progress Contract, Timeline, and human decisions."
+              data-ar="يربط المشروع وثيقته المعتمدة ومسارات العمل والمهام والمصادر والتحديثات والأدلة والبحث وعقد التقدم والخط الزمني والقرارات البشرية."
             >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <span class="tag">E6 technical complete</span
-            ><strong>Continuity &amp; Operations</strong
-            ><span
-              >Leave, delegation, notification, reports, administration, security, backup, and dry
-              run.</span
+              A Project connects its approved document, Workstreams, Tasks, sources, Updates,
+              Evidence, Research, Progress Contract, Timeline, and human decisions.
+            </p>
+          </article>
+          <article class="card primary-card">
+            <h3 data-en="Fair evaluation, human-decided" data-ar="تقييم عادل بقرار بشري">
+              Fair evaluation, human-decided
+            </h3>
+            <p
+              data-en="Source-supported facts help the employee and manager assess the same rubric. The manager makes the final judgment; AI never recommends a rating."
+              data-ar="تساعد الحقائق المدعومة بالمصادر الموظف والمدير على استخدام نفس المعايير. يتخذ المدير الحكم النهائي ولا يوصي الذكاء الاصطناعي بعلامة."
             >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <span class="tag">E7 complete</span><strong>Frontend Handoff</strong
-            ><span
-              >44 capabilities reconciled; customer journeys and protected contracts are ready for
-              final interface design.</span
-            >
-          </div>
+              Source-supported facts help the employee and manager assess the same rubric. The
+              manager makes the final judgment; AI never recommends a rating.
+            </p>
+          </article>
         </div>
-        <div class="grid">
-          <div class="card">
-            <span class="tag">39 complete</span>
-            <h3>Verified Engine</h3>
-            <p>
-              Governance, Projects/Documents/Criteria, daily Tasks, Updates/Evidence, progress,
-              check-ins/readiness, manager operations, and neutral Fact View preparation.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">2 approved partial</span>
-            <h3>Human and Frontend Gates</h3>
-            <p>
-              Arabic evaluation awaits semantic approval; pilot launch awaits final frontend and
-              Product Owner acceptance.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">0 planned</span>
-            <h3>No Missing Pilot Engine</h3>
-            <p>
-              Research, evaluations, feedback, coaching, continuity, operations, and recovery now
-              expose verified technical contracts.
-            </p>
-          </div>
-          <div class="card wide">
-            <span class="tag">2 external gates</span>
-            <h3>Live Google and GitHub</h3>
-            <p>
-              Deterministic engines exist. Production use still needs provider consoles,
-              administrator consent, minimum scopes/permissions, secrets, and production vaults.
-            </p>
-          </div>
-          <div class="card wide">
-            <span class="tag">Not a score</span>
-            <h3>Inventory Counts</h3>
-            <p>
-              Capability counts indicate state only. They are not percent complete because each
-              capability has different size, dependency, security, and historical-integrity risk.
+
+        <div class="callout">
+          <span class="callout-icon" aria-hidden="true">✓</span>
+          <div>
+            <h3 data-en="The operating principle" data-ar="مبدأ التشغيل">
+              The operating principle
+            </h3>
+            <p
+              data-en="AI prepares, connects, explains, and drafts. The employee or authorized owner edits, accepts, rejects, or defers. Official records change only through an existing protected command and the required human confirmation."
+              data-ar="يجهز الذكاء الاصطناعي ويربط ويشرح ويصوغ المسودات. ويعدل الموظف أو المالك المخول ويقبل أو يرفض أو يؤجل. ولا تتغير السجلات الرسمية إلا عبر أمر محمي قائم والتأكيد البشري المطلوب."
+            >
+              AI prepares, connects, explains, and drafts. The employee or authorized owner edits,
+              accepts, rejects, or defers. Official records change only through an existing
+              protected command and the required human confirmation.
             </p>
           </div>
         </div>
       </section>
 
-      <section id="operating" class="panel">
-        <h2>3. Project and Workstream Operating Model</h2>
-        <svg viewBox="0 0 1100 500" role="img" aria-label="Project and workstream hierarchy">
-          <defs>
-            <marker
-              id="a"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
+      <section id="employee-journey" aria-labelledby="employee-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">2</span>
+            <h2 id="employee-title" data-en="Employee daily journey" data-ar="رحلة الموظف اليومية">
+              Employee daily journey
+            </h2>
+            <p
+              class="section-intro"
+              data-en="The employee should understand the day at a glance, act with minimal data entry, and remain in control of every official Update, Evidence item, and assessment."
+              data-ar="يفهم الموظف يومه من النظرة الأولى ويتصرف بأقل إدخال ممكن للبيانات ويبقى مسيطرًا على كل تحديث ودليل وتقييم رسمي."
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#3659d9" />
-            </marker>
-          </defs>
-          <rect
-            x="390"
-            y="30"
-            width="320"
-            height="72"
-            rx="14"
-            fill="#eef2ff"
-            stroke="#3659d9"
-            stroke-width="2"
-          />
-          <text x="550" y="58" text-anchor="middle" font-size="20" font-weight="700" fill="#172033">
-            Project
-          </text>
-          <text x="550" y="82" text-anchor="middle" font-size="13" fill="#5e6a7f">
-            Primary Owner · Master Document · 1–3 Criteria
-          </text>
-          <line
-            x1="550"
-            y1="102"
-            x2="190"
-            y2="170"
-            stroke="#3659d9"
-            stroke-width="2"
-            marker-end="url(#a)"
-          />
-          <line
-            x1="550"
-            y1="102"
-            x2="550"
-            y2="170"
-            stroke="#3659d9"
-            stroke-width="2"
-            marker-end="url(#a)"
-          />
-          <line
-            x1="550"
-            y1="102"
-            x2="910"
-            y2="170"
-            stroke="#3659d9"
-            stroke-width="2"
-            marker-end="url(#a)"
-          />
-          <g>
-            <rect
-              x="45"
-              y="175"
-              width="290"
-              height="92"
-              rx="14"
-              fill="#fff"
-              stroke="#0f8a73"
-              stroke-width="2"
-            />
-            <text x="190" y="205" text-anchor="middle" font-size="18" font-weight="700">
-              Workstream A
-            </text>
-            <text x="190" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">
-              Owner · Shared Document · 2–3 Criteria
-            </text>
-            <text x="190" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">
-              Contributors · Updates · Evidence
-            </text>
-          </g>
-          <g>
-            <rect
-              x="405"
-              y="175"
-              width="290"
-              height="92"
-              rx="14"
-              fill="#fff"
-              stroke="#0f8a73"
-              stroke-width="2"
-            />
-            <text x="550" y="205" text-anchor="middle" font-size="18" font-weight="700">
-              Workstream B
-            </text>
-            <text x="550" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">
-              Owner · Shared Document · 2–3 Criteria
-            </text>
-            <text x="550" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">
-              Contributors · Updates · Evidence
-            </text>
-          </g>
-          <g>
-            <rect
-              x="765"
-              y="175"
-              width="290"
-              height="92"
-              rx="14"
-              fill="#fff"
-              stroke="#0f8a73"
-              stroke-width="2"
-            />
-            <text x="910" y="205" text-anchor="middle" font-size="18" font-weight="700">
-              Workstream C
-            </text>
-            <text x="910" y="229" text-anchor="middle" font-size="13" fill="#5e6a7f">
-              Owner · Shared Document · 2–3 Criteria
-            </text>
-            <text x="910" y="251" text-anchor="middle" font-size="13" fill="#5e6a7f">
-              Contributors · Updates · Evidence
-            </text>
-          </g>
-          <line
-            x1="190"
-            y1="267"
-            x2="190"
-            y2="330"
-            stroke="#3659d9"
-            stroke-width="2"
-            marker-end="url(#a)"
-          />
-          <line
-            x1="550"
-            y1="267"
-            x2="550"
-            y2="330"
-            stroke="#3659d9"
-            stroke-width="2"
-            marker-end="url(#a)"
-          />
-          <line
-            x1="910"
-            y1="267"
-            x2="910"
-            y2="330"
-            stroke="#3659d9"
-            stroke-width="2"
-            marker-end="url(#a)"
-          />
-          <rect x="75" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb" />
-          <rect x="435" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb" />
-          <rect x="795" y="335" width="230" height="110" rx="14" fill="#fbfcff" stroke="#d8dfeb" />
-          <text x="190" y="370" text-anchor="middle" font-size="15" font-weight="700">
-            Responsibility Windows
-          </text>
-          <text x="190" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">
-            Original · Acting · Contributor
-          </text>
-          <text x="190" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">
-            Attribution follows time and scope
-          </text>
-          <text x="550" y="370" text-anchor="middle" font-size="15" font-weight="700">
-            Thursday Check-in
-          </text>
-          <text x="550" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">
-            Only when no substantive update exists
-          </text>
-          <text x="550" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">
-            Project summary aggregates workstreams
-          </text>
-          <text x="910" y="370" text-anchor="middle" font-size="15" font-weight="700">
-            Evidence and Attribution
-          </text>
-          <text x="910" y="397" text-anchor="middle" font-size="13" fill="#5e6a7f">
-            Verified · Team · Self-reported
-          </text>
-          <text x="910" y="420" text-anchor="middle" font-size="13" fill="#5e6a7f">
-            Disputes remain visible
-          </text>
-        </svg>
-      </section>
-
-      <section id="evaluation" class="panel">
-        <h2>4. Evaluation Model</h2>
-        <div class="grid">
-          <div class="card">
-            <span class="tag">20%</span>
-            <h3>Professional Behavior</h3>
-            <p>Responsibility, collaboration, communication, initiative.</p>
-          </div>
-          <div class="card">
-            <span class="tag">25%</span>
-            <h3>AI Research & Learning</h3>
-            <p>Framing, research, experiments, insight and applied learning.</p>
-          </div>
-          <div class="card">
-            <span class="tag">30%</span>
-            <h3>Engineering & Execution</h3>
-            <p>Design, agent oversight, testing, integration, documentation.</p>
-          </div>
-          <div class="card wide">
-            <span class="tag">25%</span>
-            <h3>Project Contribution</h3>
-            <p>
-              One human rating informed by project/workstream criteria and actual responsibility. No
-              automatic project average.
+              The employee should understand the day at a glance, act with minimal data entry, and
+              remain in control of every official Update, Evidence item, and assessment.
             </p>
           </div>
-          <div class="card wide">
-            <span class="tag">Separate</span>
-            <h3>Manager Upward Evaluation</h3>
-            <p>
-              Five leadership criteria, identified responses in the pilot, visible completion,
-              individual comments, and optional aggregation.
-            </p>
-          </div>
+          <span
+            class="chip implemented"
+            data-en="Current Command Brief experience"
+            data-ar="تجربة Command Brief الحالية"
+            >Current Command Brief experience</span
+          >
         </div>
-        <div class="flow" style="margin-top: 16px">
-          <div class="node">
-            <strong>Self-Assessment</strong><span>Same anchors and sources.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Independent Manager Draft</strong><span>Self-rating hidden initially.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Comparison</strong><span>Gaps, evidence, contribution, context.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Discussion</strong><span>Clarification, not automated compromise.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Final Rating</strong><span>Manager decision; reservation allowed.</span>
-          </div>
+
+        <div
+          class="flow"
+          aria-label="Employee journey flow"
+          data-aria-en="Employee journey flow"
+          data-aria-ar="مسار رحلة الموظف"
+        >
+          <article class="step">
+            <span class="step-index">1</span>
+            <h3 data-en="Home" data-ar="الرئيسية">Home</h3>
+            <p
+              data-en="Multi-Project overview, circular confirmed progress, current stage, Smart Brief, and next action."
+              data-ar="نظرة على عدة مشاريع وتقدم مؤكد دائري والمرحلة الحالية وملخص ذكي والخطوة التالية."
+            >
+              Multi-Project overview, circular confirmed progress, current stage, Smart Brief, and
+              next action.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">2</span>
+            <h3 data-en="Work" data-ar="العمل">Work</h3>
+            <p
+              data-en="Needs My Action, Today, Overdue, List, Board, Calendar, saved views, and focused Task detail."
+              data-ar="ما يحتاج تدخلي واليوم والمتأخر والقائمة واللوحة والتقويم والعروض المحفوظة وتفاصيل المهمة المركزة."
+            >
+              Needs My Action, Today, Overdue, List, Board, Calendar, saved views, and focused Task
+              detail.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">3</span>
+            <h3 data-en="Project" data-ar="المشروع">Project</h3>
+            <p
+              data-en="Purpose, Plan, Work, Progress, Timeline, Documents, Criteria, Evidence, Research, and Assistant."
+              data-ar="الهدف والخطة والعمل والتقدم والخط الزمني والوثائق والمعايير والأدلة والبحث والمساعد."
+            >
+              Purpose, Plan, Work, Progress, Timeline, Documents, Criteria, Evidence, Research, and
+              Assistant.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">4</span>
+            <h3 data-en="Capture" data-ar="الإضافة الذكية">Capture</h3>
+            <p
+              data-en="Share text, voice, URL, image, code, or file without classifying it first."
+              data-ar="شارك نصًا أو صوتًا أو رابطًا أو صورة أو كودًا أو ملفًا دون تصنيفه أولًا."
+            >
+              Share text, voice, URL, image, code, or file without classifying it first.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">5</span>
+            <h3 data-en="Review" data-ar="المراجعة">Review</h3>
+            <p
+              data-en="Correct Project links, answer focused questions, edit AI drafts, and choose what to confirm."
+              data-ar="صحح ربط المشروع وأجب عن الأسئلة المركزة وعدل مسودات الذكاء واختر ما تريد تأكيده."
+            >
+              Correct Project links, answer focused questions, edit AI drafts, and choose what to
+              confirm.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">6</span>
+            <h3 data-en="Evidence" data-ar="الدليل">Evidence</h3>
+            <p
+              data-en="Confirm the supported claim and contribution context; suggested sources remain unconfirmed until then."
+              data-ar="أكد الادعاء المدعوم وسياق المساهمة؛ وتبقى المصادر المقترحة غير مؤكدة حتى ذلك الوقت."
+            >
+              Confirm the supported claim and contribution context; suggested sources remain
+              unconfirmed until then.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">7</span>
+            <h3 data-en="Evaluation" data-ar="التقييم">Evaluation</h3>
+            <p
+              data-en="Review source facts first, then write an independent self-assessment using the approved rubric."
+              data-ar="راجع الحقائق المدعومة بالمصادر أولًا ثم اكتب تقييمًا ذاتيًا مستقلًا باستخدام المعايير المعتمدة."
+            >
+              Review source facts first, then write an independent self-assessment using the
+              approved rubric.
+            </p>
+          </article>
+        </div>
+
+        <div class="journey-grid">
+          <article class="card">
+            <h3 data-en="What the assistant removes" data-ar="ما يخففه المساعد">
+              What the assistant removes
+            </h3>
+            <ul>
+              <li
+                data-en="Repeated classification and copying between tools."
+                data-ar="التصنيف المتكرر والنسخ بين الأدوات."
+              >
+                Repeated classification and copying between tools.
+              </li>
+              <li
+                data-en="Searching manually for the related Project or Task when confidence is high."
+                data-ar="البحث اليدوي عن المشروع أو المهمة المرتبطة عندما تكون الثقة عالية."
+              >
+                Searching manually for the related Project or Task when confidence is high.
+              </li>
+              <li
+                data-en="Starting every Update, Evidence description, or check-in from a blank page."
+                data-ar="بدء كل تحديث أو وصف دليل أو متابعة من صفحة فارغة."
+              >
+                Starting every Update, Evidence description, or check-in from a blank page.
+              </li>
+            </ul>
+          </article>
+          <article class="card guardrail">
+            <h3 data-en="What remains employee-controlled" data-ar="ما يبقى تحت سيطرة الموظف">
+              What remains employee-controlled
+            </h3>
+            <ul>
+              <li
+                data-en="Editing, rejecting, deferring, and confirming every official draft."
+                data-ar="تعديل ورفض وتأجيل وتأكيد كل مسودة رسمية."
+              >
+                Editing, rejecting, deferring, and confirming every official draft.
+              </li>
+              <li
+                data-en="Confirming Evidence and personal contribution attribution."
+                data-ar="تأكيد الدليل ونسبة المساهمة الشخصية."
+              >
+                Confirming Evidence and personal contribution attribution.
+              </li>
+              <li
+                data-en="Selecting a self-assessment rating before AI may help with editable wording."
+                data-ar="اختيار علامة التقييم الذاتي قبل أن يساعد الذكاء في صياغة قابلة للتعديل."
+              >
+                Selecting a self-assessment rating before AI may help with editable wording.
+              </li>
+            </ul>
+          </article>
         </div>
       </section>
 
-      <section id="architecture" class="panel">
-        <h2>5. Technical Architecture</h2>
-        <div class="flow" aria-label="Implemented Phase 0 request and asynchronous job flow">
-          <div class="node">
-            <span class="tag">Implemented</span><strong>Next.js Web</strong
-            ><span>Arabic-first shell, OIDC session, correlation carrier.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <span class="tag">Implemented</span><strong>NestJS Modular API</strong
-            ><span
-              >Authentication, scoped authorization, projects, workstreams, responsibility, and
-              versioned documents.</span
+      <section id="manager-journey" aria-labelledby="manager-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">3</span>
+            <h2 id="manager-title" data-en="Manager journey" data-ar="رحلة المدير">
+              Manager journey
+            </h2>
+            <p
+              class="section-intro"
+              data-en="The manager sees operational queues and source-backed context, not employee surveillance. Project progress, documentation readiness, and human performance judgment remain separate concepts."
+              data-ar="يرى المدير قوائم تشغيلية وسياقًا مدعومًا بالمصادر لا مراقبة الموظفين. ويبقى تقدم المشروع وجاهزية التوثيق والحكم البشري على الأداء مفاهيم منفصلة."
             >
+              The manager sees operational queues and source-backed context, not employee
+              surveillance. Project progress, documentation readiness, and human performance
+              judgment remain separate concepts.
+            </p>
           </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <span class="tag">Durable</span><strong>Redis / BullMQ Queue</strong
-            ><span>Versioned envelopes, retry state, idempotency and trace context.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <span class="tag">Implemented</span><strong>Worker</strong
-            ><span>Lifecycle-managed consumers and graceful draining.</span>
+          <span
+            class="chip human-gate"
+            data-en="Human judgment protected"
+            data-ar="الحكم البشري محمي"
+            >Human judgment protected</span
+          >
+        </div>
+
+        <div
+          class="flow"
+          aria-label="Manager journey flow"
+          data-aria-en="Manager journey flow"
+          data-aria-ar="مسار رحلة المدير"
+        >
+          <article class="step">
+            <span class="step-index">1</span>
+            <h3 data-en="Operational home" data-ar="الرئيسية التشغيلية">Operational home</h3>
+            <p
+              data-en="Approvals, blockers, ownership gaps, handovers, and commitments grouped by Project."
+              data-ar="اعتمادات وعوائق وفجوات ملكية وتسليمات والتزامات مجمعة حسب المشروع."
+            >
+              Approvals, blockers, ownership gaps, handovers, and commitments grouped by Project.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">2</span>
+            <h3 data-en="Project oversight" data-ar="متابعة المشروع">Project oversight</h3>
+            <p
+              data-en="Confirmed Progress Contract state, meaningful Timeline, source gaps, owner action, and continuity."
+              data-ar="حالة عقد التقدم المؤكدة والخط الزمني المهم وفجوات المصادر وإجراء المالك والاستمرارية."
+            >
+              Confirmed Progress Contract state, meaningful Timeline, source gaps, owner action, and
+              continuity.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">3</span>
+            <h3 data-en="Independent assessment" data-ar="التقييم المستقل">
+              Independent assessment
+            </h3>
+            <p
+              data-en="The manager reviews facts and records an independent assessment before employee comparison."
+              data-ar="يراجع المدير الحقائق ويسجل تقييمًا مستقلًا قبل المقارنة مع الموظف."
+            >
+              The manager reviews facts and records an independent assessment before employee
+              comparison.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">4</span>
+            <h3 data-en="Final decision" data-ar="القرار النهائي">Final decision</h3>
+            <p
+              data-en="The manager records the final rating and explains any change from the initial position."
+              data-ar="يسجل المدير العلامة النهائية ويشرح أي تغيير عن موقفه الأولي."
+            >
+              The manager records the final rating and explains any change from the initial
+              position.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">5</span>
+            <h3 data-en="Coaching" data-ar="التطوير">Coaching</h3>
+            <p
+              data-en="Shared actions and formal plans only; private employee notes and rejection reasons remain private."
+              data-ar="إجراءات مشتركة وخطط رسمية فقط؛ وتبقى ملاحظات الموظف الخاصة وأسباب الرفض خاصة."
+            >
+              Shared actions and formal plans only; private employee notes and rejection reasons
+              remain private.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">6</span>
+            <h3 data-en="Continuity" data-ar="الاستمرارية">Continuity</h3>
+            <p
+              data-en="Leave, handover, exact-scope delegation, return, and reassignment through protected human decisions."
+              data-ar="الإجازة والتسليم والتفويض المحدد النطاق والعودة وإعادة الإسناد عبر قرارات بشرية محمية."
+            >
+              Leave, handover, exact-scope delegation, return, and reassignment through protected
+              human decisions.
+            </p>
+          </article>
+        </div>
+
+        <div class="callout guardrail">
+          <span class="callout-icon" aria-hidden="true">!</span>
+          <div>
+            <h3 data-en="Manager-view guardrail" data-ar="حدود عرض المدير">
+              Manager-view guardrail
+            </h3>
+            <p
+              data-en="No employee ranking, productivity score, predicted rating, completion leaderboard, private Gmail/Calendar context, or individual Documentation Readiness percentage appears in manager judgment screens."
+              data-ar="لا يظهر في شاشات حكم المدير ترتيب للموظفين أو علامة إنتاجية أو تقييم متوقع أو لوحة صدارة للإنجاز أو سياق Gmail/Calendar الخاص أو نسبة فردية لجاهزية التوثيق."
+            >
+              No employee ranking, productivity score, predicted rating, completion leaderboard,
+              private Gmail/Calendar context, or individual Documentation Readiness percentage
+              appears in manager judgment screens.
+            </p>
           </div>
         </div>
-        <div class="grid">
-          <div class="card">
-            <h3>PostgreSQL Authority</h3>
-            <p>
-              API and Worker persist authoritative, historical, operation, receipt, and append-only
-              audit records through owned boundaries.
+      </section>
+
+      <section id="capabilities" aria-labelledby="capabilities-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">4</span>
+            <h2
+              id="capabilities-title"
+              data-en="Current screen and capability map"
+              data-ar="خريطة الشاشات والقدرات الحالية"
+            >
+              Current screen and capability map
+            </h2>
+            <p
+              class="section-intro"
+              data-en="The selected Command Brief direction now spans employee, Project, Research, evaluation, manager, continuity, and administration journeys. Retained routes remain available until Product Owner parity acceptance."
+              data-ar="يمتد اتجاه Command Brief المختار الآن عبر رحلات الموظف والمشروع والبحث والتقييم والمدير والاستمرارية والإدارة. وتبقى المسارات السابقة متاحة حتى اعتماد المالك لتكافؤ التجربة."
+            >
+              The selected Command Brief direction now spans employee, Project, Research,
+              evaluation, manager, continuity, and administration journeys. Retained routes remain
+              available until Product Owner parity acceptance.
             </p>
           </div>
-          <div class="card">
-            <h3>OIDC / Keycloak</h3>
-            <p>
-              Web sign-in and server-side token validation enforce identity, expiry, audience,
-              synchronization, and deactivation.
+        </div>
+
+        <div class="capability-grid">
+          <article class="card">
+            <h3 data-en="Home & Smart Brief" data-ar="الرئيسية والملخص الذكي">
+              Home &amp; Smart Brief
+            </h3>
+            <p
+              data-en="Multi-Project journey, circular contract progress, stage path, decisions, due work, verified changes, and one suggested next action."
+              data-ar="رحلة عدة مشاريع وتقدم عقدي دائري ومسار المراحل والقرارات والعمل المستحق والتغييرات المؤكدة وخطوة تالية مقترحة واحدة."
+            >
+              Multi-Project journey, circular contract progress, stage path, decisions, due work,
+              verified changes, and one suggested next action.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Work & Tasks" data-ar="العمل والمهام">Work &amp; Tasks</h3>
+            <p
+              data-en="List, Board, Calendar, filters, paging, personal views, dependencies, bulk transitions, Quick Task, Task Assistant, and URL-owned detail."
+              data-ar="قائمة ولوحة وتقويم وفلاتر وصفحات وعروض شخصية واعتماديات وتغييرات جماعية ومهمة سريعة ومساعد المهمة وتفاصيل مرتبطة بالرابط."
+            >
+              List, Board, Calendar, filters, paging, personal views, dependencies, bulk
+              transitions, Quick Task, Task Assistant, and URL-owned detail.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Project Workspace" data-ar="مساحة المشروع">Project Workspace</h3>
+            <p
+              data-en="Overview, Plan, Work, Progress, Timeline, Documents/Sources, Criteria/Contract, Evidence, Research, Project Agent, and Project Chat."
+              data-ar="نظرة عامة وخطة وعمل وتقدم وخط زمني ووثائق ومصادر ومعايير وعقد وأدلة وبحث ووكيل المشروع ومحادثة المشروع."
+            >
+              Overview, Plan, Work, Progress, Timeline, Documents/Sources, Criteria/Contract,
+              Evidence, Research, Project Agent, and Project Chat.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Universal Capture" data-ar="الإضافة الشاملة">Universal Capture</h3>
+            <p
+              data-en="Text, voice transcript, URL, image, code, and file enter one private review flow with Project inference, clarification, Update drafting, and optional Evidence drafting."
+              data-ar="يدخل النص وتفريغ الصوت والرابط والصورة والكود والملف في رحلة مراجعة خاصة واحدة مع استنتاج المشروع والتوضيح وصياغة التحديث ودليل اختياري."
+            >
+              Text, voice transcript, URL, image, code, and file enter one private review flow with
+              Project inference, clarification, Update drafting, and optional Evidence drafting.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Sources & Evidence" data-ar="المصادر والأدلة">Sources &amp; Evidence</h3>
+            <p
+              data-en="Google, GitHub, manual sources, confirmed/pending/history views, gap detection, employee-edit requirement, supported claim, and contribution context."
+              data-ar="مصادر Google وGitHub والمصادر اليدوية وعروض المؤكد والمعلق والتاريخ وكشف الفجوات ومتطلب تعديل الموظف والادعاء المدعوم وسياق المساهمة."
+            >
+              Google, GitHub, manual sources, confirmed/pending/history views, gap detection,
+              employee-edit requirement, supported claim, and contribution context.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Research & Experiments" data-ar="البحث والتجارب">
+              Research &amp; Experiments
+            </h3>
+            <p
+              data-en="Project-linked question, cited source review, synthesis, reproducible method, successful/failed outcomes, human decision, and Applied Learning."
+              data-ar="سؤال مرتبط بالمشروع ومراجعة مصادر موثقة وتوليف وطريقة قابلة لإعادة التنفيذ ونتائج ناجحة أو فاشلة وقرار بشري وتعلم مطبق."
+            >
+              Project-linked question, cited source review, synthesis, reproducible method,
+              successful/failed outcomes, human decision, and Applied Learning.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Evaluation" data-ar="التقييم">Evaluation</h3>
+            <p
+              data-en="Fact View, self-assessment, independent manager assessment, comparison, final decision, acknowledgment/reservation, identified upward feedback, and immutable export."
+              data-ar="عرض الحقائق والتقييم الذاتي وتقييم المدير المستقل والمقارنة والقرار النهائي والإقرار أو التحفظ والتغذية الراجعة المحددة الهوية والتصدير غير القابل للتغيير."
+            >
+              Fact View, self-assessment, independent manager assessment, comparison, final
+              decision, acknowledgment/reservation, identified upward feedback, and immutable
+              export.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Manager & Continuity" data-ar="المدير والاستمرارية">
+              Manager &amp; Continuity
+            </h3>
+            <p
+              data-en="Operational queues, portfolio context, coaching visibility, leave, handover, delegation, return, deactivation, and reassignment-required cases."
+              data-ar="قوائم تشغيلية وسياق المحفظة ورؤية التطوير والإجازة والتسليم والتفويض والعودة وتعطيل الحساب وحالات إعادة الإسناد المطلوبة."
+            >
+              Operational queues, portfolio context, coaching visibility, leave, handover,
+              delegation, return, deactivation, and reassignment-required cases.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Administration & Operations" data-ar="الإدارة والتشغيل">
+              Administration &amp; Operations
+            </h3>
+            <p
+              data-en="Identity and configuration, AI governance, prompt/routes, audit, retention, notifications, reports, recovery, cohort flags, and bounded product feedback."
+              data-ar="الهوية والإعداد وحوكمة الذكاء والمسارات والبرومبت والتدقيق والاحتفاظ والإشعارات والتقارير والاستعادة وأعلام المجموعات وملاحظات المنتج المحدودة."
+            >
+              Identity and configuration, AI governance, prompt/routes, audit, retention,
+              notifications, reports, recovery, cohort flags, and bounded product feedback.
+            </p>
+          </article>
+        </div>
+
+        <details>
+          <summary
+            data-en="Why retained routes still exist"
+            data-ar="لماذا ما زالت المسارات السابقة موجودة"
+          >
+            Why retained routes still exist
+          </summary>
+          <div class="details-body">
+            <p
+              data-en="The AI-native interfaces are protected by independent rollback flags. Older routes are retired only after visual Product Owner acceptance proves parity, recovery, role boundaries, and real-user usability. This prevents a design transition from removing a working capability prematurely."
+              data-ar="تحمي أعلام تراجع مستقلة الواجهات المبنية للذكاء الاصطناعي. ولا تتقاعد المسارات الأقدم إلا بعد أن يثبت قبول مالك المنتج بصريًا تكافؤ القدرات والتعافي وحدود الأدوار وسهولة الاستخدام الحقيقي. وهذا يمنع انتقال التصميم من إزالة قدرة عاملة مبكرًا."
+            >
+              The AI-native interfaces are protected by independent rollback flags. Older routes are
+              retired only after visual Product Owner acceptance proves parity, recovery, role
+              boundaries, and real-user usability. This prevents a design transition from removing a
+              working capability prematurely.
             </p>
           </div>
-          <div class="card">
-            <h3>Append-only Audit</h3>
-            <p>
-              Protected actions write same-transaction audit evidence; database controls reject
-              mutation.
+        </details>
+      </section>
+
+      <section id="source-lifecycle" aria-labelledby="sources-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">5</span>
+            <h2
+              id="sources-title"
+              data-en="From source to trusted work record"
+              data-ar="من المصدر إلى سجل عمل موثوق"
+            >
+              From source to trusted work record
+            </h2>
+            <p
+              class="section-intro"
+              data-en="The system sees work in 360 degrees, but it does not silently convert private context or connector activity into official Evidence. Confidence changes how much the employee must classify—not who holds authority."
+              data-ar="يرى النظام العمل بصورة شاملة لكنه لا يحول السياق الخاص أو نشاط الموصلات بصمت إلى دليل رسمي. تؤثر الثقة في مقدار التصنيف المطلوب من الموظف لا في صاحب الصلاحية."
+            >
+              The system sees work in 360 degrees, but it does not silently convert private context
+              or connector activity into official Evidence. Confidence changes how much the employee
+              must classify—not who holds authority.
             </p>
           </div>
-          <div class="card">
-            <h3>AI Router Boundary</h3>
-            <p>
-              Feature modules cannot call provider SDKs directly. Routes resolve Project →
-              Department → System and retain trace evidence.
+          <span
+            class="chip human-gate"
+            data-en="Employee confirmation required"
+            data-ar="تأكيد الموظف مطلوب"
+            >Employee confirmation required</span
+          >
+        </div>
+
+        <div
+          class="flow"
+          aria-label="Source to record lifecycle"
+          data-aria-en="Source to record lifecycle"
+          data-aria-ar="دورة المصدر إلى السجل"
+        >
+          <article class="step">
+            <span class="step-index">1</span>
+            <h3 data-en="Source arrives" data-ar="وصول المصدر">Source arrives</h3>
+            <p
+              data-en="GitHub, Gmail/Calendar, text, voice, URL, image, code, file, Research, or an existing Project record."
+              data-ar="GitHub أو Gmail/Calendar أو نص أو صوت أو رابط أو صورة أو كود أو ملف أو بحث أو سجل مشروع قائم."
+            >
+              GitHub, Gmail/Calendar, text, voice, URL, image, code, file, Research, or an existing
+              Project record.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">2</span>
+            <h3 data-en="Private staging" data-ar="تجهيز خاص">Private staging</h3>
+            <p
+              data-en="Raw input stays owner-private or suggested. Files pass type, size, and safety validation."
+              data-ar="يبقى الإدخال الخام خاصًا بالمالك أو مقترحًا. وتمر الملفات بفحص النوع والحجم والسلامة."
+            >
+              Raw input stays owner-private or suggested. Files pass type, size, and safety
+              validation.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">3</span>
+            <h3 data-en="AI organizes" data-ar="تنظيم بالذكاء">AI organizes</h3>
+            <p
+              data-en="The AI Router proposes Project, Task, meaning, source links, Update wording, and an unselected Evidence draft."
+              data-ar="يقترح AI Router المشروع والمهمة والمعنى وروابط المصادر وصياغة التحديث ومسودة دليل غير محددة."
+            >
+              The AI Router proposes Project, Task, meaning, source links, Update wording, and an
+              unselected Evidence draft.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">4</span>
+            <h3 data-en="Focused clarification" data-ar="توضيح مركز">Focused clarification</h3>
+            <p
+              data-en="Ask one question at a time only when a required fact, measurement, or relationship is genuinely missing."
+              data-ar="يُطرح سؤال واحد في كل مرة فقط عندما تكون حقيقة أو قياس أو علاقة مطلوبة ناقصة فعلًا."
+            >
+              Ask one question at a time only when a required fact, measurement, or relationship is
+              genuinely missing.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">5</span>
+            <h3 data-en="Employee review" data-ar="مراجعة الموظف">Employee review</h3>
+            <p
+              data-en="Edit, correct Project, revise claims, select Evidence, dismiss, or save privately for later."
+              data-ar="عدل وصحح المشروع وراجع الادعاءات وحدد الدليل أو ارفض أو احفظ خاصًا لوقت لاحق."
+            >
+              Edit, correct Project, revise claims, select Evidence, dismiss, or save privately for
+              later.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">6</span>
+            <h3 data-en="Protected confirmation" data-ar="تأكيد محمي">Protected confirmation</h3>
+            <p
+              data-en="Existing domain commands re-authorize the employee and create separate idempotent Update and Evidence receipts."
+              data-ar="تعيد أوامر المجال القائمة التحقق من صلاحية الموظف وتنشئ إيصالات مستقلة قابلة لإعادة المحاولة للتحديث والدليل."
+            >
+              Existing domain commands re-authorize the employee and create separate idempotent
+              Update and Evidence receipts.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">7</span>
+            <h3 data-en="Meaningful Timeline" data-ar="خط زمني ذو معنى">Meaningful Timeline</h3>
+            <p
+              data-en="Only confirmed Updates, Evidence, Project facts, decisions, and Research learning enter the product Timeline."
+              data-ar="لا يدخل الخط الزمني إلا التحديثات والأدلة وحقائق المشروع والقرارات والتعلم البحثي المؤكد."
+            >
+              Only confirmed Updates, Evidence, Project facts, decisions, and Research learning
+              enter the product Timeline.
+            </p>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-en="Source" data-ar="المصدر">Source</th>
+                <th data-en="Initial visibility" data-ar="الرؤية الأولية">Initial visibility</th>
+                <th data-en="What AI may do" data-ar="ما يمكن للذكاء فعله">What AI may do</th>
+                <th data-en="Official gate" data-ar="البوابة الرسمية">Official gate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong data-en="GitHub" data-ar="GitHub">GitHub</strong></td>
+                <td>
+                  <p data-en="Suggested Project evidence" data-ar="دليل مشروع مقترح">
+                    Suggested Project evidence
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Explain relevance and draft a claim; never score commit volume."
+                    data-ar="شرح الصلة وصياغة ادعاء؛ من دون تقييم حجم الكوميتات."
+                  >
+                    Explain relevance and draft a claim; never score commit volume.
+                  </p>
+                </td>
+                <td>
+                  <p data-en="Employee edit and confirmation" data-ar="تعديل الموظف وتأكيده">
+                    Employee edit and confirmation
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Gmail / Calendar" data-ar="Gmail / Calendar"
+                    >Gmail / Calendar</strong
+                  >
+                </td>
+                <td>
+                  <p data-en="Owner-private connected context" data-ar="سياق متصل خاص بالمالك">
+                    Owner-private connected context
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Suggest a Project link or private draft."
+                    data-ar="اقتراح ربط بمشروع أو مسودة خاصة."
+                  >
+                    Suggest a Project link or private draft.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Employee link/correction; no manager visibility"
+                    data-ar="ربط أو تصحيح الموظف؛ دون رؤية المدير"
+                  >
+                    Employee link/correction; no manager visibility
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Manual / voice / file" data-ar="يدوي / صوت / ملف"
+                    >Manual / voice / file</strong
+                  >
+                </td>
+                <td>
+                  <p data-en="Owner-private Capture draft" data-ar="مسودة إضافة خاصة بالمالك">
+                    Owner-private Capture draft
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Structure Update and prepare optional Evidence."
+                    data-ar="هيكلة التحديث وتجهيز دليل اختياري."
+                  >
+                    Structure Update and prepare optional Evidence.
+                  </p>
+                </td>
+                <td>
+                  <p data-en="Separate employee confirmations" data-ar="تأكيدات منفصلة من الموظف">
+                    Separate employee confirmations
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Research source" data-ar="مصدر بحثي">Research source</strong>
+                </td>
+                <td>
+                  <p data-en="Project-linked review context" data-ar="سياق مراجعة مرتبط بالمشروع">
+                    Project-linked review context
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Summarize, cite, compare, and prepare a reproducible Experiment method."
+                    data-ar="تلخيص وتوثيق ومقارنة وتجهيز طريقة تجربة قابلة لإعادة التنفيذ."
+                  >
+                    Summarize, cite, compare, and prepare a reproducible Experiment method.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Human source review, Experiment decision, and Applied Learning confirmation"
+                    data-ar="مراجعة بشرية للمصدر وقرار التجربة وتأكيد التعلم المطبق"
+                  >
+                    Human source review, Experiment decision, and Applied Learning confirmation
+                  </p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="progress" aria-labelledby="progress-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">6</span>
+            <h2
+              id="progress-title"
+              data-en="Project progress—not employee performance"
+              data-ar="تقدم المشروع وليس أداء الموظف"
+            >
+              Project progress—not employee performance
+            </h2>
+            <p
+              class="section-intro"
+              data-en="A visible percentage is allowed only when an active, versioned Progress Contract defines how approved milestone or KPI measurements produce it. Missing approved information remains visibly missing."
+              data-ar="تظهر النسبة فقط عندما يحدد عقد تقدم فعال ومؤرشف بالإصدارات كيف تنتجها قياسات معتمدة للمعالم أو مؤشرات الأداء. وتبقى المعلومات المعتمدة الناقصة ظاهرة كناقصة."
+            >
+              A visible percentage is allowed only when an active, versioned Progress Contract
+              defines how approved milestone or KPI measurements produce it. Missing approved
+              information remains visibly missing.
             </p>
           </div>
-          <div class="card">
-            <h3>Localization Boundary</h3>
-            <p>
-              Arabic is the default shell locale with English support, RTL, mixed-direction
-              isolation, and Asia/Riyadh rendering.
+          <span
+            class="chip human-gate"
+            data-en="Contract + approved measurement"
+            data-ar="عقد + قياس معتمد"
+            >Contract + approved measurement</span
+          >
+        </div>
+
+        <div
+          class="flow"
+          aria-label="Project progress lifecycle"
+          data-aria-en="Project progress lifecycle"
+          data-aria-ar="دورة تقدم المشروع"
+        >
+          <article class="step">
+            <span class="step-index">1</span>
+            <h3 data-en="Approved Project Document" data-ar="وثيقة مشروع معتمدة">
+              Approved Project Document
+            </h3>
+            <p
+              data-en="Purpose, deliverables, acceptance conditions, and source context."
+              data-ar="الهدف والمخرجات وشروط القبول وسياق المصادر."
+            >
+              Purpose, deliverables, acceptance conditions, and source context.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">2</span>
+            <h3 data-en="AI-prepared proposal" data-ar="مقترح مجهز بالذكاء">
+              AI-prepared proposal
+            </h3>
+            <p
+              data-en="Milestones, operational KPIs, baseline, target, unit, direction, required Evidence, and calculation rule."
+              data-ar="معالم ومؤشرات تشغيلية وخط أساس وهدف ووحدة واتجاه ودليل مطلوب وقاعدة حساب."
+            >
+              Milestones, operational KPIs, baseline, target, unit, direction, required Evidence,
+              and calculation rule.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">3</span>
+            <h3 data-en="Human activation" data-ar="تفعيل بشري">Human activation</h3>
+            <p
+              data-en="Authorized owner reviews, revises, saves, and activates a versioned contract."
+              data-ar="يراجع المالك المخول عقدًا مؤرشفًا بالإصدارات ويعدله ويحفظه ويفعله."
+            >
+              Authorized owner reviews, revises, saves, and activates a versioned contract.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">4</span>
+            <h3 data-en="Measurable change" data-ar="تغيير قابل للقياس">Measurable change</h3>
+            <p
+              data-en="Approved Evidence satisfies a rule, or an authorized human confirms the measurement with reason."
+              data-ar="يحقق دليل معتمد قاعدة القياس أو يؤكد إنسان مخول القياس مع السبب."
+            >
+              Approved Evidence satisfies a rule, or an authorized human confirms the measurement
+              with reason.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">5</span>
+            <h3 data-en="Append-only snapshot" data-ar="لقطة لا تُستبدل">Append-only snapshot</h3>
+            <p
+              data-en="Previous/current values, source, rule version, override reason, actor, and timestamp are preserved."
+              data-ar="تُحفظ القيم السابقة والحالية والمصدر وإصدار القاعدة وسبب التجاوز والمنفذ والوقت."
+            >
+              Previous/current values, source, rule version, override reason, actor, and timestamp
+              are preserved.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">6</span>
+            <h3 data-en="Project indicator" data-ar="مؤشر المشروع">Project indicator</h3>
+            <p
+              data-en="Circular progress, milestone/KPI context, previous/current comparison, and next evidence gap."
+              data-ar="تقدم دائري وسياق المعالم والمؤشرات ومقارنة السابق والحالي وفجوة الدليل التالية."
+            >
+              Circular progress, milestone/KPI context, previous/current comparison, and next
+              evidence gap.
+            </p>
+          </article>
+        </div>
+
+        <div class="boundary-grid">
+          <article class="card primary-card">
+            <h3 data-en="Valid inputs" data-ar="مدخلات صحيحة">Valid inputs</h3>
+            <ul>
+              <li
+                data-en="Approved milestone acceptance conditions."
+                data-ar="شروط قبول المعالم المعتمدة."
+              >
+                Approved milestone acceptance conditions.
+              </li>
+              <li
+                data-en="Approved KPI baseline, target, unit, direction, and measured value."
+                data-ar="خط الأساس والهدف والوحدة والاتجاه والقيمة المقاسة المعتمدة للمؤشر."
+              >
+                Approved KPI baseline, target, unit, direction, and measured value.
+              </li>
+              <li
+                data-en="Required Evidence verified through the contract rule."
+                data-ar="الدليل المطلوب الذي تحقق عبر قاعدة العقد."
+              >
+                Required Evidence verified through the contract rule.
+              </li>
+              <li
+                data-en="Authorized human confirmation or manual override with reason and audit."
+                data-ar="تأكيد إنسان مخول أو تجاوز يدوي مع سبب وتدقيق."
+              >
+                Authorized human confirmation or manual override with reason and audit.
+              </li>
+            </ul>
+          </article>
+          <article class="card guardrail">
+            <h3 data-en="Never used to calculate progress" data-ar="لا يُستخدم أبدًا لحساب التقدم">
+              Never used to calculate progress
+            </h3>
+            <ul>
+              <li
+                data-en="Number of completed Tasks or total Task volume."
+                data-ar="عدد المهام المكتملة أو حجم المهام."
+              >
+                Number of completed Tasks or total Task volume.
+              </li>
+              <li
+                data-en="Update frequency or GitHub activity."
+                data-ar="تكرار التحديثات أو نشاط GitHub."
+              >
+                Update frequency or GitHub activity.
+              </li>
+              <li
+                data-en="Commits, pull requests, files, or lines changed."
+                data-ar="الكوميتات أو طلبات الدمج أو الملفات أو الأسطر المتغيرة."
+              >
+                Commits, pull requests, files, or lines changed.
+              </li>
+              <li
+                data-en="Employee effort, activity volume, or evaluation rating."
+                data-ar="جهد الموظف أو حجم النشاط أو علامة التقييم."
+              >
+                Employee effort, activity volume, or evaluation rating.
+              </li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="evaluation" aria-labelledby="evaluation-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">7</span>
+            <h2
+              id="evaluation-title"
+              data-en="Fact-first, human-decided evaluation"
+              data-ar="تقييم يبدأ بالحقائق وينتهي بقرار بشري"
+            >
+              Fact-first, human-decided evaluation
+            </h2>
+            <p
+              class="section-intro"
+              data-en="Work records help both sides remember and discuss contribution. They do not calculate the person's rating. Employee and manager use the same approved anchors, assess independently, then compare."
+              data-ar="تساعد سجلات العمل الطرفين على تذكر المساهمة ومناقشتها لكنها لا تحسب علامة الشخص. يستخدم الموظف والمدير نفس المرتكزات المعتمدة ويقيمان بصورة مستقلة ثم يقارنان."
+            >
+              Work records help both sides remember and discuss contribution. They do not calculate
+              the person's rating. Employee and manager use the same approved anchors, assess
+              independently, then compare.
             </p>
           </div>
-          <div class="card">
-            <span class="tag">Bundle B complete</span>
-            <h3>Private Document Storage</h3>
-            <p>
-              Streamed type, size, archive, and malware checks fail closed before private MinIO
-              storage. Every short-lived read is authorized again.
+          <span
+            class="chip human-gate"
+            data-en="Manager final decision"
+            data-ar="قرار المدير النهائي"
+            >Manager final decision</span
+          >
+        </div>
+
+        <div
+          class="flow"
+          aria-label="Evaluation lifecycle"
+          data-aria-en="Evaluation lifecycle"
+          data-aria-ar="دورة التقييم"
+        >
+          <article class="step">
+            <span class="step-index">1</span>
+            <h3 data-en="Cycle snapshot" data-ar="لقطة الدورة">Cycle snapshot</h3>
+            <p
+              data-en="Eligibility, rubric, locale, visibility mode, responsibilities, and criteria are frozen for the cycle."
+              data-ar="تُثبت الأهلية والمعايير واللغة ووضع الرؤية والمسؤوليات ومعايير المشروع للدورة."
+            >
+              Eligibility, rubric, locale, visibility mode, responsibilities, and criteria are
+              frozen for the cycle.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">2</span>
+            <h3 data-en="Fact View" data-ar="عرض الحقائق">Fact View</h3>
+            <p
+              data-en="Source-supported facts and coverage gaps appear before employee interpretation."
+              data-ar="تظهر الحقائق المدعومة بالمصادر وفجوات التغطية قبل تفسير الموظف."
+            >
+              Source-supported facts and coverage gaps appear before employee interpretation.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">3</span>
+            <h3 data-en="Self-assessment" data-ar="التقييم الذاتي">Self-assessment</h3>
+            <p
+              data-en="The employee selects a rating and writes interpretation; AI may help wording only afterward."
+              data-ar="يختار الموظف العلامة ويكتب تفسيره؛ ويمكن للذكاء المساعدة في الصياغة بعد ذلك فقط."
+            >
+              The employee selects a rating and writes interpretation; AI may help wording only
+              afterward.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">4</span>
+            <h3 data-en="Manager assessment" data-ar="تقييم المدير">Manager assessment</h3>
+            <p
+              data-en="The manager records an independent initial position before seeing the comparison."
+              data-ar="يسجل المدير موقفًا أوليًا مستقلًا قبل رؤية المقارنة."
+            >
+              The manager records an independent initial position before seeing the comparison.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">5</span>
+            <h3 data-en="Comparison & discussion" data-ar="المقارنة والنقاش">
+              Comparison &amp; discussion
+            </h3>
+            <p
+              data-en="Differences are discussed using facts, interpretation, and manager judgment—not an AI recommendation."
+              data-ar="تُناقش الفروقات باستخدام الحقائق والتفسير وحكم المدير لا توصية من الذكاء الاصطناعي."
+            >
+              Differences are discussed using facts, interpretation, and manager judgment—not an AI
+              recommendation.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">6</span>
+            <h3 data-en="Final human judgment" data-ar="الحكم البشري النهائي">
+              Final human judgment
+            </h3>
+            <p
+              data-en="The manager records the final rating; changes from the initial position require a reason."
+              data-ar="يسجل المدير العلامة النهائية؛ وأي تغيير عن الموقف الأولي يحتاج سببًا."
+            >
+              The manager records the final rating; changes from the initial position require a
+              reason.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">7</span>
+            <h3 data-en="Acknowledge or reserve" data-ar="إقرار أو تحفظ">Acknowledge or reserve</h3>
+            <p
+              data-en="The employee may acknowledge or preserve a reservation without changing the manager's decision."
+              data-ar="يمكن للموظف الإقرار أو حفظ تحفظ من دون تغيير قرار المدير."
+            >
+              The employee may acknowledge or preserve a reservation without changing the manager's
+              decision.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">8</span>
+            <h3 data-en="Immutable history" data-ar="تاريخ غير قابل للتغيير">Immutable history</h3>
+            <p
+              data-en="Finalized snapshots and exports remain version-pinned, auditable, expiring, and revocable where defined."
+              data-ar="تبقى اللقطات والتصديرات النهائية مثبتة بالإصدار وقابلة للتدقيق وتنتهي أو تُلغى حيثما هو محدد."
+            >
+              Finalized snapshots and exports remain version-pinned, auditable, expiring, and
+              revocable where defined.
+            </p>
+          </article>
+        </div>
+
+        <div class="callout guardrail">
+          <span class="callout-icon" aria-hidden="true">×</span>
+          <div>
+            <h3
+              data-en="AI output prohibited in evaluation"
+              data-ar="مخرجات ذكاء محظورة في التقييم"
+            >
+              AI output prohibited in evaluation
+            </h3>
+            <p
+              data-en="No suggested, predicted, or recommended performance rating; no employee rank; no productivity score; no rating derived from Project count, documentation readiness, GitHub volume, or activity frequency."
+              data-ar="لا توجد علامة أداء مقترحة أو متوقعة أو موصى بها، ولا ترتيب موظفين، ولا علامة إنتاجية، ولا علامة مشتقة من عدد المشاريع أو جاهزية التوثيق أو حجم GitHub أو تكرار النشاط."
+            >
+              No suggested, predicted, or recommended performance rating; no employee rank; no
+              productivity score; no rating derived from Project count, documentation readiness,
+              GitHub volume, or activity frequency.
             </p>
           </div>
-          <div class="card">
-            <span class="tag">Bundle A complete</span>
-            <h3>Project Responsibility</h3>
-            <p>
-              Manager-governed projects and workstreams use historical membership, atomic owner
-              transfers, half-open UTC responsibility windows, scoped reads, and same-transaction
+        </div>
+      </section>
+
+      <section id="ai" aria-labelledby="ai-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">8</span>
+            <h2
+              id="ai-title"
+              data-en="AI helps without taking control"
+              data-ar="الذكاء يساعد من دون أن يسيطر"
+            >
+              AI helps without taking control
+            </h2>
+            <p
+              class="section-intro"
+              data-en="Every production AI call passes through the AI Router. Feature modules never call a provider SDK directly. Model choice is based on task complexity, cost, privacy, and the approved route—not on a browser preference."
+              data-ar="تمر كل مكالمة ذكاء في الإنتاج عبر AI Router. ولا تستدعي وحدات الميزات مزودًا مباشرة. يعتمد اختيار الموديل على تعقيد المهمة والتكلفة والخصوصية والمسار المعتمد لا على تفضيل المتصفح."
+            >
+              Every production AI call passes through the AI Router. Feature modules never call a
+              provider SDK directly. Model choice is based on task complexity, cost, privacy, and
+              the approved route—not on a browser preference.
+            </p>
+          </div>
+          <span
+            class="chip implemented"
+            data-en="GPT-5.6 policy active"
+            data-ar="سياسة GPT-5.6 فعالة"
+            >GPT-5.6 policy active</span
+          >
+        </div>
+
+        <div class="boundary-grid">
+          <article class="card primary-card">
+            <h3 data-en="AI may" data-ar="يمكن للذكاء الاصطناعي">AI may</h3>
+            <p
+              data-en="Connect authorized context, summarize sources, identify missing information, explain a suggestion, prepare an editable draft, and offer a safe next action."
+              data-ar="ربط السياق المصرح وتلخيص المصادر وتحديد المعلومات الناقصة وشرح الاقتراح وتجهيز مسودة قابلة للتعديل وعرض خطوة تالية آمنة."
+            >
+              Connect authorized context, summarize sources, identify missing information, explain a
+              suggestion, prepare an editable draft, and offer a safe next action.
+            </p>
+          </article>
+          <article class="card guardrail">
+            <h3 data-en="AI does not" data-ar="لا يقوم الذكاء الاصطناعي بـ">AI does not</h3>
+            <p
+              data-en="Confirm Evidence, activate a Progress Contract, change official Project progress, execute a protected command, recommend a rating, rank employees, or replace a manager's final human decision."
+              data-ar="تأكيد الدليل أو تفعيل عقد تقدم أو تغيير تقدم المشروع الرسمي أو تنفيذ أمر محمي أو التوصية بعلامة أو ترتيب الموظفين أو استبدال القرار البشري النهائي للمدير."
+            >
+              Confirm Evidence, activate a Progress Contract, change official Project progress,
+              execute a protected command, recommend a rating, rank employees, or replace a
+              manager's final human decision.
+            </p>
+          </article>
+        </div>
+
+        <h3 class="subheading" data-en="Approved model tiers" data-ar="مستويات الموديلات المعتمدة">
+          Approved model tiers
+        </h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-en="Tier" data-ar="المستوى">Tier</th>
+                <th data-en="Primary work" data-ar="العمل الأساسي">Primary work</th>
+                <th data-en="Quality / cost role" data-ar="دور الجودة والتكلفة">
+                  Quality / cost role
+                </th>
+                <th data-en="Authority" data-ar="الصلاحية">Authority</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <strong><code dir="ltr">GPT-5.6 Luna</code></strong>
+                </td>
+                <td>
+                  <p
+                    data-en="Frequent bounded preparation and concise Project assistance."
+                    data-ar="التجهيز المتكرر المحدود ومساعدة المشروع المختصرة."
+                  >
+                    Frequent bounded preparation and concise Project assistance.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Fastest and lowest-cost approved tier for narrow tasks."
+                    data-ar="أسرع وأقل مستوى تكلفة معتمد للمهام المحدودة."
+                  >
+                    Fastest and lowest-cost approved tier for narrow tasks.
+                  </p>
+                </td>
+                <td>
+                  <p data-en="Draft and explain only" data-ar="مسودة وشرح فقط">
+                    Draft and explain only
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong><code dir="ltr">GPT-5.6 Terra</code></strong>
+                </td>
+                <td>
+                  <p
+                    data-en="Daily Capture, Update structuring, Task help, and editable post-rating wording."
+                    data-ar="الإضافة اليومية وهيكلة التحديث ومساعدة المهمة وصياغة قابلة للتعديل بعد اختيار العلامة."
+                  >
+                    Daily Capture, Update structuring, Task help, and editable post-rating wording.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Balanced quality and cost for daily work."
+                    data-ar="توازن الجودة والتكلفة للعمل اليومي."
+                  >
+                    Balanced quality and cost for daily work.
+                  </p>
+                </td>
+                <td>
+                  <p data-en="Prepare; employee confirms" data-ar="يجهز؛ والموظف يؤكد">
+                    Prepare; employee confirms
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong><code dir="ltr">GPT-5.6 Sol</code></strong>
+                </td>
+                <td>
+                  <p
+                    data-en="Complex Progress Contract extraction, ambiguous source analysis, and Research synthesis."
+                    data-ar="استخراج عقد تقدم معقد وتحليل مصادر ملتبسة وتوليف البحث."
+                  >
+                    Complex Progress Contract extraction, ambiguous source analysis, and Research
+                    synthesis.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Highest-reasoning tier reserved for high-complexity analysis."
+                    data-ar="أعلى مستوى استدلال مخصص للتحليل المعقد."
+                  >
+                    Highest-reasoning tier reserved for high-complexity analysis.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Proposal only; authorized human approves"
+                    data-ar="مقترح فقط؛ والإنسان المخول يعتمد"
+                  >
+                    Proposal only; authorized human approves
+                  </p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="subheading" data-en="Governed request lifecycle" data-ar="دورة الطلب المحكومة">
+          Governed request lifecycle
+        </h3>
+        <div
+          class="flow"
+          aria-label="AI Router lifecycle"
+          data-aria-en="AI Router lifecycle"
+          data-aria-ar="دورة AI Router"
+        >
+          <article class="step">
+            <span class="step-index">1</span>
+            <h3 data-en="Authorize context" data-ar="تفويض السياق">Authorize context</h3>
+            <p
+              data-en="The owning domain exposes only source material the current user may access."
+              data-ar="يعرض المجال المالك فقط المواد التي يحق للمستخدم الحالي الوصول إليها."
+            >
+              The owning domain exposes only source material the current user may access.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">2</span>
+            <h3 data-en="Resolve route" data-ar="تحديد المسار">Resolve route</h3>
+            <p
+              data-en="Project override, then Department, then System; every override requires reason and audit."
+              data-ar="تجاوز المشروع ثم القسم ثم النظام؛ وكل تجاوز يحتاج سببًا وتدقيقًا."
+            >
+              Project override, then Department, then System; every override requires reason and
               audit.
             </p>
-          </div>
-          <div class="card">
-            <span class="tag">Bundle B complete</span>
-            <h3>Document Governance</h3>
-            <p>
-              Organization or department templates pin one immutable template version to the sole
-              project or workstream document; every change appends a source-backed version.
+          </article>
+          <article class="step">
+            <span class="step-index">3</span>
+            <h3 data-en="Trusted prompt" data-ar="برومبت موثوق">Trusted prompt</h3>
+            <p
+              data-en="Versioned prompt and output schema are hash-checked; uploaded content remains untrusted input."
+              data-ar="يُتحقق من هاش البرومبت ومخطط المخرجات المؤرشفين؛ ويبقى المحتوى المرفوع إدخالًا غير موثوق."
+            >
+              Versioned prompt and output schema are hash-checked; uploaded content remains
+              untrusted input.
             </p>
-          </div>
-          <div class="card">
-            <span class="tag">Bundle C complete</span>
-            <h3>Governed Analysis and Criteria</h3>
-            <p>
-              The AI Router produces source-bound readiness, comparison, and criteria proposals.
-              Human review freezes responses before one atomic, prospective criteria set is
-              activated.
+          </article>
+          <article class="step">
+            <span class="step-index">4</span>
+            <h3 data-en="Validate output" data-ar="التحقق من المخرجات">Validate output</h3>
+            <p
+              data-en="Closed structured schema, source references, prohibited-semantics guard, and privacy checks."
+              data-ar="مخطط مغلق منظم ومراجع مصادر وحماية من الدلالات المحظورة وفحوص خصوصية."
+            >
+              Closed structured schema, source references, prohibited-semantics guard, and privacy
+              checks.
             </p>
-          </div>
-          <div class="card">
-            <span class="tag">Phase 2 complete</span>
-            <h3>Two New Bounded Modules</h3>
-            <p>
-              Work Items owns daily work and immutable lifecycle history. Updates &amp; Evidence
-              owns text/voice sources, clarification, confirmation, manual evidence, and GitHub
-              suggestions. No generic activity platform or second store is introduced.
+          </article>
+          <article class="step">
+            <span class="step-index">5</span>
+            <h3 data-en="Trace & fallback" data-ar="التتبع والبديل">Trace &amp; fallback</h3>
+            <p
+              data-en="Model route trace is stored; provider or schema failure returns a truthful deterministic fallback."
+              data-ar="يُحفظ تتبع مسار الموديل؛ ويعيد فشل المزود أو المخطط بديلًا حتميًا صادقًا."
+            >
+              Model route trace is stored; provider or schema failure returns a truthful
+              deterministic fallback.
             </p>
-          </div>
-          <div class="card">
-            <span class="tag">Phase 2 complete</span>
-            <h3>Project Progress Contract</h3>
-            <p>
-              Projects owns document-sourced, versioned, human-approved Progress Contracts and
-              append-only official snapshots. Task, update, and GitHub volume never calculate
-              progress, and progress never becomes employee performance.
+          </article>
+          <article class="step">
+            <span class="step-index">6</span>
+            <h3 data-en="Human gate" data-ar="البوابة البشرية">Human gate</h3>
+            <p
+              data-en="The prepared result stays editable and cannot execute a protected decision by itself."
+              data-ar="تبقى النتيجة المجهزة قابلة للتعديل ولا تنفذ قرارًا محميًا بنفسها."
+            >
+              The prepared result stays editable and cannot execute a protected decision by itself.
             </p>
-          </div>
-        </div>
-        <div class="flow" style="margin-top: 16px" aria-label="Implemented document flow">
-          <div class="node">
-            <strong>Active Template</strong
-            ><span>Protected sections and scoped version are approved first.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Fail-Closed Upload</strong
-            ><span>Stream limits, file inspection, archive checks, and ClamAV.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Immutable Version</strong
-            ><span>One stable resource document with optimistic concurrency.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Authorized Read</strong
-            ><span>History stays intact; private sources use bounded signed URLs.</span>
-          </div>
-        </div>
-        <div
-          class="flow"
-          style="margin-top: 16px"
-          aria-label="Implemented analysis and criteria flow"
-        >
-          <div class="node">
-            <strong>Immutable Source Version</strong
-            ><span>Every run is bound to the exact document and template version.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>AI Router Analysis</strong
-            ><span
-              >Versioned schemas retain route trace and source references; no rating output.</span
-            >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Human Review</strong
-            ><span
-              >Corrections, owner decisions, acknowledgments, and objections are retained.</span
-            >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Frozen Responses</strong
-            ><span>The review population and submitted responses cannot be rewritten.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Prospective Criteria Set</strong
-            ><span>Activation is atomic; old timestamps continue resolving to old versions.</span>
-          </div>
-        </div>
-        <div
-          class="flow"
-          style="margin-top: 16px"
-          aria-label="Implemented Phase 1 browser and protected action flow"
-        >
-          <div class="node">
-            <span class="tag">RTL verified</span><strong>Browser Workspace</strong
-            ><span
-              >Arabic-first and English screens show only role-allowed actions; Arabic employee
-              release remains gated by T016.</span
-            >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Same-Origin Web Gateway</strong
-            ><span>The encrypted session and bearer token remain server-side.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Protected API</strong
-            ><span
-              >Every read and mutation is authenticated, scoped, validated, and audited where
-              required.</span
-            >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Owned Domain Boundary</strong
-            ><span
-              >Projects, documents, and criteria expose public reads/actions without cross-table
-              shortcuts.</span
-            >
-          </div>
-        </div>
-        <div
-          class="flow"
-          style="margin-top: 16px"
-          aria-label="Arabic-first project and workstream screen flow"
-        >
-          <div class="node">
-            <strong>قائمة المشاريع</strong
-            ><span>Project list and status, Arabic-first with an English switch.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>المشروع ومسارات العمل</strong
-            ><span
-              >Current people, immutable documents, readiness, and criteria are clearly
-              separated.</span
-            >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>مراجعة بشرية</strong
-            ><span
-              >One frozen contributor response, manager resolution, and prospective activation
-              remain explicit human actions.</span
-            >
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>سجل محفوظ</strong
-            ><span
-              >No ratings, rankings, readiness percentages, or retroactive criteria are
-              introduced.</span
-            >
-          </div>
+          </article>
         </div>
       </section>
 
-      <section id="roles" class="panel">
-        <h2>6. Role Boundaries</h2>
-        <table class="matrix">
-          <thead>
-            <tr>
-              <th>Capability</th>
-              <th>Employee</th>
-              <th>Manager</th>
-              <th>System Administrator</th>
-              <th>Project / Workstream Owner</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Add updates and evidence</td>
-              <td class="yes">Yes</td>
-              <td class="limited">When contributor</td>
-              <td class="no">No operational role</td>
-              <td class="yes">Yes</td>
-            </tr>
-            <tr>
-              <td>Final employee rating</td>
-              <td class="no">No</td>
-              <td class="yes">Yes</td>
-              <td class="no">No</td>
-              <td class="no">No</td>
-            </tr>
-            <tr>
-              <td>Department rubric versions</td>
-              <td class="no">No</td>
-              <td class="yes">Future cycles</td>
-              <td class="limited">Global governance</td>
-              <td class="no">No</td>
-            </tr>
-            <tr>
-              <td>AI model routing</td>
-              <td class="no">No</td>
-              <td class="no">No</td>
-              <td class="yes">Full control + reason</td>
-              <td class="no">No</td>
-            </tr>
-            <tr>
-              <td>Pilot upward feedback</td>
-              <td class="limited">Own submission</td>
-              <td class="yes">Identity, ratings, comments, status</td>
-              <td class="limited">Technical governance</td>
-              <td class="no">No</td>
-            </tr>
-            <tr>
-              <td>Project reassignment</td>
-              <td class="no">No</td>
-              <td class="yes">Yes</td>
-              <td class="no">Deactivate only</td>
-              <td class="no">No</td>
-            </tr>
-            <tr>
-              <td>Weekly coordination</td>
-              <td class="limited">Own contributions</td>
-              <td class="limited">Oversight</td>
-              <td class="no">No</td>
-              <td class="yes">Responsible</td>
-            </tr>
-          </tbody>
-        </table>
+      <section id="architecture" aria-labelledby="architecture-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">9</span>
+            <h2 id="architecture-title" data-en="Technical architecture" data-ar="البنية التقنية">
+              Technical architecture
+            </h2>
+            <p
+              class="section-intro"
+              data-en="A modular monolith keeps the user experience connected while protecting domain ownership. Modules communicate through public interfaces and approved query services, not direct cross-domain table reads."
+              data-ar="يحافظ النظام الأحادي المعياري على ترابط تجربة المستخدم مع حماية ملكية المجالات. وتتواصل الوحدات عبر واجهات عامة وخدمات استعلام معتمدة لا عبر قراءة مباشرة لجداول مجال آخر."
+            >
+              A modular monolith keeps the user experience connected while protecting domain
+              ownership. Modules communicate through public interfaces and approved query services,
+              not direct cross-domain table reads.
+            </p>
+          </div>
+          <span class="chip implemented" data-en="Modular monolith" data-ar="نظام أحادي معياري"
+            >Modular monolith</span
+          >
+        </div>
+
+        <div class="architecture-grid">
+          <article class="card">
+            <div class="architecture-layer">
+              <strong data-en="Experience" data-ar="التجربة">Experience</strong>
+              <p
+                data-en="Next.js Command Brief web application, server-rendered protected routes, same-origin gateways, responsive EN/AR foundations, accessible primitives, and rollback flags."
+                data-ar="تطبيق Command Brief مبني بـNext.js ومسارات محمية من الخادم وبوابات من نفس المصدر وأساسات EN/AR متجاوبة وعناصر وصول وأعلام تراجع."
+              >
+                Next.js Command Brief web application, server-rendered protected routes, same-origin
+                gateways, responsive EN/AR foundations, accessible primitives, and rollback flags.
+              </p>
+            </div>
+            <div class="architecture-layer">
+              <strong data-en="API & domains" data-ar="API والمجالات">API &amp; domains</strong>
+              <p
+                data-en="NestJS API with explicit modules for identity, Projects, Work Items, Documents, Updates/Evidence, Research, Evaluation, Coaching, Continuity, Operations, and Administration."
+                data-ar="واجهة NestJS بوحدات صريحة للهوية والمشاريع والمهام والوثائق والتحديثات والأدلة والبحث والتقييم والتطوير والاستمرارية والتشغيل والإدارة."
+              >
+                NestJS API with explicit modules for identity, Projects, Work Items, Documents,
+                Updates/Evidence, Research, Evaluation, Coaching, Continuity, Operations, and
+                Administration.
+              </p>
+            </div>
+            <div class="architecture-layer">
+              <strong data-en="Authority" data-ar="مصدر الحقيقة">Authority</strong>
+              <p
+                data-en="PostgreSQL stores authoritative state, versioned configuration, responsibility windows, immutable snapshots, idempotency keys, receipts, and audit history."
+                data-ar="تخزن PostgreSQL الحالة الرسمية والإعداد المؤرشف ونوافذ المسؤولية واللقطات غير القابلة للتغيير ومفاتيح عدم التكرار والإيصالات وسجل التدقيق."
+              >
+                PostgreSQL stores authoritative state, versioned configuration, responsibility
+                windows, immutable snapshots, idempotency keys, receipts, and audit history.
+              </p>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="architecture-layer">
+              <strong data-en="Identity" data-ar="الهوية">Identity</strong>
+              <p
+                data-en="Keycloak/OIDC authenticates users. Server-side permission decisions use current role, scope, responsibility window, lifecycle state, and protected mode."
+                data-ar="يوثق Keycloak/OIDC المستخدمين. وتستخدم قرارات الخادم الدور والنطاق ونافذة المسؤولية وحالة دورة الحياة والوضع المحمي."
+              >
+                Keycloak/OIDC authenticates users. Server-side permission decisions use current
+                role, scope, responsibility window, lifecycle state, and protected mode.
+              </p>
+            </div>
+            <div class="architecture-layer">
+              <strong data-en="Async work" data-ar="العمل غير المتزامن">Async work</strong>
+              <p
+                data-en="Redis and BullMQ carry bounded jobs, durable receipt wake-ups, retries, and replay. PostgreSQL remains authoritative when a queue is unavailable."
+                data-ar="ينقل Redis وBullMQ المهام المحدودة وتنبيهات الإيصالات الدائمة وإعادة المحاولة والإعادة. وتبقى PostgreSQL مصدر الحقيقة عند تعطل الطابور."
+              >
+                Redis and BullMQ carry bounded jobs, durable receipt wake-ups, retries, and replay.
+                PostgreSQL remains authoritative when a queue is unavailable.
+              </p>
+            </div>
+            <div class="architecture-layer">
+              <strong data-en="Private objects" data-ar="الملفات الخاصة">Private objects</strong>
+              <p
+                data-en="MinIO stores private uploaded objects behind signed access. Type, size, ownership, and malware-scan gates are checked before official processing."
+                data-ar="يخزن MinIO الملفات الخاصة خلف وصول موقّع. ويُتحقق من النوع والحجم والملكية وفحص البرمجيات الخبيثة قبل المعالجة الرسمية."
+              >
+                MinIO stores private uploaded objects behind signed access. Type, size, ownership,
+                and malware-scan gates are checked before official processing.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <h3
+          class="subheading"
+          data-en="How one protected action moves"
+          data-ar="كيف يتحرك إجراء محمي واحد"
+        >
+          How one protected action moves
+        </h3>
+        <div
+          class="flow"
+          aria-label="Protected command architecture"
+          data-aria-en="Protected command architecture"
+          data-aria-ar="بنية الأمر المحمي"
+        >
+          <article class="step">
+            <span class="step-index">1</span>
+            <h3 data-en="User intent" data-ar="نية المستخدم">User intent</h3>
+            <p
+              data-en="The browser submits the reviewed action and current version."
+              data-ar="يرسل المتصفح الإجراء المراجع والإصدار الحالي."
+            >
+              The browser submits the reviewed action and current version.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">2</span>
+            <h3 data-en="Authenticate" data-ar="التوثيق">Authenticate</h3>
+            <p
+              data-en="OIDC session becomes a server principal; inactive accounts fail closed."
+              data-ar="تتحول جلسة OIDC إلى هوية خادم؛ وتُرفض الحسابات غير الفعالة."
+            >
+              OIDC session becomes a server principal; inactive accounts fail closed.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">3</span>
+            <h3 data-en="Authorize" data-ar="التفويض">Authorize</h3>
+            <p
+              data-en="The owning module checks role, scope, responsibility, privacy mode, and current state."
+              data-ar="تتحقق الوحدة المالكة من الدور والنطاق والمسؤولية ووضع الخصوصية والحالة الحالية."
+            >
+              The owning module checks role, scope, responsibility, privacy mode, and current state.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">4</span>
+            <h3 data-en="Transact" data-ar="المعاملة">Transact</h3>
+            <p
+              data-en="Authoritative state, version transition, receipt, and audit are committed consistently."
+              data-ar="تُحفظ الحالة الرسمية وتغيير الإصدار والإيصال والتدقيق بصورة متسقة."
+            >
+              Authoritative state, version transition, receipt, and audit are committed
+              consistently.
+            </p>
+          </article>
+          <article class="step">
+            <span class="step-index">5</span>
+            <h3 data-en="Project" data-ar="العرض">Project</h3>
+            <p
+              data-en="The UI reloads the authorized projection and handles stale or partial failure truthfully."
+              data-ar="تعيد الواجهة تحميل العرض المصرح وتتعامل بصدق مع التعارض أو الفشل الجزئي."
+            >
+              The UI reloads the authorized projection and handles stale or partial failure
+              truthfully.
+            </p>
+          </article>
+        </div>
       </section>
 
-      <section id="privacy" class="panel">
-        <h2>7. Pilot Manager Feedback — Identified</h2>
-        <div class="flow">
-          <div class="node">
-            <strong>Eligible Employees</strong
-            ><span>Each employee has a visible submitted, pending, or approved-leave status.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Identified Submission</strong
-            ><span>Name, criterion ratings, comments, and timestamp are stored.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Manager View</strong
-            ><span>The manager sees who submitted, who did not, and each response.</span>
-          </div>
-          <div class="arrow">→</div>
-          <div class="node">
-            <strong>Optional AI Summary</strong
-            ><span
-              >Aggregates and trends supplement, but do not replace, individual responses.</span
+      <section id="authority" aria-labelledby="authority-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">10</span>
+            <h2
+              id="authority-title"
+              data-en="Authority, privacy, and history"
+              data-ar="الصلاحيات والخصوصية والتاريخ"
             >
+              Authority, privacy, and history
+            </h2>
+            <p
+              class="section-intro"
+              data-en="Identity, role, Project responsibility, and evaluation authority are different. UI visibility never replaces server authorization, and deactivation never deletes protected history."
+              data-ar="الهوية والدور ومسؤولية المشروع وصلاحية التقييم أمور مختلفة. ولا تستبدل رؤية الواجهة تفويض الخادم، ولا يحذف تعطيل الحساب التاريخ المحمي."
+            >
+              Identity, role, Project responsibility, and evaluation authority are different. UI
+              visibility never replaces server authorization, and deactivation never deletes
+              protected history.
+            </p>
           </div>
         </div>
-        <div class="legend">
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-en="Role / context" data-ar="الدور / السياق">Role / context</th>
+                <th data-en="May do" data-ar="يمكنه">May do</th>
+                <th data-en="Must not do" data-ar="لا يمكنه">Must not do</th>
+                <th data-en="History rule" data-ar="قاعدة التاريخ">History rule</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong data-en="Employee" data-ar="الموظف">Employee</strong></td>
+                <td>
+                  <p
+                    data-en="Manage assigned work, private Capture, own Updates/Evidence, Research, self-assessment, and acknowledgment."
+                    data-ar="إدارة العمل المسند والإضافة الخاصة وتحديثاته وأدلته والبحث والتقييم الذاتي والإقرار."
+                  >
+                    Manage assigned work, private Capture, own Updates/Evidence, Research,
+                    self-assessment, and acknowledgment.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Confirm another person's contribution or alter manager judgment."
+                    data-ar="تأكيد مساهمة شخص آخر أو تغيير حكم المدير."
+                  >
+                    Confirm another person's contribution or alter manager judgment.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Own confirmations and revisions remain attributable."
+                    data-ar="تبقى التأكيدات والمراجعات منسوبة لصاحبها."
+                  >
+                    Own confirmations and revisions remain attributable.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Project / Workstream owner" data-ar="مالك المشروع / مسار العمل"
+                    >Project / Workstream owner</strong
+                  >
+                </td>
+                <td>
+                  <p
+                    data-en="Coordinate scope, sources, contract review, criteria review, and authorized Project decisions."
+                    data-ar="تنسيق النطاق والمصادر ومراجعة العقد والمعايير وقرارات المشروع المخولة."
+                  >
+                    Coordinate scope, sources, contract review, criteria review, and authorized
+                    Project decisions.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Act as an employee's manager merely because of ownership."
+                    data-ar="التصرف كمدير للموظف لمجرد ملكية المشروع."
+                  >
+                    Act as an employee's manager merely because of ownership.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Responsibility follows exact effective windows."
+                    data-ar="تتبع المسؤولية نوافذ السريان الدقيقة."
+                  >
+                    Responsibility follows exact effective windows.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td><strong data-en="Manager" data-ar="المدير">Manager</strong></td>
+                <td>
+                  <p
+                    data-en="Resolve department operations, approve continuity actions, assess independently, and make the final rating decision."
+                    data-ar="حل شؤون القسم التشغيلية واعتماد الاستمرارية والتقييم المستقل واتخاذ قرار العلامة النهائي."
+                  >
+                    Resolve department operations, approve continuity actions, assess independently,
+                    and make the final rating decision.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Access private employee source context or receive AI-generated ratings."
+                    data-ar="الوصول لسياق مصادر الموظف الخاصة أو تلقي علامات مولدة بالذكاء."
+                  >
+                    Access private employee source context or receive AI-generated ratings.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Initial and final positions are separately preserved."
+                    data-ar="يُحفظ الموقف الأولي والنهائي بصورة منفصلة."
+                  >
+                    Initial and final positions are separately preserved.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="System administrator" data-ar="مسؤول النظام"
+                    >System administrator</strong
+                  >
+                </td>
+                <td>
+                  <p
+                    data-en="Govern identity, configuration, AI routes, retention, audit, and operations."
+                    data-ar="حوكمة الهوية والإعداد ومسارات الذكاء والاحتفاظ والتدقيق والتشغيل."
+                  >
+                    Govern identity, configuration, AI routes, retention, audit, and operations.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Decide Project reassignment or employee performance ratings."
+                    data-ar="اتخاذ قرار إعادة إسناد المشروع أو علامات أداء الموظف."
+                  >
+                    Decide Project reassignment or employee performance ratings.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Sensitive operations require reason and audit."
+                    data-ar="تحتاج العمليات الحساسة سببًا وتدقيقًا."
+                  >
+                    Sensitive operations require reason and audit.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Acting owner" data-ar="المالك بالإنابة">Acting owner</strong>
+                </td>
+                <td>
+                  <p
+                    data-en="Perform only the approved action set, for the exact Project/Workstream and time window."
+                    data-ar="تنفيذ مجموعة الإجراءات المعتمدة فقط للمشروع أو مسار العمل والمدة المحددين."
+                  >
+                    Perform only the approved action set, for the exact Project/Workstream and time
+                    window.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Inherit broad manager or permanent owner authority."
+                    data-ar="وراثة صلاحيات مدير واسعة أو مالك دائم."
+                  >
+                    Inherit broad manager or permanent owner authority.
+                  </p>
+                </td>
+                <td>
+                  <p
+                    data-en="Activation, expiry, return, and handover remain recorded."
+                    data-ar="يبقى التفعيل والانتهاء والعودة والتسليم مسجلًا."
+                  >
+                    Activation, expiry, return, and handover remain recorded.
+                  </p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="boundary-grid">
+          <article class="card">
+            <h3 data-en="Pilot feedback mode" data-ar="وضع التغذية الراجعة التجريبي">
+              Pilot feedback mode
+            </h3>
+            <p
+              data-en="Upward manager feedback is Identified. The authorized manager sees submitter identity, completion status, ratings, comments, and timestamps. The product must not claim anonymity."
+              data-ar="التغذية الراجعة الصاعدة عن المدير محددة الهوية. يرى المدير المخول هوية المرسل وحالة الإكمال والعلامات والتعليقات والأوقات. ولا يجوز للمنتج ادعاء إخفاء الهوية."
+            >
+              Upward manager feedback is Identified. The authorized manager sees submitter identity,
+              completion status, ratings, comments, and timestamps. The product must not claim
+              anonymity.
+            </p>
+          </article>
+          <article class="card">
+            <h3 data-en="Historical integrity" data-ar="سلامة التاريخ">Historical integrity</h3>
+            <p
+              data-en="Active templates and closed evaluations are immutable. Criteria are versioned and never retroactive. Project, Evidence, responsibility, and evaluation history survives account deactivation."
+              data-ar="القوالب الفعالة والتقييمات المغلقة غير قابلة للتغيير. والمعايير مؤرشفة بالإصدارات ولا تطبق بأثر رجعي. ويبقى تاريخ المشروع والدليل والمسؤولية والتقييم بعد تعطيل الحساب."
+            >
+              Active templates and closed evaluations are immutable. Criteria are versioned and
+              never retroactive. Project, Evidence, responsibility, and evaluation history survives
+              account deactivation.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="delivery" aria-labelledby="delivery-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-number" aria-hidden="true">11</span>
+            <h2
+              id="delivery-title"
+              data-en="Delivery state and next action"
+              data-ar="حالة التنفيذ والخطوة التالية"
+            >
+              Delivery state and next action
+            </h2>
+            <p
+              class="section-intro"
+              data-en="This section separates merged foundation, active branch work, local proof, and external gates so the map does not present every capability as already released on main."
+              data-ar="يفصل هذا القسم الأساس المدمج وعمل الفرع النشط والإثبات المحلي والبوابات الخارجية حتى لا تعرض الخريطة كل القدرات كأنها صدرت على main."
+            >
+              This section separates merged foundation, active branch work, local proof, and
+              external gates so the map does not present every capability as already released on
+              main.
+            </p>
+          </div>
           <span
-            >Future product modes may be Manager-Blinded or Anonymous Aggregated. The selected mode
-            is frozen per cycle.</span
+            class="chip external-gate"
+            data-en="Product Owner merge gate open"
+            data-ar="بوابة دمج مالك المنتج مفتوحة"
+            >Product Owner merge gate open</span
           >
         </div>
-      </section>
 
-      <section id="ai" class="panel">
-        <h2>8. AI Boundaries and Routing</h2>
-        <div class="grid">
-          <div class="card">
-            <h3>AI Can</h3>
-            <p>
-              Analyze documents, suggest criteria, structure updates, analyze evidence, prepare
-              comparisons, generate coaching, aggregate feedback.
-            </p>
-          </div>
-          <div class="card">
-            <h3>AI Cannot</h3>
-            <p>
-              Assign or recommend ratings, rank employees, resolve attribution as fact, publish
-              unsafe manager feedback, change final evaluations.
-            </p>
-          </div>
-          <div class="card">
-            <h3>Routing</h3>
-            <p>
-              Project override → Department override → System default. Administrator controls every
-              route and records override reason.
-            </p>
-          </div>
-          <div class="card wide">
-            <h3>Human Approval Gates</h3>
-            <p>
-              Document correction, criteria approval, evidence confirmation, rating selection,
-              justification approval, coaching acceptance, final rating.
-            </p>
-          </div>
-          <div class="card wide">
-            <h3>Traceability</h3>
-            <p>
-              Every AI run stores route, model configuration, source references, prompt/schema
-              version, output, latency, usage, and fallback state.
-            </p>
-          </div>
-        </div>
-      </section>
+        <div class="delivery-grid">
+          <article class="card">
+            <h3 data-en="Current branch chain" data-ar="سلسلة الفروع الحالية">
+              Current branch chain
+            </h3>
+            <ul class="timeline">
+              <li>
+                <h4><code dir="ltr">main</code></h4>
+                <p
+                  data-en="Merged engine baseline and technical foundations."
+                  data-ar="المحرك الأساسي والأساسات التقنية المدمجة."
+                >
+                  Merged engine baseline and technical foundations.
+                </p>
+              </li>
+              <li>
+                <h4><code dir="ltr">codex/ai-native-frontend-phase-0b</code></h4>
+                <p
+                  data-en="Frontend foundation, exact handoffs, tokens, accessible primitives, Stable Shell, boundaries, and rollback architecture."
+                  data-ar="أساس الواجهات والتسليمات الدقيقة والتوكنز وعناصر الوصول وStable Shell والحدود وبنية التراجع."
+                >
+                  Frontend foundation, exact handoffs, tokens, accessible primitives, Stable Shell,
+                  boundaries, and rollback architecture.
+                </p>
+              </li>
+              <li>
+                <h4><code dir="ltr">codex/ai-native-frontend-phase-1</code></h4>
+                <p
+                  data-en="Current Command Brief employee, Project, Research, evaluation, manager, continuity, and administration experiences plus local Codex dogfood."
+                  data-ar="تجارب Command Brief الحالية للموظف والمشروع والبحث والتقييم والمدير والاستمرارية والإدارة مع تجربة Codex المحلية."
+                >
+                  Current Command Brief employee, Project, Research, evaluation, manager,
+                  continuity, and administration experiences plus local Codex dogfood.
+                </p>
+              </li>
+            </ul>
+          </article>
 
-      <section id="phases" class="panel">
-        <h2>9. Implementation Order</h2>
-        <div class="phase">
-          <b>Phase 0 — Governance, AI & Localization Foundations</b
-          ><span
-            >Complete: repository, identity, permissions, audit, AI Router, worker, eligibility,
-            Arabic/English RTL foundations, and DAG validation. T016 is deferred outside the
-            engineering gate.</span
-          >
+          <article class="card">
+            <h3 data-en="Pull Request path" data-ar="مسار طلبات الدمج">Pull Request path</h3>
+            <ul class="timeline">
+              <li>
+                <h4>
+                  <a
+                    href="https://github.com/Haithamhaj/evidence-performance-evaluation-system/pull/30"
+                    dir="ltr"
+                    >PR #30</a
+                  >
+                </h4>
+                <p
+                  data-en="Phase 1 frontend targets the Phase 0B branch. It remains an open draft at this snapshot."
+                  data-ar="تستهدف واجهات Phase 1 فرع Phase 0B. وما زال الطلب مسودة مفتوحة في هذه اللقطة."
+                >
+                  Phase 1 frontend targets the Phase 0B branch. It remains an open draft at this
+                  snapshot.
+                </p>
+              </li>
+              <li>
+                <h4>
+                  <a
+                    href="https://github.com/Haithamhaj/evidence-performance-evaluation-system/pull/29"
+                    dir="ltr"
+                    >PR #29</a
+                  >
+                </h4>
+                <p
+                  data-en="Phase 0B targets main. It remains an open draft and must follow a green, reviewed Phase 1 integration."
+                  data-ar="يستهدف Phase 0B فرع main. وما زال مسودة مفتوحة ويجب أن يتبع تكامل Phase 1 أخضر ومراجع."
+                >
+                  Phase 0B targets main. It remains an open draft and must follow a green, reviewed
+                  Phase 1 integration.
+                </p>
+              </li>
+              <li>
+                <h4 data-en="No automatic merge" data-ar="لا دمج تلقائي">No automatic merge</h4>
+                <p
+                  data-en="Product Owner acceptance and required checks determine merge and retained-route retirement."
+                  data-ar="يحدد قبول مالك المنتج والفحوص المطلوبة الدمج وتقاعد المسارات السابقة."
+                >
+                  Product Owner acceptance and required checks determine merge and retained-route
+                  retirement.
+                </p>
+              </li>
+            </ul>
+          </article>
         </div>
-        <div class="phase">
-          <b>Phase 1 — Projects and Documents</b
-          ><span
-            >Complete through Bundles A–D: governed project responsibility, protected templates,
-            safe uploads, immutable document versions, source-bound analysis, human-reviewed
-            criteria, prospective revision, and the Arabic-first bilingual workspace
-            (T018–T029).</span
-          >
-        </div>
-        <div class="phase">
-          <b>Phase 2 — Daily Work, Progress, Updates &amp; Evidence</b
-          ><span
-            >Technically complete and green on main: My Work and Work Items; private connected
-            context; Context Intelligence; versioned Progress Contracts; text, voice, files, and
-            GitHub suggestions; Timeline; check-ins; monthly readiness; manager operations; and a
-            neutral Evaluation Fact View. Live Google/GitHub remain externally gated.</span
-          >
-        </div>
-        <div class="phase">
-          <b>E3 — Research &amp; Experiments Engine</b
-          ><span
-            >Technically verified: safe source review, versioned Research, reproducible Experiments,
-            retained failed results, human decisions, confirmed Evidence, Applied Learning,
-            Timeline/readiness/Fact View composition, and protected recovery. The current route is a
-            verification surface, not final UX.</span
-          >
-        </div>
-        <div class="phase">
-          <b>Phase 3 — Employee Evaluation</b
-          ><span
-            >Approved bounded design: templates, Calibration Cycle, Fact View, independent
-            self/manager assessment, discussion, human finalization, immutable closure, and report
-            projections.</span
-          >
-        </div>
-        <div class="phase">
-          <b>Phase 4 — Identified Manager Evaluation &amp; Coaching</b
-          ><span
-            >Two approved bounded designs: named responses, visible completion, optional grounded
-            aggregation, coaching, employee-controlled development actions, and future privacy-mode
-            foundation.</span
-          >
-        </div>
-        <div class="phase">
-          <b>Phase 5 — Continuity and Hardening</b
-          ><span
-            >Three approved bounded designs: leave/delegation/handover/offboarding,
-            notifications/reports/administration, and security/observability/backup/recovery.</span
-          >
-        </div>
-      </section>
 
-      <section id="readiness" class="panel">
-        <h2>10. Readiness</h2>
-        <div class="grid">
-          <div class="card">
-            <span class="tag">Approved</span>
-            <h3>Product Reference</h3>
-            <p>Purpose, workflows, roles, privacy, and configuration.</p>
-          </div>
-          <div class="card">
-            <span class="tag">Approved</span>
-            <h3>Evaluation Rubric</h3>
-            <p>12 criteria, 60 anchors, manager rubric, weights.</p>
-          </div>
-          <div class="card">
-            <span class="tag">Ready</span>
-            <h3>Implementation Plan</h3>
-            <p>Architecture, corrected dependencies, modules, data, phases, tests.</p>
-          </div>
-          <div class="card">
-            <span class="tag">Complete</span>
-            <h3>Phase 0 Foundation</h3>
-            <p>
-              Tasks T001–T015 and T017 are implemented and technically verified. English Pilot
-              Readiness is available.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">Verified</span>
-            <h3>Phase 1 Bundle A</h3>
-            <p>
-              T018–T020 passed the complete repository, migration, integration, AI-evaluation,
-              browser, and independent-review gates with no P0/P1 blocker.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">Verified</span>
-            <h3>Phase 1 Bundle B</h3>
-            <p>
-              T021–T023 passed repository, migration, upload-safety, authorization, concurrency,
-              browser, infrastructure, and independent-review gates with no protected-rule change.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">Verified</span>
-            <h3>Phase 1 Bundle C</h3>
-            <p>
-              T024–T028 passed repository, migration, integration, AI-evaluation, browser,
-              infrastructure, privacy, history, and prospective-activation gates with no
-              protected-rule change.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">Verified</span>
-            <h3>Phase 1 Bundle D</h3>
-            <p>
-              T029 passed deterministic project/workstream browser flows, Arabic/English routing,
-              RTL and mixed-direction layout, role-scoped actions, manager-safe readiness, and
-              responsive keyboard-access checks with no protected-rule change.
-            </p>
-          </div>
-          <div class="card wide">
-            <span class="tag">Protected</span>
-            <h3>Do Not Drift</h3>
-            <p>
-              No AI ratings, no ranking, no activity-volume scoring, no retroactive criteria, no
-              mutation of closed evaluations, no anonymity claim in Identified mode, no manager
-              access to readiness percentages.
-            </p>
-          </div>
-          <div class="card wide">
-            <span class="tag">Phase 2 merged</span>
-            <h3>Daily Engine and Fact Preparation</h3>
-            <p>
-              Pull Request #11 is merged at main commit 1db6bb1. Hosted integrity, quality, build,
-              and integration checks all passed, including 41 browser journeys with four intentional
-              skips.
-            </p>
-          </div>
-          <div class="card wide">
-            <span class="tag">D0 approved</span>
-            <h3>Command Brief → Phase 0B Foundation</h3>
-            <p>
-              The Product Owner selected and approved the Command Brief Today direction. Existing
-              pages remain temporary verification surfaces; Phase 0B may now plan the production
-              foundation, while runtime implementation stays blocked until Gate G0.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">English ready</span>
-            <h3>Localization</h3>
-            <p>
-              English-only pilot use is permitted. Arabic/RTL foundations remain verified, while
-              Arabic employee use waits for the inactive T016 draft's two separate human reviews.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">Protected requirement</span>
-            <h3>Cycle 1</h3>
-            <p>
-              The completed engine stores Cycle 1 as Calibration — Non-Baseline; the official
-              longitudinal baseline begins from Cycle 2.
-            </p>
-          </div>
-          <div class="card">
-            <span class="tag">Monthly</span>
-            <h3>Evidence Readiness</h3>
-            <p>
-              Thin records are surfaced before quarter-end without quotas, scoring, or automatic
-              penalties.
-            </p>
-          </div>
-          <div class="card wide">
-            <span class="tag">Deferred</span>
-            <h3>Not in First Build</h3>
-            <p>
-              Billing, full self-service multi-tenancy, HRIS, Google Drive auto-sync, formal appeal
-              workflow, microservices, automated salary/promotion decisions. Private
-              manager-feedback modes are foundations, not pilot operating rules.
+        <h3
+          class="subheading"
+          data-en="What is proven and what remains gated"
+          data-ar="ما تم إثباته وما يزال خلف بوابة"
+        >
+          What is proven and what remains gated
+        </h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-en="Area" data-ar="المجال">Area</th>
+                <th data-en="Current truth" data-ar="الحقيقة الحالية">Current truth</th>
+                <th data-en="State" data-ar="الحالة">State</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong data-en="Engine" data-ar="المحرك">Engine</strong></td>
+                <td>
+                  <p
+                    data-en="Connected across work, Projects, sources, Research, evaluation, coaching, continuity, operations, and recovery."
+                    data-ar="مترابط عبر العمل والمشاريع والمصادر والبحث والتقييم والتطوير والاستمرارية والتشغيل والاستعادة."
+                  >
+                    Connected across work, Projects, sources, Research, evaluation, coaching,
+                    continuity, operations, and recovery.
+                  </p>
+                </td>
+                <td>
+                  <span class="chip implemented" data-en="Merged baseline" data-ar="أساس مدمج"
+                    >Merged baseline</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Command Brief UI" data-ar="واجهات Command Brief"
+                    >Command Brief UI</strong
+                  >
+                </td>
+                <td>
+                  <p
+                    data-en="Technically implemented for the current employee and administration journeys with independent rollback flags."
+                    data-ar="منفذة تقنيًا لرحلات الموظف والإدارة الحالية مع أعلام تراجع مستقلة."
+                  >
+                    Technically implemented for the current employee and administration journeys
+                    with independent rollback flags.
+                  </p>
+                </td>
+                <td>
+                  <span class="chip human-gate" data-en="Branch acceptance" data-ar="قبول الفرع"
+                    >Branch acceptance</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Codex dogfood" data-ar="تجربة Codex">Codex dogfood</strong>
+                </td>
+                <td>
+                  <p
+                    data-en="Local synthetic employee works on this repository's real Project, Tasks, Updates, Evidence, active Progress Contract, Research, and evaluation flow."
+                    data-ar="يعمل موظف Codex التجريبي محليًا على مشروع هذا المستودع الحقيقي ومهامه وتحديثاته وأدلته وعقد تقدمه الفعال وبحثه ورحلة تقييمه."
+                  >
+                    Local synthetic employee works on this repository's real Project, Tasks,
+                    Updates, Evidence, active Progress Contract, Research, and evaluation flow.
+                  </p>
+                </td>
+                <td>
+                  <span class="chip implemented" data-en="Running locally" data-ar="تعمل محليًا"
+                    >Running locally</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Arabic evaluation" data-ar="التقييم العربي"
+                    >Arabic evaluation</strong
+                  >
+                </td>
+                <td>
+                  <p
+                    data-en="Localization and RTL foundations exist, but employee-facing Arabic evaluation requires approved Arabic rubric content and semantic review."
+                    data-ar="توجد أساسات الترجمة وRTL لكن التقييم العربي الموجه للموظف يحتاج محتوى معايير عربية معتمدًا ومراجعة دلالية."
+                  >
+                    Localization and RTL foundations exist, but employee-facing Arabic evaluation
+                    requires approved Arabic rubric content and semantic review.
+                  </p>
+                </td>
+                <td>
+                  <span class="chip external-gate" data-en="Approval gate" data-ar="بوابة اعتماد"
+                    >Approval gate</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Production monitoring" data-ar="مراقبة الإنتاج"
+                    >Production monitoring</strong
+                  >
+                </td>
+                <td>
+                  <p
+                    data-en="Real-provider quality, latency, privacy-approved telemetry, Workspace approval, and deployment credentials remain deployment-time gates."
+                    data-ar="تبقى جودة المزود الحقيقي والكمون والقياس المعتمد للخصوصية وموافقة Workspace وبيانات النشر بوابات وقت الإطلاق."
+                  >
+                    Real-provider quality, latency, privacy-approved telemetry, Workspace approval,
+                    and deployment credentials remain deployment-time gates.
+                  </p>
+                </td>
+                <td>
+                  <span class="chip external-gate" data-en="External gate" data-ar="بوابة خارجية"
+                    >External gate</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong data-en="Retained routes" data-ar="المسارات السابقة"
+                    >Retained routes</strong
+                  >
+                </td>
+                <td>
+                  <p
+                    data-en="Kept behind rollback until visual parity and real-user acceptance prove safe retirement."
+                    data-ar="محفوظة خلف التراجع حتى يثبت التكافؤ البصري وقبول المستخدم الحقيقي أن التقاعد آمن."
+                  >
+                    Kept behind rollback until visual parity and real-user acceptance prove safe
+                    retirement.
+                  </p>
+                </td>
+                <td>
+                  <span class="chip retained" data-en="Retained" data-ar="محفوظة">Retained</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <span class="callout-icon" aria-hidden="true">→</span>
+          <div>
+            <h3 data-en="Next recommended action" data-ar="الخطوة التالية الموصى بها">
+              Next recommended action
+            </h3>
+            <p
+              data-en="Complete the running Product Owner internal-launch review, correct only confirmed blockers, make PR #30 green and reviewed, merge it into Phase 0B, then make PR #29 green and merge Phase 0B into main. Do not retire retained routes or move the Project indicator from activity volume."
+              data-ar="إكمال مراجعة الإطلاق الداخلي الجارية لمالك المنتج، وإصلاح العوائق المؤكدة فقط، وجعل PR #30 أخضر ومراجعًا ثم دمجه في Phase 0B، وبعدها جعل PR #29 أخضر ودمج Phase 0B في main. لا تتقاعد المسارات السابقة ولا يتحرك مؤشر المشروع من حجم النشاط."
+            >
+              Complete the running Product Owner internal-launch review, correct only confirmed
+              blockers, make PR #30 green and reviewed, merge it into Phase 0B, then make PR #29
+              green and merge Phase 0B into main. Do not retire retained routes or move the Project
+              indicator from activity volume.
             </p>
           </div>
         </div>
+
+        <details>
+          <summary data-en="Critical repository references" data-ar="مراجع المستودع المهمة">
+            Critical repository references
+          </summary>
+          <div class="details-body">
+            <p>
+              <a href="PROJECT_STATE.md"><code dir="ltr">PROJECT_STATE.md</code></a> ·
+              <a href="../docs/PROJECT_REFERENCE.md"><code dir="ltr">PROJECT_REFERENCE.md</code></a>
+              ·
+              <a href="../docs/EVALUATION_RUBRIC.md"><code dir="ltr">EVALUATION_RUBRIC.md</code></a>
+              ·
+              <a href="../docs/IMPLEMENTATION_PLAN.md"
+                ><code dir="ltr">IMPLEMENTATION_PLAN.md</code></a
+              >
+              · <a href="../TASKS.md"><code dir="ltr">TASKS.md</code></a> ·
+              <a href="../docs/product/ENGINE_CUSTOMER_JOURNEY_MAP.md"
+                ><code dir="ltr">ENGINE_CUSTOMER_JOURNEY_MAP.md</code></a
+              >
+              ·
+              <a href="../docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md"
+                ><code dir="ltr">ENGINE_FRONTEND_HANDOFF_SCHEMA.md</code></a
+              >
+              ·
+              <a href="../docs/decisions/GPT_5_6_ROUTING_POLICY.md"
+                ><code dir="ltr">GPT_5_6_ROUTING_POLICY.md</code></a
+              >
+            </p>
+          </div>
+        </details>
       </section>
     </main>
+
     <footer>
-      Evidence-Based Performance Evaluation System · Operational state updated 2026-08-11 · Phase 0,
-      Phase 1, Phase 2, and E3–E7 technical engine checkpoints complete · Phase 0B frontend
-      foundation planning authorized after D0 approval · current verification routes are not final
-      UX · production gates remain external · Arabic evaluation rubric remains inactive pending
-      human approval
+      <div class="footer-inner">
+        <p
+          data-en="Self-contained documentation artifact · No external assets, trackers, or live API calls"
+          data-ar="ملف توثيق مستقل · بلا أصول خارجية أو تتبع أو اتصالات API مباشرة"
+        >
+          Self-contained documentation artifact · No external assets, trackers, or live API calls
+        </p>
+        <a href="#top" data-en="Back to top" data-ar="العودة إلى الأعلى">Back to top</a>
+      </div>
     </footer>
+
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const body = document.body;
+        const buttons = Array.from(document.querySelectorAll("[data-locale]"));
+        const translatable = Array.from(document.querySelectorAll("[data-en][data-ar]"));
+        const accessibleLabels = Array.from(
+          document.querySelectorAll("[data-aria-en][data-aria-ar]"),
+        );
+
+        function setLanguage(locale) {
+          const next = locale === "ar" ? "ar" : "en";
+          root.lang = next;
+          root.dir = next === "ar" ? "rtl" : "ltr";
+          document.title = next === "ar" ? body.dataset.titleAr : body.dataset.titleEn;
+
+          translatable.forEach((element) => {
+            element.textContent = element.dataset[next];
+          });
+
+          accessibleLabels.forEach((element) => {
+            element.setAttribute("aria-label", element.getAttribute(`data-aria-${next}`));
+          });
+
+          buttons.forEach((button) => {
+            button.setAttribute("aria-pressed", String(button.dataset.locale === next));
+          });
+
+          try {
+            sessionStorage.setItem("system-map-locale", next);
+          } catch {
+            // English remains the dependency-free fallback when storage is unavailable.
+          }
+        }
+
+        buttons.forEach((button) => {
+          button.addEventListener("click", () => setLanguage(button.dataset.locale));
+        });
+
+        let savedLanguage = "en";
+        try {
+          savedLanguage = sessionStorage.getItem("system-map-locale") || "en";
+        } catch {
+          savedLanguage = "en";
+        }
+        setLanguage(savedLanguage);
+      })();
+    </script>
   </body>
 </html>
