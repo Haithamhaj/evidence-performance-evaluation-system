@@ -68,7 +68,8 @@ bundle or the new feedback receipt.
 
 ## Remaining launch gates
 
-1. Product Owner reviews the running employee journey and accepts or rejects the internal beta.
+1. Product Owner reviews the running employee journey using
+   `docs/reviews/PHASE_9_PRODUCT_OWNER_LAUNCH_REVIEW.md` and accepts or rejects the internal beta.
 2. An administrator supplies any provider integration selected for the pilot using minimum scopes.
 3. Telemetry remains disabled until sink, residency, retention, and redaction are approved.
 4. Production deployment, backup destination, and restore remain direct accountable-human gates.

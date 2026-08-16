@@ -171,6 +171,12 @@ routes before parity evidence.
   server rollback flags, a weekly product-review process, and a concise employee guide. P9-11 safely
   supports aggregate suggestion categories only; broader telemetry remains collection-disabled until
   its approved external gate.
+- P9-15 is prepared but not approved. The local Codex dogfood refresh appended Project Document
+  version 8 for the current repository snapshot and used the governed live OpenAI route to create one
+  review-only `ready` Progress Contract draft. The existing active contract and its honest
+  `awaiting_information` Project state did not change; the new draft remains behind direct human
+  activation. The Product Owner launch checklist is
+  `docs/reviews/PHASE_9_PRODUCT_OWNER_LAUNCH_REVIEW.md`.
 - The first Phase 2 Work bundle is complete: the authorized query now supports Project/status/search
   filters, sort, accurate counts, and a compact keyboard list. The local employee preview is now
   dogfooded with Codex working on the real Evidence Performance Evaluation System Project. Its
@@ -450,6 +456,9 @@ outside manager judgment, evaluation authority, Project progress calculation, an
 `awaiting_information` state; do not let activity volume move progress, let AI confirm evidence,
 merge Pull Requests #29/#30, or retire retained rollback routes.
 
+The running review checklist is now prepared in
+`docs/reviews/PHASE_9_PRODUCT_OWNER_LAUNCH_REVIEW.md`; the Product Owner decision remains open.
+
 ## Critical References
 
 - `AGENTS.md`
@@ -462,6 +471,7 @@ merge Pull Requests #29/#30, or retire retained rollback routes.
 - `docs/product/ENGINE_FRONTEND_HANDOFF_SCHEMA.md`
 - `docs/product/AI_NATIVE_FRONTEND_SOURCE_SNAPSHOT.md`
 - `docs/reviews/AI_NATIVE_FRONTEND_D0_EVIDENCE.md`
+- `docs/reviews/PHASE_9_PRODUCT_OWNER_LAUNCH_REVIEW.md`
 - `docs/reviews/PHASE_2_WORK_EXPERIENCE_BENCHMARK.md`
 - `docs/decisions/AI_NATIVE_FRONTEND_D0_DECISION.md`
 - `docs/decisions/GPT_5_6_ROUTING_POLICY.md`
