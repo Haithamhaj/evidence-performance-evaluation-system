@@ -40,18 +40,27 @@ The `source/` folder preserves the original master product definition.
 
 - Product reference: approved Revision 1.1.
 - Evaluation rubric: approved English source Version 1.1.
-- Phase 0 Foundation: complete.
+- Phase 0, Phase 1, Phase 2, and engine checkpoints E3–E7: merged into `main`.
+- E7 state: `READY_FOR_FINAL_FRONTEND_DESIGN` (44 capabilities: 39 complete, 2 approved partial, 2 external gates, 1 approved deferred).
+- The pilot engine (daily work, Projects, Research, evaluation, coaching, continuity, notifications, reports, administration, recovery) is technically complete and connected. Current Next.js pages are contract-verification surfaces, not the final daily employee/manager interface.
+- AI-Native Frontend Phase 0A (product direction definition): complete. Product Owner approved Gate `D0` (Command Brief visual direction) on 2026-08-11.
+- AI-Native Frontend Phase 0B (foundation plan): next recommended action, not yet started. Production frontend/Today runtime implementation remains blocked until Phase 0B passes Gate `G0`.
 - English Pilot Readiness: available.
 - Arabic rubric translation: deferred, draft, and inactive in `deferred/arabic-rubric-v1`.
 - Arabic employee release: blocked until T016 approval; other engineering phases are not blocked.
 - Architecture: defined.
 - Task graph: 77 tasks, valid and acyclic.
-- Implementation code: Phase 0 foundation is implemented and technically verified.
-- Implementation: Phase 1 is ready to begin.
+
+## Pending Branch Work (Not Yet Merged)
+
+- Branch `codex/ai-native-frontend-phase-1` (latest commit `9e2162d`, "docs(beta): prepare product owner launch review") contains 123 commits of additional implementation not yet merged into `main`, pending test completion.
+- Scope observed on that branch: a built-out AI-native frontend covering Work/Today, universal capture, Projects (governed workspace, ownership transfer, contract-based progress), fact-first evaluation and identified feedback journeys, continuity/handover, manager operations brief, notifications and connection center, reports and safe recovery, and administration capabilities, plus accessible UI primitives, design tokens, and route/contract protection tests.
+- This is ahead of what `main` and `PROJECT_STATE.md` currently describe (which still call for writing the Phase 0B foundation plan before any production Today/runtime work begins). Treat this branch as unreviewed, in-progress work awaiting test completion — not as merged, approved, or part of the current baseline.
+- No merge has been performed. Do not treat this section as confirmation that Phase 1 frontend work is complete on `main`.
 
 ## Recommended First Action
 
-Execute Phase 1 from the approved task graph. English-only pilot use is permitted. Do not expose Arabic employee use until the deferred T016 human semantic approvals and activation conditions are complete.
+Per `project-state/PROJECT_STATE.md`: write the separate Phase 0B foundation plan from the approved Command Brief direction, including the two bounded human validation sessions required before Gate `G0`. Do not begin Phase 1 runtime or production Today implementation as part of the Phase 0B plan. English-only pilot use of the existing pilot engine is permitted. Do not expose Arabic employee use until the deferred T016 human semantic approvals and activation conditions are complete.
 
 ## Protected Product Rules
 
