@@ -67,6 +67,7 @@ describe("Context Intelligence production registration", () => {
       "experience.prepare-next.v1",
       "experience.capture-understand.v1",
       "experience.task-assistant.v1",
+      "experience.project-assistant.v1",
     ]);
     await expect(client.aiProviderConfig.count()).resolves.toBe(providerCount);
     for (const route of result.routes) {
