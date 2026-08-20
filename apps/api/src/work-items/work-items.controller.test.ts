@@ -72,6 +72,32 @@ describe("WorkItemsController", () => {
     );
   });
 
+  it("reads and replaces dependencies through the authenticated Work Items boundary", async () => {
+    const dependencyId = crypto.randomUUID();
+    const getAuthorizedDependencies = vi.fn(async (command) => command);
+    const replaceDependencies = vi.fn(async (command) => command);
+    const controller = new WorkItemsController(
+      { replaceDependencies } as never,
+      { getAuthorizedDependencies } as never,
+    );
+
+    await controller.dependencies(request, workItemId);
+    await controller.replaceDependencies(request, workItemId, {
+      dependsOnWorkItemIds: [dependencyId],
+      expectedVersion: 2,
+      reason: "Codex confirmed the dependency.",
+    });
+
+    expect(getAuthorizedDependencies).toHaveBeenCalledWith({ actorId, workItemId });
+    expect(replaceDependencies).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: { userId: actorId, active: true },
+        workItemId,
+        input: expect.objectContaining({ dependsOnWorkItemIds: [dependencyId] }),
+      }),
+    );
+  });
+
   it("validates Task edits and workspace view options", async () => {
     const update = vi.fn(async (command) => command);
     const listWorkspace = vi.fn(async (command) => command);
@@ -86,6 +112,8 @@ describe("WorkItemsController", () => {
       view: "my",
       layout: "board",
       limit: "25",
+      search: "launch",
+      sort: "priority_desc",
     });
 
     expect(update).toHaveBeenCalledWith(
@@ -100,6 +128,10 @@ describe("WorkItemsController", () => {
       layout: "board",
       limit: 25,
       cursor: null,
+      projectId: null,
+      status: null,
+      search: "launch",
+      sort: "priority_desc",
     });
   });
 });

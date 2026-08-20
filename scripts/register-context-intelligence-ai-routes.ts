@@ -13,10 +13,43 @@ import {
   registerAuthorizedAiOutputSchema,
 } from "../apps/api/src/ai-routing/ai-routing.module.js";
 import { CONTEXT_INTELLIGENCE_AI_ROUTES } from "../packages/context-intelligence/src/index.js";
+import {
+  EXPERIENCE_PREPARE_INPUT_SCHEMA_VERSION,
+  EXPERIENCE_PREPARE_OUTPUT_SCHEMA_VERSION,
+  EXPERIENCE_PREPARE_PROMPT_VERSION,
+  EXPERIENCE_PREPARE_ROUTE,
+  EXPERIENCE_PREPARE_TRUSTED_PROMPT,
+  ExperiencePreparedAiOutputSchema,
+} from "../apps/api/src/experience-orchestration/experience-orchestrator.service.js";
+import {
+  CAPTURE_UNDERSTANDING_INPUT_SCHEMA_VERSION,
+  CAPTURE_UNDERSTANDING_OUTPUT_SCHEMA_VERSION,
+  CAPTURE_UNDERSTANDING_PROMPT_VERSION,
+  CAPTURE_UNDERSTANDING_ROUTE,
+  CAPTURE_UNDERSTANDING_TRUSTED_PROMPT,
+  CaptureUnderstandingAiOutputSchema,
+} from "../apps/api/src/experience-orchestration/capture-understanding.service.js";
+import {
+  TASK_ASSISTANT_INPUT_SCHEMA_VERSION,
+  TASK_ASSISTANT_OUTPUT_SCHEMA_VERSION,
+  TASK_ASSISTANT_PROMPT_VERSION,
+  TASK_ASSISTANT_ROUTE,
+  TASK_ASSISTANT_TRUSTED_PROMPT,
+  TaskAssistantAiOutputSchema,
+} from "../apps/api/src/experience-orchestration/task-assistant.service.js";
+import {
+  PROJECT_ASSISTANT_INPUT_SCHEMA_VERSION,
+  PROJECT_ASSISTANT_OUTPUT_SCHEMA_VERSION,
+  PROJECT_ASSISTANT_PROMPT_VERSION,
+  PROJECT_ASSISTANT_ROUTE,
+  PROJECT_ASSISTANT_TRUSTED_PROMPT,
+  ProjectAssistantAiOutputSchema,
+} from "../apps/api/src/experience-orchestration/project-assistant.service.js";
 
 const ArgumentsSchema = z
   .object({
     dryRun: z.boolean(),
+    routeKey: z.string().trim().min(1).max(200).optional(),
     actorId: z.string().uuid().optional(),
     correlationId: z.string().uuid().optional(),
     systemScopeId: z.string().uuid().optional(),
@@ -24,7 +57,43 @@ const ArgumentsSchema = z
   })
   .strict();
 
-const routeMetadata = CONTEXT_INTELLIGENCE_AI_ROUTES.map((route) => ({
+const governedRoutes = [
+  ...CONTEXT_INTELLIGENCE_AI_ROUTES,
+  {
+    routeKey: EXPERIENCE_PREPARE_ROUTE,
+    inputSchemaVersion: EXPERIENCE_PREPARE_INPUT_SCHEMA_VERSION,
+    outputSchemaVersion: EXPERIENCE_PREPARE_OUTPUT_SCHEMA_VERSION,
+    promptTemplateVersion: EXPERIENCE_PREPARE_PROMPT_VERSION,
+    trustedPrompt: EXPERIENCE_PREPARE_TRUSTED_PROMPT,
+    outputSchema: ExperiencePreparedAiOutputSchema,
+  },
+  {
+    routeKey: CAPTURE_UNDERSTANDING_ROUTE,
+    inputSchemaVersion: CAPTURE_UNDERSTANDING_INPUT_SCHEMA_VERSION,
+    outputSchemaVersion: CAPTURE_UNDERSTANDING_OUTPUT_SCHEMA_VERSION,
+    promptTemplateVersion: CAPTURE_UNDERSTANDING_PROMPT_VERSION,
+    trustedPrompt: CAPTURE_UNDERSTANDING_TRUSTED_PROMPT,
+    outputSchema: CaptureUnderstandingAiOutputSchema,
+  },
+  {
+    routeKey: TASK_ASSISTANT_ROUTE,
+    inputSchemaVersion: TASK_ASSISTANT_INPUT_SCHEMA_VERSION,
+    outputSchemaVersion: TASK_ASSISTANT_OUTPUT_SCHEMA_VERSION,
+    promptTemplateVersion: TASK_ASSISTANT_PROMPT_VERSION,
+    trustedPrompt: TASK_ASSISTANT_TRUSTED_PROMPT,
+    outputSchema: TaskAssistantAiOutputSchema,
+  },
+  {
+    routeKey: PROJECT_ASSISTANT_ROUTE,
+    inputSchemaVersion: PROJECT_ASSISTANT_INPUT_SCHEMA_VERSION,
+    outputSchemaVersion: PROJECT_ASSISTANT_OUTPUT_SCHEMA_VERSION,
+    promptTemplateVersion: PROJECT_ASSISTANT_PROMPT_VERSION,
+    trustedPrompt: PROJECT_ASSISTANT_TRUSTED_PROMPT,
+    outputSchema: ProjectAssistantAiOutputSchema,
+  },
+] as const;
+
+const routeMetadata = governedRoutes.map((route) => ({
   ...route,
   promptHash: createHash("sha256").update(route.trustedPrompt).digest("hex"),
   schema: outputSchemaDescriptor(route.routeKey, route.outputSchemaVersion, route.outputSchema),
@@ -46,16 +115,27 @@ type RegistrationContext = z.infer<typeof ArgumentsSchema> & {
 };
 
 export async function registerContextIntelligenceAiRoutes(
-  input: z.infer<typeof ArgumentsSchema> & { databaseUrl?: string },
+  input: z.input<typeof ArgumentsSchema> & { databaseUrl?: string },
 ) {
   const parsed = ArgumentsSchema.parse({
     dryRun: input.dryRun,
+    routeKey: input.routeKey,
     actorId: input.actorId,
     correlationId: input.correlationId,
     systemScopeId: input.systemScopeId,
     reason: input.reason,
   });
-  if (parsed.dryRun) return { routes: plan };
+  const selectedRouteMetadata =
+    parsed.routeKey === undefined
+      ? routeMetadata
+      : routeMetadata.filter(({ routeKey }) => routeKey === parsed.routeKey);
+  if (selectedRouteMetadata.length === 0) {
+    throw new AppError("AI_ROUTE_NOT_GOVERNED", "errors.ai.routeNotGoverned", 400);
+  }
+  const selectedPlan = plan.filter(
+    ({ routeKey }) => parsed.routeKey === undefined || routeKey === parsed.routeKey,
+  );
+  if (parsed.dryRun) return { routes: selectedPlan };
   if (
     parsed.actorId === undefined ||
     parsed.correlationId === undefined ||
@@ -101,14 +181,33 @@ export async function registerContextIntelligenceAiRoutes(
     }
 
     const registeredRoutes = [];
-    for (const route of routeMetadata) {
+    for (const route of selectedRouteMetadata) {
+      const existingOutputArtifact = await database.aiOutputSchemaArtifact.findUnique({
+        where: {
+          routeKey_version: {
+            routeKey: route.routeKey,
+            version: route.outputSchemaVersion,
+          },
+        },
+        select: {
+          reason: true,
+          expectedBehavior: true,
+          evaluationEvidenceReferences: true,
+        },
+      });
       const outputArtifact = await registerAuthorizedAiOutputSchema(database, principal, {
         routeKey: route.routeKey,
         version: route.outputSchemaVersion,
         schema: route.outputSchema,
-        reason: context.reason,
-        expectedBehavior: expectedOutputBehavior(route.routeKey),
-        evaluationEvidenceReferences: [`ai-eval:${route.schema.schemaHash}`],
+        // Output schemas are immutable artifacts. A prompt-only revision must reuse the
+        // artifact's original governance metadata instead of pretending to register a
+        // second version of the same schema.
+        reason: existingOutputArtifact?.reason ?? context.reason,
+        expectedBehavior:
+          existingOutputArtifact?.expectedBehavior ?? expectedOutputBehavior(route.routeKey),
+        evaluationEvidenceReferences: stringArray(
+          existingOutputArtifact?.evaluationEvidenceReferences,
+        ) ?? [`ai-eval:${route.schema.schemaHash}`],
         correlationId: context.correlationId,
       });
       const prompt = await registerPrompt(database, context, route, outputArtifact.id);
@@ -221,7 +320,25 @@ async function registerPrompt(
   });
 }
 
+function stringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string")
+    ? value
+    : undefined;
+}
+
 function expectedOutputBehavior(routeKey: string): string {
+  if (routeKey === PROJECT_ASSISTANT_ROUTE) {
+    return "Returns one source-grounded Project explanation for an approved question; no command, rating, readiness, or progress authority.";
+  }
+  if (routeKey === TASK_ASSISTANT_ROUTE) {
+    return "Returns one source-grounded Task answer and at most one allowed status-change preparation; no command, rating, readiness, or progress authority.";
+  }
+  if (routeKey === CAPTURE_UNDERSTANDING_ROUTE) {
+    return "Returns one private, source-backed Capture interpretation with at most one clarification and no command, rating, readiness, or progress authority.";
+  }
+  if (routeKey === EXPERIENCE_PREPARE_ROUTE) {
+    return "Returns one editable source-backed action or clarification draft with no command, rating, readiness, or progress authority.";
+  }
   if (routeKey === "context.summarize.v1") {
     return "Returns a source-cited AI draft interpretation of supplied private work context, with explicit uncertainties and no performance judgment.";
   }
@@ -232,6 +349,18 @@ function expectedOutputBehavior(routeKey: string): string {
 }
 
 function expectedPromptBehavior(routeKey: string): string {
+  if (routeKey === PROJECT_ASSISTANT_ROUTE) {
+    return "One bounded answer from the authorized Project experience for what changed, why blocked, or missing Evidence; no action is executed.";
+  }
+  if (routeKey === TASK_ASSISTANT_ROUTE) {
+    return "One bounded answer from an authorized Task, dependencies, Updates, and Evidence; human confirmation remains mandatory for any suggested action.";
+  }
+  if (routeKey === CAPTURE_UNDERSTANDING_ROUTE) {
+    return "One bounded private Capture interpretation from authorized candidates; employee review and confirmation remain mandatory.";
+  }
+  if (routeKey === EXPERIENCE_PREPARE_ROUTE) {
+    return "One bounded employee-reviewable draft selected from already-authorized sources; human action remains mandatory.";
+  }
   if (routeKey === "context.summarize.v1") {
     return "A source-labelled AI draft interpretation with supported claims, uncertainty, and opaque provenance for human review.";
   }
@@ -251,7 +380,8 @@ function parseArguments(argv: readonly string[]) {
     }
     const next = argv[index + 1];
     if (next === undefined) throw new Error(`Missing value for ${argument}`);
-    if (argument === "--actor-id") values.actorId = next;
+    if (argument === "--route-key") values.routeKey = next;
+    else if (argument === "--actor-id") values.actorId = next;
     else if (argument === "--correlation-id") values.correlationId = next;
     else if (argument === "--system-scope-id") values.systemScopeId = next;
     else if (argument === "--reason") values.reason = next;

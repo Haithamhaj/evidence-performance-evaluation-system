@@ -70,12 +70,13 @@ const UrlUpdateSourceSchema = z
 const VoiceTranscriptUpdateSourceSchema = z
   .object({ kind: z.literal("voice_transcript"), voiceSessionId: UuidSchema })
   .strict();
-const UpdateSourceInputSchema = z.union([
+export const UpdateSourceInputSchema = z.union([
   UploadedUpdateSourceSchema,
   TextUpdateSourceSchema,
   UrlUpdateSourceSchema,
   VoiceTranscriptUpdateSourceSchema,
 ]);
+export type UpdateSourceInput = z.infer<typeof UpdateSourceInputSchema>;
 
 export const StartVoiceUpdateInputSchema = UpdateContextSchema.extend({
   idempotencyKey: UuidSchema,
@@ -173,7 +174,7 @@ export const ReviseUpdateDraftInputSchema = z
     blocker: z.string().trim().min(1).max(2_000).nullable(),
     nextAction: z.string().trim().min(1).max(2_000),
     contributionContext: z.string().trim().min(1).max(2_000),
-    evidenceClaimDrafts: z.array(z.string().trim().min(1).max(2_000)).max(20),
+    evidenceClaimDrafts: z.array(z.string().trim().min(1).max(2_000)).max(20).default([]),
     documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
     relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
   })
@@ -278,6 +279,7 @@ export const StructuredUpdateDraftSchema = z
     executionMode: ExecutionModeSchema,
     sourceReferences: z.array(z.string().trim().min(3).max(500)).min(1).max(500),
     evidenceIds: z.array(UuidSchema).max(100),
+    evidenceClaimDrafts: z.array(z.string().trim().min(1).max(2_000)).max(20),
     documentationNeeds: z.array(z.string().trim().min(1).max(500)).max(50).default([]),
     relatedProgressComponentIds: z.array(UuidSchema).max(100).default([]),
     comparison: ComparisonSchema,

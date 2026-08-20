@@ -9,6 +9,7 @@
   "dependencies": {
     "@evaluation/contracts": "workspace:*",
     "@evaluation/database": "workspace:*",
+    "@evaluation/permissions": "workspace:*",
     "zod": "4.4.3"
   },
   "scripts": {

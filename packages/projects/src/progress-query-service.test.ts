@@ -68,6 +68,19 @@ describe("ProgressQueryService Project pulse", () => {
     expect(result.pulse.nextRequiredEvidence).toEqual([
       expect.objectContaining({ componentId, label: "Acceptance record" }),
     ]);
+    expect(result.pendingChange).toEqual({
+      state: "pending",
+      requestedAt: "2026-08-02T10:00:00.000Z",
+    });
+    expect(result.contractProposal).toEqual({
+      state: "ready",
+      revision: 2,
+      origin: "human",
+      sourceDocumentVersion: 6,
+      componentCount: 4,
+      ambiguityCount: 1,
+      requestedAt: "2026-08-03T10:00:00.000Z",
+    });
   });
 
   it("explains a source-supported decrease from append-only snapshot history", async () => {
@@ -84,7 +97,16 @@ describe("ProgressQueryService Project pulse", () => {
           percent: 55,
           reason: "The approved measured value decreased after verified rework.",
           componentState: [{ componentId, percent: 55 }],
-          sources: [{ componentId, sourceKind: "kpi_measurement", sourceId, sourceVersion: 2 }],
+          sources: [
+            {
+              componentId,
+              sourceKind: "kpi_measurement",
+              sourceId,
+              sourceVersion: 2,
+              measuredValue: 1.8,
+              observedAt: new Date("2026-08-02T09:55:00.000Z"),
+            },
+          ],
           createdAt: new Date("2026-08-02T10:00:00.000Z"),
         },
       ],
@@ -111,8 +133,15 @@ describe("ProgressQueryService Project pulse", () => {
       ],
     });
     expect(result.pulse.milestoneStates).toEqual([
-      expect.objectContaining({ componentId, percent: 55, state: "in_progress" }),
+      expect.objectContaining({
+        componentId,
+        percent: 55,
+        state: "in_progress",
+        measuredValue: 1.8,
+        observedAt: "2026-08-02T09:55:00.000Z",
+      }),
     ]);
+    expect(result.pendingChange).toBeNull();
   });
 });
 
@@ -155,6 +184,23 @@ function projectProgressDatabase(input: {
         ],
         snapshots: input.snapshots,
         recalculationRequests: input.recalculationRequests,
+      })),
+    },
+    progressContractAiDraftRequest: {
+      findFirst: vi.fn(async () => ({
+        state: "ready",
+        createdAt: new Date("2026-08-03T10:00:00.000Z"),
+        documentVersion: { version: 6 },
+        revisions: [
+          {
+            revision: 2,
+            origin: "human",
+            content: {
+              components: [{}, {}, {}, {}],
+              ambiguities: ["Confirm the pilot acceptance source"],
+            },
+          },
+        ],
       })),
     },
   };

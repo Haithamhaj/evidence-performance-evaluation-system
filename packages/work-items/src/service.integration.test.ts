@@ -392,6 +392,136 @@ describe("WorkItemService", () => {
     ).resolves.toBe(0);
   });
 
+  it("replays one employee create request without creating a duplicate Task", async () => {
+    const graph = await seedGraph();
+    const service = new WorkItemService(
+      client,
+      auditWriter,
+      () => now,
+      confirmedTaskProjectAuthorization,
+    );
+    const clientRequestId = crypto.randomUUID();
+    const command = {
+      actor: { userId: graph.actorId, active: true },
+      input: {
+        acceptanceConditions: [],
+        assigneeId: graph.actorId,
+        blocker: null,
+        clientRequestId,
+        description: "",
+        dueAt: null,
+        nextAction: null,
+        priority: "normal",
+        projectId: graph.projectId,
+        requirements: [],
+        title: "Retry-safe Quick Task",
+        workstreamId: null,
+      },
+    } as const;
+
+    const first = await service.create({ ...command, correlationId: crypto.randomUUID() });
+    const replay = await service.create({ ...command, correlationId: crypto.randomUUID() });
+
+    expect(replay.id).toBe(first.id);
+    await expect(
+      client.workItem.count({ where: { createdById: graph.actorId, clientRequestId } }),
+    ).resolves.toBe(1);
+  });
+
+  it("blocks dependent work until its prerequisite is done and rejects dependency cycles", async () => {
+    const graph = await seedGraph();
+    const service = new WorkItemService(
+      client,
+      auditWriter,
+      () => now,
+      confirmedTaskProjectAuthorization,
+    );
+    const create = (title: string) =>
+      service.create({
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        input: {
+          title,
+          description: "",
+          projectId: graph.projectId,
+          workstreamId: null,
+          assigneeId: graph.actorId,
+          dueAt: null,
+          priority: "normal" as const,
+          requirements: [],
+          acceptanceConditions: [],
+          blocker: null,
+          nextAction: null,
+        },
+      });
+    let prerequisite = await create("Complete the engine contract");
+    const dependent = await create("Build the connected interface");
+
+    const blocked = await service.replaceDependencies({
+      actor: { userId: graph.actorId, active: true },
+      correlationId: crypto.randomUUID(),
+      workItemId: dependent.id,
+      input: {
+        dependsOnWorkItemIds: [prerequisite.id],
+        expectedVersion: dependent.version,
+        reason: "The interface consumes the completed engine contract.",
+      },
+    });
+    expect(blocked).toMatchObject({
+      readiness: "blocked_by_dependency",
+      allowedTransitions: ["cancelled"],
+    });
+    await expect(
+      service.transition({
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        workItemId: dependent.id,
+        input: {
+          status: "ready",
+          expectedVersion: blocked.version,
+          reason: "Attempted before the prerequisite finished.",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "WORK_ITEM_DEPENDENCY_BLOCKED", status: 409 });
+    await expect(
+      service.replaceDependencies({
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        workItemId: prerequisite.id,
+        input: {
+          dependsOnWorkItemIds: [dependent.id],
+          expectedVersion: prerequisite.version,
+          reason: "This would create a cycle.",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "WORK_ITEM_DEPENDENCY_CYCLE", status: 409 });
+
+    for (const status of ["ready", "in_progress", "done"] as const) {
+      prerequisite = await service.transition({
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        workItemId: prerequisite.id,
+        input: {
+          status,
+          expectedVersion: prerequisite.version,
+          reason: `Prerequisite moved to ${status}`,
+        },
+      });
+    }
+    await expect(
+      service.transition({
+        actor: { userId: graph.actorId, active: true },
+        correlationId: crypto.randomUUID(),
+        workItemId: dependent.id,
+        input: {
+          status: "ready",
+          expectedVersion: blocked.version,
+          reason: "The prerequisite is now complete.",
+        },
+      }),
+    ).resolves.toMatchObject({ status: "ready" });
+  });
+
   it("rejects a cross-Project Workstream and stale assignment", async () => {
     const graph = await seedGraph();
     const service = new WorkItemService(

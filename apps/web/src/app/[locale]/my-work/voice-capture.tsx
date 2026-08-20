@@ -7,7 +7,11 @@ type Scope = Readonly<{
   workstreamId: string | null;
   workItemId: string | null;
 }>;
-type VoiceSource = Readonly<{ kind: "voice_transcript"; voiceSessionId: string }>;
+type VoiceSource = Readonly<{
+  kind: "voice_transcript";
+  transcript: string;
+  voiceSessionId: string;
+}>;
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export type VoiceRecording = Readonly<{
@@ -254,7 +258,11 @@ export function VoiceCapture({
       if (!confirmed.transcriptConfirmed) throw new Error("transcript-not-confirmed");
       setSession(confirmed);
       setStatus("ready");
-      onConfirmed?.({ kind: "voice_transcript", voiceSessionId: confirmed.sessionId });
+      onConfirmed?.({
+        kind: "voice_transcript",
+        transcript: confirmed.transcript ?? transcript,
+        voiceSessionId: confirmed.sessionId,
+      });
     } catch {
       setStatus("error");
     }
@@ -280,7 +288,8 @@ export function VoiceCapture({
           accept=".wav,.mp3,.m4a,audio/wav,audio/mpeg,audio/mp4"
           disabled={canCancelVoice(status)}
           onChange={async (event) => {
-            const file = event.currentTarget.files?.[0];
+            const input = event.currentTarget;
+            const file = input.files?.[0];
             if (file === undefined) return;
             cancelRequested.current = false;
             retryRequest.current = null;
@@ -293,7 +302,7 @@ export function VoiceCapture({
             } catch {
               setStatus("error");
             } finally {
-              event.currentTarget.value = "";
+              input.value = "";
             }
           }}
           type="file"

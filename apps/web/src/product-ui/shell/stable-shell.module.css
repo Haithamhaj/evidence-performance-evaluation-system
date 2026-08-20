@@ -1,5 +1,5 @@
 .shell {
-  --shell-rail: 15rem;
+  --shell-rail: 9.25rem;
   min-block-size: 100vh;
   background: var(--cb-color-surface-muted, #f6f8fb);
   color: var(--cb-color-text, #18202b);
@@ -39,7 +39,8 @@
   align-items: center;
   gap: 0.75rem;
   border-block-end: 1px solid rgb(255 255 255 / 12%);
-  padding-inline: 1rem;
+  padding-inline: 0.75rem;
+  font-size: 0.9rem;
   color: inherit;
   font-weight: 750;
   text-decoration: none;
@@ -76,7 +77,8 @@
 
 .navigationItem {
   min-block-size: 2.8rem;
-  padding-inline: 0.75rem;
+  padding-inline: 0.65rem;
+  font-size: 0.88rem;
 }
 
 .navigationItem:hover,
@@ -152,7 +154,9 @@
 
 .content {
   min-block-size: calc(100vh - 4.5rem);
+  max-inline-size: none;
   margin-inline-start: var(--shell-rail);
+  margin-inline-end: 0;
   padding: clamp(1rem, 2.5vw, 2rem);
 }
 

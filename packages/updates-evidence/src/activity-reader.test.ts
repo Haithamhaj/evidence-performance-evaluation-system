@@ -174,7 +174,111 @@ describe("ActivityReader", () => {
       verificationState: "unverified",
     });
   });
+
+  it("groups only the employee's Evidence into pending, confirmed, attribution, gaps, and history", async () => {
+    const findMany = vi.fn(async () => [
+      evidenceRecord({
+        id: "77777777-7777-4777-8777-777777777771",
+        state: "draft",
+        attributionState: "proposed",
+        verificationState: "unverified",
+      }),
+      evidenceRecord({
+        id: "77777777-7777-4777-8777-777777777772",
+        state: "confirmed",
+        attributionState: "acknowledged",
+        verificationState: "supported",
+      }),
+      evidenceRecord({
+        id: "77777777-7777-4777-8777-777777777773",
+        state: "rejected",
+        attributionState: null,
+        verificationState: "rejected",
+      }),
+    ]);
+    const reader = new ActivityReader({ evidenceRecord: { findMany } } as never);
+
+    const result = await reader.evidenceWorkspace({ actorId, projectId, limit: 50 });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { employeeId: actorId, projectId } }),
+    );
+    expect(result.pending).toHaveLength(1);
+    expect(result.confirmed).toHaveLength(1);
+    expect(result.attributionIssues).toHaveLength(1);
+    expect(result.gaps).toHaveLength(1);
+    expect(result.history.map(({ state }) => state)).toEqual(["draft", "confirmed", "rejected"]);
+  });
+
+  it("returns only the employee's confirmed contribution metadata without content bodies", async () => {
+    const findMany = vi.fn(async () => [
+      {
+        id: "77777777-7777-4777-8777-777777777772",
+        occurredAt: new Date("2026-08-14T08:00:00.000Z"),
+        project: { id: projectId, name: "Atlas Delivery" },
+        evidence: { workItem: null },
+        confirmation: {
+          employeeId: actorId,
+          evidenceRevision: {
+            sourceKind: "url",
+            supportedClaim: "Must not leave the owning module",
+            contributionContext: "Must not leave the owning module",
+            verifications: [{ outcome: "supported" }],
+          },
+        },
+      },
+    ]);
+    const reader = new ActivityReader({ acceptedEvidenceEvent: { findMany } } as never);
+
+    const result = await reader.confirmedContributionHistory({ actorId, limit: 20 });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { confirmation: { employeeId: actorId } }, take: 20 }),
+    );
+    expect(result).toEqual([
+      {
+        id: "77777777-7777-4777-8777-777777777772",
+        project: { id: projectId, name: "Atlas Delivery" },
+        workItem: null,
+        sourceKind: "link",
+        verificationState: "supported",
+        confirmedAt: "2026-08-14T08:00:00.000Z",
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("Must not leave the owning module");
+  });
 });
+
+function evidenceRecord(input: {
+  id: string;
+  state: "draft" | "confirmed" | "rejected";
+  attributionState: "proposed" | "acknowledged" | "disputed" | null;
+  verificationState: "unverified" | "supported" | "rejected";
+}) {
+  return {
+    id: input.id,
+    projectId,
+    workstreamId: null,
+    workItemId: null,
+    state: input.state,
+    version: 1,
+    createdAt: new Date("2026-08-13T08:00:00.000Z"),
+    updatedAt: new Date("2026-08-13T09:00:00.000Z"),
+    project: { id: projectId, name: "Atlas Delivery" },
+    workItem: null,
+    revisions: [
+      {
+        revision: 1,
+        revisionKind: "employee_edit",
+        sourceKind: "url",
+        supportedClaim: `Claim ${input.id.slice(-1)}`,
+        contributionContext: "Employee contribution context",
+        attributions: input.attributionState === null ? [] : [{ state: input.attributionState }],
+        verifications: [{ outcome: input.verificationState }],
+      },
+    ],
+  };
+}
 
 function timelineItem(id: string, kind: "update" | "evidence", occurredAt: string) {
   return {

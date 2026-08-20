@@ -70,6 +70,30 @@ export type ResearchQueryResult = Readonly<{
       createdAt: string;
     }>
   >;
+  conclusions: ReadonlyArray<
+    Readonly<{
+      id: string;
+      synthesis: string;
+      answer: string;
+      remainingUncertainty: readonly string[];
+      decision: import("@evaluation/contracts").ConcludeResearchInput["decision"];
+      rationale: string;
+      nextAction: string;
+      confirmerId: string;
+      confirmedAt: string;
+    }>
+  >;
+  appliedLearning: ReadonlyArray<
+    Readonly<{
+      id: string;
+      researchConclusionId: string;
+      targetKind: import("@evaluation/contracts").CreateAppliedLearningInput["target"]["kind"];
+      whatChanged: string;
+      causalRationale: string;
+      confirmerId: string;
+      confirmedAt: string;
+    }>
+  >;
 }>;
 
 export class ResearchQueryService {
@@ -93,6 +117,8 @@ export class ResearchQueryService {
         participantEvents: { orderBy: [{ effectiveAt: "asc" }, { id: "asc" }] },
         transitions: { orderBy: [{ effectiveAt: "asc" }, { id: "asc" }] },
         sourceReferences: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+        researchConclusions: { orderBy: [{ confirmedAt: "asc" }, { id: "asc" }] },
+        appliedLearning: { orderBy: [{ confirmedAt: "asc" }, { id: "asc" }] },
       },
     });
     if (root === null) throw forbidden();
@@ -157,6 +183,26 @@ export class ResearchQueryService {
           addedById: source.addedById,
           createdAt: source.createdAt.toISOString(),
         })),
+      conclusions: root.researchConclusions.map((conclusion) => ({
+        id: conclusion.id,
+        synthesis: conclusion.synthesis,
+        answer: conclusion.answer,
+        remainingUncertainty: stringArray(conclusion.remainingUncertainty),
+        decision: conclusion.decision,
+        rationale: conclusion.rationale,
+        nextAction: conclusion.nextAction,
+        confirmerId: conclusion.confirmerId,
+        confirmedAt: conclusion.confirmedAt.toISOString(),
+      })),
+      appliedLearning: root.appliedLearning.map((learning) => ({
+        id: learning.id,
+        researchConclusionId: learning.researchConclusionId,
+        targetKind: learning.targetKind,
+        whatChanged: learning.whatChanged,
+        causalRationale: learning.causalRationale,
+        confirmerId: learning.confirmerId,
+        confirmedAt: learning.confirmedAt.toISOString(),
+      })),
     };
   }
 
@@ -273,6 +319,12 @@ function retractionPredecessor(citedLocations: unknown): string | null {
     typeof candidate.predecessorSourceReferenceId === "string"
     ? candidate.predecessorSourceReferenceId
     : null;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function assertActiveActor(actor: Actor): void {

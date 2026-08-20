@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { ProgressContractService } from "@evaluation/projects";
 
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
@@ -8,7 +9,7 @@ const projectId = crypto.randomUUID();
 const documentId = crypto.randomUUID();
 const documentVersionId = crypto.randomUUID();
 const request = {
-  principal: { userId: actorId, active: true },
+  principal: { userId: actorId, email: "Codex@pilot.local", active: true, roles: ["employee"] },
   correlationId: crypto.randomUUID(),
 } as never;
 
@@ -58,7 +59,32 @@ describe("daily work protected API contracts", () => {
     }));
     const controller = new DailyWorkController({ dailyWorkspace } as never);
     await controller.myWork(request);
-    expect(dailyWorkspace).toHaveBeenCalledWith({ userId: actorId, active: true });
+    expect(dailyWorkspace).toHaveBeenCalledWith({
+      userId: actorId,
+      active: true,
+      roles: ["employee"],
+    });
+  });
+
+  it("composes Home with the authenticated employee identity", async () => {
+    const load = vi.fn(async () => ({ schemaVersion: "employee-home.v1" }));
+    const controller = new DailyWorkController(
+      {} as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { load } as never,
+    );
+
+    await controller.home(request);
+
+    expect(load).toHaveBeenCalledWith({
+      userId: actorId,
+      email: "Codex@pilot.local",
+      active: true,
+      roles: ["employee"],
+    });
   });
 
   it("orders primary daily groups and keeps private Inbox access employee-scoped", async () => {
@@ -114,14 +140,16 @@ describe("daily work protected API contracts", () => {
       inbox as never,
     );
 
-    await expect(query.dailyWorkspace({ userId: actorId, active: true })).resolves.toMatchObject({
+    await expect(
+      query.dailyWorkspace({ userId: actorId, active: true, roles: ["employee"] }),
+    ).resolves.toMatchObject({
       needsMyAction: [{ id: needsAction.id }],
       today: [{ id: today.id }],
       overdue: [{ id: overdue.id }],
       upcoming: [{ id: upcoming.id }],
     });
     expect(inbox.list).toHaveBeenCalledWith({
-      actor: { userId: actorId, active: true },
+      actor: { userId: actorId, active: true, roles: ["employee"] },
       input: { status: "open", limit: 20, cursor: null },
     });
   });
@@ -273,4 +301,36 @@ describe("daily work protected API contracts", () => {
       }),
     );
   });
+
+  it.each(["propose", "submit", "approve", "reject"] as const)(
+    "projects a role-bearing principal into the strict %s command actor",
+    async (operation) => {
+      const reachedPersistence = new Error("strict command accepted the controller actor");
+      const service = new ProgressContractService(
+        {
+          $transaction: vi.fn(async () => {
+            throw reachedPersistence;
+          }),
+        } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        () => new Date("2026-07-19T08:00:00.000Z"),
+        {} as never,
+      );
+      const controller = new ProgressContractsController(service);
+      const contractId = crypto.randomUUID();
+
+      await expect(
+        Promise.resolve().then(() =>
+          operation === "propose"
+            ? controller.propose(request, projectId, validProposal())
+            : controller[operation](request, projectId, contractId, {
+                expectedVersion: 1,
+                reason: "Continue the protected Progress Contract workflow.",
+              }),
+        ),
+      ).rejects.toBe(reachedPersistence);
+    },
+  );
 });

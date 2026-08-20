@@ -39,7 +39,7 @@ describe("UpdateStructuringProcessor", () => {
         departmentId: expect.any(String),
         inputSchemaVersion: "update-structure-input.v1",
         outputSchemaVersion: "update-structure-output.v2",
-        promptTemplateVersion: "update-structure.v4",
+        promptTemplateVersion: "update-structure.v5",
         classification: "confidential",
         requiresHumanApproval: true,
       });

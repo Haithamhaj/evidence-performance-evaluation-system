@@ -1,0 +1,96 @@
+.workspace {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.header {
+  border-block-end: 1px solid #dfe4ec;
+  padding-block-end: 1rem;
+}
+
+.header p,
+.header h1,
+.header span,
+.github h2,
+.github p,
+.details {
+  margin: 0;
+}
+
+.header p {
+  color: #115ed0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin-block: 0.2rem;
+  font-size: 2rem;
+}
+
+.header span,
+.details dd {
+  color: #56647a;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.connectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.icon {
+  display: grid;
+  block-size: 2.7rem;
+  inline-size: 2.7rem;
+  place-items: center;
+  border-radius: 0.6rem;
+  background: #edf4ff;
+  color: #115ed0;
+}
+
+.status {
+  border-inline-start: 0.22rem solid #d16b13;
+  background: #fff7ed;
+  color: #8a3f08;
+  font-weight: 650;
+  padding: 0.75rem 0.85rem;
+}
+
+.status[data-available="true"] {
+  border-color: #1c8c52;
+  background: #effaf3;
+  color: #176d43;
+}
+
+.details {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.details div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.details dt {
+  font-weight: 650;
+}
+
+.details dd {
+  margin: 0;
+}
+
+@media (max-width: 52rem) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

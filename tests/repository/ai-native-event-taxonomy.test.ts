@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 type Taxonomy = {
+  status: string;
+  telemetryCollectionEnabled: boolean;
   unknownWorkSignalPolicy: string;
   telemetryDestinations: string[];
   workSignals: Array<{ key: string }>;
@@ -19,5 +21,7 @@ describe("AI-native event taxonomy", () => {
     expect(taxonomy.telemetryDestinations).not.toContain("experience_orchestrator");
     expect(taxonomy.telemetryDestinations).not.toContain("protected_command");
     expect(taxonomy.unknownWorkSignalPolicy).toBe("fail_closed");
+    expect(taxonomy.status).toBe("phase_1_runtime_active");
+    expect(taxonomy.telemetryCollectionEnabled).toBe(false);
   });
 });

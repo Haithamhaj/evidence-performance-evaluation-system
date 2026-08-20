@@ -5,8 +5,11 @@ export type ShellNavigationId =
   | "evaluation"
   | "health"
   | "help"
+  | "insights"
   | "manager-operations"
+  | "notifications"
   | "projects"
+  | "reports"
   | "research"
   | "settings"
   | "today"
@@ -39,6 +42,13 @@ type ShellPrincipal = Readonly<{
   roles: readonly string[];
 }>;
 
+export function homeHrefForPrincipal(locale: "ar" | "en", principal: ShellPrincipal): string {
+  const roles = new Set(principal.active ? principal.roles : []);
+  if (roles.has("system_administrator")) return `/${locale}/admin/operations`;
+  if (roles.has("manager")) return `/${locale}/manager/operations`;
+  return `/${locale}/my-work`;
+}
+
 type ContributionContext = Readonly<{
   canContribute: boolean;
   isProjectOwner: boolean;
@@ -55,19 +65,24 @@ export function buildShellModel({
   contribution = noContribution,
   locale,
   principal,
+  workHref,
 }: Readonly<{
   contribution?: ContributionContext;
   locale: "ar" | "en";
   principal: ShellPrincipal;
+  workHref?: string;
 }>): ShellModel {
   const roles = new Set(principal.active ? principal.roles : []);
   const isManager = roles.has("manager");
   const isAdministrator = roles.has("system_administrator");
   const isEmployeeOnly = !isManager && !isAdministrator;
   const navigation: ShellNavigationItem[] = [
-    current("today", "shell.nav.today", `/${locale}`),
-    current("work", "shell.nav.work", `/${locale}/my-work`),
+    current("today", "shell.nav.today", `/${locale}/my-work`),
+    current("work", "shell.nav.work", workHref ?? `/${locale}/my-work`),
     current("projects", "shell.nav.projects", `/${locale}/projects`),
+    current("insights", "shell.nav.insights", `/${locale}/insights`),
+    current("notifications", "shell.nav.notifications", `/${locale}/notifications`),
+    current("reports", "shell.nav.reports", `/${locale}/reports`),
     next("research", "shell.nav.research"),
     current("evaluation", "shell.nav.evaluation", `/${locale}/evaluations/facts`),
   ];

@@ -10,10 +10,16 @@ import {
   Folder,
   GitPullRequest,
   Globe,
+  Image,
+  Link,
+  Mic,
+  Code2,
+  Paperclip,
   Plus,
   Search,
   Settings,
   Sparkles,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { createElement } from "react";
@@ -30,11 +36,17 @@ export type ProductIconName =
   | "github"
   | "globe"
   | "help"
+  | "image"
+  | "link"
+  | "microphone"
+  | "code"
+  | "paperclip"
   | "plus"
   | "research"
   | "search"
   | "settings"
-  | "sparkles";
+  | "sparkles"
+  | "shield";
 
 const icons = {
   briefcase: BriefcaseBusiness,
@@ -48,11 +60,17 @@ const icons = {
   github: GitPullRequest,
   globe: Globe,
   help: CircleHelp,
+  image: Image,
+  link: Link,
+  microphone: Mic,
+  code: Code2,
+  paperclip: Paperclip,
   plus: Plus,
   research: FlaskConical,
   search: Search,
   settings: Settings,
   sparkles: Sparkles,
+  shield: ShieldCheck,
 } as const satisfies Readonly<Record<ProductIconName, typeof BriefcaseBusiness>>;
 
 export type ProductIconProperties = Readonly<{

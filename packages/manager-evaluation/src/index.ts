@@ -32,6 +32,7 @@ export type {
   ManagerSummaryRouter,
 } from "./ports.js";
 export { ManagerEvaluationSubmissionService } from "./submission-service.js";
+export { ManagerEvaluationParticipantReader } from "./participant-reader.js";
 export { createProjectionPolicy, IdentifiedProjectionPolicy } from "./projection-policy.js";
 export { PrivateModeIsolation } from "./private-mode-isolation.js";
 export {

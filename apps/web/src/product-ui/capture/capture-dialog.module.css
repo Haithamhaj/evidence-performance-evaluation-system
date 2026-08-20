@@ -1,0 +1,347 @@
+@layer product {
+  .workspace {
+    display: grid;
+    gap: 1.25rem;
+    color: #18202b;
+  }
+
+  .intro {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    border-block-end: 1px solid #e1e7ef;
+    padding-block: 0 1rem;
+  }
+
+  .intro p {
+    max-inline-size: 34rem;
+    margin: 0;
+    color: #536078;
+    line-height: 1.55;
+  }
+
+  .steps {
+    display: flex;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    color: #64718a;
+    font-size: 0.78rem;
+    list-style: none;
+    white-space: nowrap;
+  }
+
+  .steps li {
+    position: relative;
+  }
+
+  .steps li + li::before {
+    position: absolute;
+    inset-inline-end: calc(100% + 0.35rem);
+    color: #b7c2d2;
+    content: "—";
+  }
+
+  .activeStep {
+    color: #075fea;
+    font-weight: 700;
+  }
+
+  .composer {
+    overflow: hidden;
+    border: 1px solid #cbd6e6;
+    border-radius: 0.65rem;
+    background: #fff;
+    box-shadow: 0 0.1rem 0.3rem rgb(15 23 42 / 4%);
+  }
+
+  .composer > textarea {
+    display: block;
+    inline-size: 100%;
+    min-block-size: 8.5rem;
+    resize: vertical;
+    border: 0;
+    padding: 1rem;
+    color: inherit;
+    font: inherit;
+    line-height: 1.6;
+    outline: none;
+    unicode-bidi: plaintext;
+  }
+
+  .composer:focus-within {
+    border-color: #1366e8;
+    box-shadow: 0 0 0 0.18rem rgb(19 102 232 / 14%);
+  }
+
+  .sources {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0 1rem 0.75rem;
+    list-style: none;
+  }
+
+  .sources li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.65rem;
+    border-block-start: 1px solid #edf1f6;
+    padding-block: 0.75rem 0;
+    color: #445069;
+    font-size: 0.86rem;
+  }
+
+  .sources button,
+  .sourceActions button {
+    display: inline-grid;
+    min-block-size: 2.4rem;
+    min-inline-size: 2.4rem;
+    place-items: center;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: #24334c;
+    cursor: pointer;
+  }
+
+  .sources button:hover,
+  .sourceActions button:hover {
+    background: #edf4ff;
+    color: #075fea;
+  }
+
+  .composerTools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-block-start: 1px solid #edf1f6;
+    padding: 0.45rem 0.7rem;
+    color: #64718a;
+    font-size: 0.75rem;
+  }
+
+  .sourceActions {
+    display: flex;
+    gap: 0.15rem;
+  }
+
+  .loading,
+  .privateNotice,
+  .recovery {
+    margin: 0;
+  }
+
+  .projectContext {
+    display: grid;
+    grid-template-columns: minmax(9rem, auto) minmax(12rem, 1fr);
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid #d8e1ee;
+    border-radius: 0.55rem;
+    background: #f8fbff;
+    padding: 0.75rem;
+    color: #27334a;
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+
+  .projectContext select {
+    min-block-size: 2.6rem;
+    border: 1px solid #b9c8dd;
+    border-radius: 0.45rem;
+    background: #fff;
+    padding-inline: 0.7rem;
+    color: #172033;
+    font: inherit;
+  }
+
+  .loading {
+    color: #075fea;
+  }
+
+  .understanding h3,
+  .clarification h3 {
+    margin: 0 0 0.8rem;
+    font-size: 1rem;
+  }
+
+  .understanding dl {
+    margin: 0;
+    border-block: 1px solid #e6ebf2;
+  }
+
+  .understanding dl > div {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr;
+    gap: 1rem;
+    padding-block: 0.75rem;
+  }
+
+  .understanding dl > div + div {
+    border-block-start: 1px solid #edf1f6;
+  }
+
+  .understanding dt {
+    color: #27334a;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .understanding dd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0;
+    color: #4b5870;
+    font-size: 0.84rem;
+  }
+
+  .understanding dd strong {
+    color: #172033;
+  }
+
+  .understanding dd span {
+    color: #075fea;
+    white-space: nowrap;
+  }
+
+  .clarification h3,
+  .privateNotice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .clarification h3 {
+    color: #075fea;
+  }
+
+  .clarification p {
+    margin: 0 0 0.65rem;
+    font-weight: 650;
+  }
+
+  .clarification textarea {
+    inline-size: 100%;
+    min-block-size: 4.5rem;
+    resize: vertical;
+    border: 1px solid #cbd6e6;
+    border-radius: 0.55rem;
+    padding: 0.75rem;
+    color: inherit;
+    font: inherit;
+  }
+
+  .privateNotice {
+    color: #56647b;
+    font-size: 0.78rem;
+  }
+
+  .recovery {
+    border: 1px solid #d84a4a;
+    border-radius: 0.5rem;
+    background: #fff0f0;
+    padding: 0.7rem 0.8rem;
+    color: #a32727;
+    font-size: 0.84rem;
+  }
+
+  .footer {
+    position: sticky;
+    inset-block-end: 0;
+    display: flex;
+    justify-content: end;
+    gap: 0.75rem;
+    border-block-start: 1px solid #e1e7ef;
+    background: #fff;
+    padding-block-start: 1rem;
+  }
+
+  .primaryAction,
+  .secondaryAction {
+    min-block-size: 2.8rem;
+    border-radius: 0.45rem;
+    padding-inline: 1.1rem;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .primaryAction {
+    border: 1px solid #075fea;
+    background: #075fea;
+    color: #fff;
+  }
+
+  .secondaryAction {
+    border: 1px solid #cbd6e6;
+    background: #fff;
+    color: #26344c;
+  }
+
+  .primaryAction:disabled,
+  .secondaryAction:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .srOnly {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 47.999rem) {
+    .workspace {
+      gap: 1rem;
+    }
+
+    .intro {
+      display: grid;
+    }
+
+    .steps {
+      inline-size: 100%;
+      justify-content: space-between;
+      gap: 0.4rem;
+      font-size: 0.7rem;
+    }
+
+    .understanding dl > div {
+      grid-template-columns: 7rem 1fr;
+    }
+
+    .understanding dd {
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .primaryAction,
+    .secondaryAction {
+      padding-inline: 0.55rem;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .composer,
+    .clarification textarea,
+    .primaryAction,
+    .secondaryAction {
+      border-color: CanvasText;
+    }
+  }
+}

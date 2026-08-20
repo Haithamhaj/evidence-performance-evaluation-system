@@ -46,7 +46,7 @@ describe("workspace contract", () => {
     expect(vitestWorkspace).toContain('"**/*.storybook.test.tsx"');
   });
 
-  it("declares every Phase 0 workspace with one public entry point", async () => {
+  it("declares every Phase 0 workspace with bounded public entry points", async () => {
     for (const app of requiredApps) {
       const manifest = JSON.parse(await readFile(`apps/${app}/package.json`, "utf8"));
       expect(manifest.name).toBe(`@evaluation/${app}`);
@@ -56,7 +56,16 @@ describe("workspace contract", () => {
     for (const pkg of requiredPackages) {
       const manifest = JSON.parse(await readFile(`packages/${pkg}/package.json`, "utf8"));
       expect(manifest.name).toBe(`@evaluation/${pkg}`);
-      expect(manifest.exports).toEqual({ ".": "./src/index.ts" });
+      expect(manifest.exports).toEqual(
+        pkg === "contracts"
+          ? {
+              ".": "./src/index.ts",
+              "./employee-experience": "./src/employee-experience.ts",
+              "./evaluation-fact-view": "./src/evaluation-fact-view.ts",
+              "./insights": "./src/insights.ts",
+            }
+          : { ".": "./src/index.ts" },
+      );
     }
   });
 

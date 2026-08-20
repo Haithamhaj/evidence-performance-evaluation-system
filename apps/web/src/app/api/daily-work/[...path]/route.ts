@@ -23,6 +23,7 @@ import {
   ReviseVoiceTranscriptInputSchema,
   StartVoiceUpdateInputSchema,
   VoiceUpdateSessionSchema,
+  UpdateComposerContextSchema,
 } from "../../../../platform/updates-evidence-contracts";
 import {
   AppliedProgressContractDraftSchema,
@@ -39,8 +40,12 @@ import {
   CreateTaskBodySchema,
   DismissPrivateInboxBodySchema,
   PromotePrivateInboxBodySchema,
+  ReplaceTaskDependenciesBodySchema,
+  TransitionTaskBodySchema,
   UpdateTaskBodySchema,
   WebPrivateInboxItemSchema,
+  WebTaskWorkspaceResponseSchema,
+  WebWorkItemDependenciesSchema,
   WebWorkItemSchema,
 } from "../../../../platform/task-workspace-contracts";
 import {
@@ -57,6 +62,37 @@ import {
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { WhatChangedProjectionSchema } from "../../../../platform/experience-events-contracts";
+import {
+  WebPreparedExperienceCompositionSchema,
+  WebSuggestionFeedbackInputSchema,
+  WebSuggestionFeedbackReceiptSchema,
+} from "../../../../platform/experience-orchestration-contracts";
+import {
+  CaptureUnderstandingInputSchema,
+  WebCaptureUnderstandingSchema,
+} from "../../../../platform/capture-understanding-contracts";
+import {
+  AskTaskAssistantInputSchema,
+  WebTaskAssistantAnswerSchema,
+} from "../../../../platform/task-assistant-contracts";
+import {
+  AskProjectAssistantInputSchema,
+  WebProjectAssistantAnswerSchema,
+} from "../../../../platform/project-assistant-contracts";
+import {
+  WebNotificationInboxSchema,
+  WebNotificationOpenResultSchema,
+  WebNotificationResolveResultSchema,
+} from "../../../../platform/notification-contracts";
+import {
+  WebAdminCapabilitiesSchema,
+  WebAdminHealthSchema,
+  WebArtifactOpenSchema,
+  WebArtifactRevocationSchema,
+  WebExportHistorySchema,
+} from "../../../../platform/operations-contracts";
+
 import {
   fetchProtectedUpstream,
   safeWorkspaceError,
@@ -66,6 +102,7 @@ import {
 type Context = { readonly params: Promise<{ readonly path: string[] }> };
 
 const UuidSchema = z.string().uuid();
+const CurrentSessionSchema = z.object({ active: z.boolean(), userId: UuidSchema }).passthrough();
 const ContextPrepareItemSchema = z.object({ sourceItemId: UuidSchema }).strict();
 const StrictQueueItemSchema = z
   .object({
@@ -109,6 +146,8 @@ const RawQueueSchema = z.preprocess(projectQueueResponse, StrictQueueSchema);
 const StrictSourceSchema = z
   .object({
     id: UuidSchema,
+    provider: z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"]).nullable(),
+    occurredAt: z.iso.datetime({ offset: true }).nullable(),
     title: z.string(),
     summary: z.string().nullable(),
     sourceUrl: z.url().nullable(),
@@ -137,12 +176,29 @@ const UpstreamConfirmedTaskSchema = z.preprocess(
   projectConfirmedTaskResponse,
   StrictConfirmedTaskSchema,
 );
+const UpstreamEvidenceDetailSchema = z.preprocess(
+  projectEvidenceDetailResponse,
+  EvidenceDetailSchema,
+);
 const TimelineQuerySchema = z
   .object({
     projectId: UuidSchema,
     workstreamId: UuidSchema.optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
     cursor: z.string().min(1).max(1_000).optional(),
+  })
+  .strict();
+const WorkItemsQuerySchema = z
+  .object({
+    layout: z.enum(["list", "board", "calendar"]),
+    view: z.enum(["my", "team"]),
+    projectId: UuidSchema.optional(),
+    status: z
+      .enum(["planned", "ready", "in_progress", "blocked", "in_review", "done", "cancelled"])
+      .optional(),
+    search: z.string().trim().min(1).max(200).optional(),
+    sort: z.enum(["due_asc", "updated_desc", "priority_desc"]),
+    cursor: UuidSchema.optional(),
   })
   .strict();
 const UploadMetadataSchema = z
@@ -158,6 +214,100 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
   const path = (await context.params).path;
   if (!safeRequestPath(request, path)) return notFound();
   try {
+    if (path.length === 2 && path[0] === "experience" && path[1] === "session") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/me",
+          schema: CurrentSessionSchema,
+        }),
+      );
+    }
+    if (path.length === 2 && path[0] === "experience" && path[1] === "what-changed") {
+      const afterCursor = new URL(request.url).searchParams.get("afterCursor");
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: `/api/v1/experience/what-changed${afterCursor === null ? "" : `?afterCursor=${encodeURIComponent(afterCursor)}`}`,
+          schema: WhatChangedProjectionSchema,
+        }),
+      );
+    }
+    if (path.length === 2 && path[0] === "experience" && path[1] === "prepared") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/experience-orchestration/prepared",
+          schema: WebPreparedExperienceCompositionSchema,
+        }),
+      );
+    }
+    if (path.length === 1 && path[0] === "update-context") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/daily-work/update-context",
+          schema: UpdateComposerContextSchema,
+        }),
+      );
+    }
+    if (path.length === 1 && path[0] === "notifications") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/operations/notifications?limit=100",
+          schema: WebNotificationInboxSchema,
+        }),
+      );
+    }
+    if (path.length === 1 && path[0] === "reports") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/operations/exports",
+          schema: WebExportHistorySchema,
+        }),
+      );
+    }
+    if (path.length === 2 && path[0] === "admin" && path[1] === "health") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/operations/administration/health",
+          schema: WebAdminHealthSchema,
+        }),
+      );
+    }
+    if (path.length === 2 && path[0] === "admin" && path[1] === "capabilities") {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: "/api/v1/operations/administration/capabilities",
+          schema: WebAdminCapabilitiesSchema,
+        }),
+      );
+    }
+    if (path.length === 1 && path[0] === "work-items") {
+      const entries = [...new URL(request.url).searchParams.entries()];
+      if (new Set(entries.map(([key]) => key)).size !== entries.length) return notFound();
+      const query = WorkItemsQuerySchema.parse(Object.fromEntries(entries));
+      const params = new URLSearchParams({
+        layout: query.layout,
+        sort: query.sort,
+        view: query.view,
+      });
+      if (query.projectId !== undefined) params.set("projectId", query.projectId);
+      if (query.status !== undefined) params.set("status", query.status);
+      if (query.search !== undefined) params.set("search", query.search);
+      if (query.cursor !== undefined) params.set("cursor", query.cursor);
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: `/api/v1/work-items?${params.toString()}`,
+          schema: WebTaskWorkspaceResponseSchema,
+        }),
+      );
+    }
     if (path.length === 1 && path[0] === "timeline") {
       const entries = [...new URL(request.url).searchParams.entries()];
       if (new Set(entries.map(([key]) => key)).size !== entries.length) return notFound();
@@ -234,6 +384,29 @@ export async function GET(request: Request, context: Context): Promise<NextRespo
         }),
       );
     }
+    if (path.length === 2 && path[0] === "work-items" && isUuid(path[1])) {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: `/api/v1/work-items/${path[1]}`,
+          schema: WebWorkItemSchema,
+        }),
+      );
+    }
+    if (
+      path.length === 3 &&
+      path[0] === "work-items" &&
+      isUuid(path[1]) &&
+      path[2] === "dependencies"
+    ) {
+      return json(
+        await fetchProtectedUpstream({
+          method: "GET",
+          path: `/api/v1/work-items/${path[1]}/dependencies`,
+          schema: WebWorkItemDependenciesSchema,
+        }),
+      );
+    }
     return notFound();
   } catch (error) {
     if (error instanceof z.ZodError) return notFound();
@@ -252,19 +425,21 @@ export async function POST(request: Request, context: Context): Promise<NextResp
     body = await request.json();
     if (path.length === 3 && path.join("/") === "context/items/prepare") {
       const input = ContextPrepareItemSchema.parse(body);
-      await fetchProtectedUpstream({
-        method: "POST",
-        path: `/api/v1/context/items/${input.sourceItemId}/analyze`,
-        body: {},
-        schema: UpstreamAcknowledgementSchema,
+      return protectedContextCall(async () => {
+        await fetchProtectedUpstream({
+          method: "POST",
+          path: `/api/v1/context/items/${input.sourceItemId}/analyze`,
+          body: {},
+          schema: UpstreamAcknowledgementSchema,
+        });
+        await fetchProtectedUpstream({
+          method: "POST",
+          path: "/api/v1/context/task-drafts",
+          body: { sourceItemId: input.sourceItemId },
+          schema: UpstreamAcknowledgementSchema,
+        });
+        return json({});
       });
-      await fetchProtectedUpstream({
-        method: "POST",
-        path: "/api/v1/context/task-drafts",
-        body: { sourceItemId: input.sourceItemId },
-        schema: UpstreamAcknowledgementSchema,
-      });
-      return json({});
     }
     if (
       path.length === 3 &&
@@ -284,18 +459,20 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         path[2] === "correct" && projectHandle !== null
           ? openContextReviewHandle(projectHandle, "project")
           : null;
-      await post(
-        `/api/v1/context/project-suggestions/${suggestion.id}/${path[2]}`,
-        path[2] === "confirm"
-          ? { expectedRevision: suggestion.revision, reason: input.reason }
-          : {
-              expectedRevision: suggestion.revision,
-              projectId: project?.projectId ?? null,
-              reason: input.reason,
-            },
-        UpstreamAcknowledgementSchema,
-      );
-      return json({});
+      return protectedContextCall(async () => {
+        await post(
+          `/api/v1/context/project-suggestions/${suggestion.id}/${path[2]}`,
+          path[2] === "confirm"
+            ? { expectedRevision: suggestion.revision, reason: input.reason }
+            : {
+                expectedRevision: suggestion.revision,
+                projectId: project?.projectId ?? null,
+                reason: input.reason,
+              },
+          UpstreamAcknowledgementSchema,
+        );
+        return json({});
+      });
     }
     if (
       path.length === 3 &&
@@ -306,32 +483,114 @@ export async function POST(request: Request, context: Context): Promise<NextResp
       const input = ContextConfirmTaskInputSchema.parse(body);
       const draft = openContextReviewHandle(input.handle, "task_draft");
       const project = openContextReviewHandle(input.draft.projectHandle, "project");
-      const upstream = await fetchProtectedUpstream({
-        method: "POST",
-        path: `/api/v1/context/task-drafts/${draft.id}/confirm`,
-        body: {
-          expectedRevision: draft.revision,
-          reason: input.reason,
-          draft: {
-            title: input.draft.title,
-            description: input.draft.description,
-            projectId: project.projectId,
-            workstreamId: draft.workstreamId ?? null,
-            assigneeId: draft.employeeId,
-            dueAt: draft.dueAt ?? null,
-            acceptanceConditions: draft.acceptanceConditions ?? [],
+      return protectedContextCall(async () => {
+        const upstream = await fetchProtectedUpstream({
+          method: "POST",
+          path: `/api/v1/context/task-drafts/${draft.id}/confirm`,
+          body: {
+            expectedRevision: draft.revision,
+            reason: input.reason,
+            draft: {
+              title: input.draft.title,
+              description: input.draft.description,
+              projectId: project.projectId,
+              workstreamId: draft.workstreamId ?? null,
+              assigneeId: draft.employeeId,
+              dueAt: draft.dueAt ?? null,
+              acceptanceConditions: draft.acceptanceConditions ?? [],
+            },
           },
-        },
-        schema: UpstreamConfirmedTaskSchema,
+          schema: UpstreamConfirmedTaskSchema,
+        });
+        return json(
+          ContextConfirmTaskResultSchema.parse({ task: { title: upstream.workItem.title } }),
+        );
       });
-      return json(
-        ContextConfirmTaskResultSchema.parse({ task: { title: upstream.workItem.title } }),
-      );
     }
   } catch {
     return invalid();
   }
   try {
+    if (path.length === 2 && path[0] === "experience" && path[1] === "capture-understand") {
+      const input = CaptureUnderstandingInputSchema.parse(body);
+      return await post(
+        "/api/v1/experience-orchestration/capture/understand",
+        input,
+        WebCaptureUnderstandingSchema,
+      );
+    }
+    if (
+      path.length === 4 &&
+      path[0] === "experience" &&
+      path[1] === "prepared" &&
+      isUuid(path[2]) &&
+      path[3] === "feedback"
+    ) {
+      return await post(
+        `/api/v1/experience-orchestration/prepared/${path[2]}/feedback`,
+        WebSuggestionFeedbackInputSchema.parse(body),
+        WebSuggestionFeedbackReceiptSchema,
+      );
+    }
+    if (
+      path.length === 3 &&
+      path[0] === "notifications" &&
+      isUuid(path[1]) &&
+      ["open", "resolve"].includes(path[2]!)
+    ) {
+      z.object({}).strict().parse(body);
+      const upstreamPath = `/api/v1/operations/notifications/${path[1]}/${path[2]}`;
+      return path[2] === "open"
+        ? await post(upstreamPath, {}, WebNotificationOpenResultSchema)
+        : await post(upstreamPath, {}, WebNotificationResolveResultSchema);
+    }
+    if (
+      path.length === 4 &&
+      path[0] === "reports" &&
+      path[1] === "artifacts" &&
+      isUuid(path[2]) &&
+      path[3] === "open"
+    ) {
+      z.object({}).strict().parse(body);
+      return await post(
+        `/api/v1/operations/exports/artifacts/${path[2]}/open`,
+        {},
+        WebArtifactOpenSchema,
+      );
+    }
+    if (
+      path.length === 4 &&
+      path[0] === "reports" &&
+      path[1] === "artifacts" &&
+      isUuid(path[2]) &&
+      path[3] === "revoke"
+    ) {
+      const input = z
+        .object({ reason: z.string().trim().min(1).max(2_000) })
+        .strict()
+        .parse(body);
+      return await post(
+        `/api/v1/operations/exports/artifacts/${path[2]}/revoke`,
+        input,
+        WebArtifactRevocationSchema,
+      );
+    }
+    if (path.length === 2 && path[0] === "experience" && path[1] === "task-assistant") {
+      const input = AskTaskAssistantInputSchema.parse(body);
+      return await post(
+        "/api/v1/experience-orchestration/task-assistant/ask",
+        input,
+        WebTaskAssistantAnswerSchema,
+      );
+    }
+    if (path.length === 2 && path[0] === "experience" && path[1] === "project-assistant") {
+      const input = AskProjectAssistantInputSchema.parse(body);
+      return await post(
+        "/api/v1/experience-orchestration/project-assistant/ask",
+        input,
+        WebProjectAssistantAnswerSchema,
+      );
+    }
     if (path.length === 1 && path[0] === "private-inbox") {
       return await post(
         "/api/v1/private-inbox",
@@ -341,6 +600,18 @@ export async function POST(request: Request, context: Context): Promise<NextResp
     }
     if (path.length === 1 && path[0] === "work-items") {
       return await post("/api/v1/work-items", CreateTaskBodySchema.parse(body), WebWorkItemSchema);
+    }
+    if (
+      path.length === 3 &&
+      path[0] === "work-items" &&
+      isUuid(path[1]) &&
+      path[2] === "transitions"
+    ) {
+      return await post(
+        `/api/v1/work-items/${path[1]}/transitions`,
+        TransitionTaskBodySchema.parse(body),
+        WebWorkItemSchema,
+      );
     }
     if (
       path.length === 3 &&
@@ -497,14 +768,14 @@ export async function POST(request: Request, context: Context): Promise<NextResp
       return await post(
         "/api/v1/evidence",
         CreateManualEvidenceInputSchema.parse(body),
-        EvidenceDetailSchema,
+        UpstreamEvidenceDetailSchema,
       );
     }
     if (path.length === 2 && path[0] === "evidence" && path[1] === "github-suggestions") {
       return await post(
         "/api/v1/evidence/github-suggestions",
         CreateGitHubEvidenceInputSchema.parse(body),
-        EvidenceDetailSchema,
+        UpstreamEvidenceDetailSchema,
       );
     }
     if (path.length === 3 && path[0] === "evidence" && isUuid(path[1])) {
@@ -512,7 +783,7 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         return await post(
           `/api/v1/evidence/${path[1]}/revisions`,
           ReviseEvidenceInputSchema.parse(body),
-          EvidenceDetailSchema,
+          UpstreamEvidenceDetailSchema,
         );
       }
       if (path[2] === "confirm") {
@@ -526,7 +797,7 @@ export async function POST(request: Request, context: Context): Promise<NextResp
         return await post(
           `/api/v1/evidence/${path[1]}/reject`,
           RejectEvidenceInputSchema.parse(body),
-          EvidenceDetailSchema,
+          UpstreamEvidenceDetailSchema,
         );
       }
     }
@@ -542,7 +813,7 @@ export async function PATCH(request: Request, context: Context): Promise<NextRes
   if (
     !safeRequestPath(request, path) ||
     new URL(request.url).search !== "" ||
-    path.length !== 2 ||
+    ![2, 3].includes(path.length) ||
     path[0] !== "work-items" ||
     !isUuid(path[1])
   ) {
@@ -555,6 +826,17 @@ export async function PATCH(request: Request, context: Context): Promise<NextRes
     return invalid();
   }
   try {
+    if (path.length === 3 && path[2] === "dependencies") {
+      return json(
+        await fetchProtectedUpstream({
+          path: `/api/v1/work-items/${path[1]}/dependencies`,
+          schema: WebWorkItemDependenciesSchema,
+          method: "PATCH",
+          body: ReplaceTaskDependenciesBodySchema.parse(body),
+        }),
+      );
+    }
+    if (path.length !== 2) return notFound();
     return json(
       await fetchProtectedUpstream({
         path: `/api/v1/work-items/${path[1]}`,
@@ -681,6 +963,8 @@ function projectSource(value: unknown): unknown {
   if (source === null) return value;
   return {
     id: source.id,
+    provider: source.provider ?? null,
+    occurredAt: source.occurredAt ?? null,
     title: source.title,
     summary: source.summary,
     sourceUrl: source.sourceUrl,
@@ -709,6 +993,25 @@ function projectConfirmedTaskResponse(value: unknown): unknown {
   return { workItem: workItem === null ? response.workItem : { title: workItem.title } };
 }
 
+function projectEvidenceDetailResponse(value: unknown): unknown {
+  const response = objectValue(value);
+  if (response === null) return value;
+  return {
+    id: response.id,
+    revisionId: response.revisionId,
+    projectId: response.projectId,
+    workstreamId: response.workstreamId,
+    workItemId: response.workItemId,
+    state: response.state,
+    revision: response.revision,
+    revisionKind: response.revisionKind,
+    sourceKind: response.sourceKind,
+    supportedClaim: response.supportedClaim,
+    contributionContext: response.contributionContext,
+    executionMode: response.executionMode,
+  };
+}
+
 function objectValue(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -725,8 +1028,20 @@ function projectReviewQueue(
   const safeSource = (sourceItemId: string) => {
     const source = sourceById.get(sourceItemId);
     return source === undefined
-      ? { title: "Private source context", summary: null, sourceUrl: null }
-      : { title: source.title, summary: source.summary, sourceUrl: source.sourceUrl };
+      ? {
+          provider: null,
+          observedAt: null,
+          title: "Private source context",
+          summary: null,
+          sourceUrl: null,
+        }
+      : {
+          provider: source.provider,
+          observedAt: source.occurredAt,
+          title: source.title,
+          summary: source.summary,
+          sourceUrl: source.sourceUrl,
+        };
   };
   const projectHandle = (projectId: string | null) =>
     projectId === null
@@ -825,6 +1140,14 @@ function safeError(error: unknown): NextResponse {
     { messageKey: safe.messageKey, correlationId: safe.correlationId },
     { status: safe.status },
   );
+}
+
+async function protectedContextCall(action: () => Promise<NextResponse>): Promise<NextResponse> {
+  try {
+    return await action();
+  } catch (error) {
+    return safeError(error);
+  }
 }
 
 export const PUT = () => notFound();

@@ -15,21 +15,33 @@ import styles from "./focused-dialog.module.css";
 export type FocusedDialogProperties = Readonly<{
   children: ReactNode;
   closeLabel: string;
+  layout?: "default" | "workspace";
   title: ReactNode;
   trigger: ReactNode;
 }>;
 
-export function FocusedDialog({ children, closeLabel, title, trigger }: FocusedDialogProperties) {
+export function FocusedDialog({
+  children,
+  closeLabel,
+  layout = "default",
+  title,
+  trigger,
+}: FocusedDialogProperties) {
   return createElement(
     DialogTrigger,
     null,
     trigger,
     createElement(
       ModalOverlay,
-      { className: styles.overlay!, isDismissable: true },
+      {
+        className: `${styles.overlay!} ${layout === "workspace" ? styles.workspaceOverlay! : ""}`,
+        isDismissable: true,
+      },
       createElement(
         Modal,
-        { className: styles.modal! },
+        {
+          className: `${styles.modal!} ${layout === "workspace" ? styles.workspaceModal! : ""}`,
+        },
         createElement(
           Dialog,
           { className: styles.dialog! },

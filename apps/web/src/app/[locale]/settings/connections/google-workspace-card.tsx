@@ -104,7 +104,7 @@ export function GoogleWorkspaceCardView({
   return (
     <section className="panel connectionCard" aria-labelledby="google-workspace-heading">
       <p className="eyebrow">{catalog["connections.title"]}</p>
-      <h1 id="google-workspace-heading">{catalog["connections.google.title"]}</h1>
+      <h2 id="google-workspace-heading">{catalog["connections.google.title"]}</h2>
       <p>{catalog["connections.google.intro"]}</p>
       <p className="boundaryNote">{catalog["connections.google.ownerOnly"]}</p>
       <dl className="connectionStatus">

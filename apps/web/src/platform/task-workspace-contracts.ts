@@ -42,6 +42,11 @@ export const WebWorkItemSchema = z
       .default([]),
     collaboratorIds: z.array(WebUuidSchema).default([]),
     allowedActions: z.array(z.enum(["edit", "transition", "assign", "add_update"])),
+    allowedTransitions: z
+      .array(
+        z.enum(["planned", "ready", "in_progress", "blocked", "in_review", "done", "cancelled"]),
+      )
+      .default([]),
   })
   .strict();
 
@@ -51,6 +56,8 @@ export const WebPrivateInboxItemSchema = z
     employeeId: WebUuidSchema,
     text: z.string().trim().min(1).max(4_000),
     projectId: WebUuidSchema.nullable(),
+    sourceType: z.enum(["text", "link", "code", "file", "image"]),
+    sourceUploadId: WebUuidSchema.nullable(),
     status: z.enum(["open", "promoted", "dismissed"]),
     promotedWorkItemId: WebUuidSchema.nullable(),
     version: z.number().int().positive(),
@@ -65,6 +72,18 @@ export const WebTaskWorkspaceResponseSchema = z
     layout: z.enum(["list", "board", "calendar"]),
     items: z.array(WebWorkItemSchema),
     nextCursor: WebUuidSchema.nullable(),
+    counts: z
+      .object({
+        all: z.number().int().nonnegative(),
+        planned: z.number().int().nonnegative(),
+        ready: z.number().int().nonnegative(),
+        in_progress: z.number().int().nonnegative(),
+        blocked: z.number().int().nonnegative(),
+        in_review: z.number().int().nonnegative(),
+        done: z.number().int().nonnegative(),
+        cancelled: z.number().int().nonnegative(),
+      })
+      .strict(),
   })
   .strict();
 
@@ -72,8 +91,19 @@ export const CapturePrivateInboxBodySchema = z
   .object({
     text: z.string().trim().min(1).max(4_000),
     projectId: WebUuidSchema.nullable().default(null),
+    sourceType: z.enum(["text", "link", "code", "file", "image"]).default("text"),
+    sourceUploadId: WebUuidSchema.nullable().default(null),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (["file", "image"].includes(value.sourceType) !== (value.sourceUploadId !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceUploadId"],
+        message: "private file capture requires a staged upload",
+      });
+    }
+  });
 
 export const DismissPrivateInboxBodySchema = z
   .object({
@@ -84,6 +114,7 @@ export const DismissPrivateInboxBodySchema = z
 
 export const CreateTaskBodySchema = z
   .object({
+    clientRequestId: WebUuidSchema,
     title: z.string().trim().min(1).max(200),
     description: z.string().trim().max(8_000).default(""),
     projectId: WebUuidSchema,
@@ -127,6 +158,59 @@ export const UpdateTaskBodySchema = z
     acceptanceConditions: z.array(z.string().trim().min(1).max(500)).max(50).optional(),
     blocker: z.string().trim().min(1).max(2_000).nullable().optional(),
     nextAction: z.string().trim().min(1).max(2_000).nullable().optional(),
+    expectedVersion: z.number().int().positive(),
+    reason: z.string().trim().min(1).max(1_000),
+  })
+  .strict();
+
+export const ReplaceTaskDependenciesBodySchema = z
+  .object({
+    dependsOnWorkItemIds: z.array(WebUuidSchema).max(100),
+    expectedVersion: z.number().int().positive(),
+    reason: z.string().trim().min(1).max(1_000),
+  })
+  .strict();
+
+const WebWorkItemDependencyRefSchema = z
+  .object({
+    id: WebUuidSchema,
+    title: z.string().trim().min(1).max(200),
+    status: z.enum([
+      "planned",
+      "ready",
+      "in_progress",
+      "blocked",
+      "in_review",
+      "done",
+      "cancelled",
+    ]),
+  })
+  .strict();
+
+export const WebWorkItemDependenciesSchema = z
+  .object({
+    workItemId: WebUuidSchema,
+    version: z.number().int().positive(),
+    readiness: z.enum(["ready", "blocked_by_dependency"]),
+    allowedTransitions: z.array(
+      z.enum(["planned", "ready", "in_progress", "blocked", "in_review", "done", "cancelled"]),
+    ),
+    dependsOn: z.array(WebWorkItemDependencyRefSchema).max(100),
+    blocks: z.array(WebWorkItemDependencyRefSchema).max(100),
+  })
+  .strict();
+
+export const TransitionTaskBodySchema = z
+  .object({
+    status: z.enum([
+      "planned",
+      "ready",
+      "in_progress",
+      "blocked",
+      "in_review",
+      "done",
+      "cancelled",
+    ]),
     expectedVersion: z.number().int().positive(),
     reason: z.string().trim().min(1).max(1_000),
   })

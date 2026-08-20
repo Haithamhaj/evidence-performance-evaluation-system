@@ -6,11 +6,15 @@ import {
   type EvaluationFactView,
 } from "@evaluation/contracts";
 import type { ValidatedAiResult } from "@evaluation/ai-routing";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   EvaluationJustificationOutputSchema,
   assertEvaluationJustificationSemantics,
   buildEvaluationJustificationRequest,
+  EVALUATION_JUSTIFICATION_PROMPT_VERSION,
+  EVALUATION_JUSTIFICATION_ROUTE,
+  EVALUATION_JUSTIFICATION_TRUSTED_PROMPT,
 } from "./prompts.js";
 
 export interface EvaluationWordingRouter {
@@ -44,20 +48,36 @@ export interface EvaluationWordingContextReader {
   ): Promise<EvaluationWordingContext>;
 }
 
+export interface EvaluationPromptArtifactReader {
+  read(
+    routeKey: string,
+    version: string,
+  ): Promise<Readonly<{
+    id: string;
+    routeKey: string;
+    version: string;
+    bodyHash: string;
+    trustedBody: string;
+  }> | null>;
+}
+
 export class EvaluationWordingService {
   readonly #router: EvaluationWordingRouter;
   readonly #contextReader: EvaluationWordingContextReader;
+  readonly #promptArtifacts: EvaluationPromptArtifactReader;
   readonly #timeoutMs: number;
 
   constructor(
     dependencies: Readonly<{
       router: EvaluationWordingRouter;
       contextReader: EvaluationWordingContextReader;
+      promptArtifacts: EvaluationPromptArtifactReader;
       timeoutMs: number;
     }>,
   ) {
     this.#router = dependencies.router;
     this.#contextReader = dependencies.contextReader;
+    this.#promptArtifacts = dependencies.promptArtifacts;
     this.#timeoutMs = dependencies.timeoutMs;
   }
 
@@ -104,7 +124,28 @@ export class EvaluationWordingService {
       );
     }
     const chosenFacts = parsed.sourceReferences.map((sourceId) => byId.get(sourceId)!);
+    const prompt = await this.#promptArtifacts.read(
+      EVALUATION_JUSTIFICATION_ROUTE,
+      EVALUATION_JUSTIFICATION_PROMPT_VERSION,
+    );
+    const expectedPromptHash = createHash("sha256")
+      .update(EVALUATION_JUSTIFICATION_TRUSTED_PROMPT)
+      .digest("hex");
+    if (
+      prompt === null ||
+      prompt.routeKey !== EVALUATION_JUSTIFICATION_ROUTE ||
+      prompt.version !== EVALUATION_JUSTIFICATION_PROMPT_VERSION ||
+      prompt.bodyHash !== expectedPromptHash ||
+      createHash("sha256").update(prompt.trustedBody).digest("hex") !== expectedPromptHash
+    ) {
+      throw new AppError(
+        "EVALUATION_AI_PROMPT_ARTIFACT_MISMATCH",
+        "errors.evaluation.aiUnavailable",
+        503,
+      );
+    }
     const governed = buildEvaluationJustificationRequest({
+      prompt: { artifactId: prompt.id, sha256: prompt.bodyHash },
       selectedRating: parsed.selectedRating,
       selectedAnchor: anchor.text,
       chosenFacts,
@@ -131,7 +172,7 @@ export class EvaluationWordingService {
         classification: "confidential",
         timeoutMs: this.#timeoutMs,
         requiresHumanApproval: true,
-        correlationId: crypto.randomUUID(),
+        correlationId: randomUUID(),
       },
       async () => ({ outputReference: assignmentReference }),
     );

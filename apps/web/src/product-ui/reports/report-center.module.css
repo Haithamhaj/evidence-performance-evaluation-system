@@ -1,0 +1,127 @@
+.center {
+  display: grid;
+  gap: 1rem;
+}
+
+.center > header {
+  border-block-end: 1px solid #dfe4ec;
+  padding-block-end: 1rem;
+}
+
+.center h1,
+.center h2,
+.center p,
+.center ol,
+.center span {
+  margin: 0;
+}
+
+.center > header p {
+  color: #115ed0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.center > header h1 {
+  margin-block: 0.2rem;
+  font-size: 2rem;
+}
+
+.center > header span,
+.copy p,
+.boundary,
+.notice {
+  color: #56647a;
+}
+
+.notice:empty {
+  display: none;
+}
+
+.list {
+  display: grid;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(15rem, 0.55fr);
+  align-items: start;
+  gap: 0.9rem;
+  border-block-end: 1px solid #e2e7ee;
+  padding: 1rem 0.2rem;
+}
+
+.icon {
+  display: grid;
+  block-size: 2.5rem;
+  inline-size: 2.5rem;
+  place-items: center;
+  border-radius: 0.55rem;
+  background: #edf4ff;
+  color: #115ed0;
+}
+
+.copy,
+.actions,
+.actions label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.copy h2 {
+  font-size: 1rem;
+}
+
+.copy strong {
+  justify-self: start;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #45536a;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.copy strong[data-state="READY"] {
+  background: #e9f7ef;
+  color: #176b40;
+}
+
+.actions input,
+.actions button {
+  min-block-size: 2.25rem;
+  border: 1px solid #c8d1de;
+  border-radius: 0.4rem;
+  padding-inline: 0.7rem;
+}
+
+.actions button {
+  background: #1764db;
+  color: #fff;
+}
+
+.actions .danger {
+  background: #fff;
+  color: #9b2c2c;
+}
+
+.empty {
+  display: grid;
+  min-block-size: 12rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.6rem;
+  color: #526076;
+}
+
+@media (max-width: 48rem) {
+  .item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .actions {
+    grid-column: 1 / -1;
+  }
+}

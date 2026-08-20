@@ -222,5 +222,148 @@ export const StartResearchReviewInputSchema = z
   })
   .strict();
 
+export const CreateWebResearchRecordInputSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    question: z.string().trim().min(1).max(4_000),
+    relevance: z.string().trim().min(1).max(8_000),
+    assumptions: z.array(z.string().trim().min(1).max(2_000)).max(50),
+    constraints: z.array(z.string().trim().min(1).max(2_000)).max(50),
+  })
+  .strict();
+
+export const WebResearchRecordSchema = z
+  .object({
+    handle: ResearchHandleSchema,
+    state: z.enum(["DRAFT", "ACTIVE", "CONCLUDED", "CANCELLED", "SUPERSEDED"]),
+    version: z.number().int().positive(),
+    question: z.string().trim().min(1).max(4_000),
+    objective: z.string().trim().min(1).max(4_000),
+    assumptions: z.array(z.string().trim().min(1).max(2_000)).max(50),
+    constraints: z.array(z.string().trim().min(1).max(2_000)).max(50),
+    knownUncertainty: z.array(z.string().trim().min(1).max(2_000)).max(50),
+    decisionQuestion: z.string().trim().min(1).max(4_000),
+    sources: z.array(
+      z
+        .object({
+          title: z.string().trim().min(1).max(500),
+          url: z.url().nullable(),
+          relevance: z.string().trim().min(1).max(4_000),
+          credibility: z.string().trim().min(1).max(4_000),
+        })
+        .strict(),
+    ),
+    decision: z
+      .object({
+        synthesis: z.string().trim().min(1).max(8_000),
+        answer: z.string().trim().min(1).max(8_000),
+        remainingUncertainty: z.array(z.string().trim().min(1).max(2_000)).max(50),
+        decision: z.enum([
+          "ADOPT",
+          "REJECT",
+          "DEFER",
+          "REFINE",
+          "RUN_ANOTHER_EXPERIMENT",
+          "NO_DECISION",
+        ]),
+        rationale: z.string().trim().min(1).max(8_000),
+        nextAction: z.string().trim().min(1).max(4_000),
+        confirmedAt: UtcInstantSchema,
+      })
+      .strict()
+      .nullable(),
+    appliedLearning: z.array(
+      z
+        .object({
+          targetKind: z.enum([
+            "WORK_ITEM",
+            "UPDATE",
+            "DOCUMENT_VERSION",
+            "PROGRESS_CONTRACT_PROPOSAL",
+            "CRITERION_PROPOSAL",
+            "RESEARCH",
+            "EXPERIMENT",
+            "KNOWLEDGE_TRANSFER",
+          ]),
+          whatChanged: z.string().trim().min(1).max(8_000),
+          causalRationale: z.string().trim().min(1).max(8_000),
+          confirmedAt: UtcInstantSchema,
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+export const WebResearchRecordListSchema = z.array(WebResearchRecordSchema).max(20);
+
+export const WebExperimentRecordSchema = z
+  .object({
+    handle: ResearchHandleSchema,
+    title: z.string().trim().min(1).max(500),
+    state: z.enum([
+      "DRAFT",
+      "READY",
+      "RUNNING",
+      "RESULT_RECORDED",
+      "CONCLUDED",
+      "ABANDONED",
+      "SUPERSEDED",
+    ]),
+    version: z.number().int().positive(),
+    question: z.string().trim().min(1).max(4_000),
+    baseline: z.string().trim().min(1).max(4_000),
+    measures: z.array(z.string().trim().min(1).max(500)).max(50),
+    testCases: z.array(z.string().trim().min(1).max(2_000)).max(100),
+    controls: z.array(z.string().trim().min(1).max(4_000)).max(50),
+    versions: z.array(z.string().trim().min(1).max(2_000)).max(50),
+    reproducibility: z.string().trim().min(1).max(8_000),
+    result: z.string().trim().min(1).max(8_000).nullable(),
+    resultStatus: z.enum(["COMPLETED", "FAILED", "INVALID", "STOPPED"]).nullable(),
+    humanConclusion: z.string().trim().min(1).max(8_000).nullable(),
+    limitations: z.array(z.string().trim().min(1).max(2_000)).max(50),
+  })
+  .strict();
+export const WebExperimentRecordListSchema = z.array(WebExperimentRecordSchema).max(20);
+export const CreateWebExperimentInputSchema = z
+  .object({
+    title: z.string().trim().min(1).max(500),
+    hypothesis: z.string().trim().min(1).max(4_000),
+    baseline: z.string().trim().min(1).max(4_000),
+    measure: z.string().trim().min(1).max(500),
+    testCase: z.string().trim().min(1).max(2_000),
+    control: z.string().trim().min(1).max(4_000),
+    versions: z.string().trim().min(1).max(2_000),
+    reproducibility: z.string().trim().min(1).max(8_000),
+  })
+  .strict();
+
+export const ConfirmWebResearchDecisionInputSchema = z
+  .object({
+    synthesis: z.string().trim().min(1).max(8_000),
+    answer: z.string().trim().min(1).max(8_000),
+    remainingUncertainty: z.array(z.string().trim().min(1).max(2_000)).max(50),
+    decision: z.enum([
+      "ADOPT",
+      "REJECT",
+      "DEFER",
+      "REFINE",
+      "RUN_ANOTHER_EXPERIMENT",
+      "NO_DECISION",
+    ]),
+    rationale: z.string().trim().min(1).max(8_000),
+    nextAction: z.string().trim().min(1).max(4_000),
+    source: z
+      .object({
+        url: z.url().max(2_000),
+        title: z.string().trim().min(1).max(500),
+        relevance: z.string().trim().min(1).max(4_000),
+        credibility: z.string().trim().min(1).max(4_000),
+      })
+      .strict(),
+    appliedChange: z.string().trim().min(1).max(8_000),
+  })
+  .strict();
+
 export type WebResearchProposal = z.infer<typeof WebResearchProposalSchema>;
 export type WebResearchSourceReview = z.infer<typeof WebResearchSourceReviewSchema>;
+export type WebResearchRecord = z.infer<typeof WebResearchRecordSchema>;
+export type WebExperimentRecord = z.infer<typeof WebExperimentRecordSchema>;

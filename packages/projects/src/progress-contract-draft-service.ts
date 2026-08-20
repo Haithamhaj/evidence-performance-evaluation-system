@@ -12,7 +12,7 @@ import { z } from "zod";
 import {
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_V1,
   PROJECT_PROGRESS_CONTRACT_OUTPUT_SCHEMA_VERSION,
-  PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
+  PROJECT_PROGRESS_CONTRACT_PROMPT_V3,
   PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION,
   PROJECT_PROGRESS_CONTRACT_ROUTE_KEY,
 } from "./progress-contract-draft-artifacts.js";
@@ -33,7 +33,7 @@ const RequestDraftSchema = z
     locale: z.string().trim().min(2).max(20),
     timezone: z.string().trim().min(1).max(100),
     effectiveAt: z.iso.datetime({ offset: true }),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 const ReviseDraftSchema = z
@@ -43,7 +43,7 @@ const ReviseDraftSchema = z
     requestId: z.string().uuid(),
     expectedRevision: z.number().int().nonnegative(),
     content: z.unknown(),
-    reason: z.string().trim().min(1).max(1_000),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 const RejectDraftSchema = ReviseDraftSchema.omit({ content: true });
@@ -194,12 +194,12 @@ export class ProgressContractDraftService {
         select: { id: true, bodyHash: true, trustedBody: true },
       });
       const expectedPromptHash = createHash("sha256")
-        .update(PROJECT_PROGRESS_CONTRACT_PROMPT_V2)
+        .update(PROJECT_PROGRESS_CONTRACT_PROMPT_V3)
         .digest("hex");
       if (
         prompt === null ||
         prompt.bodyHash !== expectedPromptHash ||
-        prompt.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V2
+        prompt.trustedBody !== PROJECT_PROGRESS_CONTRACT_PROMPT_V3
       ) {
         throw new AppError("AI_PROMPT_ARTIFACT_MISMATCH", "errors.ai.promptArtifactMismatch", 500);
       }

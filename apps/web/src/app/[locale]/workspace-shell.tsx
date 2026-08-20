@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { buildShellModel } from "../../product-ui/shell/shell-model";
 import { StableShell } from "../../product-ui/shell/stable-shell";
 import { loadShellContext } from "../../server/shell/load-shell-context";
+import { experienceStreamEnabled } from "../../server/experience-stream/experience-stream-flag";
+import { workWorkspaceEnabled } from "../../server/work/work-workspace-flag";
 
 type WorkspaceShellProperties = {
   readonly authAction?: "login" | "logout";
@@ -12,6 +14,7 @@ type WorkspaceShellProperties = {
   readonly children?: ReactNode;
   readonly locale: Locale;
   readonly localeSwitchHref: string;
+  readonly principal?: Readonly<{ active: boolean; roles: readonly string[]; userId: string }>;
 };
 
 export async function WorkspaceShell({
@@ -20,8 +23,9 @@ export async function WorkspaceShell({
   children,
   locale,
   localeSwitchHref,
+  principal: providedPrincipal,
 }: WorkspaceShellProperties) {
-  const { principal } = await loadShellContext();
+  const principal = providedPrincipal ?? (await loadShellContext()).principal;
   return createElement(
     StableShell,
     {
@@ -29,7 +33,12 @@ export async function WorkspaceShell({
       catalog,
       locale,
       localeSwitchHref,
-      model: buildShellModel({ locale, principal }),
+      model: buildShellModel({
+        locale,
+        principal,
+        workHref: workWorkspaceEnabled() ? `/${locale}/tasks` : `/${locale}/my-work`,
+      }),
+      experienceStream: experienceStreamEnabled(),
     },
     children,
   );

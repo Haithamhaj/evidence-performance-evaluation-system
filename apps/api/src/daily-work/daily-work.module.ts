@@ -1,7 +1,11 @@
 import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
 import { PrismaApprovedLeaveReader } from "@evaluation/continuity";
-import { ProgressContractDraftSourceLocator, ProgressDocumentReader } from "@evaluation/documents";
+import {
+  DocumentService,
+  ProgressContractDraftSourceLocator,
+  ProgressDocumentReader,
+} from "@evaluation/documents";
 import {
   CriteriaReviewReader,
   createProgressContractService,
@@ -10,16 +14,23 @@ import {
   ProgressQueryService,
 } from "@evaluation/projects";
 import { PrivateInboxQueryService, WorkItemQueryService } from "@evaluation/work-items";
-import { CheckInService } from "@evaluation/updates-evidence";
+import { ActivityReader, CheckInService } from "@evaluation/updates-evidence";
+import { ProjectService } from "@evaluation/projects";
 import { ResearchReadinessReader } from "@evaluation/research-experiments";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
+import { EmployeeEvaluationModule } from "../employee-evaluation/employee-evaluation.module.js";
+import { EmployeeEvaluationQueryService } from "../employee-evaluation/employee-evaluation-query.service.js";
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { OperationsModule } from "../operations/operations.module.js";
+import { ExperienceEventRuntime } from "../operations/experience-event-runtime.js";
 import { DailyWorkController, ProgressContractsController } from "./daily-work.controller.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
+import { EmployeeHomeQueryService } from "./employee-home-query.service.js";
+import { InsightsQueryService } from "./insights-query.service.js";
 import { ProjectDashboardQueryService } from "./project-dashboard-query.service.js";
+import { ProjectExperienceQueryService } from "./project-experience-query.service.js";
 import {
   createDatabaseManagerOperationsQueryService,
   ManagerOperationsQueryService,
@@ -36,7 +47,7 @@ const DAILY_WORK_DATABASE_LIFECYCLE = Symbol("DAILY_WORK_DATABASE_LIFECYCLE");
 export class DailyWorkModule {}
 
 Module({
-  imports: [AuthModule, OperationsModule],
+  imports: [AuthModule, OperationsModule, EmployeeEvaluationModule],
   controllers: [DailyWorkController, ProgressContractsController],
   providers: [
     {
@@ -63,6 +74,27 @@ Module({
       provide: ProgressQueryService,
       useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
         new ProgressQueryService(client),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: ProjectService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new ProjectService(client, databaseAuditWriter as never, () => new Date()),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: DocumentService,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
+        new DocumentService(
+          client,
+          new DocumentResourceReader(client),
+          databaseAuditWriter as never,
+        ),
+      inject: [DAILY_WORK_DATABASE],
+    },
+    {
+      provide: ActivityReader,
+      useFactory: (client: ReturnType<typeof createDatabaseClient>) => new ActivityReader(client),
       inject: [DAILY_WORK_DATABASE],
     },
     {
@@ -133,6 +165,82 @@ Module({
       }),
       inject: [DAILY_WORK_DATABASE],
     },
+    {
+      provide: EmployeeHomeQueryService,
+      useFactory: (dailyWork: DailyWorkQueryService, experience: ExperienceEventRuntime) =>
+        new EmployeeHomeQueryService(dailyWork, experience),
+      inject: [DailyWorkQueryService, ExperienceEventRuntime],
+    },
+    {
+      provide: InsightsQueryService,
+      useFactory: (
+        activity: ActivityReader,
+        evaluations: EmployeeEvaluationQueryService,
+        dailyWork: DailyWorkQueryService,
+      ) => new InsightsQueryService(activity, evaluations, dailyWork),
+      inject: [ActivityReader, EmployeeEvaluationQueryService, DailyWorkQueryService],
+    },
+    {
+      provide: ProjectExperienceQueryService,
+      useFactory: (
+        dailyWork: DailyWorkQueryService,
+        projects: ProjectService,
+        documents: DocumentService,
+        activity: ActivityReader,
+        workItems: WorkItemQueryService,
+      ) =>
+        new ProjectExperienceQueryService({
+          ownership: (actorId, projectId) =>
+            projects.getOwnershipProjection({
+              actor: { userId: actorId, active: true },
+              projectId,
+            }),
+          project: async (actorId, projectId) => {
+            const [progress, workspace] = await Promise.all([
+              dailyWork.project(actorId, projectId),
+              projects.getWorkspace({ actor: { userId: actorId, active: true }, projectId }),
+            ]);
+            return { ...(progress as object), workspace };
+          },
+          document: (actorId, projectId) =>
+            documents.getByResource({
+              actor: { userId: actorId, active: true },
+              correlationId: crypto.randomUUID(),
+              kind: "project",
+              resourceId: projectId,
+            }),
+          myWork: (actorId) => dailyWork.myWork(actorId),
+          timeline: (input) => activity.timeline(input),
+          evidenceWorkspace: (input) => activity.evidenceWorkspace(input),
+          completedWork: async (actorId, projectId) =>
+            (
+              await workItems.listWorkspace({
+                actor: { userId: actorId, active: true },
+                view: "my",
+                layout: "list",
+                projectId,
+                status: "done",
+                search: null,
+                sort: "updated_desc",
+                limit: 50,
+                cursor: null,
+              })
+            ).items,
+        }),
+      inject: [
+        DailyWorkQueryService,
+        ProjectService,
+        DocumentService,
+        ActivityReader,
+        WorkItemQueryService,
+      ],
+    },
     WorkItemsPolicyGuard,
+  ],
+  exports: [
+    CheckInService,
+    DailyWorkQueryService,
+    ProjectExperienceQueryService,
+    InsightsQueryService,
   ],
 })(DailyWorkModule);

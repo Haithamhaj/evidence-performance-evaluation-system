@@ -874,7 +874,7 @@ The detailed authority is
 
 ## T087 — Implement Universal Capture and Manual Recovery
 
-**Status:** In progress — G0 is approved; implementing the bounded manual-first capture slice.
+**Status:** Complete — bounded manual-first private capture is verified in the authenticated product.
 **Priority:** P1
 **Dependencies:** T086
 **Purpose:** Deliver one compact text/link/file capture flow with private-Inbox fallback.
@@ -882,7 +882,7 @@ The detailed authority is
 
 ## T088 — Implement Work Signals and Experience Events
 
-**Status:** Not started — blocked by T087.
+**Status:** Complete — authorized Work Signals now drive an owner-filtered What Changed experience with durable recovery and telemetry isolation.
 **Priority:** P0
 **Dependencies:** T087
 **Purpose:** Refresh authorized experience state while keeping telemetry non-authoritative.
@@ -890,7 +890,7 @@ The detailed authority is
 
 ## T089 — Implement the Minimal Experience Orchestrator
 
-**Status:** Not started — blocked by T088.
+**Status:** Complete — one authorized source-backed proposal is prepared through the governed AI Router or a truthful deterministic fallback, with semantic quarantine and no command authority.
 **Priority:** P0
 **Dependencies:** T088
 **Purpose:** Prepare one source-backed next action above the existing AI Router.
@@ -898,7 +898,7 @@ The detailed authority is
 
 ## T090 — Implement Intelligent Today and One Decision Path
 
-**Status:** Not started — blocked by T089.
+**Status:** Complete — Intelligent Today now composes the real authorized daily snapshot, one prepared item, and one protected confirm/correct/dismiss path with stale recovery and rollback.
 **Priority:** P1
 **Dependencies:** T089
 **Purpose:** Deliver Needs Your Action, Today, Overdue, prepared work, and one real confirm/correct/dismiss journey.
@@ -906,7 +906,7 @@ The detailed authority is
 
 ## T091 — Implement What Changed and Durable SSE
 
-**Status:** Not started — blocked by T090.
+**Status:** Complete — authorized durable SSE replay, bounded recovery, and the Arabic product journey are verified.
 **Priority:** P1
 **Dependencies:** T090
 **Purpose:** Show concise authorized receipts with reconnect and exactly-once visible behavior.
@@ -914,7 +914,7 @@ The detailed authority is
 
 ## T092 — Migrate Work List and Task Detail with Parity
 
-**Status:** Not started — blocked by T091.
+**Status:** Complete — authenticated Arabic desktop/mobile list, task-detail, create, and valid transition journeys are accepted; retained Board, Calendar, and legacy routes remain available for rollback.
 **Priority:** P1
 **Dependencies:** T091
 **Purpose:** Provide compact daily task management without losing existing Work Item behavior.
@@ -922,7 +922,7 @@ The detailed authority is
 
 ## T093 — Connect the First Real Source-to-Command Journey
 
-**Status:** Not started — blocked by T092.
+**Status:** Complete — real Google/manual review, explicit evidence confirmation, GitHub confirmation gates, owner privacy, manager exclusion, recovery, and rollback are verified.
 **Priority:** P0
 **Dependencies:** T092
 **Purpose:** Join Google, GitHub, and manual context through explicit employee review and evidence confirmation.
@@ -930,11 +930,71 @@ The detailed authority is
 
 ## T094 — Run Phase 1 Acceptance and Route-Retirement Decision
 
-**Status:** Not started — blocked by T087–T093.
+**Status:** Awaiting Product Owner — the complete employee journey, manager-safe home, rollback, and parity evidence pass; no route is retired and no Phase 1 pull request is merged pending the protected decision.
 **Priority:** P0
 **Dependencies:** T087–T093
 **Purpose:** Prove the complete daily journey, protected manager shell, rollback, and route parity before controlled retirement.
 **Verification:** end-to-end customer journey, authorization matrix, affected full web suite, screenshots, acceptance report, and explicit Product Owner decision.
+
+---
+
+# Phase 8 — Final AI-Native Employee Experience
+
+## T095 — Freeze Final Screen Contracts and Rollback
+
+**Status:** Complete — closed screen contracts, independent rollback flags, and final-UI source boundaries are verified.
+**Priority:** P1
+**Dependencies:** T094
+**Purpose:** Define one typed presentation/composition model for Home, Project, Work, Capture, and Review without moving domain authority into the browser.
+**Verification:** screen-contract tests, capability mapping, feature flags, localization parity, and focused boundary validation.
+
+## T096 — Build the Final Home Overview
+
+**Status:** Complete
+**Priority:** P1
+**Dependencies:** T095
+**Purpose:** Replace the temporary employee Today composition with the approved multi-Project overview, circular confirmed progress, milestone/KPI context, Smart Brief, and Now timeline.
+**Verification:** source-backed progress states, no employee scoring, desktop/mobile/RTL rendering, accessibility, and rollback.
+
+## T097 — Build the Final Project Workspace
+
+**Status:** Complete — the source-backed Project workspace, compact progress journey, evidence collections, Timeline, Smart Brief, rollback, and desktop/mobile visual proof are verified.
+**Priority:** P1
+**Dependencies:** T095, T096
+**Purpose:** Connect purpose, approved progress, milestones, KPI, Work, Updates, Evidence, Documents, and Timeline around one Project.
+**Verification:** authorized readers only, truthful missing/stale states, compact desktop/mobile layout, and no automatic progress mutation.
+
+## T098 — Align Work with the Approved Daily Hierarchy
+
+**Status:** Complete — the approved daily hierarchy, compact authoritative Task drawer, create/transition parity, capture shortcut, collapsed secondary groups, and desktop/mobile proof are verified.
+**Priority:** P1
+**Dependencies:** T095, T096
+**Purpose:** Present Needs My Action, Today, Overdue, waiting, and upcoming Tasks with the existing authoritative Task drawer and transitions.
+**Verification:** create/transition parity, current selection, source context, assistant next step, mobile/RTL, and retained Board/Calendar routes.
+
+## T099 — Build the Intelligent Universal Capture Journey
+
+**Status:** Complete — the approved mixed-input sheet, AI Router-only interpretation, one-question clarification, private fallback, provider recovery, desktop/mobile visual proof, and no-write-before-confirmation boundary are verified.
+**Priority:** P0
+**Dependencies:** T095–T098
+**Purpose:** Let the employee share text, voice, URL, image, code, or file; prepare one source-backed interpretation; ask one missing question at a time; and preserve a private fallback.
+**Verification:** AI Router-only assistance, untrusted-input controls, no official write before confirmation, manual/provider recovery, localization, and accessibility.
+
+## T100 — Build Review & Confirmation
+
+**Status:** Complete — editable Update, separately selectable employee-edited Evidence, optional owner-gated progress proposal, explicit consequences/acknowledgment, truthful stale/partial recovery, and the append-only domain confirmation path are verified.
+**Priority:** P0
+**Dependencies:** T099
+**Purpose:** Separate editable Update, selectable Evidence, contribution context, and progress proposal so the employee confirms only the intended actions and official progress still follows its owning rule.
+**Verification:** employee edit/confirmation gates, independent owner confirmation, stale recovery, append-only Timeline result, and no rating/progress shortcut.
+
+## T101 — Run the Final Employee Journey Acceptance
+
+**Status:** Complete — the Product Owner accepted the running final employee journey on 2026-08-13. The authenticated English Home → Project → Work → Capture → Clarify → Review → Confirm journey, independent receipts, unchanged official progress, mobile Review sheet, recovery evidence, and rollback recommendation are documented. No route retirement or merge is authorized by this acceptance.
+**Priority:** P0
+**Dependencies:** T096–T100
+**Purpose:** Prove Home → Project → Work → Capture → Clarify → Review & Confirmation as one realistic customer journey before route retirement or merge.
+**Verification:** authenticated desktop/mobile English plus Arabic/RTL foundation, keyboard/a11y, connector and AI fallback, protected-boundary tests, screenshots, rollback, Product Owner acceptance, commit, push, and PR update.
 ---
 
 # Approval-Blocked Changes

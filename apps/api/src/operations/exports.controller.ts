@@ -24,6 +24,10 @@ export class ExportsController {
     return result;
   }
 
+  history(request: OperationsRequest) {
+    return this.exports.listRequests(actor(request));
+  }
+
   status(request: OperationsRequest, requestId: string) {
     return this.exports.readRequest(actor(request), requestId);
   }
@@ -44,6 +48,7 @@ Inject(ExportService)(ExportsController, undefined, 0);
 Inject(ArtifactAccessService)(ExportsController, undefined, 1);
 Inject(ExportQueueProducer)(ExportsController, undefined, 2);
 decorate("request", Post(), [Req(), Body()]);
+decorate("history", Get(), [Req()]);
 decorate("status", Get(":requestId"), [Req(), Param("requestId")]);
 decorate("download", Post("artifacts/:artifactId/open"), [Req(), Param("artifactId")]);
 decorate("revoke", Post("artifacts/:artifactId/revoke"), [Req(), Param("artifactId"), Body()]);

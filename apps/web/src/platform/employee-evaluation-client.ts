@@ -7,90 +7,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { OIDC_SESSION_COOKIE, oidcSettings, sessionAccessToken } from "../auth/oidc";
+import { EmployeeEvaluationJourneySchema } from "./evaluation-experience-schema";
 
 const UuidSchema = z.string().uuid();
-const InstantSchema = z.iso.datetime({ offset: true });
-const SubmissionSchema = z
-  .object({
-    kind: z.enum(["SELF", "MANAGER_INITIAL"]),
-    submittedAt: InstantSchema,
-    entries: z.array(z.unknown()),
-  })
-  .strict();
-
-export const EmployeeEvaluationJourneySchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    audience: z.enum(["self", "assigned_manager"]),
-    cycle: z
-      .object({
-        id: UuidSchema,
-        type: z.enum(["CALIBRATION_NON_BASELINE", "STANDARD"]),
-        state: z.string().min(1),
-        startsAt: InstantSchema,
-        endsAt: InstantSchema,
-        version: z.number().int().positive(),
-      })
-      .strict(),
-    assignment: z
-      .object({
-        id: UuidSchema,
-        employeeId: UuidSchema,
-        managerId: UuidSchema,
-        version: z.number().int().positive(),
-      })
-      .strict(),
-    templateSnapshot: z.unknown().nullable(),
-    factViewFirst: z
-      .object({
-        responsibilityWindows: z.array(z.unknown()),
-        workFacts: z.array(z.unknown()),
-        researchFacts: z.array(z.unknown()),
-        sourceCoverageNotes: z.array(z.unknown()),
-      })
-      .strict(),
-    submissions: z.array(SubmissionSchema),
-    comparison: z.unknown().nullable(),
-    discussion: z.array(
-      z
-        .object({
-          id: UuidSchema,
-          body: z.string().min(1),
-          sourceReferences: z.unknown(),
-          createdAt: InstantSchema,
-        })
-        .strict(),
-    ),
-    finalDecision: z
-      .object({
-        humanManagerDecision: z.literal(true),
-        entries: z.array(z.unknown()),
-        finalComment: z.string().nullable(),
-        finalizedAt: InstantSchema,
-      })
-      .strict()
-      .nullable(),
-    acknowledgment: z
-      .object({
-        kind: z.enum(["ACKNOWLEDGED", "ACKNOWLEDGED_WITH_RESERVATION", "NO_RESPONSE"]),
-        reservation: z.string().nullable(),
-        recordedAt: InstantSchema,
-      })
-      .strict()
-      .nullable(),
-    immutableClosedSnapshot: z
-      .object({
-        id: UuidSchema,
-        schemaVersion: z.number().int().positive(),
-        closedAt: InstantSchema,
-      })
-      .strict()
-      .nullable(),
-    independenceGate: z.object({ managerSubmittedBeforeSelfProjection: z.boolean() }).strict(),
-  })
-  .strict();
-
-export type EmployeeEvaluationJourney = z.infer<typeof EmployeeEvaluationJourneySchema>;
+export { EmployeeEvaluationJourneySchema } from "./evaluation-experience-schema";
+export type EmployeeEvaluationJourney =
+  import("../app/[locale]/evaluations/[cycleId]/evaluation-experience-contracts").EvaluationJourney;
 
 export async function fetchEmployeeEvaluationJourney(input: {
   readonly cycleId: string;

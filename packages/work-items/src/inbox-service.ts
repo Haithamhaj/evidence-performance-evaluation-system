@@ -5,17 +5,20 @@ import {
   PromotePrivateInboxInputSchema,
   WorkItemDetailSchema,
 } from "@evaluation/contracts";
+import { canUsePrivateCapture } from "@evaluation/permissions";
 import { z } from "zod";
 
 import { serializeInboxItem, forbiddenError } from "./inbox-query-service.js";
-import { assertWorkItemScope } from "./invariants.js";
+import { assertWorkItemScope, getAllowedWorkItemTransitions } from "./invariants.js";
 import { assertEligibleAssignee, authorizeProject } from "./service-authorization.js";
 
 type DatabaseClient = import("@evaluation/database").DatabaseClient;
 type Transaction = import("@evaluation/database").DatabaseTransaction;
 type AuditWriter = import("@evaluation/contracts").AuditWriter<Transaction>;
 
-const ActorSchema = z.object({ userId: z.string().uuid(), active: z.boolean() }).strict();
+const ActorSchema = z
+  .object({ userId: z.string().uuid(), active: z.boolean(), roles: z.array(z.string()) })
+  .strict();
 const CommandBaseSchema = z
   .object({ actor: ActorSchema, correlationId: z.string().uuid() })
   .strict();
@@ -35,22 +38,35 @@ export class PrivateInboxService {
   private readonly client: DatabaseClient;
   private readonly auditWriter: AuditWriter;
   private readonly clock: () => Date;
+  private readonly privateUploads: PrivateCaptureUploadOwnershipValidator;
+  private readonly experience:
+    import("./private-inbox-experience.js").PrivateInboxExperiencePublisher | undefined;
 
   constructor(
     client: DatabaseClient,
     auditWriter: AuditWriter,
+    privateUploads: PrivateCaptureUploadOwnershipValidator,
     clock: () => Date = () => new Date(),
+    experience?: import("./private-inbox-experience.js").PrivateInboxExperiencePublisher,
   ) {
     this.client = client;
     this.auditWriter = auditWriter;
+    this.privateUploads = privateUploads;
     this.clock = clock;
+    this.experience = experience;
   }
 
   async capture(command: unknown): Promise<import("@evaluation/contracts").PrivateInboxItem> {
     const parsed = CaptureCommandSchema.parse(command);
     const current = validClock(this.clock());
-    if (!parsed.actor.active) throw forbiddenError();
-    return serializable(this.client, async (transaction) => {
+    assertCaptureAuthorized(parsed.actor);
+    if (parsed.input.sourceUploadId !== null) {
+      await this.privateUploads.assertOwned({
+        actor: parsed.actor,
+        privateCaptureUploadId: parsed.input.sourceUploadId,
+      });
+    }
+    const captured = await serializable(this.client, async (transaction) => {
       if (parsed.input.projectId !== null) {
         await authorizeProject(transaction, parsed.actor, parsed.input.projectId, current);
       }
@@ -59,6 +75,8 @@ export class PrivateInboxService {
           employeeId: parsed.actor.userId,
           text: parsed.input.text,
           projectId: parsed.input.projectId,
+          sourceType: parsed.input.sourceType,
+          sourceUploadId: parsed.input.sourceUploadId,
         },
       });
       await this.auditWriter.append(transaction, {
@@ -70,17 +88,33 @@ export class PrivateInboxService {
         targetType: "private_inbox_item",
         targetId: item.id,
         reason: "Employee captured a private Inbox item",
-        safeDiff: { linkedToProject: parsed.input.projectId !== null, version: 1 },
+        safeDiff: {
+          linkedToProject: parsed.input.projectId !== null,
+          sourceType: parsed.input.sourceType,
+          hasPrivateUpload: parsed.input.sourceUploadId !== null,
+          version: 1,
+        },
         correlationId: parsed.correlationId,
         source: "api",
       });
-      return serializeInboxItem(item);
+      const wakeUp = await this.experience?.appendCaptured(transaction, {
+        actorId: parsed.actor.userId,
+        correlationId: parsed.correlationId,
+        inboxItemId: item.id,
+        occurredAt: item.createdAt,
+        version: item.version,
+      });
+      return { item: serializeInboxItem(item), wakeUp };
     });
+    if (captured.wakeUp !== undefined) {
+      await this.experience?.wake(captured.wakeUp).catch(() => undefined);
+    }
+    return captured.item;
   }
 
   async dismiss(command: unknown): Promise<import("@evaluation/contracts").PrivateInboxItem> {
     const parsed = DismissCommandSchema.parse(command);
-    if (!parsed.actor.active) throw forbiddenError();
+    assertCaptureAuthorized(parsed.actor);
     return serializable(this.client, async (transaction) => {
       await lockInboxItem(transaction, parsed.inboxItemId);
       const item = await loadOwnedInboxItem(transaction, parsed.actor.userId, parsed.inboxItemId);
@@ -109,7 +143,7 @@ export class PrivateInboxService {
   async promote(command: unknown): Promise<import("@evaluation/contracts").WorkItemDetail> {
     const parsed = PromoteCommandSchema.parse(command);
     const current = validClock(this.clock());
-    if (!parsed.actor.active) throw forbiddenError();
+    assertCaptureAuthorized(parsed.actor);
     return serializable(this.client, async (transaction) => {
       await lockInboxItem(transaction, parsed.inboxItemId);
       const inbox = await loadOwnedInboxItem(transaction, parsed.actor.userId, parsed.inboxItemId);
@@ -201,6 +235,21 @@ export class PrivateInboxService {
   }
 }
 
+export interface PrivateCaptureUploadOwnershipValidator {
+  assertOwned(
+    command: Readonly<{
+      actor: Readonly<{ userId: string; active: boolean; roles: readonly string[] }>;
+      privateCaptureUploadId: string;
+    }>,
+  ): Promise<void>;
+}
+
+export type { PrivateInboxExperiencePublisher } from "./private-inbox-experience.js";
+
+function assertCaptureAuthorized(actor: { active: boolean; roles: readonly string[] }) {
+  if (!canUsePrivateCapture(actor)) throw forbiddenError();
+}
+
 async function loadOwnedInboxItem(
   transaction: Transaction,
   employeeId: string,
@@ -269,6 +318,7 @@ function serializeWorkItem(item: {
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
     allowedActions: ["edit", "transition", "assign", "add_update"],
+    allowedTransitions: getAllowedWorkItemTransitions(item.status),
   });
 }
 

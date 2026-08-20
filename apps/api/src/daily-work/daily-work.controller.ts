@@ -10,6 +10,9 @@ import { z } from "zod";
 
 import { WorkItemsPolicyGuard } from "../work-items/work-items-policy.guard.js";
 import { DailyWorkQueryService } from "./daily-work-query.service.js";
+import { EmployeeHomeQueryService } from "./employee-home-query.service.js";
+import { InsightsQueryService } from "./insights-query.service.js";
+import { ProjectExperienceQueryService } from "./project-experience-query.service.js";
 import { ManagerOperationsQueryService } from "./manager-operations-query.service.js";
 import { ReadinessQueryService } from "./readiness-query.service.js";
 import { AuthoritativeOperationsEventPublisher } from "../operations/authoritative-event-publisher.js";
@@ -32,6 +35,9 @@ export class DailyWorkController {
   private readonly readiness: Pick<ReadinessQueryService, "employeeProjectMonth"> | undefined;
   private readonly managerOperations: Pick<ManagerOperationsQueryService, "load"> | undefined;
   private readonly operationsEvents: AuthoritativeOperationsEventPublisher | undefined;
+  private readonly employeeHome: EmployeeHomeQueryService | undefined;
+  private readonly projectExperience: ProjectExperienceQueryService | undefined;
+  private readonly insights: InsightsQueryService | undefined;
 
   constructor(
     query: DailyWorkQueryService,
@@ -39,16 +45,27 @@ export class DailyWorkController {
     readiness?: Pick<ReadinessQueryService, "employeeProjectMonth">,
     managerOperations?: Pick<ManagerOperationsQueryService, "load">,
     operationsEvents?: AuthoritativeOperationsEventPublisher,
+    employeeHome?: EmployeeHomeQueryService,
+    projectExperience?: ProjectExperienceQueryService,
+    insights?: InsightsQueryService,
   ) {
     this.query = query;
     this.checkIns = checkIns;
     this.readiness = readiness;
     this.managerOperations = managerOperations;
     this.operationsEvents = operationsEvents;
+    this.employeeHome = employeeHome;
+    this.projectExperience = projectExperience;
+    this.insights = insights;
   }
 
   myWork(request: Request): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot> {
-    return this.query.dailyWorkspace(actor(request));
+    return this.query.dailyWorkspace(dailyWorkspaceActor(request));
+  }
+
+  home(request: Request): Promise<import("@evaluation/contracts").EmployeeHomeV1> {
+    if (this.employeeHome === undefined) throw new Error("Employee Home service is not configured");
+    return this.employeeHome.load(employeeHomeActor(request));
   }
 
   updateContext(request: Request): Promise<import("@evaluation/contracts").UpdateComposerContext> {
@@ -61,6 +78,23 @@ export class DailyWorkController {
 
   project(request: Request, projectId: string): Promise<unknown> {
     return this.query.project(request.principal.userId, z.string().uuid().parse(projectId));
+  }
+
+  projectExperienceView(request: Request, projectId: string) {
+    if (this.projectExperience === undefined)
+      throw new Error("Project Experience service is not configured");
+    return this.projectExperience.load(
+      projectExperienceActor(request),
+      z.string().uuid().parse(projectId),
+    );
+  }
+
+  insightsView(request: Request) {
+    if (this.insights === undefined) throw new Error("Insights service is not configured");
+    return this.insights.load({
+      userId: request.principal.userId,
+      active: request.principal.active,
+    });
   }
 
   async checkInObligations(request: Request) {
@@ -101,7 +135,7 @@ export class ProgressContractsController {
     if (parsed.draft.projectId !== id)
       throw new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
     return this.service.propose({
-      actor: actor(request),
+      actor: progressContractActor(request),
       correlationId: request.correlationId,
       reason: parsed.reason,
       draft: parsed.draft,
@@ -129,7 +163,7 @@ export class ProgressContractsController {
   ) {
     const id = z.string().uuid().parse(projectId);
     const command = {
-      actor: actor(request),
+      actor: progressContractActor(request),
       correlationId: request.correlationId,
       projectId: id,
       contractId: z.string().uuid().parse(contractId),
@@ -143,8 +177,34 @@ export class ProgressContractsController {
   }
 }
 
-function actor(request: Request) {
-  return { userId: request.principal.userId, active: request.principal.active };
+function progressContractActor(request: Request) {
+  return {
+    userId: request.principal.userId,
+    active: request.principal.active,
+  };
+}
+
+function dailyWorkspaceActor(request: Request) {
+  return {
+    userId: request.principal.userId,
+    active: request.principal.active,
+    roles: request.principal.roles,
+  };
+}
+
+function employeeHomeActor(request: Request) {
+  return {
+    ...dailyWorkspaceActor(request),
+    email: request.principal.email,
+  };
+}
+
+function projectExperienceActor(request: Request) {
+  return {
+    userId: request.principal.userId,
+    active: request.principal.active,
+    roles: request.principal.roles,
+  };
 }
 
 Controller("api/v1/daily-work")(DailyWorkController);
@@ -154,10 +214,24 @@ Inject(CheckInService)(DailyWorkController, undefined, 1);
 Inject(ReadinessQueryService)(DailyWorkController, undefined, 2);
 Inject(ManagerOperationsQueryService)(DailyWorkController, undefined, 3);
 Inject(AuthoritativeOperationsEventPublisher)(DailyWorkController, undefined, 4);
+Inject(EmployeeHomeQueryService)(DailyWorkController, undefined, 5);
+Inject(ProjectExperienceQueryService)(DailyWorkController, undefined, 6);
+Inject(InsightsQueryService)(DailyWorkController, undefined, 7);
 
 const myWork = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "myWork")!;
 Req()(DailyWorkController.prototype, "myWork", 0);
 Get("my-work")(DailyWorkController.prototype, "myWork", myWork);
+
+const home = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "home")!;
+Req()(DailyWorkController.prototype, "home", 0);
+Get("home")(DailyWorkController.prototype, "home", home);
+
+const insightsView = Object.getOwnPropertyDescriptor(
+  DailyWorkController.prototype,
+  "insightsView",
+)!;
+Req()(DailyWorkController.prototype, "insightsView", 0);
+Get("insights")(DailyWorkController.prototype, "insightsView", insightsView);
 
 const updateContext = Object.getOwnPropertyDescriptor(
   DailyWorkController.prototype,
@@ -174,6 +248,18 @@ const project = Object.getOwnPropertyDescriptor(DailyWorkController.prototype, "
 Req()(DailyWorkController.prototype, "project", 0);
 Param("projectId")(DailyWorkController.prototype, "project", 1);
 Get("projects/:projectId")(DailyWorkController.prototype, "project", project);
+
+const projectExperienceView = Object.getOwnPropertyDescriptor(
+  DailyWorkController.prototype,
+  "projectExperienceView",
+)!;
+Req()(DailyWorkController.prototype, "projectExperienceView", 0);
+Param("projectId")(DailyWorkController.prototype, "projectExperienceView", 1);
+Get("projects/:projectId/experience")(
+  DailyWorkController.prototype,
+  "projectExperienceView",
+  projectExperienceView,
+);
 
 const checkInObligations = Object.getOwnPropertyDescriptor(
   DailyWorkController.prototype,

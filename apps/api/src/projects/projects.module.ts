@@ -204,4 +204,5 @@ Module({
     ProjectsAuthenticationGuard,
     ProjectPolicyGuard,
   ],
+  exports: [ProjectService],
 })(ProjectsModule);

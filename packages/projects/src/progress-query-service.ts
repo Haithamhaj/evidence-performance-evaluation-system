@@ -77,50 +77,73 @@ export class ProgressQueryService {
     if (project === null)
       throw new AppError("SCOPE_MISMATCH", "errors.authorization.scopeMismatch", 403);
 
-    const contract = await this.client.progressContract.findFirst({
-      where: { projectId: project.id, workstreamId: null, state: "active" },
-      orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
-      include: {
-        components: { orderBy: { position: "asc" } },
-        snapshots: {
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          take: 2,
-          select: {
-            id: true,
-            previousPercent: true,
-            percent: true,
-            reason: true,
-            componentState: true,
-            createdAt: true,
-            sources: {
-              select: {
-                componentId: true,
-                sourceKind: true,
-                sourceId: true,
-                sourceVersion: true,
+    const [contract, proposalRow] = await Promise.all([
+      this.client.progressContract.findFirst({
+        where: { projectId: project.id, workstreamId: null, state: "active" },
+        orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
+        include: {
+          components: { orderBy: { position: "asc" } },
+          snapshots: {
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 2,
+            select: {
+              id: true,
+              previousPercent: true,
+              percent: true,
+              reason: true,
+              componentState: true,
+              createdAt: true,
+              sources: {
+                select: {
+                  componentId: true,
+                  sourceKind: true,
+                  sourceId: true,
+                  sourceVersion: true,
+                  measuredValue: true,
+                  observedAt: true,
+                },
               },
             },
           },
+          recalculationRequests: {
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 1,
+            select: { state: true, createdAt: true },
+          },
         },
-        recalculationRequests: {
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          take: 1,
-          select: { state: true, createdAt: true },
+      }),
+      this.client.progressContractAiDraftRequest.findFirst({
+        where: { projectId: project.id, requestedById: input.actorId },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: {
+          state: true,
+          createdAt: true,
+          documentVersion: { select: { version: true } },
+          revisions: {
+            orderBy: [{ revision: "desc" }],
+            take: 1,
+            select: { revision: true, origin: true, content: true },
+          },
         },
-      },
-    });
+      }),
+    ]);
+    const contractProposal = projectContractProposal(proposalRow);
     if (contract === null) {
       return {
         project,
         contract: null,
+        contractProposal,
         progress: { state: "awaiting_contract" as const },
         pulse: emptyPulse(),
+        pendingChange: null,
       };
     }
     const snapshot = contract.snapshots[0];
     const pulse = projectPulse(contract, snapshot);
+    const latestRequest = contract.recalculationRequests[0];
     return {
       project,
+      contractProposal,
       contract: {
         id: contract.id,
         contractVersion: contract.contractVersion,
@@ -152,6 +175,13 @@ export class ProgressQueryService {
               updatedAt: snapshot.createdAt.toISOString(),
             },
       pulse,
+      pendingChange:
+        latestRequest === undefined || latestRequest.state === "completed"
+          ? null
+          : {
+              state: latestRequest.state,
+              requestedAt: latestRequest.createdAt.toISOString(),
+            },
     };
   }
 
@@ -203,6 +233,31 @@ export class ProgressQueryService {
   }
 }
 
+function projectContractProposal(row: any) {
+  if (row === null) return null;
+  const latest = row.revisions[0];
+  const content = object(latest?.content);
+  return {
+    state: row.state,
+    revision: latest?.revision ?? null,
+    origin: latest?.origin ?? null,
+    sourceDocumentVersion: row.documentVersion.version,
+    componentCount: array(content?.components).length,
+    ambiguityCount: array(content?.ambiguities).length,
+    requestedAt: row.createdAt.toISOString(),
+  };
+}
+
+function object(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function array(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function emptyPulse() {
   return {
     officialProgress: null,
@@ -245,13 +300,29 @@ function projectPulse(contract: any, snapshot: any) {
   const sourcedComponents = new Set(
     snapshot.sources.map((source: { componentId: string }) => source.componentId),
   );
+  const measuredSources = new Map(
+    snapshot.sources
+      .filter(
+        (source: { componentId: string; sourceKind: string; measuredValue?: unknown }) =>
+          source.sourceKind === "kpi_measurement" && source.measuredValue !== null,
+      )
+      .map((source: { componentId: string; measuredValue: unknown; observedAt?: Date | null }) => [
+        source.componentId,
+        {
+          measuredValue: Number(source.measuredValue),
+          observedAt: source.observedAt?.toISOString() ?? snapshot.createdAt.toISOString(),
+        },
+      ]),
+  );
   const milestoneStates = contract.components.map((component: any) => {
     const percent = componentPercent.get(component.id) ?? null;
+    const measured = measuredSources.get(component.id);
     return {
       componentId: component.id,
       name: component.name,
       kind: component.kind,
       percent,
+      ...(measured === undefined ? {} : measured),
       state:
         !sourcedComponents.has(component.id) && sourceCoverage === "INSUFFICIENT"
           ? ("awaiting_evidence" as const)

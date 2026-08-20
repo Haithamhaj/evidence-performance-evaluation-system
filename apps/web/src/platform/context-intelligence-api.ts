@@ -11,6 +11,16 @@ export type ContextProjectSuggestion = z.infer<typeof ContextProjectMatchSchema>
 export type ContextTaskDraft = z.infer<typeof ContextTaskDraftSchema>;
 export type ContextReviewQueue = z.infer<typeof ContextReviewQueueSchema>;
 
+export class ContextDecisionError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super("CONTEXT_INTELLIGENCE_REQUEST_FAILED");
+    this.name = "ContextDecisionError";
+    this.status = status;
+  }
+}
+
 export async function listContextReviewQueue(): Promise<ContextReviewQueue> {
   return request(
     "/api/daily-work/context/review-queue",
@@ -58,6 +68,17 @@ export async function correctProjectSuggestion(input: {
   );
 }
 
+export async function dismissProjectSuggestion(input: {
+  readonly handle: string;
+  readonly reason: string;
+}) {
+  return correctProjectSuggestion({
+    handle: input.handle,
+    projectHandle: null,
+    reason: input.reason,
+  });
+}
+
 export async function confirmTaskDraft(input: {
   readonly handle: string;
   readonly reason: string;
@@ -95,6 +116,6 @@ async function request<T>(
     method,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  if (!response.ok) throw new Error("CONTEXT_INTELLIGENCE_REQUEST_FAILED");
+  if (!response.ok) throw new ContextDecisionError(response.status);
   return schema.parse(await response.json());
 }

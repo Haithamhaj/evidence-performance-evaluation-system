@@ -6,6 +6,8 @@ import {
   fetchDailyWorkUpstream,
   WebManagerOperationsSchema,
 } from "../../../../platform/daily-work-api";
+import { WebManagerCoachingSchema } from "../../../../platform/manager-coaching-contracts";
+import { fetchProtectedUpstream } from "../../../../platform/workspace-api";
 import { WorkspaceShell } from "../../workspace-shell";
 import { ManagerOperationsClient } from "./manager-operations-client";
 
@@ -14,11 +16,15 @@ export default async function ManagerOperationsPage({
 }: Readonly<{ params: Promise<{ locale: string }> }>) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const [catalog, view] = await Promise.all([
+  const [catalog, view, coachingView] = await Promise.all([
     getCatalog(locale),
     fetchDailyWorkUpstream({
       route: { kind: "manager_operations" },
       schema: WebManagerOperationsSchema,
+    }),
+    fetchProtectedUpstream({
+      path: "/api/v1/coaching/manager-view",
+      schema: WebManagerCoachingSchema,
     }),
   ]);
   const alternateLocale = locale === "ar" ? "en" : "ar";
@@ -29,6 +35,6 @@ export default async function ManagerOperationsPage({
       locale,
       localeSwitchHref: `/${alternateLocale}/manager/operations`,
     },
-    createElement(ManagerOperationsClient, { catalog, locale, view }),
+    createElement(ManagerOperationsClient, { catalog, coachingView, locale, view }),
   );
 }

@@ -17,7 +17,12 @@ export default [
         "packages/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
       ],
-      exclude: ["**/node_modules/**", "**/*.integration.test.ts", "**/*.storybook.test.tsx"],
+      exclude: [
+        "**/node_modules/**",
+        "tests/repository/fixtures/**",
+        "**/*.integration.test.ts",
+        "**/*.storybook.test.tsx",
+      ],
     },
   }),
   defineProject({

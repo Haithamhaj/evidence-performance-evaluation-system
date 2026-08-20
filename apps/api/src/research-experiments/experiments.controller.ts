@@ -30,6 +30,10 @@ export class ExperimentsController {
     this.query = query;
   }
 
+  async listForResearch(request: Request, researchId: string) {
+    return this.query.list({ actor: actor(request), researchId: parseUuid(researchId) });
+  }
+
   async get(request: Request, experimentId: string) {
     return this.query.read({ actor: actor(request), experimentId: parseUuid(experimentId) });
   }
@@ -80,6 +84,7 @@ Inject(ExperimentService)(ExperimentsController, undefined, 0);
 Inject(ExperimentQueryService)(ExperimentsController, undefined, 1);
 
 decorate("get", Get(":id"), [Req(), Param("id")]);
+decorate("listForResearch", Get("research/:researchId"), [Req(), Param("researchId")]);
 decorate("reviseMethod", Post(":id/method-revisions"), [Req(), Param("id"), Body()]);
 decorate("reviewMethod", Post(":id/method-reviews"), [Req(), Param("id")]);
 decorate("transition", Post(":id/transitions"), [Req(), Param("id"), Body()]);

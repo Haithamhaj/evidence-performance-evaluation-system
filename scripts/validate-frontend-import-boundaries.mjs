@@ -109,6 +109,17 @@ function isTelemetryTarget(target) {
   );
 }
 
+function isTelemetryContractSource(source) {
+  return source.startsWith("packages/contracts/src/product-telemetry/");
+}
+
+function isProtectedExperienceContractTarget(target) {
+  return (
+    target.includes("packages/contracts/src/work-signals/") ||
+    target.includes("packages/contracts/src/experience-events/")
+  );
+}
+
 function isProtectedAuthoritySource(source) {
   return /(?:^|\/)(?:autonomy|employee-evaluation|evaluation-preparation|evaluations?|experience-orchestrator|manager|manager-evaluation|orchestration|progress|updates-evidence|evidence)(?:\/|-|$)/u.test(
     source,
@@ -129,6 +140,23 @@ function isProtectedTelemetryTarget(specifier, target) {
 function isProviderPackage(specifier) {
   return providerPackages.some(
     (provider) => specifier === provider || specifier.startsWith(`${provider}/`),
+  );
+}
+
+function isFinalExperienceProductSource(source) {
+  return /^apps\/web\/src\/(?:features|product-ui)\/(?:home|project|review|universal-capture)\//u.test(
+    source,
+  );
+}
+
+function isFinalExperienceProtectedTarget(specifier, target) {
+  const evaluationPackage = specifier.match(/^@evaluation\/([^/]+)/u)?.[1];
+  const safePackages = new Set(["contracts", "localization", "ui"]);
+  return (
+    /(?:^|\/)(?:auth|credentials?|database|employee-evaluation|evaluation-preparation|manager-evaluation|permissions?|persistence|prisma|repositories?|secrets?|tokens?)(?:\/|-|$)/u.test(
+      target,
+    ) ||
+    (evaluationPackage !== undefined && !safePackages.has(evaluationPackage))
   );
 }
 
@@ -172,8 +200,17 @@ function violationsFor(source, sourceText, specifier) {
   ) {
     violations.push("FRONTEND_TELEMETRY_PROTECTED_IMPORT");
   }
+  if (isTelemetryContractSource(source) && isProtectedExperienceContractTarget(target)) {
+    violations.push("FRONTEND_TELEMETRY_PROTECTED_IMPORT");
+  }
   if (!source.startsWith("packages/ai-routing/") && isProviderPackage(specifier)) {
     violations.push("BOUNDARY_DIRECT_AI_PROVIDER");
+  }
+  if (
+    isFinalExperienceProductSource(source) &&
+    isFinalExperienceProtectedTarget(specifier, target)
+  ) {
+    violations.push("FRONTEND_FINAL_EXPERIENCE_PROTECTED");
   }
   return violations;
 }

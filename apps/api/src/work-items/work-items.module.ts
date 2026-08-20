@@ -1,15 +1,20 @@
 import { databaseAuditWriter } from "@evaluation/audit";
 import { createDatabaseClient } from "@evaluation/database";
+import { PrivateCaptureUploadService } from "@evaluation/documents";
 import { createProjectService } from "@evaluation/projects";
 import {
   PrivateInboxQueryService,
   PrivateInboxService,
+  DatabasePrivateInboxExperiencePublisher,
   WorkItemQueryService,
   WorkItemService,
 } from "@evaluation/work-items";
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
+import { DocumentsModule } from "../documents/documents.module.js";
+import { ExperienceDeliveryQueueProducer } from "../operations/experience-delivery-queue.js";
+import { ExperienceTransportModule } from "../operations/experience-transport.module.js";
 import { PrivateInboxController } from "./private-inbox.controller.js";
 import { WorkItemsController } from "./work-items.controller.js";
 import { WorkItemsPolicyGuard } from "./work-items-policy.guard.js";
@@ -20,7 +25,7 @@ const WORK_ITEMS_DATABASE_LIFECYCLE = Symbol("WORK_ITEMS_DATABASE_LIFECYCLE");
 export class WorkItemsModule {}
 
 Module({
-  imports: [AuthModule],
+  imports: [AuthModule, DocumentsModule, ExperienceTransportModule],
   controllers: [WorkItemsController, PrivateInboxController],
   providers: [
     {
@@ -50,9 +55,19 @@ Module({
     },
     {
       provide: PrivateInboxService,
-      useFactory: (client: ReturnType<typeof createDatabaseClient>) =>
-        new PrivateInboxService(client, databaseAuditWriter as never),
-      inject: [WORK_ITEMS_DATABASE],
+      useFactory: (
+        client: ReturnType<typeof createDatabaseClient>,
+        privateUploads: PrivateCaptureUploadService,
+        queue: ExperienceDeliveryQueueProducer,
+      ) =>
+        new PrivateInboxService(
+          client,
+          databaseAuditWriter as never,
+          privateUploads,
+          () => new Date(),
+          new DatabasePrivateInboxExperiencePublisher(queue),
+        ),
+      inject: [WORK_ITEMS_DATABASE, PrivateCaptureUploadService, ExperienceDeliveryQueueProducer],
     },
     {
       provide: PrivateInboxQueryService,

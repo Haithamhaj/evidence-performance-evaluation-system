@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   PROJECT_PROGRESS_CONTRACT_PROMPT_V1,
   PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
+  PROJECT_PROGRESS_CONTRACT_PROMPT_V3,
 } from "../../packages/projects/src/progress-contract-draft-artifacts.js";
 import { scanProhibitedOutput } from "./prohibited-output.js";
 
@@ -57,6 +58,12 @@ describe("Project Progress Contract AI draft evaluation", () => {
     expect(PROJECT_PROGRESS_CONTRACT_PROMPT_V1).not.toContain(injection);
     expect(PROJECT_PROGRESS_CONTRACT_PROMPT_V2).toContain(
       "copy only one or more exact opaque values",
+    );
+    expect(PROJECT_PROGRESS_CONTRACT_PROMPT_V3).toContain(
+      '"sourceReferences": ["one exact opaque allowedSourceReferences value"]',
+    );
+    expect(PROJECT_PROGRESS_CONTRACT_PROMPT_V3).toContain(
+      "Arabic content does not change these field names or enum values",
     );
   });
 

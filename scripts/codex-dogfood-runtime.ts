@@ -16,6 +16,7 @@ import {
   parseDocumentRuntimeConfig,
   ProgressContractDraftSourceReader,
   ProgressDocumentReader,
+  PrivateCaptureUploadService,
   S3PrivateStorage,
   TemplateService,
   UploadService,
@@ -32,14 +33,10 @@ import { PrivateInboxService, WorkItemService } from "@evaluation/work-items";
 
 import { CODEX_DOGFOOD_PROJECT_NAME, seedCodexDogfood } from "./seed-codex-dogfood.js";
 import { registerProgressContractDraftAiRoute } from "./register-progress-contract-draft-ai-route.js";
+import { PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION } from "../packages/projects/src/progress-contract-draft-artifacts.js";
 
-const sourcePaths = [
-  "docs/PROJECT_REFERENCE.md",
-  "docs/IMPLEMENTATION_PLAN.md",
-  "TASKS.md",
-  "docs/superpowers/specs/2026-07-20-ai-first-daily-workspace-design.md",
-  "docs/superpowers/plans/2026-07-20-ai-first-daily-workspace-master-plan.md",
-  "docs/superpowers/plans/2026-07-20-slice-1-daily-home-tasks.md",
+export const CODEX_DOGFOOD_SOURCE_PATHS = [
+  "docs/product/CODEX_DOGFOOD_PROJECT_DOCUMENT_V7.md",
 ] as const;
 
 export type CodexDogfoodPullRequestLineage = Readonly<{
@@ -51,7 +48,7 @@ export type CodexDogfoodPullRequestLineage = Readonly<{
 type CommandRunner = (file: string, args: readonly string[]) => string;
 
 const codexDogfoodRepository = "Haithamhaj/evidence-performance-evaluation-system";
-const codexDogfoodPullRequestNumber = "5";
+export const CODEX_DOGFOOD_PULL_REQUEST_NUMBER = "30";
 
 export function resolveCodexDogfoodPullRequestLineage(
   environment: NodeJS.ProcessEnv = process.env,
@@ -80,7 +77,7 @@ export function resolveCodexDogfoodPullRequestLineage(
       runCommand("gh", [
         "pr",
         "view",
-        codexDogfoodPullRequestNumber,
+        CODEX_DOGFOOD_PULL_REQUEST_NUMBER,
         "--repo",
         codexDogfoodRepository,
         "--json",
@@ -115,6 +112,10 @@ export function buildCodexDogfoodEvaluationEvidenceReferences(
   ];
 }
 
+export function buildCodexDogfoodDraftIdempotencyKey(documentVersionId: string): string {
+  return `codex-dogfood-contract:${documentVersionId}:${PROJECT_PROGRESS_CONTRACT_PROMPT_VERSION}`;
+}
+
 function executeReadOnlyCommand(file: string, args: readonly string[]): string {
   return execFileSync(file, [...args], {
     cwd: process.cwd(),
@@ -140,7 +141,7 @@ function validatePullRequestLineage(
         : "Explicit Pull Request base and head commits must be exact SHA-1 values",
     );
   }
-  const expectedReference = `https://github.com/${codexDogfoodRepository}/pull/${codexDogfoodPullRequestNumber}`;
+  const expectedReference = `https://github.com/${codexDogfoodRepository}/pull/${CODEX_DOGFOOD_PULL_REQUEST_NUMBER}`;
   if (input.pullRequestRef !== expectedReference) {
     throw new Error(`Pull Request reference must be ${expectedReference}`);
   }
@@ -169,7 +170,7 @@ async function runSeed() {
       cwd: process.cwd(),
       encoding: "utf8",
     }).trim();
-    const sources = sourcePaths.map((sourcePath) => {
+    const sources = CODEX_DOGFOOD_SOURCE_PATHS.map((sourcePath) => {
       const content = execFileSync("git", ["show", `${commitSha}:${sourcePath}`], {
         cwd: process.cwd(),
         encoding: "utf8",
@@ -206,6 +207,7 @@ async function localServices(databaseUrl: string) {
   const s3 = s3Client(config);
   const reader = new DocumentResourceReader(client);
   const storage = new S3PrivateStorage(s3, config.storage.bucket);
+  const scanner = new ClamAvScanner(config.scanner);
   const projects = createProjectService(client, databaseAuditWriter as never);
   const workstreams = createWorkstreamService(client, databaseAuditWriter as never);
   const workItems = new WorkItemService(
@@ -214,13 +216,24 @@ async function localServices(databaseUrl: string) {
     () => new Date(),
     projects,
   );
-  const privateInbox = new PrivateInboxService(client, databaseAuditWriter as never);
+  const privateCaptureUploads = new PrivateCaptureUploadService(
+    client,
+    storage,
+    scanner,
+    config.policy,
+    databaseAuditWriter as never,
+  );
+  const privateInbox = new PrivateInboxService(
+    client,
+    databaseAuditWriter as never,
+    privateCaptureUploads,
+  );
   const templates = new TemplateService(client, databaseAuditWriter as never);
   const uploads = new UploadService(
     client,
     reader,
     storage,
-    new ClamAvScanner(config.scanner),
+    scanner,
     config.policy,
     databaseAuditWriter as never,
   );
@@ -551,7 +564,7 @@ async function localServices(databaseUrl: string) {
       )
         return;
       await privateInbox.capture({
-        actor: { userId: input.employeeId, active: true },
+        actor: { userId: input.employeeId, active: true, roles: ["employee"] },
         correlationId: randomUUID(),
         input: {
           projectId: input.projectId,
@@ -887,7 +900,7 @@ async function runDraft() {
     const receipt = await service.requestDraft({
       actor: { userId: ownerId, active: true },
       correlationId: randomUUID(),
-      idempotencyKey: `codex-dogfood-contract:${version.id}:gpt-5.5-v1`,
+      idempotencyKey: buildCodexDogfoodDraftIdempotencyKey(version.id),
       projectId: project.id,
       documentVersionId: version.id,
       sourceChecksum: checksum,

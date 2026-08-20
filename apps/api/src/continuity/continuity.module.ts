@@ -22,6 +22,11 @@ import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
 import { ContinuityPolicyGuard } from "./continuity-policy.guard.js";
+import { ContinuityExperienceController } from "./continuity-experience.controller.js";
+import {
+  createDatabaseContinuityExperienceQueryService,
+  ContinuityExperienceQueryService,
+} from "./continuity-experience-query.service.js";
 import { DelegationController } from "./delegation.controller.js";
 import { HandoverController } from "./handover.controller.js";
 import { LeaveController } from "./leave.controller.js";
@@ -67,7 +72,13 @@ export function createDatabaseContinuityRuntime(database: Database) {
 
 Module({
   imports: [AuthModule, OperationsModule],
-  controllers: [LeaveController, HandoverController, DelegationController, ReassignmentController],
+  controllers: [
+    LeaveController,
+    HandoverController,
+    DelegationController,
+    ReassignmentController,
+    ContinuityExperienceController,
+  ],
   providers: [
     { provide: CONTINUITY_DATABASE, useFactory: () => createDatabaseClient(databaseUrl()) },
     {
@@ -148,6 +159,11 @@ Module({
           store,
         ),
       inject: [PrismaContinuityPersistence, CONTINUITY_DATABASE, ResponsibilityService],
+    },
+    {
+      provide: ContinuityExperienceQueryService,
+      useFactory: (database: Database) => createDatabaseContinuityExperienceQueryService(database),
+      inject: [CONTINUITY_DATABASE],
     },
     ContinuityPolicyGuard,
   ],

@@ -18,14 +18,21 @@ import {
 export type DailyWorkRoute =
   | { readonly kind: "me" }
   | { readonly kind: "my_work" }
+  | { readonly kind: "home" }
+  | { readonly kind: "insights" }
   | {
       readonly kind: "tasks";
       readonly layout: "list" | "board" | "calendar";
       readonly view: "my" | "team";
+      readonly projectId: string | null;
+      readonly status: import("./work-items-api").WorkItemStatus | null;
+      readonly search: string | null;
+      readonly sort: "due_asc" | "updated_desc" | "priority_desc";
     }
   | { readonly kind: "projects" }
   | { readonly kind: "update_context" }
   | { readonly kind: "project"; readonly projectId: string }
+  | { readonly kind: "project_experience"; readonly projectId: string }
   | { readonly kind: "check_ins" }
   | { readonly kind: "readiness"; readonly projectId: string }
   | { readonly kind: "manager_operations" };
@@ -154,11 +161,13 @@ const WebManagerOperationItemSchema = z
       "ownership_missing",
       "commitment_upcoming",
     ]),
+    observedAt: z.iso.datetime({ offset: true }),
     dueAt: z.iso.datetime({ offset: true }).optional(),
   })
   .strict();
 export const WebManagerOperationsSchema = z
   .object({
+    generatedAt: z.iso.datetime({ offset: true }),
     approvalsWaiting: z.array(WebManagerOperationItemSchema),
     blockedProjects: z.array(WebManagerOperationItemSchema),
     ambiguousProgressEvidence: z.array(WebManagerOperationItemSchema),
@@ -166,6 +175,7 @@ export const WebManagerOperationsSchema = z
     upcomingCommitments: z.array(WebManagerOperationItemSchema),
     readinessHref: z.literal("/manager/readiness"),
     evaluationHref: z.literal("/manager/evaluations"),
+    continuityHref: z.literal("/continuity"),
   })
   .strict();
 export const WebCurrentUserSchema = z.object({ userId: WebUuidSchema }).passthrough();
@@ -203,6 +213,10 @@ export const WebDailyWorkspaceSnapshotSchema: z.ZodType<
   })
   .strict();
 
+export { EmployeeHomeV1Schema as WebEmployeeHomeSchema } from "@evaluation/contracts/employee-experience";
+export { EmployeeProjectExperienceV1Schema as WebEmployeeProjectExperienceSchema } from "@evaluation/contracts/employee-experience";
+export { EmployeeInsightsV1Schema as WebEmployeeInsightsSchema } from "@evaluation/contracts/insights";
+
 export async function fetchDailyWorkUpstream<T>(input: {
   readonly reauthenticateTo?: string;
   readonly route: DailyWorkRoute;
@@ -239,14 +253,22 @@ export async function fetchDailyWorkUpstream<T>(input: {
 function routePath(route: DailyWorkRoute): string {
   if (route.kind === "me") return "/api/v1/me";
   if (route.kind === "my_work") return "/api/v1/daily-work/my-work";
+  if (route.kind === "home") return "/api/v1/daily-work/home";
+  if (route.kind === "insights") return "/api/v1/daily-work/insights";
   if (route.kind === "tasks") {
-    const query = new URLSearchParams({ view: route.view, layout: route.layout });
+    const query = new URLSearchParams({ view: route.view, layout: route.layout, sort: route.sort });
+    if (route.projectId !== null) query.set("projectId", route.projectId);
+    if (route.status !== null) query.set("status", route.status);
+    if (route.search !== null) query.set("search", route.search);
     return `/api/v1/work-items?${query.toString()}`;
   }
   if (route.kind === "projects") return "/api/v1/daily-work/projects";
   if (route.kind === "update_context") return "/api/v1/daily-work/update-context";
   if (route.kind === "check_ins") return "/api/v1/daily-work/check-ins";
   if (route.kind === "manager_operations") return "/api/v1/daily-work/manager/operations";
+  if (route.kind === "project_experience") {
+    return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}/experience`;
+  }
   if (route.kind === "readiness") {
     return `/api/v1/daily-work/projects/${z.string().uuid().parse(route.projectId)}/readiness`;
   }

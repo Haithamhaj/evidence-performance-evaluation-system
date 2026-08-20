@@ -34,6 +34,7 @@ export class DailyWorkQueryService {
   async dailyWorkspace(actor: {
     userId: string;
     active: boolean;
+    roles: readonly string[];
   }): Promise<import("@evaluation/contracts").DailyWorkspaceSnapshot> {
     const [myWork, inbox, projectPulse] = await Promise.all([
       this.workItems.listMyWork({ actorId: actor.userId }),

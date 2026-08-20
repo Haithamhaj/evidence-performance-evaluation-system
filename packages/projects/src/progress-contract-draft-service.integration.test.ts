@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 
-import { PROJECT_PROGRESS_CONTRACT_PROMPT_V2 } from "./progress-contract-draft-artifacts.js";
+import { PROJECT_PROGRESS_CONTRACT_PROMPT_V3 } from "./progress-contract-draft-artifacts.js";
 import { ProgressContractDraftService } from "./progress-contract-draft-service.js";
 
 const now = new Date("2026-07-19T12:00:00.000Z");
@@ -103,8 +103,8 @@ function harness() {
     analysisPromptArtifact: {
       findUnique: vi.fn(async () => ({
         id: promptArtifactId,
-        bodyHash: createHash("sha256").update(PROJECT_PROGRESS_CONTRACT_PROMPT_V2).digest("hex"),
-        trustedBody: PROJECT_PROGRESS_CONTRACT_PROMPT_V2,
+        bodyHash: createHash("sha256").update(PROJECT_PROGRESS_CONTRACT_PROMPT_V3).digest("hex"),
+        trustedBody: PROJECT_PROGRESS_CONTRACT_PROMPT_V3,
       })),
     },
     progressContractAiDraftRequest: {
@@ -283,7 +283,7 @@ describe("ProgressContractDraftService", () => {
     expect(governedInput.trustedInstruction).toMatchObject({
       routeKey: "project.progress-contract.draft",
       artifactId: promptArtifactId,
-      version: "project-progress-contract-draft.v2",
+      version: "project-progress-contract-draft.v3",
     });
     expect(governedInput.trustedInstruction).not.toEqual(expect.any(String));
     expect(JSON.parse(governedInput.untrustedContent)).toMatchObject({

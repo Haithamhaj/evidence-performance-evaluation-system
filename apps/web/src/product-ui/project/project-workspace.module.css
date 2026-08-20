@@ -1,0 +1,1315 @@
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  min-block-size: calc(100vh - 8.5rem);
+  margin: -2rem;
+  background: #fff;
+}
+.accessEnded {
+  max-inline-size: 42rem;
+  margin: 2rem auto;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.7rem;
+  padding: 1.5rem;
+}
+.accessEnded h1,
+.accessEnded p {
+  margin-block: 0 0.6rem;
+}
+.accessEnded a {
+  color: #0f5fd8;
+}
+.main {
+  min-inline-size: 0;
+  padding: 1.5rem 2rem 3rem;
+}
+.breadcrumbs {
+  display: flex;
+  gap: 0.55rem;
+  color: #58667a;
+  font-size: 0.78rem;
+}
+.breadcrumbs a,
+.projectHeader a,
+.attention a,
+.collections a {
+  color: #0f5fd8;
+  text-decoration: none;
+}
+.projectHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem 1.35rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.projectHeader > a {
+  white-space: nowrap;
+}
+.projectHeader h1,
+.projectHeader p {
+  margin: 0;
+}
+.projectHeader h1 {
+  font-size: 2rem;
+}
+.projectHeader small {
+  color: #526076;
+}
+.projectIcon {
+  display: grid;
+  place-items: center;
+  inline-size: 3.2rem;
+  block-size: 3.2rem;
+  border-radius: 999px;
+  background: #1264e8;
+  color: #fff;
+}
+.workspaceNav {
+  position: sticky;
+  z-index: 3;
+  inset-block-start: 0;
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border-block-end: 1px solid #dfe4ec;
+  background: #fff;
+  padding-block: 0.35rem;
+}
+.workspaceNav a {
+  border-radius: 0.45rem;
+  color: #405067;
+  padding: 0.55rem 0.8rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.workspaceNav a:hover,
+.workspaceNav a:focus-visible,
+.workspaceNav a[aria-current="page"] {
+  background: #eaf2ff;
+  color: #0f5fd8;
+}
+.overviewSummary {
+  scroll-margin-block-start: 4rem;
+  border-block-end: 1px solid #dfe4ec;
+  padding-block: 0.85rem;
+}
+.overviewSummary dl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+}
+.overviewSummary dl > div {
+  min-inline-size: 0;
+  padding: 0.35rem 0.85rem;
+  border-inline-end: 1px solid #e6eaf0;
+}
+.overviewSummary dl > div:last-child {
+  border-inline-end: 0;
+}
+.overviewSummary dt {
+  color: #58667a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.overviewSummary dd {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.overviewSummary a,
+.plan a {
+  color: #0f5fd8;
+  text-decoration: none;
+}
+.ownership {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 2fr);
+  gap: 0.75rem 1.25rem;
+  align-items: start;
+  border-block-end: 1px solid #dfe4ec;
+  padding-block: 0.85rem;
+}
+.ownership h2,
+.ownership p {
+  margin: 0;
+}
+.ownership h2 {
+  font-size: 0.95rem;
+}
+.ownership small,
+.ownership p {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.ownership dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+.ownership dl > div {
+  min-inline-size: 0;
+  border-inline-start: 1px solid #e6eaf0;
+  padding-inline-start: 0.7rem;
+}
+.ownership dt {
+  color: #58667a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.ownership dd {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.transferContext {
+  grid-column: 1 / -1;
+  border-inline-start: 3px solid #1264e8;
+  background: #f4f8ff;
+  padding: 0.55rem 0.7rem;
+}
+.transferContext p {
+  margin-block-start: 0.2rem;
+}
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.progressPanel {
+  padding: 1.35rem 0;
+  border-block-end: 1px solid #dfe4ec;
+}
+.progressChartHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+.progressChartHeader h2,
+.progressChartHeader p,
+.progressChartEmpty h2,
+.progressChartEmpty p {
+  margin: 0;
+}
+.progressChartHeader h2,
+.progressChartEmpty h2 {
+  font-size: 1.15rem;
+}
+.progressChartHeader p,
+.progressChartEmpty p,
+.progressChartHeader > small {
+  margin-block-start: 0.2rem;
+  color: #58667a;
+}
+.progressVisuals {
+  display: grid;
+  grid-template-columns: 14rem 10rem minmax(9rem, 1fr);
+  align-items: center;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+.progressComparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+.progressComparison div {
+  display: grid;
+  gap: 0.2rem;
+}
+.progressComparison dt {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.progressComparison dd {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 760;
+}
+.progressDataTable {
+  overflow-x: auto;
+  margin-block-start: 1rem;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.45rem;
+}
+.progressDataTable table {
+  inline-size: 100%;
+  min-inline-size: 42rem;
+  border-collapse: collapse;
+  text-align: start;
+}
+.progressDataTable th,
+.progressDataTable td {
+  padding: 0.65rem 0.75rem;
+  border-block-end: 1px solid #e6eaf0;
+  text-align: start;
+}
+.progressDataTable thead th {
+  background: #f7f9fc;
+  color: #4d5a6d;
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+.progressDataTable tbody tr:last-child > * {
+  border-block-end: 0;
+}
+.progressChartEmpty {
+  display: grid;
+  gap: 0.35rem;
+  border-inline-start: 3px solid #9ca9ba;
+  background: #f7f9fc;
+  padding: 0.85rem 1rem;
+}
+.progressBlock {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.progressBlock > div:last-child {
+  display: grid;
+  gap: 0.2rem;
+}
+.progressBlock small,
+.kpi small,
+.milestone small {
+  color: #58667a;
+}
+.progressRing {
+  --progress: 0%;
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 5.5rem;
+  block-size: 5.5rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(#1264e8 var(--progress), #e1e6ed 0);
+}
+.progressRing:before {
+  position: absolute;
+  inset: 0.45rem;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+}
+.progressRing strong {
+  position: relative;
+  font-size: 1.2rem;
+}
+.milestones {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.milestones:before {
+  position: absolute;
+  inset-block-start: 0.85rem;
+  inset-inline: 12%;
+  block-size: 1px;
+  background: #9ca9ba;
+  content: "";
+}
+.milestone {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+.milestone > span {
+  display: grid;
+  place-items: center;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border: 1.5px solid #718099;
+  border-radius: 50%;
+  background: #fff;
+}
+.milestone[data-state="complete"] > span {
+  border-color: #169548;
+  color: #169548;
+}
+.milestone[data-state="current"] > span {
+  border: 0.35rem solid #bfd6ff;
+  background: #1264e8;
+}
+.milestone strong {
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+.kpi {
+  display: grid;
+  gap: 0.25rem;
+  border-inline-start: 1px solid #dfe4ec;
+  padding-inline-start: 1rem;
+}
+.kpi > span {
+  color: #4d5a6d;
+  font-size: 0.76rem;
+}
+.kpi strong {
+  font-size: 1.55rem;
+}
+.progressReview {
+  padding-block: 1.1rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.criteriaContract {
+  padding-block: 1.1rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.criteriaContract > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 0.8rem;
+}
+.criteriaContract h2,
+.criteriaContract p {
+  margin: 0;
+}
+.criteriaContract h2 {
+  font-size: 1.15rem;
+}
+.criteriaContract header p,
+.criteriaContract em,
+.criteriaContractGuardrail {
+  color: #58667a;
+  font-size: 0.76rem;
+  font-style: normal;
+}
+.criteriaContract a {
+  color: #0f5fd8;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ownerAction {
+  border-radius: 999px;
+  background: #eef2f7;
+  padding: 0.35rem 0.6rem;
+  color: #526176;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.criteriaContractFlow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+.criteriaContractFlow > section {
+  display: flex;
+  align-items: start;
+  gap: 0.65rem;
+  min-inline-size: 0;
+  padding: 0.85rem;
+  border-inline-end: 1px solid #e6eaf0;
+}
+.criteriaContractFlow > section:last-child {
+  border-inline-end: 0;
+}
+.criteriaContractFlow > section > span {
+  display: grid;
+  place-items: center;
+  inline-size: 1.65rem;
+  block-size: 1.65rem;
+  flex: 0 0 auto;
+  border: 1px solid #8a97aa;
+  border-radius: 50%;
+  color: #526176;
+  font-weight: 800;
+}
+.criteriaContractFlow > section[data-complete="true"] > span {
+  border-color: #168847;
+  background: #e8f7ed;
+  color: #13723d;
+}
+.criteriaContractFlow div {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+.criteriaContractFlow small {
+  color: #58667a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.criteriaContractFlow strong {
+  font-size: 0.86rem;
+}
+.criteriaContractGuardrail {
+  margin-block-start: 0.65rem !important;
+}
+.progressReview > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 0.85rem;
+}
+.progressReview h2,
+.progressReview h3,
+.progressReview p {
+  margin: 0;
+}
+.progressReview h2 {
+  font-size: 1.15rem;
+}
+.progressReview h3 {
+  margin-block-start: 0.85rem;
+  font-size: 0.78rem;
+}
+.progressReview > header p,
+.progressReview small {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.progressReview a {
+  color: #0f5fd8;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.progressReviewGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid #dfe4ec;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+.progressReviewGrid > section {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-inline-size: 0;
+  padding: 0.85rem;
+  border-inline-end: 1px solid #e6eaf0;
+}
+.progressReviewGrid > section:last-child {
+  border-inline-end: 0;
+}
+.progressReviewGrid > section > strong {
+  font-size: 1.05rem;
+}
+.progressReviewGrid ul {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.progressReviewGrid li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-block-start: 1px solid #edf0f4;
+  padding-block-start: 0.3rem;
+  font-size: 0.78rem;
+}
+.reviewLabel {
+  color: #58667a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.progressReviewEmpty {
+  display: flex;
+  align-items: start;
+  gap: 0.65rem;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.65rem;
+  padding: 0.85rem;
+  background: #f8fafc;
+}
+.progressReviewEmpty p {
+  margin-block-start: 0.15rem;
+  color: #58667a;
+  font-size: 0.8rem;
+}
+.progressGuardrail {
+  margin-block-start: 0.65rem !important;
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.attention,
+.plan,
+.documentSources,
+.collections,
+.evidenceWorkspace,
+.timeline {
+  padding-block: 1.1rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.attention h2,
+.plan h2,
+.documentSources h2,
+.collections h2,
+.evidenceWorkspace h2,
+.timeline h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.15rem;
+}
+.evidenceWorkspace > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 0.8rem;
+}
+.evidenceWorkspace h2,
+.evidenceWorkspace h3,
+.evidenceWorkspace p,
+.evidenceWorkspace dl,
+.evidenceWorkspace ul {
+  margin: 0;
+}
+.evidenceWorkspace header p,
+.evidenceWorkspace header small,
+.evidenceWorkspace li small {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.evidenceCounts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.55rem;
+}
+.evidenceDetections {
+  margin-block-end: 0.7rem;
+  border-inline-start: 3px solid #1264e8;
+  background: #f4f8ff;
+  padding: 0.7rem;
+}
+.evidencePreparations {
+  margin-block-end: 0.7rem;
+  border-inline-start: 3px solid #6b4fd8;
+  background: #f8f6ff;
+  padding: 0.7rem;
+}
+.evidencePreparations h3 {
+  margin-block-end: 0.4rem;
+  font-size: 0.82rem;
+}
+.evidencePreparations ul {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0;
+  list-style: none;
+}
+.evidencePreparations li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  border-block-start: 1px solid #e2dcf7;
+  padding-block-start: 0.4rem;
+}
+.evidencePreparations li > div {
+  display: grid;
+  min-inline-size: 0;
+}
+.evidencePreparations li span {
+  color: #405067;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+.evidencePreparations a {
+  color: #5b3fd0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.evidenceDetections h3 {
+  margin-block-end: 0.4rem;
+  font-size: 0.82rem;
+}
+.evidenceDetections ul {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0;
+  list-style: none;
+}
+.evidenceDetections li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  border-block-start: 1px solid #d7e4f8;
+  padding-block-start: 0.4rem;
+}
+.evidenceDetections li > div {
+  display: grid;
+  min-inline-size: 0;
+}
+.evidenceDetections li span {
+  color: #405067;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+.evidenceDetections a {
+  color: #0f5fd8;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.evidenceCounts > div {
+  padding: 0.65rem 0.75rem;
+  border-inline-end: 1px solid #e6eaf0;
+}
+.evidenceCounts > div:last-child {
+  border-inline-end: 0;
+}
+.evidenceCounts dt {
+  color: #58667a;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.evidenceCounts dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.evidenceGroups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-block-start: 0.7rem;
+}
+.evidenceGroups > section {
+  min-inline-size: 0;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.55rem;
+  padding: 0.7rem;
+}
+.evidenceGroups h3 {
+  margin-block-end: 0.45rem;
+  font-size: 0.82rem;
+}
+.evidenceGroups ul {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.evidenceGroups li {
+  display: grid;
+  gap: 0.25rem;
+  border-block-start: 1px solid #edf0f4;
+  padding-block-start: 0.45rem;
+}
+.evidenceGroups li > div {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+.evidenceGroups li strong,
+.evidenceGroups li span {
+  overflow-wrap: anywhere;
+}
+.evidenceGroups li span {
+  color: #405067;
+  font-size: 0.78rem;
+}
+.documentSources > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 0.8rem;
+}
+.documentSources h2,
+.documentSources h3,
+.documentSources p,
+.documentSources dl,
+.documentSources ol,
+.documentSources ul {
+  margin: 0;
+}
+.documentSources > header p,
+.documentSources small {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.documentSources a {
+  color: #0f5fd8;
+  text-decoration: none;
+}
+.documentSourcesGrid {
+  display: grid;
+  grid-template-columns: 9rem minmax(13rem, 0.8fr) minmax(13rem, 1fr);
+  gap: 1rem;
+}
+.documentSourcesGrid > dl {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+}
+.documentSourcesGrid dt {
+  color: #58667a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.documentSourcesGrid dd {
+  margin: 0.12rem 0 0;
+  font-weight: 800;
+}
+.documentSourcesGrid h3 {
+  margin-block-end: 0.45rem;
+  font-size: 0.85rem;
+}
+.documentSourcesGrid ol,
+.documentSourcesGrid ul {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0;
+  list-style: none;
+}
+.documentSourcesGrid li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  border-block-start: 1px solid #edf0f4;
+  padding-block-start: 0.35rem;
+  font-size: 0.78rem;
+}
+.documentSourcesGrid li > span,
+.documentSourcesGrid li > div {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.documentSourcesGrid ol li {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.documentSourcesGrid ol li > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.documentSourcesGrid ol li > small {
+  grid-column: 2;
+}
+.documentSourcesGrid li > div {
+  display: grid;
+}
+.plan {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.35fr) minmax(0, 1fr);
+  gap: 1rem;
+  scroll-margin-block-start: 4rem;
+}
+.plan h2,
+.plan h3,
+.plan p {
+  margin: 0;
+}
+.plan > header > p {
+  color: #58667a;
+  font-size: 0.78rem;
+}
+.planContent {
+  display: grid;
+  grid-template-columns: minmax(11rem, 0.4fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+.planContent h3 {
+  margin-block-end: 0.55rem;
+  font-size: 0.85rem;
+}
+.workstreamList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.workstreamList li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #dfe4ec;
+  border-radius: 0.6rem;
+  padding: 0.65rem 0.8rem;
+}
+.planMilestones {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.planMilestones li {
+  display: grid;
+  grid-template-columns: 1.35rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding-block: 0.35rem;
+  border-block-end: 1px solid #edf0f4;
+}
+.planMilestones li > span {
+  display: grid;
+  place-items: center;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border: 1px solid #8491a4;
+  border-radius: 50%;
+  color: #168847;
+  font-size: 0.72rem;
+}
+.planMilestones li[data-state="complete"] > span {
+  border-color: #168847;
+  background: #e8f7ed;
+}
+.planMilestones li[data-state="current"] > span {
+  border: 0.3rem solid #bfd6ff;
+  background: #1264e8;
+}
+.planMilestones small {
+  color: #58667a;
+  white-space: nowrap;
+}
+.progressPanel,
+.timeline {
+  scroll-margin-block-start: 4rem;
+}
+.attention ul,
+.collectionGrid ul,
+.timeline ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.attention li,
+.collectionGrid li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem;
+  border-block-end: 1px solid #edf0f4;
+}
+.attention li div,
+.collectionGrid li div {
+  display: grid;
+}
+.attention li span,
+.collectionGrid li span {
+  color: #58667a;
+  font-size: 0.78rem;
+}
+.attention li > a,
+.collectionGrid li > a {
+  white-space: nowrap;
+}
+.tabs {
+  display: flex;
+  gap: 1.25rem;
+  border-block-end: 1px solid #dfe4ec;
+}
+.tabs a {
+  padding: 0.6rem 0.2rem;
+  border-block-end: 2px solid #1264e8;
+}
+.tabs span {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 1.4rem;
+  border-radius: 999px;
+  background: #eaf2ff;
+  padding: 0.1rem 0.35rem;
+}
+.collectionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding-block-start: 0.9rem;
+}
+.collectionGrid section {
+  min-inline-size: 0;
+}
+.collectionGrid h3 {
+  font-size: 0.95rem;
+}
+.timeline li {
+  display: grid;
+  grid-template-columns: 9rem 2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0;
+}
+.timeline > header {
+  margin-block-end: 0.45rem;
+}
+.timeline > header h2,
+.timeline > header p,
+.timeline li p {
+  margin: 0;
+}
+.timeline > header p,
+.timeline li p,
+.timeline li small {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.timeline li p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.timelineStatus {
+  inline-size: fit-content;
+  border-radius: 999px;
+  background: #e8f7ed;
+  padding: 0.1rem 0.4rem;
+  color: #13723d !important;
+  font-size: 0.68rem !important;
+  font-weight: 800;
+}
+.timeline li div {
+  display: grid;
+  gap: 0.15rem;
+}
+.timeline time,
+.timeline li span {
+  color: #58667a;
+  font-size: 0.76rem;
+}
+.timelineMarker {
+  display: grid;
+  place-items: center;
+  inline-size: 1.7rem;
+  block-size: 1.7rem;
+  border-radius: 50%;
+  background: #e8f7ed;
+  color: #168847;
+}
+.assistant {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  border-inline-start: 1px solid #dfe4ec;
+  padding: 1.5rem 1.25rem;
+}
+.assistant header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block-end: 1rem;
+  border-block-end: 1px solid #e0e5ed;
+}
+.assistant h2,
+.assistant p {
+  margin: 0;
+}
+.assistant h2 {
+  font-size: 1rem;
+}
+.assistant small {
+  color: #58667a;
+}
+.assistant p,
+.assistant h2,
+.assistant small {
+  overflow-wrap: anywhere;
+}
+.projectAssistant {
+  display: grid;
+  gap: 0.65rem;
+  padding-block: 1rem;
+  border-block: 1px solid #dfe4ec;
+}
+.projectAssistant h2,
+.projectAssistant p {
+  margin: 0;
+}
+.projectAssistantQuestions {
+  display: grid;
+  gap: 0.45rem;
+}
+.projectAssistantQuestions button {
+  border: 1px solid #b7c9e8;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #0f5fd8;
+  padding: 0.65rem 0.75rem;
+  text-align: start;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.projectAssistantQuestions button:hover,
+.projectAssistantQuestions button:focus-visible {
+  background: #edf4ff;
+}
+.projectAssistantQuestions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.projectAssistantAnswer {
+  border-inline-start: 3px solid #1264e8;
+  background: #f4f8ff;
+  padding: 0.75rem;
+}
+.projectAssistantError {
+  color: #a3251c;
+}
+.agentSignals,
+.preparedActions {
+  display: grid;
+  gap: 0.7rem;
+  padding-block-end: 1rem;
+  border-block-end: 1px solid #e0e5ed;
+}
+.agentSignals ul,
+.preparedActions ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agentSignals li {
+  display: grid;
+  grid-template-columns: 0.35rem minmax(0, 1fr);
+  gap: 0.55rem;
+  border: 1px solid #dfe5ed;
+  border-radius: 0.55rem;
+  padding: 0.65rem;
+}
+.agentSignals li > span {
+  border-radius: 999px;
+  background: #f0a33a;
+}
+.agentSignals li[data-severity="watch"] > span {
+  background: #2f70df;
+}
+.agentSignals li[data-severity="info"] > span {
+  background: #2b9a5a;
+}
+.agentSignals li div,
+.preparedActions li div {
+  display: grid;
+  gap: 0.25rem;
+}
+.agentSignals strong,
+.preparedActions strong {
+  font-size: 0.82rem;
+}
+.agentSignals p,
+.preparedActions p {
+  color: #526076;
+  font-size: 0.76rem;
+}
+.agentSignals a,
+.preparedActions a {
+  color: #0f5fd8;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.preparedActions li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  border-radius: 0.55rem;
+  background: #f4f8ff;
+  padding: 0.65rem;
+  color: #145fc9;
+}
+.preparedActions li p,
+.preparedActions li strong {
+  color: #26364d;
+}
+.eyebrow {
+  color: #4d5a6d;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.primaryAction {
+  display: block;
+  border-radius: 0.35rem;
+  background: #1264e8;
+  padding: 0.75rem;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 700;
+}
+.workspace :focus-visible {
+  outline: 0.1875rem solid #f28b32;
+  outline-offset: 0.18rem;
+}
+@media (width<=1180px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .assistant {
+    border-block-start: 1px solid #dfe4ec;
+    border-inline-start: 0;
+  }
+  .progressPanel {
+    display: block;
+  }
+  .progressVisuals {
+    grid-template-columns: 12rem 10rem minmax(9rem, 1fr);
+  }
+  .overviewSummary dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .overviewSummary dl > div:nth-child(3) {
+    border-inline-end: 0;
+  }
+  .overviewSummary dl > div:nth-child(n + 4) {
+    border-block-start: 1px solid #e6eaf0;
+  }
+  .progressReviewGrid {
+    grid-template-columns: 1fr;
+  }
+  .progressReviewGrid > section {
+    border-inline-end: 0;
+    border-block-end: 1px solid #e6eaf0;
+  }
+  .progressReviewGrid > section:last-child {
+    border-block-end: 0;
+  }
+  .documentSourcesGrid {
+    grid-template-columns: 8rem 1fr;
+  }
+  .documentSourcesGrid > section:last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (width<=760px) {
+  .workspace {
+    margin: -0.75rem -0.75rem -6rem;
+  }
+  .main {
+    padding: 1rem 0.9rem 6rem;
+  }
+  .projectHeader {
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+  }
+  .projectHeader h1 {
+    font-size: 1.65rem;
+  }
+  .projectHeader p,
+  .projectHeader small {
+    overflow-wrap: anywhere;
+  }
+  .projectHeader > a {
+    grid-column: 1/-1;
+  }
+  .progressPanel {
+    display: block;
+  }
+  .progressChartHeader {
+    display: grid;
+  }
+  .progressVisuals {
+    grid-template-columns: 1fr;
+  }
+  .kpi {
+    border-inline-start: 0;
+    border-block-start: 1px solid #edf0f4;
+    padding-block-start: 0.7rem;
+    padding-inline-start: 0;
+  }
+  .overviewSummary dl,
+  .plan,
+  .planContent {
+    grid-template-columns: 1fr;
+  }
+  .overviewSummary dl > div,
+  .overviewSummary dl > div:nth-child(3) {
+    border-inline-end: 0;
+    border-block-start: 1px solid #e6eaf0;
+  }
+  .overviewSummary dl > div:first-child {
+    border-block-start: 0;
+  }
+  .progressBlock {
+    align-items: center;
+  }
+  .progressReview > header {
+    display: grid;
+  }
+  .criteriaContract > header,
+  .criteriaContractFlow {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .criteriaContractFlow > section {
+    border-inline-end: 0;
+    border-block-end: 1px solid #e6eaf0;
+  }
+  .criteriaContractFlow > section:last-child {
+    border-block-end: 0;
+  }
+  .documentSources > header,
+  .documentSourcesGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .documentSourcesGrid > section:last-child {
+    grid-column: 1;
+  }
+  .milestones {
+    gap: 0.35rem;
+  }
+  .milestone strong,
+  .milestone small {
+    max-inline-size: 6.5rem;
+    line-height: 1.25;
+  }
+  .milestones,
+  .kpi {
+    grid-column: 1;
+  }
+  .collectionGrid {
+    grid-template-columns: 1fr;
+  }
+  .tabs {
+    overflow-x: auto;
+  }
+  .attention li,
+  .collectionGrid li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .attention li > a,
+  .collectionGrid li > a {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .assistant {
+    display: none;
+  }
+  .timeline li {
+    grid-template-columns: 6.5rem 1.7rem minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progressRing {
+    transition: none;
+  }
+}

@@ -1,6 +1,7 @@
 import {
   AppError,
   EvidenceReviewSchema,
+  EvidenceWorkspaceSchema,
   StructuredUpdateDraftSchema,
   UpdateComparisonSchema,
   UpdateResultCardSchema,
@@ -23,6 +24,59 @@ export class ActivityReader {
   constructor(client: DatabaseClient, research: ResearchTimelineSourceReader | null = null) {
     this.client = client;
     this.research = research;
+  }
+
+  async confirmedContributionHistory(input: Readonly<{ actorId: string; limit: number }>): Promise<
+    ReadonlyArray<{
+      id: string;
+      project: { id: string; name: string };
+      workItem: { id: string; name: string } | null;
+      sourceKind: "text" | "link" | "image" | "file" | "code" | "github" | "voice";
+      verificationState:
+        "unverified" | "pending" | "supported" | "partial" | "conflicting" | "rejected";
+      confirmedAt: string;
+    }>
+  > {
+    const parsed = z
+      .object({ actorId: z.uuid(), limit: z.number().int().min(1).max(100) })
+      .strict()
+      .parse(input);
+    const events = await this.client.acceptedEvidenceEvent.findMany({
+      where: { confirmation: { employeeId: parsed.actorId } },
+      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+      take: parsed.limit,
+      include: {
+        project: { select: { id: true, name: true } },
+        evidence: { include: { workItem: { select: { id: true, title: true } } } },
+        confirmation: {
+          include: {
+            evidenceRevision: {
+              include: {
+                verifications: {
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    return events.map((event) => ({
+      id: event.id,
+      project: event.project,
+      workItem:
+        event.evidence.workItem === null
+          ? null
+          : { id: event.evidence.workItem.id, name: event.evidence.workItem.title },
+      sourceKind: contributionSourceKind(
+        event.confirmation.evidenceRevision.sourceKind,
+        event.evidence.githubSourceEventId,
+      ),
+      verificationState:
+        event.confirmation.evidenceRevision.verifications[0]?.outcome ?? "unverified",
+      confirmedAt: event.occurredAt.toISOString(),
+    }));
   }
 
   async updateReview(input: Readonly<{ actorId: string; sessionId: string }>) {
@@ -168,6 +222,69 @@ export class ActivityReader {
     });
   }
 
+  async evidenceWorkspace(input: unknown) {
+    const parsed = EvidenceWorkspaceInputSchema.parse(input);
+    const records = await this.client.evidenceRecord.findMany({
+      where: {
+        employeeId: parsed.actorId,
+        ...(parsed.projectId === null ? {} : { projectId: parsed.projectId }),
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      take: parsed.limit,
+      include: {
+        project: { select: { id: true, name: true } },
+        workItem: { select: { id: true, title: true } },
+        revisions: {
+          orderBy: { revision: "desc" },
+          take: 1,
+          include: {
+            attributions: {
+              where: { employeeId: parsed.actorId },
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              take: 1,
+            },
+            verifications: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 },
+          },
+        },
+      },
+    });
+    const history = records.flatMap((record) => {
+      const revision = record.revisions[0];
+      if (revision === undefined) return [];
+      return [
+        {
+          id: record.id,
+          project: record.project,
+          workItem: record.workItem,
+          state: record.state,
+          revision: revision.revision,
+          revisionKind: revision.revisionKind,
+          sourceKind: revision.sourceKind,
+          supportedClaim: revision.supportedClaim,
+          contributionContext: revision.contributionContext,
+          verificationState: revision.verifications[0]?.outcome ?? "unverified",
+          attributionState: revision.attributions[0]?.state ?? null,
+          createdAt: record.createdAt.toISOString(),
+          updatedAt: record.updatedAt.toISOString(),
+        },
+      ];
+    });
+    return EvidenceWorkspaceSchema.parse({
+      confirmed: history.filter((item) => item.state === "confirmed"),
+      pending: history.filter((item) => item.state === "draft"),
+      attributionIssues: history.filter(
+        (item) => item.attributionState === "proposed" || item.attributionState === "disputed",
+      ),
+      gaps: history.filter(
+        (item) =>
+          item.verificationState === "unverified" ||
+          item.verificationState === "partial" ||
+          item.verificationState === "conflicting",
+      ),
+      history,
+    });
+  }
+
   async timeline(input: unknown): Promise<import("@evaluation/contracts").TimelineResponse> {
     if (this.research === null) return prepareTimeline(this.client, new Date(), input);
     const parsed = TimelineCompositionInputSchema.parse(input);
@@ -189,6 +306,18 @@ export class ActivityReader {
   }
 }
 
+function contributionSourceKind(
+  sourceKind: string,
+  githubSourceEventId: string | null | undefined,
+) {
+  if (githubSourceEventId !== null && githubSourceEventId !== undefined) return "github" as const;
+  if (sourceKind === "image" || sourceKind === "screenshot") return "image" as const;
+  if (sourceKind === "file" || sourceKind === "document") return "file" as const;
+  if (sourceKind === "pasted_code" || sourceKind === "cli_snapshot") return "code" as const;
+  if (sourceKind === "pasted_text") return "text" as const;
+  return "link" as const;
+}
+
 const TimelineCompositionInputSchema = z
   .object({
     actorId: z.string().uuid(),
@@ -196,6 +325,14 @@ const TimelineCompositionInputSchema = z
     workstreamId: z.string().uuid().nullable(),
     limit: z.number().int().min(1).max(50),
     cursor: z.string().min(1).max(1_000).nullable(),
+  })
+  .strict();
+
+const EvidenceWorkspaceInputSchema = z
+  .object({
+    actorId: z.string().uuid(),
+    projectId: z.string().uuid().nullable().default(null),
+    limit: z.number().int().min(1).max(100).default(50),
   })
   .strict();
 

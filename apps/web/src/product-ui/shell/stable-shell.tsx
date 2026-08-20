@@ -5,6 +5,9 @@ import { createElement, useState } from "react";
 import { DesktopNavigation } from "./desktop-navigation";
 import { GlobalActions } from "./global-actions";
 import { MobileNavigation } from "./mobile-navigation";
+import * as whatChanged from "./what-changed-dialog";
+import { CaptureDialog } from "../capture/capture-dialog";
+import { loadCaptureUpdateContext } from "../../platform/capture-update-context-api";
 import styles from "./stable-shell.module.css";
 
 export function StableShell({
@@ -14,6 +17,7 @@ export function StableShell({
   locale,
   localeSwitchHref,
   model,
+  experienceStream = false,
 }: Readonly<{
   authAction: "login" | "logout";
   catalog: import("@evaluation/localization").Catalog;
@@ -21,10 +25,12 @@ export function StableShell({
   locale: import("@evaluation/localization").Locale;
   localeSwitchHref: string;
   model: import("./shell-model").ShellModel;
+  experienceStream?: boolean;
 }>) {
   const [notice, setNotice] = useState("");
   const alternateLocale = locale === "ar" ? "en" : "ar";
   const unavailable = () => setNotice(catalog["shell.availableNextSlice"]);
+  const canCapture = model.globalEntries.some((entry) => entry.id === "capture" && entry.visible);
 
   return (
     <div className={styles.shell!}>
@@ -47,9 +53,31 @@ export function StableShell({
       <header className={styles.header!}>
         {createElement(GlobalActions, {
           catalog,
-          entries: model.globalEntries,
+          entries: model.globalEntries.filter(
+            (entry) => entry.id !== "capture" && entry.id !== "what-changed",
+          ),
           onUnavailable: unavailable,
         })}
+        {createElement(whatChanged.WhatChangedDialog, {
+          catalog,
+          streamEnabled: experienceStream,
+        })}
+        {canCapture
+          ? createElement(CaptureDialog, {
+              catalog,
+              loadContext: loadCaptureUpdateContext,
+              locale,
+              onSaved: () => setNotice(catalog["capture.saved"]),
+              save: async (input) => {
+                const response = await fetch("/api/daily-work/private-inbox", {
+                  body: JSON.stringify({ ...input, projectId: null }),
+                  headers: { "content-type": "application/json" },
+                  method: "POST",
+                });
+                if (!response.ok) throw new Error("private capture save failed");
+              },
+            })
+          : null}
         <div className={styles.accountActions!}>
           <a href={localeSwitchHref} hrefLang={alternateLocale}>
             {catalog[`locale.switchTo${alternateLocale === "ar" ? "Arabic" : "English"}`]}

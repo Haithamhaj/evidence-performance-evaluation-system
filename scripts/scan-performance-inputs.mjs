@@ -28,6 +28,7 @@ async function collect(directory) {
     entries.map(async (entry) => {
       const target = path.join(directory, entry.name);
       if (entry.isDirectory()) return ignoredDirectories.has(entry.name) ? [] : collect(target);
+      if (/\.test\.[cm]?[jt]sx?$/u.test(entry.name)) return [];
       return sourceExtensions.has(path.extname(entry.name)) ? [target] : [];
     }),
   );

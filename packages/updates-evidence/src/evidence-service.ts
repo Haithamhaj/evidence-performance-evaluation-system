@@ -304,7 +304,12 @@ export class EvidenceService {
       if (record.currentRevision !== parsed.input.expectedRevision) throw versionConflict();
       const latest = record.revisions.at(-1);
       if (latest === undefined) throw invalidState();
-      if (latest.revisionKind === "ai_draft") throw employeeEditRequired();
+      if (
+        latest.revisionKind === "ai_draft" ||
+        (record.githubSourceEventId !== null && latest.revisionKind !== "employee_edit")
+      ) {
+        throw employeeEditRequired();
+      }
       await this.scopeReader.authorizeIn(transaction, {
         actor: parsed.actor,
         projectId: record.projectId,

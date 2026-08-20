@@ -1,0 +1,211 @@
+.workspace {
+  display: grid;
+  gap: 1rem;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
+  gap: 1rem;
+  align-items: end;
+}
+.header h1 {
+  margin: 0.25rem 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  letter-spacing: -0.04em;
+}
+.eyebrow {
+  color: var(--brief-accent, #135eea);
+  font-weight: 700;
+  margin: 0;
+}
+.summary,
+.empty {
+  color: #526071;
+}
+.boundary {
+  border-inline-start: 3px solid #1f6feb;
+  background: #f4f8ff;
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+.panel {
+  background: white;
+  border: 1px solid #d8dee8;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+.sectionHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #374151;
+  font-weight: 600;
+}
+.form input,
+.form select,
+.decision input {
+  min-height: 2.75rem;
+  border: 1px solid #b7c0cc;
+  border-radius: 0.45rem;
+  padding: 0.5rem 0.65rem;
+  background: white;
+  color: #111827;
+}
+.form button,
+.decision button,
+.secondary {
+  min-height: 2.75rem;
+  border: 1px solid #135eea;
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.9rem;
+  background: #135eea;
+  color: white;
+  font-weight: 700;
+}
+.form button {
+  align-self: end;
+}
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+.card {
+  border: 1px solid #e0e5ec;
+  border-radius: 0.6rem;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.cardMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+.cardMain small {
+  color: #135eea;
+  font-weight: 700;
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+.facts div {
+  background: #f7f9fc;
+  border-radius: 0.45rem;
+  padding: 0.6rem;
+}
+.facts dt {
+  color: #687385;
+  font-size: 0.8rem;
+}
+.facts dd {
+  margin: 0.2rem 0 0;
+  font-weight: 650;
+}
+.decision {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  gap: 0.5rem;
+}
+.decision .secondary,
+.secondary {
+  background: white;
+  color: #135eea;
+}
+.status {
+  background: #eef9f1;
+  border-inline-start: 3px solid #15803d;
+  padding: 0.75rem;
+}
+.editor {
+  border-block-start: 1px solid #e0e5ec;
+  padding-block-start: 0.65rem;
+}
+.editor summary {
+  cursor: pointer;
+  color: #135eea;
+  font-weight: 750;
+}
+.editor > p {
+  color: #687385;
+  font-size: 0.82rem;
+}
+.editor form {
+  display: grid;
+  gap: 0.75rem;
+}
+.editor fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  border: 1px solid #d8dee8;
+  border-radius: 0.55rem;
+}
+.editor label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+.editor textarea {
+  border: 1px solid #b7c0cc;
+  border-radius: 0.4rem;
+  padding: 0.5rem;
+  resize: vertical;
+}
+.editor button {
+  justify-self: start;
+  min-height: 2.75rem;
+  border: 1px solid #135eea;
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.9rem;
+  background: #135eea;
+  color: white;
+  font-weight: 700;
+}
+.form button:focus-visible,
+.decision button:focus-visible,
+.secondary:focus-visible,
+.form input:focus-visible,
+.form select:focus-visible {
+  outline: 3px solid #8bb7ff;
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .workspace {
+    padding: 1rem;
+  }
+  .header {
+    grid-template-columns: 1fr;
+  }
+  .form,
+  .facts,
+  .decision,
+  .editor fieldset {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

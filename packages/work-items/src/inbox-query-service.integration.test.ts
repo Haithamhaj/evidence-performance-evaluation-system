@@ -14,7 +14,7 @@ describe("PrivateInboxQueryService", () => {
 
     await expect(
       service.list({
-        actor: { userId: crypto.randomUUID(), active: false },
+        actor: { userId: crypto.randomUUID(), active: false, roles: ["employee"] },
         input: { status: "open", limit: 50, cursor: null },
       }),
     ).rejects.toMatchObject({ code: "PRIVATE_INBOX_FORBIDDEN" });

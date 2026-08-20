@@ -10,6 +10,7 @@ import {
   PrivateInboxItemSchema,
   PromotePrivateInboxInputSchema,
   TransitionWorkItemInputSchema,
+  WorkItemDependenciesSchema,
   UpdateWorkItemInputSchema,
   WorkItemDetailSchema,
 } from "./work-items.js";
@@ -22,6 +23,7 @@ describe("work item contracts", () => {
   it("requires a Project and accepts an optional Workstream", () => {
     expect(
       CreateWorkItemInputSchema.parse({
+        clientRequestId: "00000000-0000-4000-8000-000000000199",
         title: "مراجعة عقد التقدم",
         description: "تحقق من خط الأساس والهدف.",
         projectId,
@@ -32,7 +34,12 @@ describe("work item contracts", () => {
         requirements: ["اعتماد المصدر"],
         acceptanceConditions: ["تأكيد المالك"],
       }),
-    ).toMatchObject({ projectId, workstreamId, assigneeId: employeeId });
+    ).toMatchObject({
+      clientRequestId: "00000000-0000-4000-8000-000000000199",
+      projectId,
+      workstreamId,
+      assigneeId: employeeId,
+    });
 
     expect(() =>
       CreateWorkItemInputSchema.parse({
@@ -63,14 +70,30 @@ describe("work item contracts", () => {
       layout: "list",
       limit: 100,
       cursor: null,
+      projectId: null,
+      status: null,
+      search: null,
+      sort: "due_asc",
     });
     expect(
       ListWorkItemsInputSchema.parse({
         view: "team",
         layout: "calendar",
         limit: "25",
+        projectId,
+        status: "blocked",
+        search: "  API fallback  ",
+        sort: "updated_desc",
       }),
-    ).toMatchObject({ view: "team", layout: "calendar", limit: 25 });
+    ).toMatchObject({
+      view: "team",
+      layout: "calendar",
+      limit: 25,
+      projectId,
+      status: "blocked",
+      search: "API fallback",
+      sort: "updated_desc",
+    });
   });
 
   it("keeps transitions and assignments optimistic and reasoned", () => {
@@ -100,6 +123,32 @@ describe("work item contracts", () => {
         assigneeId: null,
         expectedVersion: 4,
         reason: "Remove responsibility",
+      }),
+    ).toThrow();
+  });
+
+  it("keeps dependency readiness separate from progress and performance", () => {
+    expect(
+      WorkItemDependenciesSchema.parse({
+        workItemId: crypto.randomUUID(),
+        version: 2,
+        readiness: "blocked_by_dependency",
+        allowedTransitions: ["blocked", "cancelled"],
+        dependsOn: [
+          { id: crypto.randomUUID(), title: "Finish the engine contract", status: "in_progress" },
+        ],
+        blocks: [],
+      }),
+    ).toMatchObject({ readiness: "blocked_by_dependency" });
+    expect(() =>
+      WorkItemDependenciesSchema.parse({
+        workItemId: crypto.randomUUID(),
+        version: 2,
+        readiness: "ready",
+        allowedTransitions: [],
+        dependsOn: [],
+        blocks: [],
+        progressPercent: 80,
       }),
     ).toThrow();
   });
@@ -138,6 +187,8 @@ describe("private inbox contracts", () => {
     ).toEqual({
       text: "راجع ملاحظات اجتماع العميل",
       projectId: null,
+      sourceType: "text",
+      sourceUploadId: null,
     });
 
     expect(
@@ -146,6 +197,8 @@ describe("private inbox contracts", () => {
         employeeId,
         text: "راجع ملاحظات اجتماع العميل",
         projectId: null,
+        sourceType: "text",
+        sourceUploadId: null,
         status: "open",
         promotedWorkItemId: null,
         version: 1,
@@ -158,6 +211,36 @@ describe("private inbox contracts", () => {
       promotedWorkItemId: null,
       status: "open",
     });
+  });
+
+  it("accepts only bounded owner-private capture sources", () => {
+    expect(
+      CapturePrivateInboxInputSchema.parse({
+        sourceType: "link",
+        text: "https://example.com/meeting-notes",
+      }),
+    ).toMatchObject({ sourceType: "link", projectId: null });
+    expect(
+      CapturePrivateInboxInputSchema.parse({
+        sourceType: "code",
+        text: "const review = true;",
+      }),
+    ).toMatchObject({ sourceType: "code", projectId: null });
+    expect(() =>
+      CapturePrivateInboxInputSchema.parse({ sourceType: "link", text: "not a link" }),
+    ).toThrow();
+    expect(() =>
+      CapturePrivateInboxInputSchema.parse({
+        sourceType: "voice",
+        text: "This must not start transcription",
+      }),
+    ).toThrow();
+    expect(() =>
+      CapturePrivateInboxInputSchema.parse({
+        sourceType: "file",
+        text: "report.pdf",
+      }),
+    ).toThrow();
   });
 
   it("validates list, dismiss, and Project-linked promotion commands", () => {

@@ -5,6 +5,7 @@ import {
   IdentifiedCompletionReader,
   IdentifiedProjectionPolicy,
   ManagerEvaluationCycleService,
+  ManagerEvaluationParticipantReader,
   ManagerEvaluationSubmissionService,
 } from "@evaluation/manager-evaluation";
 import { Module } from "@nestjs/common";
@@ -92,6 +93,11 @@ Module({
           new ApiFrozenEmployeeEvaluationBoundaryReader(),
           databaseAuditWriter as never,
         ),
+      inject: [MANAGER_EVALUATION_DATABASE],
+    },
+    {
+      provide: ManagerEvaluationParticipantReader,
+      useFactory: (database: Database) => new ManagerEvaluationParticipantReader(database),
       inject: [MANAGER_EVALUATION_DATABASE],
     },
     {

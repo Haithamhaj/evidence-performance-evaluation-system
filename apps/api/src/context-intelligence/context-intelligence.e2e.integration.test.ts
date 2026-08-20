@@ -376,9 +376,41 @@ describe("Context Intelligence protected HTTP API", () => {
       managerId,
       confirmedDraft(),
     );
+    const confirmedSuggestion = await apiRequest(
+      "POST",
+      `/api/v1/context/project-suggestions/${suggestionId}/confirm`,
+      managerId,
+      { expectedRevision: 1, reason: "I reviewed this Project link." },
+    );
+    const correctedSuggestion = await apiRequest(
+      "POST",
+      `/api/v1/context/project-suggestions/${suggestionId}/correct`,
+      managerId,
+      { expectedRevision: 1, projectId, reason: "I selected the correct Project." },
+    );
 
     expect(analyzed.response.status).toBe(403);
     expect(confirmed.response.status).toBe(403);
+    expect(confirmedSuggestion.response.status).toBe(403);
+    expect(correctedSuggestion.response.status).toBe(403);
+  });
+
+  it("denies another employee from deciding an owner's Project suggestion", async () => {
+    const confirmed = await apiRequest(
+      "POST",
+      `/api/v1/context/project-suggestions/${suggestionId}/confirm`,
+      otherEmployeeId,
+      { expectedRevision: 1, reason: "I reviewed this Project link." },
+    );
+    const dismissed = await apiRequest(
+      "POST",
+      `/api/v1/context/project-suggestions/${suggestionId}/correct`,
+      otherEmployeeId,
+      { expectedRevision: 1, projectId: null, reason: "This is not related." },
+    );
+
+    expect(confirmed.response.status).toBe(403);
+    expect(dismissed.response.status).toBe(403);
   });
 
   it("denies cross-employee, inactive, and inaccessible private source analysis", async () => {

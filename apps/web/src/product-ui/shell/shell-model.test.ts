@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildShellModel, localeSwitchHref } from "./shell-model.js";
+import { buildShellModel, homeHrefForPrincipal, localeSwitchHref } from "./shell-model.js";
 
 const employee = { active: true, roles: [] as string[] };
 
@@ -12,12 +12,30 @@ describe("stable shell model", () => {
       "today",
       "work",
       "projects",
+      "insights",
+      "notifications",
+      "reports",
       "research",
       "evaluation",
       "settings",
       "help",
     ]);
     expect(model.globalEntries.find(({ id }) => id === "capture")?.visible).toBe(true);
+  });
+
+  it("can move Work to the parity workspace while retaining the legacy default", () => {
+    expect(
+      buildShellModel({ locale: "en", principal: employee }).navigation.find(
+        ({ id }) => id === "work",
+      )?.href,
+    ).toBe("/en/my-work");
+    expect(
+      buildShellModel({
+        locale: "en",
+        principal: employee,
+        workHref: "/en/tasks",
+      }).navigation.find(({ id }) => id === "work")?.href,
+    ).toBe("/en/tasks");
   });
 
   it("adds manager operations without granting employee capture by role alone", () => {
@@ -28,6 +46,9 @@ describe("stable shell model", () => {
 
     expect(model.navigation.map(({ id }) => id)).toContain("manager-operations");
     expect(model.globalEntries.find(({ id }) => id === "capture")?.visible).toBe(false);
+    expect(homeHrefForPrincipal("en", { active: true, roles: ["manager"] })).toBe(
+      "/en/manager/operations",
+    );
   });
 
   it("shows administration and health without manager decisions for an administrator", () => {
@@ -40,6 +61,18 @@ describe("stable shell model", () => {
       expect.arrayContaining(["administration", "health"]),
     );
     expect(model.navigation.map(({ id }) => id)).not.toContain("manager-operations");
+    expect(homeHrefForPrincipal("en", { active: true, roles: ["system_administrator"] })).toBe(
+      "/en/admin/operations",
+    );
+  });
+
+  it("keeps the employee Home route as the daily overview", () => {
+    expect(homeHrefForPrincipal("ar", employee)).toBe("/ar/my-work");
+    expect(
+      buildShellModel({ locale: "en", principal: employee }).navigation.find(
+        ({ id }) => id === "today",
+      )?.href,
+    ).toBe("/en/my-work");
   });
 
   it("does not turn Project coordination into manager evaluation authority", () => {
@@ -72,6 +105,12 @@ describe("stable shell model", () => {
       "research",
       "evaluation",
     ]);
-    expect(model.mobileOverflow.map(({ id }) => id)).toEqual(["settings", "help"]);
+    expect(model.mobileOverflow.map(({ id }) => id)).toEqual([
+      "insights",
+      "notifications",
+      "reports",
+      "settings",
+      "help",
+    ]);
   });
 });

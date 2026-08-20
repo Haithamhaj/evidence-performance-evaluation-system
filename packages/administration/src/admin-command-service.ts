@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { AdminCommandSchema, AppError } from "@evaluation/contracts";
+import { AdminCapabilitySchema, AdminCommandSchema, AppError } from "@evaluation/contracts";
 
 const REASON_REQUIRED = new Set<import("@evaluation/contracts").AdminCommand["capability"]>([
   "TECHNICAL_ROLES_MANAGE",
@@ -31,6 +31,13 @@ export class AdminCommandService {
     this.database = database;
     this.authorization = authorization;
     this.owners = owners;
+  }
+
+  capabilities() {
+    return AdminCapabilitySchema.options.map((capability) => ({
+      capability,
+      available: this.owners[capability] !== undefined,
+    }));
   }
 
   async execute(input: unknown): Promise<AdminMutationReceiptView> {

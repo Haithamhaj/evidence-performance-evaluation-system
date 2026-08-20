@@ -10,11 +10,11 @@ function fail(message) {
 }
 
 if (taxonomy.schemaVersion !== 1) fail("schemaVersion must be 1");
-if (taxonomy.status !== "phase_0a_definition_only") fail("taxonomy must remain definition-only");
+if (taxonomy.status !== "phase_1_runtime_active") fail("taxonomy runtime status is not current");
 if (taxonomy.unknownWorkSignalPolicy !== "fail_closed")
   fail("unknown Work Signals must fail closed");
 if (taxonomy.telemetryCollectionEnabled !== false)
-  fail("Phase 0A telemetry collection must be disabled");
+  fail("telemetry collection must remain disabled");
 
 const workClasses = new Set(["domain", "connector", "scheduled_work_check", "user_domain_action"]);
 const requiredWorkflowKeys = new Set([

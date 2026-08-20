@@ -21,9 +21,16 @@ import {
 
 import { AiRouteManagementService, AiRoutingModule } from "../ai-routing/ai-routing.module.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { ExperienceStreamController } from "../experience-stream/experience-stream.controller.js";
+import { WorkItemsExperienceAuthorizationModule } from "../work-items/experience-authorization.module.js";
 import { AdministrationController } from "./administration.controller.js";
 import { AuthoritativeOperationsEventPublisher } from "./authoritative-event-publisher.js";
 import { ExportsController } from "./exports.controller.js";
+import { WorkItemsExperienceRecipientAuthorizer } from "@evaluation/work-items";
+import { ExperienceDeliveryQueueProducer } from "./experience-delivery-queue.js";
+import { ExperienceEventRuntime } from "./experience-event-runtime.js";
+import { ExperienceEventsController } from "./experience-events.controller.js";
+import { ExperienceTransportModule } from "./experience-transport.module.js";
 import { createExportQueueProducer, ExportQueueProducer } from "./export-queue-producer.js";
 import { NotificationsController } from "./notifications.controller.js";
 import { OPERATIONS_POLICY_DATABASE, OperationsPolicyGuard } from "./operations-policy.guard.js";
@@ -41,8 +48,19 @@ type Database = ReturnType<typeof createDatabaseClient>;
 export class OperationsModule {}
 
 Module({
-  imports: [AuthModule, AiRoutingModule],
-  controllers: [NotificationsController, ExportsController, AdministrationController],
+  imports: [
+    AuthModule,
+    AiRoutingModule,
+    ExperienceTransportModule,
+    WorkItemsExperienceAuthorizationModule,
+  ],
+  controllers: [
+    NotificationsController,
+    ExportsController,
+    AdministrationController,
+    ExperienceEventsController,
+    ExperienceStreamController,
+  ],
   providers: [
     { provide: OPERATIONS_DATABASE, useFactory: () => createDatabaseClient(databaseUrl()) },
     { provide: OPERATIONS_POLICY_DATABASE, useExisting: OPERATIONS_DATABASE },
@@ -67,6 +85,19 @@ Module({
       provide: EXPORT_QUEUE_LIFECYCLE,
       inject: [ExportQueueProducer],
       useFactory: (queue: ExportQueueProducer) => ({ onModuleDestroy: () => queue.close() }),
+    },
+    {
+      provide: ExperienceEventRuntime,
+      inject: [
+        OPERATIONS_DATABASE,
+        WorkItemsExperienceRecipientAuthorizer,
+        ExperienceDeliveryQueueProducer,
+      ],
+      useFactory: (
+        database: Database,
+        authorizer: WorkItemsExperienceRecipientAuthorizer,
+        queue: ExperienceDeliveryQueueProducer,
+      ) => new ExperienceEventRuntime(database, authorizer, queue),
     },
     {
       provide: NotificationIntentService,
@@ -184,7 +215,7 @@ Module({
     },
     OperationsPolicyGuard,
   ],
-  exports: [AuthoritativeOperationsEventPublisher],
+  exports: [AuthoritativeOperationsEventPublisher, ExperienceEventRuntime],
 })(OperationsModule);
 
 function unavailableReportStorage(): ReportObjectStorage {

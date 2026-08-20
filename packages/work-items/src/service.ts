@@ -2,13 +2,19 @@ import {
   AppError,
   AssignWorkItemInputSchema,
   CreateWorkItemInputSchema,
+  ReplaceWorkItemDependenciesInputSchema,
   TransitionWorkItemInputSchema,
   UpdateWorkItemInputSchema,
   WorkItemDetailSchema,
 } from "@evaluation/contracts";
 import { z } from "zod";
 
-import { assertWorkItemScope, assertWorkItemTransition } from "./invariants.js";
+import {
+  assertWorkItemScope,
+  assertWorkItemTransition,
+  getDependencyAwareWorkItemTransitions,
+  getAllowedWorkItemTransitions,
+} from "./invariants.js";
 import {
   assertEligibleAssignee,
   authorizeProject,
@@ -52,6 +58,10 @@ const UpdateCommandSchema = CommandBaseSchema.extend({
   workItemId: z.string().uuid(),
   input: UpdateWorkItemInputSchema,
 }).strict();
+const ReplaceDependenciesCommandSchema = CommandBaseSchema.extend({
+  workItemId: z.string().uuid(),
+  input: ReplaceWorkItemDependenciesInputSchema,
+}).strict();
 
 export class WorkItemService {
   private readonly client: DatabaseClient;
@@ -74,68 +84,100 @@ export class WorkItemService {
   async create(command: unknown): Promise<import("@evaluation/contracts").WorkItemDetail> {
     const parsed = CreateCommandSchema.parse(command);
     const current = validClock(this.clock());
-    return serializable(this.client, async (transaction) => {
-      const project = await authorizeProject(
-        transaction,
-        parsed.actor,
-        parsed.input.projectId,
-        current,
-      );
-      const workstream =
-        parsed.input.workstreamId === null
-          ? null
-          : await transaction.workstream.findUnique({
-              where: { id: parsed.input.workstreamId },
-              select: { id: true, projectId: true, status: true },
-            });
-      assertWorkItemScope({ projectId: project.id, workstream });
-      if (workstream !== null && !["active", "paused"].includes(workstream.status)) {
-        throw stateError();
-      }
-      await assertEligibleAssignee(
-        transaction,
-        parsed.input.assigneeId,
-        project.id,
-        workstream?.id ?? null,
-        current,
-      );
-      const item = await transaction.workItem.create({
-        data: {
-          ...parsed.input,
-          dueAt: parsed.input.dueAt === null ? null : new Date(parsed.input.dueAt),
+    try {
+      return await serializable(this.client, async (transaction) => {
+        if (parsed.input.clientRequestId !== undefined) {
+          const existing = await transaction.workItem.findFirst({
+            where: {
+              clientRequestId: parsed.input.clientRequestId,
+              createdById: parsed.actor.userId,
+            },
+          });
+          if (existing !== null) {
+            if (!sameConfirmedTask(existing, parsed.actor.userId, parsed.input)) {
+              throw idempotencyError();
+            }
+            return serialize(existing);
+          }
+        }
+        const project = await authorizeProject(
+          transaction,
+          parsed.actor,
+          parsed.input.projectId,
+          current,
+        );
+        const workstream =
+          parsed.input.workstreamId === null
+            ? null
+            : await transaction.workstream.findUnique({
+                where: { id: parsed.input.workstreamId },
+                select: { id: true, projectId: true, status: true },
+              });
+        assertWorkItemScope({ projectId: project.id, workstream });
+        if (workstream !== null && !["active", "paused"].includes(workstream.status)) {
+          throw stateError();
+        }
+        await assertEligibleAssignee(
+          transaction,
+          parsed.input.assigneeId,
+          project.id,
+          workstream?.id ?? null,
+          current,
+        );
+        const item = await transaction.workItem.create({
+          data: {
+            ...parsed.input,
+            clientRequestId: parsed.input.clientRequestId ?? null,
+            dueAt: parsed.input.dueAt === null ? null : new Date(parsed.input.dueAt),
+            createdById: parsed.actor.userId,
+          },
+        });
+        await transaction.workItemAssignmentHistory.create({
+          data: {
+            workItemId: item.id,
+            fromAssigneeId: null,
+            toAssigneeId: parsed.input.assigneeId,
+            actorId: parsed.actor.userId,
+            reason: "Initial assignment",
+            resultingVersion: 1,
+          },
+        });
+        await this.auditWriter.append(transaction, {
+          eventType: "work_item.created",
+          actor: { kind: "human", id: parsed.actor.userId },
+          effectiveSubjectId: parsed.input.assigneeId,
+          scopeType: "project",
+          scopeId: project.id,
+          targetType: "work_item",
+          targetId: item.id,
+          reason: "Work Item created",
+          safeDiff: {
+            projectId: project.id,
+            workstreamId: workstream?.id ?? null,
+            status: "planned",
+            version: 1,
+          },
+          correlationId: parsed.correlationId,
+          source: "api",
+        });
+        return serialize(item);
+      });
+    } catch (error) {
+      if (parsed.input.clientRequestId === undefined || !hasCode(error, "P2002")) throw error;
+      const concurrent = await this.client.workItem.findFirst({
+        where: {
+          clientRequestId: parsed.input.clientRequestId,
           createdById: parsed.actor.userId,
         },
       });
-      await transaction.workItemAssignmentHistory.create({
-        data: {
-          workItemId: item.id,
-          fromAssigneeId: null,
-          toAssigneeId: parsed.input.assigneeId,
-          actorId: parsed.actor.userId,
-          reason: "Initial assignment",
-          resultingVersion: 1,
-        },
-      });
-      await this.auditWriter.append(transaction, {
-        eventType: "work_item.created",
-        actor: { kind: "human", id: parsed.actor.userId },
-        effectiveSubjectId: parsed.input.assigneeId,
-        scopeType: "project",
-        scopeId: project.id,
-        targetType: "work_item",
-        targetId: item.id,
-        reason: "Work Item created",
-        safeDiff: {
-          projectId: project.id,
-          workstreamId: workstream?.id ?? null,
-          status: "planned",
-          version: 1,
-        },
-        correlationId: parsed.correlationId,
-        source: "api",
-      });
-      return serialize(item);
-    });
+      if (
+        concurrent === null ||
+        !sameConfirmedTask(concurrent, parsed.actor.userId, parsed.input)
+      ) {
+        throw idempotencyError();
+      }
+      return serialize(concurrent);
+    }
   }
 
   async createConfirmedTask(
@@ -182,6 +224,7 @@ export class WorkItemService {
       data: {
         id: parsed.workItemId,
         ...parsed.input,
+        clientRequestId: parsed.input.clientRequestId ?? null,
         dueAt: parsed.input.dueAt === null ? null : new Date(parsed.input.dueAt),
         createdById: parsed.actor.userId,
       },
@@ -226,6 +269,16 @@ export class WorkItemService {
       const item = await loadAuthorizedItem(transaction, parsed.actor, parsed.workItemId, current);
       if (item.version !== parsed.input.expectedVersion) throw versionError();
       assertWorkItemTransition(item.status, parsed.input.status);
+      if (["ready", "in_progress", "in_review", "done"].includes(parsed.input.status)) {
+        const unresolved = await transaction.workItemDependency.findFirst({
+          where: {
+            workItemId: item.id,
+            dependsOnWorkItem: { status: { notIn: ["done", "cancelled"] } },
+          },
+          select: { id: true },
+        });
+        if (unresolved !== null) throw dependencyBlockedError();
+      }
       const updated = await transaction.workItem.update({
         where: { id: item.id },
         data: { status: parsed.input.status, version: { increment: 1 } },
@@ -283,6 +336,87 @@ export class WorkItemService {
         toAssigneeId: updated.assigneeId,
       });
       return serialize(updated);
+    });
+  }
+
+  async replaceDependencies(
+    command: unknown,
+  ): Promise<import("@evaluation/contracts").WorkItemDependencies> {
+    const parsed = ReplaceDependenciesCommandSchema.parse(command);
+    const current = validClock(this.clock());
+    return serializable(this.client, async (transaction) => {
+      await lockWorkItem(transaction, parsed.workItemId);
+      const item = await loadAuthorizedItem(transaction, parsed.actor, parsed.workItemId, current);
+      if (item.version !== parsed.input.expectedVersion) throw versionError();
+      if (["done", "cancelled"].includes(item.status)) throw stateError();
+      const dependencyIds = [...new Set(parsed.input.dependsOnWorkItemIds)];
+      if (dependencyIds.includes(item.id)) throw dependencyCycleError();
+      const projectItems = await transaction.workItem.findMany({
+        where: { projectId: item.projectId },
+        select: { id: true, title: true, status: true },
+      });
+      const projectIds = new Set(projectItems.map(({ id }) => id));
+      if (dependencyIds.some((id) => !projectIds.has(id))) throw dependencyScopeError();
+      const relations = await transaction.workItemDependency.findMany({
+        where: { workItem: { projectId: item.projectId } },
+        select: { workItemId: true, dependsOnWorkItemId: true },
+      });
+      const adjacency = new Map<string, string[]>();
+      for (const relation of relations) {
+        if (relation.workItemId === item.id) continue;
+        const values = adjacency.get(relation.workItemId) ?? [];
+        values.push(relation.dependsOnWorkItemId);
+        adjacency.set(relation.workItemId, values);
+      }
+      adjacency.set(item.id, dependencyIds);
+      if (dependencyIds.some((id) => reaches(id, item.id, adjacency))) {
+        throw dependencyCycleError();
+      }
+      await transaction.workItemDependency.deleteMany({ where: { workItemId: item.id } });
+      if (dependencyIds.length > 0) {
+        await transaction.workItemDependency.createMany({
+          data: dependencyIds.map((dependsOnWorkItemId) => ({
+            workItemId: item.id,
+            dependsOnWorkItemId,
+          })),
+        });
+      }
+      const updated = await transaction.workItem.update({
+        where: { id: item.id },
+        data: { version: { increment: 1 } },
+      });
+      await this.auditWriter.append(transaction, {
+        eventType: "work_item.changed",
+        actor: { kind: "human", id: parsed.actor.userId },
+        effectiveSubjectId: item.assigneeId ?? parsed.actor.userId,
+        scopeType: "project",
+        scopeId: item.projectId,
+        targetType: "work_item",
+        targetId: item.id,
+        reason: parsed.input.reason,
+        safeDiff: { changedFields: ["dependencies"], dependencyCount: dependencyIds.length },
+        correlationId: parsed.correlationId,
+        source: "api",
+      });
+      const blocks = await transaction.workItemDependency.findMany({
+        where: { dependsOnWorkItemId: item.id },
+        select: { workItem: { select: { id: true, title: true, status: true } } },
+      });
+      const byId = new Map(projectItems.map((entry) => [entry.id, entry]));
+      const dependsOn = dependencyIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+      return (await import("@evaluation/contracts")).WorkItemDependenciesSchema.parse({
+        workItemId: item.id,
+        version: updated.version,
+        readiness: dependsOn.some(({ status }) => !["done", "cancelled"].includes(status))
+          ? "blocked_by_dependency"
+          : "ready",
+        allowedTransitions: getDependencyAwareWorkItemTransitions(
+          item.status,
+          dependsOn.some(({ status }) => !["done", "cancelled"].includes(status)),
+        ),
+        dependsOn,
+        blocks: blocks.map(({ workItem }) => workItem),
+      });
     });
   }
 
@@ -461,6 +595,31 @@ export class WorkItemService {
   }
 }
 
+function reaches(start: string, target: string, adjacency: ReadonlyMap<string, readonly string[]>) {
+  const pending = [start];
+  const visited = new Set<string>();
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    if (current === target) return true;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    pending.push(...(adjacency.get(current) ?? []));
+  }
+  return false;
+}
+
+function dependencyBlockedError() {
+  return new AppError("WORK_ITEM_DEPENDENCY_BLOCKED", "errors.workItems.dependencyBlocked", 409);
+}
+
+function dependencyCycleError() {
+  return new AppError("WORK_ITEM_DEPENDENCY_CYCLE", "errors.workItems.dependencyCycle", 409);
+}
+
+function dependencyScopeError() {
+  return new AppError("WORK_ITEM_DEPENDENCY_SCOPE", "errors.workItems.dependencyScope", 400);
+}
+
 function serialize(item: {
   id: string;
   projectId: string;
@@ -515,6 +674,7 @@ function serialize(item: {
       item.status === "done" || item.status === "cancelled"
         ? ["add_update"]
         : ["edit", "transition", "assign", "add_update"],
+    allowedTransitions: getAllowedWorkItemTransitions(item.status),
   });
 }
 
@@ -596,4 +756,8 @@ function sameConfirmedTask(
     item.blocker === input.blocker &&
     item.nextAction === input.nextAction
   );
+}
+
+function hasCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

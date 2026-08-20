@@ -4,6 +4,7 @@ import { createDatabaseClient } from "@evaluation/database";
 
 import { PrivateInboxQueryService } from "./inbox-query-service.js";
 import { PrivateInboxService } from "./inbox-service.js";
+import { DatabasePrivateInboxExperiencePublisher } from "./private-inbox-experience.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
 const now = new Date("2026-07-20T08:00:00.000Z");
@@ -13,6 +14,7 @@ const auditWriter: import("@evaluation/contracts").AuditWriter<
 > = {
   append: async () => ({ id: crypto.randomUUID(), createdAt: now.toISOString() }),
 };
+const privateUploads = { assertOwned: async () => undefined };
 
 async function seedInboxGraph() {
   const suffix = crypto.randomUUID();
@@ -87,37 +89,71 @@ async function seedInboxGraph() {
 afterAll(async () => client.$disconnect());
 
 describe("Private Inbox ownership and promotion", () => {
+  it("commits a capture receipt atomically and returns the capture when queue wake-up fails", async () => {
+    const graph = await seedInboxGraph();
+    const wake = vi.fn(async () => {
+      throw new Error("queue unavailable");
+    });
+    const experience = new DatabasePrivateInboxExperiencePublisher({ enqueue: wake });
+    const service = new PrivateInboxService(
+      client,
+      auditWriter,
+      privateUploads,
+      () => now,
+      experience,
+    );
+    const correlationId = crypto.randomUUID();
+
+    const captured = await service.capture({
+      actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
+      correlationId,
+      input: { text: "Record a durable change", projectId: null },
+    });
+
+    await expect(
+      client.workSignalReceipt.findUnique({
+        where: { idempotencyKey: `private-inbox:${captured.id}:v1` },
+      }),
+    ).resolves.toMatchObject({
+      recipientId: graph.employeeAId,
+      correlationId,
+      deliveryState: "queued",
+      signalType: "user.capture_submitted",
+    });
+    expect(wake).toHaveBeenCalledOnce();
+  });
+
   it("keeps an unlinked capture private to its employee", async () => {
     const graph = await seedInboxGraph();
-    const service = new PrivateInboxService(client, auditWriter, () => now);
+    const service = new PrivateInboxService(client, auditWriter, privateUploads, () => now);
     const query = new PrivateInboxQueryService(client);
     const captured = await service.capture({
-      actor: { userId: graph.employeeAId, active: true },
+      actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
       correlationId: crypto.randomUUID(),
       input: { text: "Follow up on the client decision", projectId: null },
     });
 
     await expect(
       query.list({
-        actor: { userId: graph.employeeAId, active: true },
+        actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
         input: { status: "open", limit: 50, cursor: null },
       }),
     ).resolves.toMatchObject({ items: [{ id: captured.id, projectId: null }] });
     await expect(
       query.list({
-        actor: { userId: graph.employeeBId, active: true },
+        actor: { userId: graph.employeeBId, active: true, roles: ["employee"] },
         input: { status: "open", limit: 50, cursor: null },
       }),
     ).resolves.toEqual({ items: [], nextCursor: null });
     await expect(
       query.list({
-        actor: { userId: graph.managerId, active: true },
+        actor: { userId: graph.managerId, active: true, roles: ["manager"] },
         input: { status: "open", limit: 50, cursor: null },
       }),
-    ).resolves.toEqual({ items: [], nextCursor: null });
+    ).rejects.toMatchObject({ code: "PRIVATE_INBOX_FORBIDDEN" });
     await expect(
       service.dismiss({
-        actor: { userId: graph.employeeBId, active: true },
+        actor: { userId: graph.employeeBId, active: true, roles: ["employee"] },
         correlationId: crypto.randomUUID(),
         inboxItemId: captured.id,
         input: { expectedVersion: 1, reason: "Not mine" },
@@ -125,7 +161,7 @@ describe("Private Inbox ownership and promotion", () => {
     ).rejects.toMatchObject({ code: "PRIVATE_INBOX_FORBIDDEN" });
     await expect(
       service.promote({
-        actor: { userId: graph.employeeBId, active: true },
+        actor: { userId: graph.employeeBId, active: true, roles: ["employee"] },
         correlationId: crypto.randomUUID(),
         inboxItemId: captured.id,
         input: {
@@ -149,9 +185,9 @@ describe("Private Inbox ownership and promotion", () => {
 
   it("promotes once and rolls back both records if the transaction fails", async () => {
     const graph = await seedInboxGraph();
-    const service = new PrivateInboxService(client, auditWriter, () => now);
+    const service = new PrivateInboxService(client, auditWriter, privateUploads, () => now);
     const captured = await service.capture({
-      actor: { userId: graph.employeeAId, active: true },
+      actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
       correlationId: crypto.randomUUID(),
       input: { text: "Prepare the launch checklist", projectId: graph.projectId },
     });
@@ -160,9 +196,14 @@ describe("Private Inbox ownership and promotion", () => {
         throw new Error("simulated audit failure");
       }),
     };
-    const failingService = new PrivateInboxService(client, failingAudit as never, () => now);
+    const failingService = new PrivateInboxService(
+      client,
+      failingAudit as never,
+      privateUploads,
+      () => now,
+    );
     const promoteCommand = {
-      actor: { userId: graph.employeeAId, active: true },
+      actor: { userId: graph.employeeAId, active: true, roles: ["employee"] },
       correlationId: crypto.randomUUID(),
       inboxItemId: captured.id,
       input: {

@@ -76,7 +76,11 @@ Module({
     EmployeeEvaluationPolicyGuard,
     {
       provide: EmployeeEvaluationQueryService,
-      useValue: new EmployeeEvaluationQueryService(database),
+      useValue: new EmployeeEvaluationQueryService(database, {
+        read: async () => {
+          throw new Error("Fact View is not used by this API integration fixture.");
+        },
+      }),
     },
     { provide: AssessmentService, useValue: {} },
     { provide: EvaluationWordingService, useValue: {} },

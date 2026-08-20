@@ -6,6 +6,8 @@ export const ContextProjectOptionSchema = z
   .strict();
 const SourceSchema = z
   .object({
+    provider: z.enum(["GOOGLE_GMAIL", "GOOGLE_CALENDAR"]).nullable(),
+    observedAt: z.iso.datetime({ offset: true }).nullable(),
     title: z.string().trim().min(1).max(1_000),
     summary: z.string().nullable(),
     sourceUrl: z.url().nullable(),

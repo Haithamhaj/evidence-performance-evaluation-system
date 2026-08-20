@@ -27,6 +27,442 @@ const draftRequestId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.clearAllMocks());
 
 describe("daily-work same-origin gateway", () => {
+  it("reads one authorized Work Item without accepting browser ownership", async () => {
+    const workItemId = "99999999-9999-4999-8999-999999999999";
+    mocks.fetchProtectedUpstream.mockResolvedValue(workItem(workItemId));
+
+    const response = await GET(
+      new Request(`http://localhost:3000/api/daily-work/work-items/${workItemId}`),
+      { params: Promise.resolve({ path: ["work-items", workItemId] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: `/api/v1/work-items/${workItemId}`,
+      schema: expect.anything(),
+    });
+  });
+
+  it("forwards only the bounded authorized Work Item transition", async () => {
+    const workItemId = "99999999-9999-4999-8999-999999999999";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      ...workItem(workItemId),
+      status: "in_progress",
+      version: 2,
+    });
+
+    const response = await POST(
+      new Request(`http://localhost:3000/api/daily-work/work-items/${workItemId}/transitions`, {
+        method: "POST",
+        body: JSON.stringify({
+          status: "in_progress",
+          expectedVersion: 1,
+          reason: "Employee changed the Task status from Work.",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["work-items", workItemId, "transitions"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: `/api/v1/work-items/${workItemId}/transitions`,
+      body: {
+        status: "in_progress",
+        expectedVersion: 1,
+        reason: "Employee changed the Task status from Work.",
+      },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request(`http://localhost:3000/api/daily-work/work-items/${workItemId}/transitions`, {
+        method: "POST",
+        body: JSON.stringify({
+          status: "done",
+          expectedVersion: 1,
+          reason: "Caller attempted to select an actor.",
+          actorId: sessionId,
+        }),
+      }),
+      { params: Promise.resolve({ path: ["work-items", workItemId, "transitions"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
+  it("proxies the owner-authorized prepared experience without exposing browser credentials", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({ state: "idle", items: [] });
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/experience/prepared"),
+      { params: Promise.resolve({ path: ["experience", "prepared"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ state: "idle", items: [] });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/experience-orchestration/prepared",
+      schema: expect.anything(),
+    });
+  });
+
+  it("records only bounded prepared feedback without accepting a browser-selected employee", async () => {
+    const preparedItemId = "77777777-7777-4777-8777-777777777777";
+    const idempotencyKey = "88888888-8888-4888-8888-888888888888";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      id: "99999999-9999-4999-8999-999999999999",
+      preparedItemId,
+      category: "HELPFUL",
+      createdAt: "2026-08-15T09:00:00.000Z",
+      replay: false,
+    });
+
+    const response = await POST(
+      new Request(
+        `http://localhost:3000/api/daily-work/experience/prepared/${preparedItemId}/feedback`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            idempotencyKey,
+            category: "HELPFUL",
+            surface: "work_prepared_item",
+          }),
+        },
+      ),
+      { params: Promise.resolve({ path: ["experience", "prepared", preparedItemId, "feedback"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: `/api/v1/experience-orchestration/prepared/${preparedItemId}/feedback`,
+      body: { idempotencyKey, category: "HELPFUL", surface: "work_prepared_item" },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request(
+        `http://localhost:3000/api/daily-work/experience/prepared/${preparedItemId}/feedback`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            idempotencyKey,
+            category: "BAD_DRAFT",
+            surface: "work_prepared_item",
+            employeeId: sessionId,
+          }),
+        },
+      ),
+      { params: Promise.resolve({ path: ["experience", "prepared", preparedItemId, "feedback"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
+  it("lists and resolves notifications through recipient-bound protected endpoints", async () => {
+    const notificationId = "88888888-8888-4888-8888-888888888888";
+    mocks.fetchProtectedUpstream
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ resolved: true });
+
+    const inbox = await GET(new Request("http://localhost:3000/api/daily-work/notifications"), {
+      params: Promise.resolve({ path: ["notifications"] }),
+    });
+    const resolved = await POST(
+      new Request(`http://localhost:3000/api/daily-work/notifications/${notificationId}/resolve`, {
+        body: "{}",
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["notifications", notificationId, "resolve"] }) },
+    );
+
+    expect(inbox.status).toBe(200);
+    expect(resolved.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(1, {
+      method: "GET",
+      path: "/api/v1/operations/notifications?limit=100",
+      schema: expect.anything(),
+    });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(2, {
+      body: {},
+      method: "POST",
+      path: `/api/v1/operations/notifications/${notificationId}/resolve`,
+      schema: expect.anything(),
+    });
+  });
+
+  it("rejects browser-selected notification authority", async () => {
+    const notificationId = "88888888-8888-4888-8888-888888888888";
+    const response = await POST(
+      new Request(`http://localhost:3000/api/daily-work/notifications/${notificationId}/open`, {
+        body: JSON.stringify({ actorId: sessionId }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["notifications", notificationId, "open"] }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).not.toHaveBeenCalled();
+  });
+
+  it("lists private export history and opens artifacts through protected operations", async () => {
+    const artifactId = "77777777-7777-4777-8777-777777777777";
+    mocks.fetchProtectedUpstream
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ allowed: false, reason: "EXPIRED" });
+
+    const history = await GET(new Request("http://localhost:3000/api/daily-work/reports"), {
+      params: Promise.resolve({ path: ["reports"] }),
+    });
+    const opened = await POST(
+      new Request(`http://localhost:3000/api/daily-work/reports/artifacts/${artifactId}/open`, {
+        body: "{}",
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["reports", "artifacts", artifactId, "open"] }) },
+    );
+
+    expect(history.status).toBe(200);
+    expect(opened.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(1, {
+      method: "GET",
+      path: "/api/v1/operations/exports",
+      schema: expect.anything(),
+    });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenNthCalledWith(2, {
+      body: {},
+      method: "POST",
+      path: `/api/v1/operations/exports/artifacts/${artifactId}/open`,
+      schema: expect.anything(),
+    });
+  });
+
+  it("reads only the protected administrator health projection", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      schemaVersion: 1,
+      state: "HEALTHY",
+      checkedAt: "2026-08-15T08:00:00.000Z",
+      dependencies: [],
+    });
+
+    const response = await GET(new Request("http://localhost:3000/api/daily-work/admin/health"), {
+      params: Promise.resolve({ path: ["admin", "health"] }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/operations/administration/health",
+      schema: expect.anything(),
+    });
+  });
+
+  it("reads the protected administrator capability inventory without browser authority", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue([
+      { capability: "AI_ROUTES_MANAGE", available: true },
+      { capability: "USERS_MANAGE", available: false },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/admin/capabilities"),
+      { params: Promise.resolve({ path: ["admin", "capabilities"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/operations/administration/capabilities",
+      schema: expect.anything(),
+    });
+  });
+
+  it("forwards only the bounded private capture understanding input", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue(captureUnderstanding());
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/capture-understand", {
+        method: "POST",
+        body: JSON.stringify({
+          locale: "en",
+          rawText: "Atlas Delivery API fallback works in staging.",
+          sources: [{ kind: "link", label: "https://github.com/atlas/voice/pull/184" }],
+        }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "capture-understand"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/v1/experience-orchestration/capture/understand",
+      body: {
+        locale: "en",
+        rawText: "Atlas Delivery API fallback works in staging.",
+        sources: [{ kind: "link", label: "https://github.com/atlas/voice/pull/184" }],
+      },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/capture-understand", {
+        method: "POST",
+        body: JSON.stringify({
+          locale: "en",
+          rawText: "Private draft",
+          sources: [],
+          actorId: projectId,
+        }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "capture-understand"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
+  it("forwards one bounded Task question without accepting browser authority", async () => {
+    const workItemId = "99999999-9999-4999-8999-999999999999";
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      schemaVersion: "task-assistant-output.v1",
+      answer: "Review the focused verification.",
+      sourceReferences: [`work-item:${workItemId}`],
+      assistance: "ai_assisted",
+      suggestedAction: null,
+      createsCommand: false,
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/task-assistant", {
+        method: "POST",
+        body: JSON.stringify({ workItemId, locale: "en", question: "What remains?" }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "task-assistant"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/v1/experience-orchestration/task-assistant/ask",
+      body: { workItemId, locale: "en", question: "What remains?" },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/task-assistant", {
+        method: "POST",
+        body: JSON.stringify({ workItemId, locale: "en", question: "Do it", actorId: projectId }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "task-assistant"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
+  it("forwards one bounded Project question without accepting browser authority", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({
+      schemaVersion: "project-assistant-output.v1",
+      answer: "The latest confirmed change is the Project Agent checkpoint.",
+      sourceReferences: [`project:${projectId}`],
+      assistance: "ai_assisted",
+      createsCommand: false,
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/project-assistant", {
+        method: "POST",
+        body: JSON.stringify({ projectId, locale: "en", question: "what_changed" }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "project-assistant"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/v1/experience-orchestration/project-assistant/ask",
+      body: { projectId, locale: "en", question: "what_changed" },
+      schema: expect.anything(),
+    });
+
+    const rejected = await POST(
+      new Request("http://localhost:3000/api/daily-work/experience/project-assistant", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId,
+          locale: "en",
+          question: "what_changed",
+          actorId: sessionId,
+        }),
+      }),
+      { params: Promise.resolve({ path: ["experience", "project-assistant"] }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
+  });
+
+  it("preserves an upstream Project-decision conflict for stale recovery", async () => {
+    mocks.open.mockReturnValue({
+      id: "44444444-4444-4444-8444-444444444444",
+      revision: 1,
+    });
+    mocks.fetchProtectedUpstream.mockRejectedValue({
+      status: 409,
+      messageKey: "errors.validation",
+      correlationId: "55555555-5555-4555-8555-555555555555",
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/daily-work/context/project-suggestions/confirm", {
+        method: "POST",
+        body: JSON.stringify({
+          handle: `opaque-project_suggestion-${"x".repeat(40)}`,
+          reason: "Employee reviewed the current Project link.",
+        }),
+      }),
+      { params: Promise.resolve({ path: ["context", "project-suggestions", "confirm"] }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      messageKey: "errors.validation",
+      correlationId: "55555555-5555-4555-8555-555555555555",
+    });
+  });
+
+  it("proxies only the authenticated owner-filtered What Changed projection", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({ items: [], nextCursor: null });
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/experience/what-changed"),
+      { params: Promise.resolve({ path: ["experience", "what-changed"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ items: [], nextCursor: null });
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/experience/what-changed",
+      schema: expect.anything(),
+    });
+  });
+
+  it("probes only the protected current session for stream recovery", async () => {
+    mocks.fetchProtectedUpstream.mockResolvedValue({ active: true, userId: projectId });
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/daily-work/experience/session"),
+      { params: Promise.resolve({ path: ["experience", "session"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/v1/me",
+      schema: expect.anything(),
+    });
+  });
+
   it("prepares Context review through the bounded analysis and draft APIs", async () => {
     const sourceItemId = "33333333-3333-4333-8333-333333333333";
     mocks.fetchProtectedUpstream.mockResolvedValue({ ignoredPrivateResult: true });
@@ -264,7 +700,16 @@ describe("daily-work same-origin gateway", () => {
         ],
       }),
     ).toEqual({
-      items: [{ id: sourceItemId, title: "Customer rollout note", summary: null, sourceUrl: null }],
+      items: [
+        {
+          id: sourceItemId,
+          provider: null,
+          occurredAt: null,
+          title: "Customer rollout note",
+          summary: null,
+          sourceUrl: null,
+        },
+      ],
     });
     expect(
       schemaFor("/api/v1/projects").parse([
@@ -461,7 +906,12 @@ describe("daily-work same-origin gateway", () => {
       expect.objectContaining({
         path: "/api/v1/private-inbox",
         method: "POST",
-        body: { text: "Follow up with the client", projectId: null },
+        body: {
+          text: "Follow up with the client",
+          projectId: null,
+          sourceType: "text",
+          sourceUploadId: null,
+        },
       }),
     );
 
@@ -665,6 +1115,7 @@ describe("daily-work same-origin gateway", () => {
       projectId,
       workstreamId: null,
       workItemId: null,
+      githubSourceEventId: sourceEventId,
       state: "draft",
       revision: 1,
       revisionKind: "ai_draft",
@@ -683,6 +1134,13 @@ describe("daily-work same-origin gateway", () => {
     );
 
     expect(response.status).toBe(200);
+    const gatewaySchema = mocks.fetchProtectedUpstream.mock.calls[0]?.[0].schema;
+    expect(
+      gatewaySchema.parse({
+        ...(await response.json()),
+        githubSourceEventId: sourceEventId,
+      }),
+    ).not.toHaveProperty("githubSourceEventId");
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledWith({
       path: "/api/v1/evidence/github-suggestions",
       schema: expect.anything(),
@@ -852,3 +1310,45 @@ describe("daily-work same-origin gateway", () => {
     expect(mocks.fetchProtectedUpstream).toHaveBeenCalledOnce();
   });
 });
+
+function workItem(id: string) {
+  return {
+    id,
+    projectId,
+    workstreamId: null,
+    title: "Prepare launch",
+    description: "",
+    status: "ready",
+    priority: "normal",
+    assigneeId: sessionId,
+    dueAt: null,
+    requirements: [],
+    acceptanceConditions: [],
+    blocker: null,
+    nextAction: null,
+    version: 1,
+    createdAt: "2026-08-12T08:00:00.000Z",
+    updatedAt: "2026-08-12T08:00:00.000Z",
+    checklist: [],
+    collaboratorIds: [],
+    allowedActions: ["edit", "transition", "assign", "add_update"],
+  };
+}
+
+function captureUnderstanding() {
+  return {
+    schemaVersion: "capture-understanding.v1",
+    likelyProject: { id: projectId, name: "Atlas Delivery", confidence: "high" },
+    likelyMeaning: "suggested_evidence",
+    relatedWorkItemId: null,
+    relatedWorkItemTitle: null,
+    relatedComponentId: null,
+    sourceRefs: [],
+    clarification: {
+      question: "What measured API error rate did you observe, and where can it be verified?",
+      missingField: "kpi_measurement",
+    },
+    confidence: "high",
+    createsOfficialRecord: false,
+  };
+}

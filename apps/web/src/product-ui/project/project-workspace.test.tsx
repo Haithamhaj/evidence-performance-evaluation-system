@@ -1,0 +1,240 @@
+/* eslint-disable no-unused-vars */
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { getCatalogSync } from "@evaluation/localization";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../app/[locale]/projects/ownership-actions", () => ({
+  transferProjectOwnershipAction: async () => ({ status: "idle" }),
+}));
+import { fixture } from "../../features/project-experience/project-experience-model.test.js";
+import { ProjectWorkspace } from "./project-workspace.js";
+
+describe("ProjectWorkspace", () => {
+  afterEach(cleanup);
+  it("renders the approved Project hierarchy", () => {
+    const experience = fixture();
+    experience.evidenceWorkspace = {
+      confirmed: [evidenceWorkspaceItem("confirmed")],
+      pending: [evidenceWorkspaceItem("draft")],
+      attributionIssues: [evidenceWorkspaceItem("draft", "disputed")],
+      gaps: [evidenceWorkspaceItem("confirmed", "acknowledged", "partial")],
+      history: [evidenceWorkspaceItem("rejected")],
+      detections: [
+        {
+          id: "completed-without-update:50000000-0000-4000-8000-000000000002",
+          kind: "completed_without_update",
+          subjectTitle: "Validate streaming fallback",
+          href: "/en/my-work?capture=update&item=50000000-0000-4000-8000-000000000002",
+          workItemId: "50000000-0000-4000-8000-000000000002",
+          evidenceId: null,
+        },
+      ],
+      preparations: [
+        {
+          id: "preparation:completed-without-update:50000000-0000-4000-8000-000000000002",
+          kind: "update_draft",
+          subjectTitle: "Validate streaming fallback",
+          href: "/en/my-work?capture=update&item=50000000-0000-4000-8000-000000000002",
+          requiresConfirmation: true,
+        },
+      ],
+    };
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={experience} locale="en" />);
+    expect(screen.getByRole("heading", { name: "Atlas Delivery" })).toBeInTheDocument();
+    const navigation = screen.getByRole("navigation", { name: "Project workspace" });
+    expect(navigation).toHaveTextContent("Overview");
+    expect(navigation).toHaveTextContent("Plan");
+    expect(navigation).toHaveTextContent("Work");
+    expect(navigation).toHaveTextContent("Progress");
+    expect(navigation).toHaveTextContent("Timeline");
+    expect(screen.getByRole("link", { name: "Work" })).toHaveAttribute(
+      "href",
+      "/en/tasks?view=my&layout=list&project=40000000-0000-4000-8000-000000000001",
+    );
+    const ownership = screen.getByLabelText("Ownership and access");
+    expect(ownership).toHaveTextContent("Current ownerCodex");
+    expect(ownership).toHaveTextContent("Your roleOwner");
+    expect(ownership).toHaveTextContent("Coordination only — this is not manager authority");
+    expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Project at a glance")).toHaveTextContent(
+      "Current stageAPI authentication",
+    );
+    expect(screen.getByLabelText("Project at a glance")).toHaveTextContent(
+      "Next stagePilot readiness",
+    );
+    expect(screen.getByLabelText("Project at a glance")).toHaveTextContent(
+      "Active blockerOwner decision on PR #184",
+    );
+    expect(screen.getByRole("link", { name: "API readiness" })).toHaveAttribute(
+      "href",
+      "/en/projects/40000000-0000-4000-8000-000000000001/workstreams/40000000-0000-4000-8000-000000000002",
+    );
+    expect(screen.getByRole("heading", { name: "Milestone plan" })).toBeInTheDocument();
+    expect(screen.getByText("API readiness")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ownership and access")).toHaveTextContent("Current ownerCodex");
+    expect(screen.getByRole("link", { name: "Review progress contract" })).toHaveAttribute(
+      "href",
+      "/en/projects/40000000-0000-4000-8000-000000000001/settings/progress-contract",
+    );
+    expect(screen.getByLabelText("62% confirmed Project progress")).toBeInTheDocument();
+    const review = screen.getByLabelText("Project progress review");
+    expect(review).toHaveTextContent("Contract v2");
+    expect(review).toHaveTextContent("Latest approved snapshot62%Previous 50%");
+    expect(review).toHaveTextContent("Pending changePending review");
+    expect(review).toHaveTextContent("Owner confirmation");
+    expect(review).toHaveTextContent("API error rate");
+    expect(review).toHaveTextContent("This does not change official progress until approved");
+    const criteria = screen.getByLabelText("Criteria and Progress Contract");
+    expect(criteria).toHaveTextContent("Project Document v2");
+    expect(criteria).toHaveTextContent("Ready for your review");
+    expect(criteria).toHaveTextContent("4 proposed components");
+    expect(criteria).toHaveTextContent("1 question to resolve");
+    expect(criteria).toHaveTextContent(
+      "Only an authorized human can edit, approve, and activate it",
+    );
+    const documents = screen.getByLabelText("Project documents and sources");
+    expect(documents).toHaveTextContent("Current versionv2");
+    expect(documents).toHaveTextContent("Source availabilityAvailable");
+    expect(documents).toHaveTextContent("Approved delivery revision");
+    expect(documents).toHaveTextContent("github.com/atlas/project");
+    expect(documents).toHaveTextContent("requirements.pdf");
+    expect(screen.getByText("Needs attention now")).toBeInTheDocument();
+    expect(screen.getByText("Work and evidence")).toBeInTheDocument();
+    const evidenceWorkspace = screen.getByLabelText("Evidence workspace");
+    expect(evidenceWorkspace).toHaveTextContent(
+      "Confirmed1Pending1Attribution issues1Gaps1History1",
+    );
+    expect(evidenceWorkspace).toHaveTextContent("Employee contribution context");
+    expect(evidenceWorkspace).toHaveTextContent("Completed work needs an Update");
+    expect(evidenceWorkspace).toHaveTextContent("Update draft prepared");
+    expect(screen.getByText("Project timeline")).toBeInTheDocument();
+    const timeline = screen.getByLabelText("Meaningful Project timeline");
+    expect(timeline).toHaveTextContent("Confirmed update");
+    expect(timeline).toHaveTextContent("API readiness · Validate streaming fallback");
+    expect(timeline).toHaveTextContent("Employee-confirmed update");
+    const agent = screen.getByLabelText("Project Agent signals");
+    expect(agent).toHaveTextContent("Evidence needed for API authentication");
+    expect(agent).toHaveTextContent("Owner confirmation");
+    const prepared = screen.getByLabelText("Prepared Project actions");
+    expect(prepared).toHaveTextContent("Prepare the next milestone context");
+    expect(prepared).toHaveTextContent("Review before anything changes");
+    expect(screen.getByText("SMART BRIEF")).toBeInTheDocument();
+  });
+  it("keeps the Arabic surface RTL", () => {
+    render(<ProjectWorkspace catalog={getCatalogSync("ar")} experience={fixture()} locale="ar" />);
+    expect(screen.getByTestId("project-workspace")).toHaveAttribute("dir", "rtl");
+  });
+
+  it("pairs contract-based progress charts with the same source-backed table data", () => {
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={fixture()} locale="en" />);
+
+    const charts = screen.getByRole("region", { name: "Contract-based progress charts" });
+    expect(charts).toHaveTextContent("Approved Project contract");
+    expect(charts).toHaveTextContent("Previous50%Current62%");
+    const table = screen.getByRole("table", { name: "Accessible progress data" });
+    expect(table).toHaveTextContent(
+      "MeasureBaselinePreviousCurrentTargetSourceOverall Project progress—50%62%—Approved Project contract",
+    );
+    expect(table).toHaveTextContent("API error rate4.1%—1.8%1%Approved Project contract");
+  });
+
+  it("does not draw a chart when no approved Progress Contract exists", () => {
+    const experience = fixture();
+    experience.progress = { state: "awaiting_contract" };
+    experience.progressReview = {
+      contract: null,
+      latestSnapshot: null,
+      pendingChange: null,
+      ambiguities: [],
+    };
+    experience.kpi = null;
+
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={experience} locale="en" />);
+
+    const charts = screen.getByRole("region", { name: "Contract-based progress charts" });
+    expect(charts).toHaveTextContent(
+      "Charts appear after an approved Progress Contract has a verified measurement.",
+    );
+    expect(screen.queryByRole("table", { name: "Accessible progress data" })).toBeNull();
+    expect(screen.queryByRole("img", { name: /Project progress/u })).toBeNull();
+  });
+
+  it("explains an active contract that is still waiting for its first approved measurement", () => {
+    const experience = fixture();
+    experience.progress = {
+      state: "awaiting_information",
+      missing: ["Approved measurable progress information"],
+    };
+    experience.progressReview!.latestSnapshot = null;
+    experience.progressReview!.pendingChange = null;
+    experience.kpi = null;
+
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={experience} locale="en" />);
+
+    const charts = screen.getByRole("region", { name: "Contract-based progress charts" });
+    expect(charts).toHaveTextContent("Progress Contract v2 is active");
+    expect(charts).toHaveTextContent(
+      "A verified measurement or authorized confirmation is still needed before showing progress.",
+    );
+    expect(screen.queryByRole("table", { name: "Accessible progress data" })).toBeNull();
+    expect(screen.queryByRole("img", { name: /Project progress/u })).toBeNull();
+    expect(screen.getByLabelText("Project progress review")).toHaveTextContent(
+      "No approved snapshot yet.",
+    );
+  });
+
+  it("shows the human-only transfer form only for the authorized manager projection", () => {
+    const experience = fixture();
+    experience.ownership = {
+      ...experience.ownership,
+      viewerRole: "manager",
+      transfer: {
+        allowed: true,
+        expectedVersion: 4,
+        candidates: [
+          { id: "40000000-0000-4000-8000-000000000010", displayName: "Codex" },
+          { id: "40000000-0000-4000-8000-000000000011", displayName: "Amina" },
+        ],
+      },
+    };
+    render(<ProjectWorkspace catalog={getCatalogSync("en")} experience={experience} locale="en" />);
+
+    expect(screen.getByLabelText("New owner")).toHaveTextContent("Amina");
+    expect(screen.getByLabelText("Transfer type")).toBeInTheDocument();
+    expect(screen.getByLabelText("Expected version")).toHaveTextContent("4");
+    expect(screen.getByLabelText("Continuity impact")).toHaveTextContent(
+      "Permanent handoff starts a new responsibility window and preserves prior attribution.",
+    );
+    fireEvent.change(screen.getByLabelText("Transfer type"), { target: { value: "acting" } });
+    expect(screen.getByLabelText("Continuity impact")).toHaveTextContent(
+      "Acting coverage returns responsibility to Codex and preserves prior attribution.",
+    );
+    expect(
+      screen.getByText("AI cannot choose the owner or submit this transfer."),
+    ).toBeInTheDocument();
+  });
+});
+
+function evidenceWorkspaceItem(
+  state: "confirmed" | "draft" | "rejected",
+  attributionState: "acknowledged" | "disputed" | "proposed" | null = null,
+  verificationState: "partial" | "supported" | "unverified" = "unverified",
+) {
+  return {
+    id: "50000000-0000-4000-8000-000000000001",
+    state,
+    revision: 1,
+    revisionKind: "employee_edit" as const,
+    sourceKind: "url" as const,
+    supportedClaim: "Authentication fallback is verified.",
+    contributionContext: "Employee contribution context",
+    project: { id: "40000000-0000-4000-8000-000000000001", name: "Atlas Delivery" },
+    workItem: null,
+    verificationState,
+    attributionState,
+    createdAt: "2026-08-13T08:00:00.000Z",
+    updatedAt: "2026-08-13T09:00:00.000Z",
+  };
+}

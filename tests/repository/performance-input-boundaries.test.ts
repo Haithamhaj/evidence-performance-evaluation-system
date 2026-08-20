@@ -61,4 +61,15 @@ describe("performance input boundary scanner", () => {
     expect(scannerSource).toContain('"tests/ai-evals/schemas.ts"');
     expect(ciWorkflow).toContain("pnpm scan:performance-inputs");
   });
+
+  it("ignores negative regression assertions in test modules while scanning runtime sources", () => {
+    const result = spawnSync(
+      process.execPath,
+      [scanner, "--root", "tests/repository/fixtures/scanner-test-files"],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("PERFORMANCE INPUTS VALID");
+  });
 });

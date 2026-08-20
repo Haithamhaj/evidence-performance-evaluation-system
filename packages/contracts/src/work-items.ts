@@ -19,12 +19,22 @@ export const WorkItemStatusSchema = z.enum(WORK_ITEM_STATUSES);
 export const WorkItemPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
 export const WorkItemAllowedActionSchema = z.enum(["edit", "transition", "assign", "add_update"]);
 export const PrivateInboxStatusSchema = z.enum(["open", "promoted", "dismissed"]);
+export const PrivateCaptureSourceTypeSchema = z.enum(["text", "link", "code", "file", "image"]);
 export const WorkItemWorkspaceViewSchema = z.enum(["my", "team"]);
 export const WorkItemWorkspaceLayoutSchema = z.enum(["list", "board", "calendar"]);
+export const WorkItemWorkspaceSortSchema = z.enum(["due_asc", "updated_desc", "priority_desc"]);
+const OptionalSearchSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+  z.string().trim().min(1).max(200).nullable(),
+);
 export const ListWorkItemsInputSchema = z
   .object({
     view: WorkItemWorkspaceViewSchema.default("my"),
     layout: WorkItemWorkspaceLayoutSchema.default("list"),
+    projectId: UuidSchema.nullable().default(null),
+    status: WorkItemStatusSchema.nullable().default(null),
+    search: OptionalSearchSchema.default(null),
+    sort: WorkItemWorkspaceSortSchema.default("due_asc"),
     limit: z.coerce.number().int().min(1).max(200).default(100),
     cursor: UuidSchema.nullable().default(null),
   })
@@ -56,6 +66,7 @@ const WorkItemContentSchema = z.object({
 
 const OfficialWorkItemContentSchema = WorkItemContentSchema.extend({
   assigneeId: UuidSchema,
+  clientRequestId: UuidSchema.optional(),
 });
 
 export const CreateWorkItemInputSchema = OfficialWorkItemContentSchema.strict();
@@ -95,12 +106,63 @@ export const AssignWorkItemInputSchema = z
   })
   .strict();
 
+export const ReplaceWorkItemDependenciesInputSchema = z
+  .object({
+    dependsOnWorkItemIds: z.array(UuidSchema).max(100),
+    expectedVersion: PositiveVersionSchema,
+    reason: ReasonSchema,
+  })
+  .strict();
+
+const WorkItemDependencyRefSchema = z
+  .object({
+    id: UuidSchema,
+    title: z.string().trim().min(1).max(200),
+    status: WorkItemStatusSchema,
+  })
+  .strict();
+
+export const WorkItemDependenciesSchema = z
+  .object({
+    workItemId: UuidSchema,
+    version: PositiveVersionSchema,
+    readiness: z.enum(["ready", "blocked_by_dependency"]),
+    allowedTransitions: z.array(WorkItemStatusSchema),
+    dependsOn: z.array(WorkItemDependencyRefSchema).max(100),
+    blocks: z.array(WorkItemDependencyRefSchema).max(100),
+  })
+  .strict();
+
 export const CapturePrivateInboxInputSchema = z
   .object({
     text: z.string().trim().min(1).max(4_000),
     projectId: UuidSchema.nullable().default(null),
+    sourceType: PrivateCaptureSourceTypeSchema.default("text"),
+    sourceUploadId: UuidSchema.nullable().default(null),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.sourceType === "link") {
+      try {
+        const url = new URL(value.text);
+        if (!["http:", "https:"].includes(url.protocol)) throw new Error("unsupported protocol");
+      } catch {
+        context.addIssue({
+          code: "custom",
+          path: ["text"],
+          message: "link captures require one HTTP or HTTPS URL",
+        });
+      }
+    }
+    const requiresUpload = value.sourceType === "file" || value.sourceType === "image";
+    if (requiresUpload !== (value.sourceUploadId !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceUploadId"],
+        message: "file and image captures require a private staged upload only",
+      });
+    }
+  });
 
 export const ListPrivateInboxInputSchema = z
   .object({
@@ -128,6 +190,8 @@ export const PrivateInboxItemSchema = z
     employeeId: UuidSchema,
     text: z.string().trim().min(1).max(4_000),
     projectId: UuidSchema.nullable(),
+    sourceType: PrivateCaptureSourceTypeSchema,
+    sourceUploadId: UuidSchema.nullable(),
     status: PrivateInboxStatusSchema,
     promotedWorkItemId: UuidSchema.nullable(),
     version: PositiveVersionSchema,
@@ -157,6 +221,7 @@ export const WorkItemDetailSchema = WorkItemContentSchema.extend({
   checklist: z.array(WorkItemChecklistItemSchema).default([]),
   collaboratorIds: z.array(UuidSchema).default([]),
   allowedActions: z.array(WorkItemAllowedActionSchema).default([]),
+  allowedTransitions: z.array(WorkItemStatusSchema).optional(),
 }).strict();
 
 export const MyWorkGroupKeySchema = z.enum([
@@ -201,6 +266,7 @@ export type WorkItemStatus = z.infer<typeof WorkItemStatusSchema>;
 export type WorkItemPriority = z.infer<typeof WorkItemPrioritySchema>;
 export type WorkItemWorkspaceView = z.infer<typeof WorkItemWorkspaceViewSchema>;
 export type WorkItemWorkspaceLayout = z.infer<typeof WorkItemWorkspaceLayoutSchema>;
+export type WorkItemWorkspaceSort = z.infer<typeof WorkItemWorkspaceSortSchema>;
 export type ListWorkItemsInput = z.infer<typeof ListWorkItemsInputSchema>;
 export type WorkItemChecklistInput = z.infer<typeof WorkItemChecklistInputSchema>;
 export type WorkItemChecklistItem = z.infer<typeof WorkItemChecklistItemSchema>;
@@ -208,7 +274,12 @@ export type CreateWorkItemInput = z.infer<typeof CreateWorkItemInputSchema>;
 export type UpdateWorkItemInput = z.infer<typeof UpdateWorkItemInputSchema>;
 export type TransitionWorkItemInput = z.infer<typeof TransitionWorkItemInputSchema>;
 export type AssignWorkItemInput = z.infer<typeof AssignWorkItemInputSchema>;
+export type ReplaceWorkItemDependenciesInput = z.infer<
+  typeof ReplaceWorkItemDependenciesInputSchema
+>;
+export type WorkItemDependencies = z.infer<typeof WorkItemDependenciesSchema>;
 export type PrivateInboxStatus = z.infer<typeof PrivateInboxStatusSchema>;
+export type PrivateCaptureSourceType = z.infer<typeof PrivateCaptureSourceTypeSchema>;
 export type CapturePrivateInboxInput = z.infer<typeof CapturePrivateInboxInputSchema>;
 export type ListPrivateInboxInput = z.infer<typeof ListPrivateInboxInputSchema>;
 export type DismissPrivateInboxInput = z.infer<typeof DismissPrivateInboxInputSchema>;

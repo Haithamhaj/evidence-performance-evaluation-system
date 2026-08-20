@@ -3,6 +3,7 @@ import { createDatabaseClient } from "@evaluation/database";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createProjectService } from "./project-service.js";
+import { createResponsibilityService } from "./responsibility-service.js";
 import { createWorkstreamService } from "./workstream-service.js";
 
 const client = createDatabaseClient(process.env.TEST_DATABASE_URL ?? "");
@@ -274,6 +275,211 @@ describe("ProjectService", () => {
       projectId: project.id,
     });
     expect(contributorView.workstreams.map(({ id }) => id)).toEqual([first.id]);
+  });
+
+  it("returns a Projects-owned safe ownership projection and fails closed after access ends", async () => {
+    const service = createProjectService(client, databaseAuditWriter as never, () => now);
+    const project = await service.createProject(command());
+    await service.addProjectMember({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      input: {
+        userId: fixture.memberId,
+        startsAt: "2026-07-17T07:00:00Z",
+        reason: "Approved contribution",
+      },
+    });
+
+    const contributorProjection = await (service as any).getOwnershipProjection({
+      actor: { userId: fixture.memberId, active: true },
+      projectId: project.id,
+    });
+    expect(contributorProjection).toMatchObject({
+      access: "current",
+      viewerRole: "contributor",
+      transfer: { allowed: false, candidates: [] },
+    });
+    const responsibilities = createResponsibilityService(
+      client,
+      databaseAuditWriter as never,
+      () => now,
+    );
+    await expect(
+      responsibilities.transferProjectOwner({
+        actor: { userId: fixture.memberId, active: true },
+        correlationId: crypto.randomUUID(),
+        projectId: project.id,
+        input: {
+          transferKind: "permanent",
+          toUserId: fixture.ownerId,
+          effectiveAt: "2026-07-17T12:01:00Z",
+          expectedVersion: 1,
+          reason: "Contributor cannot transfer ownership",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AUTHZ_ROLE_REQUIRED" });
+
+    const ownerProjection = await (service as any).getOwnershipProjection({
+      actor: { userId: fixture.ownerId, active: true },
+      projectId: project.id,
+    });
+    expect(ownerProjection).toMatchObject({
+      access: "current",
+      viewerRole: "owner",
+      transfer: { allowed: false, candidates: [] },
+    });
+
+    const managerProjection = await (service as any).getOwnershipProjection({
+      actor: { userId: fixture.managerId, active: true },
+      projectId: project.id,
+    });
+    expect(managerProjection).toMatchObject({
+      access: "current",
+      viewerRole: "manager",
+      transfer: {
+        allowed: true,
+        candidates: expect.arrayContaining([expect.objectContaining({ id: fixture.memberId })]),
+      },
+    });
+    await expect(
+      (service as any).getOwnershipProjection({
+        actor: { userId: fixture.otherManagerId, active: true },
+        projectId: project.id,
+      }),
+    ).rejects.toMatchObject({ code: "AUTHZ_SCOPE_MISMATCH" });
+
+    await service.endProjectMember({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      userId: fixture.memberId,
+      input: {
+        endsAt: "2026-07-17T11:00:00Z",
+        expectedVersion: 1,
+        reason: "Contribution complete",
+      },
+    });
+    await expect(
+      (service as any).getOwnershipProjection({
+        actor: { userId: fixture.memberId, active: true },
+        projectId: project.id,
+      }),
+    ).resolves.toEqual({ access: "ended" });
+  });
+
+  it("composes acting ownership projection with the protected transfer boundary until expiry", async () => {
+    const service = createProjectService(client, databaseAuditWriter as never, () => now);
+    const project = await service.createProject(command());
+    await service.addProjectMember({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      input: {
+        userId: fixture.memberId,
+        startsAt: "2026-07-17T07:00:00Z",
+        reason: "Approved temporary coverage",
+      },
+    });
+    await service.endProjectMember({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      userId: fixture.memberId,
+      input: {
+        endsAt: "2026-07-17T11:00:00Z",
+        expectedVersion: 1,
+        reason: "Contributor record superseded by acting coverage",
+      },
+    });
+    const managerResponsibilities = createResponsibilityService(
+      client,
+      databaseAuditWriter as never,
+      () => now,
+    );
+    await managerResponsibilities.transferProjectOwner({
+      actor: { userId: fixture.managerId, active: true },
+      correlationId: crypto.randomUUID(),
+      projectId: project.id,
+      input: {
+        transferKind: "acting",
+        toUserId: fixture.memberId,
+        effectiveAt: "2026-07-17T12:01:00Z",
+        endsAt: "2026-07-18T12:00:00Z",
+        delegationType: "approved_leave",
+        expectedVersion: 2,
+        reason: "Approved leave coverage",
+      },
+    });
+
+    const activeNow = new Date("2026-07-17T13:00:00Z");
+    const activeService = createProjectService(
+      client,
+      databaseAuditWriter as never,
+      () => activeNow,
+    );
+    await expect(
+      (activeService as any).getOwnershipProjection({
+        actor: { userId: fixture.memberId, active: true },
+        projectId: project.id,
+      }),
+    ).resolves.toMatchObject({
+      access: "current",
+      viewerRole: "acting_owner",
+      plannedReturnOwnerName: "Owner",
+      transfer: { allowed: false, candidates: [] },
+    });
+    const activeResponsibilities = createResponsibilityService(
+      client,
+      databaseAuditWriter as never,
+      () => activeNow,
+    );
+    await expect(
+      activeResponsibilities.transferProjectOwner({
+        actor: { userId: fixture.memberId, active: true },
+        correlationId: crypto.randomUUID(),
+        projectId: project.id,
+        input: {
+          transferKind: "permanent",
+          toUserId: fixture.ownerId,
+          effectiveAt: "2026-07-17T13:01:00Z",
+          expectedVersion: 3,
+          reason: "Acting owner cannot transfer ownership",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AUTHZ_ROLE_REQUIRED" });
+
+    const expiredNow = new Date("2026-07-18T13:00:00Z");
+    const expiredService = createProjectService(
+      client,
+      databaseAuditWriter as never,
+      () => expiredNow,
+    );
+    await expect(
+      (expiredService as any).getOwnershipProjection({
+        actor: { userId: fixture.memberId, active: true },
+        projectId: project.id,
+      }),
+    ).resolves.toEqual({ access: "ended" });
+    const expiredResponsibilities = createResponsibilityService(
+      client,
+      databaseAuditWriter as never,
+      () => expiredNow,
+    );
+    await expect(
+      expiredResponsibilities.transferProjectOwner({
+        actor: { userId: fixture.memberId, active: true },
+        correlationId: crypto.randomUUID(),
+        projectId: project.id,
+        input: {
+          transferKind: "permanent",
+          toUserId: fixture.ownerId,
+          effectiveAt: "2026-07-18T13:01:00Z",
+          expectedVersion: 3,
+          reason: "Former acting owner cannot transfer ownership",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AUTHZ_ROLE_REQUIRED" });
   });
 
   it("denies cross-department managers and system administrators", async () => {

@@ -11,6 +11,36 @@ import {
 } from "./progress-contract-drafts.controller.test-fixtures.js";
 
 describe("ProgressContractDraftsController revision", () => {
+  it("rejects a reason that cannot be stored in the audit record", async () => {
+    await expect(
+      controller.revise(request, projectId, requestId, {
+        expectedRevision: 1,
+        reason: "x".repeat(501),
+        content: {
+          components: [
+            {
+              position: 1,
+              kind: "operational_kpi",
+              name: "Accepted quality scenarios",
+              description: "All approved scenarios pass in CI.",
+              weight: 100,
+              baseline: 0,
+              target: 14,
+              unit: "scenarios",
+              direction: "increase",
+              acceptanceConditions: ["Product Owner accepts the result"],
+              requiredEvidence: ["Acceptance record"],
+              confirmationMode: "human_confirmed",
+            },
+          ],
+          ambiguities: [],
+          clarificationQuestions: [],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PROGRESS_CONTRACT_DRAFT_INPUT_INVALID", status: 400 });
+    expect(service.reviseDraft).not.toHaveBeenCalled();
+  });
+
   it("merges editable values into a new revision without accepting source lineage", async () => {
     const revisedContent = {
       components: [

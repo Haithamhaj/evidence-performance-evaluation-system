@@ -134,6 +134,28 @@ describe("document contracts", () => {
     ).toThrow();
   });
 
+  it("keeps private capture uploads unclassified and limited to files or images", async () => {
+    const { PrivateCaptureUploadMetadataSchema } = await import("./documents.js");
+    expect(
+      PrivateCaptureUploadMetadataSchema.parse({
+        filename: "client-notes.pdf",
+        declaredMime: "application/pdf",
+      }),
+    ).toMatchObject({ filename: "client-notes.pdf" });
+    expect(() =>
+      PrivateCaptureUploadMetadataSchema.parse({
+        filename: "recording.mp3",
+        declaredMime: "audio/mpeg",
+      }),
+    ).toThrow();
+    expect(() =>
+      PrivateCaptureUploadMetadataSchema.parse({
+        filename: "unsafe.exe",
+        declaredMime: "application/octet-stream",
+      }),
+    ).toThrow();
+  });
+
   it("publishes the stable document conflict and upload rejection codes", () => {
     expect(DOCUMENT_ERROR_CODES).toEqual(
       expect.arrayContaining([

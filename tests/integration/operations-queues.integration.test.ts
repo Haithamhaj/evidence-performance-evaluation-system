@@ -30,11 +30,12 @@ describe.sequential("operations BullMQ runtimes", () => {
 
   it("moves an intent-only notification job to the delivery worker", async () => {
     const received = deferred<unknown>();
+    const job = { intentId: randomUUID(), correlationId: randomUUID() };
     const runtime = createNotificationQueueRuntime({
       redisUrl: required("REDIS_URL"),
       processor: {
-        process: async (job) => {
-          received.resolve(job);
+        process: async (queuedJob) => {
+          if (queuedJob.intentId === job.intentId) received.resolve(queuedJob);
           return { inAppState: "READY", emailState: "SENT" };
         },
       },
@@ -42,7 +43,6 @@ describe.sequential("operations BullMQ runtimes", () => {
     const producer = createNotificationDeliveryQueue(required("REDIS_URL"));
     closeables.push(runtime, producer);
     await runtime.start();
-    const job = { intentId: randomUUID(), correlationId: randomUUID() };
     await producer.enqueue(job);
     await expect(withTimeout(received.promise)).resolves.toMatchObject(job);
   });

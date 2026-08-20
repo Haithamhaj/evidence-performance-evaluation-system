@@ -38,6 +38,9 @@ type EvidenceContext = Readonly<{
   suggestedClaim: string;
   suggestedContributionContext: string;
   githubSourceEventId?: string;
+  initialSourceText?: string;
+  initialSourceUrl?: string;
+  executionMode?: "manual" | "ai_assisted";
 }>;
 
 type ViewProperties = Readonly<{
@@ -47,6 +50,8 @@ type ViewProperties = Readonly<{
   review: Review | null;
   suggestedClaim?: string;
   suggestedContributionContext?: string;
+  initialSourceText?: string;
+  initialSourceUrl?: string;
   busy?: boolean;
   error?: boolean;
   githubSuggestion?: boolean;
@@ -73,6 +78,8 @@ export function EvidenceReviewSheetView({
   review,
   suggestedClaim = "",
   suggestedContributionContext = "",
+  initialSourceText = "",
+  initialSourceUrl = "",
   sourceKind,
 }: ViewProperties) {
   return (
@@ -131,12 +138,24 @@ export function EvidenceReviewSheetView({
             ) : sourceKind === "url" ? (
               <label>
                 <span>{catalog["evidence.url"]}</span>
-                <input dir="ltr" name="sourceUrl" required type="url" />
+                <input
+                  defaultValue={initialSourceUrl}
+                  dir="ltr"
+                  name="sourceUrl"
+                  required
+                  type="url"
+                />
               </label>
             ) : (
               <label>
                 <span>{catalog["evidence.text"]}</span>
-                <textarea dir="auto" name="sourceText" required rows={6} />
+                <textarea
+                  defaultValue={initialSourceText}
+                  dir="auto"
+                  name="sourceText"
+                  required
+                  rows={6}
+                />
               </label>
             )}
             <label>
@@ -319,7 +338,7 @@ export function EvidenceReviewSheet({
           relatedKpiComponentId: null,
           relatedCriterionId: null,
           contributionContext: requiredText(form, "contributionContext"),
-          executionMode: "ai_assisted",
+          executionMode: context.executionMode ?? "ai_assisted",
         },
       );
       const createdEvidenceId = requiredString(response, "id");
@@ -402,6 +421,12 @@ export function EvidenceReviewSheet({
       review={review}
       suggestedClaim={context.suggestedClaim}
       suggestedContributionContext={context.suggestedContributionContext}
+      {...(context.initialSourceText === undefined
+        ? {}
+        : { initialSourceText: context.initialSourceText })}
+      {...(context.initialSourceUrl === undefined
+        ? {}
+        : { initialSourceUrl: context.initialSourceUrl })}
       sourceKind={sourceKind}
     />
   );

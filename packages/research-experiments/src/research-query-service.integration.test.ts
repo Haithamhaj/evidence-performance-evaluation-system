@@ -13,6 +13,9 @@ const ids = {
   project: crypto.randomUUID(),
   draft: crypto.randomUUID(),
   active: crypto.randomUUID(),
+  concluded: crypto.randomUUID(),
+  conclusion: crypto.randomUUID(),
+  appliedLearning: crypto.randomUUID(),
 };
 
 beforeAll(async () => {
@@ -77,6 +80,7 @@ beforeAll(async () => {
   for (const [id, state] of [
     [ids.draft, "DRAFT"],
     [ids.active, "ACTIVE"],
+    [ids.concluded, "CONCLUDED"],
   ] as const) {
     await client.researchRecord.create({
       data: {
@@ -86,7 +90,7 @@ beforeAll(async () => {
         ownerId: ids.owner,
         state,
         revision: 1,
-        version: state === "DRAFT" ? 1 : 2,
+        version: state === "DRAFT" ? 1 : state === "ACTIVE" ? 2 : 3,
         revisions: {
           create: {
             revision: 1,
@@ -163,12 +167,56 @@ beforeAll(async () => {
                       effectiveAt: at,
                       createdAt: at,
                     },
+                    ...(state === "CONCLUDED"
+                      ? [
+                          {
+                            fromState: "ACTIVE" as const,
+                            toState: "CONCLUDED" as const,
+                            actorId: ids.owner,
+                            resultingVersion: 3,
+                            effectiveAt: at,
+                            createdAt: at,
+                          },
+                        ]
+                      : []),
                   ],
           },
         },
       },
     });
   }
+  await client.researchConclusion.create({
+    data: {
+      id: ids.conclusion,
+      researchId: ids.concluded,
+      synthesis: "A bounded synthesis confirmed by the employee.",
+      answer: "Adopt the bounded approach.",
+      remainingUncertainty: ["Production scale remains unverified."],
+      decision: "ADOPT",
+      rationale: "The reviewed source and retained result support the bounded choice.",
+      nextAction: "Apply the result to the next experiment.",
+      sourceReferences: ["research-source:source-1"],
+      experimentIds: [],
+      confirmerId: ids.owner,
+      confirmedAt: at,
+      createdAt: at,
+    },
+  });
+  await client.appliedLearning.create({
+    data: {
+      id: ids.appliedLearning,
+      researchId: ids.concluded,
+      researchConclusionId: ids.conclusion,
+      targetKind: "RESEARCH",
+      targetId: ids.concluded,
+      targetResearchId: ids.concluded,
+      whatChanged: "The next Research cycle now uses the bounded approach.",
+      causalRationale: "The confirmed conclusion narrowed the implementation path.",
+      confirmerId: ids.owner,
+      confirmedAt: at,
+      createdAt: at,
+    },
+  });
 });
 
 afterAll(async () => client.$disconnect());
@@ -238,6 +286,30 @@ describe("ResearchQueryService", () => {
     expect(ownerItems.map(({ id }) => id)).toEqual(expect.arrayContaining([ids.draft, ids.active]));
     expect(memberItems.map(({ id }) => id)).toContain(ids.active);
     expect(memberItems.map(({ id }) => id)).not.toContain(ids.draft);
+  });
+
+  it("returns confirmed decisions and applied learning as human-owned history", async () => {
+    const visible = await queries.read({
+      actor: { userId: ids.owner, active: true },
+      researchId: ids.concluded,
+    });
+
+    expect(visible.conclusions).toEqual([
+      expect.objectContaining({
+        id: ids.conclusion,
+        decision: "ADOPT",
+        confirmerId: ids.owner,
+        remainingUncertainty: ["Production scale remains unverified."],
+      }),
+    ]);
+    expect(visible.appliedLearning).toEqual([
+      expect.objectContaining({
+        id: ids.appliedLearning,
+        researchConclusionId: ids.conclusion,
+        targetKind: "RESEARCH",
+        whatChanged: "The next Research cycle now uses the bounded approach.",
+      }),
+    ]);
   });
 });
 

@@ -175,6 +175,7 @@ Module({
     },
     UpdatesEvidencePolicyGuard,
   ],
+  exports: [ActivityReader],
 })(UpdatesEvidenceModule);
 
 class AuditExperimentTransitionHistoryReader {

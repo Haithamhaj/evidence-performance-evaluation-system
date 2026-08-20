@@ -220,8 +220,8 @@ const project = {
 const dogfoodProject = {
   id: dogfoodProjectId,
   departmentId,
-  name: "Evidence Performance System — Phase 2",
-  description: "Real Codex employee acceptance Project.",
+  name: "Evidence Performance Evaluation System",
+  description: "The real product Codex is building and using as an employee.",
   status: "active",
   version: 1,
   primaryOwnerId: ownerId,
@@ -375,7 +375,17 @@ function workItem(index, status, dueAt, nextAction, blocker = null) {
     checklist: [],
     collaboratorIds: [],
     allowedActions: ["edit", "transition", "assign", "add_update"],
+    allowedTransitions: workItemTransitions(status),
   };
+}
+
+function workItemTransitions(status) {
+  if (status === "planned") return ["ready", "cancelled"];
+  if (status === "ready") return ["in_progress", "blocked", "cancelled"];
+  if (status === "in_progress") return ["blocked", "in_review", "cancelled"];
+  if (status === "blocked") return ["in_progress", "cancelled"];
+  if (status === "in_review") return ["in_progress", "done", "cancelled"];
+  return [];
 }
 
 const workItems = Array.from({ length: 20 }, (_, offset) => {
@@ -407,6 +417,81 @@ const workItems = Array.from({ length: 20 }, (_, offset) => {
     );
   return workItem(index, "planned", "2026-07-24T12:00:00.000Z", "Prepare implementation");
 });
+
+const codexWorkItems = [
+  {
+    ...workItem(101, "done", "2026-08-13T20:00:00.000Z", null),
+    projectId: dogfoodProjectId,
+    workstreamId: null,
+    title: "Complete Work performance and pagination benchmark",
+    description: "Verify representative 50, 200, and 1,000 Task loads and bounded cursor paging.",
+    requirements: ["Use representative loads", "Keep the daily screen bounded"],
+    acceptanceConditions: ["Focused performance evidence and interaction benchmark are recorded"],
+    updatedAt: "2026-08-13T20:08:00.000Z",
+  },
+  {
+    ...workItem(
+      102,
+      "in_progress",
+      "2026-08-14T16:00:00.000Z",
+      "Close authoritative triggers and prepared-action confirmation",
+    ),
+    projectId: dogfoodProjectId,
+    workstreamId: null,
+    title: "Close Work Agent capability gaps",
+    description:
+      "Use real Work signals to prepare one useful action while retaining explicit employee confirmation.",
+    requirements: [
+      "AI Router only",
+      "No automatic command",
+      "No progress or performance inference",
+    ],
+    acceptanceConditions: ["Codex receives one relevant, source-backed preparation"],
+    updatedAt: "2026-08-13T20:12:00.000Z",
+  },
+  {
+    ...workItem(
+      103,
+      "ready",
+      "2026-08-14T12:00:00.000Z",
+      "Review the proposal with the Product Owner",
+    ),
+    projectId: dogfoodProjectId,
+    workstreamId: null,
+    title: "Approve the Project Progress Contract",
+    description:
+      "Review the document-derived milestones, KPIs, evidence rules, and calculation before any official percentage appears.",
+    requirements: ["Product Owner decision", "No Task or GitHub volume calculation"],
+    acceptanceConditions: ["Approved measurable contract or an explicit correction request"],
+    updatedAt: "2026-08-13T20:10:00.000Z",
+  },
+  {
+    ...workItem(104, "planned", "2026-08-15T12:00:00.000Z", "Run the employee acceptance journey"),
+    projectId: dogfoodProjectId,
+    workstreamId: null,
+    title: "Complete Codex employee journey acceptance",
+    description:
+      "Review Home, Project, Work, evidence, and progress-contract boundaries as one flow.",
+    requirements: ["Use the running product", "Record missing behavior honestly"],
+    acceptanceConditions: ["Product Owner can judge the complete employee journey"],
+    allowedTransitions: ["cancelled"],
+    updatedAt: "2026-08-13T20:05:00.000Z",
+  },
+];
+workItems.push(...codexWorkItems);
+connectedWorkItems.unshift({
+  id: "d5555555-5555-4555-8555-555555555555",
+  provider: "GOOGLE_CALENDAR",
+  occurredAt: "2026-08-13T14:30:00.000Z",
+  title: "Review Command Brief Work journey",
+  summary: "Codex checks the real List, Board, and Calendar flow before the next frontend bundle.",
+  sourceUrl: "https://calendar.google.com/calendar/event?eid=codex-work-review",
+  privacy: "PRIVATE",
+  excluded: false,
+  projectId: dogfoodProjectId,
+  sourceExclusion: null,
+});
+const workItemDependencies = new Map([[codexWorkItems[3].id, [codexWorkItems[1].id]]]);
 timelineItems.push(...initialSliceFourTimeline());
 
 const myWork = {
@@ -426,6 +511,8 @@ const privateInboxItems = [
     employeeId: ownerId,
     text: "Review the customer-journey notes",
     projectId: null,
+    sourceType: "text",
+    sourceUploadId: null,
     status: "open",
     promotedWorkItemId: null,
     version: 1,
@@ -433,6 +520,7 @@ const privateInboxItems = [
     updatedAt: "2026-07-20T07:30:00.000Z",
   },
 ];
+const experienceReceipts = [];
 
 const baseWorkItems = [...workItems];
 const basePrivateInboxItems = structuredClone(privateInboxItems);
@@ -440,12 +528,18 @@ const baseConnectedWorkItems = structuredClone(connectedWorkItems);
 
 function dailyWorkspace() {
   return {
-    needsMyAction: myWork.groups[0].items,
-    today: myWork.groups[1].items,
+    needsMyAction: [codexWorkItems[2], ...myWork.groups[0].items],
+    today: [codexWorkItems[1], ...myWork.groups[1].items],
     overdue: myWork.groups[2].items,
     reviewQueue: [],
     inbox: privateInboxItems.filter(({ status }) => status === "open"),
     projectPulse: [
+      {
+        id: dogfoodProjectId,
+        name: dogfoodProject.name,
+        status: "active",
+        progress: { state: "awaiting_contract" },
+      },
       {
         id: projectId,
         name: "Atlas Delivery",
@@ -459,6 +553,586 @@ function dailyWorkspace() {
     ],
     upcoming: myWork.groups[4].items,
   };
+}
+
+function employeeHome() {
+  const progressSource = {
+    kind: "progress_contract",
+    label: "Approved Project contract",
+    observedAt: "2026-08-13T07:00:00.000Z",
+    freshness: "fresh",
+  };
+  const workPlanSource = {
+    kind: "work_item",
+    label: "Approved Phase 2 Work plan",
+    observedAt: "2026-08-13T09:15:00.000Z",
+    freshness: "fresh",
+  };
+  const githubSource = {
+    kind: "github",
+    label: "GitHub suggested evidence",
+    observedAt: "2026-08-13T09:15:00.000Z",
+    freshness: "fresh",
+  };
+  const projects = [
+    {
+      id: dogfoodProjectId,
+      name: "Evidence Performance Evaluation System",
+      description: "The real AI-native product Codex is building and using as an employee.",
+      status: "active",
+      progress: { state: "awaiting_contract" },
+      milestones: [
+        {
+          componentId: "d3333333-3333-4333-8333-333333333333",
+          name: "Engine and core Work experience",
+          kind: "milestone",
+          state: "complete",
+          percent: null,
+        },
+        {
+          componentId: "d4444444-4444-4444-8444-444444444444",
+          name: "Work Agent capability closure",
+          kind: "milestone",
+          state: "current",
+          percent: null,
+        },
+        {
+          componentId: "d5555555-5555-4555-8555-555555555555",
+          name: "Intelligent frontend acceptance",
+          kind: "milestone",
+          state: "next",
+          percent: null,
+        },
+      ],
+      kpi: null,
+      nextAction: {
+        label: "Close Work Agent capability gaps",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}`,
+      },
+    },
+    {
+      id: projectId,
+      name: "Atlas Delivery",
+      description: "Deliver secure API access and pilot integration for Atlas.",
+      status: "active",
+      progress: {
+        state: "accepted",
+        percent: 62,
+        source: progressSource,
+        explanation: "Approved contract rule",
+      },
+      milestones: [
+        {
+          componentId: randomUUID(),
+          name: "Discovery",
+          kind: "milestone",
+          state: "complete",
+          percent: 100,
+        },
+        {
+          componentId: randomUUID(),
+          name: "API authentication",
+          kind: "milestone",
+          state: "current",
+          percent: 62,
+        },
+        {
+          componentId: randomUUID(),
+          name: "Pilot readiness",
+          kind: "milestone",
+          state: "next",
+          percent: null,
+        },
+      ],
+      kpi: {
+        componentId: randomUUID(),
+        name: "API error rate",
+        baseline: 4.1,
+        current: 1.8,
+        target: 1,
+        unit: "%",
+        direction: "decrease",
+        source: progressSource,
+      },
+      nextAction: {
+        label: "Review API authentication decision",
+        href: `/en/projects/${projectId}`,
+      },
+    },
+    {
+      id: contextProjectId,
+      name: "Research Assistant",
+      description: "Validate research sources and prepare governed experiments.",
+      status: "active",
+      progress: {
+        state: "accepted",
+        percent: 28,
+        source: progressSource,
+        explanation: "Approved contract rule",
+      },
+      milestones: [
+        {
+          componentId: randomUUID(),
+          name: "Research scope",
+          kind: "milestone",
+          state: "complete",
+          percent: 100,
+        },
+        {
+          componentId: randomUUID(),
+          name: "Source validation",
+          kind: "milestone",
+          state: "current",
+          percent: 28,
+        },
+        {
+          componentId: randomUUID(),
+          name: "Prototype experiment",
+          kind: "milestone",
+          state: "next",
+          percent: null,
+        },
+      ],
+      kpi: {
+        componentId: randomUUID(),
+        name: "Validated sources",
+        baseline: 0,
+        current: 6,
+        target: 10,
+        unit: " sources",
+        direction: "increase",
+        source: progressSource,
+      },
+      nextAction: { label: "Start prototype experiment", href: `/en/projects/${contextProjectId}` },
+    },
+  ];
+  return {
+    schemaVersion: "employee-home.v1",
+    generatedAt: "2026-08-13T07:05:00.000Z",
+    greetingName: "Codex",
+    signals: { decisions: 0, dueToday: 2, verifiedChanges: 2 },
+    projects,
+    smartBrief: {
+      title: "Close the Work Agent capability gaps",
+      body: "Core Work management and representative performance are complete; authoritative proactive triggers are the current bounded step.",
+      source: workPlanSource,
+      why: "It assists Codex from real work state while keeping authoritative command boundaries.",
+      consequence:
+        "This advances the product plan only; official Project progress remains unavailable until its contract is approved.",
+      action: {
+        label: "Open the next Task",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}`,
+      },
+    },
+    now: [
+      {
+        id: "event:work-review",
+        kind: "task",
+        occurredAt: "2026-08-13T20:08:00.000Z",
+        title: "Complete Work performance and pagination benchmark",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Done",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[0].id}`,
+        source: workPlanSource,
+      },
+      {
+        id: "event:meeting",
+        kind: "meeting",
+        occurredAt: "2026-08-13T07:00:00.000Z",
+        title: "AI-native employee journey design review",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Product direction confirmed",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: workPlanSource,
+      },
+      {
+        id: "event:task",
+        kind: "task",
+        occurredAt: "2026-08-13T20:12:00.000Z",
+        title: "Close Work Agent capability gaps",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "In progress",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[1].id}`,
+        source: workPlanSource,
+      },
+      {
+        id: "event:verified",
+        kind: "verified_change",
+        occurredAt: "2026-08-13T20:08:00.000Z",
+        title: "Representative Task paging and benchmark committed",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Suggested evidence · confirm before contribution",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: githubSource,
+      },
+    ],
+  };
+}
+
+function employeeProjectExperience() {
+  const source = {
+    kind: "progress_contract",
+    label: "Approved Project contract",
+    observedAt: "2026-08-13T07:00:00.000Z",
+    freshness: "fresh",
+  };
+  return {
+    schemaVersion: "employee-project-experience.v1",
+    generatedAt: "2026-08-13T07:05:00.000Z",
+    project: {
+      id: projectId,
+      name: "Atlas Delivery",
+      description: "Deliver secure API access and pilot integration for Atlas.",
+      status: "active",
+      ownerName: "Codex",
+      workstreams: [{ id: workstreamId, name: "API readiness" }],
+    },
+    document: {
+      id: projectDocumentVersionId,
+      title: "Project Document",
+      version: 2,
+      source: { ...source, kind: "project_document", label: "Approved Project Document" },
+      href: `/en/projects/${projectId}`,
+    },
+    progress: {
+      state: "accepted",
+      percent: 62,
+      source,
+      explanation: "Approved contract rule",
+    },
+    milestones: [
+      {
+        componentId: "e3333333-3333-4333-8333-333333333333",
+        name: "Discovery",
+        kind: "milestone",
+        state: "complete",
+        percent: 100,
+      },
+      {
+        componentId: "e4444444-4444-4333-8333-333333333333",
+        name: "API authentication",
+        kind: "milestone",
+        state: "current",
+        percent: 62,
+      },
+      {
+        componentId: "e5555555-5555-4555-8555-555555555555",
+        name: "Pilot readiness",
+        kind: "milestone",
+        state: "next",
+        percent: null,
+      },
+    ],
+    kpi: {
+      componentId: "e6666666-6666-4666-8666-666666666666",
+      name: "API error rate",
+      baseline: 4.1,
+      current: 1.8,
+      target: 1,
+      unit: "%",
+      direction: "decrease",
+      source,
+    },
+    attention: [
+      {
+        id: "attention:decision",
+        title: "Owner decision on PR #184",
+        subtitle: "API authentication",
+        href: `/en/projects/${projectId}`,
+        source,
+      },
+      {
+        id: "attention:document",
+        title: "Missing retention document",
+        subtitle: "Required for pilot readiness",
+        href: `/en/projects/${projectId}`,
+        source: { ...source, kind: "project_document" },
+      },
+      {
+        id: "attention:task",
+        title: "Validate streaming fallback",
+        subtitle: "Due today",
+        href: `/en/tasks?item=${workItems[0].id}`,
+        source: { ...source, kind: "work_item" },
+      },
+    ],
+    collections: {
+      work: [
+        {
+          id: "work:1",
+          title: "Design review — AI-native employee journey",
+          subtitle: "Ready · Due today",
+          href: `/en/tasks?item=${workItems[0].id}`,
+          source: { ...source, kind: "work_item", label: "Work Item" },
+        },
+      ],
+      updates: [
+        {
+          id: "update:1",
+          title: "Authentication fallback verified",
+          subtitle: "Employee confirmed",
+          href: `/en/projects/${projectId}`,
+          source: { ...source, kind: "update", label: "Confirmed update" },
+        },
+      ],
+      evidence: [
+        {
+          id: "evidence:1",
+          title: "PR #182 merged: milestone condition satisfied",
+          subtitle: "Suggested evidence · employee review required",
+          href: `/en/projects/${projectId}`,
+          source: { ...source, kind: "github", label: "GitHub suggested evidence" },
+        },
+      ],
+      documents: [
+        {
+          id: "document:1",
+          title: "Project Document v2",
+          subtitle: "Approved source",
+          href: `/en/projects/${projectId}`,
+          source: { ...source, kind: "project_document", label: "Approved Project Document" },
+        },
+      ],
+    },
+    timeline: [
+      {
+        id: "timeline:verified",
+        kind: "verified_change",
+        occurredAt: "2026-08-13T13:15:00.000Z",
+        title: "PR #182 merged: contract milestone condition satisfied",
+        projectId,
+        projectName: "Atlas Delivery",
+        statusLabel: "Verified",
+        href: `/en/projects/${projectId}`,
+        source: { ...source, kind: "github", label: "GitHub suggested evidence" },
+      },
+      {
+        id: "timeline:decision",
+        kind: "decision",
+        occurredAt: "2026-08-13T05:45:00.000Z",
+        title: "Owner decision requested on PR #184",
+        projectId,
+        projectName: "Atlas Delivery",
+        statusLabel: "Needs your decision",
+        href: `/en/projects/${projectId}`,
+        source: { ...source, kind: "human_decision", label: "Owner confirmation" },
+      },
+    ],
+    nextCursor: null,
+    smartBrief: {
+      title: "What should I focus on?",
+      body: "The API authentication decision can unblock the next milestone.",
+      source,
+      why: "Review PR #184 before the pilot-readiness work continues.",
+      consequence:
+        "Nothing is confirmed and official Project progress does not change until the authorized owner decides.",
+      action: { label: "Review API authentication decision", href: `/en/projects/${projectId}` },
+    },
+  };
+}
+
+function codexProjectExperience() {
+  const workPlanSource = {
+    kind: "work_item",
+    label: "Approved Phase 2 Work plan",
+    observedAt: "2026-08-13T09:15:00.000Z",
+    freshness: "fresh",
+  };
+  const githubSource = {
+    kind: "github",
+    label: "GitHub suggested evidence",
+    observedAt: "2026-08-13T09:15:00.000Z",
+    freshness: "fresh",
+  };
+  const documentSource = {
+    kind: "project_document",
+    label: "Approved Project Document",
+    observedAt: "2026-07-19T12:00:00.000Z",
+    freshness: "possibly_stale",
+  };
+  return {
+    schemaVersion: "employee-project-experience.v1",
+    generatedAt: "2026-08-13T09:15:00.000Z",
+    project: {
+      id: dogfoodProjectId,
+      name: "Evidence Performance Evaluation System",
+      description: "The real AI-native product Codex is building and using as an employee.",
+      status: "active",
+      ownerName: "Codex",
+      workstreams: [],
+    },
+    document: {
+      id: dogfoodDocumentVersionId,
+      title: "Approved Project source",
+      version: 3,
+      source: documentSource,
+      href: `/en/projects/${dogfoodProjectId}`,
+    },
+    progress: { state: "awaiting_contract" },
+    milestones: [
+      {
+        componentId: "d3333333-3333-4333-8333-333333333333",
+        name: "Engine and core Work experience",
+        kind: "milestone",
+        state: "complete",
+        percent: null,
+      },
+      {
+        componentId: "d4444444-4444-4444-8444-444444444444",
+        name: "Work Agent capability closure",
+        kind: "milestone",
+        state: "current",
+        percent: null,
+      },
+      {
+        componentId: "d5555555-5555-4555-8555-555555555555",
+        name: "Intelligent frontend acceptance",
+        kind: "milestone",
+        state: "next",
+        percent: null,
+      },
+    ],
+    kpi: null,
+    attention: [
+      {
+        id: "attention:contract",
+        title: "Review the Project Progress Contract proposal",
+        subtitle: "Human approval is required before any official percentage can appear",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: documentSource,
+      },
+      {
+        id: "attention:next-task",
+        title: "Close Work Agent capability gaps",
+        subtitle: "Current Codex implementation task",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[1].id}`,
+        source: workPlanSource,
+      },
+    ],
+    collections: {
+      work: codexWorkItems.map((item) => ({
+        id: `work:${item.id}`,
+        title: item.title,
+        subtitle: `${item.status.replaceAll("_", " ")} · ${item.nextAction ?? "Review"}`,
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${item.id}`,
+        source: workPlanSource,
+      })),
+      updates: [
+        {
+          id: "update:work-bundle",
+          title: "Performance paging and the Work benchmark are complete",
+          subtitle: "Codex update · capability closure continues",
+          href: `/en/projects/${dogfoodProjectId}`,
+          source: { ...workPlanSource, kind: "update", label: "Codex work update" },
+        },
+      ],
+      evidence: [
+        {
+          id: "evidence:06cfefa",
+          title: "Representative Task paging and interaction benchmark implemented",
+          subtitle: "Commit 06cfefa · employee confirmation required",
+          href: `/en/projects/${dogfoodProjectId}`,
+          source: githubSource,
+        },
+        {
+          id: "evidence:4aa2110",
+          title: "Quick Task retries made idempotent",
+          subtitle: "Commit 4aa2110 · employee confirmation required",
+          href: `/en/projects/${dogfoodProjectId}`,
+          source: githubSource,
+        },
+      ],
+      documents: [
+        {
+          id: "document:approved-source-v3",
+          title: "Approved Project source v3",
+          subtitle: "Governed source for the pending Progress Contract proposal",
+          href: `/en/projects/${dogfoodProjectId}`,
+          source: documentSource,
+        },
+      ],
+    },
+    timeline: [
+      {
+        id: "timeline:06cfefa",
+        kind: "evidence",
+        occurredAt: "2026-08-13T20:08:00.000Z",
+        title: "Representative Task paging and benchmark committed",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Suggested evidence · employee confirmation required",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: githubSource,
+      },
+      {
+        id: "timeline:4aa2110",
+        kind: "evidence",
+        occurredAt: "2026-08-13T19:42:00.000Z",
+        title: "Quick Task idempotent retry committed",
+        projectId: dogfoodProjectId,
+        projectName: "Evidence Performance Evaluation System",
+        statusLabel: "Suggested evidence · employee confirmation required",
+        href: `/en/projects/${dogfoodProjectId}`,
+        source: githubSource,
+      },
+    ],
+    nextCursor: null,
+    smartBrief: {
+      title: "Close the Work Agent capability gaps",
+      body: "Core Work management and representative performance are complete; authoritative proactive triggers are the current bounded step.",
+      source: workPlanSource,
+      why: "It makes the system assist Codex from real work state without bypassing protected commands.",
+      consequence:
+        "GitHub changes remain suggested evidence and official Project progress remains unavailable until its contract is approved.",
+      action: {
+        label: "Open the next Task",
+        href: `/en/tasks?view=my&layout=list&project=${dogfoodProjectId}&item=${codexWorkItems[1].id}`,
+      },
+    },
+  };
+}
+
+function experiencePrepared() {
+  return {
+    state: "prepared",
+    items: [
+      {
+        id: "ac111111-1111-4111-8111-111111111111",
+        schemaVersion: "experience-prepared-output.v1",
+        state: "prepared",
+        kind: "next_action",
+        sourceReferences: [`work-item:${codexWorkItems[1].id}`],
+        why: "Codex has an active Work Agent closure Task in the authorized Project plan.",
+        freshness: {
+          status: "fresh",
+          sourceObservedAt: "2026-08-13T19:30:00.000Z",
+          preparedAt: "2026-08-13T19:35:00.000Z",
+        },
+        consequence:
+          "Reviewing it focuses the next implementation step; nothing changes until Codex acts.",
+        editableDraft: {
+          title: "Continue Work Agent capability closure",
+          body: "Open the active Project Task and close one authoritative trigger at a time.",
+        },
+        assistance: {
+          mode: "deterministic",
+          label: "Selected from your authorized Today data without an AI result.",
+          routeTrace: null,
+        },
+        correlationId: "ac222222-2222-4222-8222-222222222222",
+      },
+    ],
+  };
+}
+
+function whatChanged(afterCursor) {
+  const after = afterCursor === null ? 0n : BigInt(afterCursor);
+  const items = experienceReceipts.filter(({ cursor }) => BigInt(cursor) > after);
+  return { items, nextCursor: items.at(-1)?.cursor ?? afterCursor };
 }
 
 const projectProgress = {
@@ -552,8 +1226,8 @@ const projectProgress = {
 const dogfoodProgress = {
   project: {
     id: dogfoodProjectId,
-    name: "Evidence Performance System — Phase 2",
-    description: "Real Codex employee acceptance Project.",
+    name: "Evidence Performance Evaluation System",
+    description: "The real AI-native product Codex is building and using as an employee.",
     status: "active",
   },
   contract: null,
@@ -781,10 +1455,13 @@ const server = createServer(async (request, response) => {
     contextAiAvailable = body.available;
     return empty(response, 204);
   }
-  const accessToken = request.headers.authorization?.replace(/^Bearer /u, "") ?? "";
-  if (!connectedWorkAccessTokens.has(accessToken)) {
+  const presentedAccessToken = request.headers.authorization?.replace(/^Bearer /u, "") ?? "";
+  const localPreviewOwner =
+    process.env.LOCAL_PREVIEW_AUTHENTICATED === "true" && presentedAccessToken !== "";
+  if (!connectedWorkAccessTokens.has(presentedAccessToken) && !localPreviewOwner) {
     return json(response, 401, { messageKey: "errors.unauthorized" });
   }
+  const accessToken = localPreviewOwner ? ownerAccessToken : presentedAccessToken;
 
   if (request.method === "GET" && url.pathname === "/api/v1/connected-work/items") {
     if (accessToken !== ownerAccessToken || !connectedWorkConnected) {
@@ -975,6 +1652,105 @@ const server = createServer(async (request, response) => {
     });
   }
 
+  if (request.method === "GET" && url.pathname === "/api/v1/experience-orchestration/prepared") {
+    if (accessToken !== ownerAccessToken)
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    return json(response, 200, experiencePrepared());
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/experience-orchestration/capture/understand"
+  ) {
+    if (accessToken !== ownerAccessToken)
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    const body = await readJson(request);
+    if (body === null || typeof body.rawText !== "string")
+      return json(response, 400, { messageKey: "errors.validation" });
+    if (body.rawText.includes("[provider-unavailable]"))
+      return json(response, 503, { messageKey: "errors.ai.unavailable" });
+    return json(response, 200, {
+      schemaVersion: "capture-understanding.v1",
+      likelyProject: {
+        id: projectId,
+        name: "Atlas Delivery",
+        confidence: "high",
+      },
+      likelyMeaning: "suggested_evidence",
+      relatedWorkItemId: workItems[0]?.id ?? null,
+      relatedComponentId: "e3333333-3333-4333-8333-333333333333",
+      sourceRefs: [
+        {
+          kind: "github",
+          label: "GitHub PR #184",
+          observedAt: "2026-08-13T08:00:00.000Z",
+          freshness: "fresh",
+        },
+      ],
+      clarification: {
+        question: "What measured API error rate did you observe, and where can it be verified?",
+        missingField: "measured_result",
+      },
+      confidence: "high",
+      createsOfficialRecord: false,
+    });
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/experience-orchestration/task-assistant/ask"
+  ) {
+    if (accessToken !== ownerAccessToken)
+      return json(response, 403, { messageKey: "errors.forbidden" });
+    const body = await readJson(request);
+    const item = codexWorkItems.find(({ id }) => id === body?.workItemId);
+    if (item === undefined || typeof body?.question !== "string")
+      return json(response, 400, { messageKey: "errors.validation" });
+    return json(response, 200, {
+      schemaVersion: "task-assistant-output.v1",
+      answer:
+        "The remaining step is to verify the free-form assistant, then review the prepared status change before any command runs.",
+      sourceReferences: [
+        `work-item:${item.id}`,
+        "timeline:d7777777-7777-4777-8777-777777777777",
+        "timeline:d8888888-8888-4888-8888-888888888888",
+      ],
+      assistance: "ai_assisted",
+      suggestedAction: {
+        kind: "status_change",
+        status: "in_review",
+        rationale: "Move to review only after the focused verification passes.",
+      },
+      createsCommand: false,
+    });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/experience/what-changed") {
+    if (accessToken !== ownerAccessToken)
+      return json(response, 200, { items: [], nextCursor: null });
+    return json(response, 200, whatChanged(url.searchParams.get("afterCursor")));
+  }
+
+  if (accessToken === managerAccessToken) {
+    if (request.method === "GET" && url.pathname === "/api/v1/daily-work/my-work") {
+      return json(response, 200, {
+        needsMyAction: [],
+        today: [],
+        overdue: [],
+        reviewQueue: [],
+        inbox: [],
+        projectPulse: [],
+        upcoming: [],
+      });
+    }
+    if (request.method === "GET" && url.pathname === "/api/v1/daily-work/update-context") {
+      return json(response, 200, { projects: [] });
+    }
+    if (request.method === "GET" && url.pathname === "/api/v1/daily-work/check-ins") {
+      return json(response, 200, []);
+    }
+  }
+
   if (accessToken !== ownerAccessToken) {
     return json(response, 403, { messageKey: "errors.forbidden" });
   }
@@ -1108,16 +1884,89 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/my-work") {
     return json(response, 200, dailyWorkspace());
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/daily-work/home") {
+    return json(response, 200, employeeHome());
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/daily-work/projects/${projectId}/experience`
+  ) {
+    return json(response, 200, employeeProjectExperience());
+  }
+  if (
+    request.method === "GET" &&
+    url.pathname === `/api/v1/daily-work/projects/${dogfoodProjectId}/experience`
+  ) {
+    return json(response, 200, codexProjectExperience());
+  }
   if (request.method === "GET" && url.pathname === "/api/v1/work-items") {
+    const search = url.searchParams.get("search")?.trim().toLowerCase() ?? "";
+    const projectFilter = url.searchParams.get("projectId");
+    const statusFilter = url.searchParams.get("status");
+    const baseItems = workItems.filter(
+      (item) =>
+        (projectFilter === null || item.projectId === projectFilter) &&
+        (search === "" || `${item.title} ${item.description}`.toLowerCase().includes(search)),
+    );
+    const visibleItems = baseItems.filter(
+      (item) => statusFilter === null || item.status === statusFilter,
+    );
+    const sort = url.searchParams.get("sort") ?? "due_asc";
+    const priorityRank = { urgent: 4, high: 3, normal: 2, low: 1 };
+    visibleItems.sort((left, right) => {
+      if (sort === "updated_desc") return right.updatedAt.localeCompare(left.updatedAt);
+      if (sort === "priority_desc")
+        return priorityRank[right.priority] - priorityRank[left.priority];
+      return (left.dueAt ?? "9999").localeCompare(right.dueAt ?? "9999");
+    });
+    const statuses = [
+      "planned",
+      "ready",
+      "in_progress",
+      "blocked",
+      "in_review",
+      "done",
+      "cancelled",
+    ];
     return json(response, 200, {
       view: url.searchParams.get("view") ?? "my",
       layout: url.searchParams.get("layout") ?? "list",
-      items: workItems,
+      items: visibleItems,
       nextCursor: null,
+      counts: Object.fromEntries([
+        ["all", baseItems.length],
+        ...statuses.map((status) => [
+          status,
+          baseItems.filter((item) => item.status === status).length,
+        ]),
+      ]),
     });
+  }
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/work-items\/[0-9a-f-]+\/dependencies$/u.test(url.pathname)
+  ) {
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
+    return item === undefined
+      ? json(response, 404, { messageKey: "errors.notFound" })
+      : json(response, 200, workItemDependencyResponse(item));
+  }
+  if (request.method === "GET" && /^\/api\/v1\/work-items\/[0-9a-f-]+$/u.test(url.pathname)) {
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
+    return item === undefined
+      ? json(response, 404, { messageKey: "errors.notFound" })
+      : json(response, 200, item);
   }
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/projects") {
     return json(response, 200, [
+      {
+        id: dogfoodProjectId,
+        name: dogfoodProject.name,
+        status: "active",
+        progress: { state: "awaiting_contract" },
+      },
       {
         id: projectId,
         name: project.name,
@@ -1129,6 +1978,16 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/v1/daily-work/update-context") {
     return json(response, 200, {
       projects: [
+        {
+          id: dogfoodProjectId,
+          name: dogfoodProject.name,
+          workstreams: [],
+          workItems: codexWorkItems.map((item) => ({
+            id: item.id,
+            title: item.title,
+            workstreamId: item.workstreamId,
+          })),
+        },
         {
           id: projectId,
           name: "Atlas Delivery",
@@ -1152,6 +2011,8 @@ const server = createServer(async (request, response) => {
       employeeId: ownerId,
       text: body.text,
       projectId: body.projectId ?? null,
+      sourceType: body.sourceType ?? "text",
+      sourceUploadId: body.sourceUploadId ?? null,
       status: "open",
       promotedWorkItemId: null,
       version: 1,
@@ -1159,6 +2020,16 @@ const server = createServer(async (request, response) => {
       updatedAt: new Date().toISOString(),
     };
     privateInboxItems.unshift(item);
+    experienceReceipts.push({
+      receiptId: randomUUID(),
+      cursor: String(experienceReceipts.length + 1),
+      type: "user.capture_submitted",
+      source: "work",
+      entityRefs: { privateInboxItemId: item.id },
+      occurredAt: item.createdAt,
+      freshness: { status: "fresh", occurredAt: item.createdAt },
+      state: "delivered",
+    });
     return json(response, 200, item);
   }
   if (request.method === "POST" && url.pathname === "/api/v1/work-items") {
@@ -1191,15 +2062,69 @@ const server = createServer(async (request, response) => {
     const body = await readJson(request);
     const workItemId = url.pathname.split("/")[4];
     const item = workItems.find(({ id }) => id === workItemId);
+    if (body === null || item === undefined || typeof body.title !== "string") {
+      return json(response, 400, { messageKey: "errors.validation" });
+    }
+    if (body.expectedVersion !== item.version) {
+      return json(response, 409, { messageKey: "errors.workItems.versionConflict" });
+    }
+    item.title = body.title;
+    if (["low", "normal", "high", "urgent"].includes(body.priority)) {
+      item.priority = body.priority;
+    }
+    if (body.dueAt === null || typeof body.dueAt === "string") item.dueAt = body.dueAt;
+    item.version += 1;
+    item.updatedAt = new Date().toISOString();
+    return json(response, 200, item);
+  }
+  if (
+    request.method === "PATCH" &&
+    /^\/api\/v1\/work-items\/[0-9a-f-]+\/dependencies$/u.test(url.pathname)
+  ) {
+    const body = await readJson(request);
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
+    const dependencyIds = body?.dependsOnWorkItemIds;
+    if (
+      item === undefined ||
+      body?.expectedVersion !== item.version ||
+      !Array.isArray(dependencyIds) ||
+      dependencyIds.some((id) => {
+        const candidate = workItems.find((entry) => entry.id === id);
+        return candidate === undefined || candidate.projectId !== item.projectId || id === item.id;
+      })
+    ) {
+      return json(response, 409, { messageKey: "errors.workItems.versionConflict" });
+    }
+    workItemDependencies.set(item.id, [...new Set(dependencyIds)]);
+    item.version += 1;
+    item.updatedAt = new Date().toISOString();
+    return json(response, 200, workItemDependencyResponse(item));
+  }
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/work-items\/[0-9a-f-]+\/transitions$/u.test(url.pathname)
+  ) {
+    const body = await readJson(request);
+    const workItemId = url.pathname.split("/")[4];
+    const item = workItems.find(({ id }) => id === workItemId);
     if (
       body === null ||
       item === undefined ||
-      typeof body.title !== "string" ||
-      body.expectedVersion !== item.version
+      body.expectedVersion !== item.version ||
+      typeof body.reason !== "string" ||
+      !["ready", "in_progress", "blocked", "in_review", "done", "cancelled"].includes(body.status)
     ) {
       return json(response, 400, { messageKey: "errors.validation" });
     }
-    item.title = body.title;
+    if (
+      ["ready", "in_progress", "in_review", "done"].includes(body.status) &&
+      unresolvedWorkItemDependencies(item).length > 0
+    ) {
+      return json(response, 409, { messageKey: "errors.workItems.dependencyBlocked" });
+    }
+    item.status = body.status;
+    item.allowedTransitions = workItemTransitions(item.status);
     item.version += 1;
     item.updatedAt = new Date().toISOString();
     return json(response, 200, item);
@@ -1703,7 +2628,13 @@ const server = createServer(async (request, response) => {
     return json(response, 200, { ...evidenceDetail({}), state: "rejected" });
   }
   if (request.method === "GET" && url.pathname === "/api/v1/timeline") {
-    return json(response, 200, { items: timelineItems, nextCursor: null });
+    return json(response, 200, {
+      items:
+        url.searchParams.get("projectId") === dogfoodProjectId
+          ? dogfoodTaskTimeline()
+          : timelineItems,
+      nextCursor: null,
+    });
   }
   if (request.method === "GET" && url.pathname === `/api/v1/projects/${projectId}/workspace`) {
     return json(response, 200, { project, people, workstreams: [workstream] });
@@ -1808,6 +2739,37 @@ function json(response, status, body) {
     "cache-control": "no-store",
   });
   response.end(JSON.stringify(body));
+}
+
+function unresolvedWorkItemDependencies(item) {
+  return (workItemDependencies.get(item.id) ?? [])
+    .map((id) => workItems.find((candidate) => candidate.id === id))
+    .filter(
+      (candidate) => candidate !== undefined && !["done", "cancelled"].includes(candidate.status),
+    );
+}
+
+function workItemDependencyResponse(item) {
+  const dependsOn = (workItemDependencies.get(item.id) ?? [])
+    .map((id) => workItems.find((candidate) => candidate.id === id))
+    .filter((candidate) => candidate !== undefined)
+    .map(({ id, title, status }) => ({ id, title, status }));
+  const blocks = workItems
+    .filter((candidate) => (workItemDependencies.get(candidate.id) ?? []).includes(item.id))
+    .map(({ id, title, status }) => ({ id, title, status }));
+  const blocked = unresolvedWorkItemDependencies(item).length > 0;
+  return {
+    workItemId: item.id,
+    version: item.version,
+    readiness: blocked ? "blocked_by_dependency" : "ready",
+    allowedTransitions: blocked
+      ? workItemTransitions(item.status).filter(
+          (status) => !["ready", "in_progress", "in_review", "done"].includes(status),
+        )
+      : workItemTransitions(item.status),
+    dependsOn,
+    blocks,
+  };
 }
 
 function empty(response, status) {
@@ -2169,6 +3131,7 @@ function resetContextAcceptanceState() {
   connectedWorkConnected = true;
   workItems.splice(0, workItems.length, ...baseWorkItems);
   privateInboxItems.splice(0, privateInboxItems.length, ...structuredClone(basePrivateInboxItems));
+  experienceReceipts.splice(0, experienceReceipts.length);
   connectedWorkItems.splice(
     0,
     connectedWorkItems.length,
@@ -2459,12 +3422,14 @@ function resetSliceFiveAcceptanceState() {
 
 function managerOperations() {
   return {
+    generatedAt: "2026-08-15T09:00:00.000Z",
     approvalsWaiting: [
       {
         id: "f1111111-1111-4111-8111-111111111111",
         projectId: dogfoodProjectId,
         projectName: "Evidence Performance System — Phase 2",
         detailKey: "approval_waiting",
+        observedAt: "2026-08-15T08:55:00.000Z",
       },
     ],
     blockedProjects: [
@@ -2473,6 +3438,7 @@ function managerOperations() {
         projectId,
         projectName: "Atlas Delivery",
         detailKey: "project_paused",
+        observedAt: "2026-08-15T08:50:00.000Z",
       },
     ],
     ambiguousProgressEvidence: [
@@ -2482,6 +3448,7 @@ function managerOperations() {
         projectName: "Atlas Delivery",
         label: "Release evidence needs one owner decision",
         detailKey: "progress_source_ambiguous",
+        observedAt: "2026-08-15T08:45:00.000Z",
       },
     ],
     ownershipGaps: [
@@ -2490,6 +3457,7 @@ function managerOperations() {
         projectId,
         projectName: "Atlas Delivery",
         detailKey: "ownership_missing",
+        observedAt: "2026-08-15T08:40:00.000Z",
       },
     ],
     upcomingCommitments: [
@@ -2499,11 +3467,13 @@ function managerOperations() {
         projectName: "Atlas Delivery",
         label: "Product owner acceptance",
         detailKey: "commitment_upcoming",
+        observedAt: "2026-08-15T08:35:00.000Z",
         dueAt: "2026-08-07T12:00:00.000Z",
       },
     ],
     readinessHref: "/manager/readiness",
     evaluationHref: "/manager/evaluations",
+    continuityHref: "/continuity",
   };
 }
 
@@ -2581,6 +3551,55 @@ function initialSliceFourTimeline(includeExamples = false) {
         },
       ]
     : [];
+}
+
+function dogfoodTaskTimeline() {
+  const item = codexWorkItems[1];
+  return [
+    {
+      id: "dc111111-1111-4111-8111-111111111111",
+      kind: "update",
+      projectId: dogfoodProjectId,
+      workstreamId: null,
+      workItemId: item.id,
+      employeeId: ownerId,
+      occurredAt: "2026-08-13T20:12:00.000Z",
+      title: "Performance paging and the Work benchmark are complete",
+      detail: "Codex completed P2-15 and P2-16 and started the remaining Work Agent closure.",
+      sourceReferences: ["work-item-update:dc211111-1111-4111-8111-111111111111"],
+      sourceProvenance: "employee_code",
+      reviewState: "employee_confirmed",
+      project: { id: dogfoodProjectId, name: dogfoodProject.name },
+      workstream: null,
+      workItem: { id: item.id, title: item.title },
+      relatedKpiComponents: [],
+      relatedCriteria: [],
+      verificationState: null,
+      decisionOutcome: null,
+    },
+    {
+      id: "dc311111-1111-4111-8111-111111111111",
+      kind: "evidence",
+      projectId: dogfoodProjectId,
+      workstreamId: null,
+      workItemId: item.id,
+      employeeId: ownerId,
+      occurredAt: "2026-08-13T20:08:00.000Z",
+      title: "Commit 06cfefa adds representative paging and benchmark evidence",
+      detail:
+        "GitHub detected the implementation change; Codex must confirm it before contribution use.",
+      sourceReferences: ["github-source-event:dc411111-1111-4111-8111-111111111111"],
+      sourceProvenance: "github_automated",
+      reviewState: "automated_project_fact",
+      project: { id: dogfoodProjectId, name: dogfoodProject.name },
+      workstream: null,
+      workItem: { id: item.id, title: item.title },
+      relatedKpiComponents: [],
+      relatedCriteria: [],
+      verificationState: "pending",
+      decisionOutcome: null,
+    },
+  ];
 }
 
 function githubProjectFact() {

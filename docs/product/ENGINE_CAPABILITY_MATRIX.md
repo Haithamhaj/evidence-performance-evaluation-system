@@ -29,11 +29,11 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Confirm Evidence and see a source-labelled Timeline         | CAP-017, CAP-022 | Complete           | Live GitHub input depends on CAP-021                                           |
 | Complete only necessary Thursday check-ins/readiness action | CAP-018          | Complete           | Full leave lifecycle is pending CAP-037                                        |
 | Conduct Research and Experiments as first-class work        | CAP-025–027      | Complete           | Real production API+PostgreSQL E3 checkpoint; final lifecycle UX remains later |
-| Review neutral facts before self-assessment                 | CAP-024, CAP-028 | Complete           | Final everyday evaluation UX remains later                                     |
-| Submit self-assessment                                      | CAP-028–029      | Complete           | Technical engine verified; final everyday UX remains later                     |
-| Compare, discuss, acknowledge, or reserve                   | CAP-031          | Complete           | Technical engine verified; final everyday UX remains later                     |
-| Receive coaching and maintain development actions           | CAP-035–036      | Complete           | Technical engine verified; final everyday UI remains                           |
-| Manage leave, handover, and return                          | CAP-037          | Complete           | Final daily-use frontend remains                                               |
+| Review neutral facts before self-assessment                 | CAP-024, CAP-028 | Complete           | English Command Brief journey complete; Arabic remains gated by T016           |
+| Submit self-assessment                                      | CAP-028–029      | Complete           | English human-rated journey complete; Arabic remains gated by T016             |
+| Compare, discuss, acknowledge, or reserve                   | CAP-031          | Complete           | Human comparison/finalization/acknowledgment journey complete                  |
+| Receive coaching and maintain development actions           | CAP-035–036      | Complete           | Shared/formal manager support visible; employee-private context remains hidden |
+| Manage leave, handover, and return                          | CAP-037          | Complete           | Exact-scope delegation, expiry, and human-confirmed return UX complete         |
 
 ## Project and Workstream owner capability view
 
@@ -46,20 +46,20 @@ This is not a percentage-complete score. The capabilities have different sizes, 
 | Review honest progress and ambiguous source proposals         | CAP-012, CAP-022 | Complete | Live GitHub/Google sources can be externally gated                |
 | Confirm Project-level state without duplicating Workstreams   | CAP-018          | Complete | Full leave exemption workflow is pending                          |
 | Coordinate Research/Experiment decisions and applied learning | CAP-025–027      | Complete | Real production API+PostgreSQL checkpoint; no final UX acceptance |
-| Prepare delegated ownership and handover                      | CAP-037–038      | Complete | Final owner/manager frontend remains                              |
+| Prepare delegated ownership and handover                      | CAP-037–038      | Complete | Exact scope/window/actions and expiry are visible                 |
 
 ## Manager capability view
 
-| Manager outcome                                                | Register IDs     | Baseline | Missing dependency or constraint                              |
-| -------------------------------------------------------------- | ---------------- | -------- | ------------------------------------------------------------- |
-| See operational action queues without employee scoring         | CAP-023          | Complete | Final manager UX not designed                                 |
-| Read source-supported employee facts without readiness leakage | CAP-024, CAP-028 | Complete | Final manager UX remains later                                |
-| Independently assess an employee                               | CAP-028, CAP-030 | Complete | Technical engine verified; final manager UX remains later     |
-| Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete | Technical engine verified; final manager UX remains later     |
-| Read identified upward feedback truthfully                     | CAP-033          | Complete | Final manager frontend remains                                |
-| Support coaching and formal development                        | CAP-035–036      | Complete | Bounded shared-action support verified; production UI remains |
-| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Final manager frontend remains                                |
-| Generate authorized reports without ranking                    | CAP-032          | Complete | Live storage configuration; Arabic evaluation blocked at T016 |
+| Manager outcome                                                | Register IDs     | Baseline | Missing dependency or constraint                                 |
+| -------------------------------------------------------------- | ---------------- | -------- | ---------------------------------------------------------------- |
+| See operational action queues without employee scoring         | CAP-023          | Complete | Command Brief home, Project context, and source details complete |
+| Read source-supported employee facts without readiness leakage | CAP-024, CAP-028 | Complete | English fact-first manager journey complete                      |
+| Independently assess an employee                               | CAP-028, CAP-030 | Complete | Independent human manager journey complete                       |
+| Compare, discuss, finalize, and preserve human judgment        | CAP-031          | Complete | Human-only finalization journey complete                         |
+| Read identified upward feedback truthfully                     | CAP-033          | Complete | Named originals and completion are available to the manager      |
+| Support coaching and formal development                        | CAP-035–036      | Complete | Shared/formal support visible; private details remain hidden     |
+| Approve leave/delegation and resolve reassignment              | CAP-037–038      | Complete | Human-gated delegation/return and deactivation queue are connected |
+| Generate authorized reports without ranking                    | CAP-032          | Complete | Live storage configuration; Arabic evaluation blocked at T016    |
 
 ## System administrator and operations capability view
 
@@ -110,23 +110,24 @@ Continuity, notifications, administration, security, recovery, and launch
 
 ## Existing verification surfaces that are not final product UX
 
-| Route                                                       | What it proves technically                  | What it does not prove                              |
-| ----------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------- |
-| `/[locale]/my-work`                                         | daily composition, update/evidence flows    | final low-friction employee home                    |
-| `/[locale]/tasks`                                           | Work Item API and task interaction          | final task-management information architecture      |
-| `/[locale]/settings/connections`                            | Google connection privacy/recovery contract | production OAuth approval or final settings design  |
-| `/[locale]/projects/[projectId]/settings/progress-contract` | draft/review/approval contract              | final guided Project setup                          |
-| `/[locale]/projects/[projectId]/readiness`                  | readiness-safe projection                   | employee scoring or final dashboard                 |
-| `/[locale]/manager/operations`                              | role-safe operational queues                | final manager product experience                    |
-| `/[locale]/evaluations/facts`                               | neutral Fact View and privacy contract      | self/manager assessment or final evaluation journey |
+| Route                                                       | What it proves technically                  | What it does not prove                             |
+| ----------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------- |
+| `/[locale]/my-work`                                         | daily composition, update/evidence flows    | final low-friction employee home                   |
+| `/[locale]/tasks`                                           | Work Item API and task interaction          | final task-management information architecture     |
+| `/[locale]/settings/connections`                            | Google connection privacy/recovery contract | production OAuth approval or final settings design |
+| `/[locale]/projects/[projectId]/settings/progress-contract` | draft/review/approval contract              | final guided Project setup                         |
+| `/[locale]/projects/[projectId]/readiness`                  | readiness-safe projection                   | employee scoring or final dashboard                |
+| `/[locale]/manager/operations`                              | role-safe operational queues                | final manager product experience                   |
+| `/[locale]/evaluations/facts`                               | neutral Fact View and privacy contract      | Arabic employee release before T016                |
+| `/[locale]/evaluations/[cycleId]`                           | full fact-first human evaluation journey    | Arabic employee release before T016                |
+| `/[locale]/manager-feedback/[cycleId]`                      | identified employee/manager feedback path   | future blinded or anonymous modes                  |
 
 ## Engine capabilities awaiting final product entry points
 
 The engine contracts are present; these are frontend-design needs, not missing engines:
 
 - CAP-025–027: dedicated everyday Research/Experiment progression.
-- CAP-028–033: complete employee/manager evaluation and identified upward-feedback journeys.
-- CAP-035–039: coaching, development, leave/delegation/handover, and notification interactions.
+- CAP-039: notification interactions and preference entry points remain in Phase 8.
 - CAP-040–043: administrator console and protected operations views.
 - CAP-044: Product Owner acceptance and production launch controls.
 

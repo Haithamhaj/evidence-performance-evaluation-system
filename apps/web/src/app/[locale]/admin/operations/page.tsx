@@ -2,6 +2,7 @@
 import { getCatalog, isLocale } from "@evaluation/localization";
 import { notFound } from "next/navigation";
 
+import { AdminOperationsWorkspace } from "../../../../product-ui/admin/admin-operations-workspace";
 import { WorkspaceShell } from "../../workspace-shell";
 
 export default async function AdminOperationsPage({
@@ -17,17 +18,7 @@ export default async function AdminOperationsPage({
       locale={locale}
       localeSwitchHref={`/${alternateLocale}/admin/operations`}
     >
-      <article className="workspacePanel" data-testid="operations-admin-checkpoint">
-        <p>{catalog["operations.technicalCheckpoint"]}</p>
-        <h1>{catalog["operations.adminTitle"]}</h1>
-        <p>{catalog["operations.adminDescription"]}</p>
-        <ul>
-          <li>{catalog["operations.healthState"]}</li>
-          <li>{catalog["operations.safeNextAction"]}</li>
-          <li>{catalog["operations.ownerDomainMutation"]}</li>
-        </ul>
-        <p>{catalog["operations.adminBoundary"]}</p>
-      </article>
+      <AdminOperationsWorkspace catalog={catalog} locale={locale} />
     </WorkspaceShell>
   );
 }

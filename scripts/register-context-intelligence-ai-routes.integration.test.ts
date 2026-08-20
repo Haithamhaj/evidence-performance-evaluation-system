@@ -64,6 +64,10 @@ describe("Context Intelligence production registration", () => {
       "context.summarize.v1",
       "context.project-match.v1",
       "task.draft.v1",
+      "experience.prepare-next.v1",
+      "experience.capture-understand.v1",
+      "experience.task-assistant.v1",
+      "experience.project-assistant.v1",
     ]);
     await expect(client.aiProviderConfig.count()).resolves.toBe(providerCount);
     for (const route of result.routes) {

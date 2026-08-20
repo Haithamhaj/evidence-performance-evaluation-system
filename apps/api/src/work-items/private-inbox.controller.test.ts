@@ -6,9 +6,9 @@ const actorId = crypto.randomUUID();
 const inboxItemId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
 
-function request(active = true) {
+function request(active = true, roles: readonly string[] = ["employee"]) {
   return {
-    principal: { userId: actorId, active },
+    principal: { userId: actorId, active, roles },
     correlationId: crypto.randomUUID(),
   } as never;
 }
@@ -22,20 +22,61 @@ describe("PrivateInboxController", () => {
 
     expect(capture).toHaveBeenCalledWith(
       expect.objectContaining({
-        actor: { userId: actorId, active: true },
-        input: { text: "Follow up after the client call", projectId: null },
+        actor: { userId: actorId, active: true, roles: ["employee"] },
+        input: {
+          text: "Follow up after the client call",
+          projectId: null,
+          sourceType: "text",
+          sourceUploadId: null,
+        },
       }),
     );
   });
 
-  it("passes inactive state to the domain and never accepts caller ownership", async () => {
+  it.each([["manager"], ["system_administrator"]])(
+    "denies %s-only principals across private Inbox APIs",
+    async (role) => {
+      const service = { capture: vi.fn(), dismiss: vi.fn(), promote: vi.fn() };
+      const query = { list: vi.fn() };
+      const controller = new PrivateInboxController(service as never, query as never);
+      const denied = request(true, [role]);
+
+      expect(() => controller.capture(denied, { text: "Private" })).toThrowError(
+        "PRIVATE_INBOX_FORBIDDEN",
+      );
+      expect(() => controller.list(denied, {})).toThrowError("PRIVATE_INBOX_FORBIDDEN");
+      expect(() =>
+        controller.dismiss(denied, inboxItemId, { expectedVersion: 1, reason: "Denied" }),
+      ).toThrowError("PRIVATE_INBOX_FORBIDDEN");
+      expect(() =>
+        controller.promote(denied, inboxItemId, {
+          title: "Denied",
+          projectId,
+          assigneeId: actorId,
+          expectedVersion: 1,
+          reason: "Denied",
+        }),
+      ).toThrowError("PRIVATE_INBOX_FORBIDDEN");
+      expect(service.capture).not.toHaveBeenCalled();
+      expect(query.list).not.toHaveBeenCalled();
+    },
+  );
+
+  it("allows a manager who also has employee authority", async () => {
+    const capture = vi.fn(async (command) => command);
+    const controller = new PrivateInboxController({ capture } as never, {} as never);
+    await controller.capture(request(true, ["manager", "employee"]), { text: "My note" });
+    expect(capture).toHaveBeenCalledOnce();
+  });
+
+  it("denies inactive principals and never accepts caller ownership", async () => {
     const capture = vi.fn(async (command) => command);
     const controller = new PrivateInboxController({ capture } as never, {} as never);
 
-    await controller.capture(request(false), { text: "Private note" });
-    expect(capture).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: { userId: actorId, active: false } }),
+    expect(() => controller.capture(request(false), { text: "Private note" })).toThrowError(
+      "PRIVATE_INBOX_FORBIDDEN",
     );
+    expect(capture).not.toHaveBeenCalled();
     expect(() =>
       controller.capture(request(false), {
         text: "Private note",
@@ -74,7 +115,7 @@ describe("PrivateInboxController", () => {
     });
 
     expect(query.list).toHaveBeenCalledWith({
-      actor: { userId: actorId, active: true },
+      actor: { userId: actorId, active: true, roles: ["employee"] },
       input: { status: "open", limit: 20, cursor: null },
     });
     expect(service.dismiss).toHaveBeenCalledWith(expect.objectContaining({ inboxItemId }));

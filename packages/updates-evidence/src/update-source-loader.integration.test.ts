@@ -48,7 +48,7 @@ describe("PrismaUpdateSourceLoader", () => {
     expect(loaded.untrustedText).toContain("BEGIN_UNTRUSTED_UPDATE_SOURCE");
     expect(loaded.untrustedText).toContain("acceptance.pdf");
     expect(loaded.untrustedText).not.toContain("private/never-exposed");
-    expect(loaded.sourceReferences).toEqual([`update-source-attachment:${ids.attachment}:1`]);
+    expect(loaded.sourceReferences).toEqual([`update-source-attachment-v1:${ids.attachment}`]);
   });
 
   it("rejects a private upload outside the employee and Project scope", async () => {
