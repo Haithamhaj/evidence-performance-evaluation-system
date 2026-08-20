@@ -169,8 +169,8 @@ describe("SourceRetriever security policy", () => {
   });
 
   it("pins the complete validated DNS answer set and sends credential-free headers", async () => {
-    process.env.OPENAI_API_KEY = "must-never-leak";
-    process.env.GOOGLE_CLIENT_SECRET = "must-never-leak";
+    vi.stubEnv("OPENAI_API_KEY", "must-never-leak");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "must-never-leak");
     const { retriever, transport } = createRetriever({
       addresses: [
         { address: GLOBAL_V4, family: 4 },
@@ -181,8 +181,7 @@ describe("SourceRetriever security policy", () => {
     try {
       await retriever.retrieve({ url: "https://example.com/source" });
     } finally {
-      delete process.env.OPENAI_API_KEY;
-      delete process.env.GOOGLE_CLIENT_SECRET;
+      vi.unstubAllEnvs();
     }
 
     expect(transport.requests[0]).toMatchObject({

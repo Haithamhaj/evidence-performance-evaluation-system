@@ -32,8 +32,15 @@ const aiProviderPackages = [
 const directProviderRoutePattern = /(?:\/chat\/completions|\/v1\/responses|\/v1\/messages)/u;
 const restrictedAiComposition = "@evaluation/ai-routing/admin-composition";
 const protectedAiCompositionFile = "apps/api/src/ai-routing/ai-routing.module.ts";
+const allowedPublicSubpathImports = new Set([
+  "@evaluation/contracts/employee-experience",
+  "@evaluation/contracts/evaluation-fact-view",
+  "@evaluation/contracts/insights",
+]);
 const providerEnvironmentPattern =
   /(?:^|_)(?:AI|OPENAI|ANTHROPIC|AZURE_OPENAI|COHERE|MODEL_PROVIDER)(?:_|$)/u;
+const directProviderEnvironmentAccessPattern =
+  /process\s*\.\s*env\s*(?:\.\s*|\[\s*["'`])(?:AI|OPENAI|ANTHROPIC|AZURE_OPENAI|COHERE|MODEL_PROVIDER)(?:_|["'`\]])/u;
 const maxResolvedValues = 32;
 const invocationAnalysisByBindingWrites = new WeakMap();
 const globalObjectFreezeWritesByBindingWrites = new WeakMap();
@@ -125,7 +132,7 @@ function inspectImport(filePath, specifier) {
     return `BOUNDARY_DIRECT_AI_PROVIDER:${relativeFile}:${specifier}`;
   }
 
-  if (packageImport?.[2]) {
+  if (packageImport?.[2] && !allowedPublicSubpathImports.has(specifier)) {
     return `BOUNDARY_DEEP_IMPORT:${relativeFile}:${specifier}`;
   }
 
@@ -3302,7 +3309,7 @@ function inspectAst(filePath, source) {
     /\bgenerate\b/u.test(source) ||
     aiProviderPackages.some((packageName) => source.includes(packageName)) ||
     directProviderRoutePattern.test(source) ||
-    providerEnvironmentPattern.test(source);
+    directProviderEnvironmentAccessPattern.test(source);
   if (
     !aiRoutingFile &&
     containsProviderExecutionSurface &&

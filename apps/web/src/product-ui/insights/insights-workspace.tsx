@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { ProductIcon } from "@evaluation/ui";
 import type { Catalog } from "@evaluation/localization";
-import type { EmployeeInsightsV1 } from "@evaluation/contracts/insights";
+import type { EmployeeInsightsV1 } from "@evaluation/contracts";
 
 import styles from "./insights-workspace.module.css";
 

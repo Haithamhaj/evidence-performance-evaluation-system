@@ -391,6 +391,7 @@
   "home.overview.now": "Now",
   "home.overview.noChanges": "No recent authorized changes.",
   "home.overview.assistant": "Assistant",
+  "home.overview.smartBrief": "SMART BRIEF",
   "home.overview.noBrief": "No source-backed action is ready.",
   "home.overview.suggestedAction": "SUGGESTED ACTION",
   "home.overview.contractBased": "Confirmed progress (contract-based)",

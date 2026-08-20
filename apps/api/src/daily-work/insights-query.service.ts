@@ -1,5 +1,5 @@
 import { AppError } from "@evaluation/contracts";
-import { EmployeeInsightsV1Schema } from "@evaluation/contracts/insights";
+import { EmployeeInsightsV1Schema } from "@evaluation/contracts";
 import { z } from "zod";
 
 type ContributionReader = Readonly<{

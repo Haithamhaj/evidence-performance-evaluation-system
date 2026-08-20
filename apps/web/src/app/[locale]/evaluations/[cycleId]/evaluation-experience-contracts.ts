@@ -1,4 +1,4 @@
-import type { EvaluationFactView } from "@evaluation/contracts/evaluation-fact-view";
+import type { EvaluationFactView } from "@evaluation/contracts";
 
 export type EvaluationRating = 1 | 2 | 3 | 4 | 5;
 

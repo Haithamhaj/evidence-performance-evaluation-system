@@ -6,7 +6,7 @@ import {
   type EvaluationFactView,
 } from "@evaluation/contracts";
 import type { ValidatedAiResult } from "@evaluation/ai-routing";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   EvaluationJustificationOutputSchema,
@@ -172,7 +172,7 @@ export class EvaluationWordingService {
         classification: "confidential",
         timeoutMs: this.#timeoutMs,
         requiresHumanApproval: true,
-        correlationId: crypto.randomUUID(),
+        correlationId: randomUUID(),
       },
       async () => ({ outputReference: assignmentReference }),
     );

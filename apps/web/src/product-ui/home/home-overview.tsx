@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { ProductDisclosure, ProductIcon } from "@evaluation/ui";
 import type { Catalog } from "@evaluation/localization";
-import type { EmployeeHomeV1 } from "@evaluation/contracts/employee-experience";
+import type { EmployeeHomeV1 } from "@evaluation/contracts";
 import type { CSSProperties } from "react";
 
 import { buildHomeOverviewModel } from "../../features/home-overview/home-overview-model";
@@ -158,7 +158,7 @@ export function HomeOverview({ catalog, home, locale }: Properties) {
         ) : (
           <>
             <section>
-              <p className={styles.eyebrow!}>SMART BRIEF</p>
+              <p className={styles.eyebrow!}>{copy.smartBrief}</p>
               <h2>{model.smartBrief.title}</h2>
               <p>{model.smartBrief.body}</p>
             </section>
@@ -232,11 +232,7 @@ function formatUnit(value: string) {
   return ` ${unit}`;
 }
 
-function formatKpiValue(
-  kpi: NonNullable<
-    import("@evaluation/contracts/employee-experience").EmployeeHomeV1["projects"][number]["kpi"]
-  >,
-) {
+function formatKpiValue(kpi: NonNullable<EmployeeHomeV1["projects"][number]["kpi"]>) {
   const unit = kpi.unit.trim();
   if (["flow", "flows", "source", "sources"].includes(unit.toLowerCase())) {
     return `${kpi.current}/${kpi.target}`;
@@ -244,11 +240,7 @@ function formatKpiValue(
   return `${kpi.current}${formatUnit(kpi.unit)}`;
 }
 
-function formatKpiTarget(
-  kpi: NonNullable<
-    import("@evaluation/contracts/employee-experience").EmployeeHomeV1["projects"][number]["kpi"]
-  >,
-) {
+function formatKpiTarget(kpi: NonNullable<EmployeeHomeV1["projects"][number]["kpi"]>) {
   const unit = kpi.unit.trim();
   if (["flow", "flows", "source", "sources"].includes(unit.toLowerCase()))
     return String(kpi.target);
@@ -282,6 +274,7 @@ function buildCopy(catalog: Catalog) {
     now: catalog["home.overview.now"],
     noChanges: catalog["home.overview.noChanges"],
     assistant: catalog["home.overview.assistant"],
+    smartBrief: catalog["home.overview.smartBrief"],
     noBrief: catalog["home.overview.noBrief"],
     suggestedAction: catalog["home.overview.suggestedAction"],
     contractBased: catalog["home.overview.contractBased"],

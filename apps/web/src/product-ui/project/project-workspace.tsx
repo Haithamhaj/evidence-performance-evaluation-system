@@ -856,7 +856,7 @@ export function ProjectWorkspace({
         <ProjectAssistant catalog={catalog} locale={locale} projectId={model.project.id} />
         {model.smartBrief ? (
           <>
-            <p className={styles.eyebrow!}>SMART BRIEF</p>
+            <p className={styles.eyebrow!}>{copy.smartBrief}</p>
             <h2>{model.smartBrief.title}</h2>
             <p>{model.smartBrief.body}</p>
             <p className={styles.eyebrow!}>{copy.suggestedAction}</p>
@@ -1057,6 +1057,7 @@ function buildCopy(catalog: Catalog) {
     reviewBeforeChange: catalog["project.experience.reviewBeforeChange"],
     preparedGuardrail: catalog["project.experience.preparedGuardrail"],
     assistant: catalog["home.overview.assistant"],
+    smartBrief: catalog["home.overview.smartBrief"],
     suggestedAction: catalog["home.overview.suggestedAction"],
     source: catalog["home.overview.source"],
     howCalculated: catalog["home.overview.howCalculated"],

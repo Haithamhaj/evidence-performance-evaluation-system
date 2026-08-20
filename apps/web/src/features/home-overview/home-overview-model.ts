@@ -1,4 +1,4 @@
-import type { EmployeeHomeV1 } from "@evaluation/contracts/employee-experience";
+import type { EmployeeHomeV1 } from "@evaluation/contracts";
 
 type Home = EmployeeHomeV1;
 
