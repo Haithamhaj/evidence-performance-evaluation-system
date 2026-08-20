@@ -8,7 +8,8 @@ launch, a department-wide rollout, or approval to retire rollback routes.
 ## Running review baseline
 
 - Branch: `codex/ai-native-frontend-phase-1`
-- Commit: `48633f5`
+- Starting documentation baseline: `eb241fe`
+- Live journey correction checkpoint: `be3e247`
 - English Home: `http://localhost:3000/en`
 - Codex Project: `http://localhost:3000/en/projects/c2ab037e-e945-4ed9-a6cd-756099e2b066`
 - Work: `http://localhost:3000/en/tasks`
@@ -37,12 +38,38 @@ These identifiers are local synthetic acceptance references, not provider creden
    like daily work rather than an evaluation form.
 4. Use **Share anything** with text or a link. Confirm that the assistant prepares a private draft,
    asks only for missing context, and waits for employee review.
-5. Review the prepared Progress Contract draft. Confirm that Codex can edit, reject, or approve it,
-   and that activation remains a human decision.
+5. Review the prepared Progress Contract draft with the authorized Project Owner/Product Owner
+   identity. Confirm that the authorized human can edit, reject, or approve it, that the Codex
+   contributor cannot activate it, and that activation remains a protected human decision.
 6. Inspect one prepared suggestion and submit either `Helpful` or one fixed improvement category.
    Confirm that this feedback is clearly about the product and does not become employee evaluation,
    Project progress, Evidence, or manager judgment.
 7. Confirm that manual work remains available when an AI or connector is unavailable.
+
+## Executed Codex employee journey — 20 August 2026
+
+The authenticated Codex employee journey was executed against the local product rather than a
+synthetic frontend-only preview:
+
+- Home, Project, Work, Insights, and the no-cycle Evaluation landing rendered the expected employee
+  content after correcting the raw Progress Contract component mapping used by the experience layer.
+- **Share anything** used the configured governed AI route, asked one missing question at a time,
+  produced an editable Update and an independently selectable Evidence suggestion, and retained the
+  protected confirmation boundary.
+- Codex confirmed the Update only. The unconfirmed Evidence suggestion remained unpromoted and
+  official Project progress did not change. The accepted Update appears in the Project timeline.
+- Codex submitted `Helpful` feedback for one prepared product suggestion. The receipt remained
+  product feedback only.
+- The manual fallback saved a private Inbox note without creating an Update, Evidence, Task,
+  progress change, or evaluation record. The dedicated owner-scoped delivery worker then exposed the
+  content-free receipt in **What Changed**.
+- A generated clarification that mentioned internal Progress Contract component IDs is now rendered
+  as a plain-language milestone/deliverable/KPI/acceptance-condition question in English and Arabic.
+
+The review also confirmed the protected ownership boundary: the Codex contributor receives `403`
+for the Progress Contract settings route. Draft approval/activation must therefore be reviewed with
+the authorized Project Owner/Product Owner identity; this document does not treat contributor access
+as approval authority.
 
 ## Product rules to verify visually
 

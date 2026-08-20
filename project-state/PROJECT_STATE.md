@@ -419,6 +419,15 @@ routes before parity evidence.
   authoritative continuity engine. Deactivation reassignment cases enter the manager ownership queue;
   administrator authority remains separate. No readiness value, ranking, activity inference,
   productivity prediction, or AI-owned protected decision was added.
+- The P9-15 Codex employee launch journey has now been exercised against the running product. Home,
+  Project, Work, Insights, and the no-cycle Evaluation landing load the real dogfood data; Codex used
+  the governed AI update flow, confirmed only the editable Update, left suggested Evidence
+  unconfirmed, submitted product feedback, and verified the private manual fallback through What
+  Changed. Official Project progress remained unchanged. Launch corrections translate internal
+  Progress component kinds at the experience boundary, hide technical component IDs in employee
+  clarification, give repeated attention items stable unique identities, and start the dedicated
+  experience-delivery worker in the default local configuration. The protected Product Owner launch
+  decision remains open.
 
 ## Active Risks
 
@@ -449,7 +458,7 @@ routes before parity evidence.
 
 ## Next Recommended Action
 
-Prepare the running P9-15 Product Owner internal-launch review, keeping P9-02 retained-route retirement
+Complete the running P9-15 Product Owner internal-launch review, keeping P9-02 retained-route retirement
 until visual acceptance confirms the final baseline. Keep unavailable administrator capabilities fail-closed
 until their owning domains expose real commands; do not add generic mutation forms. Keep analytics
 outside manager judgment, evaluation authority, Project progress calculation, and private employee context. Keep the real v7 Project in its honest
