@@ -623,21 +623,21 @@ function employeeHome() {
       },
       milestones: [
         {
-          componentId: crypto.randomUUID(),
+          componentId: randomUUID(),
           name: "Discovery",
           kind: "milestone",
           state: "complete",
           percent: 100,
         },
         {
-          componentId: crypto.randomUUID(),
+          componentId: randomUUID(),
           name: "API authentication",
           kind: "milestone",
           state: "current",
           percent: 62,
         },
         {
-          componentId: crypto.randomUUID(),
+          componentId: randomUUID(),
           name: "Pilot readiness",
           kind: "milestone",
           state: "next",
@@ -645,7 +645,7 @@ function employeeHome() {
         },
       ],
       kpi: {
-        componentId: crypto.randomUUID(),
+        componentId: randomUUID(),
         name: "API error rate",
         baseline: 4.1,
         current: 1.8,
@@ -672,21 +672,21 @@ function employeeHome() {
       },
       milestones: [
         {
-          componentId: crypto.randomUUID(),
+          componentId: randomUUID(),
           name: "Research scope",
           kind: "milestone",
           state: "complete",
           percent: 100,
         },
         {
-          componentId: crypto.randomUUID(),
+          componentId: randomUUID(),
           name: "Source validation",
           kind: "milestone",
           state: "current",
           percent: 28,
         },
         {
-          componentId: crypto.randomUUID(),
+          componentId: randomUUID(),
           name: "Prototype experiment",
           kind: "milestone",
           state: "next",
@@ -694,7 +694,7 @@ function employeeHome() {
         },
       ],
       kpi: {
-        componentId: crypto.randomUUID(),
+        componentId: randomUUID(),
         name: "Validated sources",
         baseline: 0,
         current: 6,
