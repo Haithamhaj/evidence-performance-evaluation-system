@@ -239,7 +239,7 @@ function projectProgress() {
       components: [
         {
           id: componentId,
-          kind: "operational_kpi",
+          kind: "kpi",
           name: "API error rate",
           description: "Staging API errors",
           weight: 100,
@@ -266,7 +266,7 @@ function projectProgress() {
         {
           componentId,
           name: "API error rate",
-          kind: "operational_kpi",
+          kind: "kpi",
           percent: 62,
           measuredValue: 1.8,
           observedAt: "2026-08-13T06:55:00.000Z",

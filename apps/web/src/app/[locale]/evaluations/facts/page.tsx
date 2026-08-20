@@ -6,6 +6,7 @@ import { z } from "zod";
 import { fetchEvaluationFactView } from "../../../../platform/evaluation-fact-view-api";
 import { WorkspaceShell } from "../../workspace-shell";
 import { EvaluationFactView } from "./evaluation-fact-view";
+import { EvaluationFactsLanding } from "./evaluation-facts-landing";
 
 type Properties = Readonly<{
   params: Promise<{ locale: string }>;
@@ -18,16 +19,24 @@ export default async function EvaluationFactsPage({ params, searchParams }: Prop
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const query = QuerySchema.safeParse(await searchParams);
-  if (!query.success) notFound();
-  const [catalog, view] = await Promise.all([
-    getCatalog(locale),
-    fetchEvaluationFactView({
-      cycleId: query.data.cycle,
-      employeeId: query.data.employee,
-      locale,
-    }),
-  ]);
+  const catalog = await getCatalog(locale);
   const alternateLocale = locale === "ar" ? "en" : "ar";
+  if (!query.success) {
+    return createElement(
+      WorkspaceShell,
+      {
+        catalog,
+        locale,
+        localeSwitchHref: `/${alternateLocale}/evaluations/facts`,
+      },
+      createElement(EvaluationFactsLanding, { catalog, locale }),
+    );
+  }
+  const view = await fetchEvaluationFactView({
+    cycleId: query.data.cycle,
+    employeeId: query.data.employee,
+    locale,
+  });
   const preserved = new URLSearchParams({
     cycle: query.data.cycle,
     employee: query.data.employee,

@@ -458,7 +458,11 @@ export function CaptureDialog({
           {preparedUpdate?.state !== "draft_with_question" ? null : (
             <section className={styles.clarification!}>
               <h3>{catalog["capture.clarification"]}</h3>
-              <p>{preparedUpdate.question}</p>
+              <p>
+                {preparedUpdate.affects.includes("progress_context")
+                  ? catalog["capture.progressContextQuestion"]
+                  : preparedUpdate.question}
+              </p>
               <label className={styles.srOnly!} htmlFor="capture-update-answer">
                 {catalog["capture.answer"]}
               </label>

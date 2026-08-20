@@ -20,7 +20,7 @@ type ProjectProgressView = {
     id: string;
     components: Array<{
       id: string;
-      kind: "milestone" | "deliverable" | "operational_kpi";
+      kind: "milestone" | "deliverable" | "kpi" | "operational_kpi" | "acceptance";
       name: string;
       baseline: number | null;
       target: number | null;
@@ -35,7 +35,7 @@ type ProjectProgressView = {
     milestoneStates: Array<{
       componentId: string;
       name: string;
-      kind: "milestone" | "deliverable" | "operational_kpi";
+      kind: "milestone" | "deliverable" | "kpi" | "operational_kpi" | "acceptance";
       percent: number | null;
       measuredValue?: number;
       observedAt?: string;
@@ -151,10 +151,13 @@ function operationalProgress(view: ProjectProgressView) {
 }
 
 function milestoneJourney(view: ProjectProgressView) {
-  const currentIndex = view.pulse.milestoneStates.findIndex(({ state }) =>
+  const milestones = view.pulse.milestoneStates.filter(({ kind }) =>
+    ["milestone", "deliverable"].includes(kind),
+  );
+  const currentIndex = milestones.findIndex(({ state }) =>
     ["in_progress", "awaiting_evidence"].includes(state),
   );
-  return view.pulse.milestoneStates.map((component, index) => ({
+  return milestones.map((component, index) => ({
     componentId: component.componentId,
     name: component.name,
     kind: component.kind,
@@ -176,7 +179,7 @@ function selectKpi(view: ProjectProgressView) {
   if (view.progress.state !== "accepted") return null;
   for (const component of view.contract?.components ?? []) {
     if (
-      component.kind !== "operational_kpi" ||
+      !["kpi", "operational_kpi"].includes(component.kind) ||
       component.baseline === null ||
       component.target === null ||
       component.unit === null ||

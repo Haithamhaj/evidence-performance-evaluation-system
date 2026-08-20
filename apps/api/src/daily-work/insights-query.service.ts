@@ -58,7 +58,7 @@ const ProjectViewSchema = z
             .object({
               componentId: z.uuid(),
               name: z.string().trim().min(1).max(240),
-              kind: z.enum(["milestone", "deliverable", "operational_kpi"]),
+              kind: z.enum(["milestone", "deliverable", "kpi", "operational_kpi", "acceptance"]),
               percent: z.number().min(0).max(100).nullable(),
               measuredValue: z.number().optional(),
               observedAt: z.iso.datetime({ offset: true }).optional(),
@@ -74,7 +74,7 @@ const ProjectViewSchema = z
           z
             .object({
               id: z.uuid(),
-              kind: z.enum(["milestone", "deliverable", "operational_kpi"]),
+              kind: z.enum(["milestone", "deliverable", "kpi", "operational_kpi", "acceptance"]),
               name: z.string().trim().min(1).max(240),
               target: z.number().nullable(),
               unit: z.string().trim().min(1).max(40).nullable(),
@@ -145,7 +145,9 @@ function projectInsight(raw: unknown) {
           updatedAt: view.progress.updatedAt,
         }
       : { state: view.progress.state };
-  const kpi = view.contract?.components.find((component) => component.kind === "operational_kpi");
+  const kpi = view.contract?.components.find((component) =>
+    ["kpi", "operational_kpi"].includes(component.kind),
+  );
   const measured = view.pulse.milestoneStates.find(
     (component) => component.componentId === kpi?.id && component.measuredValue !== undefined,
   );
@@ -163,7 +165,7 @@ function projectInsight(raw: unknown) {
     milestones: view.pulse.milestoneStates.map((component) => ({
       id: component.componentId,
       name: component.name,
-      kind: component.kind,
+      kind: employeeInsightComponentKind(component.kind),
       state: component.state,
       percent: component.percent,
     })),
@@ -185,4 +187,10 @@ function projectInsight(raw: unknown) {
             observedAt: measured.observedAt,
           },
   };
+}
+
+function employeeInsightComponentKind(kind: string) {
+  if (kind === "kpi") return "operational_kpi" as const;
+  if (kind === "acceptance") return "milestone" as const;
+  return kind;
 }

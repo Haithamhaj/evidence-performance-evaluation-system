@@ -257,6 +257,7 @@ export function createQueueRuntimeConfiguration(
   if (
     new Set([
       "analysis-criteria.process",
+      "experience.deliver",
       "reporting.generate",
       "notifications.deliver",
       "experience.prepare-next",

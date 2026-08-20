@@ -7,6 +7,25 @@ const projectId = "20000000-0000-4000-8000-000000000002";
 const documentVersionId = "20000000-0000-4000-8000-000000000003";
 
 describe("ProjectExperienceQueryService", () => {
+  it("keeps repeated evidence gaps addressable with unique UI identities", async () => {
+    const view = projectView();
+    view.pulse.nextRequiredEvidence.push({
+      ...view.pulse.nextRequiredEvidence[0]!,
+      label: "Second required source",
+    });
+    const service = new ProjectExperienceQueryService({
+      ownership: async () => ownership(),
+      project: async () => view,
+      document: async () => documentDetail(),
+      myWork: async () => ({ groups: [] }),
+      timeline: async () => ({ items: [], nextCursor: null }),
+    });
+
+    const result = await service.load(actor, projectId);
+
+    expect(new Set(result.attention.map(({ id }) => id)).size).toBe(result.attention.length);
+  });
+
   it("composes one authorized Project without recalculating progress", async () => {
     const service = new ProjectExperienceQueryService({
       ownership: async () => ownership(),
@@ -397,7 +416,7 @@ function projectView() {
       components: [
         {
           id: "20000000-0000-4000-8000-000000000004",
-          kind: "operational_kpi",
+          kind: "kpi",
           name: "API error rate",
           baseline: 4.1,
           target: 1,
@@ -436,7 +455,7 @@ function projectView() {
         {
           componentId: "20000000-0000-4000-8000-000000000004",
           name: "API error rate",
-          kind: "operational_kpi",
+          kind: "kpi",
           percent: 62,
           measuredValue: 1.8,
           observedAt: "2026-08-13T07:00:00.000Z",

@@ -582,7 +582,7 @@ function progressReview(view: any, progress: any, source: any) {
         components: (view.contract.components ?? []).map((component: any) => ({
           componentId: component.id,
           name: component.name,
-          kind: component.kind,
+          kind: employeeExperienceComponentKind(component.kind),
           weight: component.weight ?? null,
           requiredEvidence: strings(component.requiredEvidence),
         })),
@@ -623,35 +623,35 @@ function operationalProgress(view: any) {
 }
 
 function milestoneJourney(view: any) {
-  const states = view.pulse?.milestoneStates ?? [];
+  const states = (view.pulse?.milestoneStates ?? []).filter(
+    (item: any) => !["kpi", "operational_kpi"].includes(item.kind),
+  );
   const current = states.findIndex((item: any) =>
     ["in_progress", "awaiting_evidence"].includes(item.state),
   );
-  return states
-    .filter((item: any) => item.kind !== "operational_kpi")
-    .map((item: any, index: number) => ({
-      componentId: item.componentId,
-      name: item.name,
-      kind: item.kind,
-      percent: item.percent,
-      state:
-        item.state === "complete"
-          ? "complete"
-          : index === current
-            ? "current"
-            : index === current + 1
-              ? "next"
-              : item.state === "awaiting_evidence"
-                ? "awaiting_evidence"
-                : "not_started",
-    }));
+  return states.map((item: any, index: number) => ({
+    componentId: item.componentId,
+    name: item.name,
+    kind: employeeExperienceComponentKind(item.kind),
+    percent: item.percent,
+    state:
+      item.state === "complete"
+        ? "complete"
+        : index === current
+          ? "current"
+          : index === current + 1
+            ? "next"
+            : item.state === "awaiting_evidence"
+              ? "awaiting_evidence"
+              : "not_started",
+  }));
 }
 
 function selectKpi(view: any, source: any) {
   if (view.progress?.state !== "accepted") return null;
   for (const component of view.contract?.components ?? []) {
     if (
-      component.kind !== "operational_kpi" ||
+      !["kpi", "operational_kpi"].includes(component.kind) ||
       component.baseline == null ||
       component.target == null ||
       component.unit == null ||
@@ -676,6 +676,12 @@ function selectKpi(view: any, source: any) {
   return null;
 }
 
+function employeeExperienceComponentKind(kind: unknown) {
+  if (kind === "kpi") return "operational_kpi" as const;
+  if (kind === "acceptance") return "milestone" as const;
+  return kind;
+}
+
 function documentSummary(view: any, projectId: string, source: any) {
   if (view.document)
     return {
@@ -697,8 +703,8 @@ function documentSummary(view: any, projectId: string, source: any) {
 }
 
 function attentionItems(view: any, document: any, source: any, projectId: string) {
-  const items = (view.pulse?.nextRequiredEvidence ?? []).map((gap: any) => ({
-    id: `attention:${gap.componentId}`,
+  const items = (view.pulse?.nextRequiredEvidence ?? []).map((gap: any, index: number) => ({
+    id: `attention:${gap.componentId}:${index}`,
     title: gap.label,
     subtitle: `Required for ${gap.componentName}`,
     href: `/en/projects/${projectId}`,

@@ -424,6 +424,49 @@ describe("CaptureDialog", () => {
     expect(await screen.findByRole("dialog", { name: "Review before confirming" })).not.toBeNull();
   });
 
+  it("presents progress-context clarification without exposing internal component IDs", async () => {
+    const catalog = await getCatalog("en");
+    const user = userEvent.setup();
+    const draft = structuredDraft({
+      result: "The authenticated browser review passed.",
+      summary: "Internal beta launch review",
+    });
+    render(
+      createElement(CaptureDialog, {
+        answerUpdate: vi.fn(),
+        catalog,
+        locale: "en",
+        onSaved: vi.fn(),
+        prepareUpdate: vi.fn().mockResolvedValue({
+          state: "draft_with_question",
+          sessionId: draft.sessionId,
+          sessionVersion: 2,
+          draft,
+          turnId: "66666666-6666-4666-8666-666666666666",
+          turnNumber: 1,
+          question: "Which active Progress Contract component ID(s) should be associated?",
+          affects: ["progress_context"],
+          remainingFieldCount: 1,
+        }),
+        save: vi.fn(),
+        understand: vi.fn().mockResolvedValue(codexUnderstanding()),
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Capture" }));
+    const capture = within(screen.getByRole("dialog", { name: "Share anything" }));
+    await user.type(capture.getByRole("textbox", { name: "What are you working on?" }), "Update");
+    await user.click(capture.getByRole("button", { name: "Understand this" }));
+    await user.click(await capture.findByRole("button", { name: "Continue review" }));
+
+    expect(
+      await capture.findByText(
+        "Which milestone, deliverable, KPI, or acceptance condition does this update support? If you are not sure, say so.",
+      ),
+    ).not.toBeNull();
+    expect(capture.queryByText(/component ID/iu)).toBeNull();
+  });
+
   it("turns one mixed private capture into an understood draft and one clarification", async () => {
     const catalog = await getCatalog("en");
     const user = userEvent.setup();

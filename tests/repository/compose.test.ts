@@ -21,6 +21,9 @@ describe("local infrastructure", () => {
     );
     expect(compose).toContain("127.0.0.1:3310:3310");
     expect(compose).toContain('CLAMD_CONF_TCPAddr: "0.0.0.0"');
+    expect(compose).toContain(
+      'test: ["CMD-SHELL", "echo PING | nc 127.0.0.1 3310 | grep -qx PONG"]',
+    );
     expect(compose).not.toMatch(/image:\s+\S+:latest(?:\s|$)/);
   });
 

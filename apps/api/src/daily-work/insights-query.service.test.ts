@@ -117,7 +117,7 @@ function projectView() {
         {
           componentId: "55555555-5555-4555-8555-555555555555",
           name: "API error rate",
-          kind: "operational_kpi",
+          kind: "kpi",
           percent: 50,
           measuredValue: 1.8,
           observedAt: "2026-08-14T08:00:00.000Z",
@@ -140,7 +140,7 @@ function projectView() {
         },
         {
           id: "55555555-5555-4555-8555-555555555555",
-          kind: "operational_kpi",
+          kind: "kpi",
           name: "API error rate",
           baseline: 3,
           target: 1,
