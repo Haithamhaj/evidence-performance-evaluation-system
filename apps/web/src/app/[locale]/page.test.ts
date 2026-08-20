@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  loadShellContext: vi.fn().mockResolvedValue({
+    principal: { active: true, roles: ["employee"] },
+  }),
   notFound: vi.fn(),
   redirect: vi.fn(),
 }));
@@ -8,6 +11,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   notFound: mocks.notFound,
   redirect: mocks.redirect,
+}));
+
+vi.mock("../../server/shell/load-shell-context", () => ({
+  loadShellContext: mocks.loadShellContext,
 }));
 
 import HomePage from "./page.js";
