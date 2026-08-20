@@ -39,6 +39,9 @@ import {
 } from "../../platform/work-items-api";
 import styles from "./work-workspace.module.css";
 
+const PILOT_TIME_ZONE = "Asia/Riyadh";
+const PILOT_UTC_OFFSET = "+03:00";
+
 export type WorkWorkspaceGateway = Readonly<{
   create(input: {
     clientRequestId: string;
@@ -1387,7 +1390,7 @@ function CalendarReschedule({
         event.preventDefault();
         setState("saving");
         void onSave(item, {
-          dueAt: dueAt === "" ? null : new Date(dueAt).toISOString(),
+          dueAt: dueAt === "" ? null : toUtcDateTime(dueAt),
           priority: item.priority,
           title: item.title,
         }).then(setState);
@@ -1677,7 +1680,7 @@ function InlineTaskEditor({
         void onSave(item, {
           title: title.trim(),
           priority,
-          dueAt: dueAt === "" ? null : new Date(dueAt).toISOString(),
+          dueAt: dueAt === "" ? null : toUtcDateTime(dueAt),
         }).then((result) => {
           if (result !== "saved") setState(result);
         });
@@ -1747,6 +1750,23 @@ function InlineTaskEditor({
 function toLocalDateTime(value: string | null) {
   if (value === null) return "";
   const date = new Date(value);
-  const part = (number: number) => String(number).padStart(2, "0");
-  return `${date.getFullYear()}-${part(date.getMonth() + 1)}-${part(date.getDate())}T${part(date.getHours())}:${part(date.getMinutes())}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    month: "2-digit",
+    timeZone: PILOT_TIME_ZONE,
+    year: "numeric",
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((result, part) => {
+      result[part.type] = part.value;
+      return result;
+    }, {});
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+function toUtcDateTime(value: string) {
+  return new Date(`${value}${PILOT_UTC_OFFSET}`).toISOString();
 }
